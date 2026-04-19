@@ -1,0 +1,90 @@
+{
+  "$schema": "../../schema/recommendation-host-policy-override.schema.json",
+  "schemaVersion": 1,
+  "host": "shared",
+  "presetRefs": {
+    "targetConcerns": ["shared-runtime"]
+  },
+  "policy": {
+    "recommendationLimit": 40,
+    "activationBudget": 40,
+    "suggestedBundleId": "shared-mcp",
+    "maxPerSourceFamily": 6,
+    "maxPerDuplicateGroup": 6,
+    "sourceSaturationFreeCount": 1,
+    "sourceSaturationPenaltyStep": 24,
+    "maxPerAssetKind": {
+      "mcp-server": 32,
+      "hook": 6,
+      "skill": 4,
+      "plugin": 4,
+      "workflow": 3,
+      "agent": 3,
+      "instruction": 3,
+      "extension": 2,
+      "prompt-pack": 2,
+      "reference-pack": 2
+    },
+    "targetAssetKinds": [
+      {
+        "assetKind": "mcp-server",
+        "minimum": 18,
+        "weight": 4
+      },
+      {
+        "assetKind": "hook",
+        "minimum": 2,
+        "weight": 2
+      },
+      {
+        "assetKind": "skill",
+        "minimum": 2,
+        "weight": 1
+      }
+    ],
+    "suppressedAssetIdPatterns": [
+      "mcp-builder__reference",
+      "mcp-config",
+      "mcp-servers-json",
+      "node-mcp-server",
+      "python-mcp-server",
+      "mcp-reference",
+      "acceptance-criteria",
+      "evaluation",
+      "collaboration",
+      "sharp-edges",
+      "validations",
+      "mcp-usage",
+      "understanding-mcp-servers",
+      "cli-for-beginners"
+    ],
+    "deprioritizedPenalty": 96,
+    "deprioritizedAssetIdPatterns": [
+      "__docs__",
+      "__readme-",
+      "__reference__",
+      "__references__",
+      "__scenarios__",
+      "__tests__",
+      "-md",
+      "-json",
+      "-yaml",
+      "-yml",
+      "mcp-json",
+      "mcp-hijack-json",
+      "mcp-integration-md",
+      "skill-yaml",
+      "mcp-builder__reference",
+      "reference__mcp",
+      "references__mcp",
+      "mcp-server-development",
+      "acceptance-criteria",
+      "evaluation",
+      "validations",
+      "mcp-config",
+      "mcp-servers-json",
+      "understanding-mcp-servers"
+    ],
+    "deprioritizedCapabilityTerms": []
+  }
+}

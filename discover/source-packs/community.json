@@ -1,78 +1,467 @@
 {
   "schemaVersion": 1,
   "entries": [
-    { "id": "pumanitro-global-chat", "repo": "https://github.com/pumanitro/global-chat", "publisher": "pumanitro", "priority": 70 },
-    { "id": "bitjaru-styleseed", "repo": "https://github.com/bitjaru/styleseed", "publisher": "bitjaru", "priority": 70 },
-    { "id": "milkomida77-guardian-agent-prompts", "repo": "https://github.com/milkomida77/guardian-agent-prompts", "publisher": "milkomida77", "priority": 70 },
-    { "id": "elkidogz-technical-change-skill", "repo": "https://github.com/Elkidogz/technical-change-skill", "publisher": "Elkidogz", "priority": 70 },
-    { "id": "rmyndharis-antigravity-skills", "repo": "https://github.com/rmyndharis/antigravity-skills", "publisher": "rmyndharis", "priority": 70 },
-    { "id": "amartelr-antigravity-workspace-manager", "repo": "https://github.com/amartelr/antigravity-workspace-manager", "publisher": "amartelr", "priority": 68 },
-    { "id": "obra-superpowers", "repo": "https://github.com/obra/superpowers", "publisher": "obra", "priority": 68 },
-    { "id": "guanyang-antigravity-skills", "repo": "https://github.com/guanyang/antigravity-skills", "publisher": "guanyang", "priority": 68 },
-    { "id": "diet103-claude-code-infrastructure-showcase", "repo": "https://github.com/diet103/claude-code-infrastructure-showcase", "publisher": "diet103", "priority": 68 },
-    { "id": "chriswiles-claude-code-showcase", "repo": "https://github.com/ChrisWiles/claude-code-showcase", "publisher": "ChrisWiles", "priority": 68 },
-    { "id": "travisvn-awesome-claude-skills", "repo": "https://github.com/travisvn/awesome-claude-skills", "publisher": "travisvn", "priority": 68 },
-    { "id": "dimillian-skills", "repo": "https://github.com/Dimillian/Skills", "publisher": "Dimillian", "priority": 68 },
-    { "id": "zebbern-claude-code-guide", "repo": "https://github.com/zebbern/claude-code-guide", "publisher": "zebbern", "priority": 68 },
-    { "id": "alirezarezvani-claude-skills", "repo": "https://github.com/alirezarezvani/claude-skills", "publisher": "alirezarezvani", "priority": 68 },
-    { "id": "karanb192-awesome-claude-skills", "repo": "https://github.com/karanb192/awesome-claude-skills", "publisher": "karanb192", "priority": 68 },
-    { "id": "voltagent-awesome-agent-skills", "repo": "https://github.com/VoltAgent/awesome-agent-skills", "publisher": "VoltAgent", "priority": 72 },
-    { "id": "zircote-claude", "repo": "https://github.com/zircote/.claude", "publisher": "zircote", "priority": 60 },
-    { "id": "vibeforge1111-vibeship-spawner-skills", "repo": "https://github.com/vibeforge1111/vibeship-spawner-skills", "publisher": "vibeforge1111", "priority": 60 },
-    { "id": "coreyhaines31-marketingskills", "repo": "https://github.com/coreyhaines31/marketingskills", "publisher": "coreyhaines31", "priority": 60 },
-    { "id": "agricidaniel-claude-seo", "repo": "https://github.com/AgriciDaniel/claude-seo", "publisher": "AgriciDaniel", "priority": 60 },
-    { "id": "mrprewsh-seo-aeo-engine", "repo": "https://github.com/mrprewsh/seo-aeo-engine", "publisher": "mrprewsh", "priority": 60 },
-    { "id": "jonathimer-devmarketing-skills", "repo": "https://github.com/jonathimer/devmarketing-skills", "publisher": "jonathimer", "priority": 60 },
-    { "id": "kepano-obsidian-skills", "repo": "https://github.com/kepano/obsidian-skills", "publisher": "kepano", "priority": 60 },
-    { "id": "silverov-yandex-direct-skill", "repo": "https://github.com/Silverov/yandex-direct-skill", "publisher": "Silverov", "priority": 60 },
-    { "id": "vudovn-antigravity-kit", "repo": "https://github.com/vudovn/antigravity-kit", "publisher": "vudovn", "priority": 60 },
-    { "id": "affaan-m-everything-claude-code", "repo": "https://github.com/affaan-m/everything-claude-code", "publisher": "affaan-m", "priority": 60 },
-    { "id": "whatiskadudoing-fp-ts-skills", "repo": "https://github.com/whatiskadudoing/fp-ts-skills", "publisher": "whatiskadudoing", "priority": 60 },
-    { "id": "warmskull-idea-darwin", "repo": "https://github.com/warmskull/idea-darwin", "publisher": "warmskull", "priority": 60 },
-    { "id": "webzler-agentmemory", "repo": "https://github.com/webzler/agentMemory", "publisher": "webzler", "priority": 60 },
-    { "id": "rafsilva85-credit-optimizer-v5", "repo": "https://github.com/rafsilva85/credit-optimizer-v5", "publisher": "rafsilva85", "priority": 60 },
-    { "id": "wittlesus-cursorrules-pro", "repo": "https://github.com/Wittlesus/cursorrules-pro", "publisher": "Wittlesus", "priority": 60 },
-    { "id": "nedcodes-ok-rule-porter", "repo": "https://github.com/nedcodes-ok/rule-porter", "publisher": "nedcodes-ok", "priority": 60 },
-    { "id": "ssojet-skills", "repo": "https://github.com/SSOJet/skills", "publisher": "SSOJet", "priority": 60 },
-    { "id": "mojoauth-skills", "repo": "https://github.com/MojoAuth/skills", "publisher": "MojoAuth", "priority": 60 },
-    { "id": "xquik-dev-x-twitter-scraper", "repo": "https://github.com/Xquik-dev/x-twitter-scraper", "publisher": "Xquik-dev", "priority": 60 },
-    { "id": "shmlkv-dna-claude-analysis", "repo": "https://github.com/shmlkv/dna-claude-analysis", "publisher": "shmlkv", "priority": 60 },
-    { "id": "almogbaku-debug-skill", "repo": "https://github.com/AlmogBaku/debug-skill", "publisher": "AlmogBaku", "priority": 60 },
-    { "id": "uberskillsdev-uberskills", "repo": "https://github.com/uberskillsdev/uberskills", "publisher": "uberskillsdev", "priority": 60 },
-    { "id": "christopherlhammer11-ai-tool-use-guardian", "repo": "https://github.com/christopherlhammer11-ai/tool-use-guardian", "publisher": "christopherlhammer11-ai", "priority": 60 },
-    { "id": "christopherlhammer11-ai-recallmax", "repo": "https://github.com/christopherlhammer11-ai/recallmax", "publisher": "christopherlhammer11-ai", "priority": 60 },
-    { "id": "tsilverberg-webapp-uat", "repo": "https://github.com/tsilverberg/webapp-uat", "publisher": "tsilverberg", "priority": 60 },
-    { "id": "wolfe-jam-faf-skills", "repo": "https://github.com/Wolfe-Jam/faf-skills", "publisher": "Wolfe-Jam", "priority": 60 },
-    { "id": "fullstackcrew-alpha-privacy-mask", "repo": "https://github.com/fullstackcrew-alpha/privacy-mask", "publisher": "fullstackcrew-alpha", "priority": 60 },
-    { "id": "avdlee-swiftui-agent-skill", "repo": "https://github.com/AvdLee/SwiftUI-Agent-Skill", "publisher": "AvdLee", "priority": 60 },
-    { "id": "cloudai-x-threejs-skills", "repo": "https://github.com/CloudAI-X/threejs-skills", "publisher": "CloudAI-X", "priority": 60 },
-    { "id": "k-dense-ai-claude-scientific-skills", "repo": "https://github.com/K-Dense-AI/claude-scientific-skills", "publisher": "K-Dense-AI", "priority": 60 },
-    { "id": "notmyself-claude-win11-speckit-update-skill", "repo": "https://github.com/NotMyself/claude-win11-speckit-update-skill", "publisher": "NotMyself", "priority": 55 },
-    { "id": "shadowpr0-beautiful-prose", "repo": "https://github.com/SHADOWPR0/beautiful_prose", "publisher": "SHADOWPR0", "priority": 60 },
-    { "id": "shadowpr0-security-bluebook-builder", "repo": "https://github.com/SHADOWPR0/security-bluebook-builder", "publisher": "SHADOWPR0", "priority": 60 },
-    { "id": "seanzor-claude-speed-reader", "repo": "https://github.com/SeanZoR/claude-speed-reader", "publisher": "SeanZoR", "priority": 60 },
-    { "id": "shpigford-skills", "repo": "https://github.com/Shpigford/skills", "publisher": "Shpigford", "priority": 60 },
-    { "id": "zhanghandong-makepad-skills", "repo": "https://github.com/ZhangHanDong/makepad-skills", "publisher": "ZhangHanDong", "priority": 60 },
-    { "id": "czlonkowski-n8n-skills", "repo": "https://github.com/czlonkowski/n8n-skills", "publisher": "czlonkowski", "priority": 60 },
-    { "id": "frmoretto-clarity-gate", "repo": "https://github.com/frmoretto/clarity-gate", "publisher": "frmoretto", "priority": 60 },
-    { "id": "gokapso-agent-skills", "repo": "https://github.com/gokapso/agent-skills", "publisher": "gokapso", "priority": 60 },
-    { "id": "huifer-wellally-health", "repo": "https://github.com/huifer/WellAlly-health", "publisher": "huifer", "priority": 55 },
-    { "id": "ibelick-ui-skills", "repo": "https://github.com/ibelick/ui-skills", "publisher": "ibelick", "priority": 60 },
-    { "id": "jackjin1997-clawforge", "repo": "https://github.com/jackjin1997/ClawForge", "publisher": "jackjin1997", "priority": 60 },
-    { "id": "jthack-ffuf-claude-skill", "repo": "https://github.com/jthack/ffuf_claude_skill", "publisher": "jthack", "priority": 60 },
-    { "id": "metcalfsolutions-satori", "repo": "https://github.com/MetcalfSolutions/Satori", "publisher": "MetcalfSolutions", "priority": 55 },
-    { "id": "muratcankoylan-agent-skills-context-engineering", "repo": "https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering", "publisher": "muratcankoylan", "priority": 60 },
-    { "id": "robzolkos-skill-rails-upgrade", "repo": "https://github.com/robzolkos/skill-rails-upgrade", "publisher": "robzolkos", "priority": 60 },
-    { "id": "sanjay3290-ai-skills", "repo": "https://github.com/sanjay3290/ai-skills", "publisher": "sanjay3290", "priority": 60 },
-    { "id": "scarletkc-vexor", "repo": "https://github.com/scarletkc/vexor", "publisher": "scarletkc", "priority": 55 },
-    { "id": "sstklen-infinite-gratitude", "repo": "https://github.com/sstklen/infinite-gratitude", "publisher": "sstklen", "priority": 60 },
-    { "id": "wrsmith108-linear-claude-skill", "repo": "https://github.com/wrsmith108/linear-claude-skill", "publisher": "wrsmith108", "priority": 60 },
-    { "id": "wrsmith108-varlock-claude-skill", "repo": "https://github.com/wrsmith108/varlock-claude-skill", "publisher": "wrsmith108", "priority": 60 },
-    { "id": "zarazhangrui-frontend-slides", "repo": "https://github.com/zarazhangrui/frontend-slides", "publisher": "zarazhangrui", "priority": 60 },
-    { "id": "zxkane-aws-skills", "repo": "https://github.com/zxkane/aws-skills", "publisher": "zxkane", "priority": 60 },
-    { "id": "urrhb-agentflow", "repo": "https://github.com/UrRhb/agentflow", "publisher": "UrRhb", "priority": 60 },
-    { "id": "agentphone-ai-skills", "repo": "https://github.com/AgentPhone-AI/skills", "publisher": "AgentPhone-AI", "priority": 60 },
-    { "id": "uxuiprinciples-agent-skills", "repo": "https://github.com/uxuiprinciples/agent-skills", "publisher": "uxuiprinciples", "priority": 60 },
-    { "id": "voidborne-d-humanize-chinese", "repo": "https://github.com/voidborne-d/humanize-chinese", "publisher": "voidborne-d", "priority": 60 }
+    {
+      "id": "pumanitro-global-chat",
+      "repo": "https://github.com/pumanitro/global-chat",
+      "publisher": "pumanitro",
+      "priority": 70
+    },
+    {
+      "id": "bitjaru-styleseed",
+      "repo": "https://github.com/bitjaru/styleseed",
+      "publisher": "bitjaru",
+      "priority": 70
+    },
+    {
+      "id": "milkomida77-guardian-agent-prompts",
+      "repo": "https://github.com/milkomida77/guardian-agent-prompts",
+      "publisher": "milkomida77",
+      "priority": 70
+    },
+    {
+      "id": "elkidogz-technical-change-skill",
+      "repo": "https://github.com/Elkidogz/technical-change-skill",
+      "publisher": "Elkidogz",
+      "priority": 70
+    },
+    {
+      "id": "rmyndharis-antigravity-skills",
+      "repo": "https://github.com/rmyndharis/antigravity-skills",
+      "publisher": "rmyndharis",
+      "priority": 70
+    },
+    {
+      "id": "amartelr-antigravity-workspace-manager",
+      "repo": "https://github.com/amartelr/antigravity-workspace-manager",
+      "publisher": "amartelr",
+      "priority": 68
+    },
+    {
+      "id": "obra-superpowers",
+      "repo": "https://github.com/obra/superpowers",
+      "publisher": "obra",
+      "priority": 68
+    },
+    {
+      "id": "guanyang-antigravity-skills",
+      "repo": "https://github.com/guanyang/antigravity-skills",
+      "publisher": "guanyang",
+      "priority": 68
+    },
+    {
+      "id": "diet103-claude-code-infrastructure-showcase",
+      "repo": "https://github.com/diet103/claude-code-infrastructure-showcase",
+      "publisher": "diet103",
+      "priority": 68
+    },
+    {
+      "id": "rokpiy-auto-commenter",
+      "repo": "https://github.com/rokpiy/auto-commenter",
+      "publisher": "rokpiy",
+      "priority": 68
+    },
+    {
+      "id": "chriswiles-claude-code-showcase",
+      "repo": "https://github.com/ChrisWiles/claude-code-showcase",
+      "publisher": "ChrisWiles",
+      "priority": 68
+    },
+    {
+      "id": "travisvn-awesome-claude-skills",
+      "repo": "https://github.com/travisvn/awesome-claude-skills",
+      "publisher": "travisvn",
+      "priority": 68
+    },
+    {
+      "id": "dimillian-skills",
+      "repo": "https://github.com/Dimillian/Skills",
+      "publisher": "Dimillian",
+      "priority": 68
+    },
+    {
+      "id": "zebbern-claude-code-guide",
+      "repo": "https://github.com/zebbern/claude-code-guide",
+      "publisher": "zebbern",
+      "priority": 68
+    },
+    {
+      "id": "alirezarezvani-claude-skills",
+      "repo": "https://github.com/alirezarezvani/claude-skills",
+      "publisher": "alirezarezvani",
+      "priority": 68
+    },
+    {
+      "id": "karanb192-awesome-claude-skills",
+      "repo": "https://github.com/karanb192/awesome-claude-skills",
+      "publisher": "karanb192",
+      "priority": 68
+    },
+    {
+      "id": "voltagent-awesome-agent-skills",
+      "repo": "https://github.com/VoltAgent/awesome-agent-skills",
+      "publisher": "VoltAgent",
+      "priority": 72
+    },
+    {
+      "id": "voltagent-awesome-openclaw-skills",
+      "repo": "https://github.com/VoltAgent/awesome-openclaw-skills",
+      "publisher": "VoltAgent",
+      "priority": 72
+    },
+    {
+      "id": "voltagent-awesome-claude-code-subagents",
+      "repo": "https://github.com/VoltAgent/awesome-claude-code-subagents",
+      "publisher": "VoltAgent",
+      "priority": 72
+    },
+    {
+      "id": "voltagent-awesome-codex-subagents",
+      "repo": "https://github.com/VoltAgent/awesome-codex-subagents",
+      "publisher": "VoltAgent",
+      "priority": 72
+    },
+    {
+      "id": "zircote-claude",
+      "repo": "https://github.com/zircote/.claude",
+      "publisher": "zircote",
+      "priority": 60
+    },
+    {
+      "id": "vibeforge1111-vibeship-spawner-skills",
+      "repo": "https://github.com/vibeforge1111/vibeship-spawner-skills",
+      "publisher": "vibeforge1111",
+      "priority": 60
+    },
+    {
+      "id": "coreyhaines31-marketingskills",
+      "repo": "https://github.com/coreyhaines31/marketingskills",
+      "publisher": "coreyhaines31",
+      "priority": 60
+    },
+    {
+      "id": "agricidaniel-claude-seo",
+      "repo": "https://github.com/AgriciDaniel/claude-seo",
+      "publisher": "AgriciDaniel",
+      "priority": 60
+    },
+    {
+      "id": "mrprewsh-seo-aeo-engine",
+      "repo": "https://github.com/mrprewsh/seo-aeo-engine",
+      "publisher": "mrprewsh",
+      "priority": 60
+    },
+    {
+      "id": "jonathimer-devmarketing-skills",
+      "repo": "https://github.com/jonathimer/devmarketing-skills",
+      "publisher": "jonathimer",
+      "priority": 60
+    },
+    {
+      "id": "kepano-obsidian-skills",
+      "repo": "https://github.com/kepano/obsidian-skills",
+      "publisher": "kepano",
+      "priority": 60
+    },
+    {
+      "id": "silverov-yandex-direct-skill",
+      "repo": "https://github.com/Silverov/yandex-direct-skill",
+      "publisher": "Silverov",
+      "priority": 60
+    },
+    {
+      "id": "vudovn-antigravity-kit",
+      "repo": "https://github.com/vudovn/antigravity-kit",
+      "publisher": "vudovn",
+      "priority": 60
+    },
+    {
+      "id": "affaan-m-everything-claude-code",
+      "repo": "https://github.com/affaan-m/everything-claude-code",
+      "publisher": "affaan-m",
+      "priority": 60
+    },
+    {
+      "id": "whatiskadudoing-fp-ts-skills",
+      "repo": "https://github.com/whatiskadudoing/fp-ts-skills",
+      "publisher": "whatiskadudoing",
+      "priority": 60
+    },
+    {
+      "id": "warmskull-idea-darwin",
+      "repo": "https://github.com/warmskull/idea-darwin",
+      "publisher": "warmskull",
+      "priority": 60
+    },
+    {
+      "id": "webzler-agentmemory",
+      "repo": "https://github.com/webzler/agentMemory",
+      "publisher": "webzler",
+      "priority": 60
+    },
+    {
+      "id": "rafsilva85-credit-optimizer-v5",
+      "repo": "https://github.com/rafsilva85/credit-optimizer-v5",
+      "publisher": "rafsilva85",
+      "priority": 60
+    },
+    {
+      "id": "wittlesus-cursorrules-pro",
+      "repo": "https://github.com/Wittlesus/cursorrules-pro",
+      "publisher": "Wittlesus",
+      "priority": 60
+    },
+    {
+      "id": "nedcodes-ok-rule-porter",
+      "repo": "https://github.com/nedcodes-ok/rule-porter",
+      "publisher": "nedcodes-ok",
+      "priority": 60
+    },
+    {
+      "id": "ssojet-skills",
+      "repo": "https://github.com/SSOJet/skills",
+      "publisher": "SSOJet",
+      "priority": 60
+    },
+    {
+      "id": "mojoauth-skills",
+      "repo": "https://github.com/MojoAuth/skills",
+      "publisher": "MojoAuth",
+      "priority": 60
+    },
+    {
+      "id": "xquik-dev-x-twitter-scraper",
+      "repo": "https://github.com/Xquik-dev/x-twitter-scraper",
+      "publisher": "Xquik-dev",
+      "priority": 60
+    },
+    {
+      "id": "shmlkv-dna-claude-analysis",
+      "repo": "https://github.com/shmlkv/dna-claude-analysis",
+      "publisher": "shmlkv",
+      "priority": 60
+    },
+    {
+      "id": "almogbaku-debug-skill",
+      "repo": "https://github.com/AlmogBaku/debug-skill",
+      "publisher": "AlmogBaku",
+      "priority": 60
+    },
+    {
+      "id": "uberskillsdev-uberskills",
+      "repo": "https://github.com/uberskillsdev/uberskills",
+      "publisher": "uberskillsdev",
+      "priority": 60
+    },
+    {
+      "id": "christopherlhammer11-ai-tool-use-guardian",
+      "repo": "https://github.com/christopherlhammer11-ai/tool-use-guardian",
+      "publisher": "christopherlhammer11-ai",
+      "priority": 60
+    },
+    {
+      "id": "christopherlhammer11-ai-recallmax",
+      "repo": "https://github.com/christopherlhammer11-ai/recallmax",
+      "publisher": "christopherlhammer11-ai",
+      "priority": 60
+    },
+    {
+      "id": "tsilverberg-webapp-uat",
+      "repo": "https://github.com/tsilverberg/webapp-uat",
+      "publisher": "tsilverberg",
+      "priority": 60
+    },
+    {
+      "id": "wolfe-jam-faf-skills",
+      "repo": "https://github.com/Wolfe-Jam/faf-skills",
+      "publisher": "Wolfe-Jam",
+      "priority": 60
+    },
+    {
+      "id": "fullstackcrew-alpha-privacy-mask",
+      "repo": "https://github.com/fullstackcrew-alpha/privacy-mask",
+      "publisher": "fullstackcrew-alpha",
+      "priority": 60
+    },
+    {
+      "id": "avdlee-swiftui-agent-skill",
+      "repo": "https://github.com/AvdLee/SwiftUI-Agent-Skill",
+      "publisher": "AvdLee",
+      "priority": 60
+    },
+    {
+      "id": "cloudai-x-threejs-skills",
+      "repo": "https://github.com/CloudAI-X/threejs-skills",
+      "publisher": "CloudAI-X",
+      "priority": 60
+    },
+    {
+      "id": "k-dense-ai-claude-scientific-skills",
+      "repo": "https://github.com/K-Dense-AI/claude-scientific-skills",
+      "publisher": "K-Dense-AI",
+      "priority": 60
+    },
+    {
+      "id": "notmyself-claude-win11-speckit-update-skill",
+      "repo": "https://github.com/NotMyself/claude-win11-speckit-update-skill",
+      "publisher": "NotMyself",
+      "priority": 55
+    },
+    {
+      "id": "shadowpr0-beautiful-prose",
+      "repo": "https://github.com/SHADOWPR0/beautiful_prose",
+      "publisher": "SHADOWPR0",
+      "priority": 60
+    },
+    {
+      "id": "shadowpr0-security-bluebook-builder",
+      "repo": "https://github.com/SHADOWPR0/security-bluebook-builder",
+      "publisher": "SHADOWPR0",
+      "priority": 60
+    },
+    {
+      "id": "seanzor-claude-speed-reader",
+      "repo": "https://github.com/SeanZoR/claude-speed-reader",
+      "publisher": "SeanZoR",
+      "priority": 60
+    },
+    {
+      "id": "shpigford-skills",
+      "repo": "https://github.com/Shpigford/skills",
+      "publisher": "Shpigford",
+      "priority": 60
+    },
+    {
+      "id": "zhanghandong-makepad-skills",
+      "repo": "https://github.com/ZhangHanDong/makepad-skills",
+      "publisher": "ZhangHanDong",
+      "priority": 60
+    },
+    {
+      "id": "czlonkowski-n8n-skills",
+      "repo": "https://github.com/czlonkowski/n8n-skills",
+      "publisher": "czlonkowski",
+      "priority": 60
+    },
+    {
+      "id": "frmoretto-clarity-gate",
+      "repo": "https://github.com/frmoretto/clarity-gate",
+      "publisher": "frmoretto",
+      "priority": 60
+    },
+    {
+      "id": "gokapso-agent-skills",
+      "repo": "https://github.com/gokapso/agent-skills",
+      "publisher": "gokapso",
+      "priority": 60
+    },
+    {
+      "id": "huifer-wellally-health",
+      "repo": "https://github.com/huifer/WellAlly-health",
+      "publisher": "huifer",
+      "priority": 55
+    },
+    {
+      "id": "ibelick-ui-skills",
+      "repo": "https://github.com/ibelick/ui-skills",
+      "publisher": "ibelick",
+      "priority": 60
+    },
+    {
+      "id": "jackjin1997-clawforge",
+      "repo": "https://github.com/jackjin1997/ClawForge",
+      "publisher": "jackjin1997",
+      "priority": 60
+    },
+    {
+      "id": "jthack-ffuf-claude-skill",
+      "repo": "https://github.com/jthack/ffuf_claude_skill",
+      "publisher": "jthack",
+      "priority": 60
+    },
+    {
+      "id": "metcalfsolutions-satori",
+      "repo": "https://github.com/MetcalfSolutions/Satori",
+      "publisher": "MetcalfSolutions",
+      "priority": 55
+    },
+    {
+      "id": "muratcankoylan-agent-skills-context-engineering",
+      "repo": "https://github.com/muratcankoylan/Agent-Skills-for-Context-Engineering",
+      "publisher": "muratcankoylan",
+      "priority": 60
+    },
+    {
+      "id": "robzolkos-skill-rails-upgrade",
+      "repo": "https://github.com/robzolkos/skill-rails-upgrade",
+      "publisher": "robzolkos",
+      "priority": 60
+    },
+    {
+      "id": "sanjay3290-ai-skills",
+      "repo": "https://github.com/sanjay3290/ai-skills",
+      "publisher": "sanjay3290",
+      "priority": 60
+    },
+    {
+      "id": "scarletkc-vexor",
+      "repo": "https://github.com/scarletkc/vexor",
+      "publisher": "scarletkc",
+      "priority": 55
+    },
+    {
+      "id": "sstklen-infinite-gratitude",
+      "repo": "https://github.com/sstklen/infinite-gratitude",
+      "publisher": "sstklen",
+      "priority": 60
+    },
+    {
+      "id": "wrsmith108-linear-claude-skill",
+      "repo": "https://github.com/wrsmith108/linear-claude-skill",
+      "publisher": "wrsmith108",
+      "priority": 60
+    },
+    {
+      "id": "wrsmith108-varlock-claude-skill",
+      "repo": "https://github.com/wrsmith108/varlock-claude-skill",
+      "publisher": "wrsmith108",
+      "priority": 60
+    },
+    {
+      "id": "zarazhangrui-frontend-slides",
+      "repo": "https://github.com/zarazhangrui/frontend-slides",
+      "publisher": "zarazhangrui",
+      "priority": 60
+    },
+    {
+      "id": "zxkane-aws-skills",
+      "repo": "https://github.com/zxkane/aws-skills",
+      "publisher": "zxkane",
+      "priority": 60
+    },
+    {
+      "id": "urrhb-agentflow",
+      "repo": "https://github.com/UrRhb/agentflow",
+      "publisher": "UrRhb",
+      "priority": 60
+    },
+    {
+      "id": "agentphone-ai-skills",
+      "repo": "https://github.com/AgentPhone-AI/skills",
+      "publisher": "AgentPhone-AI",
+      "priority": 60
+    },
+    {
+      "id": "uxuiprinciples-agent-skills",
+      "repo": "https://github.com/uxuiprinciples/agent-skills",
+      "publisher": "uxuiprinciples",
+      "priority": 60
+    },
+    {
+      "id": "voidborne-d-humanize-chinese",
+      "repo": "https://github.com/voidborne-d/humanize-chinese",
+      "publisher": "voidborne-d",
+      "priority": 60
+    }
   ]
 }

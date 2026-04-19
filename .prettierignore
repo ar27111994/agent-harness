@@ -1,0 +1,13 @@
+.opencode/
+.tmp/
+activate/
+discover/output/
+discover/catalog.assets.jsonl
+dist/
+install/
+mirror/
+node_modules/
+state/
+package-lock.json
+AGENTS.md
+.github/copilot-instructions.md

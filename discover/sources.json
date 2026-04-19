@@ -12,15 +12,8 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": [
-        "copilot-vscode"
-      ],
-      "assetKinds": [
-        "instruction",
-        "agent",
-        "workflow",
-        "plugin"
-      ],
+      "hosts": ["copilot-vscode"],
+      "assetKinds": ["instruction", "agent", "workflow", "plugin"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -43,9 +36,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": [
-        "copilot-vscode"
-      ],
+      "hosts": ["copilot-vscode"],
       "assetKinds": [
         "skill",
         "agent",
@@ -76,14 +67,8 @@
         "verified": true,
         "owner": "microsoft"
       },
-      "hosts": [
-        "copilot-vscode"
-      ],
-      "assetKinds": [
-        "extension",
-        "plugin",
-        "mcp-server"
-      ],
+      "hosts": ["copilot-vscode"],
+      "assetKinds": ["extension", "plugin", "mcp-server"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -106,17 +91,8 @@
         "verified": true,
         "owner": "anthropic"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "plugin",
-        "hook",
-        "agent",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "plugin", "hook", "agent", "workflow"],
       "discoveryMode": "catalog",
       "priority": 90,
       "enabled": true,
@@ -138,16 +114,8 @@
         "name": "skills.sh",
         "verified": false
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "agent",
-        "instruction",
-        "prompt-pack"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "agent", "instruction", "prompt-pack"],
       "discoveryMode": "catalog",
       "priority": 60,
       "enabled": true,
@@ -169,13 +137,8 @@
         "name": "Model Context Protocol",
         "verified": true
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "mcp-server"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["mcp-server"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -197,15 +160,8 @@
         "name": "npm",
         "verified": true
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "mcp-server",
-        "plugin",
-        "skill"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
       "priority": 80,
       "enabled": true,
@@ -227,15 +183,8 @@
         "name": "PyPI",
         "verified": true
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "mcp-server",
-        "plugin",
-        "skill"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
       "priority": 75,
       "enabled": true,
@@ -258,15 +207,8 @@
         "verified": true,
         "owner": "supabase"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "agent"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "agent"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -287,15 +229,8 @@
       "publisher": {
         "name": "local"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "plugin",
-        "agent"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "plugin", "agent"],
       "discoveryMode": "seed",
       "priority": 95,
       "enabled": true,
@@ -316,13 +251,8 @@
       "publisher": {
         "name": "local-antigravity"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill"],
       "discoveryMode": "seed",
       "priority": 96,
       "enabled": true,
@@ -343,10 +273,7 @@
       "publisher": {
         "name": "antigravity"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
       "assetKinds": [
         "skill",
         "agent",
@@ -378,16 +305,8 @@
         "verified": true,
         "owner": "anthropics"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "agent",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -410,15 +329,8 @@
         "verified": true,
         "owner": "anthropics"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "reference-pack",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["reference-pack", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -441,15 +353,8 @@
         "verified": true,
         "owner": "remotion-dev"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -472,15 +377,8 @@
         "verified": true,
         "owner": "vercel-labs"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -503,16 +401,8 @@
         "verified": true,
         "owner": "openai"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "agent",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -535,16 +425,8 @@
         "verified": true,
         "owner": "microsoft"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow",
-        "reference-pack"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -567,15 +449,8 @@
         "verified": true,
         "owner": "google-gemini"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
       "enabled": true,
@@ -598,15 +473,8 @@
         "verified": true,
         "owner": "apify"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -629,15 +497,8 @@
         "verified": true,
         "owner": "expo"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -660,16 +521,8 @@
         "verified": true,
         "owner": "huggingface"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow",
-        "reference-pack"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -692,15 +545,8 @@
         "verified": true,
         "owner": "neondatabase"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -723,16 +569,8 @@
         "verified": true,
         "owner": "scopeblind"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode",
-        "shared"
-      ],
-      "assetKinds": [
-        "mcp-server",
-        "workflow",
-        "reference-pack"
-      ],
+      "hosts": ["copilot-vscode", "opencode", "shared"],
+      "assetKinds": ["mcp-server", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -755,15 +593,8 @@
         "verified": false,
         "owner": "pbakaus"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 70,
       "enabled": true,
@@ -786,15 +617,8 @@
         "verified": true,
         "owner": "flutter"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -817,15 +641,8 @@
         "verified": true,
         "owner": "genkit-ai"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -848,15 +665,8 @@
         "verified": true,
         "owner": "firebase"
       },
-      "hosts": [
-        "copilot-vscode",
-        "opencode"
-      ],
-      "assetKinds": [
-        "skill",
-        "instruction",
-        "workflow"
-      ],
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
       "enabled": true,
@@ -877,9 +687,7 @@
       "publisher": {
         "name": "local"
       },
-      "hosts": [
-        "opencode"
-      ],
+      "hosts": ["opencode"],
       "assetKinds": [
         "skill",
         "plugin",
@@ -908,14 +716,8 @@
       "publisher": {
         "name": "local"
       },
-      "hosts": [
-        "opencode"
-      ],
-      "assetKinds": [
-        "instruction",
-        "workflow",
-        "reference-pack"
-      ],
+      "hosts": ["opencode"],
+      "assetKinds": ["instruction", "workflow", "reference-pack"],
       "discoveryMode": "seed",
       "priority": 90,
       "enabled": true,

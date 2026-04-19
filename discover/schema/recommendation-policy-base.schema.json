@@ -1,0 +1,489 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.local/discover/recommendation-policy-base.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "scoring",
+    "concernKeywordMap",
+    "taskModeKeywordMap",
+    "domainKeywordGroups",
+    "synonyms"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scoring": {
+      "$ref": "#/$defs/scoring"
+    },
+    "hostDefaults": {
+      "$ref": "#/$defs/hostPolicyPartial"
+    },
+    "presets": {
+      "$ref": "#/$defs/presets"
+    },
+    "concernKeywordMap": {
+      "$ref": "#/$defs/stringArrayRecord"
+    },
+    "taskModeKeywordMap": {
+      "$ref": "#/$defs/stringArrayRecord"
+    },
+    "domainKeywordGroups": {
+      "$ref": "#/$defs/stringArrayRecord"
+    },
+    "synonyms": {
+      "$ref": "#/$defs/stringArrayRecord"
+    }
+  },
+  "$defs": {
+    "assetKind": {
+      "type": "string",
+      "enum": [
+        "skill",
+        "plugin",
+        "mcp-server",
+        "agent",
+        "instruction",
+        "workflow",
+        "hook",
+        "extension",
+        "prompt-pack",
+        "reference-pack"
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stringArrayRecord": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/stringArray"
+      }
+    },
+    "targetAssetKindPreference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assetKind", "minimum", "weight"],
+      "properties": {
+        "assetKind": {
+          "$ref": "#/$defs/assetKind"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        }
+      }
+    },
+    "targetConcernPreference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concern", "minimum", "weight"],
+      "properties": {
+        "concern": {
+          "type": "string"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        }
+      }
+    },
+    "targetAssetKindPreferenceArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetAssetKindPreference"
+      }
+    },
+    "targetConcernPreferenceArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetConcernPreference"
+      }
+    },
+    "maxPerAssetKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill": {
+          "type": "number"
+        },
+        "plugin": {
+          "type": "number"
+        },
+        "mcp-server": {
+          "type": "number"
+        },
+        "agent": {
+          "type": "number"
+        },
+        "instruction": {
+          "type": "number"
+        },
+        "workflow": {
+          "type": "number"
+        },
+        "hook": {
+          "type": "number"
+        },
+        "extension": {
+          "type": "number"
+        },
+        "prompt-pack": {
+          "type": "number"
+        },
+        "reference-pack": {
+          "type": "number"
+        }
+      }
+    },
+    "hostPolicyPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recommendationLimit": {
+          "type": "number"
+        },
+        "activationBudget": {
+          "type": "number"
+        },
+        "suggestedBundleId": {
+          "type": "string"
+        },
+        "fallbackSkillCount": {
+          "type": "number"
+        },
+        "maxPerSourceFamily": {
+          "type": "number"
+        },
+        "maxPerDuplicateGroup": {
+          "type": "number"
+        },
+        "maxPerAssetKind": {
+          "$ref": "#/$defs/maxPerAssetKind"
+        },
+        "targetAssetKinds": {
+          "$ref": "#/$defs/targetAssetKindPreferenceArray"
+        },
+        "targetConcerns": {
+          "$ref": "#/$defs/targetConcernPreferenceArray"
+        },
+        "suppressedAssetIdPatterns": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "suppressedCapabilityTerms": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "deprioritizedPenalty": {
+          "type": "number"
+        },
+        "deprioritizedAssetIdPatterns": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "deprioritizedCapabilityTerms": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "sourceSaturationFreeCount": {
+          "type": "number"
+        },
+        "sourceSaturationPenaltyStep": {
+          "type": "number"
+        }
+      }
+    },
+    "targetAssetKindPresetRecord": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/targetAssetKindPreferenceArray"
+      }
+    },
+    "targetConcernPresetRecord": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/targetConcernPreferenceArray"
+      }
+    },
+    "presets": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetAssetKinds": {
+          "$ref": "#/$defs/targetAssetKindPresetRecord"
+        },
+        "targetConcerns": {
+          "$ref": "#/$defs/targetConcernPresetRecord"
+        }
+      }
+    },
+    "authorityWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trusted-local",
+        "official-first-party",
+        "official-marketplace",
+        "official-compatible",
+        "trusted-community",
+        "unverified-community"
+      ],
+      "properties": {
+        "trusted-local": {
+          "type": "number"
+        },
+        "official-first-party": {
+          "type": "number"
+        },
+        "official-marketplace": {
+          "type": "number"
+        },
+        "official-compatible": {
+          "type": "number"
+        },
+        "trusted-community": {
+          "type": "number"
+        },
+        "unverified-community": {
+          "type": "number"
+        }
+      }
+    },
+    "compatibilityWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "native",
+        "adaptable",
+        "partial",
+        "reference-only",
+        "incompatible"
+      ],
+      "properties": {
+        "native": {
+          "type": "number"
+        },
+        "adaptable": {
+          "type": "number"
+        },
+        "partial": {
+          "type": "number"
+        },
+        "reference-only": {
+          "type": "number"
+        },
+        "incompatible": {
+          "type": "number"
+        }
+      }
+    },
+    "costPenalties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tiny", "small", "medium", "large"],
+      "properties": {
+        "tiny": {
+          "type": "number"
+        },
+        "small": {
+          "type": "number"
+        },
+        "medium": {
+          "type": "number"
+        },
+        "large": {
+          "type": "number"
+        }
+      }
+    },
+    "demandSignalWeights": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "languages",
+        "packageManagers",
+        "frameworks",
+        "concerns",
+        "tooling"
+      ],
+      "properties": {
+        "languages": {
+          "type": "number"
+        },
+        "packageManagers": {
+          "type": "number"
+        },
+        "frameworks": {
+          "type": "number"
+        },
+        "concerns": {
+          "type": "number"
+        },
+        "tooling": {
+          "type": "number"
+        }
+      }
+    },
+    "riskLevelPenalties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["low", "medium", "high"],
+      "properties": {
+        "low": {
+          "type": "number"
+        },
+        "medium": {
+          "type": "number"
+        },
+        "high": {
+          "type": "number"
+        }
+      }
+    },
+    "riskFlagPenalties": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hasHooks", "hasExecScripts", "requiresNetwork"],
+      "properties": {
+        "hasHooks": {
+          "type": "number"
+        },
+        "hasExecScripts": {
+          "type": "number"
+        },
+        "requiresNetwork": {
+          "type": "number"
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recentDays",
+        "recentBoost",
+        "staleDays",
+        "stalePenalty",
+        "unknownPenalty"
+      ],
+      "properties": {
+        "recentDays": {
+          "type": "number"
+        },
+        "recentBoost": {
+          "type": "number"
+        },
+        "staleDays": {
+          "type": "number"
+        },
+        "stalePenalty": {
+          "type": "number"
+        },
+        "unknownPenalty": {
+          "type": "number"
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "demandMatchCap",
+        "portfolioFitMultiplier",
+        "trustDivisor",
+        "sourcePriorityDivisor",
+        "authorityWeights",
+        "compatibilityWeights",
+        "costPenalties",
+        "demandSignalWeights",
+        "riskLevelPenalties",
+        "riskFlagPenalties",
+        "freshness",
+        "genericCapabilityPenalty",
+        "lowFitPenaltyThreshold",
+        "lowFitPenalty",
+        "weakDemandPenalty",
+        "outOfDomainGroupPenalty",
+        "coverageGainWeight",
+        "sourceDiversityBonus",
+        "overlapPenalty",
+        "demandTermMultipliers"
+      ],
+      "properties": {
+        "demandMatchCap": {
+          "type": "number"
+        },
+        "portfolioFitMultiplier": {
+          "type": "number"
+        },
+        "trustDivisor": {
+          "type": "number"
+        },
+        "sourcePriorityDivisor": {
+          "type": "number"
+        },
+        "authorityWeights": {
+          "$ref": "#/$defs/authorityWeights"
+        },
+        "compatibilityWeights": {
+          "$ref": "#/$defs/compatibilityWeights"
+        },
+        "costPenalties": {
+          "$ref": "#/$defs/costPenalties"
+        },
+        "demandSignalWeights": {
+          "$ref": "#/$defs/demandSignalWeights"
+        },
+        "riskLevelPenalties": {
+          "$ref": "#/$defs/riskLevelPenalties"
+        },
+        "riskFlagPenalties": {
+          "$ref": "#/$defs/riskFlagPenalties"
+        },
+        "freshness": {
+          "$ref": "#/$defs/freshness"
+        },
+        "genericCapabilityPenalty": {
+          "type": "number"
+        },
+        "lowFitPenaltyThreshold": {
+          "type": "number"
+        },
+        "lowFitPenalty": {
+          "type": "number"
+        },
+        "weakDemandPenalty": {
+          "type": "number"
+        },
+        "outOfDomainGroupPenalty": {
+          "type": "number"
+        },
+        "coverageGainWeight": {
+          "type": "number"
+        },
+        "sourceDiversityBonus": {
+          "type": "number"
+        },
+        "overlapPenalty": {
+          "type": "number"
+        },
+        "demandTermMultipliers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,20 +1,20 @@
-import { stat } from "node:fs/promises"
-import { basename, dirname, isAbsolute, join } from "node:path"
-import { pathToFileURL } from "node:url"
+import { stat } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   fetchGitHubRepoSnapshot,
   isGitHubRepoSource,
-  type GitHubRepoSnapshot
-} from "./github.js"
+  type GitHubRepoSnapshot,
+} from "./github.js";
 import {
   extractRepositoryUrlFromNpmMetadata,
   extractRepositoryUrlFromPypiMetadata,
   fetchNpmPackageMetadata,
-  fetchPypiPackageMetadata
-} from "./package-registries.js"
-import { buildOfficialIndexAssetStatus, fetchOfficialIndexPageContent } from "./official-index.js"
-import { writeRecommendationReport } from "./recommend.js"
+  fetchPypiPackageMetadata,
+} from "./package-registries.js";
+import { buildOfficialIndexAssetStatus } from "./official-index.js";
+import { writeRecommendationReport } from "./recommend.js";
 import {
   listFilesRecursive,
   pathExists,
@@ -26,8 +26,7 @@ import {
   toRelativePosixPath,
   writeJsonFile,
   writeJsonLinesFile,
-  writeTextFile
-} from "./files.js"
+} from "./files.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
@@ -44,165 +43,192 @@ import type {
   SelectionReport,
   SourceDefinition,
   SourceIndex,
-  SourceRegistry
-} from "./types.js"
+  SourceRegistry,
+} from "./types.js";
 
 interface PackageJsonShape {
-  author?: string | { name?: string }
-  description?: string
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
+  author?: string | { name?: string };
+  description?: string;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
   engines?: {
-    node?: string
-  }
-  keywords?: string[]
-  name?: string
+    node?: string;
+  };
+  keywords?: string[];
+  name?: string;
 }
 
 interface ActorJsonShape {
-  categories?: string[]
-  description?: string
-  dockerfile?: string
-  title?: string
-  webServerSchema?: string
+  categories?: string[];
+  description?: string;
+  dockerfile?: string;
+  title?: string;
+  webServerSchema?: string;
 }
 
 interface LocalManifestShape {
-  updatedAt?: string
-  entries?: string[]
+  updatedAt?: string;
+  entries?: string[];
 }
 
 interface SourcePackShape {
-  schemaVersion: number
+  schemaVersion: number;
   entries: Array<{
-    id: string
-    repo: string
-    authorityTier?: SourceDefinition["authorityTier"]
-    publisher?: string
-    publisherVerified?: boolean
-    hosts?: HostTarget[]
-    assetKinds?: AssetKind[]
-    priority?: number
-    enabled?: boolean
-    name?: string
-  }>
+    id: string;
+    repo: string;
+    authorityTier?: SourceDefinition["authorityTier"];
+    publisher?: string;
+    publisherVerified?: boolean;
+    hosts?: HostTarget[];
+    assetKinds?: AssetKind[];
+    priority?: number;
+    enabled?: boolean;
+    name?: string;
+  }>;
 }
 
 interface OfficialSkillIndexShape {
-  schemaVersion: number
+  schemaVersion: number;
   indexes: Array<{
-    id: string
-    kind: string
-    url: string
-    description?: string
-  }>
+    id: string;
+    kind: string;
+    url: string;
+    description?: string;
+  }>;
 }
 
 interface RemoteHarvestState {
-  schemaVersion: number
-  generatedAt: string
-  nextRepoOffset: number
-  completedSourceIds: string[]
+  schemaVersion: number;
+  generatedAt: string;
+  nextRepoOffset: number;
+  completedSourceIds: string[];
 }
 
 interface ParsedMarkdownMetadata {
-  fields: Record<string, string | string[]>
-  heading: string | null
-  description: string | null
-  tags: string[]
-  dependencies: string[]
-  lineCount: number
-  body: string
+  fields: Record<string, string | string[]>;
+  heading: string | null;
+  description: string | null;
+  tags: string[];
+  dependencies: string[];
+  lineCount: number;
+  body: string;
 }
 
 interface ClassifiedLocalFile {
-  assetKind: AssetKind
-  compatibilityMode: CompatibilityMode
-  hosts: HostTarget[]
+  assetKind: AssetKind;
+  compatibilityMode: CompatibilityMode;
+  hosts: HostTarget[];
 }
 
-const APIFY_ACTOR_JSON_PATH_PATTERN = /[\\/]\.actor[\\/]actor\.json$/iu
-const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"]
-const MOCKING_TEXT_MARKERS = ["mock", "mocking"]
-const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"]
-const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"]
+const APIFY_ACTOR_JSON_PATH_PATTERN = /[\\/]\.actor[\\/]actor\.json$/iu;
+const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
+const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
+const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
+const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
 
-const DEMAND_PROFILE_OUTPUT_PATH = ["discover", "output", "demand-profile.json"]
-const SOURCE_INDEX_OUTPUT_PATH = ["discover", "output", "source-index.json"]
-const CATALOG_OUTPUT_PATH = ["discover", "catalog.assets.jsonl"]
-const SELECTED_CATALOG_OUTPUT_PATH = ["discover", "output", "catalog.selected.jsonl"]
-const REJECTED_CATALOG_OUTPUT_PATH = ["discover", "output", "catalog.rejected.jsonl"]
-const SELECTION_REPORT_OUTPUT_PATH = ["discover", "output", "selection-report.json"]
-const REMOTE_HARVEST_STATE_OUTPUT_PATH = ["state", "discover", "remote-harvest.json"]
-const REMOTE_CATALOG_STATE_OUTPUT_PATH = ["state", "discover", "remote-catalog.jsonl"]
+const DEMAND_PROFILE_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "demand-profile.json",
+];
+const SOURCE_INDEX_OUTPUT_PATH = ["discover", "output", "source-index.json"];
+const CATALOG_OUTPUT_PATH = ["discover", "catalog.assets.jsonl"];
+const SELECTED_CATALOG_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "catalog.selected.jsonl",
+];
+const REJECTED_CATALOG_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "catalog.rejected.jsonl",
+];
+const SELECTION_REPORT_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "selection-report.json",
+];
+const REMOTE_HARVEST_STATE_OUTPUT_PATH = [
+  "state",
+  "discover",
+  "remote-harvest.json",
+];
+const REMOTE_CATALOG_STATE_OUTPUT_PATH = [
+  "state",
+  "discover",
+  "remote-catalog.jsonl",
+];
 
 export async function runDiscover(
   args: string[],
   workingDirectory: string,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<number> {
-  const [command = "help"] = args
+  const [command = "help"] = args;
 
   switch (command) {
     case "demand-profile":
-      await generateDemandProfile(workingDirectory, projectRoot)
-      return 0
+      await generateDemandProfile(workingDirectory, projectRoot);
+      return 0;
     case "sources":
-      await generateSourceIndex(projectRoot)
-      return 0
+      await generateSourceIndex(projectRoot);
+      return 0;
     case "catalog":
-      await generateCatalog(projectRoot)
-      return 0
+      await generateCatalog(projectRoot);
+      return 0;
     case "select":
-      await generateSelectionOutputs(projectRoot)
-      return 0
+      await generateSelectionOutputs(projectRoot);
+      return 0;
     case "stats":
-      await printCatalogStats(projectRoot)
-      return 0
+      await printCatalogStats(projectRoot);
+      return 0;
     case "inspect":
-      await inspectCatalog(projectRoot, args.slice(1))
-      return 0
+      await inspectCatalog(projectRoot, args.slice(1));
+      return 0;
     case "help":
-      printDiscoverHelp()
-      return 0
+      printDiscoverHelp();
+      return 0;
     default:
-      printDiscoverHelp()
-      return 1
+      printDiscoverHelp();
+      return 1;
   }
 }
 
-async function generateDemandProfile(scanRoot: string, projectRoot: string): Promise<void> {
-  const scannedFiles = await listFilesRecursive(scanRoot)
-  const evidence: DemandEvidence[] = []
-  const aggregateSignals = createEmptySignalSet()
+async function generateDemandProfile(
+  scanRoot: string,
+  projectRoot: string,
+): Promise<void> {
+  const scannedFiles = await listFilesRecursive(scanRoot);
+  const evidence: DemandEvidence[] = [];
+  const aggregateSignals = createEmptySignalSet();
 
   for (const filePath of scannedFiles) {
-    const fileName = basename(filePath)
+    const fileName = basename(filePath);
 
     if (!shouldInspectFile(fileName, filePath)) {
-      continue
+      continue;
     }
 
-    const matchedSignals = collectStaticSignals(fileName, filePath)
+    const matchedSignals = collectStaticSignals(fileName, filePath);
 
     if (fileName === "package.json") {
-      await enrichPackageJsonSignals(filePath, matchedSignals)
+      await enrichPackageJsonSignals(filePath, matchedSignals);
     }
 
     if (isActorJsonFile(fileName, filePath)) {
-      await enrichActorJsonSignals(filePath, matchedSignals)
+      await enrichActorJsonSignals(filePath, matchedSignals);
     }
 
     if (!hasAnySignals(matchedSignals)) {
-      continue
+      continue;
     }
 
-    mergeSignals(aggregateSignals, matchedSignals)
+    mergeSignals(aggregateSignals, matchedSignals);
     evidence.push({
       path: toRelativePosixPath(scanRoot, filePath),
       fileName,
-      matchedSignals
-    })
+      matchedSignals,
+    });
   }
 
   const demandProfile: DemandProfile = {
@@ -211,24 +237,28 @@ async function generateDemandProfile(scanRoot: string, projectRoot: string): Pro
     scanRoot: toPosixPath(scanRoot),
     summary: {
       scannedFiles: scannedFiles.length,
-      matchedFiles: evidence.length
+      matchedFiles: evidence.length,
     },
     signals: sortSignalSet(aggregateSignals),
-    evidence: evidence.sort((left, right) => left.path.localeCompare(right.path))
-  }
+    evidence: evidence.sort((left, right) =>
+      left.path.localeCompare(right.path),
+    ),
+  };
 
-  const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH)
-  await writeJsonFile(outputPath, demandProfile)
+  const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH);
+  await writeJsonFile(outputPath, demandProfile);
 
-  console.log(`Demand profile written to ${toPosixPath(outputPath)}`)
+  console.log(`Demand profile written to ${toPosixPath(outputPath)}`);
 }
 
 async function generateSourceIndex(projectRoot: string): Promise<void> {
-  const sourceRegistry = await loadSourceRegistry(projectRoot)
-  const selectionRegistry = await readJsonFile<SelectionRegistry>(join(projectRoot, "discover", "selections.json"))
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
+  const selectionRegistry = await readJsonFile<SelectionRegistry>(
+    join(projectRoot, "discover", "selections.json"),
+  );
   const enabledSources = sourceRegistry.sources
     .filter((source) => source.enabled)
-    .sort(compareSourcesByPriority)
+    .sort(compareSourcesByPriority);
 
   const sourceIndex: SourceIndex = {
     schemaVersion: 1,
@@ -237,78 +267,129 @@ async function generateSourceIndex(projectRoot: string): Promise<void> {
     byAuthorityTier: countBy(enabledSources, (source) => source.authorityTier),
     byKind: countBy(enabledSources, (source) => source.kind),
     hostCoverage: countHosts(enabledSources),
-    communityDefaultPolicy: selectionRegistry.selectionPolicies.communityDefaultPolicy,
+    communityDefaultPolicy:
+      selectionRegistry.selectionPolicies.communityDefaultPolicy,
     enabledSources: enabledSources.map((source) => ({
       id: source.id,
       kind: source.kind,
       authorityTier: source.authorityTier,
       priority: source.priority,
-      hosts: source.hosts
-    }))
-  }
+      hosts: source.hosts,
+    })),
+  };
 
-  const outputPath = join(projectRoot, ...SOURCE_INDEX_OUTPUT_PATH)
-  await writeJsonFile(outputPath, sourceIndex)
+  const outputPath = join(projectRoot, ...SOURCE_INDEX_OUTPUT_PATH);
+  await writeJsonFile(outputPath, sourceIndex);
 
-  console.log(`Source index written to ${toPosixPath(outputPath)}`)
+  console.log(`Source index written to ${toPosixPath(outputPath)}`);
 }
 
 async function generateCatalog(projectRoot: string): Promise<void> {
-  const sourceRegistry = await loadSourceRegistry(projectRoot)
-  const selectionRegistry = await readJsonFile<SelectionRegistry>(join(projectRoot, "discover", "selections.json"))
-  const demandProfile = await readJsonFileOrNull<DemandProfile>(join(projectRoot, "discover", "output", "demand-profile.json"))
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
+  const selectionRegistry = await readJsonFile<SelectionRegistry>(
+    join(projectRoot, "discover", "selections.json"),
+  );
+  const demandProfile = await readJsonFileOrNull<DemandProfile>(
+    join(projectRoot, "discover", "output", "demand-profile.json"),
+  );
   const enabledSources = sourceRegistry.sources
     .filter((source) => source.enabled)
-    .sort(compareSourcesByPriority)
-  const remoteHarvestState = await loadRemoteHarvestState(projectRoot)
-  const repoBatchSize = Number(process.env.AGENT_HARNESS_REMOTE_BATCH_SIZE ?? "15")
-  const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH))
+    .sort(compareSourcesByPriority);
+  const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
+  const repoBatchSize = Number(
+    process.env.AGENT_HARNESS_REMOTE_BATCH_SIZE ?? "15",
+  );
+  const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
+  );
 
-  const catalogEntries: AssetCatalogEntry[] = []
-  const repoSources = enabledSources.filter((source) => source.kind === "repo")
-  const nonRepoSources = enabledSources.filter((source) => source.kind !== "repo")
+  const catalogEntries: AssetCatalogEntry[] = [];
+  const repoSources = enabledSources.filter((source) => source.kind === "repo");
+  const nonRepoSources = enabledSources.filter(
+    (source) => source.kind !== "repo",
+  );
 
   for (const source of nonRepoSources) {
     switch (source.kind) {
       case "local-manifest":
-        catalogEntries.push(...(await harvestLocalManifestSource(source, demandProfile, selectionRegistry, projectRoot)))
-        break
+        catalogEntries.push(
+          ...(await harvestLocalManifestSource(
+            source,
+            demandProfile,
+            selectionRegistry,
+            projectRoot,
+          )),
+        );
+        break;
       case "local-directory":
-        catalogEntries.push(...(await harvestLocalDirectorySource(source, demandProfile, selectionRegistry, projectRoot)))
-        break
+        catalogEntries.push(
+          ...(await harvestLocalDirectorySource(
+            source,
+            demandProfile,
+            selectionRegistry,
+            projectRoot,
+          )),
+        );
+        break;
       case "package-registry":
-        catalogEntries.push(...(await harvestPackageRegistrySource(source, demandProfile, selectionRegistry, projectRoot)))
-        break
+        catalogEntries.push(
+          ...(await harvestPackageRegistrySource(
+            source,
+            demandProfile,
+            selectionRegistry,
+          )),
+        );
+        break;
       default:
-        break
+        break;
     }
   }
 
   const repoSlice = repoSources.slice(
     remoteHarvestState.nextRepoOffset,
-    remoteHarvestState.nextRepoOffset + repoBatchSize
-  )
-  const harvestedRepoEntries: AssetCatalogEntry[] = []
+    remoteHarvestState.nextRepoOffset + repoBatchSize,
+  );
+  const harvestedRepoEntries: AssetCatalogEntry[] = [];
 
   for (const source of repoSlice) {
     if (isGitHubRepoSource(source)) {
-      harvestedRepoEntries.push(...(await harvestGitHubRepoSource(source, demandProfile, selectionRegistry, projectRoot)))
+      harvestedRepoEntries.push(
+        ...(await harvestGitHubRepoSource(
+          source,
+          demandProfile,
+          selectionRegistry,
+          projectRoot,
+        )),
+      );
     }
   }
 
-  const repoSliceSourceIds = new Set(repoSlice.map((source) => source.id))
-  const mergedRemoteCatalogEntries = mergeRemoteCatalogEntries(cachedRemoteCatalogEntries, harvestedRepoEntries, repoSliceSourceIds)
-  await writeJsonLinesFile(join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH), mergedRemoteCatalogEntries)
+  const repoSliceSourceIds = new Set(repoSlice.map((source) => source.id));
+  const mergedRemoteCatalogEntries = mergeRemoteCatalogEntries(
+    cachedRemoteCatalogEntries,
+    harvestedRepoEntries,
+    repoSliceSourceIds,
+  );
+  await writeJsonLinesFile(
+    join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
+    mergedRemoteCatalogEntries,
+  );
 
-  catalogEntries.push(...mergedRemoteCatalogEntries)
+  catalogEntries.push(...mergedRemoteCatalogEntries);
 
-  catalogEntries.push(...(await harvestOfficialSkillIndexes(projectRoot, demandProfile, selectionRegistry)))
+  catalogEntries.push(
+    ...(await harvestOfficialSkillIndexes(
+      projectRoot,
+      demandProfile,
+      selectionRegistry,
+    )),
+  );
 
   const sortedEntries = catalogEntries
     .map((entry) => enhanceTrustForEntry(entry))
-    .sort(compareAssetCatalogEntries)
-  const outputPath = join(projectRoot, ...CATALOG_OUTPUT_PATH)
-  await writeJsonLinesFile(outputPath, sortedEntries)
+    .sort(compareAssetCatalogEntries);
+  const outputPath = join(projectRoot, ...CATALOG_OUTPUT_PATH);
+  await writeJsonLinesFile(outputPath, sortedEntries);
   await writeRemoteHarvestState(projectRoot, {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
@@ -316,53 +397,74 @@ async function generateCatalog(projectRoot: string): Promise<void> {
       remoteHarvestState.nextRepoOffset + repoBatchSize >= repoSources.length
         ? 0
         : remoteHarvestState.nextRepoOffset + repoBatchSize,
-    completedSourceIds: repoSlice.map((source) => source.id)
-  })
+    completedSourceIds: repoSlice.map((source) => source.id),
+  });
 
-  console.log(`Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} entries)`)
+  console.log(
+    `Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} entries)`,
+  );
 }
 
-async function loadRemoteHarvestState(projectRoot: string): Promise<RemoteHarvestState> {
+async function loadRemoteHarvestState(
+  projectRoot: string,
+): Promise<RemoteHarvestState> {
   return (
-    (await readJsonFileOrNull<RemoteHarvestState>(join(projectRoot, ...REMOTE_HARVEST_STATE_OUTPUT_PATH))) ?? {
+    (await readJsonFileOrNull<RemoteHarvestState>(
+      join(projectRoot, ...REMOTE_HARVEST_STATE_OUTPUT_PATH),
+    )) ?? {
       schemaVersion: 1,
       generatedAt: new Date(0).toISOString(),
       nextRepoOffset: 0,
-      completedSourceIds: []
+      completedSourceIds: [],
     }
-  )
+  );
 }
 
-async function writeRemoteHarvestState(projectRoot: string, state: RemoteHarvestState): Promise<void> {
-  await writeJsonFile(join(projectRoot, ...REMOTE_HARVEST_STATE_OUTPUT_PATH), state)
+async function writeRemoteHarvestState(
+  projectRoot: string,
+  state: RemoteHarvestState,
+): Promise<void> {
+  await writeJsonFile(
+    join(projectRoot, ...REMOTE_HARVEST_STATE_OUTPUT_PATH),
+    state,
+  );
 }
 
-async function loadSourceRegistry(projectRoot: string): Promise<SourceRegistry> {
-  const baseRegistry = await readJsonFile<SourceRegistry>(join(projectRoot, "discover", "sources.json"))
-  const sourcePackDirectory = join(projectRoot, "discover", "source-packs")
+async function loadSourceRegistry(
+  projectRoot: string,
+): Promise<SourceRegistry> {
+  const baseRegistry = await readJsonFile<SourceRegistry>(
+    join(projectRoot, "discover", "sources.json"),
+  );
+  const sourcePackDirectory = join(projectRoot, "discover", "source-packs");
 
   if (!(await pathExists(sourcePackDirectory))) {
-    return baseRegistry
+    return baseRegistry;
   }
 
   const sourcePackFiles = (await listFilesRecursive(sourcePackDirectory))
     .filter((filePath) => filePath.endsWith(".json"))
-    .sort((left, right) => left.localeCompare(right))
+    .sort((left, right) => left.localeCompare(right));
 
-  const generatedSources: SourceDefinition[] = []
-  const existingSourceIds = new Set(baseRegistry.sources.map((source) => source.id))
+  const generatedSources: SourceDefinition[] = [];
+  const existingSourceIds = new Set(
+    baseRegistry.sources.map((source) => source.id),
+  );
   const existingRepoUrls = new Set(
     baseRegistry.sources
       .map((source) => source.endpoints.repo?.toLowerCase())
-      .filter((value): value is string => typeof value === "string")
-  )
+      .filter((value): value is string => typeof value === "string"),
+  );
 
   for (const sourcePackFile of sourcePackFiles) {
-    const sourcePack = await readJsonFile<SourcePackShape>(sourcePackFile)
+    const sourcePack = await readJsonFile<SourcePackShape>(sourcePackFile);
     for (const entry of sourcePack.entries) {
-      const normalizedRepoUrl = entry.repo.toLowerCase()
-      if (existingSourceIds.has(entry.id) || existingRepoUrls.has(normalizedRepoUrl)) {
-        continue
+      const normalizedRepoUrl = entry.repo.toLowerCase();
+      if (
+        existingSourceIds.has(entry.id) ||
+        existingRepoUrls.has(normalizedRepoUrl)
+      ) {
+        continue;
       }
 
       generatedSources.push({
@@ -373,120 +475,158 @@ async function loadSourceRegistry(projectRoot: string): Promise<SourceRegistry> 
         publisher: {
           name: entry.publisher ?? entry.repo.split("/")[3] ?? entry.id,
           verified: entry.publisherVerified ?? false,
-          owner: entry.repo.split("/")[3]
+          owner: entry.repo.split("/")[3],
         },
         hosts: entry.hosts ?? ["copilot-vscode", "opencode"],
-        assetKinds: entry.assetKinds ?? ["skill", "agent", "instruction", "workflow", "plugin", "mcp-server"],
+        assetKinds: entry.assetKinds ?? [
+          "skill",
+          "agent",
+          "instruction",
+          "workflow",
+          "plugin",
+          "mcp-server",
+        ],
         discoveryMode: "catalog",
         priority: entry.priority ?? 60,
         enabled: entry.enabled ?? true,
         endpoints: {
-          repo: entry.repo
+          repo: entry.repo,
         },
         rules: {
           officialPreferred: true,
           allowMirror: false,
-          allowInstall: false
-        }
-      })
+          allowInstall: false,
+        },
+      });
 
-      existingSourceIds.add(entry.id)
-      existingRepoUrls.add(normalizedRepoUrl)
+      existingSourceIds.add(entry.id);
+      existingRepoUrls.add(normalizedRepoUrl);
     }
   }
 
   return {
     ...baseRegistry,
-    sources: [...baseRegistry.sources, ...generatedSources]
-  }
+    sources: [...baseRegistry.sources, ...generatedSources],
+  };
 }
 
 async function generateSelectionOutputs(projectRoot: string): Promise<void> {
-  const selectionRegistry = await readJsonFile<SelectionRegistry>(join(projectRoot, "discover", "selections.json"))
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...CATALOG_OUTPUT_PATH))
-  const groupedEntries = groupCatalogEntriesForSelection(catalogEntries)
-  const selectedEntries: AssetCatalogEntry[] = []
-  const rejectedEntries: AssetCatalogEntry[] = []
-  const duplicateDecisions: SelectionDuplicateDecision[] = []
+  const selectionRegistry = await readJsonFile<SelectionRegistry>(
+    join(projectRoot, "discover", "selections.json"),
+  );
+  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...CATALOG_OUTPUT_PATH),
+  );
+  const groupedEntries = groupCatalogEntriesForSelection(catalogEntries);
+  const selectedEntries: AssetCatalogEntry[] = [];
+  const rejectedEntries: AssetCatalogEntry[] = [];
+  const duplicateDecisions: SelectionDuplicateDecision[] = [];
 
   for (const [groupKey, groupEntries] of groupedEntries) {
     const sortedGroupEntries = [...groupEntries].sort((left, right) =>
-      compareSelectionCandidates(left, right, selectionRegistry)
-    )
-    const selectedEntry = sortedGroupEntries[0]
+      compareSelectionCandidates(left, right, selectionRegistry),
+    );
+    const selectedEntry = sortedGroupEntries[0];
 
     if (!selectedEntry) {
-      continue
+      continue;
     }
 
-    selectedEntries.push(selectedEntry)
+    selectedEntries.push(selectedEntry);
 
     if (sortedGroupEntries.length > 1) {
-      const rejectedGroupEntries = sortedGroupEntries.slice(1)
-      rejectedEntries.push(...rejectedGroupEntries)
+      const rejectedGroupEntries = sortedGroupEntries.slice(1);
+      rejectedEntries.push(...rejectedGroupEntries);
       duplicateDecisions.push({
         duplicateGroup: groupKey,
         selectedAssetId: selectedEntry.id,
         rejectedAssetIds: rejectedGroupEntries.map((entry) => entry.id),
-        selectionReason: buildSelectionReason(selectedEntry, selectionRegistry)
-      })
+        selectionReason: buildSelectionReason(selectedEntry, selectionRegistry),
+      });
     }
   }
 
-  const sortedSelectedEntries = selectedEntries.sort(compareAssetCatalogEntries)
-  const sortedRejectedEntries = rejectedEntries.sort(compareAssetCatalogEntries)
+  const sortedSelectedEntries = selectedEntries.sort(
+    compareAssetCatalogEntries,
+  );
+  const sortedRejectedEntries = rejectedEntries.sort(
+    compareAssetCatalogEntries,
+  );
   const selectionReport: SelectionReport = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     inputCount: catalogEntries.length,
     selectedCount: sortedSelectedEntries.length,
     rejectedCount: sortedRejectedEntries.length,
-    duplicateDecisions: duplicateDecisions.sort((left, right) => left.duplicateGroup.localeCompare(right.duplicateGroup))
-  }
+    duplicateDecisions: duplicateDecisions.sort((left, right) =>
+      left.duplicateGroup.localeCompare(right.duplicateGroup),
+    ),
+  };
 
-  await writeJsonLinesFile(join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH), sortedSelectedEntries)
-  await writeJsonLinesFile(join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH), sortedRejectedEntries)
-  await writeJsonFile(join(projectRoot, ...SELECTION_REPORT_OUTPUT_PATH), selectionReport)
-  await writeRecommendationReport(projectRoot)
+  await writeJsonLinesFile(
+    join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH),
+    sortedSelectedEntries,
+  );
+  await writeJsonLinesFile(
+    join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH),
+    sortedRejectedEntries,
+  );
+  await writeJsonFile(
+    join(projectRoot, ...SELECTION_REPORT_OUTPUT_PATH),
+    selectionReport,
+  );
+  await writeRecommendationReport(projectRoot);
 
   console.log(
-    `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`
-  )
+    `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
+  );
 }
 
 async function printCatalogStats(projectRoot: string): Promise<void> {
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...CATALOG_OUTPUT_PATH))
-  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH))
-  const rejectedEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH))
+  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...CATALOG_OUTPUT_PATH),
+  );
+  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH),
+  );
+  const rejectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH),
+  );
 
   const stats = {
     catalogCount: catalogEntries.length,
     selectedCount: selectedEntries.length,
     rejectedCount: rejectedEntries.length,
     bySource: countBy(catalogEntries, (entry) => entry.source.sourceId),
-    byAuthorityTier: countBy(catalogEntries, (entry) => entry.source.authorityTier),
+    byAuthorityTier: countBy(
+      catalogEntries,
+      (entry) => entry.source.authorityTier,
+    ),
     byAssetKind: countBy(catalogEntries, (entry) => entry.assetKind),
-    byCompatibility: countBy(catalogEntries, (entry) => entry.compatibilityMode),
-    byHost: countHostsForCatalog(catalogEntries)
-  }
+    byCompatibility: countBy(
+      catalogEntries,
+      (entry) => entry.compatibilityMode,
+    ),
+    byHost: countHostsForCatalog(catalogEntries),
+  };
 
-  console.log(JSON.stringify(stats, null, 2))
+  console.log(JSON.stringify(stats, null, 2));
 }
 
 async function harvestPackageRegistrySource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  projectRoot: string
 ): Promise<AssetCatalogEntry[]> {
-  const packageCandidates = collectPackageCandidatesFromDemandProfile(demandProfile)
-  const entries: AssetCatalogEntry[] = []
+  const packageCandidates =
+    collectPackageCandidatesFromDemandProfile(demandProfile);
+  const entries: AssetCatalogEntry[] = [];
 
   for (const packageName of packageCandidates) {
     if (source.id === "npm-registry") {
-      const npmMetadata = await fetchNpmPackageMetadata(packageName)
+      const npmMetadata = await fetchNpmPackageMetadata(packageName);
       if (!npmMetadata) {
-        continue
+        continue;
       }
 
       entries.push(
@@ -497,16 +637,16 @@ async function harvestPackageRegistrySource(
           extractRepositoryUrlFromNpmMetadata(npmMetadata),
           demandProfile,
           selectionRegistry,
-          "npm"
-        )
-      )
-      continue
+          "npm",
+        ),
+      );
+      continue;
     }
 
     if (source.id === "pypi-registry") {
-      const pypiMetadata = await fetchPypiPackageMetadata(packageName)
+      const pypiMetadata = await fetchPypiPackageMetadata(packageName);
       if (!pypiMetadata) {
-        continue
+        continue;
       }
 
       entries.push(
@@ -517,61 +657,65 @@ async function harvestPackageRegistrySource(
           extractRepositoryUrlFromPypiMetadata(pypiMetadata),
           demandProfile,
           selectionRegistry,
-          "pypi"
-        )
-      )
+          "pypi",
+        ),
+      );
     }
   }
 
-  return entries
+  return entries;
 }
 
-function collectPackageCandidatesFromDemandProfile(demandProfile: DemandProfile | null): string[] {
+function collectPackageCandidatesFromDemandProfile(
+  demandProfile: DemandProfile | null,
+): string[] {
   if (!demandProfile) {
-    return []
+    return [];
   }
 
-  const packageCandidates = new Set<string>()
+  const packageCandidates = new Set<string>();
 
   for (const evidence of demandProfile.evidence) {
     const joinedSignals = [
       ...evidence.matchedSignals.frameworks,
       ...evidence.matchedSignals.concerns,
-      ...evidence.matchedSignals.tooling
-    ]
+      ...evidence.matchedSignals.tooling,
+    ];
 
     for (const signal of joinedSignals) {
       if (signal === "typescript") {
-        packageCandidates.add("typescript")
+        packageCandidates.add("typescript");
       }
       if (signal === "playwright") {
-        packageCandidates.add("@playwright/test")
+        packageCandidates.add("@playwright/test");
       }
       if (signal === "mcp") {
-        packageCandidates.add("@modelcontextprotocol/sdk")
+        packageCandidates.add("@modelcontextprotocol/sdk");
       }
       if (signal === "openapi") {
-        packageCandidates.add("openapi-typescript")
+        packageCandidates.add("openapi-typescript");
       }
       if (signal === "supabase") {
-        packageCandidates.add("@supabase/supabase-js")
+        packageCandidates.add("@supabase/supabase-js");
       }
       if (signal === "react") {
-        packageCandidates.add("react")
+        packageCandidates.add("react");
       }
       if (signal === "nextjs") {
-        packageCandidates.add("next")
+        packageCandidates.add("next");
       }
       if (signal === "python") {
-        packageCandidates.add("fastapi")
+        packageCandidates.add("fastapi");
       }
       if (signal === "terraform") {
-        packageCandidates.add("terraform")
+        packageCandidates.add("terraform");
       }
     }
   }
 
-  return [...packageCandidates].sort((left, right) => left.localeCompare(right))
+  return [...packageCandidates].sort((left, right) =>
+    left.localeCompare(right),
+  );
 }
 
 function buildPackageRegistryCatalogEntry(
@@ -581,16 +725,24 @@ function buildPackageRegistryCatalogEntry(
   repositoryUrl: string | undefined,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  registryKind: "npm" | "pypi"
+  registryKind: "npm" | "pypi",
 ): AssetCatalogEntry {
   const capabilities = uniqueStrings([
     ...splitIntoKeywords(packageName),
     ...splitIntoKeywords(description),
-    registryKind
-  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token))
-  const assetKind = packageName.includes("mcp") ? ("mcp-server" satisfies AssetKind) : ("plugin" satisfies AssetKind)
-  const hosts = assetKind === "mcp-server" ? (["shared"] satisfies HostTarget[]) : source.hosts
-  const compatibilityMode = assetKind === "mcp-server" ? ("native" satisfies CompatibilityMode) : ("adaptable" satisfies CompatibilityMode)
+    registryKind,
+  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
+  const assetKind = packageName.includes("mcp")
+    ? ("mcp-server" satisfies AssetKind)
+    : ("plugin" satisfies AssetKind);
+  const hosts =
+    assetKind === "mcp-server"
+      ? (["shared"] satisfies HostTarget[])
+      : source.hosts;
+  const compatibilityMode =
+    assetKind === "mcp-server"
+      ? ("native" satisfies CompatibilityMode)
+      : ("adaptable" satisfies CompatibilityMode);
 
   return {
     id: buildCatalogId(`${source.id}:${registryKind}`, packageName),
@@ -605,7 +757,7 @@ function buildPackageRegistryCatalogEntry(
       sourcePriority: source.priority,
       originUrl: repositoryUrl ?? source.endpoints.baseUrl,
       publisher: source.publisher?.name ?? source.id,
-      publisherVerified: source.publisher?.verified ?? false
+      publisherVerified: source.publisher?.verified ?? false,
     },
     trust: {
       score: computeTrustScore({
@@ -614,7 +766,7 @@ function buildPackageRegistryCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode,
-        installMethod: `${registryKind}-metadata`
+        installMethod: `${registryKind}-metadata`,
       }),
       signals: buildTrustSignals({
         authorityTier: source.authorityTier,
@@ -622,15 +774,15 @@ function buildPackageRegistryCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode,
-        installMethod: `${registryKind}-metadata`
-      })
+        installMethod: `${registryKind}-metadata`,
+      }),
     },
     capabilities,
     install: {
       method: `${registryKind}-metadata`,
       nativeHosts: compatibilityMode === "native" ? hosts : undefined,
       adaptableHosts: compatibilityMode === "adaptable" ? hosts : undefined,
-      manifestEntry: packageName
+      manifestEntry: packageName,
     },
     evidence: {
       manifestFound: true,
@@ -638,49 +790,54 @@ function buildPackageRegistryCatalogEntry(
       examplesFound: false,
       docsLinked: Boolean(repositoryUrl),
       lineCount: 1,
-      rootPath: repositoryUrl ?? source.endpoints.baseUrl
+      rootPath: repositoryUrl ?? source.endpoints.baseUrl,
     },
     maintenance: {
       lastUpdated: new Date().toISOString(),
       stars: 0,
-      releaseCadence: `${registryKind}-metadata`
+      releaseCadence: `${registryKind}-metadata`,
     },
     risk: buildRisk(false, false, false),
     contextCost: {
       sizeClass: "tiny",
-      estimatedPromptWeight: 1
+      estimatedPromptWeight: 1,
     },
     fit: {
       portfolioFit: computePortfolioFit(capabilities, demandProfile),
-      hostFit: computeHostFit(hosts, compatibilityMode)
+      hostFit: computeHostFit(hosts, compatibilityMode),
     },
     dedupe: {
       duplicateGroup: findDuplicateGroup(capabilities, selectionRegistry),
-      candidateRankHint: buildCandidateRankHint(source.authorityTier)
+      candidateRankHint: buildCandidateRankHint(source.authorityTier),
     },
     status: {
       cataloged: true,
       mirrorEligible: false,
       installEligible: false,
-      activationEligible: false
-    }
-  }
+      activationEligible: false,
+    },
+  };
 }
 
-async function inspectCatalog(projectRoot: string, args: string[]): Promise<void> {
-  const sourceId = getOptionValue(args, "--source")
-  const assetId = getOptionValue(args, "--id")
-  const limit = Number(getOptionValue(args, "--limit") ?? "20")
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(join(projectRoot, ...CATALOG_OUTPUT_PATH))
+async function inspectCatalog(
+  projectRoot: string,
+  args: string[],
+): Promise<void> {
+  const sourceId = getOptionValue(args, "--source");
+  const assetId = getOptionValue(args, "--id");
+  const limit = Number(getOptionValue(args, "--limit") ?? "20");
+  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    join(projectRoot, ...CATALOG_OUTPUT_PATH),
+  );
 
-  let matches = catalogEntries
+  let matches = catalogEntries;
 
   if (sourceId) {
-    matches = matches.filter((entry) => entry.source.sourceId === sourceId)
+    matches = matches.filter((entry) => entry.source.sourceId === sourceId);
   }
 
   if (assetId) {
-    matches = matches.filter((entry) => entry.id === assetId)
+    matches = matches.filter((entry) => entry.id === assetId);
   }
 
   console.log(
@@ -689,130 +846,159 @@ async function inspectCatalog(projectRoot: string, args: string[]): Promise<void
         totalMatches: matches.length,
         sourceId: sourceId ?? null,
         assetId: assetId ?? null,
-        results: matches.slice(0, limit)
+        results: matches.slice(0, limit),
       },
       null,
-      2
-    )
-  )
+      2,
+    ),
+  );
 }
 
 async function harvestOfficialSkillIndexes(
   projectRoot: string,
   demandProfile: DemandProfile | null,
-  selectionRegistry: SelectionRegistry
+  selectionRegistry: SelectionRegistry,
 ): Promise<AssetCatalogEntry[]> {
-  const indexConfigPath = join(projectRoot, "discover", "official-skills-indexes.json")
-  const indexConfig = await readJsonFileOrNull<OfficialSkillIndexShape>(indexConfigPath)
+  const indexConfigPath = join(
+    projectRoot,
+    "discover",
+    "official-skills-indexes.json",
+  );
+  const indexConfig =
+    await readJsonFileOrNull<OfficialSkillIndexShape>(indexConfigPath);
   if (!indexConfig) {
-    return []
+    return [];
   }
 
-  const entries: AssetCatalogEntry[] = []
+  const entries: AssetCatalogEntry[] = [];
 
-  const seenIds = new Set<string>()
+  const seenIds = new Set<string>();
 
   for (const index of indexConfig.indexes) {
-    const content = await fetchOfficialIndexContent(index.url)
+    const content = await fetchOfficialIndexContent(index.url);
     if (!content) {
-      continue
+      continue;
     }
 
-    const officialSkillRepoUrlsByOwnerAndSlug = extractOfficialSkillRepoUrls(content)
+    const officialSkillRepoUrlsByOwnerAndSlug =
+      extractOfficialSkillRepoUrls(content);
 
-    for (const parsedEntry of parseOfficialIndexEntries(content, demandProfile, selectionRegistry)) {
-      const sourceIdParts = parsedEntry.source.sourceId.split(":")
-      const owner = sourceIdParts[1]
-      const manifestEntry = parsedEntry.install.manifestEntry
-      const officialRepoUrl = owner && manifestEntry
-        ? officialSkillRepoUrlsByOwnerAndSlug.get(`${owner}:${manifestEntry}`)
-        : undefined
+    for (const parsedEntry of parseOfficialIndexEntries(
+      content,
+      demandProfile,
+      selectionRegistry,
+    )) {
+      const sourceIdParts = parsedEntry.source.sourceId.split(":");
+      const owner = sourceIdParts[1];
+      const manifestEntry = parsedEntry.install.manifestEntry;
+      const officialRepoUrl =
+        owner && manifestEntry
+          ? officialSkillRepoUrlsByOwnerAndSlug.get(`${owner}:${manifestEntry}`)
+          : undefined;
       const entry = officialRepoUrl
         ? {
             ...parsedEntry,
             evidence: {
               ...parsedEntry.evidence,
-              rootPath: officialRepoUrl
-            }
+              rootPath: officialRepoUrl,
+            },
           }
-        : parsedEntry
+        : parsedEntry;
 
       if (seenIds.has(entry.id)) {
-        continue
+        continue;
       }
 
-      seenIds.add(entry.id)
-      entries.push(entry)
+      seenIds.add(entry.id);
+      entries.push(entry);
 
       if (owner && manifestEntry) {
-        const resolvedRepoSource = await resolveOfficialIndexEntryToRepoSource(owner, manifestEntry, entry, projectRoot, officialRepoUrl)
+        const resolvedRepoSource = await resolveOfficialIndexEntryToRepoSource(
+          owner,
+          manifestEntry,
+          entry,
+          projectRoot,
+          officialRepoUrl,
+        );
         if (resolvedRepoSource && !seenIds.has(resolvedRepoSource.id)) {
-          seenIds.add(resolvedRepoSource.id)
-          entries.push(resolvedRepoSource)
+          seenIds.add(resolvedRepoSource.id);
+          entries.push(resolvedRepoSource);
         }
       }
     }
   }
 
-  return entries
+  return entries;
 }
 
 async function fetchOfficialIndexContent(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, {
-      headers: buildOfficialIndexHeaders()
-    })
+      headers: buildOfficialIndexHeaders(),
+    });
     if (!response.ok) {
-      return null
+      return null;
     }
 
-    return await response.text()
+    return await response.text();
   } catch {
-    return null
+    return null;
   }
 }
 
 function buildOfficialIndexHeaders(): HeadersInit {
   const headers: Record<string, string> = {
-    "User-Agent": "agent-harness"
-  }
+    "User-Agent": "agent-harness",
+  };
 
-  const githubToken = process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN
+  const githubToken =
+    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
   if (githubToken) {
-    headers.Authorization = `Bearer ${githubToken}`
+    headers.Authorization = `Bearer ${githubToken}`;
   }
 
-  return headers
+  return headers;
 }
 
 function parseOfficialIndexEntries(
   content: string,
   demandProfile: DemandProfile | null,
-  selectionRegistry: SelectionRegistry
+  selectionRegistry: SelectionRegistry,
 ): AssetCatalogEntry[] {
-  const matches = [...content.matchAll(/\*\*\[([^\]]+)\]\((https:\/\/officialskills\.sh\/([^/]+)\/skills\/([^\)]+))\)\*\*\s*-\s*([^\n]+)/gu)]
-  const entries: AssetCatalogEntry[] = []
+  const matches = [
+    ...content.matchAll(
+      /\*\*\[([^\]]+)\]\((https:\/\/officialskills\.sh\/([^/]+)\/skills\/([^)]+))\)\*\*\s*-\s*([^\n]+)/gu,
+    ),
+  ];
+  const entries: AssetCatalogEntry[] = [];
 
   for (const match of matches) {
-    const displayName = match[1]?.trim()
-    const originUrl = match[2]?.trim()
-    const owner = match[3]?.trim()
-    const slug = match[4]?.trim()
-    const description = match[5]?.trim() ?? ""
+    const displayName = match[1]?.trim();
+    const originUrl = match[2]?.trim();
+    const owner = match[3]?.trim();
+    const slug = match[4]?.trim();
+    const description = match[5]?.trim() ?? "";
 
     if (!displayName || !originUrl || !owner || !slug) {
-      continue
+      continue;
     }
 
-    const authorityTier = isOfficialIndexOwner(owner) ? "official-first-party" : "trusted-community"
+    const authorityTier = isOfficialIndexOwner(owner)
+      ? "official-first-party"
+      : "trusted-community";
     const capabilities = uniqueStrings([
       ...splitIntoKeywords(owner),
       ...splitIntoKeywords(slug),
-      ...splitIntoKeywords(description)
-    ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token))
-    const hosts = owner.includes("scopeblind") ? (["copilot-vscode", "opencode", "shared"] satisfies HostTarget[]) : (["copilot-vscode", "opencode"] satisfies HostTarget[])
-    const assetKind = determineOfficialIndexAssetKind(owner, slug, description)
-    const compatibilityMode = authorityTier === "official-first-party" ? ("native" satisfies CompatibilityMode) : ("adaptable" satisfies CompatibilityMode)
+      ...splitIntoKeywords(description),
+    ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
+    const hosts = owner.includes("scopeblind")
+      ? (["copilot-vscode", "opencode", "shared"] satisfies HostTarget[])
+      : (["copilot-vscode", "opencode"] satisfies HostTarget[]);
+    const assetKind = determineOfficialIndexAssetKind(owner, slug, description);
+    const compatibilityMode =
+      authorityTier === "official-first-party"
+        ? ("native" satisfies CompatibilityMode)
+        : ("adaptable" satisfies CompatibilityMode);
 
     entries.push({
       id: buildCatalogId(`official-index:${owner}`, slug),
@@ -827,7 +1013,7 @@ function parseOfficialIndexEntries(
         sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
         originUrl,
         publisher: owner,
-        publisherVerified: authorityTier === "official-first-party"
+        publisherVerified: authorityTier === "official-first-party",
       },
       trust: {
         score: computeTrustScore({
@@ -836,7 +1022,7 @@ function parseOfficialIndexEntries(
           sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
           publisherVerified: authorityTier === "official-first-party",
           compatibilityMode,
-          installMethod: "official-index-entry"
+          installMethod: "official-index-entry",
         }),
         signals: buildTrustSignals({
           authorityTier,
@@ -844,15 +1030,15 @@ function parseOfficialIndexEntries(
           sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
           publisherVerified: authorityTier === "official-first-party",
           compatibilityMode,
-          installMethod: "official-index-entry"
-        })
+          installMethod: "official-index-entry",
+        }),
       },
       capabilities,
       install: {
         method: "official-index-entry",
         nativeHosts: compatibilityMode === "native" ? hosts : undefined,
         adaptableHosts: compatibilityMode === "adaptable" ? hosts : undefined,
-        manifestEntry: slug
+        manifestEntry: slug,
       },
       evidence: {
         manifestFound: true,
@@ -860,57 +1046,67 @@ function parseOfficialIndexEntries(
         examplesFound: false,
         docsLinked: true,
         lineCount: 1,
-        rootPath: originUrl
+        rootPath: originUrl,
       },
       maintenance: {
         lastUpdated: new Date().toISOString(),
         stars: 0,
-        releaseCadence: "index-listed"
+        releaseCadence: "index-listed",
       },
       risk: buildRisk(false, false, false),
       contextCost: {
         sizeClass: "tiny",
-        estimatedPromptWeight: 1
+        estimatedPromptWeight: 1,
       },
       fit: {
         portfolioFit: computePortfolioFit(capabilities, demandProfile),
-        hostFit: computeHostFit(hosts, compatibilityMode)
+        hostFit: computeHostFit(hosts, compatibilityMode),
       },
       dedupe: {
-        duplicateGroup: buildOfficialIndexDuplicateGroup(owner, slug) ?? findDuplicateGroup(capabilities, selectionRegistry),
-        candidateRankHint: buildCandidateRankHint(authorityTier)
+        duplicateGroup:
+          buildOfficialIndexDuplicateGroup(owner, slug) ??
+          findDuplicateGroup(capabilities, selectionRegistry),
+        candidateRankHint: buildCandidateRankHint(authorityTier),
       },
-      status: buildOfficialIndexAssetStatus(authorityTier)
-    })
+      status: buildOfficialIndexAssetStatus(authorityTier),
+    });
   }
 
-  return entries
+  return entries;
 }
 
-function determineOfficialIndexAssetKind(owner: string, slug: string, description: string): AssetKind {
-  const combinedText = `${owner} ${slug} ${description}`.toLowerCase()
+function determineOfficialIndexAssetKind(
+  owner: string,
+  slug: string,
+  description: string,
+): AssetKind {
+  const combinedText = `${owner} ${slug} ${description}`.toLowerCase();
 
   if (combinedText.includes("mcp")) {
-    return "mcp-server"
+    return "mcp-server";
   }
 
   if (combinedText.includes("workflow") || combinedText.includes("playbook")) {
-    return "workflow"
+    return "workflow";
   }
 
-  if (combinedText.includes("guide") || combinedText.includes("reference") || combinedText.includes("cookbook")) {
-    return "reference-pack"
+  if (
+    combinedText.includes("guide") ||
+    combinedText.includes("reference") ||
+    combinedText.includes("cookbook")
+  ) {
+    return "reference-pack";
   }
 
   if (combinedText.includes("plugin") || combinedText.includes("extension")) {
-    return "plugin"
+    return "plugin";
   }
 
-  return "skill"
+  return "skill";
 }
 
 function buildOfficialIndexDuplicateGroup(owner: string, slug: string): string {
-  return `official-index:${owner}:${slug}`
+  return `official-index:${owner}:${slug}`;
 }
 
 function isOfficialIndexOwner(owner: string): boolean {
@@ -945,8 +1141,8 @@ function isOfficialIndexOwner(owner: string): boolean {
     "firebase",
     "apify",
     "duckdb",
-    "scopeblind"
-  ].includes(owner)
+    "scopeblind",
+  ].includes(owner);
 }
 
 async function resolveOfficialIndexEntryToRepoSource(
@@ -954,20 +1150,23 @@ async function resolveOfficialIndexEntryToRepoSource(
   slug: string,
   entry: AssetCatalogEntry,
   projectRoot: string,
-  officialRepoUrl?: string
+  officialRepoUrl?: string,
 ): Promise<AssetCatalogEntry | null> {
-  const sourceRegistry = await loadSourceRegistry(projectRoot)
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
   const matchingSource = sourceRegistry.sources.find((source) => {
-    const repoUrl = source.endpoints.repo?.toLowerCase()
+    const repoUrl = source.endpoints.repo?.toLowerCase();
     if (officialRepoUrl && repoUrl === officialRepoUrl.toLowerCase()) {
-      return true
+      return true;
     }
 
-    return repoUrl?.includes(`/${owner.toLowerCase()}/`) && source.authorityTier === entry.source.authorityTier
-  })
+    return (
+      repoUrl?.includes(`/${owner.toLowerCase()}/`) &&
+      source.authorityTier === entry.source.authorityTier
+    );
+  });
 
   if (!matchingSource) {
-    return null
+    return null;
   }
 
   return {
@@ -980,7 +1179,8 @@ async function resolveOfficialIndexEntryToRepoSource(
       sourcePriority: matchingSource.priority,
       originUrl: matchingSource.endpoints.repo ?? entry.source.originUrl,
       publisher: matchingSource.publisher?.name ?? entry.source.publisher,
-      publisherVerified: matchingSource.publisher?.verified ?? entry.source.publisherVerified
+      publisherVerified:
+        matchingSource.publisher?.verified ?? entry.source.publisherVerified,
     },
     trust: {
       score: computeTrustScore({
@@ -989,7 +1189,7 @@ async function resolveOfficialIndexEntryToRepoSource(
         sourcePriority: matchingSource.priority,
         publisherVerified: matchingSource.publisher?.verified ?? false,
         compatibilityMode: entry.compatibilityMode,
-        installMethod: "github-tree-metadata"
+        installMethod: "github-tree-metadata",
       }),
       signals: buildTrustSignals({
         authorityTier: matchingSource.authorityTier,
@@ -997,57 +1197,60 @@ async function resolveOfficialIndexEntryToRepoSource(
         sourcePriority: matchingSource.priority,
         publisherVerified: matchingSource.publisher?.verified ?? false,
         compatibilityMode: entry.compatibilityMode,
-        installMethod: "github-tree-metadata"
-      })
+        installMethod: "github-tree-metadata",
+      }),
     },
     install: {
       ...entry.install,
-      method: "github-tree-metadata"
+      method: "github-tree-metadata",
     },
     evidence: {
       ...entry.evidence,
-      rootPath: matchingSource.endpoints.repo ?? entry.evidence.rootPath
+      rootPath: matchingSource.endpoints.repo ?? entry.evidence.rootPath,
     },
     maintenance: {
       ...entry.maintenance,
-      releaseCadence: "active"
+      releaseCadence: "active",
     },
     dedupe: {
       ...entry.dedupe,
-      duplicateGroup: buildOfficialIndexDuplicateGroup(owner, slug)
+      duplicateGroup: buildOfficialIndexDuplicateGroup(owner, slug),
     },
     status: {
       ...entry.status,
       mirrorEligible: matchingSource.rules.allowMirror,
       installEligible: matchingSource.rules.allowMirror,
-      activationEligible: matchingSource.rules.allowMirror
-    }
-  }
+      activationEligible: matchingSource.rules.allowMirror,
+    },
+  };
 }
 
 function extractOfficialSkillRepoUrls(content: string): Map<string, string> {
-  const repoUrls = new Map<string, string>()
-  const blocks = content.split(/(?=^#\s+)/mu)
+  const repoUrls = new Map<string, string>();
+  const blocks = content.split(/(?=^#\s+)/mu);
 
   for (const block of blocks) {
-    const titleMatch = /^#\s+([^\n]+)$/mu.exec(block)
-    const repoMatch = /https:\/\/github\.com\/([^/]+\/[^/\s)]+)/u.exec(block)
+    const titleMatch = /^#\s+([^\n]+)$/mu.exec(block);
+    const repoMatch = /https:\/\/github\.com\/([^/]+\/[^/\s)]+)/u.exec(block);
     if (!titleMatch || !repoMatch) {
-      continue
+      continue;
     }
 
-    const title = titleMatch[1].trim()
-    const ownerMatch = /([A-Za-z0-9_-]+)\//u.exec(repoMatch[1])
-    const owner = ownerMatch?.[1]
+    const title = titleMatch[1].trim();
+    const ownerMatch = /([A-Za-z0-9_-]+)\//u.exec(repoMatch[1]);
+    const owner = ownerMatch?.[1];
     if (!owner) {
-      continue
+      continue;
     }
 
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "")
-    repoUrls.set(`${owner}:${slug}`, `https://github.com/${repoMatch[1]}`)
+    const slug = title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/gu, "-")
+      .replace(/^-+|-+$/gu, "");
+    repoUrls.set(`${owner}:${slug}`, `https://github.com/${repoMatch[1]}`);
   }
 
-  return repoUrls
+  return repoUrls;
 }
 
 function printDiscoverHelp(): void {
@@ -1057,29 +1260,37 @@ function printDiscoverHelp(): void {
   catalog          Harvest local sources into discover/catalog.assets.jsonl
   select           Apply canonical selection rules and write selected/rejected JSONL outputs
   stats            Print catalog summary counts grouped by source, kind, host, and authority
-  inspect          Print catalog entries filtered by --source <id> or --id <assetId>`)
+  inspect          Print catalog entries filtered by --source <id> or --id <assetId>`);
 }
 
 async function harvestGitHubRepoSource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<AssetCatalogEntry[]> {
   try {
-    const snapshot = await fetchGitHubRepoSnapshot(source, projectRoot)
+    const snapshot = await fetchGitHubRepoSnapshot(source, projectRoot);
 
     if (!snapshot) {
-      return []
+      return [];
     }
 
     return snapshot.tree.entries
-      .map((entry) => buildGitHubCatalogEntry(snapshot, source, entry.path, demandProfile, selectionRegistry))
-      .filter((entry): entry is AssetCatalogEntry => entry !== null)
+      .map((entry) =>
+        buildGitHubCatalogEntry(
+          snapshot,
+          source,
+          entry.path,
+          demandProfile,
+          selectionRegistry,
+        ),
+      )
+      .filter((entry): entry is AssetCatalogEntry => entry !== null);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.warn(`Skipping repo source ${source.id}: ${errorMessage}`)
-    return []
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.warn(`Skipping repo source ${source.id}: ${errorMessage}`);
+    return [];
   }
 }
 
@@ -1087,29 +1298,33 @@ async function harvestLocalManifestSource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<AssetCatalogEntry[]> {
   if (source.id === "local-antigravity-manifest") {
-    await loadAntigravityManifestEntrySet(projectRoot)
-    return []
+    await loadAntigravityManifestEntrySet(projectRoot);
+    return [];
   }
 
-  const filePath = resolveEndpointPath(source.endpoints.file, projectRoot)
-  const manifest = await readJsonFileOrNull<LocalManifestShape>(filePath)
+  const filePath = resolveEndpointPath(source.endpoints.file, projectRoot);
+  const manifest = await readJsonFileOrNull<LocalManifestShape>(filePath);
 
   if (!manifest?.entries || manifest.entries.length === 0) {
-    return []
+    return [];
   }
 
-  const fileStat = await stat(filePath)
-  const updatedAt = manifest.updatedAt ?? fileStat.mtime.toISOString()
-  const originUrl = pathToFileURL(filePath).toString()
+  const fileStat = await stat(filePath);
+  const updatedAt = manifest.updatedAt ?? fileStat.mtime.toISOString();
+  const originUrl = pathToFileURL(filePath).toString();
 
   return manifest.entries.map((manifestEntry) => {
-    const assetKind = classifyManifestEntryAssetKind(manifestEntry)
-    const hosts = assetKind === "mcp-server" ? (["shared"] satisfies HostTarget[]) : source.hosts
-    const compatibilityMode: CompatibilityMode = assetKind === "mcp-server" ? "native" : "adaptable"
-    const capabilities = collectManifestCapabilities(manifestEntry)
+    const assetKind = classifyManifestEntryAssetKind(manifestEntry);
+    const hosts =
+      assetKind === "mcp-server"
+        ? (["shared"] satisfies HostTarget[])
+        : source.hosts;
+    const compatibilityMode: CompatibilityMode =
+      assetKind === "mcp-server" ? "native" : "adaptable";
+    const capabilities = collectManifestCapabilities(manifestEntry);
 
     return {
       id: buildCatalogId(source.id, manifestEntry),
@@ -1124,7 +1339,7 @@ async function harvestLocalManifestSource(
         sourcePriority: source.priority,
         originUrl,
         publisher: source.publisher?.name ?? source.id,
-        publisherVerified: source.publisher?.verified ?? false
+        publisherVerified: source.publisher?.verified ?? false,
       },
       trust: {
         score: computeTrustScore({
@@ -1133,7 +1348,7 @@ async function harvestLocalManifestSource(
           sourcePriority: source.priority,
           publisherVerified: source.publisher?.verified ?? false,
           compatibilityMode,
-          installMethod: "manifest-entry"
+          installMethod: "manifest-entry",
         }),
         signals: buildTrustSignals({
           authorityTier: source.authorityTier,
@@ -1141,14 +1356,14 @@ async function harvestLocalManifestSource(
           sourcePriority: source.priority,
           publisherVerified: source.publisher?.verified ?? false,
           compatibilityMode,
-          installMethod: "manifest-entry"
-        })
+          installMethod: "manifest-entry",
+        }),
       },
       capabilities,
       install: {
         method: "manifest-entry",
         adaptableHosts: hosts,
-        manifestEntry
+        manifestEntry,
       },
       evidence: {
         manifestFound: true,
@@ -1157,84 +1372,98 @@ async function harvestLocalManifestSource(
         docsLinked: false,
         lineCount: 1,
         filePath: toPosixPath(filePath),
-        rootPath: toPosixPath(dirname(filePath))
+        rootPath: toPosixPath(dirname(filePath)),
       },
       maintenance: {
         lastUpdated: updatedAt,
         stars: 0,
-        releaseCadence: "local-curated"
+        releaseCadence: "local-curated",
       },
       risk: {
         level: "low",
         hasHooks: false,
         hasExecScripts: false,
-        requiresNetwork: false
+        requiresNetwork: false,
       },
       contextCost: {
         sizeClass: "tiny",
-        estimatedPromptWeight: 1
+        estimatedPromptWeight: 1,
       },
       fit: {
         portfolioFit: computePortfolioFit(capabilities, demandProfile),
-        hostFit: computeHostFit(hosts, compatibilityMode)
+        hostFit: computeHostFit(hosts, compatibilityMode),
       },
       dedupe: {
         duplicateGroup: findDuplicateGroup(capabilities, selectionRegistry),
-        candidateRankHint: buildCandidateRankHint(source.authorityTier)
+        candidateRankHint: buildCandidateRankHint(source.authorityTier),
       },
-      status: buildAssetStatus(source)
-    }
-  })
+      status: buildAssetStatus(source),
+    };
+  });
 }
 
 async function harvestLocalDirectorySource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<AssetCatalogEntry[]> {
-  const rootPath = resolveEndpointPath(source.endpoints.path, projectRoot)
+  const rootPath = resolveEndpointPath(source.endpoints.path, projectRoot);
 
   if (!(await pathExists(rootPath))) {
-    return []
+    return [];
   }
 
-  const files = await listFilesRecursive(rootPath)
-  const entries: AssetCatalogEntry[] = []
+  const files = await listFilesRecursive(rootPath);
+  const entries: AssetCatalogEntry[] = [];
   const antigravityManifestEntries =
     source.id === "local-antigravity-skills"
       ? await loadAntigravityManifestEntrySet(projectRoot)
-      : null
+      : null;
 
   for (const filePath of files) {
-    const relativePath = toRelativePosixPath(rootPath, filePath)
-    const classification = classifyLocalDirectoryFile(source, relativePath)
+    const relativePath = toRelativePosixPath(rootPath, filePath);
+    const classification = classifyLocalDirectoryFile(source, relativePath);
 
     if (!classification) {
-      continue
+      continue;
     }
 
     if (source.id === "local-antigravity-skills") {
-      const antigravitySkillKey = toAntigravityManifestEntry(relativePath)
-      if (!antigravitySkillKey || !antigravityManifestEntries?.has(antigravitySkillKey)) {
-        continue
+      const antigravitySkillKey = toAntigravityManifestEntry(relativePath);
+      if (
+        !antigravitySkillKey ||
+        !antigravityManifestEntries?.has(antigravitySkillKey)
+      ) {
+        continue;
       }
     }
 
-    const content = await readTextFileOrNull(filePath)
+    const content = await readTextFileOrNull(filePath);
     if (content === null) {
-      continue
+      continue;
     }
 
-    const fileStat = await stat(filePath)
-    const metadata = extractMarkdownMetadata(content)
-    const capabilities = collectDirectoryCapabilities(relativePath, metadata)
-    const risk = await determineRisk(source, classification.assetKind, filePath, content)
-    const sourceId = source.id === "local-antigravity-skills" ? "local-antigravity-manifest" : source.id
+    const fileStat = await stat(filePath);
+    const metadata = extractMarkdownMetadata(content);
+    const capabilities = collectDirectoryCapabilities(relativePath, metadata);
+    const risk = await determineRisk(
+      source,
+      classification.assetKind,
+      filePath,
+      content,
+    );
+    const sourceId =
+      source.id === "local-antigravity-skills"
+        ? "local-antigravity-manifest"
+        : source.id;
 
     entries.push({
       id: buildCatalogId(sourceId, relativePath),
-      displayName: getFirstStringField(metadata.fields.name) ?? metadata.heading ?? humanizeSlug(lastPathSegment(relativePath)),
+      displayName:
+        getFirstStringField(metadata.fields.name) ??
+        metadata.heading ??
+        humanizeSlug(lastPathSegment(relativePath)),
       assetKind: classification.assetKind,
       hosts: classification.hosts,
       compatibilityMode: classification.compatibilityMode,
@@ -1245,7 +1474,7 @@ async function harvestLocalDirectorySource(
         sourcePriority: source.priority,
         originUrl: pathToFileURL(filePath).toString(),
         publisher: source.publisher?.name ?? source.id,
-        publisherVerified: source.publisher?.verified ?? false
+        publisherVerified: source.publisher?.verified ?? false,
       },
       trust: {
         score: computeTrustScore({
@@ -1254,7 +1483,7 @@ async function harvestLocalDirectorySource(
           sourcePriority: source.priority,
           publisherVerified: source.publisher?.verified ?? false,
           compatibilityMode: classification.compatibilityMode,
-          installMethod: "local-file"
+          installMethod: "local-file",
         }),
         signals: buildTrustSignals({
           authorityTier: source.authorityTier,
@@ -1262,16 +1491,22 @@ async function harvestLocalDirectorySource(
           sourcePriority: source.priority,
           publisherVerified: source.publisher?.verified ?? false,
           compatibilityMode: classification.compatibilityMode,
-          installMethod: "local-file"
-        })
+          installMethod: "local-file",
+        }),
       },
       capabilities,
       install: {
         method: "local-file",
-        nativeHosts: classification.compatibilityMode === "native" ? classification.hosts : undefined,
-        adaptableHosts: classification.compatibilityMode === "adaptable" ? classification.hosts : undefined,
+        nativeHosts:
+          classification.compatibilityMode === "native"
+            ? classification.hosts
+            : undefined,
+        adaptableHosts:
+          classification.compatibilityMode === "adaptable"
+            ? classification.hosts
+            : undefined,
         relativePath,
-        dependencies: metadata.dependencies
+        dependencies: metadata.dependencies,
       },
       evidence: {
         manifestFound: true,
@@ -1282,60 +1517,67 @@ async function harvestLocalDirectorySource(
         lineCount: metadata.lineCount,
         dependencies: metadata.dependencies,
         filePath: toPosixPath(filePath),
-        rootPath: toPosixPath(rootPath)
+        rootPath: toPosixPath(rootPath),
       },
       maintenance: {
         lastUpdated: fileStat.mtime.toISOString(),
         stars: 0,
-        releaseCadence: "local"
+        releaseCadence: "local",
       },
       risk,
       contextCost: classifyContextCost(metadata.lineCount),
       fit: {
         portfolioFit: computePortfolioFit(capabilities, demandProfile),
-        hostFit: computeHostFit(classification.hosts, classification.compatibilityMode)
+        hostFit: computeHostFit(
+          classification.hosts,
+          classification.compatibilityMode,
+        ),
       },
       dedupe: {
         duplicateGroup: findDuplicateGroup(capabilities, selectionRegistry),
-        candidateRankHint: buildCandidateRankHint(source.authorityTier)
+        candidateRankHint: buildCandidateRankHint(source.authorityTier),
       },
-      status: buildAssetStatus(source)
-    })
+      status: buildAssetStatus(source),
+    });
   }
 
-  return entries
+  return entries;
 }
 
-async function loadAntigravityManifestEntrySet(projectRoot: string): Promise<Set<string>> {
+async function loadAntigravityManifestEntrySet(
+  projectRoot: string,
+): Promise<Set<string>> {
   const antigravityManifestPath = resolveEndpointPath(
     "C:/Users/ar271/.agents/skills/.antigravity-install-manifest.json",
-    projectRoot
-  )
-  const manifest = await readJsonFileOrNull<LocalManifestShape>(antigravityManifestPath)
+    projectRoot,
+  );
+  const manifest = await readJsonFileOrNull<LocalManifestShape>(
+    antigravityManifestPath,
+  );
 
-  return new Set((manifest?.entries ?? []).map((entry) => entry.toLowerCase()))
+  return new Set((manifest?.entries ?? []).map((entry) => entry.toLowerCase()));
 }
 
 function classifyManifestEntryAssetKind(manifestEntry: string): AssetKind {
-  const normalizedEntry = manifestEntry.toLowerCase()
+  const normalizedEntry = manifestEntry.toLowerCase();
 
   if (normalizedEntry.includes("mcp")) {
-    return "mcp-server"
+    return "mcp-server";
   }
 
   if (normalizedEntry.includes("plugin")) {
-    return "plugin"
+    return "plugin";
   }
 
   if (normalizedEntry.includes("agent")) {
-    return "agent"
+    return "agent";
   }
 
-  return "skill"
+  return "skill";
 }
 
 function collectManifestCapabilities(manifestEntry: string): string[] {
-  return uniqueStrings(splitIntoKeywords(manifestEntry))
+  return uniqueStrings(splitIntoKeywords(manifestEntry));
 }
 
 function buildGitHubCatalogEntry(
@@ -1343,19 +1585,22 @@ function buildGitHubCatalogEntry(
   source: SourceDefinition,
   relativePath: string,
   demandProfile: DemandProfile | null,
-  selectionRegistry: SelectionRegistry
+  selectionRegistry: SelectionRegistry,
 ): AssetCatalogEntry | null {
-  const classification = classifyGitHubTreePath(relativePath, source)
+  const classification = classifyGitHubTreePath(relativePath, source);
 
   if (!classification) {
-    return null
+    return null;
   }
 
-  const capabilities = collectGitHubCapabilities(relativePath, snapshot)
-  const hosts = classification.assetKind === "mcp-server" ? (["shared"] satisfies HostTarget[]) : classification.hosts
-  const contextCost = { sizeClass: "tiny", estimatedPromptWeight: 1 } as const
-  const risk = buildGitHubRisk(classification.assetKind)
-  const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`
+  const capabilities = collectGitHubCapabilities(relativePath, snapshot);
+  const hosts =
+    classification.assetKind === "mcp-server"
+      ? (["shared"] satisfies HostTarget[])
+      : classification.hosts;
+  const contextCost = { sizeClass: "tiny", estimatedPromptWeight: 1 } as const;
+  const risk = buildGitHubRisk(classification.assetKind);
+  const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
 
   return {
     id: buildCatalogId(source.id, relativePath),
@@ -1370,7 +1615,7 @@ function buildGitHubCatalogEntry(
       sourcePriority: source.priority,
       originUrl: githubFileUrl,
       publisher: source.publisher?.name ?? source.id,
-      publisherVerified: source.publisher?.verified ?? false
+      publisherVerified: source.publisher?.verified ?? false,
     },
     trust: {
       score: computeTrustScore({
@@ -1379,7 +1624,7 @@ function buildGitHubCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode: classification.compatibilityMode,
-        installMethod: "github-tree-metadata"
+        installMethod: "github-tree-metadata",
       }),
       signals: buildTrustSignals({
         authorityTier: source.authorityTier,
@@ -1387,15 +1632,17 @@ function buildGitHubCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode: classification.compatibilityMode,
-        installMethod: "github-tree-metadata"
-      })
+        installMethod: "github-tree-metadata",
+      }),
     },
     capabilities,
     install: {
       method: "github-tree-metadata",
-      nativeHosts: classification.compatibilityMode === "native" ? hosts : undefined,
-      adaptableHosts: classification.compatibilityMode === "adaptable" ? hosts : undefined,
-      relativePath
+      nativeHosts:
+        classification.compatibilityMode === "native" ? hosts : undefined,
+      adaptableHosts:
+        classification.compatibilityMode === "adaptable" ? hosts : undefined,
+      relativePath,
     },
     evidence: {
       manifestFound: true,
@@ -1403,109 +1650,131 @@ function buildGitHubCatalogEntry(
       examplesFound: false,
       docsLinked: true,
       filePath: relativePath,
-      rootPath: snapshot.repoSummary.htmlUrl
+      rootPath: snapshot.repoSummary.htmlUrl,
     },
     maintenance: {
       lastUpdated: snapshot.repoSummary.updatedAt ?? snapshot.fetchedAt,
       stars: snapshot.repoSummary.stars,
-      releaseCadence: snapshot.repoSummary.archived ? "archived" : "active"
+      releaseCadence: snapshot.repoSummary.archived ? "archived" : "active",
     },
     risk,
     contextCost,
     fit: {
       portfolioFit: computePortfolioFit(capabilities, demandProfile),
-      hostFit: computeHostFit(hosts, classification.compatibilityMode)
+      hostFit: computeHostFit(hosts, classification.compatibilityMode),
     },
     dedupe: {
       duplicateGroup: findDuplicateGroup(capabilities, selectionRegistry),
-      candidateRankHint: buildCandidateRankHint(source.authorityTier)
+      candidateRankHint: buildCandidateRankHint(source.authorityTier),
     },
-    status: buildAssetStatus(source)
-  }
+    status: buildAssetStatus(source),
+  };
 }
 
 function classifyGitHubTreePath(
   relativePath: string,
-  source: SourceDefinition
+  source: SourceDefinition,
 ): {
-  assetKind: AssetKind
-  compatibilityMode: CompatibilityMode
-  hosts: HostTarget[]
+  assetKind: AssetKind;
+  compatibilityMode: CompatibilityMode;
+  hosts: HostTarget[];
 } | null {
-  const normalizedPath = relativePath.toLowerCase()
-  const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined
-  const adaptableHosts = source.hosts.length > 1 ? source.hosts : source.hosts
+  const normalizedPath = relativePath.toLowerCase();
+  const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
+  const adaptableHosts = source.hosts.length > 1 ? source.hosts : source.hosts;
 
-  if (normalizedPath.endsWith("/skill.md") || normalizedPath.endsWith("/skill.md")) {
+  if (
+    normalizedPath.endsWith("/skill.md") ||
+    normalizedPath.endsWith("/skill.md")
+  ) {
     return {
       assetKind: "skill",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
-  if (/(^|\/)(agents?|subagents)(\/|$)/u.test(normalizedPath) && normalizedPath.endsWith(".md")) {
+  if (
+    /(^|\/)(agents?|subagents)(\/|$)/u.test(normalizedPath) &&
+    normalizedPath.endsWith(".md")
+  ) {
     return {
       assetKind: "agent",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
   if (
     normalizedPath.endsWith("copilot-instructions.md") ||
-    (/(^|\/)(instructions?)(\/|$)/u.test(normalizedPath) && normalizedPath.endsWith(".md"))
+    (/(^|\/)(instructions?)(\/|$)/u.test(normalizedPath) &&
+      normalizedPath.endsWith(".md"))
   ) {
     return {
       assetKind: "instruction",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
-  if (/(^|\/)(workflows?)(\/|$)/u.test(normalizedPath) && /\.(md|ya?ml|json)$/u.test(normalizedPath)) {
+  if (
+    /(^|\/)(workflows?)(\/|$)/u.test(normalizedPath) &&
+    /\.(md|ya?ml|json)$/u.test(normalizedPath)
+  ) {
     return {
       assetKind: "workflow",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
-  if (/(^|\/)(hooks?)(\/|$)/u.test(normalizedPath) && /\.(md|sh|js|ts|ya?ml|json)$/u.test(normalizedPath)) {
+  if (
+    /(^|\/)(hooks?)(\/|$)/u.test(normalizedPath) &&
+    /\.(md|sh|js|ts|ya?ml|json)$/u.test(normalizedPath)
+  ) {
     return {
       assetKind: "hook",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
-  if (/(^|\/)(plugins?)(\/|$)/u.test(normalizedPath) && /\.(md|sh|js|ts|json)$/u.test(normalizedPath)) {
+  if (
+    /(^|\/)(plugins?)(\/|$)/u.test(normalizedPath) &&
+    /\.(md|sh|js|ts|json)$/u.test(normalizedPath)
+  ) {
     return {
       assetKind: "plugin",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
-      hosts: nativeHosts ?? adaptableHosts
-    }
+      hosts: nativeHosts ?? adaptableHosts,
+    };
   }
 
-  if (/mcp/u.test(normalizedPath) && /\.(md|json|js|ts|ya?ml)$/u.test(normalizedPath)) {
+  if (
+    /mcp/u.test(normalizedPath) &&
+    /\.(md|json|js|ts|ya?ml)$/u.test(normalizedPath)
+  ) {
     return {
       assetKind: "mcp-server",
       compatibilityMode: "native",
-      hosts: ["shared"]
-    }
+      hosts: ["shared"],
+    };
   }
 
-  return null
+  return null;
 }
 
-function collectGitHubCapabilities(relativePath: string, snapshot: GitHubRepoSnapshot): string[] {
+function collectGitHubCapabilities(
+  relativePath: string,
+  snapshot: GitHubRepoSnapshot,
+): string[] {
   return uniqueStrings([
     ...snapshot.repoSummary.topics,
     ...(snapshot.repoSummary.language ? [snapshot.repoSummary.language] : []),
     ...splitIntoKeywords(snapshot.repoSummary.fullName),
     ...splitIntoKeywords(snapshot.repoSummary.description ?? ""),
-    ...splitIntoKeywords(relativePath)
-  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token))
+    ...splitIntoKeywords(relativePath),
+  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
 }
 
 function buildGitHubRisk(assetKind: AssetKind): AssetRisk {
@@ -1514,80 +1783,102 @@ function buildGitHubRisk(assetKind: AssetKind): AssetRisk {
       level: "medium",
       hasHooks: assetKind === "hook",
       hasExecScripts: true,
-      requiresNetwork: false
-    }
+      requiresNetwork: false,
+    };
   }
 
   return {
     level: "low",
     hasHooks: false,
     hasExecScripts: false,
-    requiresNetwork: false
-  }
+    requiresNetwork: false,
+  };
 }
 
 function classifyLocalDirectoryFile(
   source: SourceDefinition,
-  relativePath: string
+  relativePath: string,
 ): ClassifiedLocalFile | null {
   if (source.id === "local-antigravity-skills") {
     if (!/^.+\/SKILL\.md$/iu.test(relativePath)) {
-      return null
+      return null;
     }
 
     return {
       assetKind: "skill",
       compatibilityMode: "adaptable",
-      hosts: source.hosts
-    }
+      hosts: source.hosts,
+    };
   }
 
   if (source.id === "local-opencode-config") {
     if (/^skills\/[^/]+\/SKILL\.md$/iu.test(relativePath)) {
-      return { assetKind: "skill", compatibilityMode: "native", hosts: source.hosts }
+      return {
+        assetKind: "skill",
+        compatibilityMode: "native",
+        hosts: source.hosts,
+      };
     }
 
     if (/^agent\/.+\.md$/iu.test(relativePath)) {
-      return { assetKind: "agent", compatibilityMode: "native", hosts: source.hosts }
+      return {
+        assetKind: "agent",
+        compatibilityMode: "native",
+        hosts: source.hosts,
+      };
     }
 
     if (/^plugin\/.+\.(ts|js|mts|cts)$/iu.test(relativePath)) {
-      return { assetKind: "plugin", compatibilityMode: "native", hosts: source.hosts }
+      return {
+        assetKind: "plugin",
+        compatibilityMode: "native",
+        hosts: source.hosts,
+      };
     }
 
-    return null
+    return null;
   }
 
   if (source.id === "local-opencode-context") {
     if (!relativePath.endsWith(".md")) {
-      return null
+      return null;
     }
 
     if (/\/workflows\//iu.test(`/${relativePath}`)) {
-      return { assetKind: "workflow", compatibilityMode: "native", hosts: source.hosts }
+      return {
+        assetKind: "workflow",
+        compatibilityMode: "native",
+        hosts: source.hosts,
+      };
     }
 
-    return { assetKind: "reference-pack", compatibilityMode: "native", hosts: source.hosts }
+    return {
+      assetKind: "reference-pack",
+      compatibilityMode: "native",
+      hosts: source.hosts,
+    };
   }
 
-  return null
+  return null;
 }
 
 function toAntigravityManifestEntry(relativePath: string): string | null {
   if (!relativePath.endsWith("/SKILL.md")) {
-    return null
+    return null;
   }
 
-  return relativePath.replace(/\/SKILL\.md$/u, "").toLowerCase()
+  return relativePath.replace(/\/SKILL\.md$/u, "").toLowerCase();
 }
 
 function extractMarkdownMetadata(content: string): ParsedMarkdownMetadata {
-  const { fields, body } = parseFrontmatter(content)
-  const heading = extractHeading(body)
-  const description = getFirstStringField(fields.description) ?? extractDescriptionFromBody(body, heading)
-  const tags = getStringArrayField(fields.tags)
-  const dependencies = getStringArrayField(fields.dependencies)
-  const lineCount = content.split(/\r?\n/u).length
+  const { fields, body } = parseFrontmatter(content);
+  const heading = extractHeading(body);
+  const description =
+    getFirstStringField(fields.description) ??
+    extractDescriptionFromBody(body, heading);
+  const tags = getStringArrayField(fields.tags);
+  const dependencies = getStringArrayField(fields.dependencies);
+  const lineCount = content.split(/\r?\n/u).length;
 
   return {
     fields,
@@ -1596,133 +1887,148 @@ function extractMarkdownMetadata(content: string): ParsedMarkdownMetadata {
     tags,
     dependencies,
     lineCount,
-    body
-  }
+    body,
+  };
 }
 
 function parseFrontmatter(content: string): {
-  fields: Record<string, string | string[]>
-  body: string
+  fields: Record<string, string | string[]>;
+  body: string;
 } {
   if (!content.startsWith("---")) {
-    return { fields: {}, body: content }
+    return { fields: {}, body: content };
   }
 
-  const lines = content.split(/\r?\n/u)
+  const lines = content.split(/\r?\n/u);
   if (lines[0]?.trim() !== "---") {
-    return { fields: {}, body: content }
+    return { fields: {}, body: content };
   }
 
-  const supportedKeys = new Set(["name", "description", "tags", "dependencies", "mode", "compatibility"])
-  const fields: Record<string, string | string[]> = {}
-  let currentArrayKey: string | null = null
-  let bodyStartIndex = 1
+  const supportedKeys = new Set([
+    "name",
+    "description",
+    "tags",
+    "dependencies",
+    "mode",
+    "compatibility",
+  ]);
+  const fields: Record<string, string | string[]> = {};
+  let currentArrayKey: string | null = null;
+  let bodyStartIndex = 1;
 
   for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? ""
-    const trimmedLine = line.trim()
+    const line = lines[index] ?? "";
+    const trimmedLine = line.trim();
 
     if (trimmedLine === "---") {
-      bodyStartIndex = index + 1
-      break
+      bodyStartIndex = index + 1;
+      break;
     }
 
     if (trimmedLine.length === 0) {
-      continue
+      continue;
     }
 
-    const topLevelMatch = line === trimmedLine ? /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/u.exec(trimmedLine) : null
+    const topLevelMatch =
+      line === trimmedLine
+        ? /^([A-Za-z][A-Za-z0-9_-]*):\s*(.*)$/u.exec(trimmedLine)
+        : null;
     if (topLevelMatch) {
-      const [, key, rawValue] = topLevelMatch
+      const [, key, rawValue] = topLevelMatch;
       if (!supportedKeys.has(key)) {
-        currentArrayKey = null
-        continue
+        currentArrayKey = null;
+        continue;
       }
 
       if (rawValue.length === 0) {
-        fields[key] = []
-        currentArrayKey = key
-        continue
+        fields[key] = [];
+        currentArrayKey = key;
+        continue;
       }
 
-      fields[key] = parseFrontmatterValue(rawValue)
-      currentArrayKey = Array.isArray(fields[key]) ? key : null
-      continue
+      fields[key] = parseFrontmatterValue(rawValue);
+      currentArrayKey = Array.isArray(fields[key]) ? key : null;
+      continue;
     }
 
     if (currentArrayKey && /^-\s+/u.test(trimmedLine)) {
-      const currentValue = fields[currentArrayKey]
-      const items = Array.isArray(currentValue) ? currentValue : []
-      items.push(stripWrappingQuotes(trimmedLine.replace(/^-\s+/u, "")))
-      fields[currentArrayKey] = items
-      continue
+      const currentValue = fields[currentArrayKey];
+      const items = Array.isArray(currentValue) ? currentValue : [];
+      items.push(stripWrappingQuotes(trimmedLine.replace(/^-\s+/u, "")));
+      fields[currentArrayKey] = items;
+      continue;
     }
 
-    currentArrayKey = null
+    currentArrayKey = null;
   }
 
   return {
     fields,
-    body: lines.slice(bodyStartIndex).join("\n")
-  }
+    body: lines.slice(bodyStartIndex).join("\n"),
+  };
 }
 
 function parseFrontmatterValue(value: string): string | string[] {
-  const trimmedValue = value.trim()
+  const trimmedValue = value.trim();
 
   if (trimmedValue.startsWith("[") && trimmedValue.endsWith("]")) {
     return trimmedValue
       .slice(1, -1)
       .split(",")
       .map((item) => stripWrappingQuotes(item.trim()))
-      .filter((item) => item.length > 0)
+      .filter((item) => item.length > 0);
   }
 
-  return stripWrappingQuotes(trimmedValue)
+  return stripWrappingQuotes(trimmedValue);
 }
 
 function stripWrappingQuotes(value: string): string {
-  return value.replace(/^['"]|['"]$/gu, "")
+  return value.replace(/^['"]|['"]$/gu, "");
 }
 
-function getFirstStringField(value: string | string[] | undefined): string | null {
+function getFirstStringField(
+  value: string | string[] | undefined,
+): string | null {
   if (typeof value === "string" && value.length > 0) {
-    return value
+    return value;
   }
 
-  return null
+  return null;
 }
 
 function getStringArrayField(value: string | string[] | undefined): string[] {
   if (Array.isArray(value)) {
-    return value.filter((item) => item.length > 0)
+    return value.filter((item) => item.length > 0);
   }
 
   if (typeof value === "string" && value.length > 0) {
-    return [value]
+    return [value];
   }
 
-  return []
+  return [];
 }
 
 function extractHeading(body: string): string | null {
-  const lines = body.split(/\r?\n/u)
+  const lines = body.split(/\r?\n/u);
 
   for (const line of lines) {
-    const match = /^#\s+(.+)$/u.exec(line.trim())
+    const match = /^#\s+(.+)$/u.exec(line.trim());
     if (match) {
-      return match[1].trim()
+      return match[1].trim();
     }
   }
 
-  return null
+  return null;
 }
 
-function extractDescriptionFromBody(body: string, heading: string | null): string | null {
-  const lines = body.split(/\r?\n/u)
+function extractDescriptionFromBody(
+  body: string,
+  heading: string | null,
+): string | null {
+  const lines = body.split(/\r?\n/u);
 
   for (const line of lines) {
-    const trimmedLine = line.trim()
+    const trimmedLine = line.trim();
     if (
       trimmedLine.length === 0 ||
       trimmedLine === heading ||
@@ -1730,72 +2036,85 @@ function extractDescriptionFromBody(body: string, heading: string | null): strin
       trimmedLine.startsWith("<!--") ||
       trimmedLine.startsWith("**")
     ) {
-      continue
+      continue;
     }
 
-    return trimmedLine
+    return trimmedLine;
   }
 
-  return null
+  return null;
 }
 
-function collectDirectoryCapabilities(relativePath: string, metadata: ParsedMarkdownMetadata): string[] {
-  const pathTokens = splitIntoKeywords(relativePath)
-  const headingTokens = metadata.heading ? splitIntoKeywords(metadata.heading) : []
-  const descriptionTokens = metadata.description ? splitIntoKeywords(metadata.description) : []
+function collectDirectoryCapabilities(
+  relativePath: string,
+  metadata: ParsedMarkdownMetadata,
+): string[] {
+  const pathTokens = splitIntoKeywords(relativePath);
+  const headingTokens = metadata.heading
+    ? splitIntoKeywords(metadata.heading)
+    : [];
+  const descriptionTokens = metadata.description
+    ? splitIntoKeywords(metadata.description)
+    : [];
 
   return uniqueStrings([
     ...metadata.tags,
     ...pathTokens,
     ...headingTokens,
-    ...descriptionTokens
-  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token))
+    ...descriptionTokens,
+  ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
 }
 
 async function determineRisk(
   source: SourceDefinition,
   assetKind: AssetKind,
   filePath: string,
-  content: string
+  content: string,
 ): Promise<AssetRisk> {
   if (assetKind === "plugin") {
-    const hasHooks = /\bevent\s*\(/u.test(content)
-    const hasExecScripts = /await\s+\$`|\bspawn\(|\bexec\(/u.test(content)
-    const requiresNetwork = /fetch\(|https?:\/\//iu.test(content)
-    return buildRisk(hasHooks, hasExecScripts, requiresNetwork)
+    const hasHooks = /\bevent\s*\(/u.test(content);
+    const hasExecScripts = /await\s+\$`|\bspawn\(|\bexec\(/u.test(content);
+    const requiresNetwork = /fetch\(|https?:\/\//iu.test(content);
+    return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
   }
 
   if (assetKind === "skill") {
-    const routerExists = await pathExists(join(dirname(filePath), "router.sh"))
-    const scriptsDirectoryExists = await pathExists(join(dirname(filePath), "scripts"))
-    const hasHooks = /\bhooks?\s*:/iu.test(content)
-    const hasExecScripts = routerExists || scriptsDirectoryExists
-    const requiresNetwork = /fetch\(|https?:\/\//iu.test(content)
-    return buildRisk(hasHooks, hasExecScripts, requiresNetwork)
+    const routerExists = await pathExists(join(dirname(filePath), "router.sh"));
+    const scriptsDirectoryExists = await pathExists(
+      join(dirname(filePath), "scripts"),
+    );
+    const hasHooks = /\bhooks?\s*:/iu.test(content);
+    const hasExecScripts = routerExists || scriptsDirectoryExists;
+    const requiresNetwork = /fetch\(|https?:\/\//iu.test(content);
+    return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
   }
 
   if (assetKind === "agent") {
-    const hasHooks = false
-    const hasExecScripts = false
-    const requiresNetwork = false
-    return buildRisk(hasHooks, hasExecScripts, requiresNetwork)
+    const hasHooks = false;
+    const hasExecScripts = false;
+    const requiresNetwork = false;
+    return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
   }
 
   if (source.id === "local-opencode-context") {
-    return buildRisk(false, false, false)
+    return buildRisk(false, false, false);
   }
 
-  return buildRisk(false, false, false)
+  return buildRisk(false, false, false);
 }
 
-function buildRisk(hasHooks: boolean, hasExecScripts: boolean, requiresNetwork: boolean): AssetRisk {
+function buildRisk(
+  hasHooks: boolean,
+  hasExecScripts: boolean,
+  requiresNetwork: boolean,
+): AssetRisk {
   if ((hasHooks && hasExecScripts) || (hasExecScripts && requiresNetwork)) {
     return {
       level: "high",
       hasHooks,
       hasExecScripts,
-      requiresNetwork
-    }
+      requiresNetwork,
+    };
   }
 
   if (hasHooks || hasExecScripts || requiresNetwork) {
@@ -1803,129 +2122,151 @@ function buildRisk(hasHooks: boolean, hasExecScripts: boolean, requiresNetwork: 
       level: "medium",
       hasHooks,
       hasExecScripts,
-      requiresNetwork
-    }
+      requiresNetwork,
+    };
   }
 
   return {
     level: "low",
     hasHooks,
     hasExecScripts,
-    requiresNetwork
-  }
+    requiresNetwork,
+  };
 }
 
 function classifyContextCost(lineCount: number): AssetContextCost {
   if (lineCount <= 40) {
-    return { sizeClass: "tiny", estimatedPromptWeight: 1 }
+    return { sizeClass: "tiny", estimatedPromptWeight: 1 };
   }
 
   if (lineCount <= 160) {
-    return { sizeClass: "small", estimatedPromptWeight: 2 }
+    return { sizeClass: "small", estimatedPromptWeight: 2 };
   }
 
   if (lineCount <= 400) {
-    return { sizeClass: "medium", estimatedPromptWeight: 4 }
+    return { sizeClass: "medium", estimatedPromptWeight: 4 };
   }
 
-  return { sizeClass: "large", estimatedPromptWeight: 8 }
+  return { sizeClass: "large", estimatedPromptWeight: 8 };
 }
 
-function computePortfolioFit(capabilities: string[], demandProfile: DemandProfile | null): number {
+function computePortfolioFit(
+  capabilities: string[],
+  demandProfile: DemandProfile | null,
+): number {
   if (!demandProfile) {
-    return 0
+    return 0;
   }
 
-  const demandTerms = new Set<string>([
-    ...demandProfile.signals.languages,
-    ...demandProfile.signals.packageManagers,
-    ...demandProfile.signals.frameworks,
-    ...demandProfile.signals.concerns,
-    ...demandProfile.signals.tooling
-  ].flatMap((value) => splitIntoKeywords(value)))
+  const demandTerms = new Set<string>(
+    [
+      ...demandProfile.signals.languages,
+      ...demandProfile.signals.packageManagers,
+      ...demandProfile.signals.frameworks,
+      ...demandProfile.signals.concerns,
+      ...demandProfile.signals.tooling,
+    ].flatMap((value) => splitIntoKeywords(value)),
+  );
 
   if (demandTerms.size === 0) {
-    return 0
+    return 0;
   }
 
-  const capabilityTerms = new Set<string>(capabilities.flatMap((value) => splitIntoKeywords(value)))
-  let matchCount = 0
+  const capabilityTerms = new Set<string>(
+    capabilities.flatMap((value) => splitIntoKeywords(value)),
+  );
+  let matchCount = 0;
 
   for (const demandTerm of demandTerms) {
     if (capabilityTerms.has(demandTerm)) {
-      matchCount += 1
+      matchCount += 1;
     }
   }
 
   if (matchCount === 0) {
-    return 0
+    return 0;
   }
 
-  return Number(Math.min(1, matchCount / 3).toFixed(2))
+  return Number(Math.min(1, matchCount / 3).toFixed(2));
 }
 
-function computeHostFit(hosts: HostTarget[], compatibilityMode: CompatibilityMode): number {
+function computeHostFit(
+  hosts: HostTarget[],
+  compatibilityMode: CompatibilityMode,
+): number {
   if (compatibilityMode === "native") {
-    return hosts.length > 1 ? 1 : 0.95
+    return hosts.length > 1 ? 1 : 0.95;
   }
 
   if (compatibilityMode === "adaptable") {
-    return 0.7
+    return 0.7;
   }
 
   if (compatibilityMode === "partial") {
-    return 0.45
+    return 0.45;
   }
 
   if (compatibilityMode === "reference-only") {
-    return 0.2
+    return 0.2;
   }
 
-  return 0
+  return 0;
 }
 
-function findDuplicateGroup(capabilities: string[], selectionRegistry: SelectionRegistry): string | undefined {
-  const capabilitySet = new Set(capabilities.flatMap((capability) => splitIntoKeywords(capability)))
+function findDuplicateGroup(
+  capabilities: string[],
+  selectionRegistry: SelectionRegistry,
+): string | undefined {
+  const capabilitySet = new Set(
+    capabilities.flatMap((capability) => splitIntoKeywords(capability)),
+  );
 
   for (const duplicateGroup of selectionRegistry.duplicateGroups) {
-    const duplicateTokens = splitIntoKeywords(duplicateGroup.capability)
+    const duplicateTokens = splitIntoKeywords(duplicateGroup.capability);
     if (duplicateTokens.every((token) => capabilitySet.has(token))) {
-      return duplicateGroup.id
+      return duplicateGroup.id;
     }
   }
 
-  return undefined
+  return undefined;
 }
 
 function buildCandidateRankHint(authorityTier: string): string {
-  if (authorityTier === "official-first-party" || authorityTier === "official-marketplace") {
-    return "preferred-official"
+  if (
+    authorityTier === "official-first-party" ||
+    authorityTier === "official-marketplace"
+  ) {
+    return "preferred-official";
   }
 
   if (authorityTier === "trusted-local") {
-    return "preferred-local"
+    return "preferred-local";
   }
 
   if (authorityTier === "trusted-community") {
-    return "candidate-community"
+    return "candidate-community";
   }
 
-  return "candidate-catalog"
+  return "candidate-catalog";
 }
 
 function mergeRemoteCatalogEntries(
   existingEntries: AssetCatalogEntry[],
   newEntries: AssetCatalogEntry[],
-  refreshedSourceIds: Set<string>
+  refreshedSourceIds: Set<string>,
 ): AssetCatalogEntry[] {
-  const retainedEntries = existingEntries.filter((entry) => !refreshedSourceIds.has(entry.source.sourceId))
-  const byId = new Map<string, AssetCatalogEntry>(retainedEntries.map((entry) => [entry.id, entry]))
+  const retainedEntries = existingEntries.filter(
+    (entry) => !refreshedSourceIds.has(entry.source.sourceId),
+  );
+  const byId = new Map<string, AssetCatalogEntry>(
+    retainedEntries.map((entry) => [entry.id, entry]),
+  );
 
   for (const entry of newEntries) {
-    byId.set(entry.id, entry)
+    byId.set(entry.id, entry);
   }
 
-  return [...byId.values()].sort(compareAssetCatalogEntries)
+  return [...byId.values()].sort(compareAssetCatalogEntries);
 }
 
 function buildAssetStatus(source: SourceDefinition): AssetStatus {
@@ -1933,103 +2274,123 @@ function buildAssetStatus(source: SourceDefinition): AssetStatus {
     cataloged: true,
     mirrorEligible: source.rules.allowMirror,
     installEligible: false,
-    activationEligible: false
-  }
+    activationEligible: false,
+  };
 }
 
-function groupCatalogEntriesForSelection(catalogEntries: AssetCatalogEntry[]): Map<string, AssetCatalogEntry[]> {
-  const groupedEntries = new Map<string, AssetCatalogEntry[]>()
+function groupCatalogEntriesForSelection(
+  catalogEntries: AssetCatalogEntry[],
+): Map<string, AssetCatalogEntry[]> {
+  const groupedEntries = new Map<string, AssetCatalogEntry[]>();
 
   for (const entry of catalogEntries) {
-    const groupKey = entry.dedupe.duplicateGroup ?? entry.id
-    const existingEntries = groupedEntries.get(groupKey) ?? []
-    existingEntries.push(entry)
-    groupedEntries.set(groupKey, existingEntries)
+    const groupKey = entry.dedupe.duplicateGroup ?? entry.id;
+    const existingEntries = groupedEntries.get(groupKey) ?? [];
+    existingEntries.push(entry);
+    groupedEntries.set(groupKey, existingEntries);
   }
 
-  return groupedEntries
+  return groupedEntries;
 }
 
 function compareSelectionCandidates(
   left: AssetCatalogEntry,
   right: AssetCatalogEntry,
-  selectionRegistry: SelectionRegistry
+  selectionRegistry: SelectionRegistry,
 ): number {
   const canonicalSourceDifference = compareNumberDescending(
     getCanonicalSourceRank(left.install.method),
-    getCanonicalSourceRank(right.install.method)
-  )
+    getCanonicalSourceRank(right.install.method),
+  );
   if (canonicalSourceDifference !== 0) {
-    return canonicalSourceDifference
+    return canonicalSourceDifference;
   }
 
-  const authorityDifference = compareNumberDescending(getAuthorityRank(left.source.authorityTier), getAuthorityRank(right.source.authorityTier))
+  const authorityDifference = compareNumberDescending(
+    getAuthorityRank(left.source.authorityTier),
+    getAuthorityRank(right.source.authorityTier),
+  );
   if (authorityDifference !== 0) {
-    return authorityDifference
+    return authorityDifference;
   }
 
   const compatibilityDifference = compareNumberDescending(
     getCompatibilityRank(left.compatibilityMode),
-    getCompatibilityRank(right.compatibilityMode)
-  )
+    getCompatibilityRank(right.compatibilityMode),
+  );
   if (compatibilityDifference !== 0) {
-    return compatibilityDifference
+    return compatibilityDifference;
   }
 
-  const portfolioFitDifference = compareNumberDescending(left.fit.portfolioFit, right.fit.portfolioFit)
+  const portfolioFitDifference = compareNumberDescending(
+    left.fit.portfolioFit,
+    right.fit.portfolioFit,
+  );
   if (portfolioFitDifference !== 0) {
-    return portfolioFitDifference
+    return portfolioFitDifference;
   }
 
-  const riskDifference = compareNumberAscending(getRiskRank(left.risk.level), getRiskRank(right.risk.level))
+  const riskDifference = compareNumberAscending(
+    getRiskRank(left.risk.level),
+    getRiskRank(right.risk.level),
+  );
   if (riskDifference !== 0) {
-    return riskDifference
+    return riskDifference;
   }
 
   const contextCostDifference = compareNumberAscending(
     getContextSizeRank(left.contextCost.sizeClass),
-    getContextSizeRank(right.contextCost.sizeClass)
-  )
+    getContextSizeRank(right.contextCost.sizeClass),
+  );
   if (contextCostDifference !== 0) {
-    return contextCostDifference
+    return contextCostDifference;
   }
 
-  const maintenanceDifference = compareStringDescending(left.maintenance.lastUpdated, right.maintenance.lastUpdated)
+  const maintenanceDifference = compareStringDescending(
+    left.maintenance.lastUpdated,
+    right.maintenance.lastUpdated,
+  );
   if (maintenanceDifference !== 0) {
-    return maintenanceDifference
+    return maintenanceDifference;
   }
 
   if (selectionRegistry.selectionPolicies.starsAreTieBreakerOnly) {
-    const starsDifference = compareNumberDescending(left.maintenance.stars, right.maintenance.stars)
+    const starsDifference = compareNumberDescending(
+      left.maintenance.stars,
+      right.maintenance.stars,
+    );
     if (starsDifference !== 0) {
-      return starsDifference
+      return starsDifference;
     }
   }
 
-  return left.id.localeCompare(right.id)
+  return left.id.localeCompare(right.id);
 }
 
-function buildSelectionReason(selectedEntry: AssetCatalogEntry, selectionRegistry: SelectionRegistry): string {
-  const duplicateGroupId = selectedEntry.dedupe.duplicateGroup
+function buildSelectionReason(
+  selectedEntry: AssetCatalogEntry,
+  selectionRegistry: SelectionRegistry,
+): string {
+  const duplicateGroupId = selectedEntry.dedupe.duplicateGroup;
 
   if (duplicateGroupId) {
     const configuredDuplicateGroup = selectionRegistry.duplicateGroups.find(
-      (duplicateGroup) => duplicateGroup.id === duplicateGroupId
-    )
+      (duplicateGroup) => duplicateGroup.id === duplicateGroupId,
+    );
     if (configuredDuplicateGroup) {
-      return configuredDuplicateGroup.selectionReason
+      return configuredDuplicateGroup.selectionReason;
     }
   }
 
   if (selectedEntry.source.authorityTier.startsWith("official")) {
-    return "Selected because official sources outrank lower-authority alternatives regardless of popularity."
+    return "Selected because official sources outrank lower-authority alternatives regardless of popularity.";
   }
 
   if (selectedEntry.source.authorityTier === "trusted-local") {
-    return "Selected because the local curated source outranked lower-trust alternatives after official-preference checks."
+    return "Selected because the local curated source outranked lower-trust alternatives after official-preference checks.";
   }
 
-  return "Selected by compatibility, portfolio fit, risk, and context-cost ordering."
+  return "Selected by compatibility, portfolio fit, risk, and context-cost ordering.";
 }
 
 function getAuthorityRank(authorityTier: string): number {
@@ -2039,10 +2400,10 @@ function getAuthorityRank(authorityTier: string): number {
     "official-compatible": 4,
     "trusted-local": 3,
     "trusted-community": 2,
-    "unverified-community": 1
-  }
+    "unverified-community": 1,
+  };
 
-  return authorityRanks[authorityTier] ?? 0
+  return authorityRanks[authorityTier] ?? 0;
 }
 
 function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
@@ -2051,20 +2412,20 @@ function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
     adaptable: 4,
     partial: 3,
     "reference-only": 2,
-    incompatible: 1
-  }
+    incompatible: 1,
+  };
 
-  return compatibilityRanks[compatibilityMode]
+  return compatibilityRanks[compatibilityMode];
 }
 
 function getRiskRank(riskLevel: AssetRisk["level"]): number {
   const riskRanks: Record<AssetRisk["level"], number> = {
     low: 1,
     medium: 2,
-    high: 3
-  }
+    high: 3,
+  };
 
-  return riskRanks[riskLevel]
+  return riskRanks[riskLevel];
 }
 
 function getContextSizeRank(sizeClass: AssetContextCost["sizeClass"]): number {
@@ -2072,111 +2433,121 @@ function getContextSizeRank(sizeClass: AssetContextCost["sizeClass"]): number {
     tiny: 1,
     small: 2,
     medium: 3,
-    large: 4
-  }
+    large: 4,
+  };
 
-  return sizeRanks[sizeClass]
+  return sizeRanks[sizeClass];
 }
 
 function computeTrustScore(input: {
-  authorityTier: string
-  sourceKind: string
-  sourcePriority: number
-  publisherVerified: boolean
-  compatibilityMode: CompatibilityMode
-  installMethod: string
+  authorityTier: string;
+  sourceKind: string;
+  sourcePriority: number;
+  publisherVerified: boolean;
+  compatibilityMode: CompatibilityMode;
+  installMethod: string;
 }): number {
-  const baseAuthorityScore = getAuthorityRank(input.authorityTier) * 10
-  const sourcePriorityScore = Math.min(20, Math.round(input.sourcePriority / 5))
-  const verificationScore = input.publisherVerified ? 10 : 0
-  const compatibilityScore = getCompatibilityRank(input.compatibilityMode) * 4
-  const installMethodScore = input.installMethod === "local-file"
-    ? 10
-    : input.installMethod === "github-tree-metadata"
-      ? 8
-      : input.installMethod === "official-index-entry"
-        ? 6
-        : 4
+  const baseAuthorityScore = getAuthorityRank(input.authorityTier) * 10;
+  const sourcePriorityScore = Math.min(
+    20,
+    Math.round(input.sourcePriority / 5),
+  );
+  const verificationScore = input.publisherVerified ? 10 : 0;
+  const compatibilityScore = getCompatibilityRank(input.compatibilityMode) * 4;
+  const installMethodScore =
+    input.installMethod === "local-file"
+      ? 10
+      : input.installMethod === "github-tree-metadata"
+        ? 8
+        : input.installMethod === "official-index-entry"
+          ? 6
+          : 4;
 
-  return baseAuthorityScore + sourcePriorityScore + verificationScore + compatibilityScore + installMethodScore
+  return (
+    baseAuthorityScore +
+    sourcePriorityScore +
+    verificationScore +
+    compatibilityScore +
+    installMethodScore
+  );
 }
 
 function buildTrustSignals(input: {
-  authorityTier: string
-  sourceKind: string
-  sourcePriority: number
-  publisherVerified: boolean
-  compatibilityMode: CompatibilityMode
-  installMethod: string
+  authorityTier: string;
+  sourceKind: string;
+  sourcePriority: number;
+  publisherVerified: boolean;
+  compatibilityMode: CompatibilityMode;
+  installMethod: string;
 }): string[] {
   const signals = [
     `authority:${input.authorityTier}`,
     `source-kind:${input.sourceKind}`,
     `source-priority:${input.sourcePriority}`,
     `compatibility:${input.compatibilityMode}`,
-    `install-method:${input.installMethod}`
-  ]
+    `install-method:${input.installMethod}`,
+  ];
 
   if (input.publisherVerified) {
-    signals.push("publisher-verified")
+    signals.push("publisher-verified");
   }
 
-  return signals
+  return signals;
 }
 
 function enhanceTrustForEntry(entry: AssetCatalogEntry): AssetCatalogEntry {
-  let adjustedTrustScore = entry.trust.score
-  const adjustedTrustSignals = [...entry.trust.signals]
+  let adjustedTrustScore = entry.trust.score;
+  const adjustedTrustSignals = [...entry.trust.signals];
 
   if (entry.maintenance.stars >= 1000) {
-    adjustedTrustScore += 10
-    adjustedTrustSignals.push("stars:1000+")
+    adjustedTrustScore += 10;
+    adjustedTrustSignals.push("stars:1000+");
   } else if (entry.maintenance.stars >= 100) {
-    adjustedTrustScore += 8
-    adjustedTrustSignals.push("stars:100+")
+    adjustedTrustScore += 8;
+    adjustedTrustSignals.push("stars:100+");
   } else if (entry.maintenance.stars >= 10) {
-    adjustedTrustScore += 4
-    adjustedTrustSignals.push("stars:10+")
+    adjustedTrustScore += 4;
+    adjustedTrustSignals.push("stars:10+");
   }
 
   if (entry.maintenance.releaseCadence === "active") {
-    adjustedTrustScore += 5
-    adjustedTrustSignals.push("maintenance:active")
+    adjustedTrustScore += 5;
+    adjustedTrustSignals.push("maintenance:active");
   }
 
   if (entry.maintenance.releaseCadence === "archived") {
-    adjustedTrustScore -= 12
-    adjustedTrustSignals.push("maintenance:archived")
+    adjustedTrustScore -= 12;
+    adjustedTrustSignals.push("maintenance:archived");
   }
 
   if (entry.evidence.readmeFound) {
-    adjustedTrustScore += 4
-    adjustedTrustSignals.push("readme-present")
+    adjustedTrustScore += 4;
+    adjustedTrustSignals.push("readme-present");
   }
 
   if (entry.evidence.docsLinked) {
-    adjustedTrustScore += 4
-    adjustedTrustSignals.push("docs-linked")
+    adjustedTrustScore += 4;
+    adjustedTrustSignals.push("docs-linked");
   }
 
   if (entry.evidence.frontmatterFound) {
-    adjustedTrustScore += 2
-    adjustedTrustSignals.push("frontmatter-present")
+    adjustedTrustScore += 2;
+    adjustedTrustSignals.push("frontmatter-present");
   }
 
   if ((entry.evidence.dependencies?.length ?? 0) > 0) {
-    adjustedTrustScore += 2
-    adjustedTrustSignals.push("dependencies-declared")
+    adjustedTrustScore += 2;
+    adjustedTrustSignals.push("dependencies-declared");
   }
 
   if (entry.risk.level === "medium") {
-    adjustedTrustScore -= 5
-    adjustedTrustSignals.push("risk:medium")
+    adjustedTrustScore -= 5;
+    adjustedTrustSignals.push("risk:medium");
   }
 
   if (entry.risk.level === "high") {
-    adjustedTrustScore -= 15
-    adjustedTrustSignals.push("risk:high")
+    adjustedTrustScore -= 15;
+    adjustedTrustSignals.push("risk:high");
   }
 
   if (
@@ -2184,59 +2555,63 @@ function enhanceTrustForEntry(entry: AssetCatalogEntry): AssetCatalogEntry {
     entry.maintenance.stars === 0 &&
     !entry.evidence.readmeFound
   ) {
-    adjustedTrustScore -= 8
-    adjustedTrustSignals.push("community:low-evidence")
+    adjustedTrustScore -= 8;
+    adjustedTrustSignals.push("community:low-evidence");
   }
 
   return {
     ...entry,
     trust: {
       score: adjustedTrustScore,
-      signals: adjustedTrustSignals
-    }
-  }
+      signals: adjustedTrustSignals,
+    },
+  };
 }
 
 function getCanonicalSourceRank(installMethod: string): number {
   const canonicalSourceRanks: Record<string, number> = {
     "local-file": 4,
     "github-tree-metadata": 3,
-    "manifest-entry": 2
-  }
+    "manifest-entry": 2,
+  };
 
-  return canonicalSourceRanks[installMethod] ?? 1
+  return canonicalSourceRanks[installMethod] ?? 1;
 }
 
 function compareNumberDescending(left: number, right: number): number {
-  return right - left
+  return right - left;
 }
 
 function compareNumberAscending(left: number, right: number): number {
-  return left - right
+  return left - right;
 }
 
 function compareStringDescending(left: string, right: string): number {
-  return right.localeCompare(left)
+  return right.localeCompare(left);
 }
 
-function resolveEndpointPath(endpointValue: string | undefined, projectRoot: string): string {
+function resolveEndpointPath(
+  endpointValue: string | undefined,
+  projectRoot: string,
+): string {
   if (!endpointValue) {
-    return projectRoot
+    return projectRoot;
   }
 
-  return isAbsolute(endpointValue) ? endpointValue : join(projectRoot, endpointValue)
+  return isAbsolute(endpointValue)
+    ? endpointValue
+    : join(projectRoot, endpointValue);
 }
 
 function buildCatalogId(sourceId: string, assetPath: string): string {
-  return `${sourceId}:${encodeCatalogPath(assetPath)}`
+  return `${sourceId}:${encodeCatalogPath(assetPath)}`;
 }
 
-function compareAssetCatalogEntries(left: AssetCatalogEntry, right: AssetCatalogEntry): number {
-  return left.id.localeCompare(right.id)
-}
-
-function normalizeIdentifier(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "")
+function compareAssetCatalogEntries(
+  left: AssetCatalogEntry,
+  right: AssetCatalogEntry,
+): number {
+  return left.id.localeCompare(right.id);
 }
 
 function encodeCatalogPath(assetPath: string): string {
@@ -2245,7 +2620,7 @@ function encodeCatalogPath(assetPath: string): string {
     .split("/")
     .filter((segment) => segment.length > 0)
     .map((segment) => segment.toLowerCase().replace(/[^a-z0-9-]+/gu, "-"))
-    .join("__")
+    .join("__");
 }
 
 function splitIntoKeywords(value: string): string[] {
@@ -2254,28 +2629,33 @@ function splitIntoKeywords(value: string): string[] {
     .replace(/\.md$/u, "")
     .replace(/\.(ts|js|mts|cts)$/u, "")
     .split(/[^a-z0-9]+/u)
-    .filter((token) => token.length > 1)
+    .filter((token) => token.length > 1);
 }
 
 function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values)]
+  return [...new Set(values)];
 }
 
-function getOptionValue(args: string[], optionName: string): string | undefined {
-  const optionIndex = args.indexOf(optionName)
+function getOptionValue(
+  args: string[],
+  optionName: string,
+): string | undefined {
+  const optionIndex = args.indexOf(optionName);
 
   if (optionIndex === -1) {
-    return undefined
+    return undefined;
   }
 
-  return args[optionIndex + 1]
+  return args[optionIndex + 1];
 }
 
 function lastPathSegment(value: string): string {
-  const normalizedValue = value.replace(/\/+/gu, "/")
-  const segments = normalizedValue.split("/").filter((segment) => segment.length > 0)
-  const lastSegment = segments[segments.length - 1] ?? value
-  return lastSegment.replace(/\.(md|ts|js|mts|cts)$/u, "")
+  const normalizedValue = value.replace(/\/+/gu, "/");
+  const segments = normalizedValue
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  const lastSegment = segments[segments.length - 1] ?? value;
+  return lastSegment.replace(/\.(md|ts|js|mts|cts)$/u, "");
 }
 
 function humanizeSlug(value: string): string {
@@ -2283,7 +2663,7 @@ function humanizeSlug(value: string): string {
     .split(/[-_/]+/u)
     .filter((segment) => segment.length > 0)
     .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
-    .join(" ")
+    .join(" ");
 }
 
 const GENERIC_CAPABILITY_TOKENS = new Set([
@@ -2298,20 +2678,28 @@ const GENERIC_CAPABILITY_TOKENS = new Set([
   "plugins",
   "skill",
   "skills",
-  "subagents"
-])
+  "subagents",
+]);
 
 function shouldInspectFile(fileName: string, filePath: string): boolean {
-  if (fileName.endsWith(".csproj") || fileName.endsWith(".tf") || fileName.endsWith(".tfvars")) {
-    return true
+  if (
+    fileName.endsWith(".csproj") ||
+    fileName.endsWith(".tf") ||
+    fileName.endsWith(".tfvars")
+  ) {
+    return true;
   }
 
-  if (fileName.startsWith("playwright.config.") || fileName.startsWith("vitest.config.") || fileName.startsWith("jest.config.")) {
-    return true
+  if (
+    fileName.startsWith("playwright.config.") ||
+    fileName.startsWith("vitest.config.") ||
+    fileName.startsWith("jest.config.")
+  ) {
+    return true;
   }
 
   if (/openapi|swagger/iu.test(fileName)) {
-    return true
+    return true;
   }
 
   const inspectableNames = new Set([
@@ -2333,334 +2721,392 @@ function shouldInspectFile(fileName: string, filePath: string): boolean {
     "Dockerfile",
     "docker-compose.yml",
     "docker-compose.yaml",
-    "deno.json"
-  ])
+    "deno.json",
+  ]);
 
   if (inspectableNames.has(fileName)) {
-    return true
+    return true;
   }
 
-  return /docker-compose\./iu.test(filePath)
+  return /docker-compose\./iu.test(filePath);
 }
 
 function isActorJsonFile(fileName: string, filePath: string): boolean {
-  return /^actor\.json$/iu.test(fileName) || APIFY_ACTOR_JSON_PATH_PATTERN.test(filePath)
+  return (
+    /^actor\.json$/iu.test(fileName) ||
+    APIFY_ACTOR_JSON_PATH_PATTERN.test(filePath)
+  );
 }
 
-function collectStaticSignals(fileName: string, filePath: string): DemandSignalSet {
-  const matchedSignals = createEmptySignalSet()
+function collectStaticSignals(
+  fileName: string,
+  filePath: string,
+): DemandSignalSet {
+  const matchedSignals = createEmptySignalSet();
 
   if (fileName === "package.json") {
-    addSignals(matchedSignals.languages, ["javascript"])
-    addSignals(matchedSignals.packageManagers, ["npm"])
+    addSignals(matchedSignals.languages, ["javascript"]);
+    addSignals(matchedSignals.packageManagers, ["npm"]);
   }
 
   if (fileName === "package-lock.json") {
-    addSignals(matchedSignals.packageManagers, ["npm"])
+    addSignals(matchedSignals.packageManagers, ["npm"]);
   }
 
   if (fileName === "pnpm-lock.yaml") {
-    addSignals(matchedSignals.packageManagers, ["pnpm"])
+    addSignals(matchedSignals.packageManagers, ["pnpm"]);
   }
 
   if (fileName === "yarn.lock") {
-    addSignals(matchedSignals.packageManagers, ["yarn"])
+    addSignals(matchedSignals.packageManagers, ["yarn"]);
   }
 
   if (fileName === "tsconfig.json") {
-    addSignals(matchedSignals.languages, ["typescript"])
-    addSignals(matchedSignals.tooling, ["typescript"])
+    addSignals(matchedSignals.languages, ["typescript"]);
+    addSignals(matchedSignals.tooling, ["typescript"]);
   }
 
   if (fileName === "pyproject.toml" || fileName === "requirements.txt") {
-    addSignals(matchedSignals.languages, ["python"])
-    addSignals(matchedSignals.packageManagers, ["pip"])
+    addSignals(matchedSignals.languages, ["python"]);
+    addSignals(matchedSignals.packageManagers, ["pip"]);
   }
 
   if (fileName === "Cargo.toml") {
-    addSignals(matchedSignals.languages, ["rust"])
-    addSignals(matchedSignals.packageManagers, ["cargo"])
+    addSignals(matchedSignals.languages, ["rust"]);
+    addSignals(matchedSignals.packageManagers, ["cargo"]);
   }
 
   if (fileName === "go.mod") {
-    addSignals(matchedSignals.languages, ["go"])
-    addSignals(matchedSignals.packageManagers, ["go-modules"])
+    addSignals(matchedSignals.languages, ["go"]);
+    addSignals(matchedSignals.packageManagers, ["go-modules"]);
   }
 
-  if (fileName === "pom.xml" || fileName === "build.gradle" || fileName === "build.gradle.kts") {
-    addSignals(matchedSignals.languages, ["java"])
-    addSignals(matchedSignals.packageManagers, ["maven-gradle"])
+  if (
+    fileName === "pom.xml" ||
+    fileName === "build.gradle" ||
+    fileName === "build.gradle.kts"
+  ) {
+    addSignals(matchedSignals.languages, ["java"]);
+    addSignals(matchedSignals.packageManagers, ["maven-gradle"]);
   }
 
   if (fileName.endsWith(".csproj")) {
-    addSignals(matchedSignals.languages, ["csharp"])
-    addSignals(matchedSignals.packageManagers, ["nuget"])
+    addSignals(matchedSignals.languages, ["csharp"]);
+    addSignals(matchedSignals.packageManagers, ["nuget"]);
   }
 
   if (fileName === "Gemfile") {
-    addSignals(matchedSignals.languages, ["ruby"])
-    addSignals(matchedSignals.packageManagers, ["bundler"])
+    addSignals(matchedSignals.languages, ["ruby"]);
+    addSignals(matchedSignals.packageManagers, ["bundler"]);
   }
 
   if (fileName === "composer.json") {
-    addSignals(matchedSignals.languages, ["php"])
-    addSignals(matchedSignals.packageManagers, ["composer"])
+    addSignals(matchedSignals.languages, ["php"]);
+    addSignals(matchedSignals.packageManagers, ["composer"]);
   }
 
   if (fileName === "Package.swift") {
-    addSignals(matchedSignals.languages, ["swift"])
-    addSignals(matchedSignals.packageManagers, ["swiftpm"])
+    addSignals(matchedSignals.languages, ["swift"]);
+    addSignals(matchedSignals.packageManagers, ["swiftpm"]);
   }
 
   if (fileName === "deno.json") {
-    addSignals(matchedSignals.languages, ["typescript"])
-    addSignals(matchedSignals.tooling, ["deno"])
+    addSignals(matchedSignals.languages, ["typescript"]);
+    addSignals(matchedSignals.tooling, ["deno"]);
   }
 
-  if (fileName === "Dockerfile" || fileName === "docker-compose.yml" || fileName === "docker-compose.yaml" || fileName.startsWith("docker-compose.")) {
-    addSignals(matchedSignals.concerns, ["containerization", "infrastructure"])
-    addSignals(matchedSignals.tooling, ["docker"])
+  if (
+    fileName === "Dockerfile" ||
+    fileName === "docker-compose.yml" ||
+    fileName === "docker-compose.yaml" ||
+    fileName.startsWith("docker-compose.")
+  ) {
+    addSignals(matchedSignals.concerns, ["containerization", "infrastructure"]);
+    addSignals(matchedSignals.tooling, ["docker"]);
   }
 
   if (fileName.endsWith(".tf") || fileName.endsWith(".tfvars")) {
-    addSignals(matchedSignals.concerns, ["terraform", "infrastructure"])
-    addSignals(matchedSignals.tooling, ["terraform"])
+    addSignals(matchedSignals.concerns, ["terraform", "infrastructure"]);
+    addSignals(matchedSignals.tooling, ["terraform"]);
   }
 
   if (fileName.startsWith("playwright.config.")) {
-    addSignals(matchedSignals.concerns, ["e2e-testing", "testing"])
-    addSignals(matchedSignals.tooling, ["playwright"])
+    addSignals(matchedSignals.concerns, ["e2e-testing", "testing"]);
+    addSignals(matchedSignals.tooling, ["playwright"]);
   }
 
-  if (fileName.startsWith("vitest.config.") || fileName.startsWith("jest.config.")) {
-    addSignals(matchedSignals.concerns, ["testing"])
-    addSignals(matchedSignals.tooling, [fileName.startsWith("vitest") ? "vitest" : "jest"])
+  if (
+    fileName.startsWith("vitest.config.") ||
+    fileName.startsWith("jest.config.")
+  ) {
+    addSignals(matchedSignals.concerns, ["testing"]);
+    addSignals(matchedSignals.tooling, [
+      fileName.startsWith("vitest") ? "vitest" : "jest",
+    ]);
   }
 
   if (/openapi|swagger/iu.test(fileName)) {
-    addSignals(matchedSignals.concerns, ["api-design", "openapi"])
-    addSignals(matchedSignals.tooling, ["openapi"])
+    addSignals(matchedSignals.concerns, ["api-design", "openapi"]);
+    addSignals(matchedSignals.tooling, ["openapi"]);
   }
 
-  if (/\.actor[\/]/iu.test(filePath) || /^actor\.json$/iu.test(fileName) || /input_schema\.json$/iu.test(fileName)) {
-    addSignals(matchedSignals.frameworks, ["apify"])
-    addSignals(matchedSignals.concerns, ["actor-development", "automation", "web-scraping"])
-    addSignals(matchedSignals.tooling, ["actor"])
+  if (
+    /\.actor[/]/iu.test(filePath) ||
+    /^actor\.json$/iu.test(fileName) ||
+    /input_schema\.json$/iu.test(fileName)
+  ) {
+    addSignals(matchedSignals.frameworks, ["apify"]);
+    addSignals(matchedSignals.concerns, [
+      "actor-development",
+      "automation",
+      "web-scraping",
+    ]);
+    addSignals(matchedSignals.tooling, ["actor"]);
   }
 
-  return matchedSignals
+  return matchedSignals;
 }
 
-async function enrichPackageJsonSignals(filePath: string, matchedSignals: DemandSignalSet): Promise<void> {
-  const packageJson = await readJsonFileOrNull<PackageJsonShape>(filePath)
+async function enrichPackageJsonSignals(
+  filePath: string,
+  matchedSignals: DemandSignalSet,
+): Promise<void> {
+  const packageJson = await readJsonFileOrNull<PackageJsonShape>(filePath);
 
   if (!packageJson) {
-    return
+    return;
   }
 
   const dependencyNames = new Set<string>([
     ...Object.keys(packageJson.dependencies ?? {}),
-    ...Object.keys(packageJson.devDependencies ?? {})
-  ])
+    ...Object.keys(packageJson.devDependencies ?? {}),
+  ]);
   const packageTextSignals = [
     packageJson.name ?? "",
     packageJson.description ?? "",
     ...(packageJson.keywords ?? []),
-    typeof packageJson.author === "string" ? packageJson.author : packageJson.author?.name ?? ""
+    typeof packageJson.author === "string"
+      ? packageJson.author
+      : (packageJson.author?.name ?? ""),
   ]
     .join(" ")
-    .toLowerCase()
-  const hasExpress = hasDependency(dependencyNames, ["express"])
-  const hasFastify = hasDependency(dependencyNames, ["fastify"])
-  const hasNestJs = hasDependency(dependencyNames, ["@nestjs/core"])
-  const hasDuckDb = hasDependency(dependencyNames, ["@duckdb/node-api", "duckdb"])
+    .toLowerCase();
+  const hasExpress = hasDependency(dependencyNames, ["express"]);
+  const hasFastify = hasDependency(dependencyNames, ["fastify"]);
+  const hasNestJs = hasDependency(dependencyNames, ["@nestjs/core"]);
+  const hasDuckDb = hasDependency(dependencyNames, [
+    "@duckdb/node-api",
+    "duckdb",
+  ]);
 
   if (hasDependency(dependencyNames, ["typescript"])) {
-    addSignals(matchedSignals.languages, ["typescript"])
-    addSignals(matchedSignals.tooling, ["typescript"])
+    addSignals(matchedSignals.languages, ["typescript"]);
+    addSignals(matchedSignals.tooling, ["typescript"]);
   }
 
   if (packageJson.engines?.node) {
-    addSignals(matchedSignals.tooling, ["node"])
+    addSignals(matchedSignals.tooling, ["node"]);
   }
 
   if (hasDependency(dependencyNames, ["react"])) {
-    addSignals(matchedSignals.frameworks, ["react"])
-    addSignals(matchedSignals.concerns, ["frontend"])
+    addSignals(matchedSignals.frameworks, ["react"]);
+    addSignals(matchedSignals.concerns, ["frontend"]);
   }
 
   if (hasDependency(dependencyNames, ["next"])) {
-    addSignals(matchedSignals.frameworks, ["nextjs"])
-    addSignals(matchedSignals.concerns, ["frontend", "fullstack"])
+    addSignals(matchedSignals.frameworks, ["nextjs"]);
+    addSignals(matchedSignals.concerns, ["frontend", "fullstack"]);
   }
 
   if (hasDependency(dependencyNames, ["astro", "@astrojs/"])) {
-    addSignals(matchedSignals.frameworks, ["astro"])
-    addSignals(matchedSignals.concerns, ["frontend"])
+    addSignals(matchedSignals.frameworks, ["astro"]);
+    addSignals(matchedSignals.concerns, ["frontend"]);
   }
 
   if (hasDependency(dependencyNames, ["svelte", "@sveltejs/"])) {
-    addSignals(matchedSignals.frameworks, ["svelte"])
-    addSignals(matchedSignals.concerns, ["frontend"])
+    addSignals(matchedSignals.frameworks, ["svelte"]);
+    addSignals(matchedSignals.concerns, ["frontend"]);
   }
 
   if (hasDependency(dependencyNames, ["hono"])) {
-    addSignals(matchedSignals.frameworks, ["hono"])
-    addSignals(matchedSignals.concerns, ["backend", "api-design"])
+    addSignals(matchedSignals.frameworks, ["hono"]);
+    addSignals(matchedSignals.concerns, ["backend", "api-design"]);
   }
 
   if (hasExpress || hasFastify || hasNestJs) {
-    addSignals(matchedSignals.frameworks, ["node-backend"])
-    addSignals(matchedSignals.concerns, ["backend"])
-    addSignals(matchedSignals.tooling, ["node"])
+    addSignals(matchedSignals.frameworks, ["node-backend"]);
+    addSignals(matchedSignals.concerns, ["backend"]);
+    addSignals(matchedSignals.tooling, ["node"]);
   }
 
   if (hasExpress) {
-    addSignals(matchedSignals.frameworks, ["express"])
+    addSignals(matchedSignals.frameworks, ["express"]);
   }
 
   if (hasFastify) {
-    addSignals(matchedSignals.frameworks, ["fastify"])
+    addSignals(matchedSignals.frameworks, ["fastify"]);
   }
 
   if (hasNestJs) {
-    addSignals(matchedSignals.frameworks, ["nestjs"])
+    addSignals(matchedSignals.frameworks, ["nestjs"]);
   }
 
   if (hasDependency(dependencyNames, ["@playwright/test", "playwright"])) {
-    addSignals(matchedSignals.concerns, ["e2e-testing", "testing"])
-    addSignals(matchedSignals.tooling, ["playwright"])
+    addSignals(matchedSignals.concerns, ["e2e-testing", "testing"]);
+    addSignals(matchedSignals.tooling, ["playwright"]);
   }
 
   if (hasDependency(dependencyNames, ["vitest", "jest"])) {
-    addSignals(matchedSignals.concerns, ["testing"])
+    addSignals(matchedSignals.concerns, ["testing"]);
   }
 
-  if (hasDependency(dependencyNames, ["@modelcontextprotocol", "modelcontextprotocol"])) {
-    addSignals(matchedSignals.concerns, ["mcp"])
-    addSignals(matchedSignals.tooling, ["mcp"])
+  if (
+    hasDependency(dependencyNames, [
+      "@modelcontextprotocol",
+      "modelcontextprotocol",
+    ])
+  ) {
+    addSignals(matchedSignals.concerns, ["mcp"]);
+    addSignals(matchedSignals.tooling, ["mcp"]);
   }
 
   if (hasDependency(dependencyNames, ["@supabase/", "supabase"])) {
-    addSignals(matchedSignals.frameworks, ["supabase"])
-    addSignals(matchedSignals.concerns, ["backend", "database"])
+    addSignals(matchedSignals.frameworks, ["supabase"]);
+    addSignals(matchedSignals.concerns, ["backend", "database"]);
   }
 
   if (hasDuckDb || containsAnyText(packageTextSignals, ["duckdb"])) {
-    addSignals(matchedSignals.concerns, ["database", "analytics"])
-    addSignals(matchedSignals.tooling, ["duckdb"])
+    addSignals(matchedSignals.concerns, ["database", "analytics"]);
+    addSignals(matchedSignals.tooling, ["duckdb"]);
   }
 
-  if (hasDependency(dependencyNames, ["apify", "@apify/"]) || containsAnyText(packageTextSignals, ["apify", "actor", "webhook-debugger-logger"])) {
-    addSignals(matchedSignals.frameworks, ["apify"])
-    addSignals(matchedSignals.concerns, ["automation", "actor-development", "web-scraping"])
-    addSignals(matchedSignals.tooling, ["actor", "crawler"])
+  if (
+    hasDependency(dependencyNames, ["apify", "@apify/"]) ||
+    containsAnyText(packageTextSignals, [
+      "apify",
+      "actor",
+      "webhook-debugger-logger",
+    ])
+  ) {
+    addSignals(matchedSignals.frameworks, ["apify"]);
+    addSignals(matchedSignals.concerns, [
+      "automation",
+      "actor-development",
+      "web-scraping",
+    ]);
+    addSignals(matchedSignals.tooling, ["actor", "crawler"]);
   }
 
   if (containsAnyText(packageTextSignals, WEBHOOK_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["webhook", "integration"])
-    addSignals(matchedSignals.tooling, ["webhook"])
+    addSignals(matchedSignals.concerns, ["webhook", "integration"]);
+    addSignals(matchedSignals.tooling, ["webhook"]);
   }
 
   if (containsAnyText(packageTextSignals, REPLAY_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["replay"])
+    addSignals(matchedSignals.concerns, ["replay"]);
   }
 
   if (containsAnyText(packageTextSignals, MOCKING_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["mocking"])
+    addSignals(matchedSignals.concerns, ["mocking"]);
   }
 
   if (containsAnyText(packageTextSignals, LOGGING_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["logging", "debugging"])
+    addSignals(matchedSignals.concerns, ["logging", "debugging"]);
   }
 
   if (hasDependency(dependencyNames, ["drizzle-orm", "prisma"])) {
-    addSignals(matchedSignals.concerns, ["database"])
-    addSignals(matchedSignals.tooling, ["orm"])
+    addSignals(matchedSignals.concerns, ["database"]);
+    addSignals(matchedSignals.tooling, ["orm"]);
   }
 
   if (hasDependency(dependencyNames, ["openai", "anthropic", "genkit"])) {
-    addSignals(matchedSignals.concerns, ["ai"])
-    addSignals(matchedSignals.tooling, ["ai-sdk"])
+    addSignals(matchedSignals.concerns, ["ai"]);
+    addSignals(matchedSignals.tooling, ["ai-sdk"]);
   }
 }
 
-async function enrichActorJsonSignals(filePath: string, matchedSignals: DemandSignalSet): Promise<void> {
-  const actorJson = await readJsonFileOrNull<ActorJsonShape>(filePath)
+async function enrichActorJsonSignals(
+  filePath: string,
+  matchedSignals: DemandSignalSet,
+): Promise<void> {
+  const actorJson = await readJsonFileOrNull<ActorJsonShape>(filePath);
 
   if (!actorJson) {
-    return
+    return;
   }
 
   const actorTextSignals = [
     actorJson.title ?? "",
     actorJson.description ?? "",
-    ...(actorJson.categories ?? []).map((value) => value.replaceAll("_", " "))
+    ...(actorJson.categories ?? []).map((value) => value.replaceAll("_", " ")),
   ]
     .join(" ")
-    .toLowerCase()
+    .toLowerCase();
 
   if (actorJson.dockerfile) {
-    addSignals(matchedSignals.concerns, ["containerization"])
-    addSignals(matchedSignals.tooling, ["docker"])
+    addSignals(matchedSignals.concerns, ["containerization"]);
+    addSignals(matchedSignals.tooling, ["docker"]);
   }
 
   if (actorJson.webServerSchema) {
-    addSignals(matchedSignals.concerns, ["backend"])
+    addSignals(matchedSignals.concerns, ["backend"]);
   }
 
   if (containsAnyText(actorTextSignals, WEBHOOK_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["webhook", "integration"])
-    addSignals(matchedSignals.tooling, ["webhook"])
+    addSignals(matchedSignals.concerns, ["webhook", "integration"]);
+    addSignals(matchedSignals.tooling, ["webhook"]);
   }
 
   if (containsAnyText(actorTextSignals, REPLAY_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["replay"])
+    addSignals(matchedSignals.concerns, ["replay"]);
   }
 
   if (containsAnyText(actorTextSignals, MOCKING_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["mocking"])
+    addSignals(matchedSignals.concerns, ["mocking"]);
   }
 
   if (containsAnyText(actorTextSignals, LOGGING_TEXT_MARKERS)) {
-    addSignals(matchedSignals.concerns, ["logging", "debugging"])
+    addSignals(matchedSignals.concerns, ["logging", "debugging"]);
   }
 
   if (containsAnyText(actorTextSignals, ["integration"])) {
-    addSignals(matchedSignals.concerns, ["integration"])
+    addSignals(matchedSignals.concerns, ["integration"]);
   }
 }
 
-function hasDependency(dependencyNames: Set<string>, prefixes: string[]): boolean {
+function hasDependency(
+  dependencyNames: Set<string>,
+  prefixes: string[],
+): boolean {
   for (const dependencyName of dependencyNames) {
     for (const prefix of prefixes) {
       if (dependencyName === prefix || dependencyName.startsWith(prefix)) {
-        return true
+        return true;
       }
     }
   }
 
-  return false
+  return false;
 }
 
 function containsAnyText(haystack: string, needles: string[]): boolean {
-  return needles.some((needle) => haystack.includes(needle))
+  return needles.some((needle) => haystack.includes(needle));
 }
 
 function addSignals(target: string[], values: string[]): void {
   for (const value of values) {
     if (!target.includes(value)) {
-      target.push(value)
+      target.push(value);
     }
   }
 }
 
 function mergeSignals(target: DemandSignalSet, source: DemandSignalSet): void {
-  addSignals(target.languages, source.languages)
-  addSignals(target.packageManagers, source.packageManagers)
-  addSignals(target.frameworks, source.frameworks)
-  addSignals(target.concerns, source.concerns)
-  addSignals(target.tooling, source.tooling)
+  addSignals(target.languages, source.languages);
+  addSignals(target.packageManagers, source.packageManagers);
+  addSignals(target.frameworks, source.frameworks);
+  addSignals(target.concerns, source.concerns);
+  addSignals(target.tooling, source.tooling);
 }
 
 function sortSignalSet(signalSet: DemandSignalSet): DemandSignalSet {
@@ -2669,8 +3115,8 @@ function sortSignalSet(signalSet: DemandSignalSet): DemandSignalSet {
     packageManagers: [...signalSet.packageManagers].sort(),
     frameworks: [...signalSet.frameworks].sort(),
     concerns: [...signalSet.concerns].sort(),
-    tooling: [...signalSet.tooling].sort()
-  }
+    tooling: [...signalSet.tooling].sort(),
+  };
 }
 
 function createEmptySignalSet(): DemandSignalSet {
@@ -2679,8 +3125,8 @@ function createEmptySignalSet(): DemandSignalSet {
     packageManagers: [],
     frameworks: [],
     concerns: [],
-    tooling: []
-  }
+    tooling: [],
+  };
 }
 
 function hasAnySignals(signalSet: DemandSignalSet): boolean {
@@ -2689,49 +3135,57 @@ function hasAnySignals(signalSet: DemandSignalSet): boolean {
     signalSet.packageManagers,
     signalSet.frameworks,
     signalSet.concerns,
-    signalSet.tooling
-  ].some((values) => values.length > 0)
+    signalSet.tooling,
+  ].some((values) => values.length > 0);
 }
 
-function compareSourcesByPriority(left: SourceDefinition, right: SourceDefinition): number {
+function compareSourcesByPriority(
+  left: SourceDefinition,
+  right: SourceDefinition,
+): number {
   if (left.priority !== right.priority) {
-    return right.priority - left.priority
+    return right.priority - left.priority;
   }
 
-  return left.id.localeCompare(right.id)
+  return left.id.localeCompare(right.id);
 }
 
-function countBy<T>(items: T[], getKey: (item: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {}
+function countBy<T>(
+  items: T[],
+  getKey: (item: T) => string,
+): Record<string, number> {
+  const counts: Record<string, number> = {};
 
   for (const item of items) {
-    const key = getKey(item)
-    counts[key] = (counts[key] ?? 0) + 1
+    const key = getKey(item);
+    counts[key] = (counts[key] ?? 0) + 1;
   }
 
-  return counts
+  return counts;
 }
 
 function countHosts(sources: SourceDefinition[]): Record<string, number> {
-  const counts: Record<string, number> = {}
+  const counts: Record<string, number> = {};
 
   for (const source of sources) {
     for (const host of source.hosts) {
-      counts[host] = (counts[host] ?? 0) + 1
+      counts[host] = (counts[host] ?? 0) + 1;
     }
   }
 
-  return counts
+  return counts;
 }
 
-function countHostsForCatalog(entries: AssetCatalogEntry[]): Record<string, number> {
-  const counts: Record<string, number> = {}
+function countHostsForCatalog(
+  entries: AssetCatalogEntry[],
+): Record<string, number> {
+  const counts: Record<string, number> = {};
 
   for (const entry of entries) {
     for (const host of entry.hosts) {
-      counts[host] = (counts[host] ?? 0) + 1
+      counts[host] = (counts[host] ?? 0) + 1;
     }
   }
 
-  return counts
+  return counts;
 }

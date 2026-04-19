@@ -126,11 +126,16 @@ Activation outputs include:
 npm install
 ```
 
+`npm install` also wires the Husky Git hooks for this checkout. Pre-commit runs
+`lint-staged`, which fixes staged TypeScript files with ESLint and Prettier and
+formats staged JSON, Markdown, YAML, and `.mjs` files.
+
 ### Build
 
 ```bash
 npm run build
-npm run check
+npm run validate
+npm run validate:recommendations
 ```
 
 ### Run a full workspace pipeline
@@ -188,7 +193,12 @@ These wrappers currently execute the full pipeline for the target workspace:
 
 ```bash
 npm run build
-npm run check
+npm run typecheck
+npm run lint
+npm run format
+npm run format:check
+npm run validate
+npm run validate:recommendations
 ```
 
 ### Discover
@@ -199,7 +209,46 @@ npm run discover:sources
 npm run discover:catalog
 npm run discover:select
 npm run discover:stats
+npm run recommend:report
+npm run recommend:evaluate
 ```
+
+You can also inspect a specific recommendation decision directly:
+
+```bash
+node ./dist/cli.js recommend explain --host copilot-vscode --asset microsoft-skills-azure-identity-ts
+```
+
+You can also print the fully merged effective recommendation policy:
+
+```bash
+node ./dist/cli.js recommend policy:print --host shared
+```
+
+The CI quality workflow runs both `npm run validate` and
+`npm run validate:recommendations` so fixture-backed recommendation behavior
+stays pinned as the policy evolves.
+
+### Recommendation policy layout
+
+Recommendation scoring policy is authored as smaller files instead of one large
+JSON blob:
+
+- `discover/recommendation-policy/base.json`
+- `discover/recommendation-policy/hosts/copilot-vscode.json`
+- `discover/recommendation-policy/hosts/opencode.json`
+- `discover/recommendation-policy/hosts/shared.json`
+- `discover/schema/recommendation-policy-base.schema.json`
+- `discover/schema/recommendation-host-policy-override.schema.json`
+
+`base.json` holds scoring, keyword maps, and optional shared host defaults.
+Each host file holds only the host-specific policy override. `base.json` can
+also define optional reusable presets for `targetConcerns` and
+`targetAssetKinds`, and host files can reference them through `presetRefs`
+before applying local override entries. At runtime the loader composes these
+files into the same `RecommendationPolicy` shape used by the scorer. The
+recommender still accepts the legacy `discover/recommendation-policy.json`
+path as a fallback if only the old file exists.
 
 ### Mirror
 
@@ -234,7 +283,7 @@ npm run rebuild:full
 
 ## Host wire-in
 
-### VS Code / GitHub Copilot
+### VS Code / GitHub Copilot wire-in
 
 The project supports semi-automatic and automatic VS Code wire-in.
 
@@ -290,16 +339,17 @@ Workspace-local export:
 
 - `.github/copilot-instructions.md`
 
-### OpenCode
+### OpenCode wire-in
 
 The project supports semi-automatic project-local OpenCode wire-in.
 
 Supported behavior:
 
 - writes a project-local overlay under `.opencode/context/project-intelligence/agent-harness/`
-- updates a managed `AGENTS.md` section for the workspace
+- creates managed directory links under `.opencode/<asset-kind>/`
 - does **not** overwrite the global OpenAgentsControl-managed install
-- keeps the AGENTS.md change scoped to a managed begin/end section instead of replacing unrelated content
+- uses filesystem links instead of text-only workspace instructions
+- uses Windows directory junctions when running on Windows for compatibility
 
 Commands:
 
@@ -317,17 +367,15 @@ npm run wire:opencode
 
 ### Automatic wire-in through workspace wrappers
 
-The workspace wrappers run wire-in automatically after activation:
+The OpenCode wrappers run wire-in automatically after activation:
 
 ```bash
-agent-harness-vscode --intent frontend
 agent-harness-opencode --intent backend
 ```
 
 or:
 
 ```bash
-agent-harness workspace vscode --intent docs
 agent-harness workspace opencode --intent security
 ```
 
@@ -433,12 +481,50 @@ The governing rule is:
 Recommendations are based on live evidence such as:
 
 - current workspace stack signals
+- weighted evidence counts from matched files
 - host compatibility
 - source authority
 - trust score
 - risk
 - context cost
 - portfolio fit
+
+Recommendation ranking is now policy-driven from
+[`discover/recommendation-policy.json`](./discover/recommendation-policy.json).
+That policy controls:
+
+- scoring weights and penalties
+- per-host diversity caps
+- per-host source concentration controls
+- concern coverage targets
+- prompt-weight activation budgets
+- suppression rules for obviously irrelevant assets
+- host-level deprioritization rules for wrapper or reference assets that should stay available but rank below runnable integrations
+
+The engine persists a richer report in [`state/recommendations.json`](./state/recommendations.json),
+including:
+
+- per-asset score breakdowns
+- matched demand signals
+- source family and duplicate-group metadata
+- host summaries with concern and task-mode coverage
+- budget-aware suggested bundles
+
+Activation now consumes that report directly instead of applying a second
+asset-ID heuristic ranking layer.
+
+Golden fixture evaluation is available through:
+
+```bash
+npm run recommend:evaluate
+```
+
+That writes [`state/recommendation-evaluation.json`](./state/recommendation-evaluation.json)
+and checks three archetypes:
+
+- backend integration
+- frontend UI
+- infrastructure and security
 
 Trust scoring currently incorporates:
 

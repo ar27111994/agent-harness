@@ -1,139 +1,250 @@
-import { join } from "node:path"
+import { join } from "node:path";
 
-import { copyPath, ensureDirectory, listFilesRecursive, pathExists, readJsonFile, readJsonFileOrNull, removePath, toPosixPath, writeJsonFile } from "./files.js"
-import type { ActivationManifest, CopilotWorkspaceOverlayManifest, CopilotWorkspaceProfileManifest, InstallGenerationManifest, InstalledBundleManifest, InstalledPackageManifest, RecommendationReport } from "./types.js"
+import {
+  copyPath,
+  ensureDirectory,
+  pathExists,
+  readJsonFile,
+  readJsonFileOrNull,
+  removePath,
+  toPosixPath,
+  writeJsonFile,
+  writeJsonFileWithSnapshot,
+} from "./files.js";
+import {
+  assertActivationManifest,
+  assertCopilotWorkspaceProfileManifest,
+  assertInstallGenerationManifest,
+  assertInstalledBundleManifest,
+  assertInstalledPackageManifest,
+  assertRecommendationReport,
+} from "./manifest-validation.js";
+import type {
+  ActivationManifest,
+  CopilotWorkspaceOverlayManifest,
+  CopilotWorkspaceProfileManifest,
+  InstallGenerationManifest,
+  InstalledBundleManifest,
+  InstalledPackageManifest,
+  RecommendationEntry,
+  RecommendationReport,
+} from "./types.js";
 
-const HOST_TO_INTENT_TERMS: Record<"opencode" | "copilot-vscode" | "shared", string[]> = {
-  opencode: ["backend", "architecture", "workflow", "infrastructure", "security", "docker", "container", "database", "webhook", "apify", "duckdb"],
-  "copilot-vscode": ["instruction", "plugin", "hook", "agent", "workflow", "skill", "backend", "node", "nodejs", "express", "webhook", "integration", "docker", "container", "duckdb", "apify", "actor", "automation", "testing", "security", "developer-workflow", "docs"],
-  shared: ["mcp", "integration", "governance", "tooling"]
-}
+const ACTIVATION_MANIFEST_FILE = "activation-manifest.json";
+const ACTIVATION_PREVIOUS_MANIFEST_FILE = "activation-manifest.previous.json";
 
 export async function runActivate(
   args: string[],
   _workingDirectory: string,
-  projectRoot: string
+  projectRoot: string,
 ): Promise<number> {
-  const [command = "help", ...rest] = args
+  const [command = "help", ...rest] = args;
 
   switch (command) {
     case "host":
-      await activateHosts(projectRoot, rest)
-      return 0
+      await activateHosts(projectRoot, rest);
+      return 0;
+    case "diff":
+      await diffActivationState(projectRoot, rest);
+      return 0;
+    case "explain":
+      await explainActivationState(projectRoot, rest);
+      return 0;
     case "rollback":
-      await rollbackActivation(projectRoot, rest)
-      return 0
+      await rollbackActivation(projectRoot, rest);
+      return 0;
     case "reset":
-      await resetActivationState(projectRoot)
-      return 0
+      await resetActivationState(projectRoot);
+      return 0;
     case "help":
-      printActivateHelp()
-      return 0
+      printActivateHelp();
+      return 0;
     default:
-      printActivateHelp()
-      return 1
+      printActivateHelp();
+      return 1;
   }
 }
 
-async function activateHosts(projectRoot: string, args: string[] = []): Promise<void> {
-  const sessionIntent = getOptionValue(args, "--intent") ?? "general"
-  await activateHost(projectRoot, "opencode", ["opencode-global", "community-stable"], sessionIntent)
-  await activateHost(projectRoot, "copilot-vscode", ["copilot-core", "community-stable"], sessionIntent)
-  await activateHost(projectRoot, "shared", ["shared-mcp"], sessionIntent)
-  console.log(`Activation views written under ${toPosixPath(join(projectRoot, "activate"))}`)
-}
+async function activateHosts(
+  projectRoot: string,
+  args: string[] = [],
+): Promise<void> {
+  const sessionIntent = getOptionValue(args, "--intent") ?? "general";
+  const requestedHost = getOptionValue(args, "--host") as
+    | "opencode"
+    | "copilot-vscode"
+    | "shared"
+    | undefined;
+  const hosts: Array<"opencode" | "copilot-vscode" | "shared"> = requestedHost
+    ? [requestedHost]
+    : ["opencode", "copilot-vscode", "shared"];
 
-async function activateHostsFromInstalledState(projectRoot: string): Promise<void> {
-  await activateHost(projectRoot, "opencode", await discoverInstalledBundleIds(projectRoot, "opencode"), "general")
-  await activateHost(projectRoot, "copilot-vscode", await discoverInstalledBundleIds(projectRoot, "copilot-vscode"), "general")
-  await activateHost(projectRoot, "shared", await discoverInstalledBundleIds(projectRoot, "shared"), "general")
-  console.log(`Activation views written under ${toPosixPath(join(projectRoot, "activate"))}`)
+  for (const host of hosts) {
+    await activateHost(
+      projectRoot,
+      host,
+      getDefaultBundleIdsForHost(host),
+      sessionIntent,
+    );
+  }
+
+  console.log(
+    `Activation views written under ${toPosixPath(join(projectRoot, "activate"))}`,
+  );
 }
 
 async function activateHost(
   projectRoot: string,
   host: "opencode" | "copilot-vscode" | "shared",
   bundleIds: string[],
-  sessionIntent: string
+  sessionIntent: string,
 ): Promise<void> {
-  const activeAssets = new Set<string>()
-  const runtimeRoot = join(projectRoot, "activate", host)
-  await ensureDirectory(runtimeRoot)
-  const activationBudget = getActivationBudget(host)
-  const recommendationReport = await readJsonFileOrNull<RecommendationReport>(join(projectRoot, "state", "recommendations.json"))
+  const activeAssets = new Set<string>();
+  const runtimeRoot = join(projectRoot, "activate", host);
+  await ensureDirectory(runtimeRoot);
+  const recommendationReport = await readJsonFileOrNull<RecommendationReport>(
+    join(projectRoot, "state", "recommendations.json"),
+    assertRecommendationReport,
+  );
+  const activationBudget =
+    recommendationReport?.hostSummaries[host]?.activationBudget ??
+    getActivationBudget(host);
   const currentGeneration = await readJsonFileOrNull<InstallGenerationManifest>(
-    join(projectRoot, "install", "generations", host, "current.json")
-  )
+    join(projectRoot, "install", "generations", host, "current.json"),
+    assertInstallGenerationManifest,
+  );
+  const recommendationEntries = recommendationReport?.topByHost[host] ?? [];
   const preferredAssetOrder = new Map(
-    (recommendationReport?.topByHost[host] ?? []).map((entry, index) => [entry.assetId, index])
-  )
-  const activeBundleIds = filterBundleIdsForHost(bundleIds, host, recommendationReport)
-  const candidates: Array<{ packageManifest: InstalledPackageManifest; destinationRoot: string }> = []
+    recommendationEntries.map((entry, index) => [
+      entry.assetId,
+      entry.rank || index,
+    ]),
+  );
+  const recommendationEntryByAssetId = new Map(
+    recommendationEntries.map((entry) => [entry.assetId, entry]),
+  );
+  const activeBundleIds = filterBundleIdsForHost(
+    bundleIds,
+    host,
+    recommendationReport,
+  );
+  const candidates: Array<{
+    packageManifest: InstalledPackageManifest;
+    destinationRoot: string;
+  }> = [];
 
   for (const bundleId of activeBundleIds) {
-    const bundleManifestPath = join(projectRoot, "install", host, "bundles", `${bundleId}.install.json`)
+    const bundleManifestPath = join(
+      projectRoot,
+      "install",
+      host,
+      "bundles",
+      `${bundleId}.install.json`,
+    );
     if (!(await pathExists(bundleManifestPath))) {
-      continue
+      continue;
     }
 
-    const bundleManifest = await readJsonFile<InstalledBundleManifest>(bundleManifestPath)
+    const bundleManifest = await readJsonFile<InstalledBundleManifest>(
+      bundleManifestPath,
+      assertInstalledBundleManifest,
+    );
 
     for (const pkg of bundleManifest.packages) {
-      const packageManifest = await readJsonFile<InstalledPackageManifest>(pkg.manifestPath)
-      if (currentGeneration && !currentGeneration.packageManifestPaths.includes(pkg.manifestPath)) {
-        continue
+      const packageManifest = await readJsonFile<InstalledPackageManifest>(
+        pkg.manifestPath,
+        assertInstalledPackageManifest,
+      );
+      if (
+        currentGeneration &&
+        !currentGeneration.packageManifestPaths.includes(pkg.manifestPath)
+      ) {
+        continue;
       }
-      const destinationRoot = join(runtimeRoot, sanitizeAssetId(packageManifest.assetId))
-      candidates.push({ packageManifest, destinationRoot })
+      const destinationRoot = join(
+        runtimeRoot,
+        sanitizeAssetId(packageManifest.assetId),
+      );
+      candidates.push({ packageManifest, destinationRoot });
     }
   }
 
-  const selectedCandidates = candidates
-    .sort((left, right) => compareActivationCandidates(left.packageManifest, right.packageManifest, preferredAssetOrder, host, sessionIntent))
-    .slice(0, activationBudget)
+  const selectedCandidates = selectActivationCandidates(
+    candidates,
+    preferredAssetOrder,
+    recommendationEntryByAssetId,
+    activationBudget,
+  );
 
   await writeJsonFile(join(runtimeRoot, `${host}-overlay-plan.json`), {
     schemaVersion: 1,
     host,
     generatedAt: new Date().toISOString(),
     selectedBundleIds: activeBundleIds,
-    selectedAssetIds: selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
+    selectedAssetIds: selectedCandidates.map(
+      (candidate) => candidate.packageManifest.assetId,
+    ),
     activationBudget,
-    mode: host === "copilot-vscode" ? "profile-workspace-overlay" : host === "opencode" ? "global-harness-overlay" : "shared-runtime-overlay",
+    mode:
+      host === "copilot-vscode"
+        ? "profile-workspace-overlay"
+        : host === "opencode"
+          ? "global-harness-overlay"
+          : "shared-runtime-overlay",
     sessionIntent,
-    concernBuckets: buildConcernBuckets(selectedCandidates.map((candidate) => candidate.packageManifest.assetId)),
-    taskModeBuckets: buildTaskModeBuckets(selectedCandidates.map((candidate) => candidate.packageManifest.assetId))
-  } satisfies CopilotWorkspaceOverlayManifest | Record<string, unknown>)
+    concernBuckets: buildConcernBuckets(
+      selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
+      recommendationEntryByAssetId,
+    ),
+    taskModeBuckets: buildTaskModeBuckets(
+      selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
+      recommendationEntryByAssetId,
+    ),
+  } satisfies CopilotWorkspaceOverlayManifest | Record<string, unknown>);
 
   if (host === "copilot-vscode") {
     const selectedSkillIds = selectedCandidates
       .filter((candidate) => candidate.packageManifest.assetKind === "skill")
-      .map((candidate) => candidate.packageManifest.assetId)
+      .map((candidate) => candidate.packageManifest.assetId);
 
     const fallbackSkillIds = candidates
       .map((candidate) => candidate.packageManifest)
       .filter((packageManifest) => packageManifest.assetKind === "skill")
-      .sort((left, right) => compareActivationCandidates(left, right, preferredAssetOrder, host, sessionIntent))
+      .sort((left, right) =>
+        compareActivationCandidates(left, right, preferredAssetOrder),
+      )
       .slice(0, 12)
-      .map((packageManifest) => packageManifest.assetId)
+      .map((packageManifest) => packageManifest.assetId);
 
-    const mergedSkillIds = [...new Set([...selectedSkillIds, ...fallbackSkillIds])]
+    const mergedSkillIds = [
+      ...new Set([...selectedSkillIds, ...fallbackSkillIds]),
+    ];
 
     const copilotProfileManifest: CopilotWorkspaceProfileManifest = {
       schemaVersion: 1,
       generatedAt: new Date().toISOString(),
-      profileId: buildCopilotProfileId(selectedCandidates.map((candidate) => candidate.packageManifest.assetId)),
+      profileId: buildCopilotProfileId(
+        selectedCandidates.map(
+          (candidate) => candidate.packageManifest.assetId,
+        ),
+      ),
       workspaceRoot: toPosixPath(projectRoot),
       bundleIds: activeBundleIds,
-      selectedAssetIds: selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
+      selectedAssetIds: selectedCandidates.map(
+        (candidate) => candidate.packageManifest.assetId,
+      ),
       selectedInstructionIds: selectedCandidates
-        .filter((candidate) => candidate.packageManifest.assetKind === "instruction")
+        .filter(
+          (candidate) => candidate.packageManifest.assetKind === "instruction",
+        )
         .map((candidate) => candidate.packageManifest.assetId),
       selectedAgentIds: selectedCandidates
         .filter((candidate) => candidate.packageManifest.assetKind === "agent")
         .map((candidate) => candidate.packageManifest.assetId),
       selectedWorkflowIds: selectedCandidates
-        .filter((candidate) => candidate.packageManifest.assetKind === "workflow")
+        .filter(
+          (candidate) => candidate.packageManifest.assetKind === "workflow",
+        )
         .map((candidate) => candidate.packageManifest.assetId),
       selectedPluginIds: selectedCandidates
         .filter((candidate) => candidate.packageManifest.assetKind === "plugin")
@@ -143,21 +254,27 @@ async function activateHost(
         .map((candidate) => candidate.packageManifest.assetId),
       selectedSkillIds: mergedSkillIds,
       activationBudget,
-      sessionIntent
-    }
+      sessionIntent,
+    };
 
     for (const fallbackSkillId of mergedSkillIds) {
       if (!copilotProfileManifest.selectedAssetIds.includes(fallbackSkillId)) {
-        copilotProfileManifest.selectedAssetIds.push(fallbackSkillId)
+        copilotProfileManifest.selectedAssetIds.push(fallbackSkillId);
       }
     }
 
-    await writeJsonFile(join(runtimeRoot, "workspace-profile-manifest.json"), copilotProfileManifest)
+    await writeJsonFile(
+      join(runtimeRoot, "workspace-profile-manifest.json"),
+      copilotProfileManifest,
+    );
   }
 
   for (const candidate of selectedCandidates) {
-    await copyPath(candidate.packageManifest.filesRoot, candidate.destinationRoot)
-    activeAssets.add(candidate.packageManifest.assetId)
+    await copyPath(
+      candidate.packageManifest.filesRoot,
+      candidate.destinationRoot,
+    );
+    activeAssets.add(candidate.packageManifest.assetId);
   }
 
   const activationManifest: ActivationManifest = {
@@ -170,41 +287,64 @@ async function activateHost(
     runtimeRoot: toPosixPath(runtimeRoot),
     notes: [
       "Activation currently materializes staged install outputs into host-specific runtime views.",
-      `Token-budget-aware pruning applied with current host budget of ${activationBudget} assets.`
-    ]
-  }
+      `Token-budget-aware pruning applied with current host budget of ${activationBudget} prompt-weight units.`,
+      `Activation ordering is driven by recommendation rank from state/recommendations.json.`,
+    ],
+  };
 
-  await writeJsonFile(join(runtimeRoot, "activation-manifest.json"), activationManifest)
+  await writeJsonFileWithSnapshot(
+    join(runtimeRoot, ACTIVATION_MANIFEST_FILE),
+    join(runtimeRoot, ACTIVATION_PREVIOUS_MANIFEST_FILE),
+    activationManifest,
+  );
 }
 
 function filterBundleIdsForHost(
   bundleIds: string[],
   host: "opencode" | "copilot-vscode" | "shared",
-  recommendationReport: RecommendationReport | null
+  recommendationReport: RecommendationReport | null,
 ): string[] {
   const suggestedBundleIds = new Set(
     (recommendationReport?.suggestedBundles ?? [])
       .filter((bundle) => bundle.host === host)
-      .map((bundle) => bundle.bundleId)
-  )
+      .map((bundle) => bundle.bundleId),
+  );
 
   if (suggestedBundleIds.size === 0) {
-    return bundleIds
+    return bundleIds;
   }
 
-  const filteredBundleIds = bundleIds.filter((bundleId) => suggestedBundleIds.has(bundleId))
-  return filteredBundleIds.length > 0 ? filteredBundleIds : bundleIds
+  const filteredBundleIds = bundleIds.filter((bundleId) =>
+    suggestedBundleIds.has(bundleId),
+  );
+  return filteredBundleIds.length > 0 ? filteredBundleIds : bundleIds;
 }
 
 function printActivateHelp(): void {
   console.log(`activate commands:
   host      Materialize active host views from installed bundles
+  diff      Compare current host activation to the previous activation view
+  explain   Explain whether an asset is active for a host
   rollback  Point a host to a previous install generation
-  reset     Remove activation outputs`)
+  reset     Remove activation outputs`);
+}
+
+function getDefaultBundleIdsForHost(
+  host: "opencode" | "copilot-vscode" | "shared",
+): string[] {
+  if (host === "opencode") {
+    return ["opencode-global", "community-stable"];
+  }
+
+  if (host === "copilot-vscode") {
+    return ["copilot-core", "community-stable"];
+  }
+
+  return ["shared-mcp"];
 }
 
 function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-")
+  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
 function buildCopilotProfileId(assetIds: string[]): string {
@@ -212,225 +352,373 @@ function buildCopilotProfileId(assetIds: string[]): string {
     .slice(0, 12)
     .join("-")
     .replace(/[^a-zA-Z0-9_-]+/gu, "-")
-    .slice(0, 96)
+    .slice(0, 96);
 }
 
-function getActivationBudget(host: "opencode" | "copilot-vscode" | "shared"): number {
+function getActivationBudget(
+  host: "opencode" | "copilot-vscode" | "shared",
+): number {
   if (host === "copilot-vscode") {
-    return 60
+    return 60;
   }
 
   if (host === "opencode") {
-    return 120
+    return 120;
   }
 
-  return 40
-}
-
-async function discoverInstalledBundleIds(
-  projectRoot: string,
-  host: "opencode" | "copilot-vscode" | "shared"
-): Promise<string[]> {
-  const bundlesRoot = join(projectRoot, "install", host, "bundles")
-  if (!(await pathExists(bundlesRoot))) {
-    return []
-  }
-
-  const files = await listFilesRecursive(bundlesRoot)
-  return files
-    .filter((filePath) => filePath.endsWith(".install.json"))
-    .map((filePath) => filePath.split(/[/\\]/u).at(-1)?.replace(/\.install\.json$/u, "") ?? filePath)
-    .sort((left, right) => left.localeCompare(right))
+  return 40;
 }
 
 function compareActivationCandidates(
   left: InstalledPackageManifest,
   right: InstalledPackageManifest,
   preferredAssetOrder: Map<string, number>,
-  host: "opencode" | "copilot-vscode" | "shared",
-  sessionIntent: string
 ): number {
-  const recommendedOrderDifference = getRecommendationOrder(left.assetId, preferredAssetOrder) - getRecommendationOrder(right.assetId, preferredAssetOrder)
+  const recommendedOrderDifference =
+    getRecommendationOrder(left.assetId, preferredAssetOrder) -
+    getRecommendationOrder(right.assetId, preferredAssetOrder);
   if (recommendedOrderDifference !== 0) {
-    return recommendedOrderDifference
+    return recommendedOrderDifference;
   }
 
-  const intentDifference = computeIntentBoost(right.assetId, host) - computeIntentBoost(left.assetId, host)
-  if (intentDifference !== 0) {
-    return intentDifference
-  }
-
-  const sessionIntentDifference = computeSessionIntentBoost(right.assetId, sessionIntent) - computeSessionIntentBoost(left.assetId, sessionIntent)
-  if (sessionIntentDifference !== 0) {
-    return sessionIntentDifference
-  }
-
-  const authorityDifference = getAuthorityRank(right.sourceAuthorityTier) - getAuthorityRank(left.sourceAuthorityTier)
+  const authorityDifference =
+    getAuthorityRank(right.sourceAuthorityTier) -
+    getAuthorityRank(left.sourceAuthorityTier);
   if (authorityDifference !== 0) {
-    return authorityDifference
+    return authorityDifference;
   }
 
-  const portfolioFitDifference = right.portfolioFit - left.portfolioFit
+  const portfolioFitDifference = right.portfolioFit - left.portfolioFit;
   if (portfolioFitDifference !== 0) {
-    return portfolioFitDifference
+    return portfolioFitDifference;
   }
 
-  const contextCostDifference = getContextCostRank(left.contextCost.sizeClass) - getContextCostRank(right.contextCost.sizeClass)
+  const contextCostDifference =
+    getContextCostRank(left.contextCost.sizeClass) -
+    getContextCostRank(right.contextCost.sizeClass);
   if (contextCostDifference !== 0) {
-    return contextCostDifference
+    return contextCostDifference;
   }
 
-  return left.assetId.localeCompare(right.assetId)
+  return left.assetId.localeCompare(right.assetId);
 }
 
-function computeIntentBoost(assetId: string, host: "opencode" | "copilot-vscode" | "shared"): number {
-  const terms = HOST_TO_INTENT_TERMS[host]
-  const normalizedAssetId = assetId.toLowerCase()
-  const matchedIntentTerms = terms.reduce((total, term) => total + (normalizedAssetId.includes(term) ? 1 : 0), 0)
-  const apifySpecificBoost =
-    host === "copilot-vscode" && (
-      normalizedAssetId.includes("apify") ||
-      normalizedAssetId.includes("actor") ||
-      normalizedAssetId.includes("scraper") ||
-      normalizedAssetId.includes("automation")
-    )
-      ? 6
-      : 0
+function selectActivationCandidates(
+  candidates: Array<{
+    packageManifest: InstalledPackageManifest;
+    destinationRoot: string;
+  }>,
+  preferredAssetOrder: Map<string, number>,
+  recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+  activationBudget: number,
+): Array<{
+  packageManifest: InstalledPackageManifest;
+  destinationRoot: string;
+}> {
+  const sortedCandidates = [...candidates].sort((left, right) =>
+    compareActivationCandidates(
+      left.packageManifest,
+      right.packageManifest,
+      preferredAssetOrder,
+    ),
+  );
+  const selectedCandidates: Array<{
+    packageManifest: InstalledPackageManifest;
+    destinationRoot: string;
+  }> = [];
+  let remainingBudget = activationBudget;
 
-  return matchedIntentTerms + apifySpecificBoost
-}
+  for (const candidate of sortedCandidates) {
+    const recommendedEntry = recommendationEntryByAssetId.get(
+      candidate.packageManifest.assetId,
+    );
+    const promptWeight =
+      recommendedEntry?.estimatedPromptWeight ??
+      candidate.packageManifest.contextCost.estimatedPromptWeight;
 
-function computeSessionIntentBoost(assetId: string, sessionIntent: string): number {
-  if (!sessionIntent || sessionIntent === "general") {
-    return 0
+    if (promptWeight <= remainingBudget || selectedCandidates.length === 0) {
+      selectedCandidates.push(candidate);
+      remainingBudget -= promptWeight;
+    }
   }
 
-  const normalizedAssetId = assetId.toLowerCase()
-  return normalizedAssetId.includes(sessionIntent.toLowerCase()) ? 3 : 0
+  return selectedCandidates;
 }
 
-function buildConcernBuckets(assetIds: string[]): Record<string, string[]> {
-  const buckets: Record<string, string[]> = {
-    frontend: [],
-    backend: [],
-    integration: [],
-    data: [],
-    security: [],
-    docs: [],
-    testing: [],
-    infra: []
-  }
+function buildConcernBuckets(
+  assetIds: string[],
+  recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+): Record<string, string[]> {
+  const buckets = new Map<string, string[]>();
 
   for (const assetId of assetIds) {
-    const normalizedAssetId = assetId.toLowerCase()
-    if (normalizedAssetId.includes("front") || normalizedAssetId.includes("react") || normalizedAssetId.includes("ui")) {
-      buckets.frontend.push(assetId)
+    const recommendationEntry = recommendationEntryByAssetId.get(assetId);
+    if (!recommendationEntry) {
+      continue;
     }
-    if (
-      normalizedAssetId.includes("backend") ||
-      normalizedAssetId.includes("api") ||
-      normalizedAssetId.includes("service") ||
-      normalizedAssetId.includes("webhook") ||
-      normalizedAssetId.includes("express") ||
-      normalizedAssetId.includes("node") ||
-      normalizedAssetId.includes("apify")
-    ) {
-      buckets.backend.push(assetId)
-    }
-    if (normalizedAssetId.includes("webhook") || normalizedAssetId.includes("integration") || normalizedAssetId.includes("apify")) {
-      buckets.integration.push(assetId)
-    }
-    if (normalizedAssetId.includes("duckdb") || normalizedAssetId.includes("database") || normalizedAssetId.includes("sql")) {
-      buckets.data.push(assetId)
-    }
-    if (normalizedAssetId.includes("security") || normalizedAssetId.includes("auth") || normalizedAssetId.includes("threat")) {
-      buckets.security.push(assetId)
-    }
-    if (normalizedAssetId.includes("doc") || normalizedAssetId.includes("readme") || normalizedAssetId.includes("instruction")) {
-      buckets.docs.push(assetId)
-    }
-    if (normalizedAssetId.includes("test") || normalizedAssetId.includes("playwright") || normalizedAssetId.includes("qa")) {
-      buckets.testing.push(assetId)
-    }
-    if (
-      normalizedAssetId.includes("infra") ||
-      normalizedAssetId.includes("devops") ||
-      normalizedAssetId.includes("terraform") ||
-      normalizedAssetId.includes("azure") ||
-      normalizedAssetId.includes("docker") ||
-      normalizedAssetId.includes("container")
-    ) {
-      buckets.infra.push(assetId)
+    for (const tag of recommendationEntry.coverageTags) {
+      const bucket = buckets.get(tag) ?? [];
+      bucket.push(assetId);
+      buckets.set(tag, bucket);
     }
   }
 
-  return buckets
+  return Object.fromEntries(
+    [...buckets.entries()].map(([key, value]) => [
+      key,
+      [...new Set(value)].sort(),
+    ]),
+  );
 }
 
-function buildTaskModeBuckets(assetIds: string[]): Record<string, string[]> {
-  return {
-    focused: assetIds.slice(0, 20),
-    broad: assetIds.slice(0, 60)
+function buildTaskModeBuckets(
+  assetIds: string[],
+  recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+): Record<string, string[]> {
+  const buckets = new Map<string, string[]>();
+
+  for (const assetId of assetIds) {
+    const recommendationEntry = recommendationEntryByAssetId.get(assetId);
+    if (!recommendationEntry) {
+      continue;
+    }
+    for (const taskMode of recommendationEntry.taskModes) {
+      const bucket = buckets.get(taskMode) ?? [];
+      bucket.push(assetId);
+      buckets.set(taskMode, bucket);
+    }
   }
+
+  buckets.set("focused", assetIds.slice(0, Math.min(20, assetIds.length)));
+  buckets.set("broad", [...assetIds]);
+
+  return Object.fromEntries(
+    [...buckets.entries()].map(([key, value]) => [
+      key,
+      [...new Set(value)].sort(),
+    ]),
+  );
 }
 
-function getRecommendationOrder(assetId: string, preferredAssetOrder: Map<string, number>): number {
-  return preferredAssetOrder.get(assetId) ?? Number.MAX_SAFE_INTEGER
+function getRecommendationOrder(
+  assetId: string,
+  preferredAssetOrder: Map<string, number>,
+): number {
+  return preferredAssetOrder.get(assetId) ?? Number.MAX_SAFE_INTEGER;
 }
 
-function getAuthorityRank(authorityTier: InstalledPackageManifest["sourceAuthorityTier"]): number {
-  const ranks: Record<InstalledPackageManifest["sourceAuthorityTier"], number> = {
-    "official-first-party": 6,
-    "official-marketplace": 5,
-    "official-compatible": 4,
-    "trusted-local": 3,
-    "trusted-community": 2,
-    "unverified-community": 1
-  }
+function getAuthorityRank(
+  authorityTier: InstalledPackageManifest["sourceAuthorityTier"],
+): number {
+  const ranks: Record<InstalledPackageManifest["sourceAuthorityTier"], number> =
+    {
+      "official-first-party": 6,
+      "official-marketplace": 5,
+      "official-compatible": 4,
+      "trusted-local": 3,
+      "trusted-community": 2,
+      "unverified-community": 1,
+    };
 
-  return ranks[authorityTier]
+  return ranks[authorityTier];
 }
 
-function getContextCostRank(sizeClass: InstalledPackageManifest["contextCost"]["sizeClass"]): number {
-  const ranks: Record<InstalledPackageManifest["contextCost"]["sizeClass"], number> = {
+function getContextCostRank(
+  sizeClass: InstalledPackageManifest["contextCost"]["sizeClass"],
+): number {
+  const ranks: Record<
+    InstalledPackageManifest["contextCost"]["sizeClass"],
+    number
+  > = {
     tiny: 1,
     small: 2,
     medium: 3,
-    large: 4
-  }
+    large: 4,
+  };
 
-  return ranks[sizeClass]
+  return ranks[sizeClass];
 }
 
-async function rollbackActivation(projectRoot: string, args: string[]): Promise<void> {
-  const host = getOptionValue(args, "--host") as "opencode" | "copilot-vscode" | "shared" | undefined
-  const generationId = getOptionValue(args, "--generation")
+async function rollbackActivation(
+  projectRoot: string,
+  args: string[],
+): Promise<void> {
+  const host = getOptionValue(args, "--host") as
+    | "opencode"
+    | "copilot-vscode"
+    | "shared"
+    | undefined;
+  const generationId = getOptionValue(args, "--generation");
 
   if (!host || !generationId) {
-    throw new Error("rollback requires --host and --generation")
+    throw new Error("rollback requires --host and --generation");
   }
 
-  const generationPath = join(projectRoot, "install", "generations", host, `${generationId}.json`)
+  const generationPath = join(
+    projectRoot,
+    "install",
+    "generations",
+    host,
+    `${generationId}.json`,
+  );
   if (!(await pathExists(generationPath))) {
-    throw new Error(`generation not found: ${toPosixPath(generationPath)}`)
+    throw new Error(`generation not found: ${toPosixPath(generationPath)}`);
   }
 
-  const generation = await readJsonFile<InstallGenerationManifest>(generationPath)
-  await writeJsonFile(join(projectRoot, "install", "generations", host, "current.json"), generation)
-  await activateHosts(projectRoot)
+  const generation = await readJsonFile<InstallGenerationManifest>(
+    generationPath,
+    assertInstallGenerationManifest,
+  );
+  await writeJsonFile(
+    join(projectRoot, "install", "generations", host, "current.json"),
+    generation,
+  );
+  await activateHosts(projectRoot, ["--host", host]);
+}
+
+async function diffActivationState(
+  projectRoot: string,
+  args: string[],
+): Promise<void> {
+  const requestedHost = getOptionValue(args, "--host") as
+    | "opencode"
+    | "copilot-vscode"
+    | "shared"
+    | undefined;
+  const hosts = requestedHost
+    ? [requestedHost]
+    : (["opencode", "copilot-vscode", "shared"] as const);
+
+  for (const host of hosts) {
+    const runtimeRoot = join(projectRoot, "activate", host);
+    const currentManifest = await readJsonFileOrNull<ActivationManifest>(
+      join(runtimeRoot, ACTIVATION_MANIFEST_FILE),
+      assertActivationManifest,
+    );
+    const previousManifest = await readJsonFileOrNull<ActivationManifest>(
+      join(runtimeRoot, ACTIVATION_PREVIOUS_MANIFEST_FILE),
+      assertActivationManifest,
+    );
+
+    if (!currentManifest || !previousManifest) {
+      console.log(`No comparable activation manifests found for ${host}`);
+      continue;
+    }
+
+    const assetDiff = diffStringSets(
+      previousManifest.activeAssets,
+      currentManifest.activeAssets,
+    );
+    const bundleDiff = diffStringSets(
+      previousManifest.activeBundles,
+      currentManifest.activeBundles,
+    );
+    console.log(
+      `Activation diff for ${host}: ${previousManifest.generationId ?? "unknown"} -> ${currentManifest.generationId ?? "unknown"}`,
+    );
+    console.log(`  Added assets: ${formatDiffList(assetDiff.added)}`);
+    console.log(`  Removed assets: ${formatDiffList(assetDiff.removed)}`);
+    console.log(`  Added bundles: ${formatDiffList(bundleDiff.added)}`);
+    console.log(`  Removed bundles: ${formatDiffList(bundleDiff.removed)}`);
+  }
+}
+
+async function explainActivationState(
+  projectRoot: string,
+  args: string[],
+): Promise<void> {
+  const assetId = getOptionValue(args, "--asset") ?? args[0];
+  const requestedHost = getOptionValue(args, "--host") as
+    | "opencode"
+    | "copilot-vscode"
+    | "shared"
+    | undefined;
+
+  if (!assetId) {
+    throw new Error("explain requires --asset <assetId>");
+  }
+
+  const hosts = requestedHost
+    ? [requestedHost]
+    : (["opencode", "copilot-vscode", "shared"] as const);
+  const lines: string[] = [];
+
+  for (const host of hosts) {
+    const runtimeRoot = join(projectRoot, "activate", host);
+    const activationManifest = await readJsonFileOrNull<ActivationManifest>(
+      join(runtimeRoot, ACTIVATION_MANIFEST_FILE),
+      assertActivationManifest,
+    );
+
+    if (!activationManifest) {
+      continue;
+    }
+
+    const isActive = activationManifest.activeAssets.includes(assetId);
+    lines.push(`Host ${host}: ${isActive ? "active" : "not active"}`);
+    lines.push(`  generation: ${activationManifest.generationId ?? "unknown"}`);
+    lines.push(`  bundles: ${activationManifest.activeBundles.join(", ")}`);
+
+    if (host === "copilot-vscode") {
+      const profileManifest =
+        await readJsonFileOrNull<CopilotWorkspaceProfileManifest>(
+          join(runtimeRoot, "workspace-profile-manifest.json"),
+          assertCopilotWorkspaceProfileManifest,
+        );
+      if (profileManifest) {
+        lines.push(
+          `  profile selected: ${profileManifest.selectedAssetIds.includes(assetId) ? "yes" : "no"}`,
+        );
+      }
+    }
+  }
+
+  if (lines.length === 0) {
+    console.log(`Asset ${assetId} has not been activated for any host.`);
+    return;
+  }
+
+  console.log(`Activation explain for ${assetId}`);
+  console.log(lines.join("\n"));
 }
 
 async function resetActivationState(projectRoot: string): Promise<void> {
-  await removePath(join(projectRoot, "activate"))
-  console.log(`Activation state reset under ${toPosixPath(join(projectRoot, "activate"))}`)
+  await removePath(join(projectRoot, "activate"));
+  console.log(
+    `Activation state reset under ${toPosixPath(join(projectRoot, "activate"))}`,
+  );
 }
 
-function getOptionValue(args: string[], optionName: string): string | undefined {
-  const optionIndex = args.indexOf(optionName)
+function getOptionValue(
+  args: string[],
+  optionName: string,
+): string | undefined {
+  const optionIndex = args.indexOf(optionName);
 
   if (optionIndex === -1) {
-    return undefined
+    return undefined;
   }
 
-  return args[optionIndex + 1]
+  return args[optionIndex + 1];
+}
+
+function diffStringSets(
+  left: string[],
+  right: string[],
+): { added: string[]; removed: string[] } {
+  const leftSet = new Set(left);
+  const rightSet = new Set(right);
+
+  return {
+    added: [...rightSet]
+      .filter((value) => !leftSet.has(value))
+      .sort((a, b) => a.localeCompare(b)),
+    removed: [...leftSet]
+      .filter((value) => !rightSet.has(value))
+      .sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+function formatDiffList(values: string[]): string {
+  return values.length > 0 ? values.join(", ") : "none";
 }

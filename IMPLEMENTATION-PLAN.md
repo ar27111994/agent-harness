@@ -27,16 +27,20 @@ The main goals are:
 ## Core Principles
 
 ### Source authority beats stars
+
 If an official vendor source exists, it outranks a more popular community alternative.
 
 Examples:
+
 - `supabase/agent-skills` beats a community Supabase skills repo with more stars
 - official GitHub or Microsoft sources beat unofficial Copilot collections
 
 ### No install-everything behavior
+
 The system must never collapse discovery, mirroring, installing, and activation into one step.
 
 ### Dynamic relevance, not brittle static lists
+
 Stack detection, host-fit scoring, bundle suggestions, and recommended installs should be based on live evidence from:
 
 - current workspace contents
@@ -48,9 +52,11 @@ Stack detection, host-fit scoring, bundle suggestions, and recommended installs 
 - portfolio fit
 
 ### Community sources are catalog-only unless promoted
+
 Community assets are discoverable and analyzable but should not be treated as canonical unless explicitly promoted.
 
 ### Shared schemas, host-specific projections
+
 OpenCode and Copilot share discovery and mirror metadata, but each will get host-specific install and activation outputs later.
 
 ---
@@ -60,9 +66,11 @@ OpenCode and Copilot share discovery and mirror metadata, but each will get host
 ## 1. Discover
 
 ### Purpose
+
 Discover candidate assets from local and remote sources, normalize them into a unified catalog, and select canonical candidates.
 
 ### Responsibilities
+
 - detect stack and concern signals from the current workspace
 - load all configured discovery sources
 - harvest metadata from local manifests and local directories
@@ -72,6 +80,7 @@ Discover candidate assets from local and remote sources, normalize them into a u
 - generate selected vs rejected catalog views
 
 ### Current outputs
+
 - `discover/output/demand-profile.json`
 - `discover/output/source-index.json`
 - `discover/catalog.assets.jsonl`
@@ -82,38 +91,45 @@ Discover candidate assets from local and remote sources, normalize them into a u
 ## 2. Mirror
 
 ### Purpose
+
 Convert selected discovery candidates into pinned, inert local references and bundle locks.
 
 ### Responsibilities
+
 - plan what should be mirrored
 - produce bundle locks for later phases
 - later pin exact artifacts, hashes, and provenance
 - later quarantine suspicious or oversized assets
 
 ### Current outputs
+
 - `mirror/audit/mirror-plan.json`
 - `mirror/bundles/opencode-global.lock.json`
 - `mirror/bundles/copilot-core.lock.json`
 - `mirror/bundles/shared-mcp.lock.json`
 - `mirror/bundles/community-stable.lock.json`
 
-## 3. Install *(planned)*
+## 3. Install _(planned)_
 
 ### Purpose
+
 Transform mirrored assets into host-ready staged assets.
 
 ### Planned outputs
+
 - OpenCode install packages and bundle manifests
 - Copilot install packages and bundle manifests
 - shared MCP install packages
 - deterministic install generations
 
-## 4. Activate *(planned)*
+## 4. Activate _(planned)_
 
 ### Purpose
+
 Expose only the appropriate installed assets at runtime.
 
 ### Planned outputs
+
 - OpenCode active harness view
 - Copilot core/profile/workspace overlays
 - activation manifests and generation switching
@@ -137,9 +153,11 @@ Current directory contents:
 ### Layout intent
 
 #### `discover/`
+
 Discovery inputs, schemas, and generated outputs.
 
 Contains:
+
 - source registry
 - selection policy
 - pipeline definition
@@ -147,15 +165,19 @@ Contains:
 - output files
 
 #### `mirror/`
+
 Mirror policy, schemas, audit data, and bundle locks.
 
 #### `src/`
+
 TypeScript source code for the CLI and pipeline logic.
 
 #### `dist/`
+
 Compiled JS output.
 
 #### `state/`
+
 Local state and cache files, including remote GitHub metadata cache.
 
 ---
@@ -165,10 +187,12 @@ Local state and cache files, including remote GitHub metadata cache.
 Defined in `package.json`.
 
 ### Build and validation
+
 - `npm run build`
 - `npm run check`
 
 ### Discover
+
 - `npm run discover:demand`
 - `npm run discover:sources`
 - `npm run discover:catalog`
@@ -176,6 +200,7 @@ Defined in `package.json`.
 - `npm run discover:stats`
 
 ### Mirror
+
 - `npm run mirror:plan`
 - `npm run mirror:locks`
 
@@ -186,48 +211,61 @@ Defined in `package.json`.
 ### Root config
 
 #### `package.json`
+
 Defines scripts, Node requirement, TypeScript dependency setup, and CLI entrypoint.
 
 #### `tsconfig.json`
+
 TypeScript config for the Node CLI.
 
 ### Discovery config
 
 #### `discover/sources.json`
+
 Canonical source registry.
 
 #### `discover/selections.json`
+
 Canonical selection policy.
 
 #### `discover/pipeline.json`
+
 High-level discovery pipeline definition.
 
 #### `discover/schema/*`
+
 Schemas for source registry, asset catalog entries, and selection registry.
 
 ### Mirror config
 
 #### `mirror/policy.json`
+
 Mirror policy and bundle templates.
 
 #### `mirror/schema/*`
+
 Schemas for mirror index entries and bundle lock files.
 
 ### Source code
 
 #### `src/cli.ts`
+
 Main CLI dispatcher.
 
 #### `src/files.ts`
+
 Filesystem helpers for JSON, JSONL, and recursive traversal.
 
 #### `src/types.ts`
+
 Shared types for discovery, selection, mirror planning, and bundle locks.
 
 #### `src/discover.ts`
+
 Main discovery engine.
 
 Currently implements:
+
 - demand profile generation
 - source index generation
 - local manifest harvest
@@ -238,17 +276,21 @@ Currently implements:
 - catalog stats and inspection support
 
 #### `src/github.ts`
+
 Official GitHub REST metadata harvesting.
 
 Uses:
+
 - repository metadata endpoint
 - recursive git tree endpoint
 - README metadata endpoint
 
 Stores cached responses under:
+
 - `state/remote-cache/github/`
 
 #### `src/mirror.ts`
+
 Mirror readiness plan and initial bundle lock generation.
 
 ---
@@ -260,6 +302,7 @@ The discover layer supports multiple source classes.
 ## Official first-party sources
 
 ### Already present or explicitly configured
+
 - official GitHub Copilot docs
 - `github/awesome-copilot`
 - official VS Code Marketplace
@@ -269,6 +312,7 @@ The discover layer supports multiple source classes.
 - local OpenCode/OpenAgentsControl state
 
 ### Additional official sources to include
+
 - `anthropics/skills`
 - `anthropics/claude-cookbooks`
 - `remotion-dev/skills`
@@ -291,6 +335,7 @@ Important: `VoltAgent/awesome-agent-skills` should be used as a discovery index,
 ## Trusted local generated sources
 
 ### Current local generated sources
+
 - `C:\Users\ar271\.config\opencode`
 - `C:\Users\ar271\.config\opencode\context`
 - `C:\Users\ar271\.agents\skills`
@@ -382,6 +427,7 @@ These should remain catalog-first and promotion-controlled.
 ## Current Discovery Model
 
 ### Demand profiling
+
 The CLI scans the current working directory and extracts live signals from files such as:
 
 - `package.json`
@@ -397,7 +443,9 @@ The CLI scans the current working directory and extracts live signals from files
 This produces a demand profile for dynamic relevance scoring.
 
 ### Selection ordering
+
 Current ordering is:
+
 1. authority tier
 2. compatibility mode
 3. portfolio fit
@@ -407,15 +455,18 @@ Current ordering is:
 7. stars only as tie-breaker
 
 ### Dynamic direction
+
 The current system is dynamic, but still partly heuristic.
 
 Still too static:
+
 - path-based asset classification
 - bundle inclusion rules
 - recommendation scoring
 - host-fit heuristics
 
 Target direction:
+
 - evidence-weighted classification
 - source-family-aware ranking
 - dynamic install recommendations
@@ -426,11 +477,13 @@ Target direction:
 ## Current Mirror Model
 
 ### What exists now
+
 - mirror readiness planning
 - bundle lock generation
 - bundle templates for OpenCode, Copilot, shared MCP, and community-stable
 
 ### What is planned next
+
 - raw artifact acquisition
 - exact provenance pinning
 - content hashing
@@ -443,6 +496,7 @@ Target direction:
 ## Current Status
 
 ### Working now
+
 - build succeeds
 - discover pipeline runs end-to-end
 - mirror pipeline runs end-to-end
@@ -452,12 +506,15 @@ Target direction:
 - duplicate/self-selection bug was fixed
 
 ### Latest generated scale
+
 From the latest run:
+
 - total catalog entries: 1422
 - selected entries: 1422
 - rejected entries: 0
 
 ### Current source counts
+
 - `github-awesome-copilot`: 1161
 - `local-antigravity-manifest`: 57
 - `local-opencode-config`: 28
@@ -465,6 +522,7 @@ From the latest run:
 - `supabase-agent-skills`: 4
 
 ### Current host counts
+
 - `copilot-vscode`: 1212
 - `shared`: 10
 - `opencode`: 260
@@ -474,19 +532,24 @@ From the latest run:
 ## Current Known Issues
 
 ### Antigravity double-counting
+
 `community-stable.lock.json` currently includes both:
+
 - manifest-level entries
 - installed generated skill entries
 
 Planned correction:
+
 - installed `.agents/skills/<name>/SKILL.md` becomes the canonical artifact
 - `.antigravity-install-manifest.json` remains a provenance/filter source only
 
 ### Broken antigravity remote source
+
 The configured `antigravity-awesome-skills` GitHub source currently returns 404.
 This needs a corrected upstream URL or removal.
 
 ### Dynamic scoring still needs to mature
+
 The system is more dynamic than before, but recommendation quality is still driven by rule-based heuristics in places.
 
 ---
@@ -494,6 +557,7 @@ The system is more dynamic than before, but recommendation quality is still driv
 ## Planned Roadmap
 
 ## Phase 1 — finish discover + mirror foundation
+
 - fix antigravity double-counting
 - correct broken community repo source
 - improve canonicalization inside source families
@@ -501,6 +565,7 @@ The system is more dynamic than before, but recommendation quality is still driv
 - add more official remote metadata harvesting sources
 
 ## Phase 2 — real mirror acquisition
+
 - mirror raw snapshots ✅
 - write mirror index entries ✅
 - hash content ✅
@@ -508,6 +573,7 @@ The system is more dynamic than before, but recommendation quality is still driv
 - resolve bundle lock entries to actual mirror ids ✅
 
 ## Phase 3 — install system
+
 - host-specific projection engine ✅
 - OpenCode staged packages ✅
 - Copilot staged packages ✅
@@ -515,12 +581,14 @@ The system is more dynamic than before, but recommendation quality is still driv
 - deterministic install generations ✅
 
 ## Phase 4 — activation system
+
 - OpenCode active harness generation ✅
 - Copilot core/profile/workspace overlays ✅
 - token-budget-aware activation ✅
 - generation switching and rollback ✅
 
 ## Phase 5 — adaptive recommendation intelligence
+
 - stronger stack inference ✅
 - better host-fit scoring ✅
 - better official/community conflict handling ✅

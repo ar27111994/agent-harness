@@ -1,0 +1,276 @@
+{
+  "$schema": "../schema/recommendation-policy-base.schema.json",
+  "schemaVersion": 1,
+  "scoring": {
+    "demandMatchCap": 40,
+    "portfolioFitMultiplier": 42,
+    "trustDivisor": 10,
+    "sourcePriorityDivisor": 12,
+    "authorityWeights": {
+      "trusted-local": 38,
+      "official-first-party": 58,
+      "official-marketplace": 48,
+      "official-compatible": 42,
+      "trusted-community": 26,
+      "unverified-community": 8
+    },
+    "compatibilityWeights": {
+      "native": 24,
+      "adaptable": 18,
+      "partial": 8,
+      "reference-only": -8,
+      "incompatible": -30
+    },
+    "costPenalties": {
+      "tiny": 0,
+      "small": 2,
+      "medium": 7,
+      "large": 14
+    },
+    "demandSignalWeights": {
+      "languages": 4,
+      "packageManagers": 2,
+      "frameworks": 10,
+      "concerns": 4,
+      "tooling": 3
+    },
+    "riskLevelPenalties": {
+      "low": 0,
+      "medium": 5,
+      "high": 12
+    },
+    "riskFlagPenalties": {
+      "hasHooks": 4,
+      "hasExecScripts": 4,
+      "requiresNetwork": 3
+    },
+    "freshness": {
+      "recentDays": 45,
+      "recentBoost": 6,
+      "staleDays": 240,
+      "stalePenalty": 6,
+      "unknownPenalty": 2
+    },
+    "genericCapabilityPenalty": 10,
+    "lowFitPenaltyThreshold": 0.35,
+    "lowFitPenalty": 8,
+    "weakDemandPenalty": 16,
+    "outOfDomainGroupPenalty": 18,
+    "coverageGainWeight": 2,
+    "sourceDiversityBonus": 6,
+    "overlapPenalty": 6,
+    "demandTermMultipliers": {
+      "actor-development": 1.25,
+      "apify": 1.35,
+      "backend": 0.8,
+      "containerization": 1.1,
+      "debugging": 1.1,
+      "docker": 1.15,
+      "duckdb": 1.15,
+      "express": 1.15,
+      "infrastructure": 1.1,
+      "integration": 0.75,
+      "javascript": 0.55,
+      "node-backend": 1.15,
+      "testing": 0.8,
+      "typescript": 0.55,
+      "webhook": 1.25
+    }
+  },
+  "hostDefaults": {
+    "suppressedAssetIdPatterns": [
+      "brand-voice",
+      "crosspost",
+      "article-writing"
+    ],
+    "suppressedCapabilityTerms": [
+      "linkedin",
+      "marketing",
+      "copywriting",
+      "social-media"
+    ]
+  },
+  "presets": {
+    "targetConcerns": {
+      "delivery-core": [
+        {
+          "concern": "backend",
+          "minimum": 6,
+          "weight": 4
+        },
+        {
+          "concern": "integration",
+          "minimum": 5,
+          "weight": 3
+        },
+        {
+          "concern": "testing",
+          "minimum": 5,
+          "weight": 3
+        },
+        {
+          "concern": "security",
+          "minimum": 4,
+          "weight": 2
+        },
+        {
+          "concern": "infra",
+          "minimum": 4,
+          "weight": 2
+        }
+      ],
+      "shared-runtime": [
+        {
+          "concern": "integration",
+          "minimum": 8,
+          "weight": 4
+        },
+        {
+          "concern": "security",
+          "minimum": 4,
+          "weight": 3
+        },
+        {
+          "concern": "infra",
+          "minimum": 4,
+          "weight": 2
+        },
+        {
+          "concern": "data",
+          "minimum": 3,
+          "weight": 2
+        }
+      ]
+    }
+  },
+  "concernKeywordMap": {
+    "frontend": ["frontend", "react", "vue", "ui", "accessibility"],
+    "backend": [
+      "backend",
+      "express",
+      "node-backend",
+      "api",
+      "apify",
+      "webhook"
+    ],
+    "integration": [
+      "integration",
+      "webhook",
+      "mcp",
+      "connector",
+      "workflow",
+      "servicebus",
+      "eventhub"
+    ],
+    "data": ["database", "duckdb", "sql", "postgres", "analytics", "cosmos"],
+    "security": [
+      "security",
+      "auth",
+      "threat",
+      "audit",
+      "content-safety",
+      "governance"
+    ],
+    "docs": ["doc", "readme", "instruction", "guide", "reference"],
+    "testing": ["test", "testing", "jest", "playwright", "qa", "debugging"],
+    "infra": [
+      "infra",
+      "devops",
+      "terraform",
+      "docker",
+      "kubernetes",
+      "container",
+      "azure"
+    ],
+    "automation": ["automation", "actor", "scraping", "crawler", "agent"]
+  },
+  "taskModeKeywordMap": {
+    "implementation": [
+      "backend",
+      "frontend",
+      "api",
+      "service",
+      "react",
+      "vue",
+      "typescript",
+      "javascript"
+    ],
+    "validation": [
+      "testing",
+      "test",
+      "playwright",
+      "qa",
+      "audit",
+      "debugging",
+      "security"
+    ],
+    "operations": [
+      "infra",
+      "devops",
+      "terraform",
+      "docker",
+      "kubernetes",
+      "deploy",
+      "monitor"
+    ],
+    "research": [
+      "research",
+      "docs",
+      "guide",
+      "prompt",
+      "architecture",
+      "analysis",
+      "reference"
+    ],
+    "automation": [
+      "workflow",
+      "webhook",
+      "integration",
+      "mcp",
+      "actor",
+      "apify",
+      "scraping"
+    ]
+  },
+  "domainKeywordGroups": {
+    "azure": [
+      "azure",
+      "cosmos",
+      "servicebus",
+      "eventhub",
+      "keyvault",
+      "appconfiguration",
+      "web-pubsub"
+    ],
+    "expo": ["expo", "react-native"],
+    "firebase": ["firebase", "firestore", "genkit"],
+    "flutter": ["flutter", "dart"],
+    "hashicorp": ["terraform", "hashicorp"],
+    "power-platform": [
+      "dataverse",
+      "power-platform",
+      "power-bi",
+      "pcf",
+      "copilot-studio"
+    ],
+    "studio-content": ["remotion", "sanity", "tinybird"]
+  },
+  "synonyms": {
+    "node-backend": ["node", "backend", "service", "api"],
+    "apify": [
+      "actor-development",
+      "web-scraping",
+      "automation",
+      "actor",
+      "crawler"
+    ],
+    "containerization": ["docker", "container", "containers"],
+    "testing": ["test", "qa", "playwright", "jest"],
+    "infrastructure": ["infra", "devops", "terraform", "kubernetes"],
+    "documentation": ["docs", "readme", "guide", "reference"],
+    "integration": ["webhook", "connector", "mcp", "workflow"],
+    "security": ["auth", "audit", "threat", "governance"],
+    "data": ["database", "duckdb", "sql", "postgres", "analytics"],
+    "frontend": ["react", "vue", "ui", "accessibility"]
+  }
+}

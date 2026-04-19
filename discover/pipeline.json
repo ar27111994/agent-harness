@@ -4,63 +4,38 @@
     {
       "id": "d0-demand-profile",
       "enabled": true,
-      "inputs": [
-        "C:/Projects"
-      ],
-      "outputs": [
-        "discover/output/demand-profile.json"
-      ]
+      "inputs": ["C:/Projects"],
+      "outputs": ["discover/output/demand-profile.json"]
     },
     {
       "id": "d1-source-refresh",
       "enabled": true,
-      "inputs": [
-        "discover/sources.json",
-        "discover/selections.json"
-      ],
-      "outputs": [
-        "discover/output/source-index.json"
-      ]
+      "inputs": ["discover/sources.json", "discover/selections.json"],
+      "outputs": ["discover/output/source-index.json"]
     },
     {
       "id": "d2-metadata-harvest",
       "enabled": true,
-      "inputs": [
-        "discover/output/source-index.json"
-      ],
-      "outputs": [
-        "discover/catalog.assets.jsonl"
-      ]
+      "inputs": ["discover/output/source-index.json"],
+      "outputs": ["discover/catalog.assets.jsonl"]
     },
     {
       "id": "d3-normalize",
       "enabled": true,
-      "inputs": [
-        "discover/catalog.assets.jsonl"
-      ],
-      "outputs": [
-        "discover/output/catalog.normalized.jsonl"
-      ]
+      "inputs": ["discover/catalog.assets.jsonl"],
+      "outputs": ["discover/output/catalog.normalized.jsonl"]
     },
     {
       "id": "d4-compatibility-classification",
       "enabled": true,
-      "inputs": [
-        "discover/output/catalog.normalized.jsonl"
-      ],
-      "outputs": [
-        "discover/output/catalog.classified.jsonl"
-      ]
+      "inputs": ["discover/output/catalog.normalized.jsonl"],
+      "outputs": ["discover/output/catalog.classified.jsonl"]
     },
     {
       "id": "d5-evidence-enrichment",
       "enabled": true,
-      "inputs": [
-        "discover/output/catalog.classified.jsonl"
-      ],
-      "outputs": [
-        "discover/output/catalog.enriched.jsonl"
-      ]
+      "inputs": ["discover/output/catalog.classified.jsonl"],
+      "outputs": ["discover/output/catalog.enriched.jsonl"]
     },
     {
       "id": "d6-dedupe-selection",
@@ -69,9 +44,7 @@
         "discover/output/catalog.enriched.jsonl",
         "discover/selections.json"
       ],
-      "outputs": [
-        "discover/output/catalog.selected.jsonl"
-      ]
+      "outputs": ["discover/output/catalog.selected.jsonl"]
     },
     {
       "id": "d7-mirror-queue",

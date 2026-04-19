@@ -20,9 +20,9 @@ Describe the problem in one or two sentences.
 
 ## Reproduction
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ## Relevant outputs
 

@@ -1,6 +1,6 @@
 {
   "name": "agent-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Discovery and mirror pipeline for curated agent tooling across OpenCode and GitHub Copilot.",
   "license": "MIT",
@@ -12,13 +12,23 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "npm run typecheck",
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix --max-warnings=0",
+    "format": "prettier --write .github discover src eslint.config.mjs .prettierrc.json package.json tsconfig.json *.md",
+    "format:check": "prettier --check .github discover src eslint.config.mjs .prettierrc.json package.json tsconfig.json *.md",
+    "validate:recommendations": "npm run recommend:evaluate",
+    "validate": "npm run typecheck && npm run lint && npm run format:check",
+    "prepare": "husky",
     "start": "node ./dist/cli.js",
     "discover:demand": "node ./dist/cli.js discover demand-profile",
     "discover:sources": "node ./dist/cli.js discover sources",
     "discover:catalog": "node ./dist/cli.js discover catalog",
     "discover:select": "node ./dist/cli.js discover select",
     "discover:stats": "node ./dist/cli.js discover stats",
+    "recommend:report": "node ./dist/cli.js recommend report",
+    "recommend:evaluate": "node ./dist/cli.js recommend evaluate --write",
     "mirror:plan": "node ./dist/cli.js mirror plan",
     "mirror:locks": "node ./dist/cli.js mirror locks",
     "mirror:acquire": "node ./dist/cli.js mirror acquire --batch-size 120",
@@ -34,6 +44,14 @@
     "wire:vscode": "node ./dist/cli.js wire vscode --apply",
     "wire:opencode": "node ./dist/cli.js wire opencode --apply"
   },
+  "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "**/*.{json,md,yml,yaml,mjs}": "prettier --write",
+    ".prettierrc.json": "prettier --write"
+  },
   "dependencies": {
     "jsonc-parser": "^3.3.1"
   },
@@ -41,7 +59,15 @@
     "node": ">=22"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
-    "typescript": "^5.9.0"
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.2",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.58.2"
   }
 }

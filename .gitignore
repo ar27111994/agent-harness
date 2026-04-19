@@ -17,6 +17,7 @@ mirror/quarantine/
 mirror/raw/
 
 .opencode/
+.husky/_/
 .github/copilot-instructions.md
 AGENTS.md
 

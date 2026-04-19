@@ -46,9 +46,7 @@
         },
         "communityDefaultPolicy": {
           "type": "string",
-          "enum": [
-            "catalog-only-unless-promoted"
-          ]
+          "enum": ["catalog-only-unless-promoted"]
         }
       }
     },

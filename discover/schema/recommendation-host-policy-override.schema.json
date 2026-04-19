@@ -1,0 +1,192 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.local/discover/recommendation-host-policy-override.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "host", "policy"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "host": {
+      "type": "string",
+      "enum": ["copilot-vscode", "opencode", "shared"]
+    },
+    "presetRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetAssetKinds": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "targetConcerns": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "policy": {
+      "$ref": "#/$defs/hostPolicyPartial"
+    }
+  },
+  "$defs": {
+    "assetKind": {
+      "type": "string",
+      "enum": [
+        "skill",
+        "plugin",
+        "mcp-server",
+        "agent",
+        "instruction",
+        "workflow",
+        "hook",
+        "extension",
+        "prompt-pack",
+        "reference-pack"
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "targetAssetKindPreference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assetKind", "minimum", "weight"],
+      "properties": {
+        "assetKind": {
+          "$ref": "#/$defs/assetKind"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        }
+      }
+    },
+    "targetConcernPreference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concern", "minimum", "weight"],
+      "properties": {
+        "concern": {
+          "type": "string"
+        },
+        "minimum": {
+          "type": "number"
+        },
+        "weight": {
+          "type": "number"
+        }
+      }
+    },
+    "targetAssetKindPreferenceArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetAssetKindPreference"
+      }
+    },
+    "targetConcernPreferenceArray": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetConcernPreference"
+      }
+    },
+    "maxPerAssetKind": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "skill": {
+          "type": "number"
+        },
+        "plugin": {
+          "type": "number"
+        },
+        "mcp-server": {
+          "type": "number"
+        },
+        "agent": {
+          "type": "number"
+        },
+        "instruction": {
+          "type": "number"
+        },
+        "workflow": {
+          "type": "number"
+        },
+        "hook": {
+          "type": "number"
+        },
+        "extension": {
+          "type": "number"
+        },
+        "prompt-pack": {
+          "type": "number"
+        },
+        "reference-pack": {
+          "type": "number"
+        }
+      }
+    },
+    "hostPolicyPartial": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "recommendationLimit": {
+          "type": "number"
+        },
+        "activationBudget": {
+          "type": "number"
+        },
+        "suggestedBundleId": {
+          "type": "string"
+        },
+        "fallbackSkillCount": {
+          "type": "number"
+        },
+        "maxPerSourceFamily": {
+          "type": "number"
+        },
+        "maxPerDuplicateGroup": {
+          "type": "number"
+        },
+        "maxPerAssetKind": {
+          "$ref": "#/$defs/maxPerAssetKind"
+        },
+        "targetAssetKinds": {
+          "$ref": "#/$defs/targetAssetKindPreferenceArray"
+        },
+        "targetConcerns": {
+          "$ref": "#/$defs/targetConcernPreferenceArray"
+        },
+        "suppressedAssetIdPatterns": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "suppressedCapabilityTerms": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "deprioritizedPenalty": {
+          "type": "number"
+        },
+        "deprioritizedAssetIdPatterns": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "deprioritizedCapabilityTerms": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "sourceSaturationFreeCount": {
+          "type": "number"
+        },
+        "sourceSaturationPenaltyStep": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

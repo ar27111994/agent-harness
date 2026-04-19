@@ -1,21 +1,161 @@
 {
   "schemaVersion": 1,
   "entries": [
-    { "id": "anthropics-skills-pack", "repo": "https://github.com/anthropics/skills", "authorityTier": "official-first-party", "publisher": "Anthropic", "publisherVerified": true, "priority": 100, "enabled": true },
-    { "id": "anthropics-claude-cookbooks-pack", "repo": "https://github.com/anthropics/claude-cookbooks", "authorityTier": "official-first-party", "publisher": "Anthropic", "publisherVerified": true, "priority": 95, "enabled": true, "assetKinds": ["reference-pack", "instruction", "workflow"] },
-    { "id": "remotion-dev-skills-pack", "repo": "https://github.com/remotion-dev/skills", "authorityTier": "official-first-party", "publisher": "Remotion", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "vercel-labs-agent-skills-pack", "repo": "https://github.com/vercel-labs/agent-skills", "authorityTier": "official-first-party", "publisher": "Vercel", "publisherVerified": true, "priority": 100, "enabled": true },
-    { "id": "openai-skills-pack", "repo": "https://github.com/openai/skills", "authorityTier": "official-first-party", "publisher": "OpenAI", "publisherVerified": true, "priority": 100, "enabled": true },
-    { "id": "microsoft-skills-pack", "repo": "https://github.com/microsoft/skills", "authorityTier": "official-first-party", "publisher": "Microsoft", "publisherVerified": true, "priority": 100, "enabled": true },
-    { "id": "google-gemini-skills-pack", "repo": "https://github.com/google-gemini/gemini-skills", "authorityTier": "official-first-party", "publisher": "Google Gemini", "publisherVerified": true, "priority": 100, "enabled": true },
-    { "id": "apify-agent-skills-pack", "repo": "https://github.com/apify/agent-skills", "authorityTier": "official-first-party", "publisher": "Apify", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "expo-skills-pack", "repo": "https://github.com/expo/skills", "authorityTier": "official-first-party", "publisher": "Expo", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "huggingface-skills-pack", "repo": "https://github.com/huggingface/skills", "authorityTier": "official-first-party", "publisher": "Hugging Face", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "neondatabase-agent-skills-pack", "repo": "https://github.com/neondatabase/agent-skills", "authorityTier": "official-first-party", "publisher": "Neon", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "scopeblind-gateway-pack", "repo": "https://github.com/scopeblind/scopeblind-gateway", "authorityTier": "official-first-party", "publisher": "Scopeblind", "publisherVerified": true, "priority": 95, "enabled": true, "hosts": ["copilot-vscode", "opencode", "shared"], "assetKinds": ["mcp-server", "workflow", "reference-pack"] },
-    { "id": "pbakaus-impeccable-pack", "repo": "https://github.com/pbakaus/impeccable.git", "authorityTier": "trusted-community", "publisher": "pbakaus", "publisherVerified": false, "priority": 70, "enabled": true },
-    { "id": "flutter-skills-pack", "repo": "https://github.com/flutter/skills", "authorityTier": "official-first-party", "publisher": "Flutter", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "genkit-ai-skills-pack", "repo": "https://github.com/genkit-ai/skills", "authorityTier": "official-first-party", "publisher": "Genkit", "publisherVerified": true, "priority": 95, "enabled": true },
-    { "id": "firebase-skills-pack", "repo": "https://github.com/firebase/skills", "authorityTier": "official-first-party", "publisher": "Firebase", "publisherVerified": true, "priority": 95, "enabled": true }
+    {
+      "id": "anthropics-skills-pack",
+      "repo": "https://github.com/anthropics/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Anthropic",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "anthropics-claude-cookbooks-pack",
+      "repo": "https://github.com/anthropics/claude-cookbooks",
+      "authorityTier": "official-first-party",
+      "publisher": "Anthropic",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true,
+      "assetKinds": ["reference-pack", "instruction", "workflow"]
+    },
+    {
+      "id": "remotion-dev-skills-pack",
+      "repo": "https://github.com/remotion-dev/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Remotion",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "vercel-labs-agent-skills-pack",
+      "repo": "https://github.com/vercel-labs/agent-skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Vercel",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "openai-skills-pack",
+      "repo": "https://github.com/openai/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "OpenAI",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "microsoft-skills-pack",
+      "repo": "https://github.com/microsoft/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Microsoft",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "google-gemini-skills-pack",
+      "repo": "https://github.com/google-gemini/gemini-skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Google Gemini",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "apify-agent-skills-pack",
+      "repo": "https://github.com/apify/agent-skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Apify",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "android-skills-pack",
+      "repo": "https://github.com/android/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Android",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "expo-skills-pack",
+      "repo": "https://github.com/expo/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Expo",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "huggingface-skills-pack",
+      "repo": "https://github.com/huggingface/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Hugging Face",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "neondatabase-agent-skills-pack",
+      "repo": "https://github.com/neondatabase/agent-skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Neon",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "scopeblind-gateway-pack",
+      "repo": "https://github.com/scopeblind/scopeblind-gateway",
+      "authorityTier": "official-first-party",
+      "publisher": "Scopeblind",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true,
+      "hosts": ["copilot-vscode", "opencode", "shared"],
+      "assetKinds": ["mcp-server", "workflow", "reference-pack"]
+    },
+    {
+      "id": "pbakaus-impeccable-pack",
+      "repo": "https://github.com/pbakaus/impeccable.git",
+      "authorityTier": "trusted-community",
+      "publisher": "pbakaus",
+      "publisherVerified": false,
+      "priority": 70,
+      "enabled": true
+    },
+    {
+      "id": "flutter-skills-pack",
+      "repo": "https://github.com/flutter/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Flutter",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "genkit-ai-skills-pack",
+      "repo": "https://github.com/genkit-ai/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Genkit",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "firebase-skills-pack",
+      "repo": "https://github.com/firebase/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Firebase",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true
+    }
   ]
 }

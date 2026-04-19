@@ -6,15 +6,11 @@
     "strict": true,
     "rootDir": "src",
     "outDir": "dist",
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "sourceMap": true,
     "declaration": false,
     "noEmitOnError": true,
     "skipLibCheck": true
   },
-  "include": [
-    "src/**/*.ts"
-  ]
+  "include": ["src/**/*.ts"]
 }

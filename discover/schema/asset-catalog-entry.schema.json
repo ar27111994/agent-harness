@@ -44,11 +44,7 @@
       "minItems": 1,
       "items": {
         "type": "string",
-        "enum": [
-          "copilot-vscode",
-          "opencode",
-          "shared"
-        ]
+        "enum": ["copilot-vscode", "opencode", "shared"]
       }
     },
     "compatibilityMode": {
@@ -107,17 +103,11 @@
     "risk": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "level"
-      ],
+      "required": ["level"],
       "properties": {
         "level": {
           "type": "string",
-          "enum": [
-            "low",
-            "medium",
-            "high"
-          ]
+          "enum": ["low", "medium", "high"]
         },
         "hasHooks": {
           "type": "boolean"
@@ -133,18 +123,11 @@
     "contextCost": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "sizeClass"
-      ],
+      "required": ["sizeClass"],
       "properties": {
         "sizeClass": {
           "type": "string",
-          "enum": [
-            "tiny",
-            "small",
-            "medium",
-            "large"
-          ]
+          "enum": ["tiny", "small", "medium", "large"]
         },
         "estimatedPromptWeight": {
           "type": "number"

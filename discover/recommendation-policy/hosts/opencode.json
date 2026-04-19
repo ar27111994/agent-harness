@@ -1,0 +1,54 @@
+{
+  "$schema": "../../schema/recommendation-host-policy-override.schema.json",
+  "schemaVersion": 1,
+  "host": "opencode",
+  "presetRefs": {
+    "targetConcerns": ["delivery-core"]
+  },
+  "policy": {
+    "recommendationLimit": 80,
+    "activationBudget": 120,
+    "suggestedBundleId": "opencode-global",
+    "maxPerSourceFamily": 8,
+    "maxPerDuplicateGroup": 6,
+    "maxPerAssetKind": {
+      "skill": 24,
+      "instruction": 12,
+      "plugin": 8,
+      "agent": 10,
+      "workflow": 8,
+      "hook": 8,
+      "mcp-server": 8,
+      "extension": 4,
+      "prompt-pack": 6,
+      "reference-pack": 4
+    },
+    "targetAssetKinds": [
+      {
+        "assetKind": "skill",
+        "minimum": 12,
+        "weight": 3
+      },
+      {
+        "assetKind": "agent",
+        "minimum": 8,
+        "weight": 3
+      },
+      {
+        "assetKind": "workflow",
+        "minimum": 6,
+        "weight": 3
+      },
+      {
+        "assetKind": "instruction",
+        "minimum": 6,
+        "weight": 2
+      },
+      {
+        "assetKind": "plugin",
+        "minimum": 4,
+        "weight": 2
+      }
+    ]
+  }
+}

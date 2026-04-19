@@ -3,10 +3,7 @@
   "$id": "https://agent-harness.local/discover/source-registry.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "schemaVersion",
-    "sources"
-  ],
+  "required": ["schemaVersion", "sources"],
   "properties": {
     "$schema": {
       "type": "string"
@@ -68,9 +65,7 @@
           "publisher": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "name"
-            ],
+            "required": ["name"],
             "properties": {
               "name": {
                 "type": "string"
@@ -88,11 +83,7 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "enum": [
-                "copilot-vscode",
-                "opencode",
-                "shared"
-              ]
+              "enum": ["copilot-vscode", "opencode", "shared"]
             }
           },
           "assetKinds": {
@@ -116,10 +107,7 @@
           },
           "discoveryMode": {
             "type": "string",
-            "enum": [
-              "catalog",
-              "seed"
-            ]
+            "enum": ["catalog", "seed"]
           },
           "priority": {
             "type": "integer",
@@ -140,11 +128,7 @@
           "rules": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "officialPreferred",
-              "allowMirror",
-              "allowInstall"
-            ],
+            "required": ["officialPreferred", "allowMirror", "allowInstall"],
             "properties": {
               "officialPreferred": {
                 "type": "boolean"
