@@ -121,8 +121,12 @@ export interface GitHubRepoSnapshot {
 const DEFAULT_GITHUB_API_VERSION =
   process.env.GITHUB_API_VERSION ?? "2022-11-28";
 const GITHUB_API_BASE_URL = "https://api.github.com";
-const parsed = parseInt(process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "", 10);
-const GITHUB_FETCH_MAX_ATTEMPTS = Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+const parsed = parseInt(
+  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "",
+  10,
+);
+const GITHUB_FETCH_MAX_ATTEMPTS =
+  Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
 const GITHUB_FETCH_TIMEOUT_MS = 10000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
@@ -406,7 +410,10 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
 
   for (let attempt = 1; attempt <= GITHUB_FETCH_MAX_ATTEMPTS; attempt += 1) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), GITHUB_FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => controller.abort(),
+      GITHUB_FETCH_TIMEOUT_MS,
+    );
 
     try {
       const response = await fetch(`${GITHUB_API_BASE_URL}${path}`, {
@@ -435,14 +442,18 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
       clearTimeout(timeout);
 
       if (error instanceof Error && error.name === "AbortError") {
-        lastError = new Error(`Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`);
+        lastError = new Error(
+          `Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`,
+        );
       } else if (
         typeof error === "object" &&
         error !== null &&
         "name" in error &&
         error.name === "AbortError"
       ) {
-        lastError = new Error(`Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`);
+        lastError = new Error(
+          `Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`,
+        );
       } else {
         lastError = error;
       }
@@ -511,9 +522,8 @@ async function updateGitHubSourceHealth(
     >,
 ): Promise<void> {
   const statePath = join(projectRoot, ...GITHUB_HEALTH_STATE_PATH);
-  let currentState = await readJsonFileOrNull<GitHubSourceHealthState>(
-    statePath,
-  );
+  let currentState =
+    await readJsonFileOrNull<GitHubSourceHealthState>(statePath);
 
   if (currentState !== null) {
     try {
@@ -539,9 +549,12 @@ async function updateGitHubSourceHealth(
     lastAttemptAt: nextEntry.lastAttemptAt,
     lastSuccessAt:
       nextEntry.lastSuccessAt ?? previousEntry?.lastSuccessAt ?? null,
-    lastFailureAt: Object.prototype.hasOwnProperty.call(nextEntry, "lastFailureAt")
-      ? nextEntry.lastFailureAt ?? null
-      : previousEntry?.lastFailureAt ?? null,
+    lastFailureAt: Object.prototype.hasOwnProperty.call(
+      nextEntry,
+      "lastFailureAt",
+    )
+      ? (nextEntry.lastFailureAt ?? null)
+      : (previousEntry?.lastFailureAt ?? null),
     consecutiveFailures:
       nextEntry.consecutiveFailures ??
       (nextEntry.lastFailureAt
@@ -549,13 +562,16 @@ async function updateGitHubSourceHealth(
         : 0),
     degradedMode:
       nextEntry.degradedMode ?? previousEntry?.degradedMode ?? false,
-    degradedReason: Object.prototype.hasOwnProperty.call(nextEntry, "degradedReason")
-      ? nextEntry.degradedReason ?? null
-      : previousEntry?.degradedReason ?? null,
+    degradedReason: Object.prototype.hasOwnProperty.call(
+      nextEntry,
+      "degradedReason",
+    )
+      ? (nextEntry.degradedReason ?? null)
+      : (previousEntry?.degradedReason ?? null),
     usedCacheLastAttempt: nextEntry.usedCacheLastAttempt ?? false,
     lastError: Object.prototype.hasOwnProperty.call(nextEntry, "lastError")
-      ? nextEntry.lastError ?? null
-      : previousEntry?.lastError ?? null,
+      ? (nextEntry.lastError ?? null)
+      : (previousEntry?.lastError ?? null),
   };
 
   const nextState: GitHubSourceHealthState = {

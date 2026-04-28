@@ -8,8 +8,12 @@ import type {
   RecommendationEvaluationFixture,
 } from "./types.js";
 
-const FIXTURE_UPDATED_AT = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
-const FIXTURE_GENERATED_AT = new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString();
+const FIXTURE_UPDATED_AT = new Date(
+  Date.now() - 3 * 24 * 60 * 60 * 1000,
+).toISOString();
+const FIXTURE_GENERATED_AT = new Date(
+  Date.now() - 4 * 24 * 60 * 60 * 1000,
+).toISOString();
 
 interface FixtureAssetOptions {
   assetKind: AssetKind;

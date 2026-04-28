@@ -636,7 +636,10 @@ export function assertRecommendationReport(
 
   for (const expectedHost of HOST_TARGETS) {
     if (!Object.prototype.hasOwnProperty.call(hostSummaries, expectedHost)) {
-      fail(`${context}.hostSummaries`, `missing expected host: ${expectedHost}`);
+      fail(
+        `${context}.hostSummaries`,
+        `missing expected host: ${expectedHost}`,
+      );
     }
   }
 
@@ -1122,15 +1125,23 @@ export function assertGitHubRepoSnapshot(
   const tree = assertRecord(record.tree, `${context}.tree`);
   assertString(tree.sha, `${context}.tree.sha`);
   assertBoolean(tree.truncated, `${context}.tree.truncated`);
-  assertArray(tree.entries, `${context}.tree.entries`).forEach((entry, index) => {
-    const entryRecord = assertRecord(entry, `${context}.tree.entries[${index}]`);
-    assertString(entryRecord.path, `${context}.tree.entries[${index}].path`);
-    assertString(entryRecord.type, `${context}.tree.entries[${index}].type`);
-    if (entryRecord.size !== null) {
-      assertNumber(entryRecord.size, `${context}.tree.entries[${index}].size`);
-    }
-    assertString(entryRecord.sha, `${context}.tree.entries[${index}].sha`);
-  });
+  assertArray(tree.entries, `${context}.tree.entries`).forEach(
+    (entry, index) => {
+      const entryRecord = assertRecord(
+        entry,
+        `${context}.tree.entries[${index}]`,
+      );
+      assertString(entryRecord.path, `${context}.tree.entries[${index}].path`);
+      assertString(entryRecord.type, `${context}.tree.entries[${index}].type`);
+      if (entryRecord.size !== null) {
+        assertNumber(
+          entryRecord.size,
+          `${context}.tree.entries[${index}].size`,
+        );
+      }
+      assertString(entryRecord.sha, `${context}.tree.entries[${index}].sha`);
+    },
+  );
 }
 
 function assertDemandSignalSet(value: unknown, context: string): void {

@@ -113,16 +113,16 @@ Scope of this assessment:
 ## Recommended Phasing
 
 | Phase   | Goal                                                            | Key deliverables                                                                                                      | Tracking item |
-| ------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------- |
-| Phase 0 | Establish modular architecture foundations                      | Create domain folders, central config loading, shared validation/preflight layers, and internal service/factory seams | `M0` / #48     |
-| Phase 1 | Make the project genuinely cross-platform                       | Remove hardcoded Windows local paths, replace APPDATA/USERPROFILE assumptions, add OS matrix CI                       | `M1` / #49     |
-| Phase 2 | Separate generic repo understanding from agent-asset harvesting | Add a generic repo classifier layer and pluggable detector modules                                                    | `M2` / #50     |
-| Phase 3 | Turn configured source breadth into effective source breadth    | Implement harvesters for docs, marketplace, and registry sources that are currently only declarative                  | `M3` / #51     |
-| Phase 4 | Make detection measurable and scalable                          | Add archetype fixture corpus, benchmark suite, coverage reporting, and scan budgets                                   | `M4` / #52     |
-| Phase 5 | Broaden real-world domain coverage                              | Introduce detector packs for research, data, media, CAD, game dev, hardware, ML, security, and mixed-domain repos     | `M5` / #53     |
-| Phase 6 | Make wire-in truly host-aware and user-assistive                | Add native install support where applicable, auth-aware setup guidance, preflight checks, and shared MCP projection   | `M6` / #54     |
-| Phase 7 | Generalize host support beyond VS Code and OpenCode             | Introduce host adapters, capability matrices, declarative host registration, and pilot integrations for new IDEs      | `M7` / #55     |
-| Phase 8 | Reduce file and function complexity                             | Split oversized modules, localize types/validation, and enforce complexity/size budgets in CI                         | `M8` / #56     |
+| ------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------- |
+| Phase 0 | Establish modular architecture foundations                      | Create domain folders, central config loading, shared validation/preflight layers, and internal service/factory seams | `M0` / #48    |
+| Phase 1 | Make the project genuinely cross-platform                       | Remove hardcoded Windows local paths, replace APPDATA/USERPROFILE assumptions, add OS matrix CI                       | `M1` / #49    |
+| Phase 2 | Separate generic repo understanding from agent-asset harvesting | Add a generic repo classifier layer and pluggable detector modules                                                    | `M2` / #50    |
+| Phase 3 | Turn configured source breadth into effective source breadth    | Implement harvesters for docs, marketplace, and registry sources that are currently only declarative                  | `M3` / #51    |
+| Phase 4 | Make detection measurable and scalable                          | Add archetype fixture corpus, benchmark suite, coverage reporting, and scan budgets                                   | `M4` / #52    |
+| Phase 5 | Broaden real-world domain coverage                              | Introduce detector packs for research, data, media, CAD, game dev, hardware, ML, security, and mixed-domain repos     | `M5` / #53    |
+| Phase 6 | Make wire-in truly host-aware and user-assistive                | Add native install support where applicable, auth-aware setup guidance, preflight checks, and shared MCP projection   | `M6` / #54    |
+| Phase 7 | Generalize host support beyond VS Code and OpenCode             | Introduce host adapters, capability matrices, declarative host registration, and pilot integrations for new IDEs      | `M7` / #55    |
+| Phase 8 | Reduce file and function complexity                             | Split oversized modules, localize types/validation, and enforce complexity/size budgets in CI                         | `M8` / #56    |
 
 ## Suggested Success Metrics
 

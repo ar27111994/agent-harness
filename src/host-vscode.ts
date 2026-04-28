@@ -582,7 +582,11 @@ async function pruneVsCodeGenerationDirectories(
         const dirPath = join(generationsDir, dir.name);
         try {
           const stats = await stat(dirPath);
-          return { name: dir.name, path: dirPath, mtime: stats.mtime.getTime() };
+          return {
+            name: dir.name,
+            path: dirPath,
+            mtime: stats.mtime.getTime(),
+          };
         } catch {
           return null;
         }
@@ -601,7 +605,9 @@ async function pruneVsCodeGenerationDirectories(
       try {
         await removePath(dir.path);
       } catch (error) {
-        console.warn(`Failed to prune generation directory ${dir.path}: ${error}`);
+        console.warn(
+          `Failed to prune generation directory ${dir.path}: ${error}`,
+        );
       }
     }
   } catch {
