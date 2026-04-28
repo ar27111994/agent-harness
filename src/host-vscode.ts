@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 
@@ -20,12 +21,32 @@ import type {
 } from "./types.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
-const VSCODE_USER_SETTINGS_PATH = join(
-  process.env.APPDATA ?? "",
-  "Code",
-  "User",
-  "settings.json",
-);
+function resolveVsCodeUserSettingsPath(): string {
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA;
+    if (!appData) {
+      throw new Error(
+        "APPDATA environment variable is not set; cannot resolve VS Code user settings path on Windows.",
+      );
+    }
+    return join(appData, "Code", "User", "settings.json");
+  }
+  if (process.platform === "darwin") {
+    return join(
+      homedir(),
+      "Library",
+      "Application Support",
+      "Code",
+      "User",
+      "settings.json",
+    );
+  }
+  const xdgConfigHome =
+    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
+  return join(xdgConfigHome, "Code", "User", "settings.json");
+}
+
+const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
 
 export async function wireVsCode(options: {
   projectRoot: string;
@@ -39,11 +60,7 @@ export async function wireVsCode(options: {
       join(activationRoot, "workspace-profile-manifest.json"),
     );
 
-  const curatedRoot = join(
-    process.env.USERPROFILE ?? "",
-    ".copilot",
-    "agent-harness",
-  );
+  const curatedRoot = join(homedir(), ".copilot", "agent-harness");
   const currentRoot = join(curatedRoot, "current");
   const generationId = profileManifest?.profileId
     ? `${profileManifest.profileId}-${Date.now()}`
@@ -562,9 +579,9 @@ function sanitizeAssetId(value: string): string {
 }
 
 function toHomePath(pathValue: string): string {
-  const userProfile = process.env.USERPROFILE ?? "";
-  return userProfile && pathValue.startsWith(userProfile)
-    ? pathValue.replace(userProfile, "~").replace(/\\/gu, "/")
+  const home = homedir();
+  return home && pathValue.startsWith(home)
+    ? pathValue.replace(home, "~").replace(/\\/gu, "/")
     : toPosixPath(pathValue);
 }
 

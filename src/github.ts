@@ -264,13 +264,11 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
         owner,
         repo,
         lastAttemptAt: new Date().toISOString(),
-        lastSuccessAt: new Date().toISOString(),
-        lastFailureAt: null,
-        consecutiveFailures: 0,
+        lastFailureAt: new Date().toISOString(),
         degradedMode: false,
-        degradedReason: null,
+        degradedReason: "repo-not-found",
         usedCacheLastAttempt: false,
-        lastError: null,
+        lastError: "Repository not found (404)",
       });
       return null;
     }
@@ -430,6 +428,7 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
         return response;
       }
 
+      await response.body?.cancel();
       await waitForRetry(attempt, response);
       continue;
     } catch (error) {

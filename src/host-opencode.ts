@@ -72,6 +72,7 @@ export async function wireOpenCode(options: {
     generatedAt: new Date().toISOString(),
     workspaceRoot: toPosixPath(workspaceRoot),
     targetPaths: [
+      toPosixPath(localAgentsPath),
       toPosixPath(localContextRoot),
       ...buildOpenCodeLinkRoots(localOverlayRoot),
     ],
