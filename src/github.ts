@@ -236,10 +236,7 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
   const healthKey = `${owner}/${repo}`;
 
   if (isRateLimited()) {
-    const cachedSnapshot = await readJsonFileOrNull<GitHubRepoSnapshot>(
-      cachePath,
-      assertGitHubRepoSnapshot,
-    );
+    const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
     await updateGitHubSourceHealth(projectRoot, healthKey, {
       sourceId,
       owner,
@@ -340,10 +337,7 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
 
     return snapshot;
   } catch (error) {
-    const cachedSnapshot = await readJsonFileOrNull<GitHubRepoSnapshot>(
-      cachePath,
-      assertGitHubRepoSnapshot,
-    );
+    const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
     if (cachedSnapshot) {
       await updateGitHubSourceHealth(projectRoot, healthKey, {
         sourceId,
@@ -522,8 +516,9 @@ async function updateGitHubSourceHealth(
     >,
 ): Promise<void> {
   const statePath = join(projectRoot, ...GITHUB_HEALTH_STATE_PATH);
-  let currentState =
-    await readJsonFileOrNull<GitHubSourceHealthState>(statePath);
+  let currentState = await readJsonFileOrNull<GitHubSourceHealthState>(
+    statePath,
+  ).catch(() => null);
 
   if (currentState !== null) {
     try {
@@ -601,6 +596,19 @@ async function updateGitHubSourceHealth(
     join(projectRoot, ...GITHUB_DEGRADED_SUMMARY_PATH),
     degradedSummary,
   );
+}
+
+async function readGitHubRepoSnapshotCache(
+  cachePath: string,
+): Promise<GitHubRepoSnapshot | null> {
+  try {
+    return await readJsonFileOrNull<GitHubRepoSnapshot>(
+      cachePath,
+      assertGitHubRepoSnapshot,
+    );
+  } catch {
+    return null;
+  }
 }
 
 function shouldRetryResponse(response: Response): boolean {

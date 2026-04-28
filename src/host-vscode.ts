@@ -606,11 +606,19 @@ async function pruneVsCodeGenerationDirectories(
         await removePath(dir.path);
       } catch (error) {
         console.warn(
-          `Failed to prune generation directory ${dir.path}: ${error}`,
+          `Failed to prune generation directory ${dir.path}: ${toLoggableErrorMessage(error)}`,
         );
       }
     }
   } catch {
     // Ignore errors if the generations directory doesn't exist
   }
+}
+
+function toLoggableErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+
+  return String(error);
 }
