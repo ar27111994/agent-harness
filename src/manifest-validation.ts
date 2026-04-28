@@ -1070,6 +1070,24 @@ export function assertWirePlanManifest(
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertString(record.workspaceRoot, `${context}.workspaceRoot`);
   assertString(record.runtimeRoot, `${context}.runtimeRoot`);
+  if (record.linkedPaths !== undefined) {
+    assertStringArray(record.linkedPaths, `${context}.linkedPaths`);
+  }
+  if (record.instructionsFiles !== undefined) {
+    assertStringArray(record.instructionsFiles, `${context}.instructionsFiles`);
+  }
+  if (record.agentFiles !== undefined) {
+    assertStringArray(record.agentFiles, `${context}.agentFiles`);
+  }
+  if (record.skillDirs !== undefined) {
+    assertStringArray(record.skillDirs, `${context}.skillDirs`);
+  }
+  if (record.pluginDirs !== undefined) {
+    assertStringArray(record.pluginDirs, `${context}.pluginDirs`);
+  }
+  if (record.hookFiles !== undefined) {
+    assertStringArray(record.hookFiles, `${context}.hookFiles`);
+  }
   assertStringArray(record.notes, `${context}.notes`);
 }
 

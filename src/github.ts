@@ -64,14 +64,90 @@ function assertGitHubSourceHealthState(
     throw new Error("Expected source health state to be an object");
   }
   const record = value as Record<string, unknown>;
-  if (typeof record.schemaVersion !== "number") {
-    throw new Error("Expected schemaVersion to be a number");
+  if (record.schemaVersion !== 1) {
+    throw new Error(
+      `Expected schemaVersion to be one of [1], received ${String(record.schemaVersion)}`,
+    );
   }
   if (typeof record.updatedAt !== "string") {
     throw new Error("Expected updatedAt to be a string");
   }
-  if (typeof record.entries !== "object" || record.entries === null) {
-    throw new Error("Expected entries to be an object");
+  if (
+    typeof record.entries !== "object" ||
+    record.entries === null ||
+    Array.isArray(record.entries)
+  ) {
+    throw new Error("Expected entries to be a non-null object");
+  }
+
+  for (const [entryKey, entryValue] of Object.entries(record.entries)) {
+    if (
+      typeof entryValue !== "object" ||
+      entryValue === null ||
+      Array.isArray(entryValue)
+    ) {
+      throw new Error(`Expected entries.${entryKey} to be an object`);
+    }
+    const entry = entryValue as Record<string, unknown>;
+
+    if (typeof entry.sourceId !== "string") {
+      throw new Error(`Expected entries.${entryKey}.sourceId to be a string`);
+    }
+    if (typeof entry.owner !== "string") {
+      throw new Error(`Expected entries.${entryKey}.owner to be a string`);
+    }
+    if (typeof entry.repo !== "string") {
+      throw new Error(`Expected entries.${entryKey}.repo to be a string`);
+    }
+    if (typeof entry.lastAttemptAt !== "string") {
+      throw new Error(
+        `Expected entries.${entryKey}.lastAttemptAt to be a string`,
+      );
+    }
+    if (
+      entry.lastSuccessAt !== null &&
+      typeof entry.lastSuccessAt !== "string"
+    ) {
+      throw new Error(
+        `Expected entries.${entryKey}.lastSuccessAt to be a string or null`,
+      );
+    }
+    if (
+      entry.lastFailureAt !== null &&
+      typeof entry.lastFailureAt !== "string"
+    ) {
+      throw new Error(
+        `Expected entries.${entryKey}.lastFailureAt to be a string or null`,
+      );
+    }
+    if (typeof entry.consecutiveFailures !== "number") {
+      throw new Error(
+        `Expected entries.${entryKey}.consecutiveFailures to be a number`,
+      );
+    }
+    if (typeof entry.degradedMode !== "boolean") {
+      throw new Error(
+        `Expected entries.${entryKey}.degradedMode to be a boolean`,
+      );
+    }
+    if (
+      entry.degradedReason !== null &&
+      typeof entry.degradedReason !== "string"
+    ) {
+      throw new Error(
+        `Expected entries.${entryKey}.degradedReason to be a string or null`,
+      );
+    }
+    if (typeof entry.usedCacheLastAttempt !== "boolean") {
+      throw new Error(
+        `Expected entries.${entryKey}.usedCacheLastAttempt to be a boolean`,
+      );
+    }
+    if (entry.lastError !== null && typeof entry.lastError !== "string") {
+      throw new Error(
+        `Expected entries.${entryKey}.lastError to be a string or null`,
+      );
+    }
   }
 }
 
@@ -143,6 +219,7 @@ const GITHUB_DEGRADED_SUMMARY_PATH = [
 const GITHUB_REPO_URL_PATTERN =
   /^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/iu;
 let githubRateLimitResetAt: number | null = null;
+let githubHealthUpdateLock: Promise<void> = Promise.resolve();
 
 export function isGitHubRepoSource(source: SourceDefinition): boolean {
   const repoUrl = source.endpoints.repo;
@@ -233,7 +310,7 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
     "github",
     `${owner}__${repo}.json`,
   );
-  const healthKey = `${owner}/${repo}`;
+  const healthKey = `${sourceId}:${owner}/${repo}`;
 
   if (isRateLimited()) {
     const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
@@ -514,87 +591,92 @@ async function updateGitHubSourceHealth(
       "sourceId" | "owner" | "repo" | "lastAttemptAt"
     >,
 ): Promise<void> {
-  const statePath = join(projectRoot, ...GITHUB_HEALTH_STATE_PATH);
-  let currentState = await readJsonFileOrNull<GitHubSourceHealthState>(
-    statePath,
-  ).catch(() => null);
+  const updateTask = githubHealthUpdateLock.then(async () => {
+    const statePath = join(projectRoot, ...GITHUB_HEALTH_STATE_PATH);
+    let currentState = await readJsonFileOrNull<GitHubSourceHealthState>(
+      statePath,
+    ).catch(() => null);
 
-  if (currentState !== null) {
-    try {
-      assertGitHubSourceHealthState(currentState);
-    } catch {
-      currentState = null;
+    if (currentState !== null) {
+      try {
+        assertGitHubSourceHealthState(currentState);
+      } catch {
+        currentState = null;
+      }
     }
-  }
 
-  if (currentState === null) {
-    currentState = {
-      schemaVersion: 1 as const,
-      updatedAt: new Date(0).toISOString(),
-      entries: {},
+    if (currentState === null) {
+      currentState = {
+        schemaVersion: 1 as const,
+        updatedAt: new Date(0).toISOString(),
+        entries: {},
+      };
+    }
+
+    const previousEntry = currentState.entries[key];
+    const mergedEntry: GitHubSourceHealthEntry = {
+      sourceId: nextEntry.sourceId,
+      owner: nextEntry.owner,
+      repo: nextEntry.repo,
+      lastAttemptAt: nextEntry.lastAttemptAt,
+      lastSuccessAt:
+        nextEntry.lastSuccessAt ?? previousEntry?.lastSuccessAt ?? null,
+      lastFailureAt: Object.prototype.hasOwnProperty.call(
+        nextEntry,
+        "lastFailureAt",
+      )
+        ? (nextEntry.lastFailureAt ?? null)
+        : (previousEntry?.lastFailureAt ?? null),
+      consecutiveFailures:
+        nextEntry.consecutiveFailures ??
+        (nextEntry.lastFailureAt
+          ? (previousEntry?.consecutiveFailures ?? 0) + 1
+          : 0),
+      degradedMode:
+        nextEntry.degradedMode ?? previousEntry?.degradedMode ?? false,
+      degradedReason: Object.prototype.hasOwnProperty.call(
+        nextEntry,
+        "degradedReason",
+      )
+        ? (nextEntry.degradedReason ?? null)
+        : (previousEntry?.degradedReason ?? null),
+      usedCacheLastAttempt: nextEntry.usedCacheLastAttempt ?? false,
+      lastError: Object.prototype.hasOwnProperty.call(nextEntry, "lastError")
+        ? (nextEntry.lastError ?? null)
+        : (previousEntry?.lastError ?? null),
     };
-  }
 
-  const previousEntry = currentState.entries[key];
-  const mergedEntry: GitHubSourceHealthEntry = {
-    sourceId: nextEntry.sourceId,
-    owner: nextEntry.owner,
-    repo: nextEntry.repo,
-    lastAttemptAt: nextEntry.lastAttemptAt,
-    lastSuccessAt:
-      nextEntry.lastSuccessAt ?? previousEntry?.lastSuccessAt ?? null,
-    lastFailureAt: Object.prototype.hasOwnProperty.call(
-      nextEntry,
-      "lastFailureAt",
-    )
-      ? (nextEntry.lastFailureAt ?? null)
-      : (previousEntry?.lastFailureAt ?? null),
-    consecutiveFailures:
-      nextEntry.consecutiveFailures ??
-      (nextEntry.lastFailureAt
-        ? (previousEntry?.consecutiveFailures ?? 0) + 1
-        : 0),
-    degradedMode:
-      nextEntry.degradedMode ?? previousEntry?.degradedMode ?? false,
-    degradedReason: Object.prototype.hasOwnProperty.call(
-      nextEntry,
-      "degradedReason",
-    )
-      ? (nextEntry.degradedReason ?? null)
-      : (previousEntry?.degradedReason ?? null),
-    usedCacheLastAttempt: nextEntry.usedCacheLastAttempt ?? false,
-    lastError: Object.prototype.hasOwnProperty.call(nextEntry, "lastError")
-      ? (nextEntry.lastError ?? null)
-      : (previousEntry?.lastError ?? null),
-  };
+    const nextState: GitHubSourceHealthState = {
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      entries: {
+        ...currentState.entries,
+        [key]: mergedEntry,
+      },
+    };
 
-  const nextState: GitHubSourceHealthState = {
-    schemaVersion: 1,
-    updatedAt: new Date().toISOString(),
-    entries: {
-      ...currentState.entries,
-      [key]: mergedEntry,
-    },
-  };
+    await writeJsonFile(statePath, nextState);
 
-  await writeJsonFile(statePath, nextState);
-
-  const degradedSummary: GitHubDegradedModeSummary = {
-    schemaVersion: 1,
-    updatedAt: nextState.updatedAt,
-    degradedSources: Object.values(nextState.entries)
-      .filter((entry) => entry.degradedMode)
-      .sort((left, right) =>
-        `${left.owner}/${left.repo}`.localeCompare(
-          `${right.owner}/${right.repo}`,
+    const degradedSummary: GitHubDegradedModeSummary = {
+      schemaVersion: 1,
+      updatedAt: nextState.updatedAt,
+      degradedSources: Object.values(nextState.entries)
+        .filter((entry) => entry.degradedMode)
+        .sort((left, right) =>
+          `${left.owner}/${left.repo}`.localeCompare(
+            `${right.owner}/${right.repo}`,
+          ),
         ),
-      ),
-  };
+    };
 
-  await writeJsonFile(
-    join(projectRoot, ...GITHUB_DEGRADED_SUMMARY_PATH),
-    degradedSummary,
-  );
+    await writeJsonFile(
+      join(projectRoot, ...GITHUB_DEGRADED_SUMMARY_PATH),
+      degradedSummary,
+    );
+  });
+
+  githubHealthUpdateLock = updateTask.catch(() => undefined);
+  await updateTask;
 }
 
 async function readGitHubRepoSnapshotCache(

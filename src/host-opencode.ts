@@ -1,4 +1,5 @@
-import { join } from "node:path";
+import { createHash } from "node:crypto";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   createDirectoryLink,
@@ -13,6 +14,7 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "./files.js";
+import { assertWirePlanManifest } from "./manifest-validation.js";
 import type {
   ActivationManifest,
   AssetKind,
@@ -61,8 +63,9 @@ export async function wireOpenCode(options: {
     "agent-harness",
   );
   const localAgentsPath = join(workspaceRoot, "AGENTS.md");
-  const previousWirePlan = await readJsonFileOrNull<WirePlanManifest>(
+  const previousWirePlan = await readValidatedOpenCodeWirePlan(
     join(localContextRoot, "wire-plan.json"),
+    localOverlayRoot,
   );
 
   const preview: WirePreviewManifest = {
@@ -123,8 +126,15 @@ export async function wireOpenCode(options: {
     localOverlayRoot,
   });
 
-  for (const linkedAsset of linkedAssets) {
-    await createDirectoryLink(linkedAsset.linkPath, linkedAsset.sourcePath);
+  const createdLinkPaths: string[] = [];
+  try {
+    for (const linkedAsset of linkedAssets) {
+      await createDirectoryLink(linkedAsset.linkPath, linkedAsset.sourcePath);
+      createdLinkPaths.push(linkedAsset.linkPath);
+    }
+  } catch (error) {
+    await removeManagedLinksBestEffort(createdLinkPaths);
+    throw error;
   }
 
   const wirePlan: WirePlanManifest = {
@@ -133,9 +143,7 @@ export async function wireOpenCode(options: {
     generatedAt: new Date().toISOString(),
     workspaceRoot: toPosixPath(workspaceRoot),
     runtimeRoot: toPosixPath(localOverlayRoot),
-    linkedPaths: linkedAssets.map((linkedAsset) =>
-      toPosixPath(linkedAsset.linkPath),
-    ),
+    linkedPaths: createdLinkPaths.map(toPosixPath),
     notes: [
       "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
       "Selected assets are linked into project-local .opencode installation directories by asset kind.",
@@ -242,6 +250,66 @@ async function removeManagedLinks(linkedPaths: string[]): Promise<void> {
   }
 }
 
+async function removeManagedLinksBestEffort(
+  linkedPaths: string[],
+): Promise<void> {
+  for (const linkedPath of linkedPaths) {
+    try {
+      await removePath(linkedPath);
+    } catch (error) {
+      console.warn(
+        `Failed to roll back managed link ${linkedPath}: ${toLoggableErrorMessage(error)}`,
+      );
+    }
+  }
+}
+
+async function readValidatedOpenCodeWirePlan(
+  wirePlanPath: string,
+  managedRoot: string,
+): Promise<WirePlanManifest | null> {
+  const wirePlan = await readJsonFileOrNull<unknown>(wirePlanPath);
+  if (wirePlan === null) {
+    return null;
+  }
+
+  assertWirePlanManifest(wirePlan, wirePlanPath);
+  const linkedPaths = wirePlan.linkedPaths ?? [];
+  for (const linkedPath of linkedPaths) {
+    if (!isPathWithinRoot(linkedPath, managedRoot)) {
+      throw new Error(
+        `Wire plan contains linkedPath outside managed OpenCode root (${toPosixPath(managedRoot)}): ${linkedPath}`,
+      );
+    }
+  }
+
+  return {
+    ...wirePlan,
+    linkedPaths,
+  };
+}
+
+function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
+  const absoluteRoot = resolve(rootPath);
+  const absolutePath = resolve(pathValue);
+  const relativePath = relative(absoluteRoot, absolutePath);
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  );
+}
+
 function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+  const base =
+    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
+  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
+  return `${base}-${suffix}`;
+}
+
+function toLoggableErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+
+  return String(error);
 }

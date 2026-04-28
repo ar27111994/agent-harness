@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
@@ -423,7 +424,10 @@ async function resetVsCodeWireIn(
   await ensureDirectory(destinationDirectory);
   await writeTextFile(destinationPath, "");
   await removePath(curatedRoot);
-  await resetVsCodeUserSettings(curatedRoot);
+  await resetVsCodeUserSettings({
+    curatedRoot,
+    currentRoot: join(curatedRoot, "current"),
+  });
 }
 
 function buildVsCodeWirePlan(
@@ -452,30 +456,53 @@ function buildVsCodeWirePlan(
   };
 }
 
-async function resetVsCodeUserSettings(curatedRoot: string): Promise<void> {
+async function resetVsCodeUserSettings(paths: {
+  curatedRoot: string;
+  currentRoot: string;
+}): Promise<void> {
   const currentSettings = await readVsCodeSettings(VSCODE_USER_SETTINGS_PATH);
+  const managedSkillOverrides = buildVsCodeSkillLocationOverrides(
+    paths.currentRoot,
+  );
+  const managedSkillOverrideKeys = new Set(Object.keys(managedSkillOverrides));
+  const managedPathKeys = {
+    plugin: toHomePath(join(paths.currentRoot, "plugins")),
+    hook: toHomePath(join(paths.currentRoot, "hooks")),
+    agent: toHomePath(join(paths.currentRoot, "agents")),
+    instruction: toHomePath(join(paths.currentRoot, "instructions")),
+  };
+  const nextCodeGenerationInstructions = stripManagedCodeGenerationInstructions(
+    currentSettings["github.copilot.chat.codeGeneration.instructions"],
+  );
   const nextSettings = {
     ...currentSettings,
     "chat.pluginLocations": stripManagedVsCodeLocationEntries(
       currentSettings["chat.pluginLocations"],
-      curatedRoot,
+      paths.curatedRoot,
+      new Set([managedPathKeys.plugin]),
     ),
     "chat.agentSkillsLocations": stripManagedVsCodeLocationEntries(
       currentSettings["chat.agentSkillsLocations"],
-      curatedRoot,
+      paths.curatedRoot,
+      managedSkillOverrideKeys,
     ),
     "chat.hookFilesLocations": stripManagedVsCodeLocationEntries(
       currentSettings["chat.hookFilesLocations"],
-      curatedRoot,
+      paths.curatedRoot,
+      new Set([managedPathKeys.hook]),
     ),
     "chat.agentFilesLocations": stripManagedVsCodeLocationEntries(
       currentSettings["chat.agentFilesLocations"],
-      curatedRoot,
+      paths.curatedRoot,
+      new Set([managedPathKeys.agent]),
     ),
     "chat.instructionsFilesLocations": stripManagedVsCodeLocationEntries(
       currentSettings["chat.instructionsFilesLocations"],
-      curatedRoot,
+      paths.curatedRoot,
+      new Set([managedPathKeys.instruction]),
     ),
+    "github.copilot.chat.codeGeneration.instructions":
+      nextCodeGenerationInstructions,
   };
 
   await patchVsCodeSettings(VSCODE_USER_SETTINGS_PATH, nextSettings);
@@ -484,17 +511,42 @@ async function resetVsCodeUserSettings(curatedRoot: string): Promise<void> {
 function stripManagedVsCodeLocationEntries(
   value: unknown,
   curatedRoot: string,
+  explicitManagedKeys: ReadonlySet<string> = new Set<string>(),
 ): Record<string, boolean> {
   if (typeof value !== "object" || value === null) {
     return {};
   }
 
   const normalizedCuratedRoot = toHomePath(curatedRoot);
+  const managedRootPrefix = normalizedCuratedRoot.endsWith("/")
+    ? normalizedCuratedRoot
+    : `${normalizedCuratedRoot}/`;
   return Object.fromEntries(
     Object.entries(value as Record<string, boolean>).filter(
-      ([key]) => !key.startsWith(normalizedCuratedRoot),
+      ([key]) =>
+        !(
+          explicitManagedKeys.has(key) ||
+          key === normalizedCuratedRoot ||
+          key.startsWith(managedRootPrefix)
+        ),
     ),
   );
+}
+
+function stripManagedCodeGenerationInstructions(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  const nextValue = value.filter((entry) => {
+    if (typeof entry !== "object" || entry === null) {
+      return true;
+    }
+    const record = entry as Record<string, unknown>;
+    return record.file !== ".github/copilot-instructions.md";
+  });
+
+  return nextValue.length > 0 ? nextValue : undefined;
 }
 
 function buildVsCodeSkillLocationOverrides(
@@ -575,7 +627,10 @@ export function buildCopilotWorkspaceOverlayManifest(options: {
 }
 
 function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+  const base =
+    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
+  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
+  return `${base}-${suffix}`;
 }
 
 function toHomePath(pathValue: string): string {
