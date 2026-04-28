@@ -26,5 +26,8 @@ jobs:
       - name: Validate lint, format, and types
         run: npm run validate
 
+      - name: Build CLI artifacts
+        run: npm run build
+
       - name: Evaluate recommendation fixtures
         run: npm run validate:recommendations
