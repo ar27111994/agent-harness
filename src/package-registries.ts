@@ -25,12 +25,20 @@ export interface PypiPackageMetadata {
   };
 }
 
+function fetchWithTimeout(url: string, options: RequestInit, ms: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export async function fetchNpmPackageMetadata(
   packageName: string,
 ): Promise<NpmPackageMetadata | null> {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
+      {},
+      5000,
     );
     if (!response.ok) {
       return null;
@@ -70,8 +78,10 @@ export async function fetchPypiPackageMetadata(
   packageName: string,
 ): Promise<PypiPackageMetadata | null> {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `https://pypi.org/pypi/${encodeURIComponent(packageName)}/json`,
+      {},
+      5000,
     );
     if (!response.ok) {
       return null;

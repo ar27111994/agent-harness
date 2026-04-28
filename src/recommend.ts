@@ -138,9 +138,10 @@ export async function runRecommend(
     case "explain":
       await explainRecommendation(projectRoot, rest);
       return 0;
-    case "evaluate":
-      await evaluateRecommendationFixtures(projectRoot, rest);
-      return 0;
+    case "evaluate": {
+      const exitCode = await evaluateRecommendationFixtures(projectRoot, rest);
+      return exitCode;
+    }
     case "policy:print":
       await printRecommendationPolicy(projectRoot, rest);
       return 0;
@@ -1556,7 +1557,7 @@ async function explainRecommendation(
 async function evaluateRecommendationFixtures(
   projectRoot: string,
   args: string[],
-): Promise<void> {
+): Promise<number> {
   const shouldWrite = args.includes("--write");
   const policy = await loadRecommendationPolicy(projectRoot);
   const fixtures = buildRecommendationFixtures();
@@ -1574,6 +1575,7 @@ async function evaluateRecommendationFixtures(
     );
   }
 
+  let hasFailures = false;
   for (const result of results) {
     console.log(
       `${result.passed ? "PASS" : "FAIL"} ${result.id}: ${result.description}`,
@@ -1583,7 +1585,12 @@ async function evaluateRecommendationFixtures(
         `  ${check.passed ? "-" : "x"} ${check.name}: ${check.details}`,
       );
     }
+    if (!result.passed) {
+      hasFailures = true;
+    }
   }
+
+  return hasFailures ? 1 : 0;
 }
 
 async function printRecommendationPolicy(

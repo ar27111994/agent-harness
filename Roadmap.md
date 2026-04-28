@@ -122,7 +122,7 @@ Scope of this assessment:
 | Phase 5 | Broaden real-world domain coverage                              | Introduce detector packs for research, data, media, CAD, game dev, hardware, ML, security, and mixed-domain repos     | `M5` / #53     |
 | Phase 6 | Make wire-in truly host-aware and user-assistive                | Add native install support where applicable, auth-aware setup guidance, preflight checks, and shared MCP projection   | `M6` / #54     |
 | Phase 7 | Generalize host support beyond VS Code and OpenCode             | Introduce host adapters, capability matrices, declarative host registration, and pilot integrations for new IDEs      | `M7` / #55     |
-| Phase 8 | Reduce file and function complexity                             | Split oversized modules, localize types/validation, and enforce complexity/size budgets in CI                         | `M7` / #55     |
+| Phase 8 | Reduce file and function complexity                             | Split oversized modules, localize types/validation, and enforce complexity/size budgets in CI                         | `M8` / #56     |
 
 ## Suggested Success Metrics
 

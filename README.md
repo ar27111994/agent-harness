@@ -489,8 +489,11 @@ Recommendations are based on live evidence such as:
 - context cost
 - portfolio fit
 
-Recommendation ranking is now policy-driven from
-[`discover/recommendation-policy.json`](./discover/recommendation-policy.json).
+Recommendation ranking is now policy-driven from the canonical base policy at
+[`discover/recommendation-policy/base.json`](./discover/recommendation-policy/base.json)
+with per-host overrides. The legacy single-file
+[`discover/recommendation-policy.json`](./discover/recommendation-policy.json)
+is supported as a fallback only.
 That policy controls:
 
 - scoring weights and penalties
@@ -520,11 +523,13 @@ npm run recommend:evaluate
 ```
 
 That writes [`state/recommendation-evaluation.json`](./state/recommendation-evaluation.json)
-and checks three archetypes:
+and checks five archetypes returned by `buildRecommendationFixtures()`:
 
 - backend integration
 - frontend UI
 - infrastructure and security
+- shared-executable-bias
+- shared-source-saturation
 
 Trust scoring currently incorporates:
 

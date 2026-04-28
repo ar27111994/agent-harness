@@ -1,4 +1,5 @@
 import { basename, dirname, extname, join } from "node:path";
+import { readdir, stat } from "node:fs/promises";
 
 import { resolveAssetContent } from "./asset-content.js";
 import {
@@ -130,6 +131,7 @@ export async function wireVsCode(options: {
     buildVsCodeWirePlan(workspaceRoot, currentRoot, materializedPaths),
   );
   await replaceDirectoryLink(currentRoot, generationRoot);
+  await pruneVsCodeGenerationDirectories(curatedRoot, { keep: 3 });
   await patchVsCodeUserSettings({
     currentRoot,
     curatedRoot,
@@ -562,4 +564,46 @@ function toHomePath(pathValue: string): string {
   return userProfile && pathValue.startsWith(userProfile)
     ? pathValue.replace(userProfile, "~").replace(/\\/gu, "/")
     : toPosixPath(pathValue);
+}
+
+async function pruneVsCodeGenerationDirectories(
+  curatedRoot: string,
+  options: { keep: number },
+): Promise<void> {
+  const generationsDir = join(curatedRoot, "generations");
+  try {
+    const entries = await readdir(generationsDir, { withFileTypes: true });
+    const directories = entries.filter((entry) => entry.isDirectory());
+
+    const directoriesWithMtime = await Promise.all(
+      directories.map(async (dir) => {
+        const dirPath = join(generationsDir, dir.name);
+        try {
+          const stats = await stat(dirPath);
+          return { name: dir.name, path: dirPath, mtime: stats.mtime.getTime() };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const validDirectories = directoriesWithMtime.filter(
+      (entry): entry is NonNullable<typeof entry> => entry !== null,
+    );
+
+    validDirectories.sort((a, b) => b.mtime - a.mtime);
+
+    const toKeep = validDirectories.slice(0, options.keep);
+    const toRemove = validDirectories.slice(options.keep);
+
+    for (const dir of toRemove) {
+      try {
+        await removePath(dir.path);
+      } catch (error) {
+        console.warn(`Failed to prune generation directory ${dir.path}: ${error}`);
+      }
+    }
+  } catch {
+    // Ignore errors if the generations directory doesn't exist
+  }
 }

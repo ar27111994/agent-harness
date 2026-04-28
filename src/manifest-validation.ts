@@ -1069,15 +1069,54 @@ export function assertGitHubRepoSnapshot(
     record.repoSummary,
     `${context}.repoSummary`,
   );
+  assertString(repoSummary.name, `${context}.repoSummary.name`);
+  if (repoSummary.description !== null) {
+    assertString(repoSummary.description, `${context}.repoSummary.description`);
+  }
   assertString(repoSummary.fullName, `${context}.repoSummary.fullName`);
   assertString(
     repoSummary.defaultBranch,
     `${context}.repoSummary.defaultBranch`,
   );
+  if (repoSummary.updatedAt !== null) {
+    assertString(repoSummary.updatedAt, `${context}.repoSummary.updatedAt`);
+  }
+  if (repoSummary.pushedAt !== null) {
+    assertString(repoSummary.pushedAt, `${context}.repoSummary.pushedAt`);
+  }
+  assertNumber(repoSummary.stars, `${context}.repoSummary.stars`);
+  if (repoSummary.language !== null) {
+    assertString(repoSummary.language, `${context}.repoSummary.language`);
+  }
+  assertStringArray(repoSummary.topics, `${context}.repoSummary.topics`);
+  assertBoolean(repoSummary.archived, `${context}.repoSummary.archived`);
+  assertString(repoSummary.htmlUrl, `${context}.repoSummary.htmlUrl`);
+
+  if (record.readme !== null) {
+    const readme = assertRecord(record.readme, `${context}.readme`);
+    assertString(readme.path, `${context}.readme.path`);
+    assertString(readme.sha, `${context}.readme.sha`);
+    assertNumber(readme.size, `${context}.readme.size`);
+    if (readme.htmlUrl !== null) {
+      assertString(readme.htmlUrl, `${context}.readme.htmlUrl`);
+    }
+    if (readme.downloadUrl !== null) {
+      assertString(readme.downloadUrl, `${context}.readme.downloadUrl`);
+    }
+  }
+
   const tree = assertRecord(record.tree, `${context}.tree`);
   assertString(tree.sha, `${context}.tree.sha`);
   assertBoolean(tree.truncated, `${context}.tree.truncated`);
-  assertArray(tree.entries, `${context}.tree.entries`);
+  assertArray(tree.entries, `${context}.tree.entries`).forEach((entry, index) => {
+    const entryRecord = assertRecord(entry, `${context}.tree.entries[${index}]`);
+    assertString(entryRecord.path, `${context}.tree.entries[${index}].path`);
+    assertString(entryRecord.type, `${context}.tree.entries[${index}].type`);
+    if (entryRecord.size !== null) {
+      assertNumber(entryRecord.size, `${context}.tree.entries[${index}].size`);
+    }
+    assertString(entryRecord.sha, `${context}.tree.entries[${index}].sha`);
+  });
 }
 
 function assertDemandSignalSet(value: unknown, context: string): void {

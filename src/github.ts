@@ -103,9 +103,8 @@ export interface GitHubRepoSnapshot {
 const DEFAULT_GITHUB_API_VERSION =
   process.env.GITHUB_API_VERSION ?? "2022-11-28";
 const GITHUB_API_BASE_URL = "https://api.github.com";
-const GITHUB_FETCH_MAX_ATTEMPTS = Number(
-  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "3",
-);
+const parsed = parseInt(process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "", 10);
+const GITHUB_FETCH_MAX_ATTEMPTS = Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
   "remote-cache",
@@ -489,8 +488,9 @@ async function updateGitHubSourceHealth(
     lastAttemptAt: nextEntry.lastAttemptAt,
     lastSuccessAt:
       nextEntry.lastSuccessAt ?? previousEntry?.lastSuccessAt ?? null,
-    lastFailureAt:
-      nextEntry.lastFailureAt ?? previousEntry?.lastFailureAt ?? null,
+    lastFailureAt: Object.prototype.hasOwnProperty.call(nextEntry, "lastFailureAt")
+      ? nextEntry.lastFailureAt ?? null
+      : previousEntry?.lastFailureAt ?? null,
     consecutiveFailures:
       nextEntry.consecutiveFailures ??
       (nextEntry.lastFailureAt
@@ -498,10 +498,13 @@ async function updateGitHubSourceHealth(
         : 0),
     degradedMode:
       nextEntry.degradedMode ?? previousEntry?.degradedMode ?? false,
-    degradedReason:
-      nextEntry.degradedReason ?? previousEntry?.degradedReason ?? null,
+    degradedReason: Object.prototype.hasOwnProperty.call(nextEntry, "degradedReason")
+      ? nextEntry.degradedReason ?? null
+      : previousEntry?.degradedReason ?? null,
     usedCacheLastAttempt: nextEntry.usedCacheLastAttempt ?? false,
-    lastError: nextEntry.lastError ?? previousEntry?.lastError ?? null,
+    lastError: Object.prototype.hasOwnProperty.call(nextEntry, "lastError")
+      ? nextEntry.lastError ?? null
+      : previousEntry?.lastError ?? null,
   };
 
   const nextState: GitHubSourceHealthState = {

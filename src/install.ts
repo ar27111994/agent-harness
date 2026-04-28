@@ -872,10 +872,7 @@ async function resolveInstallGenerationManifest(
   host: BundleLock["host"],
   generationId: string,
 ): Promise<InstallGenerationManifest | null> {
-  const fileName =
-    generationId === "current" || generationId === "previous"
-      ? `${generationId}.json`
-      : `${generationId}.json`;
+  const fileName = `${generationId}.json`;
   const generationPath = join(
     projectRoot,
     ...INSTALL_GENERATIONS_ROOT,
@@ -893,15 +890,21 @@ async function loadGenerationAssetIds(
   generation: InstallGenerationManifest,
 ): Promise<string[]> {
   const packageManifests = await Promise.all(
-    generation.packageManifestPaths.map((manifestPath) =>
-      readJsonFile<InstalledPackageManifest>(
-        manifestPath,
-        assertInstalledPackageManifest,
-      ),
-    ),
+    generation.packageManifestPaths.map(async (manifestPath) => {
+      try {
+        const manifest = await readJsonFileOrNull<InstalledPackageManifest>(
+          manifestPath,
+          assertInstalledPackageManifest,
+        );
+        return manifest;
+      } catch {
+        return null;
+      }
+    }),
   );
 
   return packageManifests
+    .filter((manifest): manifest is InstalledPackageManifest => manifest !== null)
     .map((manifest) => manifest.assetId)
     .sort((left, right) => left.localeCompare(right));
 }
