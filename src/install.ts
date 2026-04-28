@@ -104,8 +104,14 @@ async function installBundles(
     join(projectRoot, "mirror", "bundles", "community-stable.lock.json"),
   ];
   const targetBundleIds = getOptionValues(args, "--bundle");
-  const batchSize = Number(getOptionValue(args, "--batch-size") ?? "250");
-  const manualBatchOffset = getOptionValue(args, "--offset");
+  const batchSizeRaw = Number(getOptionValue(args, "--batch-size") ?? "250");
+  const batchSize = Number.isFinite(batchSizeRaw) && batchSizeRaw >= 1
+    ? Math.min(Math.floor(batchSizeRaw), Number.MAX_SAFE_INTEGER)
+    : 250;
+  const manualBatchOffsetRaw = Number(getOptionValue(args, "--offset") ?? "0");
+  const manualBatchOffset = Number.isFinite(manualBatchOffsetRaw) && manualBatchOffsetRaw >= 0
+    ? Math.min(Math.floor(manualBatchOffsetRaw), Number.MAX_SAFE_INTEGER)
+    : 0;
   const bundlePaths =
     targetBundleIds.length > 0
       ? allBundlePaths.filter((bundlePath) =>
@@ -151,10 +157,9 @@ async function installBundles(
       installableAssets,
       alreadyInstalledAssetIds,
     );
-    const batchOffset = Number(manualBatchOffset ?? "0");
     const assetsToInstall = pendingAssets.slice(
-      batchOffset,
-      batchOffset + batchSize,
+      manualBatchOffset,
+      manualBatchOffset + batchSize,
     );
 
     for (const asset of assetsToInstall) {
@@ -585,13 +590,36 @@ async function writeInstallGenerations(
   }
 }
 
+const ALLOWED_HOSTS = ["opencode", "copilot-vscode", "shared"] as const;
+const GENERATION_ID_PATTERN = /^[A-Za-z0-9._-]+$/u;
+
+function validateHost(value: string | undefined): BundleLock["host"] | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (!ALLOWED_HOSTS.includes(value as BundleLock["host"])) {
+    throw new Error(`Invalid host value: ${value}. Must be one of: ${ALLOWED_HOSTS.join(", ")}`);
+  }
+  return value as BundleLock["host"];
+}
+
+function validateGenerationId(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  if (!GENERATION_ID_PATTERN.test(value)) {
+    throw new Error(`Invalid generation ID: ${value}. Must contain only alphanumeric characters, dots, underscores, and hyphens.`);
+  }
+  return value;
+}
+
 async function diffInstallState(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const host = getOptionValue(args, "--host") as BundleLock["host"] | undefined;
-  const leftGenerationId = getOptionValue(args, "--left");
-  const rightGenerationId = getOptionValue(args, "--right");
+  const host = validateHost(getOptionValue(args, "--host"));
+  const leftGenerationId = validateGenerationId(getOptionValue(args, "--left"));
+  const rightGenerationId = validateGenerationId(getOptionValue(args, "--right"));
   const hosts = host
     ? [host]
     : (["opencode", "copilot-vscode", "shared"] as Array<BundleLock["host"]>);
@@ -720,7 +748,7 @@ async function listInstallGenerations(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const host = getOptionValue(args, "--host") as BundleLock["host"] | undefined;
+  const host = validateHost(getOptionValue(args, "--host"));
   const hosts = host
     ? [host]
     : (["opencode", "copilot-vscode", "shared"] as Array<BundleLock["host"]>);
@@ -741,8 +769,8 @@ async function pinInstallGeneration(
   args: string[],
   pinned: boolean,
 ): Promise<void> {
-  const host = getOptionValue(args, "--host") as BundleLock["host"] | undefined;
-  const generationId = getOptionValue(args, "--generation");
+  const host = validateHost(getOptionValue(args, "--host"));
+  const generationId = validateGenerationId(getOptionValue(args, "--generation"));
   const reason = getOptionValue(args, "--reason");
 
   if (!host || !generationId) {
@@ -791,8 +819,11 @@ async function pruneInstallGenerations(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const host = getOptionValue(args, "--host") as BundleLock["host"] | undefined;
-  const keep = Number(getOptionValue(args, "--keep") ?? "2");
+  const host = validateHost(getOptionValue(args, "--host"));
+  const keepRaw = Number(getOptionValue(args, "--keep") ?? "2");
+  const keep = Number.isFinite(keepRaw) && keepRaw >= 0
+    ? Math.min(Math.floor(keepRaw), Number.MAX_SAFE_INTEGER)
+    : 2;
   const hosts = host
     ? [host]
     : (["opencode", "copilot-vscode", "shared"] as Array<BundleLock["host"]>);

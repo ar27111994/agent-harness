@@ -57,6 +57,24 @@ interface GitHubSourceHealthState {
   entries: Record<string, GitHubSourceHealthEntry>;
 }
 
+function assertGitHubSourceHealthState(
+  value: unknown,
+): asserts value is GitHubSourceHealthState {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("Expected source health state to be an object");
+  }
+  const record = value as Record<string, unknown>;
+  if (typeof record.schemaVersion !== "number") {
+    throw new Error("Expected schemaVersion to be a number");
+  }
+  if (typeof record.updatedAt !== "string") {
+    throw new Error("Expected updatedAt to be a string");
+  }
+  if (typeof record.entries !== "object" || record.entries === null) {
+    throw new Error("Expected entries to be an object");
+  }
+}
+
 interface GitHubDegradedModeSummary {
   schemaVersion: 1;
   updatedAt: string;
@@ -105,6 +123,7 @@ const DEFAULT_GITHUB_API_VERSION =
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const parsed = parseInt(process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "", 10);
 const GITHUB_FETCH_MAX_ATTEMPTS = Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+const GITHUB_FETCH_TIMEOUT_MS = 10000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
   "remote-cache",
@@ -386,10 +405,16 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
   let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= GITHUB_FETCH_MAX_ATTEMPTS; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GITHUB_FETCH_TIMEOUT_MS);
+
     try {
       const response = await fetch(`${GITHUB_API_BASE_URL}${path}`, {
         headers: buildGitHubHeaders(),
+        signal: controller.signal,
       });
+
+      clearTimeout(timeout);
 
       if (response.status === 404 || response.ok) {
         return response;
@@ -407,7 +432,20 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
       await waitForRetry(attempt, response);
       continue;
     } catch (error) {
-      lastError = error;
+      clearTimeout(timeout);
+
+      if (error instanceof Error && error.name === "AbortError") {
+        lastError = new Error(`Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`);
+      } else if (
+        typeof error === "object" &&
+        error !== null &&
+        "name" in error &&
+        error.name === "AbortError"
+      ) {
+        lastError = new Error(`Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`);
+      } else {
+        lastError = error;
+      }
 
       if (attempt === GITHUB_FETCH_MAX_ATTEMPTS) {
         break;
@@ -473,13 +511,26 @@ async function updateGitHubSourceHealth(
     >,
 ): Promise<void> {
   const statePath = join(projectRoot, ...GITHUB_HEALTH_STATE_PATH);
-  const currentState = (await readJsonFileOrNull<GitHubSourceHealthState>(
+  let currentState = await readJsonFileOrNull<GitHubSourceHealthState>(
     statePath,
-  )) ?? {
-    schemaVersion: 1 as const,
-    updatedAt: new Date(0).toISOString(),
-    entries: {},
-  };
+  );
+
+  if (currentState !== null) {
+    try {
+      assertGitHubSourceHealthState(currentState);
+    } catch {
+      currentState = null;
+    }
+  }
+
+  if (currentState === null) {
+    currentState = {
+      schemaVersion: 1 as const,
+      updatedAt: new Date(0).toISOString(),
+      entries: {},
+    };
+  }
+
   const previousEntry = currentState.entries[key];
   const mergedEntry: GitHubSourceHealthEntry = {
     sourceId: nextEntry.sourceId,

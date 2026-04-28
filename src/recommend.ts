@@ -1504,9 +1504,7 @@ async function explainRecommendation(
   args: string[],
 ): Promise<void> {
   const assetId = getOptionValue(args, "--asset") ?? args[0];
-  const requestedHost = getOptionValue(args, "--host") as
-    | RecommendationHost
-    | undefined;
+  const requestedHostRaw = getOptionValue(args, "--host");
 
   if (!assetId) {
     throw new Error("recommend explain requires --asset <assetId>");
@@ -1516,6 +1514,17 @@ async function explainRecommendation(
     join(projectRoot, ...REPORT_FILE_PATH),
     assertRecommendationReport,
   );
+
+  let requestedHost: RecommendationHost | undefined;
+  if (requestedHostRaw !== undefined) {
+    if (!isRecommendationHost(requestedHostRaw)) {
+      throw new Error(
+        `Invalid --host value: ${requestedHostRaw}. Must be one of: ${RECOMMENDATION_HOSTS.join(", ")}`,
+      );
+    }
+    requestedHost = requestedHostRaw;
+  }
+
   const hosts = requestedHost ? [requestedHost] : RECOMMENDATION_HOSTS;
   const lines: string[] = [];
 

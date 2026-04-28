@@ -402,6 +402,8 @@ async function resetVsCodeWireIn(
     ".github",
     "copilot-instructions.md",
   );
+  const destinationDirectory = join(workspaceRoot, ".github");
+  await ensureDirectory(destinationDirectory);
   await writeTextFile(destinationPath, "");
   await removePath(curatedRoot);
   await resetVsCodeUserSettings(curatedRoot);
@@ -593,7 +595,6 @@ async function pruneVsCodeGenerationDirectories(
 
     validDirectories.sort((a, b) => b.mtime - a.mtime);
 
-    const toKeep = validDirectories.slice(0, options.keep);
     const toRemove = validDirectories.slice(options.keep);
 
     for (const dir of toRemove) {

@@ -532,6 +532,13 @@ export function assertRecommendationReport(
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertNumber(record.policyVersion, `${context}.policyVersion`);
   const topByHost = assertRecord(record.topByHost, `${context}.topByHost`);
+
+  for (const expectedHost of HOST_TARGETS) {
+    if (!Object.prototype.hasOwnProperty.call(topByHost, expectedHost)) {
+      fail(`${context}.topByHost`, `missing expected host: ${expectedHost}`);
+    }
+  }
+
   Object.entries(topByHost).forEach(([host, entries]) => {
     assertArray(entries, `${context}.topByHost.${host}`).forEach(
       (entry, index) => {
@@ -626,6 +633,13 @@ export function assertRecommendationReport(
     record.hostSummaries,
     `${context}.hostSummaries`,
   );
+
+  for (const expectedHost of HOST_TARGETS) {
+    if (!Object.prototype.hasOwnProperty.call(hostSummaries, expectedHost)) {
+      fail(`${context}.hostSummaries`, `missing expected host: ${expectedHost}`);
+    }
+  }
+
   Object.entries(hostSummaries).forEach(([host, summary]) => {
     const summaryRecord = assertRecord(
       summary,

@@ -112,7 +112,7 @@ Scope of this assessment:
 
 ## Recommended Phasing
 
-| Phase   | Goal                                                            | Key deliverables                                                                                                      | Tracking issue |
+| Phase   | Goal                                                            | Key deliverables                                                                                                      | Tracking item |
 | ------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------- |
 | Phase 0 | Establish modular architecture foundations                      | Create domain folders, central config loading, shared validation/preflight layers, and internal service/factory seams | `M0` / #48     |
 | Phase 1 | Make the project genuinely cross-platform                       | Remove hardcoded Windows local paths, replace APPDATA/USERPROFILE assumptions, add OS matrix CI                       | `M1` / #49     |
