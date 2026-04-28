@@ -253,9 +253,12 @@ async function acquireMirrorArtifacts(
       process.env.AGENT_HARNESS_MIRROR_BATCH_SIZE ??
       "120",
   );
-  const batchSize = Number.isFinite(rawBatchSize) && Number.isInteger(rawBatchSize) && rawBatchSize >= 1
-    ? rawBatchSize
-    : 120;
+  const batchSize =
+    Number.isFinite(rawBatchSize) &&
+    Number.isInteger(rawBatchSize) &&
+    rawBatchSize >= 1
+      ? rawBatchSize
+      : 120;
   const existingMirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, ...MIRROR_INDEX_OUTPUT_PATH),
   );

@@ -105,13 +105,15 @@ async function installBundles(
   ];
   const targetBundleIds = getOptionValues(args, "--bundle");
   const batchSizeRaw = Number(getOptionValue(args, "--batch-size") ?? "250");
-  const batchSize = Number.isFinite(batchSizeRaw) && batchSizeRaw >= 1
-    ? Math.min(Math.floor(batchSizeRaw), Number.MAX_SAFE_INTEGER)
-    : 250;
+  const batchSize =
+    Number.isFinite(batchSizeRaw) && batchSizeRaw >= 1
+      ? Math.min(Math.floor(batchSizeRaw), Number.MAX_SAFE_INTEGER)
+      : 250;
   const manualBatchOffsetRaw = Number(getOptionValue(args, "--offset") ?? "0");
-  const manualBatchOffset = Number.isFinite(manualBatchOffsetRaw) && manualBatchOffsetRaw >= 0
-    ? Math.min(Math.floor(manualBatchOffsetRaw), Number.MAX_SAFE_INTEGER)
-    : 0;
+  const manualBatchOffset =
+    Number.isFinite(manualBatchOffsetRaw) && manualBatchOffsetRaw >= 0
+      ? Math.min(Math.floor(manualBatchOffsetRaw), Number.MAX_SAFE_INTEGER)
+      : 0;
   const bundlePaths =
     targetBundleIds.length > 0
       ? allBundlePaths.filter((bundlePath) =>
@@ -593,12 +595,16 @@ async function writeInstallGenerations(
 const ALLOWED_HOSTS = ["opencode", "copilot-vscode", "shared"] as const;
 const GENERATION_ID_PATTERN = /^[A-Za-z0-9._-]+$/u;
 
-function validateHost(value: string | undefined): BundleLock["host"] | undefined {
+function validateHost(
+  value: string | undefined,
+): BundleLock["host"] | undefined {
   if (!value) {
     return undefined;
   }
   if (!ALLOWED_HOSTS.includes(value as BundleLock["host"])) {
-    throw new Error(`Invalid host value: ${value}. Must be one of: ${ALLOWED_HOSTS.join(", ")}`);
+    throw new Error(
+      `Invalid host value: ${value}. Must be one of: ${ALLOWED_HOSTS.join(", ")}`,
+    );
   }
   return value as BundleLock["host"];
 }
@@ -608,7 +614,9 @@ function validateGenerationId(value: string | undefined): string | undefined {
     return undefined;
   }
   if (!GENERATION_ID_PATTERN.test(value)) {
-    throw new Error(`Invalid generation ID: ${value}. Must contain only alphanumeric characters, dots, underscores, and hyphens.`);
+    throw new Error(
+      `Invalid generation ID: ${value}. Must contain only alphanumeric characters, dots, underscores, and hyphens.`,
+    );
   }
   return value;
 }
@@ -619,7 +627,9 @@ async function diffInstallState(
 ): Promise<void> {
   const host = validateHost(getOptionValue(args, "--host"));
   const leftGenerationId = validateGenerationId(getOptionValue(args, "--left"));
-  const rightGenerationId = validateGenerationId(getOptionValue(args, "--right"));
+  const rightGenerationId = validateGenerationId(
+    getOptionValue(args, "--right"),
+  );
   const hosts = host
     ? [host]
     : (["opencode", "copilot-vscode", "shared"] as Array<BundleLock["host"]>);
@@ -770,7 +780,9 @@ async function pinInstallGeneration(
   pinned: boolean,
 ): Promise<void> {
   const host = validateHost(getOptionValue(args, "--host"));
-  const generationId = validateGenerationId(getOptionValue(args, "--generation"));
+  const generationId = validateGenerationId(
+    getOptionValue(args, "--generation"),
+  );
   const reason = getOptionValue(args, "--reason");
 
   if (!host || !generationId) {
@@ -821,9 +833,10 @@ async function pruneInstallGenerations(
 ): Promise<void> {
   const host = validateHost(getOptionValue(args, "--host"));
   const keepRaw = Number(getOptionValue(args, "--keep") ?? "2");
-  const keep = Number.isFinite(keepRaw) && keepRaw >= 0
-    ? Math.min(Math.floor(keepRaw), Number.MAX_SAFE_INTEGER)
-    : 2;
+  const keep =
+    Number.isFinite(keepRaw) && keepRaw >= 0
+      ? Math.min(Math.floor(keepRaw), Number.MAX_SAFE_INTEGER)
+      : 2;
   const hosts = host
     ? [host]
     : (["opencode", "copilot-vscode", "shared"] as Array<BundleLock["host"]>);
@@ -935,7 +948,9 @@ async function loadGenerationAssetIds(
   );
 
   return packageManifests
-    .filter((manifest): manifest is InstalledPackageManifest => manifest !== null)
+    .filter(
+      (manifest): manifest is InstalledPackageManifest => manifest !== null,
+    )
     .map((manifest) => manifest.assetId)
     .sort((left, right) => left.localeCompare(right));
 }
