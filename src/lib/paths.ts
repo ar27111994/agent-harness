@@ -1,4 +1,4 @@
-import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
+import { isAbsolute, join, normalize, relative, resolve } from "node:path";
 
 import { loadRuntimeConfig } from "../config/runtime.js";
 import { toPosixPath } from "../files.js";
@@ -34,7 +34,7 @@ export function toHomeRelativePath(pathValue: string): string {
     return `~/${toPosixPath(relativePath)}`;
   }
 
-  return toPosixPath(pathValue).split(sep).join("/");
+  return toPosixPath(pathValue);
 }
 
 export function isPathInsideRoot(pathValue: string, rootPath: string): boolean {

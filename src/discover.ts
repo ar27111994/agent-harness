@@ -129,6 +129,9 @@ const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
 const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
+const NOTEBOOK_FILE_PATTERN = /\.ipynb$/iu;
+const DATASET_FILE_PATTERN = /\.(csv|tsv|parquet|ndjson|geojson)$/iu;
+const DESIGN_FILE_PATTERN = /\.(fig|sketch)$/iu;
 
 const DEMAND_PROFILE_OUTPUT_PATH = [
   "discover",
@@ -2707,7 +2710,11 @@ function shouldInspectFile(fileName: string, filePath: string): boolean {
     return true;
   }
 
-  if (/\.(ipynb|csv|tsv|parquet|ndjson|geojson|fig|sketch)$/iu.test(fileName)) {
+  if (
+    NOTEBOOK_FILE_PATTERN.test(fileName) ||
+    DATASET_FILE_PATTERN.test(fileName) ||
+    DESIGN_FILE_PATTERN.test(fileName)
+  ) {
     return true;
   }
 
@@ -2864,17 +2871,17 @@ function collectStaticSignals(
     addSignals(matchedSignals.tooling, ["openapi"]);
   }
 
-  if (fileName.endsWith(".ipynb")) {
+  if (NOTEBOOK_FILE_PATTERN.test(fileName)) {
     addSignals(matchedSignals.languages, ["python"]);
     addSignals(matchedSignals.concerns, ["notebook", "research"]);
     addSignals(matchedSignals.tooling, ["jupyter"]);
   }
 
-  if (/\.(csv|tsv|parquet|ndjson|geojson)$/iu.test(fileName)) {
+  if (DATASET_FILE_PATTERN.test(fileName)) {
     addSignals(matchedSignals.concerns, ["dataset", "data"]);
   }
 
-  if (/\.(fig|sketch)$/iu.test(fileName)) {
+  if (DESIGN_FILE_PATTERN.test(fileName)) {
     addSignals(matchedSignals.concerns, ["design", "frontend"]);
   }
 
