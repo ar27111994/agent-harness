@@ -34,7 +34,9 @@ Build and validate:
 
 ```bash
 npm run build
-npm run check
+npm run validate
+npm run validate:recommendations
+npm run validate:links
 ```
 
 ## Contribution guidelines

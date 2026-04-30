@@ -136,6 +136,7 @@ formats staged JSON, Markdown, YAML, and `.mjs` files.
 npm run build
 npm run validate
 npm run validate:recommendations
+npm run validate:links
 ```
 
 ### Run a full workspace pipeline
@@ -199,6 +200,7 @@ npm run format
 npm run format:check
 npm run validate
 npm run validate:recommendations
+npm run validate:links
 ```
 
 ### Discover
@@ -279,6 +281,7 @@ node ./dist/cli.js activate rollback --host opencode --generation <generation-id
 ```bash
 npm run rebuild:clean
 npm run rebuild:full
+node ./dist/cli.js doctor
 ```
 
 ## Host wire-in
@@ -379,6 +382,11 @@ or:
 agent-harness workspace opencode --intent security
 ```
 
+Workspace and wire commands run shared preflight diagnostics before mutating
+host state. The diagnostics report resolved home directories, host settings
+paths, and filesystem readiness so staging, activation, wire-in, and native
+installation boundaries are visible before apply-time changes.
+
 ## Common workflows
 
 ### Standard full rebuild
@@ -457,9 +465,25 @@ npm.cmd run rebuild:full
 ### Batch controls
 
 - `AGENT_HARNESS_REMOTE_BATCH_SIZE`
+- `AGENT_HARNESS_MIRROR_BATCH_SIZE`
 - `AGENT_HARNESS_INSTALL_BATCH_SIZE`
 
 These control checkpointed mirror acquisition and staged install throughput.
+
+### Scan and path controls
+
+The checked-in [`.env.example`](./.env.example) documents all supported runtime
+settings. Recursive discovery uses safety budgets to keep large workspaces
+predictable:
+
+- `AGENT_HARNESS_SCAN_MAX_FILES`
+- `AGENT_HARNESS_SCAN_MAX_DEPTH`
+- `AGENT_HARNESS_SCAN_MAX_BYTES`
+
+Local source endpoints in [`discover/sources.json`](./discover/sources.json)
+use home-relative paths such as `~/.agents/skills` and
+`~/.config/opencode`, which are expanded at runtime for Windows, macOS, and
+Linux.
 
 ## Source authority model
 
@@ -566,6 +590,10 @@ agent-harness/
 ├── activate/
 ├── state/
 ├── src/
+│   ├── config/
+│   ├── domains/
+│   ├── host-adapters/
+│   └── lib/
 ├── package.json
 ├── tsconfig.json
 └── IMPLEMENTATION-PLAN.md

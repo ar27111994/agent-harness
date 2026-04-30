@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-04-30
+
+### Added in 1.0.0
+
+- centralized runtime configuration with `.env.example`, typed defaults, and shared preflight diagnostics
+- host adapter registry foundations for VS Code / GitHub Copilot and OpenCode workspace and wire flows
+- recursive scan budgets, expanded ignore profiles, generic repository signals, dependency-aware package candidates, and source operational-status reporting
+- cross-platform CI coverage for Linux, macOS, and Windows plus a portable directory-link lifecycle smoke check
+
+### Changed in 1.0.0
+
+- replaced workstation-specific local source paths with home-relative source endpoints expanded at runtime
+- routed GitHub, batch, VS Code settings, and curated-root configuration through the shared config module
+- documented doctor/setup diagnostics, scan controls, link validation, and the new internal source layout
+
 ## [0.2.0] - 2026-04-27
 
 ### Added in 0.2.0
