@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 
+import { loadRuntimeConfig } from "./config/runtime.js";
 import { resolveAssetContent } from "./asset-content.js";
 import {
   ensureDirectory,
@@ -22,46 +22,21 @@ import type {
 } from "./types.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
-function resolveVsCodeUserSettingsPath(): string {
-  if (process.platform === "win32") {
-    const appData = process.env.APPDATA;
-    if (!appData) {
-      throw new Error(
-        "APPDATA environment variable is not set; cannot resolve VS Code user settings path on Windows.",
-      );
-    }
-    return join(appData, "Code", "User", "settings.json");
-  }
-  if (process.platform === "darwin") {
-    return join(
-      homedir(),
-      "Library",
-      "Application Support",
-      "Code",
-      "User",
-      "settings.json",
-    );
-  }
-  const xdgConfigHome =
-    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(xdgConfigHome, "Code", "User", "settings.json");
-}
-
-const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
-
 export async function wireVsCode(options: {
   projectRoot: string;
   workspaceRoot: string;
   mode: "preview" | "apply" | "reset";
 }): Promise<void> {
   const { projectRoot, workspaceRoot, mode } = options;
+  const runtimeConfig = loadRuntimeConfig();
+  const vsCodeUserSettingsPath = runtimeConfig.paths.vsCodeUserSettingsPath;
   const activationRoot = join(projectRoot, "activate", "copilot-vscode");
   const profileManifest =
     await readJsonFileOrNull<CopilotWorkspaceProfileManifest>(
       join(activationRoot, "workspace-profile-manifest.json"),
     );
 
-  const curatedRoot = join(homedir(), ".copilot", "agent-harness");
+  const curatedRoot = runtimeConfig.paths.copilotCuratedRoot;
   const currentRoot = join(curatedRoot, "current");
   const generationId = profileManifest?.profileId
     ? `${profileManifest.profileId}-${Date.now()}`
@@ -80,7 +55,7 @@ export async function wireVsCode(options: {
     generatedAt: new Date().toISOString(),
     workspaceRoot: toPosixPath(workspaceRoot),
     targetPaths: [
-      toPosixPath(VSCODE_USER_SETTINGS_PATH),
+      toPosixPath(vsCodeUserSettingsPath),
       toPosixPath(join(workspaceRoot, ".github", "copilot-instructions.md")),
       toPosixPath(currentRoot),
       toPosixPath(generationRoot),
@@ -151,6 +126,7 @@ export async function wireVsCode(options: {
   await replaceDirectoryLink(currentRoot, generationRoot);
   await pruneVsCodeGenerationDirectories(curatedRoot, { keep: 3 });
   await patchVsCodeUserSettings({
+    settingsPath: vsCodeUserSettingsPath,
     currentRoot,
     curatedRoot,
     materializedPaths,
@@ -158,11 +134,12 @@ export async function wireVsCode(options: {
 }
 
 async function patchVsCodeUserSettings(paths: {
+  settingsPath: string;
   currentRoot: string;
   curatedRoot: string;
   materializedPaths: MaterializedVsCodePaths;
 }): Promise<void> {
-  const currentSettings = await readVsCodeSettings(VSCODE_USER_SETTINGS_PATH);
+  const currentSettings = await readVsCodeSettings(paths.settingsPath);
   const basePluginLocations = stripManagedVsCodeLocationEntries(
     currentSettings["chat.pluginLocations"],
     paths.curatedRoot,
@@ -212,7 +189,7 @@ async function patchVsCodeUserSettings(paths: {
     ],
   };
 
-  await patchVsCodeSettings(VSCODE_USER_SETTINGS_PATH, nextSettings);
+  await patchVsCodeSettings(paths.settingsPath, nextSettings);
 }
 
 async function materializeWorkspaceInstructions(
@@ -425,6 +402,7 @@ async function resetVsCodeWireIn(
   await writeTextFile(destinationPath, "");
   await removePath(curatedRoot);
   await resetVsCodeUserSettings({
+    settingsPath: loadRuntimeConfig().paths.vsCodeUserSettingsPath,
     curatedRoot,
     currentRoot: join(curatedRoot, "current"),
   });
@@ -457,10 +435,11 @@ function buildVsCodeWirePlan(
 }
 
 async function resetVsCodeUserSettings(paths: {
+  settingsPath: string;
   curatedRoot: string;
   currentRoot: string;
 }): Promise<void> {
-  const currentSettings = await readVsCodeSettings(VSCODE_USER_SETTINGS_PATH);
+  const currentSettings = await readVsCodeSettings(paths.settingsPath);
   const managedSkillOverrides = buildVsCodeSkillLocationOverrides(
     paths.currentRoot,
   );
@@ -505,7 +484,7 @@ async function resetVsCodeUserSettings(paths: {
       nextCodeGenerationInstructions,
   };
 
-  await patchVsCodeSettings(VSCODE_USER_SETTINGS_PATH, nextSettings);
+  await patchVsCodeSettings(paths.settingsPath, nextSettings);
 }
 
 function stripManagedVsCodeLocationEntries(
@@ -634,7 +613,7 @@ function sanitizeAssetId(value: string): string {
 }
 
 function toHomePath(pathValue: string): string {
-  const home = homedir();
+  const home = loadRuntimeConfig().paths.homeDirectory;
   return home && pathValue.startsWith(home)
     ? pathValue.replace(home, "~").replace(/\\/gu, "/")
     : toPosixPath(pathValue);

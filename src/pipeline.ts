@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { loadRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
@@ -15,12 +16,18 @@ export async function runWorkspacePipeline(options: {
   workspaceRoot: string;
   targetHost: "copilot-vscode" | "opencode";
   sessionIntent: string;
+  bundleIds?: string[];
 }): Promise<void> {
-  const { projectRoot, workspaceRoot, targetHost, sessionIntent } = options;
-  const mirrorBatchSize = process.env.AGENT_HARNESS_MIRROR_BATCH_SIZE ?? "120";
-  const installBatchSize =
-    process.env.AGENT_HARNESS_INSTALL_BATCH_SIZE ?? "250";
-  const bundleIds = getBundleIdsForHost(targetHost);
+  const {
+    projectRoot,
+    workspaceRoot,
+    targetHost,
+    sessionIntent,
+    bundleIds = getBundleIdsForHost(targetHost),
+  } = options;
+  const config = loadRuntimeConfig();
+  const mirrorBatchSize = config.batches.mirror;
+  const installBatchSize = config.batches.install;
 
   await runDiscover(["demand-profile"], workspaceRoot, projectRoot);
   await runDiscover(["sources"], workspaceRoot, projectRoot);

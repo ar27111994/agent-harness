@@ -14,17 +14,30 @@ import { basename, dirname, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 
 export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
+  ".cache",
   ".git",
   ".idea",
   ".next",
   ".nuxt",
   ".tmp",
+  ".turbo",
+  ".venv",
+  "__pycache__",
   "build",
   "coverage",
   "dist",
+  "generated",
   "node_modules",
+  "out",
+  "target",
   "vendor",
 ]);
+
+export interface RecursiveListOptions {
+  maxFiles?: number;
+  maxDepth?: number;
+  maxBytes?: number;
+}
 
 export type JsonValidator<T> = (
   value: unknown,
@@ -343,18 +356,39 @@ export function countNonEmptyLines(content: string): number {
 export async function listFilesRecursive(
   rootPath: string,
   ignoredDirectoryNames: ReadonlySet<string> = DEFAULT_IGNORED_DIRECTORY_NAMES,
+  options: RecursiveListOptions = {},
 ): Promise<string[]> {
-  return collectFilesFromDirectory(rootPath, ignoredDirectoryNames);
+  const budget = {
+    maxFiles: options.maxFiles ?? Number.POSITIVE_INFINITY,
+    maxDepth: options.maxDepth ?? Number.POSITIVE_INFINITY,
+    maxBytes: options.maxBytes ?? Number.POSITIVE_INFINITY,
+    scannedFiles: 0,
+    scannedBytes: 0,
+  };
+  return collectFilesFromDirectory(rootPath, ignoredDirectoryNames, budget, 0);
 }
 
 async function collectFilesFromDirectory(
   directoryPath: string,
   ignoredDirectoryNames: ReadonlySet<string>,
+  budget: Required<RecursiveListOptions> & {
+    scannedBytes: number;
+    scannedFiles: number;
+  },
+  depth: number,
 ): Promise<string[]> {
+  if (depth > budget.maxDepth) {
+    return [];
+  }
+
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const collectedFiles: string[] = [];
 
   for (const entry of entries) {
+    if (budget.scannedFiles >= budget.maxFiles) {
+      break;
+    }
+
     const entryPath = `${directoryPath}${sep}${entry.name}`;
 
     if (entry.isDirectory()) {
@@ -365,12 +399,20 @@ async function collectFilesFromDirectory(
       const nestedFiles = await collectFilesFromDirectory(
         entryPath,
         ignoredDirectoryNames,
+        budget,
+        depth + 1,
       );
       collectedFiles.push(...nestedFiles);
       continue;
     }
 
     if (entry.isFile()) {
+      const fileStats = await lstat(entryPath);
+      if (budget.scannedBytes + fileStats.size > budget.maxBytes) {
+        break;
+      }
+      budget.scannedBytes += fileStats.size;
+      budget.scannedFiles += 1;
       collectedFiles.push(entryPath);
     }
   }

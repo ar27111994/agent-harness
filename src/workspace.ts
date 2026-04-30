@@ -3,9 +3,9 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
+import { getHostAdapter, listHostAdapters } from "./host-adapters/registry.js";
 import { runWorkspacePipeline } from "./pipeline.js";
-import { wireVsCode } from "./host-vscode.js";
-import { wireOpenCode } from "./host-opencode.js";
+import { printPreflightDiagnostics, runPreflightChecks } from "./preflight.js";
 
 export async function runWorkspace(
   args: string[],
@@ -14,47 +14,45 @@ export async function runWorkspace(
 ): Promise<number> {
   const [target = "help", ...rest] = args;
   const sessionIntent = getOptionValue(rest, "--intent") ?? "general";
+  const adapter = getHostAdapter(target);
 
-  switch (target) {
-    case "vscode":
-      await runWorkspacePipeline({
-        projectRoot,
-        workspaceRoot: workingDirectory,
-        targetHost: "copilot-vscode",
-        sessionIntent,
-      });
-      await wireVsCode({
-        projectRoot,
-        workspaceRoot: workingDirectory,
-        mode: "apply",
-      });
-      return 0;
-    case "opencode":
-      await runWorkspacePipeline({
-        projectRoot,
-        workspaceRoot: workingDirectory,
-        targetHost: "opencode",
-        sessionIntent,
-      });
-      await wireOpenCode({
-        projectRoot,
-        workspaceRoot: workingDirectory,
-        mode: "apply",
-      });
-      return 0;
-    case "help":
-      printWorkspaceHelp();
-      return 0;
-    default:
-      printWorkspaceHelp();
-      return 1;
+  if (adapter) {
+    printPreflightDiagnostics(
+      await runPreflightChecks({ host: adapter.host, mode: "workspace" }),
+    );
+    await runWorkspacePipeline({
+      projectRoot,
+      workspaceRoot: workingDirectory,
+      targetHost: adapter.host,
+      sessionIntent,
+      bundleIds: adapter.defaultBundleIds,
+    });
+    await adapter.wire({
+      projectRoot,
+      workspaceRoot: workingDirectory,
+      mode: "apply",
+    });
+    return 0;
   }
+
+  if (target === "help") {
+    printWorkspaceHelp();
+    return 0;
+  }
+
+  printWorkspaceHelp();
+  return 1;
 }
 
 function printWorkspaceHelp(): void {
+  const hostLines = listHostAdapters()
+    .map(
+      (adapter) =>
+        `  ${adapter.cliName.padEnd(8)} Run the full pipeline for ${adapter.displayName}`,
+    )
+    .join("\n");
   console.log(`workspace commands:
-  vscode    Run the full agent-harness pipeline for a VS Code / Copilot workspace
-  opencode  Run the full agent-harness pipeline for an OpenCode workspace
+${hostLines}
 
 Options:
   --intent <general|frontend|backend|security|docs|testing>`);

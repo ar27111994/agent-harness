@@ -1,7 +1,8 @@
 import { stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { loadRuntimeConfig } from "./config/runtime.js";
 import {
   fetchGitHubRepoSnapshot,
   isGitHubRepoSource,
@@ -27,6 +28,7 @@ import {
   writeJsonFile,
   writeJsonLinesFile,
 } from "./files.js";
+import { resolvePortablePath } from "./lib/paths.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
@@ -51,6 +53,8 @@ interface PackageJsonShape {
   description?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   engines?: {
     node?: string;
   };
@@ -198,7 +202,12 @@ async function generateDemandProfile(
   scanRoot: string,
   projectRoot: string,
 ): Promise<void> {
-  const scannedFiles = await listFilesRecursive(scanRoot);
+  const scanConfig = loadRuntimeConfig().scan;
+  const scannedFiles = await listFilesRecursive(scanRoot, undefined, {
+    maxBytes: scanConfig.maxBytes,
+    maxDepth: scanConfig.maxDepth,
+    maxFiles: scanConfig.maxFiles,
+  });
   const evidence: DemandEvidence[] = [];
   const aggregateSignals = createEmptySignalSet();
 
@@ -267,6 +276,7 @@ async function generateSourceIndex(projectRoot: string): Promise<void> {
     byAuthorityTier: countBy(enabledSources, (source) => source.authorityTier),
     byKind: countBy(enabledSources, (source) => source.kind),
     hostCoverage: countHosts(enabledSources),
+    operationalStatus: countBy(enabledSources, classifySourceOperationalStatus),
     communityDefaultPolicy:
       selectionRegistry.selectionPolicies.communityDefaultPolicy,
     enabledSources: enabledSources.map((source) => ({
@@ -275,6 +285,7 @@ async function generateSourceIndex(projectRoot: string): Promise<void> {
       authorityTier: source.authorityTier,
       priority: source.priority,
       hosts: source.hosts,
+      operationalStatus: classifySourceOperationalStatus(source),
     })),
   };
 
@@ -296,9 +307,7 @@ async function generateCatalog(projectRoot: string): Promise<void> {
     .filter((source) => source.enabled)
     .sort(compareSourcesByPriority);
   const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
-  const repoBatchSize = Number(
-    process.env.AGENT_HARNESS_REMOTE_BATCH_SIZE ?? "15",
-  );
+  const repoBatchSize = loadRuntimeConfig().batches.remote;
   const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
   );
@@ -710,6 +719,9 @@ function collectPackageCandidatesFromDemandProfile(
       if (signal === "terraform") {
         packageCandidates.add("terraform");
       }
+      if (signal.startsWith("package:npm:")) {
+        packageCandidates.add(signal.slice("package:npm:".length));
+      }
     }
   }
 
@@ -951,8 +963,7 @@ function buildOfficialIndexHeaders(): HeadersInit {
     "User-Agent": "agent-harness",
   };
 
-  const githubToken =
-    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = loadRuntimeConfig().github.token;
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
@@ -1548,7 +1559,7 @@ async function loadAntigravityManifestEntrySet(
   projectRoot: string,
 ): Promise<Set<string>> {
   const antigravityManifestPath = resolveEndpointPath(
-    "C:/Users/ar271/.agents/skills/.antigravity-install-manifest.json",
+    "~/.agents/skills/.antigravity-install-manifest.json",
     projectRoot,
   );
   const manifest = await readJsonFileOrNull<LocalManifestShape>(
@@ -2594,13 +2605,7 @@ function resolveEndpointPath(
   endpointValue: string | undefined,
   projectRoot: string,
 ): string {
-  if (!endpointValue) {
-    return projectRoot;
-  }
-
-  return isAbsolute(endpointValue)
-    ? endpointValue
-    : join(projectRoot, endpointValue);
+  return resolvePortablePath(endpointValue, projectRoot);
 }
 
 function buildCatalogId(sourceId: string, assetPath: string): string {
@@ -2702,7 +2707,16 @@ function shouldInspectFile(fileName: string, filePath: string): boolean {
     return true;
   }
 
+  if (/\.(ipynb|csv|tsv|parquet|ndjson|geojson|fig|sketch)$/iu.test(fileName)) {
+    return true;
+  }
+
   const inspectableNames = new Set([
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
     "package.json",
     "package-lock.json",
     "pnpm-lock.yaml",
@@ -2850,6 +2864,40 @@ function collectStaticSignals(
     addSignals(matchedSignals.tooling, ["openapi"]);
   }
 
+  if (fileName.endsWith(".ipynb")) {
+    addSignals(matchedSignals.languages, ["python"]);
+    addSignals(matchedSignals.concerns, ["notebook", "research"]);
+    addSignals(matchedSignals.tooling, ["jupyter"]);
+  }
+
+  if (/\.(csv|tsv|parquet|ndjson|geojson)$/iu.test(fileName)) {
+    addSignals(matchedSignals.concerns, ["dataset", "data"]);
+  }
+
+  if (/\.(fig|sketch)$/iu.test(fileName)) {
+    addSignals(matchedSignals.concerns, ["design", "frontend"]);
+  }
+
+  if (/README|CONTRIBUTING|CHANGELOG|LICENSE/u.test(fileName)) {
+    addSignals(matchedSignals.concerns, ["documentation"]);
+  }
+
+  if (/docs|research|papers|notebooks|datasets|media/iu.test(filePath)) {
+    addSignals(
+      matchedSignals.concerns,
+      splitIntoKeywords(filePath).filter((token) =>
+        [
+          "docs",
+          "research",
+          "papers",
+          "notebooks",
+          "datasets",
+          "media",
+        ].includes(token),
+      ),
+    );
+  }
+
   if (
     /\.actor[/]/iu.test(filePath) ||
     /^actor\.json$/iu.test(fileName) ||
@@ -2880,7 +2928,15 @@ async function enrichPackageJsonSignals(
   const dependencyNames = new Set<string>([
     ...Object.keys(packageJson.dependencies ?? {}),
     ...Object.keys(packageJson.devDependencies ?? {}),
+    ...Object.keys(packageJson.optionalDependencies ?? {}),
+    ...Object.keys(packageJson.peerDependencies ?? {}),
   ]);
+  addSignals(
+    matchedSignals.tooling,
+    [...dependencyNames]
+      .filter(isRegistryCandidateDependency)
+      .map((dependencyName) => `package:npm:${dependencyName}`),
+  );
   const packageTextSignals = [
     packageJson.name ?? "",
     packageJson.description ?? "",
@@ -3089,6 +3145,32 @@ function hasDependency(
   return false;
 }
 
+function isRegistryCandidateDependency(dependencyName: string): boolean {
+  return (
+    dependencyName.startsWith("@modelcontextprotocol/") ||
+    dependencyName.startsWith("@playwright/") ||
+    dependencyName.startsWith("@supabase/") ||
+    [
+      "anthropic",
+      "astro",
+      "drizzle-orm",
+      "express",
+      "fastapi",
+      "fastify",
+      "hono",
+      "jest",
+      "next",
+      "openai",
+      "playwright",
+      "prisma",
+      "react",
+      "svelte",
+      "typescript",
+      "vitest",
+    ].includes(dependencyName)
+  );
+}
+
 function containsAnyText(haystack: string, needles: string[]): boolean {
   return needles.some((needle) => haystack.includes(needle));
 }
@@ -3162,6 +3244,25 @@ function countBy<T>(
   }
 
   return counts;
+}
+
+function classifySourceOperationalStatus(
+  source: SourceDefinition,
+): "active" | "dormant" | "configured-only" {
+  if (!source.enabled) {
+    return "configured-only";
+  }
+
+  if (
+    source.kind === "repo" ||
+    source.kind === "local-directory" ||
+    source.kind === "local-manifest" ||
+    source.kind === "package-registry"
+  ) {
+    return "active";
+  }
+
+  return "dormant";
 }
 
 function countHosts(sources: SourceDefinition[]): Record<string, number> {

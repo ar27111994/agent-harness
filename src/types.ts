@@ -126,6 +126,7 @@ export interface SourceIndex {
   byAuthorityTier: Record<string, number>;
   byKind: Record<string, number>;
   hostCoverage: Record<string, number>;
+  operationalStatus?: Record<string, number>;
   communityDefaultPolicy: string;
   enabledSources: Array<{
     id: string;
@@ -133,6 +134,7 @@ export interface SourceIndex {
     authorityTier: AuthorityTier;
     priority: number;
     hosts: HostTarget[];
+    operationalStatus?: "active" | "dormant" | "configured-only";
   }>;
 }
 

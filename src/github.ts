@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { loadRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, writeJsonFile } from "./files.js";
 import { assertGitHubRepoSnapshot } from "./manifest-validation.js";
 import type { SourceDefinition } from "./types.js";
@@ -194,15 +195,9 @@ export interface GitHubRepoSnapshot {
   };
 }
 
-const DEFAULT_GITHUB_API_VERSION =
-  process.env.GITHUB_API_VERSION ?? "2022-11-28";
+const DEFAULT_GITHUB_API_VERSION = loadRuntimeConfig().github.apiVersion;
 const GITHUB_API_BASE_URL = "https://api.github.com";
-const parsed = parseInt(
-  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "",
-  10,
-);
-const GITHUB_FETCH_MAX_ATTEMPTS =
-  Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+const GITHUB_FETCH_MAX_ATTEMPTS = loadRuntimeConfig().github.fetchRetries;
 const GITHUB_FETCH_TIMEOUT_MS = 10000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
@@ -548,8 +543,7 @@ function buildGitHubHeaders(): HeadersInit {
     "User-Agent": "agent-harness",
   };
 
-  const githubToken =
-    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = loadRuntimeConfig().github.token;
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }

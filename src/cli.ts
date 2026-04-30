@@ -11,6 +11,7 @@ import { runActivate } from "./activate.js";
 import { runRebuild } from "./rebuild.js";
 import { runWorkspace } from "./workspace.js";
 import { runWire } from "./wire.js";
+import { printPreflightDiagnostics, runPreflightChecks } from "./preflight.js";
 
 async function main(): Promise<number> {
   const [, , domain, ...args] = process.argv;
@@ -34,6 +35,12 @@ async function main(): Promise<number> {
       return runWorkspace(args, workingDirectory, projectRoot);
     case "wire":
       return runWire(args, workingDirectory, projectRoot);
+    case "doctor":
+    case "setup":
+      printPreflightDiagnostics(
+        await runPreflightChecks({ mode: "workspace" }),
+      );
+      return 0;
     case undefined:
       printHelp();
       return 0;
@@ -67,6 +74,8 @@ function printHelp(): void {
   workspace opencode        Run the full pipeline for an OpenCode workspace
   wire vscode               Preview/apply/reset VS Code user-scoped wire-in
   wire opencode             Preview/apply/reset OpenCode project-local wire-in
+  doctor                    Run config, host, and filesystem readiness checks
+  setup                     Alias for doctor
   mirror plan               Build a mirror readiness plan from current outputs`);
 }
 

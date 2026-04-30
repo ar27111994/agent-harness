@@ -3,8 +3,8 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
-import { wireVsCode } from "./host-vscode.js";
-import { wireOpenCode } from "./host-opencode.js";
+import { getHostAdapter, listHostAdapters } from "./host-adapters/registry.js";
+import { printPreflightDiagnostics, runPreflightChecks } from "./preflight.js";
 
 export async function runWire(
   args: string[],
@@ -13,25 +13,23 @@ export async function runWire(
 ): Promise<number> {
   const [target = "help", ...rest] = args;
   const mode = getWireMode(rest);
+  const adapter = getHostAdapter(target);
 
-  switch (target) {
-    case "vscode":
-      await wireVsCode({ projectRoot, workspaceRoot: workingDirectory, mode });
-      return 0;
-    case "opencode":
-      await wireOpenCode({
-        projectRoot,
-        workspaceRoot: workingDirectory,
-        mode,
-      });
-      return 0;
-    case "help":
-      printWireHelp();
-      return 0;
-    default:
-      printWireHelp();
-      return 1;
+  if (adapter) {
+    printPreflightDiagnostics(
+      await runPreflightChecks({ host: adapter.host, mode }),
+    );
+    await adapter.wire({ projectRoot, workspaceRoot: workingDirectory, mode });
+    return 0;
   }
+
+  if (target === "help") {
+    printWireHelp();
+    return 0;
+  }
+
+  printWireHelp();
+  return 1;
 }
 
 function getWireMode(args: string[]): "preview" | "apply" | "reset" {
@@ -47,9 +45,14 @@ function getWireMode(args: string[]): "preview" | "apply" | "reset" {
 }
 
 function printWireHelp(): void {
+  const hostLines = listHostAdapters()
+    .map(
+      (adapter) =>
+        `  ${adapter.cliName.padEnd(8)} Preview/apply/reset ${adapter.displayName} wire-in`,
+    )
+    .join("\n");
   console.log(`wire commands:
-  vscode    Preview/apply/reset VS Code user-scoped wiring and workspace instructions export
-  opencode  Preview/apply/reset OpenCode project-local overlay export
+${hostLines}
 
 Options:
   --preview

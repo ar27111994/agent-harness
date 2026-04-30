@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { loadRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, readTextFileOrNull } from "./files.js";
 import { fetchOfficialIndexPageContent } from "./official-index.js";
 import type { AssetCatalogEntry } from "./types.js";
@@ -198,8 +199,7 @@ function buildGitHubHeaders(): HeadersInit {
     "User-Agent": "agent-harness",
   };
 
-  const githubToken =
-    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = loadRuntimeConfig().github.token;
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
