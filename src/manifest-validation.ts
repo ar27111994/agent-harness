@@ -94,6 +94,8 @@ const WIRE_PLAN_HOSTS = [
   "shared",
   "cursor",
   "zed",
+  "claude-code",
+  "pi",
   "vscode-user",
   "opencode-project",
 ] as const;

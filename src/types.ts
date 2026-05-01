@@ -676,7 +676,14 @@ export interface CopilotWorkspaceProfileManifest {
 
 export interface WirePlanManifest {
   schemaVersion: number;
-  host: HostTarget | "vscode-user" | "opencode-project" | "cursor" | "zed";
+  host:
+    | HostTarget
+    | "vscode-user"
+    | "opencode-project"
+    | "cursor"
+    | "zed"
+    | "claude-code"
+    | "pi";
   generatedAt: string;
   workspaceRoot: string;
   runtimeRoot: string;

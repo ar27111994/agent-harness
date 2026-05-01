@@ -179,9 +179,11 @@ agent-harness workspace vscode --intent docs
 agent-harness workspace opencode --intent security
 agent-harness workspace cursor --intent frontend
 agent-harness workspace zed --intent docs
+agent-harness workspace claude-code --intent backend
+agent-harness workspace pi --intent docs
 ```
 
-VS Code and OpenCode apply native wire-in flows. Cursor and Zed are registered through the host adapter model and currently emit explicit host guidance plans while reusing the nearest compatible lifecycle host.
+VS Code and OpenCode apply native wire-in flows. Cursor, Zed, Claude Code, and Pi are registered through the host adapter model and currently emit explicit host guidance plans while reusing the nearest compatible lifecycle host.
 
 These wrappers currently execute the full pipeline for the target workspace:
 
@@ -203,6 +205,8 @@ These wrappers currently execute the full pipeline for the target workspace:
 agent-harness setup hosts
 agent-harness setup doctor
 agent-harness setup doctor --host vscode
+agent-harness setup doctor --host claude-code
+agent-harness setup doctor --host pi
 ```
 
 `setup doctor` prints registered host adapters, lifecycle defaults, capability matrices, and runtime diagnostics. This is also where first-time users see guidance for optional GitHub authentication, native extension installation boundaries, shared MCP projection, and host-specific readiness notes.
@@ -403,9 +407,37 @@ Equivalent npm command:
 npm run wire:opencode
 ```
 
+### Adapter guidance wire-in
+
+Cursor, Zed, Claude Code, and Pi are first-class host adapters, but they are intentionally guidance-only today: they produce host-specific plans under `activate/<host>/` and do not mutate native host settings.
+
+Commands:
+
+```bash
+agent-harness wire cursor --preview
+agent-harness wire zed --preview
+agent-harness wire claude-code --preview
+agent-harness wire pi --preview
+```
+
+Equivalent npm commands:
+
+```bash
+npm run wire:cursor
+npm run wire:zed
+npm run wire:claude-code
+npm run wire:pi
+```
+
+Lifecycle mapping:
+
+- Cursor reuses the VS Code / Copilot lifecycle host.
+- Zed, Claude Code, and Pi reuse the OpenCode-compatible lifecycle host.
+- Pi stages MCP assets as references only unless your Pi installation includes an MCP extension, because Pi does not ship with built-in MCP support.
+
 ### Automatic wire-in through workspace wrappers
 
-The OpenCode wrappers run wire-in automatically after activation:
+The OpenCode and OpenCode-compatible wrappers run wire-in automatically after activation:
 
 ```bash
 agent-harness-opencode --intent backend
@@ -415,6 +447,8 @@ or:
 
 ```bash
 agent-harness workspace opencode --intent security
+agent-harness workspace claude-code --intent backend
+agent-harness workspace pi --intent docs
 ```
 
 ## Common workflows

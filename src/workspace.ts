@@ -56,8 +56,10 @@ function printWorkspaceHelp(): void {
   console.log(`workspace commands:
   vscode    Run the full agent-harness pipeline for a VS Code / Copilot workspace
   opencode  Run the full agent-harness pipeline for an OpenCode workspace
-  cursor    Run the Copilot-compatible pipeline and emit Cursor adapter guidance
-  zed       Run the OpenCode-compatible pipeline and emit Zed adapter guidance
+  cursor       Run the Copilot-compatible pipeline and emit Cursor adapter guidance
+  zed          Run the OpenCode-compatible pipeline and emit Zed adapter guidance
+  claude-code  Run the OpenCode-compatible pipeline and emit Claude Code adapter guidance
+  pi           Run the OpenCode-compatible pipeline and emit Pi adapter guidance
 
 Options:
   --intent <general|frontend|backend|security|docs|testing>`);

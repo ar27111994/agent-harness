@@ -61,8 +61,10 @@ function printWireHelp(): void {
   console.log(`wire commands:
   vscode    Preview/apply/reset VS Code user-scoped wiring and workspace instructions export
   opencode  Preview/apply/reset OpenCode project-local overlay export
-  cursor    Emit Cursor adapter guidance through the host registry
-  zed       Emit Zed adapter guidance through the host registry
+  cursor       Emit Cursor adapter guidance through the host registry
+  zed          Emit Zed adapter guidance through the host registry
+  claude-code  Emit Claude Code adapter guidance through the host registry
+  pi           Emit Pi adapter guidance through the host registry
 
 Options:
   --preview

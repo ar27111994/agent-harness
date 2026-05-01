@@ -56,6 +56,13 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 
+const piCapabilities: HostCapability[] = opencodeCapabilities.map(
+  (capability) =>
+    capability.assetKind === "mcp-server"
+      ? { assetKind: capability.assetKind, behaviors: ["stage"] }
+      : capability,
+);
+
 export const HOST_ADAPTERS: HostAdapter[] = [
   {
     id: "copilot-vscode",
@@ -96,6 +103,26 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     mutatesHostPaths: false,
     capabilities: opencodeCapabilities,
     wire: (options) => writeHostGuidanceWirePlan("zed", options),
+  },
+  {
+    id: "claude-code",
+    aliases: ["claude", "claudecode"],
+    displayName: "Claude Code",
+    lifecycleHost: "opencode",
+    defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
+    mutatesHostPaths: false,
+    capabilities: opencodeCapabilities,
+    wire: (options) => writeHostGuidanceWirePlan("claude-code", options),
+  },
+  {
+    id: "pi",
+    aliases: ["pi-coding-agent"],
+    displayName: "Pi",
+    lifecycleHost: "opencode",
+    defaultBundleIds: ["opencode-global", "community-stable"],
+    mutatesHostPaths: false,
+    capabilities: piCapabilities,
+    wire: (options) => writeHostGuidanceWirePlan("pi", options),
   },
 ];
 

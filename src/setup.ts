@@ -79,7 +79,7 @@ function printSetupHelp(): void {
   hosts         List registered host adapters
 
 Options:
-  --host <vscode|opencode|cursor|zed>`);
+  --host <vscode|opencode|cursor|zed|claude-code|pi>`);
 }
 
 function getOptionValue(

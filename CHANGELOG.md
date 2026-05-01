@@ -12,7 +12,7 @@ All notable changes to this project will be documented in this file.
 - scan budgets, expanded ignore profiles, link lifecycle tests, scan benchmark budgets, and Windows/macOS/Linux CI coverage
 - source utilization reporting that separates configured sources from operationally harvested sources
 - dependency-evidence package registry harvesting for npm and PyPI plus docs, registry, and marketplace reference harvesters
-- host adapter registry with capability matrices, guided setup/doctor commands, Cursor and Zed adapter entries, extension install planning, and shared MCP wire plan projection
+- host adapter registry with capability matrices, guided setup/doctor commands, Cursor, Zed, Claude Code, and Pi adapter entries, extension install planning, and shared MCP wire plan projection
 - policy coverage reporting that checks detector-emitted terms against recommendation policy maps, fails CI on unmapped terms, and emits human-reviewed draft policy suggestions
 
 ### Changed in 1.0.0
