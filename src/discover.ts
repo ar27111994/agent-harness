@@ -597,16 +597,25 @@ function mergeSourceDefinitions(
   baseRegistry: SourceRegistry,
   generatedSources: SourceDefinition[],
 ): SourceRegistry {
-  const sourceIds = new Set(baseRegistry.sources.map((source) => source.id));
   const mergedSources = [...baseRegistry.sources];
+  const sourceIndexes = new Map(
+    mergedSources.map((source, index) => [source.id, index] as const),
+  );
 
   for (const source of generatedSources) {
-    if (sourceIds.has(source.id)) {
+    const existingIndex = sourceIndexes.get(source.id);
+
+    if (existingIndex !== undefined) {
+      mergedSources[existingIndex] = {
+        ...mergedSources[existingIndex],
+        ...source,
+        endpoints: source.endpoints,
+      };
       continue;
     }
 
     mergedSources.push(source);
-    sourceIds.add(source.id);
+    sourceIndexes.set(source.id, mergedSources.length - 1);
   }
 
   return {

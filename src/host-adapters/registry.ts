@@ -23,6 +23,7 @@ export interface HostAdapter {
   displayName: string;
   lifecycleHost: LifecycleHost;
   defaultBundleIds: string[];
+  mutatesHostPaths: boolean;
   capabilities: HostCapability[];
   wire(options: {
     projectRoot: string;
@@ -62,6 +63,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "GitHub Copilot in VS Code",
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
+    mutatesHostPaths: true,
     capabilities: vscodeCapabilities,
     wire: wireVsCode,
   },
@@ -71,6 +73,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "OpenCode",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
+    mutatesHostPaths: true,
     capabilities: opencodeCapabilities,
     wire: wireOpenCode,
   },
@@ -80,6 +83,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Cursor",
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
+    mutatesHostPaths: false,
     capabilities: vscodeCapabilities,
     wire: (options) => writeHostGuidanceWirePlan("cursor", options),
   },
@@ -89,6 +93,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Zed",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
+    mutatesHostPaths: false,
     capabilities: opencodeCapabilities,
     wire: (options) => writeHostGuidanceWirePlan("zed", options),
   },

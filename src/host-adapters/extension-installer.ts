@@ -15,18 +15,14 @@ export function buildVsCodeExtensionInstallActions(
   return extensionIds.filter(isValidVsCodeExtensionId).map((extensionId) => ({
     host: "copilot-vscode",
     extensionId,
-    command: `code --install-extension ${quotePowerShellArgument(extensionId)}`,
+    command: `code --install-extension ${extensionId}`,
     verifyCommand: `code --list-extensions --show-versions`,
-    removeCommand: `code --uninstall-extension ${quotePowerShellArgument(extensionId)}`,
+    removeCommand: `code --uninstall-extension ${extensionId}`,
   }));
 }
 
 export function isValidVsCodeExtensionId(extensionId: string): boolean {
   return VS_CODE_EXTENSION_ID_PATTERN.test(extensionId);
-}
-
-function quotePowerShellArgument(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`;
 }
 
 export function formatExtensionInstallActions(

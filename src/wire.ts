@@ -30,7 +30,7 @@ export async function runWire(
   }
 
   const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
-    requireHostPaths: mode === "apply",
+    requireHostPaths: mode === "apply" && hostAdapter.mutatesHostPaths,
   });
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
