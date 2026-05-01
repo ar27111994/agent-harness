@@ -59,7 +59,7 @@ const opencodeCapabilities: HostCapability[] = [
 export const HOST_ADAPTERS: HostAdapter[] = [
   {
     id: "copilot-vscode",
-    aliases: ["vscode", "copilot", "copilot-vscode"],
+    aliases: ["vscode", "copilot"],
     displayName: "GitHub Copilot in VS Code",
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
@@ -69,7 +69,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
   },
   {
     id: "opencode",
-    aliases: ["opencode", "open-code"],
+    aliases: ["open-code"],
     displayName: "OpenCode",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
@@ -79,7 +79,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
   },
   {
     id: "cursor",
-    aliases: ["cursor"],
+    aliases: [],
     displayName: "Cursor",
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
@@ -89,7 +89,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
   },
   {
     id: "zed",
-    aliases: ["zed"],
+    aliases: [],
     displayName: "Zed",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
