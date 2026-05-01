@@ -36,14 +36,18 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
 
 export async function runHostPreflight(
   host: string,
+  options: { requireHostPaths?: boolean } = {},
 ): Promise<PreflightDiagnostic[]> {
   const diagnostics = await runConfigPreflight();
 
   if (host === "copilot-vscode") {
     diagnostics.push(
-      await checkPathExists(
-        join(resolveVsCodeUserSettingsPath(), ".."),
-        "vscode-user-settings-directory",
+      requireDiagnostic(
+        await checkPathExists(
+          join(resolveVsCodeUserSettingsPath(), ".."),
+          "vscode-user-settings-directory",
+        ),
+        options.requireHostPaths ?? false,
       ),
       {
         severity: "info",
@@ -56,9 +60,12 @@ export async function runHostPreflight(
 
   if (host === "opencode") {
     diagnostics.push(
-      await checkPathExists(
-        resolveDefaultOpenCodeConfigRoot(),
-        "opencode-config-directory",
+      requireDiagnostic(
+        await checkPathExists(
+          resolveDefaultOpenCodeConfigRoot(),
+          "opencode-config-directory",
+        ),
+        options.requireHostPaths ?? false,
       ),
       {
         severity: "info",
@@ -70,6 +77,20 @@ export async function runHostPreflight(
   }
 
   return diagnostics;
+}
+
+function requireDiagnostic(
+  diagnostic: PreflightDiagnostic,
+  required: boolean,
+): PreflightDiagnostic {
+  if (required && diagnostic.severity === "warning") {
+    return {
+      ...diagnostic,
+      severity: "error",
+    };
+  }
+
+  return diagnostic;
 }
 
 export function assertNoPreflightErrors(

@@ -30,7 +30,9 @@ export async function runWorkspace(
     return 1;
   }
 
-  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost);
+  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
+    requireHostPaths: true,
+  });
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }

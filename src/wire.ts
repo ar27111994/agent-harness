@@ -29,7 +29,9 @@ export async function runWire(
     return 1;
   }
 
-  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost);
+  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
+    requireHostPaths: mode === "apply",
+  });
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }

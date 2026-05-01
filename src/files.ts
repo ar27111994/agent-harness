@@ -441,6 +441,11 @@ async function collectFilesFromDirectory(
         continue;
       }
 
+      if (depth + 1 > budgetOptions.maxDepth) {
+        telemetry.truncationReason ??= "max-depth";
+        continue;
+      }
+
       const nestedFiles = await collectFilesFromDirectory(
         entryPath,
         ignoredDirectoryNames,
@@ -448,9 +453,6 @@ async function collectFilesFromDirectory(
         telemetry,
         depth + 1,
       );
-      if (telemetry.truncationReason === "max-depth") {
-        telemetry.truncated = false;
-      }
       collectedFiles.push(...nestedFiles);
       continue;
     }

@@ -14,7 +14,6 @@ import {
   writeTextFile,
 } from "./files.js";
 import type {
-  ActivationManifest,
   AssetCatalogEntry,
   CopilotWorkspaceOverlayManifest,
   CopilotWorkspaceProfileManifest,
@@ -29,7 +28,7 @@ import {
   toHomeRelativePath,
   resolveVsCodeUserSettingsPath,
 } from "./lib/paths.js";
-import { assertActivationManifest } from "./manifest-validation.js";
+import { readSharedMcpAssetIds } from "./lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
 const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
@@ -603,17 +602,6 @@ function buildVsCodeSkillLocationOverrides(
     "~/.config/opencode/skills": false,
     [toHomePath(join(curatedRoot, "skills"))]: true,
   };
-}
-
-async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
-  const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
-    join(projectRoot, "activate", "shared", "activation-manifest.json"),
-    assertActivationManifest,
-  );
-
-  return [...new Set(sharedActivationManifest?.activeAssets ?? [])].sort(
-    (left, right) => left.localeCompare(right),
-  );
 }
 
 async function readActivationAssetData(

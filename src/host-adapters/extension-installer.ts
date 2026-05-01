@@ -34,6 +34,10 @@ export function formatExtensionInstallActions(
 ): string[] {
   return actions.map(
     (action) =>
-      `${action.host}:${action.extensionId} install='${action.command}' verify='${action.verifyCommand}' remove='${action.removeCommand}'`,
+      `${action.host}:${action.extensionId} install=${quoteFormattedCommand(action.command)} verify=${quoteFormattedCommand(action.verifyCommand)} remove=${quoteFormattedCommand(action.removeCommand)}`,
   );
+}
+
+function quoteFormattedCommand(value: string): string {
+  return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }

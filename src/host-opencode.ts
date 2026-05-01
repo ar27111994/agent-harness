@@ -14,10 +14,8 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "./files.js";
-import {
-  assertActivationManifest,
-  assertWirePlanManifest,
-} from "./manifest-validation.js";
+import { assertWirePlanManifest } from "./manifest-validation.js";
+import { readSharedMcpAssetIds } from "./lib/shared-mcp.js";
 import type {
   ActivationManifest,
   AssetKind,
@@ -158,17 +156,6 @@ export async function wireOpenCode(options: {
   };
 
   await writeJsonFile(join(localContextRoot, "wire-plan.json"), wirePlan);
-}
-
-async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
-  const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
-    join(projectRoot, "activate", "shared", "activation-manifest.json"),
-    assertActivationManifest,
-  );
-
-  return [...new Set(sharedActivationManifest?.activeAssets ?? [])].sort(
-    (left, right) => left.localeCompare(right),
-  );
 }
 
 function buildOpenCodeLinkRoots(localOverlayRoot: string): string[] {

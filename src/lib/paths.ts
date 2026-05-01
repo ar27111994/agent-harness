@@ -74,5 +74,24 @@ export function resolveVsCodeUserSettingsPath(): string {
 }
 
 export function resolveDefaultOpenCodeConfigRoot(): string {
-  return join(homedir(), ".config", "opencode");
+  const config = getRuntimeConfig();
+
+  if (process.platform === "win32") {
+    return join(
+      config.paths.appData ??
+        join(config.paths.homeDirectory, "AppData", "Roaming"),
+      "opencode",
+    );
+  }
+
+  if (process.platform === "darwin") {
+    return join(
+      config.paths.homeDirectory,
+      "Library",
+      "Application Support",
+      "opencode",
+    );
+  }
+
+  return join(config.paths.xdgConfigHome, "opencode");
 }

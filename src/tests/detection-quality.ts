@@ -31,13 +31,13 @@ const fixtures: QualityFixture[] = [
     archetype: "hardware-cad",
     fileName: "board.kicad_pcb",
     filePath: "hardware/board.kicad_pcb",
-    expectedConcerns: ["hardware", "engineering"],
+    expectedConcerns: ["cad", "hardware", "engineering"],
   },
   {
     archetype: "media-design",
     fileName: "scene.blend",
     filePath: "design/media/scene.blend",
-    expectedConcerns: ["media", "design-assets"],
+    expectedConcerns: ["media", "design-assets", "creative-production"],
   },
 ];
 
@@ -54,13 +54,18 @@ const results = fixtures.map((fixture) => {
   const expectedMatches = fixture.expectedConcerns.filter((concern) =>
     signals.concerns.includes(concern),
   ).length;
+  const expectedConcernSet = new Set(fixture.expectedConcerns);
   const unexpectedMatches = (fixture.unexpectedConcerns ?? []).filter(
     (concern) => signals.concerns.includes(concern),
+  ).length;
+  const truePositiveConcerns = signals.concerns.filter((concern) =>
+    expectedConcernSet.has(concern),
   ).length;
   const precision =
     signals.concerns.length === 0
       ? 0
-      : (signals.concerns.length - unexpectedMatches) / signals.concerns.length;
+      : Math.max(truePositiveConcerns - unexpectedMatches, 0) /
+        signals.concerns.length;
   const recall = expectedMatches / fixture.expectedConcerns.length;
 
   return {
