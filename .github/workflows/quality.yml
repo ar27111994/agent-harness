@@ -48,7 +48,10 @@ jobs:
       - name: Run scan benchmark budget
         run: npm run benchmark:scan
 
-      - name: Run CLI and wire preview smoke checks
+      - name: Run detection quality report
+        run: npm run quality:detection
+
+      - name: Run CLI and wire preview/apply/reset smoke checks
         run: npm run smoke:cli
 
       - name: Evaluate recommendation fixtures

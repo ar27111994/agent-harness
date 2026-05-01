@@ -1,6 +1,7 @@
 import {
   listHostAdapters,
   resolveHostAdapter,
+  type HostAdapter,
 } from "./host-adapters/registry.js";
 import {
   formatPreflightDiagnostics,
@@ -29,7 +30,9 @@ export async function runSetup(args: string[]): Promise<number> {
 async function runDoctor(args: string[]): Promise<void> {
   const hostName = getOptionValue(args, "--host");
   const adapters = hostName
-    ? [resolveHostAdapter(hostName)].filter((adapter) => adapter !== null)
+    ? [resolveHostAdapter(hostName)].filter(
+        (adapter): adapter is HostAdapter => adapter !== null,
+      )
     : listHostAdapters();
 
   if (adapters.length === 0) {

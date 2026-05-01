@@ -795,43 +795,6 @@ function collectPackageCandidatesFromDemandProfile(
       const dependencyPrefix = `${registryKind}:`;
       if (signal.startsWith(dependencyPrefix)) {
         packageCandidates.add(signal.slice(dependencyPrefix.length));
-        continue;
-      }
-
-      if (registryKind === "npm") {
-        if (signal === "typescript") {
-          packageCandidates.add("typescript");
-        }
-        if (signal === "playwright") {
-          packageCandidates.add("@playwright/test");
-        }
-        if (signal === "mcp") {
-          packageCandidates.add("@modelcontextprotocol/sdk");
-        }
-        if (signal === "openapi") {
-          packageCandidates.add("openapi-typescript");
-        }
-        if (signal === "supabase") {
-          packageCandidates.add("@supabase/supabase-js");
-        }
-        if (signal === "react") {
-          packageCandidates.add("react");
-        }
-        if (signal === "nextjs") {
-          packageCandidates.add("next");
-        }
-      }
-
-      if (registryKind === "pypi") {
-        if (signal === "python" || signal === "python-backend") {
-          packageCandidates.add("fastapi");
-        }
-        if (signal === "data-science" || signal === "analytics") {
-          packageCandidates.add("pandas");
-        }
-        if (signal === "machine-learning") {
-          packageCandidates.add("torch");
-        }
       }
     }
   }
@@ -3278,10 +3241,10 @@ async function enrichRequirementsSignals(
 
   const dependencyNames = content
     .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
-    .map((line) => line.split(/[<>=~!;[]/u)[0]?.trim())
-    .filter((value): value is string => Boolean(value));
+    .map((line) => line.replace(/\s+#.*$/u, "").trim())
+    .filter(isPlainRequirementLine)
+    .map((line) => line.split(/\s+@\s+|[<>=~!;[]/u)[0]?.trim())
+    .filter(isPlainPackageName);
 
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
   enrichPythonDependencySignals(matchedSignals, dependencyNames);
@@ -3296,14 +3259,56 @@ async function enrichPyProjectSignals(
     return;
   }
 
-  const dependencyNames = [
-    ...content.matchAll(/["']([A-Za-z0-9_.-]+)(?:[<>=~!;[][^"']*)?["']/gu),
-  ]
-    .map((match) => match[1])
-    .filter((value): value is string => Boolean(value));
+  const dependencyNames = extractPyProjectDependencyNames(content);
 
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
   enrichPythonDependencySignals(matchedSignals, dependencyNames);
+}
+
+function extractPyProjectDependencyNames(content: string): string[] {
+  const dependencyNames: string[] = [];
+  let inDependencyList = false;
+
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const line = rawLine.replace(/\s+#.*$/u, "").trim();
+    if (/^(dependencies|requires)\s*=\s*\[/u.test(line)) {
+      inDependencyList = true;
+    }
+
+    if (!inDependencyList) {
+      continue;
+    }
+
+    const dependencyMatch = line.match(/["']([^"']+)["']/u);
+    if (dependencyMatch?.[1]) {
+      const packageName = dependencyMatch[1]
+        .split(/\s+@\s+|[<>=~!;[]/u)[0]
+        ?.trim();
+      if (isPlainPackageName(packageName)) {
+        dependencyNames.push(packageName);
+      }
+    }
+
+    if (line.includes("]")) {
+      inDependencyList = false;
+    }
+  }
+
+  return uniqueStrings(dependencyNames);
+}
+
+function isPlainRequirementLine(line: string): boolean {
+  return (
+    line.length > 0 &&
+    !line.startsWith("#") &&
+    !line.startsWith("-") &&
+    !line.includes("://") &&
+    !/^(git\+|https?:|file:|ssh\+|\.\/|\.\.\/|\/)/iu.test(line)
+  );
+}
+
+function isPlainPackageName(value: string | undefined): value is string {
+  return Boolean(value && /^[a-z0-9_.-]+$/iu.test(value));
 }
 
 function enrichPythonDependencySignals(

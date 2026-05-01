@@ -31,10 +31,10 @@ export async function runWorkspace(
   }
 
   const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost);
-  assertNoPreflightErrors(diagnostics);
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }
+  assertNoPreflightErrors(diagnostics);
 
   await runWorkspacePipeline({
     projectRoot,

@@ -6,16 +6,27 @@ export interface ExtensionInstallAction {
   removeCommand: string;
 }
 
+const VS_CODE_EXTENSION_ID_PATTERN =
+  /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/iu;
+
 export function buildVsCodeExtensionInstallActions(
   extensionIds: string[],
 ): ExtensionInstallAction[] {
-  return extensionIds.map((extensionId) => ({
+  return extensionIds.filter(isValidVsCodeExtensionId).map((extensionId) => ({
     host: "copilot-vscode",
     extensionId,
-    command: `code --install-extension ${extensionId}`,
-    verifyCommand: `code --list-extensions --show-versions | grep ${extensionId}`,
-    removeCommand: `code --uninstall-extension ${extensionId}`,
+    command: `code --install-extension ${quotePowerShellArgument(extensionId)}`,
+    verifyCommand: `code --list-extensions --show-versions`,
+    removeCommand: `code --uninstall-extension ${quotePowerShellArgument(extensionId)}`,
   }));
+}
+
+export function isValidVsCodeExtensionId(extensionId: string): boolean {
+  return VS_CODE_EXTENSION_ID_PATTERN.test(extensionId);
+}
+
+function quotePowerShellArgument(value: string): string {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 export function formatExtensionInstallActions(

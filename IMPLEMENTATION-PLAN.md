@@ -27,7 +27,7 @@ The `release/v1.0.0` implementation wave delivers the plan as an integrated firs
 - `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install planning, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, and Cursor/Zed adapter entries
 - `M7`: package-style seams for config, discovery, wire, host adapters, path utilities, and preflight/runtime validation
 
-Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
+Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, detection quality reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
 
 ## Planning Conventions
 

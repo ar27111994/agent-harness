@@ -14,7 +14,10 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "./files.js";
-import { assertWirePlanManifest } from "./manifest-validation.js";
+import {
+  assertActivationManifest,
+  assertWirePlanManifest,
+} from "./manifest-validation.js";
 import type {
   ActivationManifest,
   AssetKind,
@@ -160,9 +163,10 @@ export async function wireOpenCode(options: {
 async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
   const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
     join(projectRoot, "activate", "shared", "activation-manifest.json"),
+    assertActivationManifest,
   );
 
-  return [...(sharedActivationManifest?.activeAssets ?? [])].sort(
+  return [...new Set(sharedActivationManifest?.activeAssets ?? [])].sort(
     (left, right) => left.localeCompare(right),
   );
 }

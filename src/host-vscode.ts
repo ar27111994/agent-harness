@@ -29,6 +29,7 @@ import {
   toHomeRelativePath,
   resolveVsCodeUserSettingsPath,
 } from "./lib/paths.js";
+import { assertActivationManifest } from "./manifest-validation.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
 const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
@@ -607,9 +608,10 @@ function buildVsCodeSkillLocationOverrides(
 async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
   const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
     join(projectRoot, "activate", "shared", "activation-manifest.json"),
+    assertActivationManifest,
   );
 
-  return [...(sharedActivationManifest?.activeAssets ?? [])].sort(
+  return [...new Set(sharedActivationManifest?.activeAssets ?? [])].sort(
     (left, right) => left.localeCompare(right),
   );
 }

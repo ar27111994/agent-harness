@@ -137,6 +137,7 @@ npm run build
 npm run validate
 npm test
 npm run benchmark:scan
+npm run quality:detection
 npm run validate:recommendations
 ```
 
@@ -218,6 +219,7 @@ npm run format:check
 npm run validate
 npm test
 npm run benchmark:scan
+npm run quality:detection
 npm run smoke:cli
 npm run validate:recommendations
 ```
@@ -246,13 +248,13 @@ You can also print the fully merged effective recommendation policy:
 node ./dist/cli.js recommend policy:print --host shared
 ```
 
-The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit and link lifecycle tests, scan benchmark budgets, CLI smoke checks, and recommendation fixtures so portability, performance, and policy behavior stay pinned as the platform evolves.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit and link lifecycle tests, scan benchmark budgets, detection quality reporting, CLI smoke checks, and recommendation fixtures so portability, performance, and policy behavior stay pinned as the platform evolves.
 
 ### Discovery coverage and source utilization
 
 Demand profiling now uses scan budgets plus modular detector packs for software manifests, documentation-heavy repos, notebooks, datasets, media/design assets, CAD/hardware artifacts, research content, game engines, mobile projects, and ML model artifacts. Catalog generation writes `discover/output/source-utilization.json` to distinguish configured sources from operationally harvested sources by kind.
 
-Package registry discovery is driven by dependency evidence extracted from manifests such as `package.json`, `requirements.txt`, and `pyproject.toml`, with fallback signal mapping when no dependency manifest is available.
+Package registry discovery is driven by dependency evidence extracted from manifests such as `package.json`, `requirements.txt`, and `pyproject.toml`; generic stack signals no longer synthesize registry package candidates without dependency evidence.
 
 ### Recommendation policy layout
 

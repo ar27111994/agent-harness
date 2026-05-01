@@ -1,6 +1,11 @@
 import { join } from "node:path";
 
-import { ensureDirectory, toPosixPath, writeJsonFile } from "../files.js";
+import {
+  ensureDirectory,
+  removePath,
+  toPosixPath,
+  writeJsonFile,
+} from "../files.js";
 import type { WirePlanManifest, WirePreviewManifest } from "../types.js";
 import type { WireMode } from "./registry.js";
 
@@ -13,6 +18,12 @@ export async function writeHostGuidanceWirePlan(
   },
 ): Promise<void> {
   const activationRoot = join(options.projectRoot, "activate", host);
+
+  if (options.mode === "reset") {
+    await removePath(activationRoot);
+    return;
+  }
+
   await ensureDirectory(activationRoot);
 
   const preview: WirePreviewManifest = {
@@ -45,5 +56,10 @@ export async function writeHostGuidanceWirePlan(
     join(activationRoot, `wire-preview-${host}.json`),
     preview,
   );
+
+  if (options.mode === "preview") {
+    return;
+  }
+
   await writeJsonFile(join(activationRoot, "wire-plan.json"), wirePlan);
 }

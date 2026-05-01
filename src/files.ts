@@ -403,6 +403,8 @@ export async function listFilesRecursiveWithTelemetry(
     telemetry,
     0,
   );
+  telemetry.truncated =
+    telemetry.truncated || Boolean(telemetry.truncationReason);
 
   return { files, telemetry };
 }
@@ -420,7 +422,7 @@ async function collectFilesFromDirectory(
 
   if (depth > budgetOptions.maxDepth) {
     telemetry.truncated = true;
-    telemetry.truncationReason = "max-depth";
+    telemetry.truncationReason ??= "max-depth";
     return [];
   }
 
@@ -446,6 +448,9 @@ async function collectFilesFromDirectory(
         telemetry,
         depth + 1,
       );
+      if (telemetry.truncationReason === "max-depth") {
+        telemetry.truncated = false;
+      }
       collectedFiles.push(...nestedFiles);
       continue;
     }

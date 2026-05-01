@@ -30,10 +30,10 @@ export async function runWire(
   }
 
   const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost);
-  assertNoPreflightErrors(diagnostics);
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }
+  assertNoPreflightErrors(diagnostics);
 
   await hostAdapter.wire({
     projectRoot,

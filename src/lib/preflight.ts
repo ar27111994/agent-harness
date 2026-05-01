@@ -1,6 +1,11 @@
 import { access } from "node:fs/promises";
+import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
+import {
+  resolveDefaultOpenCodeConfigRoot,
+  resolveVsCodeUserSettingsPath,
+} from "./paths.js";
 
 export type PreflightSeverity = "info" | "warning" | "error";
 
@@ -35,21 +40,33 @@ export async function runHostPreflight(
   const diagnostics = await runConfigPreflight();
 
   if (host === "copilot-vscode") {
-    diagnostics.push({
-      severity: "info",
-      code: "vscode-native-install-boundary",
-      message:
-        "VS Code wire-in stages curated agent assets and settings, but native extension installation is handled by the extension installer flow.",
-    });
+    diagnostics.push(
+      await checkPathExists(
+        join(resolveVsCodeUserSettingsPath(), ".."),
+        "vscode-user-settings-directory",
+      ),
+      {
+        severity: "info",
+        code: "vscode-native-install-boundary",
+        message:
+          "VS Code wire-in stages curated agent assets and settings, but native extension installation is handled by the extension installer flow.",
+      },
+    );
   }
 
   if (host === "opencode") {
-    diagnostics.push({
-      severity: "info",
-      code: "opencode-project-overlay",
-      message:
-        "OpenCode wire-in writes a project-local .opencode overlay and managed links.",
-    });
+    diagnostics.push(
+      await checkPathExists(
+        resolveDefaultOpenCodeConfigRoot(),
+        "opencode-config-directory",
+      ),
+      {
+        severity: "info",
+        code: "opencode-project-overlay",
+        message:
+          "OpenCode wire-in writes a project-local .opencode overlay and managed links.",
+      },
+    );
   }
 
   return diagnostics;
@@ -90,7 +107,18 @@ export async function checkPathExists(
       code,
       message: `Found ${pathValue}.`,
     };
-  } catch {
+  } catch (error) {
+    const errorCode = (error as NodeJS.ErrnoException).code;
+    if (errorCode && errorCode !== "ENOENT") {
+      return {
+        severity: "error",
+        code,
+        message: `Unable to access ${pathValue}: ${errorCode}.`,
+        action:
+          "Check permissions and confirm the path is readable by the current user.",
+      };
+    }
+
     return {
       severity: "warning",
       code,
