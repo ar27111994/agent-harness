@@ -4,12 +4,13 @@ Thanks for contributing to `agent-harness`.
 
 ## Scope
 
-This repository manages a curated asset supply chain for OpenCode and GitHub Copilot in VS Code. Changes should preserve the lifecycle boundary between:
+This repository manages a curated asset supply chain for OpenCode, GitHub Copilot in VS Code, Cursor, Zed, Claude Code, Pi, and future host adapters. Changes should preserve the lifecycle boundary between:
 
 1. Discover
 2. Mirror
 3. Install
 4. Activate
+5. Wire
 
 ## Before you start
 

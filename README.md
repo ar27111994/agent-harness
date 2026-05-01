@@ -183,7 +183,7 @@ agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
 ```
 
-VS Code and OpenCode apply native wire-in flows. Cursor, Zed, Claude Code, and Pi are registered through the host adapter model and currently emit explicit host guidance plans while reusing the nearest compatible lifecycle host.
+VS Code and OpenCode apply native wire-in flows. Cursor, Zed, Claude Code, and Pi are also registered through the host adapter model and write project-local native host files while reusing the nearest compatible lifecycle host.
 
 These wrappers currently execute the full pipeline for the target workspace:
 
@@ -197,7 +197,7 @@ These wrappers currently execute the full pipeline for the target workspace:
 8. batched install
 9. install reconcile
 10. activation
-11. host wire-in apply or adapter guidance plan
+11. host wire-in apply
 
 ### Guided setup and host readiness
 
@@ -407,17 +407,17 @@ Equivalent npm command:
 npm run wire:opencode
 ```
 
-### Adapter guidance wire-in
+### Native project-local adapter wire-in
 
-Cursor, Zed, Claude Code, and Pi are first-class host adapters, but they are intentionally guidance-only today: they produce host-specific plans under `activate/<host>/` and do not mutate native host settings.
+Cursor, Zed, Claude Code, and Pi are first-class native host adapters. They write project-local host files and host-specific wire plans under `activate/<host>/`, while avoiding global profile mutation.
 
 Commands:
 
 ```bash
-agent-harness wire cursor --preview
-agent-harness wire zed --preview
-agent-harness wire claude-code --preview
-agent-harness wire pi --preview
+agent-harness wire cursor --apply
+agent-harness wire zed --apply
+agent-harness wire claude-code --apply
+agent-harness wire pi --apply
 ```
 
 Equivalent npm commands:
@@ -428,6 +428,13 @@ npm run wire:zed
 npm run wire:claude-code
 npm run wire:pi
 ```
+
+Native project-local outputs:
+
+- Cursor writes `.cursor/rules/agent-harness.mdc` and materializes assets under `.cursor/agent-harness/`.
+- Zed updates the project `.rules` file, adds an `agent-harness` profile to `.zed/settings.json`, and materializes assets under `.zed/agent-harness/`.
+- Claude Code writes managed `CLAUDE.md` context plus `.claude/CLAUDE.md`, `.claude/rules/agent-harness.md`, `.claude/skills/agent-harness/SKILL.md`, and `.claude/commands/agent-harness.md`.
+- Pi writes managed `AGENTS.md` and `SYSTEM.md` context plus `.pi/skills/agent-harness/SKILL.md`, `.pi/prompts/agent-harness.md`, and `.pi/settings.json` resource entries.
 
 Lifecycle mapping:
 

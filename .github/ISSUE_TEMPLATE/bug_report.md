@@ -12,7 +12,7 @@ Describe the problem in one or two sentences.
 
 ## Context
 
-- Host: <!-- OpenCode / Copilot VS Code / shared -->
+- Host: <!-- OpenCode / Copilot VS Code / Cursor / Zed / Claude Code / Pi / shared -->
 - Command used:
 - Workspace type:
 - Expected behavior:

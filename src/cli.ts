@@ -69,12 +69,12 @@ function printHelp(): void {
   rebuild full              Clean and regenerate discover/mirror/install/activate state
   workspace vscode          Run the full pipeline for a VS Code / Copilot workspace
   workspace opencode        Run the full pipeline for an OpenCode workspace
-  workspace claude-code     Run the OpenCode-compatible pipeline and emit Claude Code guidance
-  workspace pi              Run the OpenCode-compatible pipeline and emit Pi guidance
+  workspace claude-code     Run the OpenCode-compatible pipeline and wire Claude Code project files
+  workspace pi              Run the OpenCode-compatible pipeline and wire Pi project files
   wire vscode               Preview/apply/reset VS Code user-scoped wire-in
   wire opencode             Preview/apply/reset OpenCode project-local wire-in
-  wire claude-code          Preview/apply/reset Claude Code adapter guidance
-  wire pi                   Preview/apply/reset Pi adapter guidance
+  wire claude-code          Preview/apply/reset Claude Code project-local wire-in
+  wire pi                   Preview/apply/reset Pi project-local wire-in
   setup doctor              Check config, host readiness, and guided setup notes
   setup hosts               List registered host adapters
   mirror plan               Build a mirror readiness plan from current outputs`);

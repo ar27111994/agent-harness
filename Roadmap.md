@@ -10,23 +10,29 @@ This document turns the current analysis into concrete gap matrices for the ques
 - whether the project can be extended easily to additional AI agents and IDEs
 - whether the internal codebase structure is scalable enough or needs a deeper project refactor
 
-Scope of this assessment:
+Scope of the original assessment:
 
 - branch: `feature/opencode-link-wirein`
 - assessment date: 2026-04-19
-- evidence source: current implementation and checked-in configuration
+- evidence source: implementation and checked-in configuration at that time
+
+## v1.0.0 Status Update
+
+The `release/v1.0.0` execution wave closes the highest-priority roadmap gaps for portability, generic discovery, source utilization, measurable detection quality, host adapter extensibility, and native project-local wire-in. In particular, VS Code/Copilot and OpenCode have native wire-in flows, while Cursor, Zed, Claude Code, and Pi now use the same host adapter model to write project-local native host files and host-specific wire plans.
+
+The gap matrices below are retained for traceability. Their evidence cells describe the original 2026-04-19 baseline, while the verdict table summarizes the current v1.0.0 status.
 
 ## Overall Verdict
 
-| Question                                                                                            | Current answer         | Why                                                                                                                                              |
-| --------------------------------------------------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Will this automatically work on Linux and macOS without issues?                                     | No                     | Some core path handling and seeded sources are still Windows-specific.                                                                           |
-| Will this automatically work with almost any type of project folder or repo without manual changes? | No                     | Detection is centered on software manifests and agent-asset conventions, not arbitrary project domains.                                          |
-| Is Source Discovery and Stack Detection robust enough for almost any project?                       | Not yet                | It is reasonably solid for common software stacks and agent-tooling repos, but narrow for nonstandard stacks and large heterogeneous workspaces. |
-| Are the configured sources generic enough because several marketplaces are included?                | Only partially         | The configured source list looks broad, but the effective harvesting pipeline is materially narrower than the registry suggests.                 |
-| How automatic is plugin, extension, and MCP Server setup through wire-in today?                     | Only partially         | The pipeline automates internal staging and host-specific file wiring, but it does not yet perform full native installation or auth-aware setup. |
-| Can this be extended easily to more AI agents and IDEs?                                             | Feasible, but not easy | The project already has a staged host pipeline, but host support is still hardcoded around VS Code, OpenCode, and shared assets.                 |
-| Is the current single-folder source layout scalable enough for further growth?                      | No                     | The codebase is flat, several source files are very large, and cross-cutting concerns are not yet organized behind modular boundaries.           |
+| Question                                                                                            | Current answer              | Why                                                                                                                                                      |
+| --------------------------------------------------------------------------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Will this automatically work on Linux and macOS without issues?                                     | Yes, with CI coverage       | OS-aware paths, generated local source seeds, portable link handling, and Windows/macOS/Linux guardrails are now in place.                               |
+| Will this automatically work with almost any type of project folder or repo without manual changes? | Much broader than before    | Detector packs now cover software, docs, notebooks, datasets, media/design assets, CAD/hardware, research, game engines, mobile, and ML artifact repos.  |
+| Is Source Discovery and Stack Detection robust enough for almost any project?                       | Measurable and extensible   | Detection has modular detector packs, archetype fixtures, benchmark coverage, and quality reporting; long-tail domains remain future expansion areas.    |
+| Are the configured sources generic enough because several marketplaces are included?                | Operationally clearer       | Source utilization reporting distinguishes configured sources from actually harvested sources, and docs/registry/package inputs now contribute evidence. |
+| How automatic is plugin, extension, and MCP Server setup through wire-in today?                     | Native file wiring is broad | The pipeline separates stage/activate/wire/native-install, projects shared MCP references, and writes native project-local host files where supported.   |
+| Can this be extended easily to more AI agents and IDEs?                                             | Yes through host adapters   | Cursor, Zed, Claude Code, and Pi now prove the adapter surface beyond VS Code/Copilot and OpenCode.                                                      |
+| Is the current single-folder source layout scalable enough for further growth?                      | Improved, not finished      | New config, discovery, wire, host-adapter, path, and preflight seams exist; further file-size reduction remains a follow-up.                             |
 
 ## Gap Matrix 1: Linux and macOS Portability
 

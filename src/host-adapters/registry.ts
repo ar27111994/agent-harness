@@ -1,7 +1,7 @@
 import type { AssetKind } from "../types.js";
 import { wireOpenCode } from "../host-opencode.js";
 import { wireVsCode } from "../host-vscode.js";
-import { writeHostGuidanceWirePlan } from "./wire-guidance.js";
+import { wireNativeHost } from "./native-wire.js";
 
 export type LifecycleHost = "copilot-vscode" | "opencode";
 export type WireMode = "preview" | "apply" | "reset";
@@ -24,6 +24,7 @@ export interface HostAdapter {
   lifecycleHost: LifecycleHost;
   defaultBundleIds: string[];
   mutatesHostPaths: boolean;
+  requiresLifecycleHostPaths?: boolean;
   capabilities: HostCapability[];
   wire(options: {
     projectRoot: string;
@@ -71,6 +72,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
+    requiresLifecycleHostPaths: true,
     capabilities: vscodeCapabilities,
     wire: wireVsCode,
   },
@@ -81,6 +83,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
+    requiresLifecycleHostPaths: true,
     capabilities: opencodeCapabilities,
     wire: wireOpenCode,
   },
@@ -90,9 +93,10 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Cursor",
     lifecycleHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
-    mutatesHostPaths: false,
+    mutatesHostPaths: true,
+    requiresLifecycleHostPaths: false,
     capabilities: vscodeCapabilities,
-    wire: (options) => writeHostGuidanceWirePlan("cursor", options),
+    wire: (options) => wireNativeHost("cursor", options),
   },
   {
     id: "zed",
@@ -100,9 +104,10 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Zed",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
-    mutatesHostPaths: false,
+    mutatesHostPaths: true,
+    requiresLifecycleHostPaths: false,
     capabilities: opencodeCapabilities,
-    wire: (options) => writeHostGuidanceWirePlan("zed", options),
+    wire: (options) => wireNativeHost("zed", options),
   },
   {
     id: "claude-code",
@@ -110,9 +115,10 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Claude Code",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
-    mutatesHostPaths: false,
+    mutatesHostPaths: true,
+    requiresLifecycleHostPaths: false,
     capabilities: opencodeCapabilities,
-    wire: (options) => writeHostGuidanceWirePlan("claude-code", options),
+    wire: (options) => wireNativeHost("claude-code", options),
   },
   {
     id: "pi",
@@ -120,9 +126,10 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     displayName: "Pi",
     lifecycleHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable"],
-    mutatesHostPaths: false,
+    mutatesHostPaths: true,
+    requiresLifecycleHostPaths: false,
     capabilities: piCapabilities,
-    wire: (options) => writeHostGuidanceWirePlan("pi", options),
+    wire: (options) => wireNativeHost("pi", options),
   },
 ];
 

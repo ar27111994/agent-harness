@@ -8,6 +8,7 @@ The project already implements the full supply-chain flow:
 2. Mirror
 3. Install
 4. Activate
+5. Wire
 
 The suggestions below are refinements, enhancements, and operational improvements that can make the system more complete, more explainable, and more production-ready.
 
@@ -35,13 +36,14 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ---
 
-## 2. Richer Copilot profile/workspace overlays
+## 2. Richer host profile/workspace overlays
 
 ### Overlay planning current state
 
 - Activation is host-intent-aware.
-- Overlay plans exist for OpenCode, Copilot, and shared runtime.
+- Overlay plans exist for OpenCode, Copilot, shared runtime, Cursor, Zed, Claude Code, and Pi.
 - Copilot activation is recommendation-informed and budget-aware.
+- Cursor, Zed, Claude Code, and Pi have project-local native auto-wiring backed by the host adapter registry.
 
 ### Overlay planning value
 
@@ -352,6 +354,7 @@ The suggestions below are refinements, enhancements, and operational improvement
 - “Quarantine review” guide.
 - “Rollback generation” guide.
 - “How Copilot overlays are chosen” guide.
+- “How project-local native host wiring works” guide covering Cursor, Zed, Claude Code, and Pi.
 
 ---
 
@@ -359,7 +362,7 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### RLM environment architecture current state
 
-- The lifecycle is already cleanly separated into discover, mirror, install, and activate.
+- The lifecycle is already cleanly separated into discover, mirror, install, activate, and wire.
 - Catalog and activation logic still optimize primarily for canonical selection, host fit, and prompt-budget-aware active sets.
 - The system does not yet emit a first-class external environment that a runtime can query symbolically or recursively.
 

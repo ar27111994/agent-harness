@@ -7,9 +7,9 @@ import test from "node:test";
 import { resolveHostAdapter } from "../host-adapters/registry.js";
 import type { WirePlanManifest, WirePreviewManifest } from "../types.js";
 
-const GUIDANCE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
+const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
 
-test("guidance host adapters are registered with expected lifecycle hosts", () => {
+test("native host adapters are registered with expected lifecycle hosts", () => {
   assert.equal(resolveHostAdapter("cursor")?.lifecycleHost, "copilot-vscode");
   assert.equal(resolveHostAdapter("zed")?.lifecycleHost, "opencode");
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");
@@ -24,14 +24,14 @@ test("guidance host adapters are registered with expected lifecycle hosts", () =
   assert.deepEqual(piMcpCapability?.behaviors, ["stage"]);
 });
 
-test("guidance adapters write host-specific preview and apply plans", async () => {
+test("native adapters write host-specific project files and wire plans", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-hosts-"));
   const workspaceRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-workspace-"),
   );
 
   try {
-    for (const host of GUIDANCE_HOSTS) {
+    for (const host of NATIVE_HOSTS) {
       const adapter = resolveHostAdapter(host);
       assert.ok(adapter);
 
@@ -52,7 +52,7 @@ test("guidance adapters write host-specific preview and apply plans", async () =
       assert.equal(preview.host, host === "cursor" ? "vscode" : "opencode");
       assert.equal(preview.mode, "apply");
       assert.ok(plan.nativeInstallActions?.length);
-      assert.ok(plan.notes.some((note) => note.includes(adapter.displayName)));
+      await assertNativeHostFile(host, workspaceRoot);
 
       await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
       await assert.rejects(
@@ -69,3 +69,18 @@ test("guidance adapters write host-specific preview and apply plans", async () =
     await rm(workspaceRoot, { force: true, recursive: true });
   }
 });
+
+async function assertNativeHostFile(
+  host: (typeof NATIVE_HOSTS)[number],
+  workspaceRoot: string,
+): Promise<void> {
+  const hostFileByHost = {
+    cursor: join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
+    zed: join(workspaceRoot, ".rules"),
+    "claude-code": join(workspaceRoot, "CLAUDE.md"),
+    pi: join(workspaceRoot, "AGENTS.md"),
+  } satisfies Record<(typeof NATIVE_HOSTS)[number], string>;
+
+  const content = await readFile(hostFileByHost[host], "utf8");
+  assert.match(content, /Agent Harness/u);
+}

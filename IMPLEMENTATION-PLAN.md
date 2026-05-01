@@ -24,7 +24,7 @@ The `release/v1.0.0` implementation wave delivers the plan as an integrated firs
 - `M1`: OS-aware path resolution, home-relative local source seeds, cross-platform CI, and link lifecycle tests
 - `M2` and `M4`: scan budgets, richer ignore profiles, detector modules, generic repo artifact detection, roadmap-archetype detector fixtures, policy coverage reporting, and benchmark coverage
 - `M3`: source utilization reporting, docs/registry/marketplace reference harvesting, and dependency-evidence npm/PyPI candidate generation
-- `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install planning, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, and Cursor/Zed adapter entries
+- `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install planning, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, and native project-local auto-wiring for Cursor, Zed, Claude Code, and Pi
 - `M7`: package-style seams for config, discovery, wire, host adapters, path utilities, and preflight/runtime validation
 
 Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, detection quality reporting, detector-to-policy coverage reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
@@ -151,7 +151,7 @@ Validation for this release includes typecheck, lint, format check, build, unit/
 | `H4` / #40 | Gap Matrix 6 / Row 4 | Replace bespoke host modules with a reusable adapter skeleton covering paths, projection, settings, and reset semantics                       | `P1`     | `L`    | `Host Integration` | `H1`, `H2`                         | Most new host integrations reuse a common adapter pattern rather than starting from scratch                     |
 | `H5` / #41 | Gap Matrix 6 / Row 5 | Add a formal capability matrix mapping asset kinds to host behaviors such as stage, wire, native install, auth assist, and runtime validation | `P1`     | `M`    | `Architecture`     | `H1`                               | Host support and asset compatibility can be reasoned about from a single model                                  |
 | `H6` / #42 | Gap Matrix 6 / Row 6 | Generalize recommendation, activation, and profile emission flows so each host can emit its own selected-assets manifest shape                | `P2`     | `M`    | `Host Integration` | `H3`, `H5`                         | New host support includes recommendation, activation, and wire-plan generation end to end                       |
-| `H7` / #43 | Gap Matrix 6 / Row 7 | Prove the adapter model by integrating at least two additional non-default hosts such as Cursor, Zed, Claude Code, Codex, or Droid            | `P2`     | `L`    | `Architecture`     | `H1`, `H2`, `H3`, `H4`, `H5`, `H6` | The second and third new host integrations land mostly through adapter and config work instead of core rewrites |
+| `H7` / #43 | Gap Matrix 6 / Row 7 | Prove the adapter model by integrating additional non-default hosts such as Cursor, Zed, Claude Code, Pi, Codex, or Droid                     | `P2`     | `L`    | `Architecture`     | `H1`, `H2`, `H3`, `H4`, `H5`, `H6` | The second and third new host integrations land mostly through adapter and config work instead of core rewrites |
 
 ## Milestone M7 — Complexity Reduction and Future Package Seams
 

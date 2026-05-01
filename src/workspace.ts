@@ -30,8 +30,10 @@ export async function runWorkspace(
     return 1;
   }
 
+  const requiresLifecycleHostPaths =
+    hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
-    requireHostPaths: hostAdapter.mutatesHostPaths,
+    requireHostPaths: requiresLifecycleHostPaths,
   });
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
@@ -56,10 +58,10 @@ function printWorkspaceHelp(): void {
   console.log(`workspace commands:
   vscode    Run the full agent-harness pipeline for a VS Code / Copilot workspace
   opencode  Run the full agent-harness pipeline for an OpenCode workspace
-  cursor       Run the Copilot-compatible pipeline and emit Cursor adapter guidance
-  zed          Run the OpenCode-compatible pipeline and emit Zed adapter guidance
-  claude-code  Run the OpenCode-compatible pipeline and emit Claude Code adapter guidance
-  pi           Run the OpenCode-compatible pipeline and emit Pi adapter guidance
+  cursor       Run the Copilot-compatible pipeline and wire Cursor project files
+  zed          Run the OpenCode-compatible pipeline and wire Zed project files
+  claude-code  Run the OpenCode-compatible pipeline and wire Claude Code project files
+  pi           Run the OpenCode-compatible pipeline and wire Pi project files
 
 Options:
   --intent <general|frontend|backend|security|docs|testing>`);

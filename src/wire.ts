@@ -29,8 +29,10 @@ export async function runWire(
     return 1;
   }
 
+  const requiresLifecycleHostPaths =
+    hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
-    requireHostPaths: mode === "apply" && hostAdapter.mutatesHostPaths,
+    requireHostPaths: mode === "apply" && requiresLifecycleHostPaths,
   });
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
@@ -61,10 +63,10 @@ function printWireHelp(): void {
   console.log(`wire commands:
   vscode    Preview/apply/reset VS Code user-scoped wiring and workspace instructions export
   opencode  Preview/apply/reset OpenCode project-local overlay export
-  cursor       Emit Cursor adapter guidance through the host registry
-  zed          Emit Zed adapter guidance through the host registry
-  claude-code  Emit Claude Code adapter guidance through the host registry
-  pi           Emit Pi adapter guidance through the host registry
+  cursor       Preview/apply/reset Cursor project-local rules and asset wiring
+  zed          Preview/apply/reset Zed project-local rules and asset wiring
+  claude-code  Preview/apply/reset Claude Code project-local files
+  pi           Preview/apply/reset Pi project-local files
 
 Options:
   --preview

@@ -48,6 +48,9 @@ async function runDoctor(args: string[]): Promise<boolean> {
   for (const adapter of adapters) {
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
+    console.log(
+      `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
+    );
     console.log(`Default bundles: ${adapter.defaultBundleIds.join(", ")}`);
     console.log("Capabilities:");
     for (const capability of adapter.capabilities) {
