@@ -458,9 +458,15 @@ async function collectFilesFromDirectory(
     }
 
     if (entry.isFile()) {
-      const fileStat = await lstat(entryPath);
+      let fileSize: number;
+      try {
+        fileSize = (await lstat(entryPath)).size;
+      } catch {
+        continue;
+      }
+
       telemetry.visitedFiles += 1;
-      telemetry.visitedBytes += fileStat.size;
+      telemetry.visitedBytes += fileSize;
 
       if (telemetry.visitedFiles > budgetOptions.maxFiles) {
         telemetry.truncated = true;

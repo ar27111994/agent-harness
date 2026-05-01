@@ -924,11 +924,7 @@ function buildReferenceSourceCatalogEntry(
     source.endpoints.baseUrl ??
     source.endpoints.repo ??
     source.id;
-  const preferredAssetKind =
-    source.kind === "marketplace" ? "extension" : "reference-pack";
-  const assetKind = source.assetKinds.includes(preferredAssetKind)
-    ? preferredAssetKind
-    : (source.assetKinds[0] ?? "reference-pack");
+  const assetKind: AssetKind = "reference-pack";
   const capabilities = uniqueStrings([
     ...splitIntoKeywords(source.name),
     ...splitIntoKeywords(source.id),

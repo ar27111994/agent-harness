@@ -23,6 +23,7 @@ import type {
 import {
   formatExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
+  isValidVsCodeExtensionId,
 } from "./host-adapters/extension-installer.js";
 import {
   toHomeRelativePath,
@@ -430,21 +431,37 @@ async function materializeExtensionMetadata(
       continue;
     }
 
-    const nativeInstall = buildVsCodeExtensionInstallActions([assetId])[0];
+    const extensionId = resolveVsCodeExtensionId(assetData.asset);
+    const nativeInstall = extensionId
+      ? buildVsCodeExtensionInstallActions([extensionId])[0]
+      : undefined;
     await writeJsonFile(
       join(destinationRoot, `${sanitizeAssetId(assetId)}.json`),
       {
         schemaVersion: 1,
         assetId,
+        extensionId,
         displayName: assetData.asset.displayName,
         source: assetData.asset.source,
         ...(nativeInstall ? { nativeInstall } : {}),
       },
     );
-    materializedExtensionIds.push(assetId);
+    if (extensionId) {
+      materializedExtensionIds.push(extensionId);
+    }
   }
 
   return materializedExtensionIds;
+}
+
+function resolveVsCodeExtensionId(
+  asset: AssetCatalogEntry,
+): string | undefined {
+  const candidates = [asset.install.manifestEntry, asset.id];
+  return candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === "string" && isValidVsCodeExtensionId(candidate),
+  );
 }
 
 async function resetVsCodeWireIn(

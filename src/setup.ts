@@ -13,8 +13,7 @@ export async function runSetup(args: string[]): Promise<number> {
 
   switch (command) {
     case "doctor":
-      await runDoctor(rest);
-      return 0;
+      return (await runDoctor(rest)) ? 0 : 1;
     case "hosts":
       printHosts();
       return 0;
@@ -27,7 +26,7 @@ export async function runSetup(args: string[]): Promise<number> {
   }
 }
 
-async function runDoctor(args: string[]): Promise<void> {
+async function runDoctor(args: string[]): Promise<boolean> {
   const hostName = getOptionValue(args, "--host");
   const adapters = hostName
     ? [resolveHostAdapter(hostName)].filter(
@@ -37,7 +36,7 @@ async function runDoctor(args: string[]): Promise<void> {
 
   if (adapters.length === 0) {
     console.log(`No registered host adapter matched '${hostName}'.`);
-    return;
+    return false;
   }
 
   for (const adapter of adapters) {
@@ -56,6 +55,8 @@ async function runDoctor(args: string[]): Promise<void> {
       console.log(formatPreflightDiagnostics(diagnostics));
     }
   }
+
+  return true;
 }
 
 function printHosts(): void {
