@@ -65,8 +65,11 @@ export const FILE_DETECTORS: FileDetector[] = [
       DOCUMENTATION_EXTENSIONS.has(extname(fileName).toLowerCase()),
     applySignals: (target, _fileName, filePath) => {
       addSignals(target.concerns, ["documentation", "knowledge-base"]);
-      if (/research|paper|notes?|docs?|content/iu.test(filePath)) {
+      if (/research|paper|notes?|content/iu.test(filePath)) {
         addSignals(target.concerns, ["research", "writing"]);
+      }
+      if (/security|threat|audit|compliance/iu.test(filePath)) {
+        addSignals(target.concerns, ["security"]);
       }
     },
   },

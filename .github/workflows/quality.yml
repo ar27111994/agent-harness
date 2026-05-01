@@ -51,6 +51,9 @@ jobs:
       - name: Run detection quality report
         run: npm run quality:detection
 
+      - name: Run recommendation policy coverage report
+        run: npm run quality:policy
+
       - name: Run CLI and wire preview/apply/reset smoke checks
         run: npm run smoke:cli
 

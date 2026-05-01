@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - source utilization reporting that separates configured sources from operationally harvested sources
 - dependency-evidence package registry harvesting for npm and PyPI plus docs, registry, and marketplace reference harvesters
 - host adapter registry with capability matrices, guided setup/doctor commands, Cursor and Zed adapter entries, extension install planning, and shared MCP wire plan projection
+- policy coverage reporting that checks detector-emitted terms against recommendation policy maps, fails CI on unmapped terms, and emits human-reviewed draft policy suggestions
 
 ### Changed in 1.0.0
 
@@ -21,6 +22,7 @@ All notable changes to this project will be documented in this file.
 - replaced checked-in workstation-specific local source paths with home-relative defaults
 - split new architecture, discovery, wire, host adapter, config, and preflight work into package-style seams
 - extended Copilot workspace profiles and wire plans to distinguish plugins, extensions, native install actions, and shared MCP assets
+- expanded detection quality fixtures to cover roadmap archetypes and made recommendation policy tuning evidence-driven instead of ad hoc
 
 ## [0.2.0] - 2026-04-27
 

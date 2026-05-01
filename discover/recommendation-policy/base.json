@@ -74,7 +74,35 @@
       "node-backend": 1.15,
       "testing": 0.8,
       "typescript": 0.55,
-      "webhook": 1.25
+      "webhook": 1.25,
+      "knowledge-base": 1.05,
+      "documentation": 1.05,
+      "research": 1.1,
+      "writing": 0.9,
+      "notebooks": 1.15,
+      "data-science": 1.15,
+      "data-engineering": 1.2,
+      "media": 0.9,
+      "design-assets": 0.9,
+      "creative-production": 0.9,
+      "cad": 1.1,
+      "hardware": 1.1,
+      "engineering": 1.05,
+      "game-development": 1.05,
+      "realtime-media": 0.95,
+      "publishing": 0.9,
+      "machine-learning": 1.2,
+      "model-artifacts": 1.1,
+      "ai": 1.15,
+      "mobile": 1.05,
+      "python": 0.75,
+      "jupyter": 1.05,
+      "asset-pipeline": 0.9,
+      "godot": 1.05,
+      "game-engine": 1.05,
+      "latex": 0.9,
+      "android": 1.05,
+      "ios": 1.05
     }
   },
   "hostDefaults": {
@@ -162,7 +190,18 @@
       "servicebus",
       "eventhub"
     ],
-    "data": ["database", "duckdb", "sql", "postgres", "analytics", "cosmos"],
+    "data": [
+      "database",
+      "duckdb",
+      "sql",
+      "postgres",
+      "analytics",
+      "cosmos",
+      "data",
+      "data-engineering",
+      "data-science",
+      "jupyter"
+    ],
     "security": [
       "security",
       "auth",
@@ -182,7 +221,27 @@
       "container",
       "azure"
     ],
-    "automation": ["automation", "actor", "scraping", "crawler", "agent"]
+    "automation": ["automation", "actor", "scraping", "crawler", "agent"],
+    "knowledge": ["documentation", "knowledge-base", "reference", "guide"],
+    "research": [
+      "research",
+      "notebooks",
+      "paper",
+      "publishing",
+      "writing",
+      "latex"
+    ],
+    "media": [
+      "media",
+      "design-assets",
+      "creative-production",
+      "asset-pipeline",
+      "realtime-media"
+    ],
+    "engineering": ["cad", "hardware", "engineering"],
+    "game": ["game-development", "game-engine", "godot", "realtime-media"],
+    "ai": ["ai", "machine-learning", "model-artifacts"],
+    "mobile": ["mobile", "android", "ios"]
   },
   "taskModeKeywordMap": {
     "implementation": [
@@ -230,7 +289,10 @@
       "actor",
       "apify",
       "scraping"
-    ]
+    ],
+    "analysis": ["research", "data-science", "notebooks", "analytics"],
+    "design": ["media", "design-assets", "cad", "hardware", "game-development"],
+    "mobile": ["mobile", "android", "ios"]
   },
   "domainKeywordGroups": {
     "azure": [
@@ -253,7 +315,25 @@
       "pcf",
       "copilot-studio"
     ],
-    "studio-content": ["remotion", "sanity", "tinybird"]
+    "studio-content": ["remotion", "sanity", "tinybird"],
+    "data": [
+      "data",
+      "analytics",
+      "data-engineering",
+      "data-science",
+      "jupyter"
+    ],
+    "media": [
+      "media",
+      "design-assets",
+      "creative-production",
+      "asset-pipeline"
+    ],
+    "engineering": ["cad", "hardware", "engineering"],
+    "game": ["game-development", "game-engine", "godot", "realtime-media"],
+    "ai": ["ai", "machine-learning", "model-artifacts"],
+    "mobile": ["mobile", "android", "ios"],
+    "research": ["research", "publishing", "writing", "latex", "notebooks"]
   },
   "synonyms": {
     "node-backend": ["node", "backend", "service", "api"],
@@ -267,10 +347,29 @@
     "containerization": ["docker", "container", "containers"],
     "testing": ["test", "qa", "playwright", "jest"],
     "infrastructure": ["infra", "devops", "terraform", "kubernetes"],
-    "documentation": ["docs", "readme", "guide", "reference"],
+    "documentation": ["docs", "readme", "guide", "reference", "knowledge-base"],
     "integration": ["webhook", "connector", "mcp", "workflow"],
     "security": ["auth", "audit", "threat", "governance"],
-    "data": ["database", "duckdb", "sql", "postgres", "analytics"],
-    "frontend": ["react", "vue", "ui", "accessibility"]
+    "data": [
+      "database",
+      "duckdb",
+      "sql",
+      "postgres",
+      "analytics",
+      "data-engineering",
+      "data-science"
+    ],
+    "frontend": ["react", "vue", "ui", "accessibility"],
+    "research": ["notebooks", "paper", "publishing", "writing", "latex"],
+    "media": [
+      "design-assets",
+      "creative-production",
+      "asset-pipeline",
+      "realtime-media"
+    ],
+    "engineering": ["cad", "hardware"],
+    "game": ["game-development", "game-engine", "godot", "realtime-media"],
+    "ai": ["machine-learning", "model-artifacts"],
+    "mobile": ["android", "ios"]
   }
 }

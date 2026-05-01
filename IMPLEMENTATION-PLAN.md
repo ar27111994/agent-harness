@@ -22,12 +22,12 @@ The `release/v1.0.0` implementation wave delivers the plan as an integrated firs
 
 - `M0`: domain folders, centralized runtime config, shared preflight diagnostics, and host/service seams
 - `M1`: OS-aware path resolution, home-relative local source seeds, cross-platform CI, and link lifecycle tests
-- `M2` and `M4`: scan budgets, richer ignore profiles, detector modules, generic repo artifact detection, and benchmark coverage
+- `M2` and `M4`: scan budgets, richer ignore profiles, detector modules, generic repo artifact detection, roadmap-archetype detector fixtures, policy coverage reporting, and benchmark coverage
 - `M3`: source utilization reporting, docs/registry/marketplace reference harvesting, and dependency-evidence npm/PyPI candidate generation
 - `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install planning, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, and Cursor/Zed adapter entries
 - `M7`: package-style seams for config, discovery, wire, host adapters, path utilities, and preflight/runtime validation
 
-Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, detection quality reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
+Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, detection quality reporting, detector-to-policy coverage reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
 
 ## Planning Conventions
 

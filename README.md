@@ -138,6 +138,7 @@ npm run validate
 npm test
 npm run benchmark:scan
 npm run quality:detection
+npm run quality:policy
 npm run validate:recommendations
 ```
 
@@ -220,6 +221,7 @@ npm run validate
 npm test
 npm run benchmark:scan
 npm run quality:detection
+npm run quality:policy
 npm run smoke:cli
 npm run validate:recommendations
 ```
@@ -248,13 +250,22 @@ You can also print the fully merged effective recommendation policy:
 node ./dist/cli.js recommend policy:print --host shared
 ```
 
-The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit and link lifecycle tests, scan benchmark budgets, detection quality reporting, CLI smoke checks, and recommendation fixtures so portability, performance, and policy behavior stay pinned as the platform evolves.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit and link lifecycle tests, scan benchmark budgets, detection quality reporting, policy coverage reporting, CLI smoke checks, and recommendation fixtures so portability, performance, and policy behavior stay pinned as the platform evolves.
 
 ### Discovery coverage and source utilization
 
 Demand profiling now uses scan budgets plus modular detector packs for software manifests, documentation-heavy repos, notebooks, datasets, media/design assets, CAD/hardware artifacts, research content, game engines, mobile projects, and ML model artifacts. Catalog generation writes `discover/output/source-utilization.json` to distinguish configured sources from operationally harvested sources by kind.
 
 Package registry discovery is driven by dependency evidence extracted from manifests such as `package.json`, `requirements.txt`, and `pyproject.toml`; generic stack signals no longer synthesize registry package candidates without dependency evidence.
+
+Detector and policy coverage checks are available through:
+
+```bash
+npm run quality:detection
+npm run quality:policy
+```
+
+`quality:detection` exercises a roadmap-archetype fixture corpus and reports precision/recall-style detector quality. `quality:policy` derives detector-emitted terms from the same corpus, verifies every non-package detector term is represented in the recommendation policy maps, writes `discover/output/policy-coverage-report.json`, and writes `discover/output/policy-draft-suggestions.json` for human-reviewed policy additions when unmapped detector terms are introduced.
 
 ### Recommendation policy layout
 
@@ -530,6 +541,8 @@ That policy controls:
 - prompt-weight activation budgets
 - suppression rules for obviously irrelevant assets
 - host-level deprioritization rules for wrapper or reference assets that should stay available but rank below runnable integrations
+
+Policy coverage is also checked from detector outputs. `npm run quality:policy` fails when detector terms are missing from `concernKeywordMap`, `taskModeKeywordMap`, `domainKeywordGroups`, `synonyms`, or demand-term multipliers. It can emit draft policy additions under `discover/output/`, but those drafts are intentionally not applied automatically; maintainers review and approve policy changes explicitly.
 
 The engine persists a richer report in [`state/recommendations.json`](./state/recommendations.json),
 including:

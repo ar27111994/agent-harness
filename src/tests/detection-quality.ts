@@ -4,42 +4,10 @@ import {
   collectDetectorSignals,
   isDetectorInspectableFile,
 } from "../domains/discovery/detectors.js";
+import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
 import type { DemandSignalSet } from "../types.js";
 
-interface QualityFixture {
-  archetype: string;
-  fileName: string;
-  filePath: string;
-  expectedConcerns: string[];
-  unexpectedConcerns?: string[];
-}
-
-const fixtures: QualityFixture[] = [
-  {
-    archetype: "notebook-research",
-    fileName: "analysis.ipynb",
-    filePath: "research/notebooks/analysis.ipynb",
-    expectedConcerns: ["notebooks", "data-science", "research"],
-  },
-  {
-    archetype: "data-engineering",
-    fileName: "events.parquet",
-    filePath: "data/warehouse/events.parquet",
-    expectedConcerns: ["data", "analytics", "data-engineering"],
-  },
-  {
-    archetype: "hardware-cad",
-    fileName: "board.kicad_pcb",
-    filePath: "hardware/board.kicad_pcb",
-    expectedConcerns: ["cad", "hardware", "engineering"],
-  },
-  {
-    archetype: "media-design",
-    fileName: "scene.blend",
-    filePath: "design/media/scene.blend",
-    expectedConcerns: ["media", "design-assets", "creative-production"],
-  },
-];
+const fixtures = ROADMAP_DETECTION_FIXTURES;
 
 const results = fixtures.map((fixture) => {
   const signals = createEmptySignalSet();
