@@ -20,32 +20,11 @@ import type {
   WirePlanManifest,
   WirePreviewManifest,
 } from "./types.js";
+import {
+  toHomeRelativePath,
+  resolveVsCodeUserSettingsPath,
+} from "./lib/paths.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
-
-function resolveVsCodeUserSettingsPath(): string {
-  if (process.platform === "win32") {
-    const appData = process.env.APPDATA;
-    if (!appData) {
-      throw new Error(
-        "APPDATA environment variable is not set; cannot resolve VS Code user settings path on Windows.",
-      );
-    }
-    return join(appData, "Code", "User", "settings.json");
-  }
-  if (process.platform === "darwin") {
-    return join(
-      homedir(),
-      "Library",
-      "Application Support",
-      "Code",
-      "User",
-      "settings.json",
-    );
-  }
-  const xdgConfigHome =
-    process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(xdgConfigHome, "Code", "User", "settings.json");
-}
 
 const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
 
@@ -634,10 +613,7 @@ function sanitizeAssetId(value: string): string {
 }
 
 function toHomePath(pathValue: string): string {
-  const home = homedir();
-  return home && pathValue.startsWith(home)
-    ? pathValue.replace(home, "~").replace(/\\/gu, "/")
-    : toPosixPath(pathValue);
+  return toHomeRelativePath(pathValue);
 }
 
 async function pruneVsCodeGenerationDirectories(

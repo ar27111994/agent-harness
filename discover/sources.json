@@ -235,7 +235,7 @@
       "priority": 95,
       "enabled": true,
       "endpoints": {
-        "file": "C:/Users/ar271/.agents/skills/.antigravity-install-manifest.json"
+        "file": "~/.agents/skills/.antigravity-install-manifest.json"
       },
       "rules": {
         "officialPreferred": true,
@@ -257,7 +257,7 @@
       "priority": 96,
       "enabled": true,
       "endpoints": {
-        "path": "C:/Users/ar271/.agents/skills"
+        "path": "~/.agents/skills"
       },
       "rules": {
         "officialPreferred": true,
@@ -700,7 +700,7 @@
       "priority": 100,
       "enabled": true,
       "endpoints": {
-        "path": "C:/Users/ar271/.config/opencode"
+        "path": "~/.config/opencode"
       },
       "rules": {
         "officialPreferred": true,
@@ -722,7 +722,7 @@
       "priority": 90,
       "enabled": true,
       "endpoints": {
-        "path": "C:/Users/ar271/.config/opencode/context"
+        "path": "~/.config/opencode/context"
       },
       "rules": {
         "officialPreferred": true,

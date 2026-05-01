@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, writeJsonFile } from "./files.js";
 import { assertGitHubRepoSnapshot } from "./manifest-validation.js";
 import type { SourceDefinition } from "./types.js";
@@ -194,15 +195,7 @@ export interface GitHubRepoSnapshot {
   };
 }
 
-const DEFAULT_GITHUB_API_VERSION =
-  process.env.GITHUB_API_VERSION ?? "2022-11-28";
 const GITHUB_API_BASE_URL = "https://api.github.com";
-const parsed = parseInt(
-  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES ?? "",
-  10,
-);
-const GITHUB_FETCH_MAX_ATTEMPTS =
-  Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
 const GITHUB_FETCH_TIMEOUT_MS = 10000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
@@ -477,7 +470,9 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
 async function fetchGitHubResponse(path: string): Promise<Response> {
   let lastError: unknown = null;
 
-  for (let attempt = 1; attempt <= GITHUB_FETCH_MAX_ATTEMPTS; attempt += 1) {
+  const maxAttempts = getRuntimeConfig().github.fetchMaxAttempts;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
@@ -498,10 +493,7 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
 
       captureRateLimit(response);
 
-      if (
-        !shouldRetryResponse(response) ||
-        attempt === GITHUB_FETCH_MAX_ATTEMPTS
-      ) {
+      if (!shouldRetryResponse(response) || attempt === maxAttempts) {
         return response;
       }
 
@@ -528,7 +520,7 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
         lastError = error;
       }
 
-      if (attempt === GITHUB_FETCH_MAX_ATTEMPTS) {
+      if (attempt === maxAttempts) {
         break;
       }
 
@@ -537,19 +529,18 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
   }
 
   throw new Error(
-    `GitHub API request failed after ${GITHUB_FETCH_MAX_ATTEMPTS} attempts for ${path}: ${getErrorMessage(lastError)}`,
+    `GitHub API request failed after ${maxAttempts} attempts for ${path}: ${getErrorMessage(lastError)}`,
   );
 }
 
 function buildGitHubHeaders(): HeadersInit {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
-    "X-GitHub-Api-Version": DEFAULT_GITHUB_API_VERSION,
+    "X-GitHub-Api-Version": getRuntimeConfig().github.apiVersion,
     "User-Agent": "agent-harness",
   };
 
-  const githubToken =
-    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = getRuntimeConfig().github.token;
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }

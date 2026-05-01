@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
@@ -17,9 +18,9 @@ export async function runWorkspacePipeline(options: {
   sessionIntent: string;
 }): Promise<void> {
   const { projectRoot, workspaceRoot, targetHost, sessionIntent } = options;
-  const mirrorBatchSize = process.env.AGENT_HARNESS_MIRROR_BATCH_SIZE ?? "120";
-  const installBatchSize =
-    process.env.AGENT_HARNESS_INSTALL_BATCH_SIZE ?? "250";
+  const config = getRuntimeConfig();
+  const mirrorBatchSize = String(config.batches.mirrorAcquire);
+  const installBatchSize = String(config.batches.installBundle);
   const bundleIds = getBundleIdsForHost(targetHost);
 
   await runDiscover(["demand-profile"], workspaceRoot, projectRoot);

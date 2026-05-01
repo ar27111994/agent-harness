@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
@@ -64,7 +65,7 @@ async function cleanState(projectRoot: string): Promise<void> {
 }
 
 async function acquireAllMirrorBatches(projectRoot: string): Promise<void> {
-  const batchSize = process.env.AGENT_HARNESS_MIRROR_BATCH_SIZE ?? "120";
+  const batchSize = String(getRuntimeConfig().batches.mirrorAcquire);
   const maxBatches = 200;
 
   for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
@@ -88,7 +89,7 @@ async function acquireAllMirrorBatches(projectRoot: string): Promise<void> {
 
 async function installAllBundleBatches(projectRoot: string): Promise<void> {
   const bundleIds = await discoverBundleIds(projectRoot);
-  const batchSize = process.env.AGENT_HARNESS_INSTALL_BATCH_SIZE ?? "250";
+  const batchSize = String(getRuntimeConfig().batches.installBundle);
   const maxBatchesPerBundle = 200;
 
   for (const bundleId of bundleIds) {

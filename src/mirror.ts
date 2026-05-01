@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "./config/runtime.js";
 import {
   createContentHash,
   ensureDirectory,
@@ -250,8 +251,7 @@ async function acquireMirrorArtifacts(
   );
   const rawBatchSize = Number(
     getOptionValue(args, "--batch-size") ??
-      process.env.AGENT_HARNESS_MIRROR_BATCH_SIZE ??
-      "120",
+      getRuntimeConfig().batches.mirrorAcquire,
   );
   const batchSize =
     Number.isFinite(rawBatchSize) &&

@@ -1,5 +1,5 @@
 import { stat } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -27,6 +27,9 @@ import {
   writeJsonFile,
   writeJsonLinesFile,
 } from "./files.js";
+import { getRuntimeConfig } from "./config/runtime.js";
+import { buildGeneratedLocalSources } from "./domains/discovery/local-sources.js";
+import { resolvePortablePath } from "./lib/paths.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
@@ -296,9 +299,7 @@ async function generateCatalog(projectRoot: string): Promise<void> {
     .filter((source) => source.enabled)
     .sort(compareSourcesByPriority);
   const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
-  const repoBatchSize = Number(
-    process.env.AGENT_HARNESS_REMOTE_BATCH_SIZE ?? "15",
-  );
+  const repoBatchSize = getRuntimeConfig().batches.remoteHarvest;
   const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
   );
@@ -438,8 +439,13 @@ async function loadSourceRegistry(
   );
   const sourcePackDirectory = join(projectRoot, "discover", "source-packs");
 
+  const registryWithLocalSeeds = mergeSourceDefinitions(
+    baseRegistry,
+    buildGeneratedLocalSources(),
+  );
+
   if (!(await pathExists(sourcePackDirectory))) {
-    return baseRegistry;
+    return registryWithLocalSeeds;
   }
 
   const sourcePackFiles = (await listFilesRecursive(sourcePackDirectory))
@@ -448,10 +454,10 @@ async function loadSourceRegistry(
 
   const generatedSources: SourceDefinition[] = [];
   const existingSourceIds = new Set(
-    baseRegistry.sources.map((source) => source.id),
+    registryWithLocalSeeds.sources.map((source) => source.id),
   );
   const existingRepoUrls = new Set(
-    baseRegistry.sources
+    registryWithLocalSeeds.sources
       .map((source) => source.endpoints.repo?.toLowerCase())
       .filter((value): value is string => typeof value === "string"),
   );
@@ -505,8 +511,30 @@ async function loadSourceRegistry(
   }
 
   return {
+    ...registryWithLocalSeeds,
+    sources: [...registryWithLocalSeeds.sources, ...generatedSources],
+  };
+}
+
+function mergeSourceDefinitions(
+  baseRegistry: SourceRegistry,
+  generatedSources: SourceDefinition[],
+): SourceRegistry {
+  const sourceIds = new Set(baseRegistry.sources.map((source) => source.id));
+  const mergedSources = [...baseRegistry.sources];
+
+  for (const source of generatedSources) {
+    if (sourceIds.has(source.id)) {
+      continue;
+    }
+
+    mergedSources.push(source);
+    sourceIds.add(source.id);
+  }
+
+  return {
     ...baseRegistry,
-    sources: [...baseRegistry.sources, ...generatedSources],
+    sources: mergedSources,
   };
 }
 
@@ -951,8 +979,7 @@ function buildOfficialIndexHeaders(): HeadersInit {
     "User-Agent": "agent-harness",
   };
 
-  const githubToken =
-    process.env.GITHUB_PERSONAL_ACCESS_TOKEN || process.env.GITHUB_TOKEN;
+  const githubToken = getRuntimeConfig().github.token;
   if (githubToken) {
     headers.Authorization = `Bearer ${githubToken}`;
   }
@@ -1548,7 +1575,7 @@ async function loadAntigravityManifestEntrySet(
   projectRoot: string,
 ): Promise<Set<string>> {
   const antigravityManifestPath = resolveEndpointPath(
-    "C:/Users/ar271/.agents/skills/.antigravity-install-manifest.json",
+    "~/.agents/skills/.antigravity-install-manifest.json",
     projectRoot,
   );
   const manifest = await readJsonFileOrNull<LocalManifestShape>(
@@ -2598,9 +2625,7 @@ function resolveEndpointPath(
     return projectRoot;
   }
 
-  return isAbsolute(endpointValue)
-    ? endpointValue
-    : join(projectRoot, endpointValue);
+  return resolvePortablePath(endpointValue, projectRoot);
 }
 
 function buildCatalogId(sourceId: string, assetPath: string): string {
