@@ -135,8 +135,12 @@ formats staged JSON, Markdown, YAML, and `.mjs` files.
 ```bash
 npm run build
 npm run validate
+npm test
+npm run benchmark:scan
 npm run validate:recommendations
 ```
+
+Runtime configuration is centralized in `src/config/runtime.ts`. Copy `.env.example` to a local `.env` if you want to document machine-specific values for yourself, but keep real secrets out of git. Supported settings include GitHub tokens, batch sizes, and scan budgets.
 
 ### Run a full workspace pipeline
 
@@ -171,7 +175,11 @@ npm run workspace:opencode -- --intent backend
 ```bash
 agent-harness workspace vscode --intent docs
 agent-harness workspace opencode --intent security
+agent-harness workspace cursor --intent frontend
+agent-harness workspace zed --intent docs
 ```
+
+VS Code and OpenCode apply native wire-in flows. Cursor and Zed are registered through the host adapter model and currently emit explicit host guidance plans while reusing the nearest compatible lifecycle host.
 
 These wrappers currently execute the full pipeline for the target workspace:
 
@@ -185,7 +193,17 @@ These wrappers currently execute the full pipeline for the target workspace:
 8. batched install
 9. install reconcile
 10. activation
-11. host wire-in apply
+11. host wire-in apply or adapter guidance plan
+
+### Guided setup and host readiness
+
+```bash
+agent-harness setup hosts
+agent-harness setup doctor
+agent-harness setup doctor --host vscode
+```
+
+`setup doctor` prints registered host adapters, lifecycle defaults, capability matrices, and runtime diagnostics. This is also where first-time users see guidance for optional GitHub authentication, native extension installation boundaries, shared MCP projection, and host-specific readiness notes.
 
 ## Command reference
 
@@ -198,6 +216,9 @@ npm run lint
 npm run format
 npm run format:check
 npm run validate
+npm test
+npm run benchmark:scan
+npm run smoke:cli
 npm run validate:recommendations
 ```
 
@@ -225,9 +246,13 @@ You can also print the fully merged effective recommendation policy:
 node ./dist/cli.js recommend policy:print --host shared
 ```
 
-The CI quality workflow runs both `npm run validate` and
-`npm run validate:recommendations` so fixture-backed recommendation behavior
-stays pinned as the policy evolves.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit and link lifecycle tests, scan benchmark budgets, CLI smoke checks, and recommendation fixtures so portability, performance, and policy behavior stay pinned as the platform evolves.
+
+### Discovery coverage and source utilization
+
+Demand profiling now uses scan budgets plus modular detector packs for software manifests, documentation-heavy repos, notebooks, datasets, media/design assets, CAD/hardware artifacts, research content, game engines, mobile projects, and ML model artifacts. Catalog generation writes `discover/output/source-utilization.json` to distinguish configured sources from operationally harvested sources by kind.
+
+Package registry discovery is driven by dependency evidence extracted from manifests such as `package.json`, `requirements.txt`, and `pyproject.toml`, with fallback signal mapping when no dependency manifest is available.
 
 ### Recommendation policy layout
 

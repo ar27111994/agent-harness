@@ -1,6 +1,6 @@
 {
   "name": "agent-harness",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Discovery and mirror pipeline for curated agent tooling across OpenCode and GitHub Copilot.",
   "license": "MIT",
@@ -14,6 +14,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "check": "npm run typecheck",
+    "test": "node --test dist/tests/*.test.js",
+    "benchmark:scan": "node ./dist/tests/scan-benchmark.js",
+    "smoke:cli": "node ./dist/cli.js setup hosts && node ./dist/cli.js wire vscode --preview && node ./dist/cli.js wire opencode --preview",
     "lint": "eslint src --max-warnings=0",
     "lint:fix": "eslint src --fix --max-warnings=0",
     "format": "prettier --write .github discover src eslint.config.mjs .prettierrc.json package.json tsconfig.json *.md",
@@ -42,6 +45,8 @@
     "rebuild:full": "node ./dist/cli.js rebuild full",
     "workspace:vscode": "node ./dist/workspace-vscode.js",
     "workspace:opencode": "node ./dist/workspace-opencode.js",
+    "setup:doctor": "node ./dist/cli.js setup doctor",
+    "setup:hosts": "node ./dist/cli.js setup hosts",
     "wire:vscode": "node ./dist/cli.js wire vscode --apply",
     "wire:opencode": "node ./dist/cli.js wire opencode --apply"
   },

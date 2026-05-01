@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.0] - 2026-05-01
+
+### Added in 1.0.0
+
+- centralized runtime configuration with schema-style validation, documented `.env.example` defaults, and shared preflight diagnostics
+- cross-platform path handling for VS Code settings, home-relative display paths, generated local source seeds, and source endpoint resolution
+- modular discovery detector packs for docs, notebooks, datasets, media/design assets, CAD/hardware, research, game engines, mobile, and ML artifact repos
+- scan budgets, expanded ignore profiles, link lifecycle tests, scan benchmark budgets, and Windows/macOS/Linux CI coverage
+- source utilization reporting that separates configured sources from operationally harvested sources
+- dependency-evidence package registry harvesting for npm and PyPI plus docs, registry, and marketplace reference harvesters
+- host adapter registry with capability matrices, guided setup/doctor commands, Cursor and Zed adapter entries, extension install planning, and shared MCP wire plan projection
+
+### Changed in 1.0.0
+
+- bumped the package version to `1.0.0`
+- routed ad hoc environment access through the centralized config module
+- replaced checked-in workstation-specific local source paths with home-relative defaults
+- split new architecture, discovery, wire, host adapter, config, and preflight work into package-style seams
+- extended Copilot workspace profiles and wire plans to distinguish plugins, extensions, native install actions, and shared MCP assets
+
 ## [0.2.0] - 2026-04-27
 
 ### Added in 0.2.0
