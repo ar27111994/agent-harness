@@ -430,6 +430,7 @@ async function materializeExtensionMetadata(
       continue;
     }
 
+    const nativeInstall = buildVsCodeExtensionInstallActions([assetId])[0];
     await writeJsonFile(
       join(destinationRoot, `${sanitizeAssetId(assetId)}.json`),
       {
@@ -437,7 +438,7 @@ async function materializeExtensionMetadata(
         assetId,
         displayName: assetData.asset.displayName,
         source: assetData.asset.source,
-        nativeInstall: buildVsCodeExtensionInstallActions([assetId])[0],
+        ...(nativeInstall ? { nativeInstall } : {}),
       },
     );
     materializedExtensionIds.push(assetId);
