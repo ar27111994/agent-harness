@@ -1,5 +1,5 @@
 import { access } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import {
@@ -44,7 +44,7 @@ export async function runHostPreflight(
     diagnostics.push(
       requireDiagnostic(
         await checkPathExists(
-          join(resolveVsCodeUserSettingsPath(), ".."),
+          dirname(resolveVsCodeUserSettingsPath()),
           "vscode-user-settings-directory",
         ),
         options.requireHostPaths ?? false,
