@@ -54,6 +54,7 @@ export async function wireOpenCode(options: {
   const activationManifest = await readJsonFileOrNull<ActivationManifest>(
     join(activationRoot, "activation-manifest.json"),
   );
+  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
 
   const localOverlayRoot = join(workspaceRoot, ".opencode");
   const localContextRoot = join(
@@ -144,14 +145,26 @@ export async function wireOpenCode(options: {
     workspaceRoot: toPosixPath(workspaceRoot),
     runtimeRoot: toPosixPath(localOverlayRoot),
     linkedPaths: createdLinkPaths.map(toPosixPath),
+    mcpServers: sharedMcpAssetIds,
     notes: [
       "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
       "Selected assets are linked into project-local .opencode installation directories by asset kind.",
       "On Windows, managed directory links are created as junctions for compatibility.",
+      "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
     ],
   };
 
   await writeJsonFile(join(localContextRoot, "wire-plan.json"), wirePlan);
+}
+
+async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
+  const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+  );
+
+  return [...(sharedActivationManifest?.activeAssets ?? [])].sort(
+    (left, right) => left.localeCompare(right),
+  );
 }
 
 function buildOpenCodeLinkRoots(localOverlayRoot: string): string[] {

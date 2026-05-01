@@ -10,6 +10,7 @@ import { runRecommend } from "./recommend.js";
 import { runActivate } from "./activate.js";
 import { runRebuild } from "./rebuild.js";
 import { runWorkspace } from "./workspace.js";
+import { runSetup } from "./setup.js";
 import { runWire } from "./wire.js";
 
 async function main(): Promise<number> {
@@ -34,6 +35,9 @@ async function main(): Promise<number> {
       return runWorkspace(args, workingDirectory, projectRoot);
     case "wire":
       return runWire(args, workingDirectory, projectRoot);
+    case "setup":
+    case "doctor":
+      return runSetup(domain === "doctor" ? ["doctor", ...args] : args);
     case undefined:
       printHelp();
       return 0;
@@ -67,6 +71,8 @@ function printHelp(): void {
   workspace opencode        Run the full pipeline for an OpenCode workspace
   wire vscode               Preview/apply/reset VS Code user-scoped wire-in
   wire opencode             Preview/apply/reset OpenCode project-local wire-in
+  setup doctor              Check config, host readiness, and guided setup notes
+  setup hosts               List registered host adapters
   mirror plan               Build a mirror readiness plan from current outputs`);
 }
 

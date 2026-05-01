@@ -14,12 +14,17 @@ import {
   writeTextFile,
 } from "./files.js";
 import type {
+  ActivationManifest,
   AssetCatalogEntry,
   CopilotWorkspaceOverlayManifest,
   CopilotWorkspaceProfileManifest,
   WirePlanManifest,
   WirePreviewManifest,
 } from "./types.js";
+import {
+  formatExtensionInstallActions,
+  buildVsCodeExtensionInstallActions,
+} from "./host-adapters/extension-installer.js";
 import {
   toHomeRelativePath,
   resolveVsCodeUserSettingsPath,
@@ -51,6 +56,8 @@ export async function wireVsCode(options: {
   const skillsRoot = join(generationRoot, "skills");
   const hooksRoot = join(generationRoot, "hooks");
   const pluginsRoot = join(generationRoot, "plugins");
+  const extensionsRoot = join(generationRoot, "extensions");
+  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
 
   const preview: WirePreviewManifest = {
     schemaVersion: 1,
@@ -91,6 +98,7 @@ export async function wireVsCode(options: {
   await ensureDirectory(skillsRoot);
   await ensureDirectory(hooksRoot);
   await ensureDirectory(pluginsRoot);
+  await ensureDirectory(extensionsRoot);
 
   let materializedPaths: MaterializedVsCodePaths = {
     instructionFiles: [],
@@ -98,6 +106,7 @@ export async function wireVsCode(options: {
     skillRoots: [],
     hookFiles: [],
     pluginFolders: [],
+    extensionIds: [],
   };
 
   if (profileManifest) {
@@ -115,17 +124,28 @@ export async function wireVsCode(options: {
         skillsRoot,
         hooksRoot,
         pluginsRoot,
+        extensionsRoot,
       },
     );
   }
 
   await writeJsonFile(
     join(generationRoot, "wire-plan.json"),
-    buildVsCodeWirePlan(workspaceRoot, currentRoot, materializedPaths),
+    buildVsCodeWirePlan(
+      workspaceRoot,
+      currentRoot,
+      materializedPaths,
+      sharedMcpAssetIds,
+    ),
   );
   await writeJsonFile(
     join(curatedRoot, "wire-plan.json"),
-    buildVsCodeWirePlan(workspaceRoot, currentRoot, materializedPaths),
+    buildVsCodeWirePlan(
+      workspaceRoot,
+      currentRoot,
+      materializedPaths,
+      sharedMcpAssetIds,
+    ),
   );
   await replaceDirectoryLink(currentRoot, generationRoot);
   await pruneVsCodeGenerationDirectories(curatedRoot, { keep: 3 });
@@ -232,6 +252,7 @@ async function materializeCuratedFolders(
     skillsRoot: string;
     hooksRoot: string;
     pluginsRoot: string;
+    extensionsRoot: string;
   },
 ): Promise<MaterializedVsCodePaths> {
   const instructionFiles = await materializeInstructionFiles(
@@ -259,6 +280,11 @@ async function materializeCuratedFolders(
     activationRoot,
     targets.pluginsRoot,
   );
+  const extensionIds = await materializeExtensionMetadata(
+    profileManifest.selectedExtensionIds ?? [],
+    activationRoot,
+    targets.extensionsRoot,
+  );
 
   return {
     instructionFiles,
@@ -266,6 +292,7 @@ async function materializeCuratedFolders(
     skillRoots,
     hookFiles,
     pluginFolders,
+    extensionIds,
   };
 }
 
@@ -390,6 +417,35 @@ async function materializePluginFolders(
   return materializedRoots;
 }
 
+async function materializeExtensionMetadata(
+  assetIds: string[],
+  activationRoot: string,
+  destinationRoot: string,
+): Promise<string[]> {
+  const materializedExtensionIds: string[] = [];
+
+  for (const assetId of assetIds) {
+    const assetData = await readActivationAssetData(activationRoot, assetId);
+    if (!assetData) {
+      continue;
+    }
+
+    await writeJsonFile(
+      join(destinationRoot, `${sanitizeAssetId(assetId)}.json`),
+      {
+        schemaVersion: 1,
+        assetId,
+        displayName: assetData.asset.displayName,
+        source: assetData.asset.source,
+        nativeInstall: buildVsCodeExtensionInstallActions([assetId])[0],
+      },
+    );
+    materializedExtensionIds.push(assetId);
+  }
+
+  return materializedExtensionIds;
+}
+
 async function resetVsCodeWireIn(
   workspaceRoot: string,
   curatedRoot: string,
@@ -413,6 +469,7 @@ function buildVsCodeWirePlan(
   workspaceRoot: string,
   curatedRoot: string,
   materializedPaths: MaterializedVsCodePaths,
+  sharedMcpAssetIds: string[],
 ): WirePlanManifest {
   return {
     schemaVersion: 1,
@@ -427,10 +484,17 @@ function buildVsCodeWirePlan(
     agentFiles: materializedPaths.agentFiles.map(toPosixPath),
     skillDirs: materializedPaths.skillRoots.map(toPosixPath),
     pluginDirs: materializedPaths.pluginFolders.map(toPosixPath),
+    extensionIds: materializedPaths.extensionIds,
+    mcpServers: sharedMcpAssetIds,
+    nativeInstallActions: formatExtensionInstallActions(
+      buildVsCodeExtensionInstallActions(materializedPaths.extensionIds),
+    ),
     hookFiles: materializedPaths.hookFiles.map(toPosixPath),
     notes: [
       "User-scoped AI path settings are patched in VS Code settings.json.",
       "Workspace copilot instructions are materialized locally for Copilot consumption.",
+      "Extension assets are tracked separately from plugins and require explicit native install actions.",
+      "Shared MCP assets are surfaced in the effective wire plan for host runtime configuration.",
     ],
   };
 }
@@ -540,6 +604,16 @@ function buildVsCodeSkillLocationOverrides(
   };
 }
 
+async function readSharedMcpAssetIds(projectRoot: string): Promise<string[]> {
+  const sharedActivationManifest = await readJsonFileOrNull<ActivationManifest>(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+  );
+
+  return [...(sharedActivationManifest?.activeAssets ?? [])].sort(
+    (left, right) => left.localeCompare(right),
+  );
+}
+
 async function readActivationAssetData(
   activationRoot: string,
   assetId: string,
@@ -593,6 +667,7 @@ interface MaterializedVsCodePaths {
   skillRoots: string[];
   hookFiles: string[];
   pluginFolders: string[];
+  extensionIds: string[];
 }
 
 export function buildCopilotWorkspaceOverlayManifest(options: {

@@ -667,6 +667,7 @@ export interface CopilotWorkspaceProfileManifest {
   selectedAgentIds: string[];
   selectedWorkflowIds: string[];
   selectedPluginIds?: string[];
+  selectedExtensionIds?: string[];
   selectedHookIds?: string[];
   selectedSkillIds?: string[];
   activationBudget: number;
@@ -675,7 +676,7 @@ export interface CopilotWorkspaceProfileManifest {
 
 export interface WirePlanManifest {
   schemaVersion: number;
-  host: HostTarget | "vscode-user" | "opencode-project";
+  host: HostTarget | "vscode-user" | "opencode-project" | "cursor" | "zed";
   generatedAt: string;
   workspaceRoot: string;
   runtimeRoot: string;
@@ -684,6 +685,9 @@ export interface WirePlanManifest {
   agentFiles?: string[];
   skillDirs?: string[];
   pluginDirs?: string[];
+  extensionIds?: string[];
+  mcpServers?: string[];
+  nativeInstallActions?: string[];
   hookFiles?: string[];
   notes: string[];
 }

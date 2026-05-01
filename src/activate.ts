@@ -249,6 +249,11 @@ async function activateHost(
       selectedPluginIds: selectedCandidates
         .filter((candidate) => candidate.packageManifest.assetKind === "plugin")
         .map((candidate) => candidate.packageManifest.assetId),
+      selectedExtensionIds: selectedCandidates
+        .filter(
+          (candidate) => candidate.packageManifest.assetKind === "extension",
+        )
+        .map((candidate) => candidate.packageManifest.assetId),
       selectedHookIds: selectedCandidates
         .filter((candidate) => candidate.packageManifest.assetKind === "hook")
         .map((candidate) => candidate.packageManifest.assetId),

@@ -92,6 +92,8 @@ const WIRE_PLAN_HOSTS = [
   "copilot-vscode",
   "opencode",
   "shared",
+  "cursor",
+  "zed",
   "vscode-user",
   "opencode-project",
 ] as const;
@@ -1057,6 +1059,12 @@ export function assertCopilotWorkspaceProfileManifest(
   assertString(record.workspaceRoot, `${context}.workspaceRoot`);
   assertStringArray(record.bundleIds, `${context}.bundleIds`);
   assertStringArray(record.selectedAssetIds, `${context}.selectedAssetIds`);
+  if (record.selectedExtensionIds !== undefined) {
+    assertStringArray(
+      record.selectedExtensionIds,
+      `${context}.selectedExtensionIds`,
+    );
+  }
   assertNumber(record.activationBudget, `${context}.activationBudget`);
 }
 
@@ -1084,6 +1092,18 @@ export function assertWirePlanManifest(
   }
   if (record.pluginDirs !== undefined) {
     assertStringArray(record.pluginDirs, `${context}.pluginDirs`);
+  }
+  if (record.extensionIds !== undefined) {
+    assertStringArray(record.extensionIds, `${context}.extensionIds`);
+  }
+  if (record.mcpServers !== undefined) {
+    assertStringArray(record.mcpServers, `${context}.mcpServers`);
+  }
+  if (record.nativeInstallActions !== undefined) {
+    assertStringArray(
+      record.nativeInstallActions,
+      `${context}.nativeInstallActions`,
+    );
   }
   if (record.hookFiles !== undefined) {
     assertStringArray(record.hookFiles, `${context}.hookFiles`);
