@@ -3284,17 +3284,17 @@ function extractPyProjectDependencyNames(content: string): string[] {
       continue;
     }
 
-    const dependencyMatch = line.match(/["']([^"']+)["']/u);
-    if (dependencyMatch?.[1]) {
+    for (const dependencyMatch of line.matchAll(/["']([^"']+)["']/gu)) {
       const packageName = dependencyMatch[1]
-        .split(/\s+@\s+|[<>=~!;[]/u)[0]
+        ?.split(/\s+@\s+|[<>=~!;[]/u)[0]
         ?.trim();
       if (isPlainPackageName(packageName)) {
         dependencyNames.push(packageName);
       }
     }
 
-    if (line.includes("]")) {
+    const unquotedLine = line.replaceAll(/["'][^"']*["']/gu, "");
+    if (unquotedLine.includes("]")) {
       inDependencyList = false;
     }
   }

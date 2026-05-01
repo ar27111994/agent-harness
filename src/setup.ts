@@ -27,7 +27,13 @@ export async function runSetup(args: string[]): Promise<number> {
 }
 
 async function runDoctor(args: string[]): Promise<boolean> {
+  const hostOptionIndex = args.indexOf("--host");
   const hostName = getOptionValue(args, "--host");
+  if (hostOptionIndex !== -1 && !hostName) {
+    console.log("Missing value for '--host'.");
+    return false;
+  }
+
   const adapters = hostName
     ? [resolveHostAdapter(hostName)].filter(
         (adapter): adapter is HostAdapter => adapter !== null,
