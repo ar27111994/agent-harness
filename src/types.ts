@@ -114,6 +114,9 @@ export interface DemandProfile {
   summary: {
     scannedFiles: number;
     matchedFiles: number;
+    scanTruncated?: boolean;
+    truncationReason?: string;
+    scannedBytes?: number;
   };
   signals: DemandSignalSet;
   evidence: DemandEvidence[];

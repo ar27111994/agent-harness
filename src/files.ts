@@ -13,6 +13,8 @@ import {
 import { basename, dirname, relative, sep } from "node:path";
 import { createHash } from "node:crypto";
 
+import { getRuntimeConfig } from "./config/runtime.js";
+
 export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   ".git",
   ".idea",
@@ -24,6 +26,20 @@ export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   "dist",
   "node_modules",
   "vendor",
+  ".cache",
+  ".gradle",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".terraform",
+  ".venv",
+  "DerivedData",
+  "Library",
+  "Pods",
+  "bin",
+  "obj",
+  "target",
+  "venv",
 ]);
 
 export type JsonValidator<T> = (
@@ -340,21 +356,82 @@ export function countNonEmptyLines(content: string): number {
     .filter((line) => line.length > 0).length;
 }
 
+export interface ScanBudgetOptions {
+  maxDepth?: number;
+  maxFiles?: number;
+  maxBytes?: number;
+}
+
+export interface ScanBudgetTelemetry {
+  visitedFiles: number;
+  visitedBytes: number;
+  truncated: boolean;
+  truncationReason?: string;
+}
+
 export async function listFilesRecursive(
   rootPath: string,
   ignoredDirectoryNames: ReadonlySet<string> = DEFAULT_IGNORED_DIRECTORY_NAMES,
+  budgetOptions: ScanBudgetOptions = {},
 ): Promise<string[]> {
-  return collectFilesFromDirectory(rootPath, ignoredDirectoryNames);
+  return listFilesRecursiveWithTelemetry(
+    rootPath,
+    ignoredDirectoryNames,
+    budgetOptions,
+  ).then((result) => result.files);
+}
+
+export async function listFilesRecursiveWithTelemetry(
+  rootPath: string,
+  ignoredDirectoryNames: ReadonlySet<string> = DEFAULT_IGNORED_DIRECTORY_NAMES,
+  budgetOptions: ScanBudgetOptions = {},
+): Promise<{ files: string[]; telemetry: ScanBudgetTelemetry }> {
+  const runtimeBudget = getRuntimeConfig().scan;
+  const telemetry: ScanBudgetTelemetry = {
+    visitedFiles: 0,
+    visitedBytes: 0,
+    truncated: false,
+  };
+  const files = await collectFilesFromDirectory(
+    rootPath,
+    ignoredDirectoryNames,
+    {
+      maxDepth: budgetOptions.maxDepth ?? runtimeBudget.maxDepth,
+      maxFiles: budgetOptions.maxFiles ?? runtimeBudget.maxFiles,
+      maxBytes: budgetOptions.maxBytes ?? runtimeBudget.maxBytes,
+    },
+    telemetry,
+    0,
+  );
+
+  return { files, telemetry };
 }
 
 async function collectFilesFromDirectory(
   directoryPath: string,
   ignoredDirectoryNames: ReadonlySet<string>,
+  budgetOptions: Required<ScanBudgetOptions>,
+  telemetry: ScanBudgetTelemetry,
+  depth: number,
 ): Promise<string[]> {
+  if (telemetry.truncated) {
+    return [];
+  }
+
+  if (depth > budgetOptions.maxDepth) {
+    telemetry.truncated = true;
+    telemetry.truncationReason = "max-depth";
+    return [];
+  }
+
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const collectedFiles: string[] = [];
 
   for (const entry of entries) {
+    if (telemetry.truncated) {
+      break;
+    }
+
     const entryPath = `${directoryPath}${sep}${entry.name}`;
 
     if (entry.isDirectory()) {
@@ -365,12 +442,31 @@ async function collectFilesFromDirectory(
       const nestedFiles = await collectFilesFromDirectory(
         entryPath,
         ignoredDirectoryNames,
+        budgetOptions,
+        telemetry,
+        depth + 1,
       );
       collectedFiles.push(...nestedFiles);
       continue;
     }
 
     if (entry.isFile()) {
+      const fileStat = await lstat(entryPath);
+      telemetry.visitedFiles += 1;
+      telemetry.visitedBytes += fileStat.size;
+
+      if (telemetry.visitedFiles > budgetOptions.maxFiles) {
+        telemetry.truncated = true;
+        telemetry.truncationReason = "max-files";
+        break;
+      }
+
+      if (telemetry.visitedBytes > budgetOptions.maxBytes) {
+        telemetry.truncated = true;
+        telemetry.truncationReason = "max-bytes";
+        break;
+      }
+
       collectedFiles.push(entryPath);
     }
   }
