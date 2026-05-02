@@ -12,6 +12,8 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://modelcontextprotocol.io",
   "https://skills.sh",
   "https://marketplace.visualstudio.com",
+  "https://www.npmjs.com",
+  "https://pypi.org",
 ] as const;
 
 export async function fetchOfficialIndexPageContent(

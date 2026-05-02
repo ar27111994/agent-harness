@@ -58,7 +58,7 @@ export async function runWire(
 /**
  * Resolves mutually-exclusive wire mode flags, defaulting to preview.
  */
-function getWireMode(args: string[]): "preview" | "apply" | "reset" {
+export function getWireMode(args: string[]): "preview" | "apply" | "reset" {
   const modeFlags = ["--reset", "--preview", "--apply"].filter((flag) =>
     args.includes(flag),
   );
@@ -73,6 +73,10 @@ function getWireMode(args: string[]): "preview" | "apply" | "reset" {
 
   if (modeFlags[0] === "--preview") {
     return "preview";
+  }
+
+  if (modeFlags[0] === "--apply") {
+    return "apply";
   }
 
   return "preview";

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
+import { fetchTextWithGuards } from "../lib/http.js";
 import { resolveSafeMirrorFilePath } from "../mirror.js";
 import {
   extractRepositoryUrlFromPypiMetadata,
@@ -24,6 +25,26 @@ test("mirror file path resolution rejects path traversal", () => {
     () => resolveSafeMirrorFilePath(rawRoot, ""),
     /outside raw root/u,
   );
+});
+
+test("guarded fetches disable automatic cross-origin redirects", async (context) => {
+  const originalFetch = globalThis.fetch;
+  let observedRedirectMode: RequestRedirect | undefined;
+
+  globalThis.fetch = async (_url, init) => {
+    observedRedirectMode = init?.redirect;
+    return new Response("ok", { status: 200 });
+  };
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const content = await fetchTextWithGuards("https://example.com/index.txt", {
+    allowedOrigins: ["https://example.com"],
+  });
+
+  assert.equal(content, "ok");
+  assert.equal(observedRedirectMode, "error");
 });
 
 test("PyPI metadata fetch validates response shape before use", async (context) => {

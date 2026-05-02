@@ -11,8 +11,8 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
 
 /**
- * Performs an HTTP(S) fetch with a timeout after validating the destination
- * origin against an explicit allowlist.
+ * Performs an HTTP(S) fetch with a timeout. Origin allowlists are enforced by
+ * the higher-level guarded fetch helpers.
  */
 export async function fetchWithTimeout(
   url: string,
@@ -41,7 +41,7 @@ export async function fetchTextWithGuards(
     const parsedUrl = assertAllowedHttpUrl(url, options.allowedOrigins ?? []);
     const response = await fetchWithTimeout(
       parsedUrl.toString(),
-      { headers: options.headers },
+      { headers: options.headers, redirect: "error" },
       options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     );
 
