@@ -13,6 +13,7 @@ import {
   writeJsonFile,
   writeJsonFileWithSnapshot,
 } from "./files.js";
+import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
 import {
   assertAssetCatalogEntry,
   assertBundleLock,
@@ -304,34 +305,6 @@ function sanitizeMirrorId(value: string): string {
 
 function sanitizeAssetId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  return args[optionIndex + 1];
-}
-
-function getOptionValues(args: string[], optionName: string): string[] {
-  const values: string[] = [];
-
-  for (let index = 0; index < args.length; index += 1) {
-    if (args[index] === optionName) {
-      const nextValue = args[index + 1];
-      if (nextValue) {
-        values.push(nextValue);
-      }
-    }
-  }
-
-  return values;
 }
 
 function getPendingAssets(

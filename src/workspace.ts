@@ -3,6 +3,7 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
+import { getOptionValue } from "./lib/cli-options.js";
 import { resolveHostAdapter } from "./host-adapters/registry.js";
 import {
   assertNoPreflightErrors,
@@ -75,22 +76,6 @@ function printWorkspaceHelp(): void {
 
 Options:
   --intent <general|frontend|backend|security|docs|testing>`);
-}
-
-/**
- * Returns a CLI option value by flag name without interpreting absent options.
- */
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  return args[optionIndex + 1];
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

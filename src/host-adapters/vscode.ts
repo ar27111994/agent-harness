@@ -32,14 +32,13 @@ import {
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
-const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();
-
 export async function wireVsCode(options: {
   projectRoot: string;
   workspaceRoot: string;
   mode: "preview" | "apply" | "reset";
 }): Promise<void> {
   const { projectRoot, workspaceRoot, mode } = options;
+  const vscodeUserSettingsPath = resolveVsCodeUserSettingsPath();
   const activationRoot = join(projectRoot, "activate", "copilot-vscode");
   const profileManifest =
     await readJsonFileOrNull<CopilotWorkspaceProfileManifest>(
@@ -66,7 +65,7 @@ export async function wireVsCode(options: {
     generatedAt: new Date().toISOString(),
     workspaceRoot: toPosixPath(workspaceRoot),
     targetPaths: [
-      toPosixPath(VSCODE_USER_SETTINGS_PATH),
+      toPosixPath(vscodeUserSettingsPath),
       toPosixPath(join(workspaceRoot, ".github", "copilot-instructions.md")),
       toPosixPath(currentRoot),
       toPosixPath(generationRoot),
@@ -88,7 +87,7 @@ export async function wireVsCode(options: {
   }
 
   if (mode === "reset") {
-    await resetVsCodeWireIn(workspaceRoot, curatedRoot);
+    await resetVsCodeWireIn(workspaceRoot, curatedRoot, vscodeUserSettingsPath);
     return;
   }
 
@@ -155,6 +154,7 @@ export async function wireVsCode(options: {
     currentRoot,
     curatedRoot,
     materializedPaths,
+    vscodeUserSettingsPath,
   });
 }
 
@@ -175,8 +175,11 @@ async function patchVsCodeUserSettings(paths: {
   currentRoot: string;
   curatedRoot: string;
   materializedPaths: MaterializedVsCodePaths;
+  vscodeUserSettingsPath: string;
 }): Promise<void> {
-  const currentSettings = await readVsCodeSettings(VSCODE_USER_SETTINGS_PATH);
+  const currentSettings = await readVsCodeSettings(
+    paths.vscodeUserSettingsPath,
+  );
   const basePluginLocations = stripManagedVsCodeLocationEntries(
     currentSettings["chat.pluginLocations"],
     paths.curatedRoot,
@@ -226,7 +229,7 @@ async function patchVsCodeUserSettings(paths: {
     ],
   };
 
-  await patchVsCodeSettings(VSCODE_USER_SETTINGS_PATH, nextSettings);
+  await patchVsCodeSettings(paths.vscodeUserSettingsPath, nextSettings);
 }
 
 async function materializeWorkspaceInstructions(
@@ -481,6 +484,7 @@ function resolveVsCodeExtensionId(
 async function resetVsCodeWireIn(
   workspaceRoot: string,
   curatedRoot: string,
+  vscodeUserSettingsPath: string,
 ): Promise<void> {
   const destinationPath = join(
     workspaceRoot,
@@ -494,6 +498,7 @@ async function resetVsCodeWireIn(
   await resetVsCodeUserSettings({
     curatedRoot,
     currentRoot: join(curatedRoot, "current"),
+    vscodeUserSettingsPath,
   });
 }
 
@@ -534,8 +539,11 @@ function buildVsCodeWirePlan(
 async function resetVsCodeUserSettings(paths: {
   curatedRoot: string;
   currentRoot: string;
+  vscodeUserSettingsPath: string;
 }): Promise<void> {
-  const currentSettings = await readVsCodeSettings(VSCODE_USER_SETTINGS_PATH);
+  const currentSettings = await readVsCodeSettings(
+    paths.vscodeUserSettingsPath,
+  );
   const managedSkillOverrides = buildVsCodeSkillLocationOverrides(
     paths.currentRoot,
   );
@@ -580,7 +588,7 @@ async function resetVsCodeUserSettings(paths: {
       nextCodeGenerationInstructions,
   };
 
-  await patchVsCodeSettings(VSCODE_USER_SETTINGS_PATH, nextSettings);
+  await patchVsCodeSettings(paths.vscodeUserSettingsPath, nextSettings);
 }
 
 function stripManagedVsCodeLocationEntries(

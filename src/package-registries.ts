@@ -1,3 +1,10 @@
+import { fetchJsonWithGuards } from "./lib/http.js";
+
+const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
+const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;
+const REGISTRY_METADATA_MAX_BYTES = 2_000_000;
+const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
+
 export interface NpmPackageMetadata {
   name: string;
   description?: string;
@@ -25,56 +32,23 @@ export interface PypiPackageMetadata {
   };
 }
 
-function fetchWithTimeout(
-  url: string,
-  options: RequestInit,
-  ms: number,
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
-    clearTimeout(timer),
-  );
-}
-
 export async function fetchNpmPackageMetadata(
   packageName: string,
 ): Promise<NpmPackageMetadata | null> {
   try {
-    const response = await fetchWithTimeout(
+    const data = await fetchJsonWithGuards(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
-      {},
-      5000,
+      {
+        allowedOrigins: NPM_REGISTRY_ORIGINS,
+        maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+      },
     );
-    if (!response.ok) {
+    if (!isRecord(data)) {
       return null;
     }
 
-    const data = (await response.json()) as Record<string, unknown>;
-    return {
-      name: typeof data.name === "string" ? data.name : packageName,
-      description:
-        typeof data.description === "string" ? data.description : undefined,
-      homepage: typeof data.homepage === "string" ? data.homepage : undefined,
-      repository:
-        typeof data.repository === "string" ||
-        typeof data.repository === "object"
-          ? (data.repository as NpmPackageMetadata["repository"])
-          : undefined,
-      distTags:
-        typeof data["dist-tags"] === "object" && data["dist-tags"] !== null
-          ? (data["dist-tags"] as Record<string, string>)
-          : undefined,
-      keywords: Array.isArray(data.keywords)
-        ? data.keywords.filter(
-            (value): value is string => typeof value === "string",
-          )
-        : undefined,
-      versions:
-        typeof data.versions === "object" && data.versions !== null
-          ? (data.versions as Record<string, unknown>)
-          : undefined,
-    };
+    return normalizeNpmPackageMetadata(data, packageName);
   } catch {
     return null;
   }
@@ -84,19 +58,102 @@ export async function fetchPypiPackageMetadata(
   packageName: string,
 ): Promise<PypiPackageMetadata | null> {
   try {
-    const response = await fetchWithTimeout(
+    const data = await fetchJsonWithGuards(
       `https://pypi.org/pypi/${encodeURIComponent(packageName)}/json`,
-      {},
-      5000,
+      {
+        allowedOrigins: PYPI_REGISTRY_ORIGINS,
+        maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+      },
     );
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as PypiPackageMetadata;
+    return normalizePypiPackageMetadata(data, packageName);
   } catch {
     return null;
   }
+}
+
+function normalizeNpmPackageMetadata(
+  data: Record<string, unknown>,
+  packageName: string,
+): NpmPackageMetadata {
+  return {
+    name: typeof data.name === "string" ? data.name : packageName,
+    description:
+      typeof data.description === "string" ? data.description : undefined,
+    homepage: typeof data.homepage === "string" ? data.homepage : undefined,
+    repository: normalizeNpmRepository(data.repository),
+    distTags: normalizeStringRecord(data["dist-tags"]),
+    keywords: Array.isArray(data.keywords)
+      ? data.keywords.filter(
+          (value): value is string => typeof value === "string",
+        )
+      : undefined,
+    versions: isRecord(data.versions) ? data.versions : undefined,
+  };
+}
+
+function normalizeNpmRepository(
+  value: unknown,
+): NpmPackageMetadata["repository"] {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  return {
+    type: typeof value.type === "string" ? value.type : undefined,
+    url: typeof value.url === "string" ? value.url : undefined,
+  };
+}
+
+function normalizePypiPackageMetadata(
+  data: unknown,
+  packageName: string,
+): PypiPackageMetadata | null {
+  if (!isRecord(data) || !isRecord(data.info)) {
+    return null;
+  }
+
+  return {
+    info: {
+      name: typeof data.info.name === "string" ? data.info.name : packageName,
+      summary:
+        typeof data.info.summary === "string" ? data.info.summary : undefined,
+      home_page:
+        typeof data.info.home_page === "string"
+          ? data.info.home_page
+          : undefined,
+      project_urls: normalizeStringRecord(data.info.project_urls),
+      version:
+        typeof data.info.version === "string" ? data.info.version : undefined,
+      keywords:
+        typeof data.info.keywords === "string" ? data.info.keywords : undefined,
+      package_url:
+        typeof data.info.package_url === "string"
+          ? data.info.package_url
+          : undefined,
+    },
+  };
+}
+
+function normalizeStringRecord(
+  value: unknown,
+): Record<string, string> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).filter(
+    (entry): entry is [string, string] => typeof entry[1] === "string",
+  );
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function extractRepositoryUrlFromNpmMetadata(

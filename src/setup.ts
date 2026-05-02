@@ -3,6 +3,7 @@ import {
   resolveHostAdapter,
   type HostAdapter,
 } from "./host-adapters/registry.js";
+import { getOptionValue } from "./lib/cli-options.js";
 import {
   formatPreflightDiagnostics,
   runAdapterPreflight,
@@ -35,12 +36,7 @@ export async function runSetup(args: string[]): Promise<number> {
  * required checks passed.
  */
 async function runDoctor(args: string[]): Promise<boolean> {
-  const hostOptionIndex = args.indexOf("--host");
   const hostName = getOptionValue(args, "--host");
-  if (hostOptionIndex !== -1 && !hostName) {
-    console.log("Missing value for '--host'.");
-    return false;
-  }
 
   const adapters = hostName
     ? [resolveHostAdapter(hostName)].filter(
@@ -103,22 +99,4 @@ function printSetupHelp(): void {
 
 Options:
   --host <vscode|opencode|cursor|zed|claude-code|pi>`);
-}
-
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  const value = args[optionIndex + 1];
-  if (!value || value.startsWith("--")) {
-    return undefined;
-  }
-
-  return value;
 }

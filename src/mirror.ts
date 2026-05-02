@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
@@ -18,6 +18,8 @@ import {
   fetchGitHubRepoSnapshotByRepoUrl,
 } from "./github.js";
 import { fetchOfficialIndexPageContent } from "./official-index.js";
+import { getOptionValue } from "./lib/cli-options.js";
+import { fetchTextWithGuards } from "./lib/http.js";
 import type {
   AssetCatalogEntry,
   BundleLock,
@@ -39,6 +41,9 @@ const MIRROR_ACQUIRE_STATE_OUTPUT_PATH = [
 ];
 const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 50;
 const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 150_000;
+const GITHUB_RAW_ALLOWED_ORIGINS = [
+  "https://raw.githubusercontent.com",
+] as const;
 
 interface MaterializedMirrorArtifact {
   content: string;
@@ -294,7 +299,10 @@ async function acquireMirrorArtifacts(
     );
 
     for (const file of materializedArtifact.files ?? []) {
-      await writeTextFile(join(rawRoot, file.relativePath), file.content);
+      await writeTextFile(
+        resolveSafeMirrorFilePath(rawRoot, file.relativePath),
+        file.content,
+      );
     }
 
     await writeJsonFile(join(rawRoot, "asset.json"), entry);
@@ -447,6 +455,17 @@ async function materializeMirrorArtifact(
   entry: AssetCatalogEntry,
   projectRoot: string,
 ): Promise<MaterializedMirrorArtifact | null> {
+  if (entry.install.method.endsWith("-summary")) {
+    const referenceContent = await fetchOfficialIndexPageContent(
+      entry.source.originUrl,
+    );
+    if (referenceContent !== null) {
+      return {
+        content: referenceContent,
+      };
+    }
+  }
+
   if (entry.install.method === "official-index-entry") {
     const officialIndexPackageArtifact = await materializeOfficialIndexPackage(
       entry,
@@ -620,24 +639,16 @@ async function fetchGitHubFileContent(
   branch: string,
   filePath: string,
 ): Promise<string | null> {
-  try {
-    const response = await fetch(
-      buildGitHubRawFileUrl({ owner, repo, branch, filePath }),
-      {
-        headers: {
-          "User-Agent": "agent-harness",
-        },
+  return fetchTextWithGuards(
+    buildGitHubRawFileUrl({ owner, repo, branch, filePath }),
+    {
+      allowedOrigins: GITHUB_RAW_ALLOWED_ORIGINS,
+      headers: {
+        "User-Agent": "agent-harness",
       },
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.text();
-  } catch {
-    return null;
-  }
+      maxBytes: MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+    },
+  );
 }
 
 function buildUpstreamMetadata(
@@ -772,17 +783,25 @@ function sanitizeMirrorId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
+export function resolveSafeMirrorFilePath(
+  rawRoot: string,
+  relativePath: string,
+): string {
+  const resolvedRoot = resolve(rawRoot);
+  const resolvedTarget = resolve(resolvedRoot, relativePath);
+  const relativeTarget = relative(resolvedRoot, resolvedTarget);
 
-  if (optionIndex === -1) {
-    return undefined;
+  if (
+    relativeTarget.length === 0 ||
+    relativeTarget.startsWith("..") ||
+    isAbsolute(relativeTarget)
+  ) {
+    throw new Error(
+      `Refusing to write mirrored artifact outside raw root: ${relativePath}`,
+    );
   }
 
-  return args[optionIndex + 1];
+  return resolvedTarget;
 }
 
 function countEntriesByHost(

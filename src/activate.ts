@@ -11,6 +11,7 @@ import {
   writeJsonFile,
   writeJsonFileWithSnapshot,
 } from "./files.js";
+import { getOptionValue } from "./lib/cli-options.js";
 import {
   assertActivationManifest,
   assertCopilotWorkspaceProfileManifest,
@@ -709,24 +710,6 @@ async function resetActivationState(projectRoot: string): Promise<void> {
   console.log(
     `Activation state reset under ${toPosixPath(join(projectRoot, "activate"))}`,
   );
-}
-
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  const value = args[optionIndex + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`Missing value for ${optionName}.`);
-  }
-
-  return value;
 }
 
 /**

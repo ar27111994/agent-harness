@@ -56,7 +56,7 @@ export async function runWire(
 }
 
 /**
- * Resolves mutually-exclusive wire mode flags, defaulting to apply.
+ * Resolves mutually-exclusive wire mode flags, defaulting to preview.
  */
 function getWireMode(args: string[]): "preview" | "apply" | "reset" {
   const modeFlags = ["--reset", "--preview", "--apply"].filter((flag) =>
@@ -75,7 +75,7 @@ function getWireMode(args: string[]): "preview" | "apply" | "reset" {
     return "preview";
   }
 
-  return "apply";
+  return "preview";
 }
 
 function printWireHelp(): void {
@@ -88,7 +88,7 @@ function printWireHelp(): void {
   pi           Preview/apply/reset Pi project-local files
 
 Options:
-  --preview
+  --preview (default)
   --apply
   --reset`);
 }

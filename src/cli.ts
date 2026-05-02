@@ -6,6 +6,7 @@ import { loadDotEnvFile } from "./config/env-file.js";
 import { clearRuntimeConfig } from "./config/runtime.js";
 import { runDiscover } from "./discover.js";
 import { resolveProjectRoot } from "./files.js";
+import { clearGitHubState } from "./github.js";
 import { runInstall } from "./install.js";
 import { runMirror } from "./mirror.js";
 import { runRecommend } from "./recommend.js";
@@ -21,6 +22,7 @@ async function main(): Promise<number> {
   const workingDirectory = process.cwd();
   await loadDotEnvFile(workingDirectory);
   clearRuntimeConfig();
+  clearGitHubState();
 
   switch (domain) {
     case "discover":
@@ -84,6 +86,7 @@ function printHelp(): void {
   wire claude-code          Preview/apply/reset Claude Code project-local wire-in
   wire pi                   Preview/apply/reset Pi project-local wire-in
   setup doctor              Check config, host readiness, and guided setup notes
+  doctor                    Alias for setup doctor
   setup hosts               List registered host adapters
   mirror plan               Build a mirror readiness plan from current outputs`);
 }
@@ -93,6 +96,6 @@ main()
     process.exitCode = exitCode;
   })
   .catch((error: unknown) => {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;
   });

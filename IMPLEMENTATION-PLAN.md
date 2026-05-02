@@ -18,16 +18,20 @@ This plan replaces the earlier high-level vision document with a delivery-orient
 
 ## v1.0.0 Execution Status
 
-The `release/v1.0.0` implementation wave delivers the plan as an integrated first stable release. The work is traceable through commits and issue references covering:
+The `release/v1.0.0` implementation wave delivers the first integrated stable baseline, but it does not complete every roadmap gap. The work is traceable through commits and issue references covering:
 
 - `M0`: domain folders, centralized runtime config, shared preflight diagnostics, and host/service seams
 - `M1`: OS-aware path resolution, home-relative local source seeds, cross-platform CI, and link lifecycle tests
 - `M2` and `M4`: scan budgets, richer ignore profiles, detector modules, generic repo artifact detection, roadmap-archetype detector fixtures, policy coverage reporting, and benchmark coverage
-- `M3`: source utilization reporting, docs/registry/marketplace reference harvesting, and dependency-evidence npm/PyPI candidate generation
-- `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install planning, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, native project-local auto-wiring for Cursor, Zed, Claude Code, and Pi, and independent recommendation policies per registered host
-- `M7`: package-style seams for config, discovery, wire, host adapters, path utilities, preflight/runtime validation, and host-native implementation modules under `src/host-adapters/`
+- `M3`: source utilization reporting, guarded docs/registry/marketplace reference summaries, and dependency-evidence npm/PyPI candidate generation
+- `M5` and `M6`: lifecycle terminology in wire plans, extension selection/install guidance, shared MCP projection, setup/doctor guidance, host adapters, capability matrices, native project-local auto-wiring for Cursor, Zed, Claude Code, and Pi, and independent recommendation policies per registered host
+- Early `M7` seams for config, discovery, wire, host adapters, path utilities, preflight/runtime validation, and host-native implementation modules under `src/host-adapters/`
 
-Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, scan benchmark budget checks, detection quality reporting, detector-to-policy coverage reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
+Follow-up hardening after the merge addressed high-risk audit findings: safe mirror path resolution for multi-file artifacts, guarded external response fetching with origin allowlists and byte limits, validated PyPI metadata normalization, lazy VS Code settings path resolution after `.env` loading, resettable process-local GitHub state, explicit recommendation execution in the workspace pipeline, safe preview-by-default wire mode, and shared CLI option parsing that rejects flag tokens as missing values.
+
+Validation for this release includes typecheck, lint, format check, build, unit/link lifecycle tests, dotenv/parser tests, VS Code settings tests, security hardening tests, scan benchmark budget checks, detection quality reporting, detector-to-policy coverage reporting, CLI smoke checks, recommendation fixture evaluation, and a Windows/macOS/Linux CI matrix.
+
+Known remaining roadmap work is still tracked below, especially full marketplace/native extension installation, asset-specific auth onboarding, deeper source harvesters, and `M7` file-size/type-localization refactors.
 
 ## Planning Conventions
 

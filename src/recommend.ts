@@ -13,6 +13,7 @@ import {
   assertRecommendationReport,
 } from "./manifest-validation.js";
 import { isHostCompatibleWithRecommendationHost } from "./host-adapters/registry.js";
+import { getOptionValue } from "./lib/cli-options.js";
 import { buildRecommendationFixtures } from "./recommend-fixtures.js";
 import type {
   AssetCatalogEntry,
@@ -1919,22 +1920,13 @@ function formatScoreBreakdown(breakdown: RecommendationScoreBreakdown): string {
   ].join(", ");
 }
 
-function getOptionValue(args: string[], flag: string): string | undefined {
-  const flagIndex = args.indexOf(flag);
-  if (flagIndex === -1) {
-    return undefined;
-  }
-
-  return args[flagIndex + 1];
-}
-
 function isRecommendationHost(value: string): value is RecommendationHost {
   return RECOMMENDATION_HOSTS.includes(value as RecommendationHost);
 }
 
 function printRecommendHelp(): void {
   console.log(`recommend commands:
-  report    Recompute the recommendation report using the external policy
+  report    Recompute the recommendation report using the external policy (default)
   explain   Explain why an asset ranked for a host
   evaluate  Run golden recommendation fixtures (use --write to persist results)
   policy:print  Print the merged effective policy (--host <host> to scope)`);

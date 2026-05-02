@@ -1,0 +1,47 @@
+/**
+ * Returns the value following a CLI option, failing fast when the option is
+ * present without a concrete value.
+ */
+export function getOptionValue(
+  args: readonly string[],
+  optionName: string,
+): string | undefined {
+  const optionIndex = args.indexOf(optionName);
+
+  if (optionIndex === -1) {
+    return undefined;
+  }
+
+  const value = args[optionIndex + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing value for '${optionName}'.`);
+  }
+
+  return value;
+}
+
+/**
+ * Returns every value provided for a repeatable CLI option, rejecting valueless
+ * occurrences instead of accidentally consuming the next flag as data.
+ */
+export function getOptionValues(
+  args: readonly string[],
+  optionName: string,
+): string[] {
+  const values: string[] = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    if (args[index] !== optionName) {
+      continue;
+    }
+
+    const value = args[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error(`Missing value for '${optionName}'.`);
+    }
+
+    values.push(value);
+  }
+
+  return values;
+}

@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- regression tests for dotenv duplicate/multiline parsing, CLI option missing-value handling, VS Code settings patching, safe mirror artifact paths, and PyPI metadata normalization
+- guarded HTTP helpers with origin allowlists, timeouts, and response byte limits for external content reads
+
+### Changed
+
+- `wire <host>` now defaults to preview mode; `--apply` or `--reset` is required for mutating wire operations
+- workspace runs now invoke the recommendation stage explicitly after discovery selection instead of relying on hidden `discover select` side effects
+- docs, registry, and marketplace source references now attempt guarded summary harvesting and source utilization distinguishes active, reference-only, and dormant sources
+- VS Code settings path resolution is lazy so `.env` overrides for path-related variables are honored after CLI bootstrap
+- CLI option parsing is centralized and rejects flag-looking tokens as missing option values
+
+### Fixed
+
+- mirror multi-file artifact writes now reject path traversal outside the raw mirror root
+- PyPI metadata is validated and normalized field-by-field before repository URL extraction
+- GitHub process-local rate-limit and health-update state can be reset between repeated in-process CLI invocations
+- install batching no longer treats a missing progress state as a completed bundle
+
 ## [1.0.0] - 2026-05-01
 
 ### Added in 1.0.0

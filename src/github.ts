@@ -214,6 +214,15 @@ const GITHUB_REPO_URL_PATTERN =
 let githubRateLimitResetAt: number | null = null;
 let githubHealthUpdateLock: Promise<void> = Promise.resolve();
 
+/**
+ * Clears process-local GitHub throttling and health-update state between CLI
+ * invocations that run in the same Node.js process.
+ */
+export function clearGitHubState(): void {
+  githubRateLimitResetAt = null;
+  githubHealthUpdateLock = Promise.resolve();
+}
+
 export function isGitHubRepoSource(source: SourceDefinition): boolean {
   const repoUrl = source.endpoints.repo;
   return (

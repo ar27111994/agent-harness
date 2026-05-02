@@ -1,28 +1,35 @@
+import { fetchTextWithGuards } from "./lib/http.js";
 import type { AssetStatus, AuthorityTier } from "./types.js";
 
 const OFFICIAL_INDEX_USER_AGENT = "agent-harness";
 const MAX_LIST_ITEMS = 5;
+const MAX_OFFICIAL_INDEX_PAGE_BYTES = 1_000_000;
+const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
+  "https://officialskills.sh",
+  "https://raw.githubusercontent.com",
+  "https://docs.github.com",
+  "https://docs.anthropic.com",
+  "https://modelcontextprotocol.io",
+  "https://skills.sh",
+  "https://marketplace.visualstudio.com",
+] as const;
 
 export async function fetchOfficialIndexPageContent(
   url: string,
 ): Promise<string | null> {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": OFFICIAL_INDEX_USER_AGENT,
-      },
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const html = await response.text();
-    const extractedContent = extractOfficialIndexPageSummary(html, url);
-    return extractedContent.length > 0 ? extractedContent : null;
-  } catch {
+  const html = await fetchTextWithGuards(url, {
+    allowedOrigins: OFFICIAL_INDEX_ALLOWED_ORIGINS,
+    headers: {
+      "User-Agent": OFFICIAL_INDEX_USER_AGENT,
+    },
+    maxBytes: MAX_OFFICIAL_INDEX_PAGE_BYTES,
+  });
+  if (html === null) {
     return null;
   }
+
+  const extractedContent = extractOfficialIndexPageSummary(html, url);
+  return extractedContent.length > 0 ? extractedContent : null;
 }
 
 export function buildOfficialIndexAssetStatus(

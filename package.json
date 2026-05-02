@@ -2,7 +2,7 @@
   "name": "agent-harness",
   "version": "1.0.0",
   "private": true,
-  "description": "Discovery and mirror pipeline for curated agent tooling across OpenCode and GitHub Copilot.",
+  "description": "Node.js TypeScript CLI for discovering, staging, activating, and wiring reusable AI-agent assets across supported developer hosts.",
   "license": "MIT",
   "type": "module",
   "bin": {

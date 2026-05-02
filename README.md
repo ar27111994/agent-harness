@@ -39,8 +39,9 @@ It is built around one generic command surface and a host-adapter model. The lif
 3. Harvests candidate agent assets from local sources, source packs, documentation sources, package registries, and marketplace references.
 4. Mirrors selected assets into reproducible local artifacts.
 5. Installs mirrored assets into lifecycle-host package stores.
-6. Activates ranked assets into host runtime views.
-7. Wires the activated assets into a target workspace through a selected host adapter.
+6. Recomputes ranked recommendations from selected catalog entries.
+7. Activates ranked assets into host runtime views.
+8. Wires the activated assets into a target workspace through a selected host adapter.
 
 The goal is to make high-quality reusable agent context portable across tools without hardcoding one workstation, one operating system, or one AI host.
 
@@ -55,7 +56,7 @@ The project intentionally separates these stages:
 | `install`   | Stage mirrored packages into lifecycle-host package stores and reconcile generations.               | `install/`                                          |
 | `recommend` | Rank assets per recommendation host using policy, demand signals, trust, cost, diversity, and caps. | `state/recommendations.json`                        |
 | `activate`  | Materialize active runtime views for lifecycle hosts from installed packages and recommendations.   | `activate/`                                         |
-| `wire`      | Apply, preview, or reset host-specific workspace integration.                                       | host-specific files plus wire plans                 |
+| `wire`      | Preview by default, or explicitly apply/reset host-specific workspace integration.                  | host-specific files plus wire plans                 |
 | `workspace` | Run the end-to-end lifecycle for a selected host and then apply wire-in.                            | full pipeline output                                |
 
 Two host concepts are important:
@@ -64,6 +65,8 @@ Two host concepts are important:
 - **Recommendation host**: the host-specific policy used for ranking and budgets.
 
 Some adapters intentionally reuse another lifecycle host while keeping their own recommendation host. For example, Cursor reuses the Copilot-compatible lifecycle host but ranks through the `cursor` policy.
+
+`wire <host>` is intentionally non-mutating unless you pass `--apply` or `--reset`; use the default preview mode to inspect target paths and planned writes before changing host files.
 
 ## Supported hosts
 
@@ -162,15 +165,15 @@ The legacy package binaries `agent-harness-vscode` and `agent-harness-opencode` 
 
 ### Preview before touching a workspace
 
-Use `wire --preview` when you want to inspect planned host targets without mutating workspace files:
+Use `wire` or `wire --preview` when you want to inspect planned host targets without mutating workspace files:
 
 ```bash
-agent-harness wire cursor --preview
+agent-harness wire cursor
 agent-harness wire zed --preview
 agent-harness wire claude-code --preview
 ```
 
-Preview output is written under `activate/<host>/` and can be reviewed before `--apply`.
+Preview output is written under `activate/<host>/` and can be reviewed before `--apply`. Omitting a mode flag is equivalent to `--preview`.
 
 ### Apply and reset one host
 
@@ -266,9 +269,12 @@ node ./dist/cli.js discover stats
 
 ```bash
 npm run recommend:report
+node ./dist/cli.js recommend
 npm run recommend:evaluate
 npm run recommend:update
 ```
+
+Omitting the recommendation subcommand defaults to `report`.
 
 Explain a specific recommendation:
 

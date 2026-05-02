@@ -13,8 +13,12 @@ import {
   fetchNpmPackageMetadata,
   fetchPypiPackageMetadata,
 } from "./package-registries.js";
-import { buildOfficialIndexAssetStatus } from "./official-index.js";
-import { writeRecommendationReport } from "./recommend.js";
+import {
+  buildOfficialIndexAssetStatus,
+  fetchOfficialIndexPageContent,
+} from "./official-index.js";
+import { getOptionValue } from "./lib/cli-options.js";
+import { fetchTextWithGuards } from "./lib/http.js";
 import {
   listFilesRecursive,
   listFilesRecursiveWithTelemetry,
@@ -171,6 +175,10 @@ const REMOTE_CATALOG_STATE_OUTPUT_PATH = [
   "discover",
   "remote-catalog.jsonl",
 ];
+const OFFICIAL_INDEX_CONTENT_MAX_BYTES = 1_000_000;
+const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
+  "https://raw.githubusercontent.com",
+] as const;
 
 export async function runDiscover(
   args: string[],
@@ -369,11 +377,11 @@ async function generateCatalog(projectRoot: string): Promise<void> {
       case "marketplace":
       case "registry":
         catalogEntries.push(
-          buildReferenceSourceCatalogEntry(
+          ...(await harvestReferenceSource(
             source,
             demandProfile,
             selectionRegistry,
-          ),
+          )),
         );
         break;
       default:
@@ -451,19 +459,34 @@ async function writeSourceUtilizationReport(
   enabledSources: SourceDefinition[],
   catalogEntries: AssetCatalogEntry[],
 ): Promise<void> {
-  const entriesBySource = countBy(
-    catalogEntries,
-    (entry) => entry.source.sourceId,
-  );
+  const catalogEntriesBySource = new Map<string, AssetCatalogEntry[]>();
+  for (const entry of catalogEntries) {
+    const sourceEntries = catalogEntriesBySource.get(entry.source.sourceId);
+    if (sourceEntries) {
+      sourceEntries.push(entry);
+    } else {
+      catalogEntriesBySource.set(entry.source.sourceId, [entry]);
+    }
+  }
+
   const sources = enabledSources.map((source) => {
-    const harvestedEntries = entriesBySource[source.id] ?? 0;
+    const sourceEntries = catalogEntriesBySource.get(source.id) ?? [];
+    const operationalEntries = sourceEntries.filter((entry) =>
+      isOperationalCatalogEntry(entry),
+    );
     return {
       id: source.id,
       kind: source.kind,
       configured: true,
-      operational: harvestedEntries > 0,
-      harvestedEntries,
-      status: harvestedEntries > 0 ? "active" : "dormant",
+      operational: operationalEntries.length > 0,
+      harvestedEntries: sourceEntries.length,
+      operationalEntries: operationalEntries.length,
+      status:
+        operationalEntries.length > 0
+          ? "active"
+          : sourceEntries.length > 0
+            ? "reference-only"
+            : "dormant",
     };
   });
 
@@ -481,6 +504,15 @@ async function writeSourceUtilizationReport(
     ),
     sources,
   });
+}
+
+function isOperationalCatalogEntry(entry: AssetCatalogEntry): boolean {
+  return (
+    entry.evidence.manifestFound ||
+    entry.status.mirrorEligible ||
+    entry.status.installEligible ||
+    entry.status.activationEligible
+  );
 }
 
 async function loadRemoteHarvestState(
@@ -693,7 +725,6 @@ async function generateSelectionOutputs(projectRoot: string): Promise<void> {
     join(projectRoot, ...SELECTION_REPORT_OUTPUT_PATH),
     selectionReport,
   );
-  await writeRecommendationReport(projectRoot);
 
   console.log(
     `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
@@ -918,25 +949,47 @@ function buildPackageRegistryCatalogEntry(
   };
 }
 
+async function harvestReferenceSource(
+  source: SourceDefinition,
+  demandProfile: DemandProfile | null,
+  selectionRegistry: SelectionRegistry,
+): Promise<AssetCatalogEntry[]> {
+  const originUrl = getReferenceSourceOriginUrl(source);
+  const harvestedContent = await fetchOfficialIndexPageContent(originUrl);
+
+  return [
+    buildReferenceSourceCatalogEntry(source, demandProfile, selectionRegistry, {
+      harvestedContent: harvestedContent ?? undefined,
+      originUrl,
+    }),
+  ];
+}
+
 function buildReferenceSourceCatalogEntry(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
+  options: {
+    harvestedContent?: string;
+    originUrl?: string;
+  } = {},
 ): AssetCatalogEntry {
-  const originUrl =
-    source.endpoints.docsUrl ??
-    source.endpoints.baseUrl ??
-    source.endpoints.repo ??
-    source.id;
+  const originUrl = options.originUrl ?? getReferenceSourceOriginUrl(source);
   const assetKind: AssetKind = "reference-pack";
+  const harvestedContent = options.harvestedContent;
+  const wasHarvested = typeof harvestedContent === "string";
   const capabilities = uniqueStrings([
     ...splitIntoKeywords(source.name),
     ...splitIntoKeywords(source.id),
+    ...splitIntoKeywords(harvestedContent ?? ""),
     source.kind,
     assetKind,
   ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
-  const compatibilityMode: CompatibilityMode =
-    source.kind === "marketplace" ? "partial" : "reference-only";
+  const compatibilityMode: CompatibilityMode = wasHarvested
+    ? "adaptable"
+    : source.kind === "marketplace"
+      ? "partial"
+      : "reference-only";
 
   return {
     id: buildCatalogId(source.id, originUrl),
@@ -960,7 +1013,9 @@ function buildReferenceSourceCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode,
-        installMethod: `${source.kind}-reference`,
+        installMethod: wasHarvested
+          ? `${source.kind}-summary`
+          : `${source.kind}-reference`,
       }),
       signals: buildTrustSignals({
         authorityTier: source.authorityTier,
@@ -968,21 +1023,25 @@ function buildReferenceSourceCatalogEntry(
         sourcePriority: source.priority,
         publisherVerified: source.publisher?.verified ?? false,
         compatibilityMode,
-        installMethod: `${source.kind}-reference`,
+        installMethod: wasHarvested
+          ? `${source.kind}-summary`
+          : `${source.kind}-reference`,
       }),
     },
     capabilities,
     install: {
-      method: `${source.kind}-reference`,
+      method: wasHarvested
+        ? `${source.kind}-summary`
+        : `${source.kind}-reference`,
       adaptableHosts: source.hosts,
       manifestEntry: originUrl,
     },
     evidence: {
-      manifestFound: false,
-      readmeFound: false,
+      manifestFound: wasHarvested,
+      readmeFound: wasHarvested,
       examplesFound: false,
       docsLinked: true,
-      lineCount: 1,
+      lineCount: harvestedContent?.split(/\r?\n/u).length ?? 1,
       rootPath: originUrl,
     },
     maintenance: {
@@ -1005,11 +1064,20 @@ function buildReferenceSourceCatalogEntry(
     },
     status: {
       cataloged: true,
-      mirrorEligible: false,
+      mirrorEligible: wasHarvested && source.rules.allowMirror,
       installEligible: false,
       activationEligible: false,
     },
   };
+}
+
+function getReferenceSourceOriginUrl(source: SourceDefinition): string {
+  return (
+    source.endpoints.docsUrl ??
+    source.endpoints.baseUrl ??
+    source.endpoints.repo ??
+    source.id
+  );
 }
 
 async function inspectCatalog(
@@ -1125,18 +1193,11 @@ async function harvestOfficialSkillIndexes(
 }
 
 async function fetchOfficialIndexContent(url: string): Promise<string | null> {
-  try {
-    const response = await fetch(url, {
-      headers: buildOfficialIndexHeaders(),
-    });
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.text();
-  } catch {
-    return null;
-  }
+  return fetchTextWithGuards(url, {
+    allowedOrigins: OFFICIAL_INDEX_ALLOWED_ORIGINS,
+    headers: buildOfficialIndexHeaders(),
+    maxBytes: OFFICIAL_INDEX_CONTENT_MAX_BYTES,
+  });
 }
 
 function buildOfficialIndexHeaders(): HeadersInit {
@@ -2843,19 +2904,6 @@ function splitIntoKeywords(value: string): string[] {
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
-}
-
-function getOptionValue(
-  args: string[],
-  optionName: string,
-): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  return args[optionIndex + 1];
 }
 
 function lastPathSegment(value: string): string {
