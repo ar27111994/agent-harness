@@ -30,18 +30,26 @@ export async function loadDotEnvFile(
   }
 
   const parsedEntries = parseDotEnvContent(content);
-  const appliedKeys: string[] = [];
+  const originalKeys = new Set(Object.keys(env));
+  const pendingEntries = new Map<string, string>();
 
   for (const [key, value] of parsedEntries) {
-    if (env[key] !== undefined) {
+    if (originalKeys.has(key)) {
       continue;
     }
 
-    env[key] = value;
-    appliedKeys.push(key);
+    pendingEntries.set(key, value);
   }
 
-  return { path: envPath, loaded: true, appliedKeys };
+  for (const [key, value] of pendingEntries) {
+    env[key] = value;
+  }
+
+  return {
+    path: envPath,
+    loaded: true,
+    appliedKeys: [...pendingEntries.keys()],
+  };
 }
 
 /**

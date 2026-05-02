@@ -707,7 +707,8 @@ function describeJsonValue(value: unknown): string {
 }
 
 async function removeManagedZedSettings(filePath: string): Promise<void> {
-  const settings = await readJsonFileOrNull<JsonObject>(filePath);
+  const existingValue = await readJsonFileOrNull<unknown>(filePath);
+  const settings = asJsonObject(existingValue);
   if (!settings) {
     return;
   }
@@ -728,13 +729,18 @@ async function removeManagedZedSettings(filePath: string): Promise<void> {
 }
 
 async function removeManagedPiSettings(filePath: string): Promise<void> {
-  const settings = await readJsonFileOrNull<JsonObject>(filePath);
+  const existingValue = await readJsonFileOrNull<unknown>(filePath);
+  const settings = asJsonObject(existingValue);
   if (!settings) {
     return;
   }
 
-  settings.skills = removeStringArrayValue(settings.skills, "skills");
-  settings.prompts = removeStringArrayValue(settings.prompts, "prompts");
+  settings.skills = Array.isArray(settings.skills)
+    ? removeStringArrayValue(settings.skills, "skills")
+    : settings.skills;
+  settings.prompts = Array.isArray(settings.prompts)
+    ? removeStringArrayValue(settings.prompts, "prompts")
+    : settings.prompts;
 
   if (Array.isArray(settings.skills) && settings.skills.length === 0) {
     delete settings.skills;

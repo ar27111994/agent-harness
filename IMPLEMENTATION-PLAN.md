@@ -64,16 +64,16 @@ Validation for this release includes typecheck, lint, format check, build, unit/
 
 ## Milestone Summary
 
-| Milestone  | Goal                                                            | Priority | Included roadmap items       | Exit gate                                                                                        |
-| ---------- | --------------------------------------------------------------- | -------- | ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| `M0` / #48 | Establish modular architecture foundations                      | `P0`     | `A1`, `A4`, `A5`, `A7`       | Shared config, validation, service boundaries, and domain folders exist and are used by new work |
-| `M1` / #49 | Make the project genuinely cross-platform                       | `P1`     | `P1` to `P6`, `S6`           | Windows, macOS, and Linux paths, source seeds, and wire flows all work under CI                  |
-| `M2` / #50 | Separate generic repo understanding from agent-asset harvesting | `P1`     | `G1`, `G2`, `G3`, `G5`, `G6` | Discovery can form meaningful demand profiles for non-agent and non-code-heavy repos             |
-| `M3` / #51 | Turn configured source breadth into effective source breadth    | `P1`     | `G4`, `S1` to `S5`, `S7`     | Declared source kinds and registry inputs materially affect catalog output                       |
-| `M4` / #52 | Make detection measurable, scalable, and maintainable           | `P1`     | `D1` to `D6`                 | Scan cost, detection quality, and signature extensibility are all tested and budgeted            |
-| `M5` / #53 | Make wire-in truly host-aware and user-assistive                | `P1`     | `W1` to `W7`                 | Staging, native install boundaries, auth guidance, and runtime readiness checks are explicit     |
-| `M6` / #54 | Generalize host support beyond VS Code and OpenCode             | `P1`     | `H1` to `H7`                 | New hosts can be added through a bounded adapter model instead of core rewrites                  |
-| `M7` / #55 | Reduce file and function complexity and create package seams    | `P2`     | `A2`, `A3`, `A6`, `A8`       | Oversized files are split, shared types are localized, and future package extraction is low-risk |
+| Milestone  | Goal                                                            | Priority | Included roadmap items       | Exit gate                                                                                                  |
+| ---------- | --------------------------------------------------------------- | -------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `M0` / #48 | Establish modular architecture foundations                      | `P0`     | `A1`, `A4`, `A5`, `A7`       | Shared config, validation, service boundaries, and domain folders exist and are used by new work           |
+| `M1` / #49 | Make the project genuinely cross-platform                       | `P1`     | `P1` to `P6`, `S6`           | Windows, macOS, and Linux paths, source seeds, and wire flows all work under CI                            |
+| `M2` / #50 | Separate generic repo understanding from agent-asset harvesting | `P1`     | `G1`, `G2`, `G3`, `G5`, `G6` | Discovery can form meaningful demand profiles for non-agent and non-code-heavy repos                       |
+| `M3` / #51 | Turn configured source breadth into effective source breadth    | `P1`     | `G4`, `S1` to `S5`, `S7`     | Declared source kinds and registry inputs materially affect catalog output                                 |
+| `M4` / #52 | Make detection measurable, scalable, and maintainable           | `P1`     | `D1` to `D6`                 | Scan cost, detection quality, and signature extensibility are all tested and budgeted                      |
+| `M5` / #53 | Make wire-in truly host-aware and user-assistive                | `P1`     | `W1` to `W7`                 | Staging, native install boundaries, auth guidance, and runtime readiness checks are explicit               |
+| `M6` / #54 | Generalize host support beyond VS Code and OpenCode             | `P1`     | `H1` to `H7`                 | Additional non-default hosts can be integrated through adapter and config changes instead of core rewrites |
+| `M7` / #55 | Reduce file and function complexity and create package seams    | `P2`     | `A2`, `A3`, `A6`, `A8`       | Oversized files are split, shared types are localized, and future package extraction is low-risk           |
 
 ## Milestone M0 — Modular Architecture Foundations
 
@@ -208,7 +208,7 @@ Start execution in milestone tracking issues #48 and #49. Treat wave `0A` as the
 | `M3`      | Configured source breadth translates into measurable harvested breadth and reportable utilization                     |
 | `M4`      | Detection quality and performance are budgeted, benchmarked, and regression-tested                                    |
 | `M5`      | Wire-in and setup flows distinguish staged vs installed assets and guide users through auth and runtime prerequisites |
-| `M6`      | At least two additional hosts are supported through the adapter model with minimal core rewrites                      |
+| `M6`      | Additional non-default host integrations prove the adapter model with minimal core rewrites                           |
 | `M7`      | Oversized files are reduced, shared types are localized, and package extraction becomes low-risk                      |
 
 ## Tracking Recommendation

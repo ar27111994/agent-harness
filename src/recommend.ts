@@ -223,7 +223,7 @@ function buildTopRecommendationsForHost(
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): RecommendationEntry[] {
-  const candidates = entries
+  const scoredCandidates = entries
     .filter((entry) => isEntryCompatibleWithRecommendationHost(entry, host))
     .filter((entry) => entry.compatibilityMode !== "incompatible")
     .map((entry) => {
@@ -235,7 +235,10 @@ function buildTopRecommendationsForHost(
       );
 
       return candidate
-        ? { candidate, preselectionScore: computeEntryPreselectionScore(entry) }
+        ? {
+            candidate,
+            preselectionScore: computeCandidatePreselectionScore(candidate),
+          }
         : null;
     })
     .filter(
@@ -246,12 +249,13 @@ function buildTopRecommendationsForHost(
         preselectionScore: number;
       } => candidate !== null,
     )
-    .sort(
-      (left, right) =>
-        right.preselectionScore - left.preselectionScore ||
-        left.candidate.entry.id.localeCompare(right.candidate.entry.id),
-    )
-    .slice(0, getHostPreselectionLimit(host, policy))
+    .sort(compareScoredCandidates);
+  const candidates = preserveRequiredCoverageCandidates(
+    scoredCandidates,
+    host,
+    policy,
+    getHostPreselectionLimit(host, policy),
+  )
     .map(({ candidate }) => candidate)
     .sort(
       (left, right) =>
@@ -279,6 +283,79 @@ function buildTopRecommendationsForHost(
     matchedSignals: candidate.matchedSignals,
     scoreBreakdown: candidate.breakdown,
   }));
+}
+
+function compareScoredCandidates(
+  left: { candidate: CandidateRecommendation; preselectionScore: number },
+  right: { candidate: CandidateRecommendation; preselectionScore: number },
+): number {
+  return (
+    right.preselectionScore - left.preselectionScore ||
+    left.candidate.entry.id.localeCompare(right.candidate.entry.id)
+  );
+}
+
+function preserveRequiredCoverageCandidates(
+  scoredCandidates: Array<{
+    candidate: CandidateRecommendation;
+    preselectionScore: number;
+  }>,
+  host: RecommendationHost,
+  policy: RecommendationPolicy,
+  limit: number,
+): Array<{ candidate: CandidateRecommendation; preselectionScore: number }> {
+  const hostPolicy = policy.hosts[host];
+  const preserved = new Map<
+    string,
+    { candidate: CandidateRecommendation; preselectionScore: number }
+  >();
+
+  for (const target of hostPolicy.targetAssetKinds) {
+    if (target.minimum <= 0) {
+      continue;
+    }
+    const match = scoredCandidates.find(
+      (entry) => entry.candidate.entry.assetKind === target.assetKind,
+    );
+    if (match) {
+      preserved.set(match.candidate.entry.id, match);
+    }
+  }
+
+  for (const target of hostPolicy.targetConcerns) {
+    if (target.minimum <= 0) {
+      continue;
+    }
+    const match = scoredCandidates.find((entry) =>
+      entry.candidate.coverageTags.includes(target.concern),
+    );
+    if (match) {
+      preserved.set(match.candidate.entry.id, match);
+    }
+  }
+
+  const selected = [...preserved.values()];
+  for (const entry of scoredCandidates) {
+    if (selected.length >= limit) {
+      break;
+    }
+    if (!preserved.has(entry.candidate.entry.id)) {
+      selected.push(entry);
+    }
+  }
+
+  return selected.slice(0, limit).sort(compareScoredCandidates);
+}
+
+function computeCandidatePreselectionScore(
+  candidate: CandidateRecommendation,
+): number {
+  return (
+    computeEntryPreselectionScore(candidate.entry) +
+    candidate.breakdown.total +
+    candidate.coverageTags.length * 4 +
+    candidate.matchedSignals.reduce((total, match) => total + match.weight, 0)
+  );
 }
 
 function computeEntryPreselectionScore(entry: AssetCatalogEntry): number {

@@ -38,7 +38,7 @@ export async function runWire(
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = [
     ...(await runHostPreflight(hostAdapter.lifecycleHost, {
-      requireHostPaths: mode === "apply" && requiresLifecycleHostPaths,
+      requireHostPaths: mode !== "preview" && requiresLifecycleHostPaths,
     })),
     ...(await runAdapterPreflight(hostAdapter.id)),
   ];
@@ -59,11 +59,19 @@ export async function runWire(
  * Resolves mutually-exclusive wire mode flags, defaulting to apply.
  */
 function getWireMode(args: string[]): "preview" | "apply" | "reset" {
-  if (args.includes("--reset")) {
+  const modeFlags = ["--reset", "--preview", "--apply"].filter((flag) =>
+    args.includes(flag),
+  );
+
+  if (modeFlags.length > 1) {
+    throw new Error(`Conflicting wire mode flags: ${modeFlags.join(", ")}`);
+  }
+
+  if (modeFlags[0] === "--reset") {
     return "reset";
   }
 
-  if (args.includes("--preview")) {
+  if (modeFlags[0] === "--preview") {
     return "preview";
   }
 

@@ -27,7 +27,7 @@ export async function readSharedMcpAssetIds(
   const mcpAssetIds = new Set<string>();
 
   for (const bundleId of sharedActivationManifest.activeBundles) {
-    const bundleManifest = await readJsonFileOrNull<InstalledBundleManifest>(
+    const bundleManifest = await readJsonFileOrNull<unknown>(
       join(
         projectRoot,
         "install",
@@ -37,7 +37,9 @@ export async function readSharedMcpAssetIds(
       ),
     );
 
-    for (const pkg of bundleManifest?.packages ?? []) {
+    const packages = getInstalledBundlePackages(bundleManifest, bundleId);
+
+    for (const pkg of packages) {
       if (!activeAssetIds.has(pkg.assetId)) {
         continue;
       }
@@ -53,4 +55,26 @@ export async function readSharedMcpAssetIds(
   }
 
   return [...mcpAssetIds].sort((left, right) => left.localeCompare(right));
+}
+
+function getInstalledBundlePackages(
+  value: unknown,
+  bundleId: string,
+): InstalledBundleManifest["packages"] {
+  if (value === null) {
+    return [];
+  }
+
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as Partial<InstalledBundleManifest>).packages)
+  ) {
+    return (value as InstalledBundleManifest).packages;
+  }
+
+  console.warn(
+    `Skipping malformed shared install bundle manifest for '${bundleId}'; expected an object with a packages array.`,
+  );
+  return [];
 }

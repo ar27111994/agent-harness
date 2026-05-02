@@ -1,6 +1,12 @@
+import { dirname } from "node:path";
+
 import { applyEdits, modify, parse } from "jsonc-parser";
 
-import { readTextFileOrNull, writeTextFile } from "../files.js";
+import {
+  ensureDirectory,
+  readTextFileOrNull,
+  writeTextFile,
+} from "../files.js";
 
 export async function readVsCodeSettings(
   settingsPath: string,
@@ -56,5 +62,6 @@ export async function patchVsCodeSettings(
     nextContent = applyEdits(nextContent, edits);
   }
 
+  await ensureDirectory(dirname(settingsPath));
   await writeTextFile(settingsPath, nextContent);
 }

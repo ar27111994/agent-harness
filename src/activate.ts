@@ -721,7 +721,12 @@ function getOptionValue(
     return undefined;
   }
 
-  return args[optionIndex + 1];
+  const value = args[optionIndex + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing value for ${optionName}.`);
+  }
+
+  return value;
 }
 
 /**
@@ -732,18 +737,7 @@ function getOptionalOptionValue(
   args: string[],
   optionName: string,
 ): string | undefined {
-  const optionIndex = args.indexOf(optionName);
-
-  if (optionIndex === -1) {
-    return undefined;
-  }
-
-  const value = args[optionIndex + 1];
-  if (!value || value.startsWith("--")) {
-    throw new Error(`Missing value for ${optionName}.`);
-  }
-
-  return value;
+  return getOptionValue(args, optionName);
 }
 
 /**

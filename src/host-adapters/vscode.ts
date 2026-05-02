@@ -58,7 +58,6 @@ export async function wireVsCode(options: {
   const hooksRoot = join(generationRoot, "hooks");
   const pluginsRoot = join(generationRoot, "plugins");
   const extensionsRoot = join(generationRoot, "extensions");
-  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
 
   const preview: WirePreviewManifest = {
     schemaVersion: 1,
@@ -100,6 +99,8 @@ export async function wireVsCode(options: {
   await ensureDirectory(hooksRoot);
   await ensureDirectory(pluginsRoot);
   await ensureDirectory(extensionsRoot);
+
+  const sharedMcpAssetIds = await readSharedMcpAssetIdsBestEffort(projectRoot);
 
   let materializedPaths: MaterializedVsCodePaths = {
     instructionFiles: [],
@@ -155,6 +156,19 @@ export async function wireVsCode(options: {
     curatedRoot,
     materializedPaths,
   });
+}
+
+async function readSharedMcpAssetIdsBestEffort(
+  projectRoot: string,
+): Promise<string[]> {
+  try {
+    return await readSharedMcpAssetIds(projectRoot);
+  } catch (error) {
+    console.warn(
+      `Failed to project shared MCP assets into VS Code wire plan: ${toLoggableErrorMessage(error)}`,
+    );
+    return [];
+  }
 }
 
 async function patchVsCodeUserSettings(paths: {
