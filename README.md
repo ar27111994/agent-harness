@@ -1,5 +1,11 @@
 # agent-harness
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](./package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](./package.json)
+[![Quality](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml/badge.svg)](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml)
+[![Latest Release](https://img.shields.io/github/v/release/ar27111994/agent-harness?display_name=tag)](https://github.com/ar27111994/agent-harness/releases)
+
 `agent-harness` is a Node.js 22+ TypeScript CLI for discovering, curating, staging, activating, and wiring reusable AI-agent assets into developer workspaces.
 
 It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, and reset behavior required by VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, and Pi.
@@ -10,6 +16,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Lifecycle model](#lifecycle-model)
 - [Supported hosts](#supported-hosts)
 - [Quick start](#quick-start)
+- [Usage examples](#usage-examples)
 - [Command reference](#command-reference)
 - [Host wire-in details](#host-wire-in-details)
 - [Discovery and recommendations](#discovery-and-recommendations)
@@ -17,6 +24,8 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Generated and managed files](#generated-and-managed-files)
 - [Repository structure](#repository-structure)
 - [Development and validation](#development-and-validation)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
 - [Current boundaries](#current-boundaries)
 - [Related documentation](#related-documentation)
 - [License](#license)
@@ -146,6 +155,71 @@ npm run workspace:pi -- --intent docs
 ```
 
 The legacy package binaries `agent-harness-vscode` and `agent-harness-opencode` were removed. Use the single adapter-driven `agent-harness workspace <host>` command instead.
+
+## Usage examples
+
+### Preview before touching a workspace
+
+Use `wire --preview` when you want to inspect planned host targets without mutating workspace files:
+
+```bash
+agent-harness wire cursor --preview
+agent-harness wire zed --preview
+agent-harness wire claude-code --preview
+```
+
+Preview output is written under `activate/<host>/` and can be reviewed before `--apply`.
+
+### Apply and reset one host
+
+```bash
+agent-harness wire cursor --apply
+agent-harness wire cursor --reset
+```
+
+Use this when activation outputs already exist and you only want to test the host adapter behavior.
+
+### Run the full pipeline for a documentation-heavy repo
+
+```bash
+agent-harness workspace zed --intent docs
+```
+
+This scans the current workspace, ranks assets with the `zed` recommendation policy, activates the OpenCode-compatible lifecycle view, and writes Zed project-local files.
+
+### Run the full pipeline for a frontend repo in Cursor
+
+```bash
+agent-harness workspace cursor --intent frontend
+```
+
+Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific recommendation policy and project-local `.cursor` rules.
+
+### Inspect why an asset was recommended
+
+```bash
+node ./dist/cli.js recommend explain --host claude-code --asset <asset-id>
+```
+
+Use this to inspect scoring reasons, matched demand signals, coverage tags, and score breakdowns.
+
+### Print the effective policy for one host
+
+```bash
+node ./dist/cli.js recommend policy:print --host pi
+```
+
+This is useful when tuning host policy overrides or investigating why a host selected different assets than another host.
+
+### Rebuild from repository state
+
+```bash
+npm run rebuild:full
+npm run recommend:report
+npm run activate:host
+```
+
+Use this sequence after changing source definitions, recommendation policy, mirror bundles, or install behavior.
 
 ## Command reference
 
@@ -771,6 +845,102 @@ npm run validate:recommendations
 ```
 
 The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, tests, scan budgets, detection quality, policy coverage, CLI smoke checks, and recommendation fixtures.
+
+## Troubleshooting
+
+### `agent-harness` command is not found
+
+Build first and run through the local `dist` entrypoint, or use npm scripts from this repository:
+
+```bash
+npm run build
+node ./dist/cli.js setup hosts
+npm run workspace:vscode -- --intent frontend
+```
+
+The only package binary is now `agent-harness`; host-specific binaries such as `agent-harness-vscode` and `agent-harness-opencode` are intentionally removed.
+
+### Host readiness diagnostics fail
+
+Run:
+
+```bash
+agent-harness setup doctor --host <host>
+```
+
+VS Code apply needs a writable VS Code user settings directory. OpenCode, Cursor, Zed, Claude Code, and Pi use project-local wiring and should not require global host profile mutation.
+
+### VS Code settings cannot be patched
+
+The VS Code adapter reads JSONC settings. If parsing fails, fix `settings.json` syntax first, then retry:
+
+```bash
+agent-harness wire vscode --preview
+agent-harness wire vscode --apply
+```
+
+The adapter avoids overwriting unrelated user settings and removes only managed entries during reset.
+
+### Preview still appears applied
+
+Preview should remove stale wire plans where the adapter owns them. If workspace files were applied earlier, use reset:
+
+```bash
+agent-harness wire <host> --reset
+agent-harness wire <host> --preview
+```
+
+### GitHub discovery is slow or rate-limited
+
+Set a token before discovery or full workspace runs:
+
+```bash
+GITHUB_PERSONAL_ACCESS_TOKEN=<token>
+```
+
+Use a least-privileged token with public repository read access unless your sources require more.
+
+### A generated host file shows up in `git status`
+
+Generated host files are ignored for this repository. If you run the harness against another workspace, decide whether that workspace should commit project-local host config. For this repository, generated files such as `.cursor/`, `.zed/`, `.claude/`, `.pi/`, `.opencode/`, `AGENTS.md`, `CLAUDE.md`, and `SYSTEM.md` are intentionally ignored.
+
+### Windows link behavior differs from Unix
+
+OpenCode uses managed directory links. On Windows, directory links are created as junctions for compatibility. The link lifecycle tests cover create, replace, and reset behavior across supported operating systems.
+
+## FAQ
+
+### Why is there one `agent-harness workspace <host>` command instead of separate binaries?
+
+A single adapter-driven command keeps CLI behavior consistent across hosts. Host-specific behavior still exists, but it lives behind the adapter registry instead of separate wrapper entrypoints.
+
+### Why are there VS Code and OpenCode-specific files in `src/host-adapters/`?
+
+Those files are intentional adapter implementations. Generic orchestration belongs in lifecycle modules; host-specific settings, file layouts, and reset behavior belong in host adapters.
+
+### Can a new adapter have its own custom behavior?
+
+Yes. Add a new implementation under `src/host-adapters/`, register it in `src/host-adapters/registry.ts`, and keep generic lifecycle orchestration unchanged.
+
+### Does `agent-harness` install VS Code extensions automatically?
+
+No. VS Code extension assets can produce metadata and install guidance, but the harness does not silently install marketplace extensions.
+
+### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
+
+They can reuse compatible install and activation package layouts while keeping independent recommendation policies and native project-local wire behavior.
+
+### Which generated files should I commit in my own project?
+
+That depends on your project policy. Project-local files such as `.cursor/rules/agent-harness.mdc`, `.rules`, `CLAUDE.md`, `AGENTS.md`, or `SYSTEM.md` can be useful to commit if your team wants shared host behavior. Review generated content before committing it.
+
+### Is OpenCode global configuration required?
+
+No. The OpenCode adapter writes a project-local `.opencode` overlay and does not require a global OpenCode config directory for apply/reset flows.
+
+### How do I know what was wired?
+
+Inspect the effective wire plan. Depending on host, it is written under `activate/<host>/wire-plan.json` or inside the host-local overlay, such as `.opencode/context/project-intelligence/agent-harness/wire-plan.json`.
 
 ## Current boundaries
 
