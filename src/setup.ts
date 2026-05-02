@@ -9,6 +9,9 @@ import {
   runHostPreflight,
 } from "./lib/preflight.js";
 
+/**
+ * Dispatches setup and doctor commands for host inventory and readiness checks.
+ */
 export async function runSetup(args: string[]): Promise<number> {
   const [command = "doctor", ...rest] = args;
 
@@ -27,6 +30,10 @@ export async function runSetup(args: string[]): Promise<number> {
   }
 }
 
+/**
+ * Prints adapter metadata and preflight diagnostics, returning whether all
+ * required checks passed.
+ */
 async function runDoctor(args: string[]): Promise<boolean> {
   const hostOptionIndex = args.indexOf("--host");
   const hostName = getOptionValue(args, "--host");

@@ -35,6 +35,9 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
   return diagnostics;
 }
 
+/**
+ * Runs adapter-specific readiness checks such as optional host CLI detection.
+ */
 export async function runAdapterPreflight(
   adapterId: string,
 ): Promise<PreflightDiagnostic[]> {
@@ -55,6 +58,10 @@ export async function runAdapterPreflight(
   return [await checkExecutableOnPath(executableName, `${adapterId}-cli`)];
 }
 
+/**
+ * Runs lifecycle-host preflight checks, optionally enforcing writable host
+ * paths for operations that mutate host-native settings.
+ */
 export async function runHostPreflight(
   host: string,
   options: { requireHostPaths?: boolean } = {},
@@ -146,6 +153,9 @@ export function formatPreflightDiagnostics(
     .join("\n");
 }
 
+/**
+ * Builds a diagnostic that reports whether a host executable is available.
+ */
 async function checkExecutableOnPath(
   executableName: string,
   code: string,
@@ -168,6 +178,9 @@ async function checkExecutableOnPath(
   };
 }
 
+/**
+ * Searches PATH for an executable, honoring PATHEXT on Windows.
+ */
 async function findExecutableOnPath(
   executableName: string,
 ): Promise<string | null> {
@@ -196,6 +209,9 @@ async function findExecutableOnPath(
   return null;
 }
 
+/**
+ * Checks file-system accessibility for a path with the requested access mode.
+ */
 export async function checkPathExists(
   pathValue: string,
   code: string,

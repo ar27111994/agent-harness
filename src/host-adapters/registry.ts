@@ -145,6 +145,9 @@ export const HOST_ADAPTERS: HostAdapter[] = [
   },
 ];
 
+/**
+ * Resolves a user-facing host target or alias to its registered adapter.
+ */
 export function resolveHostAdapter(target: string): HostAdapter | null {
   const normalizedTarget = target.toLowerCase();
   return (
@@ -156,10 +159,17 @@ export function resolveHostAdapter(target: string): HostAdapter | null {
   );
 }
 
+/**
+ * Returns a snapshot of all registered host adapters.
+ */
 export function listHostAdapters(): HostAdapter[] {
   return [...HOST_ADAPTERS];
 }
 
+/**
+ * Checks whether a catalog entry can be recommended for a host by combining
+ * direct host tags, lifecycle-host reuse, and the adapter capability matrix.
+ */
 export function isHostCompatibleWithRecommendationHost(
   entryHosts: HostTarget[],
   recommendationHost: HostTarget,
@@ -182,6 +192,9 @@ export function isHostCompatibleWithRecommendationHost(
   return adapter ? entryHosts.includes(adapter.lifecycleHost) : false;
 }
 
+/**
+ * Finds the adapter whose recommendation policy owns the requested host id.
+ */
 function getAdapterForRecommendationHost(
   recommendationHost: HostTarget,
 ): HostAdapter | null {

@@ -593,6 +593,10 @@ async function loadSourceRegistry(
   };
 }
 
+/**
+ * Merges generated local seeds with checked-in sources while refreshing
+ * machine-specific endpoints and preserving user-editable source settings.
+ */
 function mergeSourceDefinitions(
   baseRegistry: SourceRegistry,
   generatedSources: SourceDefinition[],
@@ -607,8 +611,8 @@ function mergeSourceDefinitions(
 
     if (existingIndex !== undefined) {
       mergedSources[existingIndex] = {
-        ...mergedSources[existingIndex],
         ...source,
+        ...mergedSources[existingIndex],
         endpoints: source.endpoints,
       };
       continue;
@@ -3323,6 +3327,9 @@ function extractPyProjectDependencyNames(content: string): string[] {
   return uniqueStrings(dependencyNames);
 }
 
+/**
+ * Extracts one package name from Poetry dependency table entries.
+ */
 function extractPoetryDependencyName(
   line: string,
   currentSection: string,
@@ -3345,6 +3352,9 @@ function extractPoetryDependencyName(
   return isPlainPackageName(dependencyName) ? dependencyName : null;
 }
 
+/**
+ * Identifies Poetry sections that contain runtime or grouped dependencies.
+ */
 function isPoetryDependencySection(currentSection: string): boolean {
   return (
     currentSection === "tool.poetry.dependencies" ||
@@ -3353,6 +3363,9 @@ function isPoetryDependencySection(currentSection: string): boolean {
   );
 }
 
+/**
+ * Identifies PEP 621 dependency arrays that should emit PyPI evidence.
+ */
 function isPyProjectDependencyListStart(
   line: string,
   currentSection: string,

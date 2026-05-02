@@ -299,6 +299,10 @@ function getHostPreselectionLimit(
   return Math.max(250, policy.hosts[host].recommendationLimit * 3);
 }
 
+/**
+ * Delegates host compatibility checks to the adapter registry so lifecycle-host
+ * reuse and capability exclusions stay centralized.
+ */
 function isEntryCompatibleWithRecommendationHost(
   entry: AssetCatalogEntry,
   host: RecommendationHost,

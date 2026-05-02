@@ -232,6 +232,10 @@ async function resolveOpenCodeLinkedAssets(options: {
   );
 }
 
+/**
+ * Projects shared MCP references into OpenCode wire plans without failing the
+ * project-local apply when shared activation state is stale or malformed.
+ */
 async function readSharedMcpAssetIdsBestEffort(
   projectRoot: string,
 ): Promise<string[]> {

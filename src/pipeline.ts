@@ -15,6 +15,10 @@ import type {
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
 
+/**
+ * Runs discover, mirror, install, activation, and shared activation phases for
+ * a workspace before the selected adapter performs final wire-in.
+ */
 export async function runWorkspacePipeline(options: {
   projectRoot: string;
   workspaceRoot: string;
@@ -69,6 +73,10 @@ export async function runWorkspacePipeline(options: {
   );
 }
 
+/**
+ * Repeatedly acquires mirror artifacts until the checkpoint reports completion
+ * or the safety batch limit is reached.
+ */
 async function acquireAllMirrorBatches(
   projectRoot: string,
   workspaceRoot: string,
@@ -95,6 +103,10 @@ async function acquireAllMirrorBatches(
   );
 }
 
+/**
+ * Installs every requested bundle in batches until each bundle is fully staged
+ * or the safety batch limit is reached.
+ */
 async function installBundleBatches(
   projectRoot: string,
   workspaceRoot: string,

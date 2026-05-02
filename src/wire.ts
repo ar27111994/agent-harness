@@ -11,6 +11,10 @@ import {
   runHostPreflight,
 } from "./lib/preflight.js";
 
+/**
+ * Dispatches host wire preview/apply/reset commands through the adapter
+ * registry after lifecycle and adapter readiness diagnostics run.
+ */
 export async function runWire(
   args: string[],
   workingDirectory: string,
@@ -51,6 +55,9 @@ export async function runWire(
   return 0;
 }
 
+/**
+ * Resolves mutually-exclusive wire mode flags, defaulting to apply.
+ */
 function getWireMode(args: string[]): "preview" | "apply" | "reset" {
   if (args.includes("--reset")) {
     return "reset";

@@ -724,6 +724,10 @@ function getOptionValue(
   return args[optionIndex + 1];
 }
 
+/**
+ * Reads an optional CLI flag value and fails fast when the flag is present
+ * without a concrete value.
+ */
 function getOptionalOptionValue(
   args: string[],
   optionName: string,
@@ -742,6 +746,9 @@ function getOptionalOptionValue(
   return value;
 }
 
+/**
+ * Validates a raw CLI value against every registered recommendation host id.
+ */
 function parseHostTargetOption(
   value: string | undefined,
   optionName: string,
@@ -759,10 +766,16 @@ function parseHostTargetOption(
   );
 }
 
+/**
+ * Returns whether a string is a supported recommendation host identifier.
+ */
 function isHostTarget(value: string): value is HostTarget {
   return HOST_TARGETS.includes(value as HostTarget);
 }
 
+/**
+ * Validates a raw CLI value against activation-capable lifecycle host ids.
+ */
 function parseActivationHostOption(
   value: string | undefined,
   optionName: string,
@@ -781,6 +794,9 @@ function parseActivationHostOption(
   );
 }
 
+/**
+ * Returns whether a host target can be directly materialized by activation.
+ */
 function isActivationHost(value: HostTarget): value is ActivationHost {
   return ACTIVATION_HOSTS.includes(value as ActivationHost);
 }

@@ -12,6 +12,10 @@ import {
 } from "./lib/preflight.js";
 import { runWorkspacePipeline } from "./pipeline.js";
 
+/**
+ * Runs the end-to-end lifecycle for a registered adapter and then applies its
+ * host-specific workspace wire-in.
+ */
 export async function runWorkspace(
   args: string[],
   workingDirectory: string,
@@ -73,6 +77,9 @@ Options:
   --intent <general|frontend|backend|security|docs|testing>`);
 }
 
+/**
+ * Returns a CLI option value by flag name without interpreting absent options.
+ */
 function getOptionValue(
   args: string[],
   optionName: string,

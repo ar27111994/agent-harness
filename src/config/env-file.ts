@@ -7,6 +7,11 @@ export interface DotEnvLoadResult {
   appliedKeys: string[];
 }
 
+/**
+ * Loads a `.env` file from `directory` into the provided environment object.
+ * Existing environment variables win over file values so shell/process-manager
+ * configuration can override local defaults safely.
+ */
 export async function loadDotEnvFile(
   directory: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -39,6 +44,10 @@ export async function loadDotEnvFile(
   return { path: envPath, loaded: true, appliedKeys };
 }
 
+/**
+ * Parses dotenv content into ordered key/value entries while preserving quoted
+ * multiline values as single logical assignments.
+ */
 function parseDotEnvContent(content: string): Array<[string, string]> {
   const entries: Array<[string, string]> = [];
 
@@ -52,6 +61,10 @@ function parseDotEnvContent(content: string): Array<[string, string]> {
   return entries;
 }
 
+/**
+ * Splits physical file content into dotenv logical lines by tracking quote
+ * state, escape characters, and line continuations.
+ */
 function collectDotEnvLogicalLines(content: string): string[] {
   const logicalLines: string[] = [];
   let currentLine = "";
@@ -140,6 +153,10 @@ function collectDotEnvLogicalLines(content: string): string[] {
   }
 }
 
+/**
+ * Parses one dotenv logical line, ignoring comments, blanks, malformed keys,
+ * and optional `export` prefixes.
+ */
 function parseDotEnvLine(rawLine: string): [string, string] | null {
   const trimmedLine = rawLine.trim();
 
@@ -165,6 +182,10 @@ function parseDotEnvLine(rawLine: string): [string, string] | null {
   return [key, parseDotEnvValue(rawValue)];
 }
 
+/**
+ * Normalizes a dotenv value by applying quoted-value handling or stripping
+ * inline comments from unquoted values.
+ */
 function parseDotEnvValue(rawValue: string): string {
   if (rawValue.startsWith('"')) {
     return parseQuotedDotEnvValue(rawValue, '"');
@@ -177,6 +198,10 @@ function parseDotEnvValue(rawValue: string): string {
   return stripInlineComment(rawValue).trim();
 }
 
+/**
+ * Reads a quoted dotenv value and decodes double-quoted escape sequences while
+ * preserving single-quoted content literally.
+ */
 function parseQuotedDotEnvValue(rawValue: string, quote: '"' | "'"): string {
   let value = "";
   let escaped = false;
@@ -205,6 +230,10 @@ function parseQuotedDotEnvValue(rawValue: string, quote: '"' | "'"): string {
   return value;
 }
 
+/**
+ * Converts supported dotenv double-quoted escape characters to their runtime
+ * value, leaving unknown escapes visibly escaped.
+ */
 function decodeDoubleQuotedEscape(character: string | undefined): string {
   switch (character) {
     case "n":
@@ -224,6 +253,9 @@ function decodeDoubleQuotedEscape(character: string | undefined): string {
   }
 }
 
+/**
+ * Removes an unquoted inline comment introduced by whitespace followed by `#`.
+ */
 function stripInlineComment(rawValue: string): string {
   const commentIndex = rawValue.search(/\s#/u);
   return commentIndex === -1 ? rawValue : rawValue.slice(0, commentIndex);

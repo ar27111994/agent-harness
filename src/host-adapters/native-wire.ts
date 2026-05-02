@@ -221,6 +221,10 @@ export async function wireNativeHost(
   await writeJsonFile(join(hostActivationRoot, "wire-plan.json"), wirePlan);
 }
 
+/**
+ * Reads shared MCP references for native host plans without making unrelated
+ * stale shared activation state fatal to project-local wiring.
+ */
 async function readSharedMcpAssetIdsBestEffort(
   projectRoot: string,
   hostName: string,
@@ -681,6 +685,9 @@ async function mergeJsonFile(
   await writeJsonFile(filePath, mergeJsonObjects(currentObject, patch));
 }
 
+/**
+ * Ensures an existing host settings file can be safely object-merged.
+ */
 function assertJsonObject(value: unknown, filePath: string): JsonObject {
   if (isJsonObject(value)) {
     return value;
@@ -868,6 +875,9 @@ function fileNameForAssetKind(nativeAsset: NativeAsset): string {
   }
 }
 
+/**
+ * Formats unknown errors for best-effort warning messages.
+ */
 function toLoggableErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.stack ?? `${error.name}: ${error.message}`;
