@@ -3248,6 +3248,7 @@ async function enrichRequirementsSignals(
     .split(/\r?\n/u)
     .map((line) => line.replace(/\s+#.*$/u, "").trim())
     .filter(isPlainRequirementLine)
+    .filter((line) => !isPythonDirectReference(line))
     .map((line) => line.split(/\s+@\s+|[<>=~!;[]/u)[0]?.trim())
     .filter(isPlainPackageName);
 
@@ -3285,7 +3286,12 @@ function extractPyProjectDependencyNames(content: string): string[] {
     }
 
     for (const dependencyMatch of line.matchAll(/["']([^"']+)["']/gu)) {
-      const packageName = dependencyMatch[1]
+      const dependencySpecifier = dependencyMatch[1]?.trim();
+      if (isPythonDirectReference(dependencySpecifier)) {
+        continue;
+      }
+
+      const packageName = dependencySpecifier
         ?.split(/\s+@\s+|[<>=~!;[]/u)[0]
         ?.trim();
       if (isPlainPackageName(packageName)) {
@@ -3309,6 +3315,16 @@ function isPlainRequirementLine(line: string): boolean {
     !line.startsWith("-") &&
     !line.includes("://") &&
     !/^(git\+|https?:|file:|ssh\+|\.\/|\.\.\/|\/)/iu.test(line)
+  );
+}
+
+function isPythonDirectReference(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return /\s+@\s+(?:[\\/]|\.\.?[\\/]|[a-z]:[\\/]|file:|path:|git\+|hg\+|ssh:\/\/|git:\/\/|https?:\/\/)/iu.test(
+    value,
   );
 }
 

@@ -69,10 +69,14 @@ function printHelp(): void {
   rebuild full              Clean and regenerate discover/mirror/install/activate state
   workspace vscode          Run the full pipeline for a VS Code / Copilot workspace
   workspace opencode        Run the full pipeline for an OpenCode workspace
+  workspace cursor          Run the Copilot-compatible pipeline and wire Cursor project files
+  workspace zed             Run the OpenCode-compatible pipeline and wire Zed project files
   workspace claude-code     Run the OpenCode-compatible pipeline and wire Claude Code project files
   workspace pi              Run the OpenCode-compatible pipeline and wire Pi project files
   wire vscode               Preview/apply/reset VS Code user-scoped wire-in
   wire opencode             Preview/apply/reset OpenCode project-local wire-in
+  wire cursor               Preview/apply/reset Cursor project-local wire-in
+  wire zed                  Preview/apply/reset Zed project-local wire-in
   wire claude-code          Preview/apply/reset Claude Code project-local wire-in
   wire pi                   Preview/apply/reset Pi project-local wire-in
   setup doctor              Check config, host readiness, and guided setup notes

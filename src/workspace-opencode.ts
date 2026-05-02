@@ -18,6 +18,7 @@ runWorkspacePipeline({
   workspaceRoot: workingDirectory,
   targetHost: "opencode",
   sessionIntent,
+  bundleIds: ["opencode-global", "community-stable", "shared-mcp"],
 })
   .then(() =>
     wireOpenCode({

@@ -45,6 +45,8 @@ async function runDoctor(args: string[]): Promise<boolean> {
     return false;
   }
 
+  let hasErrors = false;
+
   for (const adapter of adapters) {
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
@@ -59,13 +61,19 @@ async function runDoctor(args: string[]): Promise<boolean> {
       );
     }
 
-    const diagnostics = await runHostPreflight(adapter.lifecycleHost);
+    const diagnostics = await runHostPreflight(adapter.lifecycleHost, {
+      requireHostPaths:
+        adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+    });
     if (diagnostics.length > 0) {
       console.log(formatPreflightDiagnostics(diagnostics));
     }
+    if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
+      hasErrors = true;
+    }
   }
 
-  return true;
+  return !hasErrors;
 }
 
 function printHosts(): void {

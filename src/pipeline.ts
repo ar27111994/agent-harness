@@ -16,12 +16,13 @@ export async function runWorkspacePipeline(options: {
   workspaceRoot: string;
   targetHost: "copilot-vscode" | "opencode";
   sessionIntent: string;
+  bundleIds: string[];
 }): Promise<void> {
-  const { projectRoot, workspaceRoot, targetHost, sessionIntent } = options;
+  const { projectRoot, workspaceRoot, targetHost, sessionIntent, bundleIds } =
+    options;
   const config = getRuntimeConfig();
   const mirrorBatchSize = String(config.batches.mirrorAcquire);
   const installBatchSize = String(config.batches.installBundle);
-  const bundleIds = getBundleIdsForHost(targetHost);
 
   await runDiscover(["demand-profile"], workspaceRoot, projectRoot);
   await runDiscover(["sources"], workspaceRoot, projectRoot);
@@ -109,14 +110,4 @@ async function installBundleBatches(
       }
     }
   }
-}
-
-function getBundleIdsForHost(
-  targetHost: "copilot-vscode" | "opencode",
-): string[] {
-  if (targetHost === "copilot-vscode") {
-    return ["copilot-core", "community-stable", "shared-mcp"];
-  }
-
-  return ["opencode-global", "community-stable", "shared-mcp"];
 }

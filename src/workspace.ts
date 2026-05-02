@@ -45,6 +45,7 @@ export async function runWorkspace(
     workspaceRoot: workingDirectory,
     targetHost: hostAdapter.lifecycleHost,
     sessionIntent,
+    bundleIds: hostAdapter.defaultBundleIds,
   });
   await hostAdapter.wire({
     projectRoot,

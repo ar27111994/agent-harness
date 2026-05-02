@@ -1,3 +1,4 @@
+import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { dirname } from "node:path";
 
@@ -41,13 +42,15 @@ export async function runHostPreflight(
   const diagnostics = await runConfigPreflight();
 
   if (host === "copilot-vscode") {
+    const requireHostPaths = options.requireHostPaths ?? false;
     diagnostics.push(
       requireDiagnostic(
         await checkPathExists(
           dirname(resolveVsCodeUserSettingsPath()),
           "vscode-user-settings-directory",
+          requireHostPaths ? constants.W_OK : constants.F_OK,
         ),
-        options.requireHostPaths ?? false,
+        requireHostPaths,
       ),
       {
         severity: "info",
@@ -59,13 +62,15 @@ export async function runHostPreflight(
   }
 
   if (host === "opencode") {
+    const requireHostPaths = options.requireHostPaths ?? false;
     diagnostics.push(
       requireDiagnostic(
         await checkPathExists(
           resolveDefaultOpenCodeConfigRoot(),
           "opencode-config-directory",
+          requireHostPaths ? constants.W_OK : constants.F_OK,
         ),
-        options.requireHostPaths ?? false,
+        requireHostPaths,
       ),
       {
         severity: "info",
@@ -120,9 +125,10 @@ export function formatPreflightDiagnostics(
 export async function checkPathExists(
   pathValue: string,
   code: string,
+  mode = constants.F_OK,
 ): Promise<PreflightDiagnostic> {
   try {
-    await access(pathValue);
+    await access(pathValue, mode);
     return {
       severity: "info",
       code,

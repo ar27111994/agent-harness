@@ -18,6 +18,7 @@ runWorkspacePipeline({
   workspaceRoot: workingDirectory,
   targetHost: "copilot-vscode",
   sessionIntent,
+  bundleIds: ["copilot-core", "community-stable", "shared-mcp"],
 })
   .then(async () => {
     await wireVsCode({

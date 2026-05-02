@@ -164,6 +164,7 @@ export async function wireNativeHost(
   );
 
   if (options.mode === "preview") {
+    await removePath(join(hostActivationRoot, "wire-plan.json"));
     return;
   }
 
