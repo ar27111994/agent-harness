@@ -496,7 +496,8 @@ async function writeSourceUtilizationReport(
     configuredSourceCount: enabledSources.length,
     operationalSourceCount: sources.filter((source) => source.operational)
       .length,
-    dormantSourceCount: sources.filter((source) => !source.operational).length,
+    dormantSourceCount: sources.filter((source) => source.status === "dormant")
+      .length,
     byKind: countBy(enabledSources, (source) => source.kind),
     harvestedByKind: countBy(
       catalogEntries,

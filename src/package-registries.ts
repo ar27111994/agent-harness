@@ -122,21 +122,48 @@ function normalizePypiPackageMetadata(
       name: typeof data.info.name === "string" ? data.info.name : packageName,
       summary:
         typeof data.info.summary === "string" ? data.info.summary : undefined,
-      home_page:
-        typeof data.info.home_page === "string"
-          ? data.info.home_page
-          : undefined,
-      project_urls: normalizeStringRecord(data.info.project_urls),
+      home_page: normalizeHttpUrl(data.info.home_page),
+      project_urls: normalizeUrlRecord(data.info.project_urls),
       version:
         typeof data.info.version === "string" ? data.info.version : undefined,
       keywords:
         typeof data.info.keywords === "string" ? data.info.keywords : undefined,
-      package_url:
-        typeof data.info.package_url === "string"
-          ? data.info.package_url
-          : undefined,
+      package_url: normalizeHttpUrl(data.info.package_url),
     },
   };
+}
+
+function normalizeUrlRecord(
+  value: unknown,
+): Record<string, string> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).flatMap(([key, rawValue]) => {
+    const normalizedUrl = normalizeHttpUrl(rawValue);
+    return normalizedUrl
+      ? ([[key, normalizedUrl]] as Array<[string, string]>)
+      : [];
+  });
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function normalizeHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+    return (parsedUrl.protocol === "http:" ||
+      parsedUrl.protocol === "https:") &&
+      parsedUrl.hostname.length > 0
+      ? parsedUrl.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function normalizeStringRecord(
@@ -185,8 +212,20 @@ export function extractRepositoryUrlFromPypiMetadata(
     (value): value is string => typeof value === "string" && value.length > 0,
   );
 
-  const githubUrl = possibleUrls.find((value) => value.includes("github.com/"));
+  const githubUrl = possibleUrls.find(isGitHubRepositoryUrl);
   return githubUrl ? sanitizeRepositoryUrl(githubUrl) : undefined;
+}
+
+function isGitHubRepositoryUrl(value: string): boolean {
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.hostname.toLowerCase() === "github.com" &&
+      parsedUrl.pathname.split("/").filter(Boolean).length >= 2
+    );
+  } catch {
+    return false;
+  }
 }
 
 function sanitizeRepositoryUrl(value: string): string {

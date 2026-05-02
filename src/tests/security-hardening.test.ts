@@ -27,6 +27,31 @@ test("mirror file path resolution rejects path traversal", () => {
   );
 });
 
+test("guarded fetches preserve caller abort signals", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  let observedSignal: AbortSignal | undefined;
+
+  globalThis.fetch = async (_url, init) => {
+    observedSignal = init?.signal ?? undefined;
+    controller.abort("caller-cancelled");
+    return new Response("ok", { status: 200 });
+  };
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  await fetchTextWithGuards("https://example.com/index.txt", {
+    allowedOrigins: ["https://example.com"],
+    timeoutMs: 10_000,
+    headers: {},
+    signal: controller.signal,
+  } as Parameters<typeof fetchTextWithGuards>[1] & { signal: AbortSignal });
+
+  assert.equal(observedSignal?.aborted, true);
+  assert.equal(observedSignal?.reason, "caller-cancelled");
+});
+
 test("guarded fetches disable automatic cross-origin redirects", async (context) => {
   const originalFetch = globalThis.fetch;
   let observedRedirectMode: RequestRedirect | undefined;
@@ -56,6 +81,7 @@ test("PyPI metadata fetch validates response shape before use", async (context) 
       home_page: "https://example.com",
       project_urls: {
         Source: "https://github.com/example/project",
+        Trap: "https://evil.example/?next=https://github.com/bad/repo",
         Invalid: 42,
       },
     },
@@ -76,9 +102,21 @@ test("PyPI metadata fetch validates response shape before use", async (context) 
   assert.equal(metadata?.info.summary, "Example package");
   assert.deepEqual(metadata?.info.project_urls, {
     Source: "https://github.com/example/project",
+    Trap: "https://evil.example/?next=https://github.com/bad/repo",
   });
   assert.equal(
     metadata ? extractRepositoryUrlFromPypiMetadata(metadata) : undefined,
     "https://github.com/example/project",
+  );
+  assert.equal(
+    extractRepositoryUrlFromPypiMetadata({
+      info: {
+        name: "trap-only",
+        project_urls: {
+          Source: "https://evil.example/?next=https://github.com/bad/repo",
+        },
+      },
+    }),
+    undefined,
   );
 });

@@ -4,6 +4,7 @@ export interface FetchWithGuardsOptions {
   allowedOrigins?: readonly string[];
   headers?: HeadersInit;
   maxBytes?: number;
+  signal?: AbortSignal;
   timeoutMs?: number;
 }
 
@@ -20,12 +21,22 @@ export async function fetchWithTimeout(
   timeoutMs = DEFAULT_TIMEOUT_MS,
 ): Promise<Response> {
   const controller = new AbortController();
+  const abortFromCaller = (): void => {
+    controller.abort(options.signal?.reason);
+  };
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (options.signal?.aborted) {
+    abortFromCaller();
+  } else {
+    options.signal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
 
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timer);
+    options.signal?.removeEventListener("abort", abortFromCaller);
   }
 }
 
@@ -41,7 +52,7 @@ export async function fetchTextWithGuards(
     const parsedUrl = assertAllowedHttpUrl(url, options.allowedOrigins ?? []);
     const response = await fetchWithTimeout(
       parsedUrl.toString(),
-      { headers: options.headers, redirect: "error" },
+      { headers: options.headers, redirect: "error", signal: options.signal },
       options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     );
 
