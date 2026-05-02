@@ -62,7 +62,15 @@ const ASSET_KINDS: AssetKind[] = [
   "reference-pack",
 ];
 
-const HOST_TARGETS: HostTarget[] = ["copilot-vscode", "opencode", "shared"];
+const HOST_TARGETS: HostTarget[] = [
+  "copilot-vscode",
+  "opencode",
+  "shared",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+];
 
 const COMPATIBILITY_MODES: CompatibilityMode[] = [
   "native",
@@ -89,13 +97,7 @@ const UPSTREAM_TYPES = [
   "local",
 ] as const;
 const WIRE_PLAN_HOSTS = [
-  "copilot-vscode",
-  "opencode",
-  "shared",
-  "cursor",
-  "zed",
-  "claude-code",
-  "pi",
+  ...HOST_TARGETS,
   "vscode-user",
   "opencode-project",
 ] as const;

@@ -11,13 +11,18 @@ const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
 
 test("native host adapters are registered with expected lifecycle hosts", () => {
   assert.equal(resolveHostAdapter("cursor")?.lifecycleHost, "copilot-vscode");
+  assert.equal(resolveHostAdapter("cursor")?.recommendationHost, "cursor");
   assert.equal(resolveHostAdapter("zed")?.lifecycleHost, "opencode");
+  assert.equal(resolveHostAdapter("zed")?.recommendationHost, "zed");
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");
   assert.equal(resolveHostAdapter("claudecode")?.id, "claude-code");
   assert.equal(resolveHostAdapter("pi-coding-agent")?.id, "pi");
 
+  assert.equal(resolveHostAdapter("claude")?.recommendationHost, "claude-code");
+
   const piAdapter = resolveHostAdapter("pi");
   assert.ok(piAdapter);
+  assert.equal(piAdapter.recommendationHost, "pi");
   const piMcpCapability = piAdapter.capabilities.find(
     (capability) => capability.assetKind === "mcp-server",
   );

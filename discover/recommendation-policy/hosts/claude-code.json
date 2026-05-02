@@ -1,0 +1,54 @@
+{
+  "$schema": "../../schema/recommendation-host-policy-override.schema.json",
+  "schemaVersion": 1,
+  "host": "claude-code",
+  "presetRefs": {
+    "targetConcerns": ["delivery-core"]
+  },
+  "policy": {
+    "recommendationLimit": 120,
+    "activationBudget": 100,
+    "suggestedBundleId": "opencode-global",
+    "maxPerSourceFamily": 8,
+    "maxPerDuplicateGroup": 6,
+    "maxPerAssetKind": {
+      "skill": 32,
+      "instruction": 18,
+      "plugin": 8,
+      "agent": 16,
+      "workflow": 14,
+      "hook": 10,
+      "mcp-server": 10,
+      "extension": 3,
+      "prompt-pack": 10,
+      "reference-pack": 8
+    },
+    "targetAssetKinds": [
+      {
+        "assetKind": "skill",
+        "minimum": 12,
+        "weight": 3
+      },
+      {
+        "assetKind": "agent",
+        "minimum": 8,
+        "weight": 3
+      },
+      {
+        "assetKind": "workflow",
+        "minimum": 6,
+        "weight": 3
+      },
+      {
+        "assetKind": "instruction",
+        "minimum": 6,
+        "weight": 2
+      },
+      {
+        "assetKind": "plugin",
+        "minimum": 4,
+        "weight": 2
+      }
+    ]
+  }
+}

@@ -50,6 +50,7 @@ async function runDoctor(args: string[]): Promise<boolean> {
   for (const adapter of adapters) {
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
+    console.log(`Recommendation host: ${adapter.recommendationHost}`);
     console.log(
       `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
     );

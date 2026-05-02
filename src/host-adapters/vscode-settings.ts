@@ -7,7 +7,7 @@ import {
   pathExists,
   readTextFileOrNull,
   writeTextFile,
-} from "./files.js";
+} from "../files.js";
 
 export async function readVsCodeSettings(
   settingsPath: string,

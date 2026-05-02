@@ -18,7 +18,7 @@ Scope of the original assessment:
 
 ## v1.0.0 Status Update
 
-The `release/v1.0.0` execution wave closes the highest-priority roadmap gaps for portability, generic discovery, source utilization, measurable detection quality, host adapter extensibility, and native project-local wire-in. In particular, VS Code/Copilot and OpenCode have native wire-in flows, while Cursor, Zed, Claude Code, and Pi now use the same host adapter model to write project-local native host files and host-specific wire plans.
+The `release/v1.0.0` execution wave closes the highest-priority roadmap gaps for portability, generic discovery, source utilization, measurable detection quality, host adapter extensibility, and native project-local wire-in. In particular, VS Code/Copilot and OpenCode have native wire-in flows, while Cursor, Zed, Claude Code, and Pi now use the same host adapter model to write project-local native host files, host-specific wire plans, and independently tuned recommendation policies.
 
 The gap matrices below are retained for traceability. Their evidence cells describe the original 2026-04-19 baseline, while the verdict table summarizes the current v1.0.0 status.
 
@@ -31,7 +31,7 @@ The gap matrices below are retained for traceability. Their evidence cells descr
 | Is Source Discovery and Stack Detection robust enough for almost any project?                       | Measurable and extensible   | Detection has modular detector packs, archetype fixtures, benchmark coverage, and quality reporting; long-tail domains remain future expansion areas.    |
 | Are the configured sources generic enough because several marketplaces are included?                | Operationally clearer       | Source utilization reporting distinguishes configured sources from actually harvested sources, and docs/registry/package inputs now contribute evidence. |
 | How automatic is plugin, extension, and MCP Server setup through wire-in today?                     | Native file wiring is broad | The pipeline separates stage/activate/wire/native-install, projects shared MCP references, and writes native project-local host files where supported.   |
-| Can this be extended easily to more AI agents and IDEs?                                             | Yes through host adapters   | Cursor, Zed, Claude Code, and Pi now prove the adapter surface beyond VS Code/Copilot and OpenCode.                                                      |
+| Can this be extended easily to more AI agents and IDEs?                                             | Yes through host adapters   | Cursor, Zed, Claude Code, and Pi now prove the adapter surface beyond VS Code/Copilot and OpenCode, including independent recommendation tuning.         |
 | Is the current single-folder source layout scalable enough for further growth?                      | Improved, not finished      | New config, discovery, wire, host-adapter, path, and preflight seams exist; further file-size reduction remains a follow-up.                             |
 
 ## Gap Matrix 1: Linux and macOS Portability

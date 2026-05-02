@@ -44,6 +44,7 @@ The suggestions below are refinements, enhancements, and operational improvement
 - Overlay plans exist for OpenCode, Copilot, shared runtime, Cursor, Zed, Claude Code, and Pi.
 - Copilot activation is recommendation-informed and budget-aware.
 - Cursor, Zed, Claude Code, and Pi have project-local native auto-wiring backed by the host adapter registry.
+- Each registered host has an independent recommendation policy override, even when it reuses a Copilot-compatible or OpenCode-compatible lifecycle host for install materialization.
 
 ### Overlay planning value
 
@@ -256,7 +257,7 @@ The suggestions below are refinements, enhancements, and operational improvement
 - Dynamic asset pruning by prompt budget.
 - Workspace overlays tied to active repo characteristics.
 - Split overlays by concern: frontend/backend/security/docs/test/etc.
-- Profile-specific bundle routing for Copilot.
+- Richer per-host bundle routing beyond the current adapter default bundle lists.
 - Richer OpenCode global-harness vs task-harness activation choices.
 
 ---
@@ -488,8 +489,9 @@ Primary file touch points:
 - `src/activate.ts`
 - `src/workspace-opencode.ts`
 - `src/workspace-vscode.ts`
-- `src/host-opencode.ts`
-- `src/host-vscode.ts`
+- `src/host-adapters/opencode.ts`
+- `src/host-adapters/vscode.ts`
+- `src/host-adapters/native-wire.ts`
 - `activate/`
 
 Success criteria:

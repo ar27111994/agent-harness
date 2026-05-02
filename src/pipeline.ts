@@ -6,7 +6,11 @@ import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
 import { runInstall } from "./install.js";
 import { runActivate } from "./activate.js";
-import type { InstallProgressState, MirrorAcquireState } from "./types.js";
+import type {
+  HostTarget,
+  InstallProgressState,
+  MirrorAcquireState,
+} from "./types.js";
 
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
@@ -15,11 +19,18 @@ export async function runWorkspacePipeline(options: {
   projectRoot: string;
   workspaceRoot: string;
   targetHost: "copilot-vscode" | "opencode";
+  recommendationHost: HostTarget;
   sessionIntent: string;
   bundleIds: string[];
 }): Promise<void> {
-  const { projectRoot, workspaceRoot, targetHost, sessionIntent, bundleIds } =
-    options;
+  const {
+    projectRoot,
+    workspaceRoot,
+    targetHost,
+    recommendationHost,
+    sessionIntent,
+    bundleIds,
+  } = options;
   const config = getRuntimeConfig();
   const mirrorBatchSize = String(config.batches.mirrorAcquire);
   const installBatchSize = String(config.batches.installBundle);
@@ -39,7 +50,15 @@ export async function runWorkspacePipeline(options: {
   );
   await runInstall(["reconcile"], workspaceRoot, projectRoot);
   await runActivate(
-    ["host", "--host", targetHost, "--intent", sessionIntent],
+    [
+      "host",
+      "--host",
+      targetHost,
+      "--recommendation-host",
+      recommendationHost,
+      "--intent",
+      sessionIntent,
+    ],
     workspaceRoot,
     projectRoot,
   );

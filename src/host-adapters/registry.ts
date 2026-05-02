@@ -1,6 +1,6 @@
-import type { AssetKind } from "../types.js";
-import { wireOpenCode } from "../host-opencode.js";
-import { wireVsCode } from "../host-vscode.js";
+import type { AssetKind, HostTarget } from "../types.js";
+import { wireOpenCode } from "./opencode.js";
+import { wireVsCode } from "./vscode.js";
 import { wireNativeHost } from "./native-wire.js";
 
 export type LifecycleHost = "copilot-vscode" | "opencode";
@@ -22,6 +22,7 @@ export interface HostAdapter {
   aliases: string[];
   displayName: string;
   lifecycleHost: LifecycleHost;
+  recommendationHost: HostTarget;
   defaultBundleIds: string[];
   mutatesHostPaths: boolean;
   requiresLifecycleHostPaths?: boolean;
@@ -70,6 +71,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: ["vscode", "copilot"],
     displayName: "GitHub Copilot in VS Code",
     lifecycleHost: "copilot-vscode",
+    recommendationHost: "copilot-vscode",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: true,
@@ -81,6 +83,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: ["open-code"],
     displayName: "OpenCode",
     lifecycleHost: "opencode",
+    recommendationHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: true,
@@ -92,6 +95,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: [],
     displayName: "Cursor",
     lifecycleHost: "copilot-vscode",
+    recommendationHost: "cursor",
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
@@ -103,6 +107,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: [],
     displayName: "Zed",
     lifecycleHost: "opencode",
+    recommendationHost: "zed",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
@@ -114,6 +119,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: ["claude", "claudecode"],
     displayName: "Claude Code",
     lifecycleHost: "opencode",
+    recommendationHost: "claude-code",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
@@ -125,6 +131,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     aliases: ["pi-coding-agent"],
     displayName: "Pi",
     lifecycleHost: "opencode",
+    recommendationHost: "pi",
     defaultBundleIds: ["opencode-global", "community-stable"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,

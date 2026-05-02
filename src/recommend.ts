@@ -37,6 +37,7 @@ import type {
   RecommendationSuggestedBundle,
   RecommendationTargetAssetKindPreference,
   RecommendationTargetConcernPreference,
+  HostTarget,
 } from "./types.js";
 
 const LEGACY_POLICY_FILE_PATH = [
@@ -58,7 +59,15 @@ const EVALUATION_FILE_PATH = [
   "state",
   "recommendation-evaluation.json",
 ] as const;
-const RECOMMENDATION_HOSTS = ["opencode", "copilot-vscode", "shared"] as const;
+const RECOMMENDATION_HOSTS = [
+  "opencode",
+  "copilot-vscode",
+  "shared",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+] as const satisfies readonly HostTarget[];
 const FOCUSED_BUCKET_LIMIT = 20;
 const GENERIC_CAPABILITY_TERMS = new Set([
   "agent",
@@ -214,8 +223,15 @@ function buildTopRecommendationsForHost(
   policy: RecommendationPolicy,
 ): RecommendationEntry[] {
   const candidates = entries
-    .filter((entry) => entry.hosts.includes(host))
+    .filter((entry) => isEntryCompatibleWithRecommendationHost(entry, host))
     .filter((entry) => entry.compatibilityMode !== "incompatible")
+    .sort(
+      (left, right) =>
+        computeEntryPreselectionScore(right) -
+          computeEntryPreselectionScore(left) ||
+        left.id.localeCompare(right.id),
+    )
+    .slice(0, getHostPreselectionLimit(host, policy))
     .map((entry) =>
       buildCandidateRecommendation(entry, host, demandContext, policy),
     )
@@ -248,6 +264,43 @@ function buildTopRecommendationsForHost(
     matchedSignals: candidate.matchedSignals,
     scoreBreakdown: candidate.breakdown,
   }));
+}
+
+function computeEntryPreselectionScore(entry: AssetCatalogEntry): number {
+  return (
+    entry.trust.score +
+    entry.source.sourcePriority +
+    entry.fit.portfolioFit * 100 +
+    entry.fit.hostFit * 60 -
+    entry.contextCost.estimatedPromptWeight -
+    (entry.risk.level === "high" ? 24 : entry.risk.level === "medium" ? 10 : 0)
+  );
+}
+
+function getHostPreselectionLimit(
+  host: RecommendationHost,
+  policy: RecommendationPolicy,
+): number {
+  return Math.max(250, policy.hosts[host].recommendationLimit * 3);
+}
+
+function isEntryCompatibleWithRecommendationHost(
+  entry: AssetCatalogEntry,
+  host: RecommendationHost,
+): boolean {
+  if (entry.hosts.includes(host)) {
+    return true;
+  }
+
+  if (host === "cursor") {
+    return entry.hosts.includes("copilot-vscode");
+  }
+
+  if (host === "zed" || host === "claude-code" || host === "pi") {
+    return entry.hosts.includes("opencode");
+  }
+
+  return false;
 }
 
 function selectCandidatesForHost(

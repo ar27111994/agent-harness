@@ -3,7 +3,7 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
-import { wireVsCode } from "./host-vscode.js";
+import { resolveHostAdapter } from "./host-adapters/registry.js";
 import { runWorkspacePipeline } from "./pipeline.js";
 
 const [, , ...args] = process.argv;
@@ -12,16 +12,22 @@ const sessionIntent =
   intentIndex >= 0 ? (args[intentIndex + 1] ?? "general") : "general";
 const projectRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
 const workingDirectory = process.cwd();
+const hostAdapter = resolveHostAdapter("vscode");
+
+if (!hostAdapter) {
+  throw new Error("VS Code host adapter is not registered.");
+}
 
 runWorkspacePipeline({
   projectRoot,
   workspaceRoot: workingDirectory,
-  targetHost: "copilot-vscode",
+  targetHost: hostAdapter.lifecycleHost,
+  recommendationHost: hostAdapter.recommendationHost,
   sessionIntent,
-  bundleIds: ["copilot-core", "community-stable", "shared-mcp"],
+  bundleIds: hostAdapter.defaultBundleIds,
 })
   .then(async () => {
-    await wireVsCode({
+    await hostAdapter.wire({
       projectRoot,
       workspaceRoot: workingDirectory,
       mode: "apply",

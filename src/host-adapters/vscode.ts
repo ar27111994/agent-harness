@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { basename, dirname, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 
-import { resolveAssetContent } from "./asset-content.js";
+import { resolveAssetContent } from "../asset-content.js";
 import {
   ensureDirectory,
   readJsonFileOrNull,
@@ -12,24 +12,24 @@ import {
   toPosixPath,
   writeJsonFile,
   writeTextFile,
-} from "./files.js";
+} from "../files.js";
 import type {
   AssetCatalogEntry,
   CopilotWorkspaceOverlayManifest,
   CopilotWorkspaceProfileManifest,
   WirePlanManifest,
   WirePreviewManifest,
-} from "./types.js";
+} from "../types.js";
 import {
   formatExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
   isValidVsCodeExtensionId,
-} from "./host-adapters/extension-installer.js";
+} from "./extension-installer.js";
 import {
   toHomeRelativePath,
   resolveVsCodeUserSettingsPath,
-} from "./lib/paths.js";
-import { readSharedMcpAssetIds } from "./lib/shared-mcp.js";
+} from "../lib/paths.js";
+import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
 const VSCODE_USER_SETTINGS_PATH = resolveVsCodeUserSettingsPath();

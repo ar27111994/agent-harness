@@ -280,6 +280,10 @@ JSON blob:
 - `discover/recommendation-policy/hosts/copilot-vscode.json`
 - `discover/recommendation-policy/hosts/opencode.json`
 - `discover/recommendation-policy/hosts/shared.json`
+- `discover/recommendation-policy/hosts/cursor.json`
+- `discover/recommendation-policy/hosts/zed.json`
+- `discover/recommendation-policy/hosts/claude-code.json`
+- `discover/recommendation-policy/hosts/pi.json`
 - `discover/schema/recommendation-policy-base.schema.json`
 - `discover/schema/recommendation-host-policy-override.schema.json`
 
@@ -288,9 +292,12 @@ Each host file holds only the host-specific policy override. `base.json` can
 also define optional reusable presets for `targetConcerns` and
 `targetAssetKinds`, and host files can reference them through `presetRefs`
 before applying local override entries. At runtime the loader composes these
-files into the same `RecommendationPolicy` shape used by the scorer. The
-recommender still accepts the legacy `discover/recommendation-policy.json`
-path as a fallback if only the old file exists.
+files into the same `RecommendationPolicy` shape used by the scorer. Cursor,
+Zed, Claude Code, and Pi have independent recommendation hosts even when they
+reuse a Copilot-compatible or OpenCode-compatible lifecycle host for install and
+activation materialization. The recommender still accepts the legacy
+`discover/recommendation-policy.json` path as a fallback if only the old file
+exists.
 
 ### Mirror
 
@@ -647,6 +654,13 @@ agent-harness/
 ├── activate/
 ├── state/
 ├── src/
+│   ├── host-adapters/
+│   │   ├── registry.ts
+│   │   ├── vscode.ts
+│   │   ├── vscode-settings.ts
+│   │   ├── opencode.ts
+│   │   └── native-wire.ts
+│   └── ...
 ├── package.json
 ├── tsconfig.json
 └── IMPLEMENTATION-PLAN.md

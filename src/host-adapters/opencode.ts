@@ -13,9 +13,9 @@ import {
   toPosixPath,
   writeJsonFile,
   writeTextFile,
-} from "./files.js";
-import { assertWirePlanManifest } from "./manifest-validation.js";
-import { readSharedMcpAssetIds } from "./lib/shared-mcp.js";
+} from "../files.js";
+import { assertWirePlanManifest } from "../manifest-validation.js";
+import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import type {
   ActivationManifest,
   AssetKind,
@@ -23,7 +23,7 @@ import type {
   InstalledPackageManifest,
   WirePlanManifest,
   WirePreviewManifest,
-} from "./types.js";
+} from "../types.js";
 
 const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
   agent: "agents",

@@ -601,7 +601,7 @@ function validateHost(
   if (!value) {
     return undefined;
   }
-  if (!ALLOWED_HOSTS.includes(value as BundleLock["host"])) {
+  if (!ALLOWED_HOSTS.includes(value as (typeof ALLOWED_HOSTS)[number])) {
     throw new Error(
       `Invalid host value: ${value}. Must be one of: ${ALLOWED_HOSTS.join(", ")}`,
     );

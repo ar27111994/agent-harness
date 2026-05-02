@@ -27,7 +27,14 @@ export type AssetKind =
   | "prompt-pack"
   | "reference-pack";
 
-export type HostTarget = "copilot-vscode" | "opencode" | "shared";
+export type HostTarget =
+  | "copilot-vscode"
+  | "opencode"
+  | "shared"
+  | "cursor"
+  | "zed"
+  | "claude-code"
+  | "pi";
 
 export type CompatibilityMode =
   | "native"

@@ -44,6 +44,7 @@ export async function runWorkspace(
     projectRoot,
     workspaceRoot: workingDirectory,
     targetHost: hostAdapter.lifecycleHost,
+    recommendationHost: hostAdapter.recommendationHost,
     sessionIntent,
     bundleIds: hostAdapter.defaultBundleIds,
   });

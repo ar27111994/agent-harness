@@ -25,6 +25,7 @@ import type {
   CopilotWorkspaceProfileManifest,
   InstallGenerationManifest,
   InstalledBundleManifest,
+  HostTarget,
   InstalledPackageManifest,
   RecommendationEntry,
   RecommendationReport,
@@ -70,6 +71,10 @@ async function activateHosts(
   args: string[] = [],
 ): Promise<void> {
   const sessionIntent = getOptionValue(args, "--intent") ?? "general";
+  const requestedRecommendationHost = getOptionValue(
+    args,
+    "--recommendation-host",
+  ) as HostTarget | undefined;
   const requestedHost = getOptionValue(args, "--host") as
     | "opencode"
     | "copilot-vscode"
@@ -85,6 +90,7 @@ async function activateHosts(
       host,
       getDefaultBundleIdsForHost(host),
       sessionIntent,
+      requestedRecommendationHost ?? host,
     );
   }
 
@@ -98,6 +104,7 @@ async function activateHost(
   host: "opencode" | "copilot-vscode" | "shared",
   bundleIds: string[],
   sessionIntent: string,
+  recommendationHost: HostTarget = host,
 ): Promise<void> {
   const activeAssets = new Set<string>();
   const runtimeRoot = join(projectRoot, "activate", host);
@@ -107,13 +114,14 @@ async function activateHost(
     assertRecommendationReport,
   );
   const activationBudget =
-    recommendationReport?.hostSummaries[host]?.activationBudget ??
+    recommendationReport?.hostSummaries[recommendationHost]?.activationBudget ??
     getActivationBudget(host);
   const currentGeneration = await readJsonFileOrNull<InstallGenerationManifest>(
     join(projectRoot, "install", "generations", host, "current.json"),
     assertInstallGenerationManifest,
   );
-  const recommendationEntries = recommendationReport?.topByHost[host] ?? [];
+  const recommendationEntries =
+    recommendationReport?.topByHost[recommendationHost] ?? [];
   const preferredAssetOrder = new Map(
     recommendationEntries.map((entry, index) => [
       entry.assetId,
@@ -125,7 +133,7 @@ async function activateHost(
   );
   const activeBundleIds = filterBundleIdsForHost(
     bundleIds,
-    host,
+    recommendationHost,
     recommendationReport,
   );
   const candidates: Array<{
@@ -192,6 +200,7 @@ async function activateHost(
           ? "global-harness-overlay"
           : "shared-runtime-overlay",
     sessionIntent,
+    recommendationHost,
     concernBuckets: buildConcernBuckets(
       selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
       recommendationEntryByAssetId,
@@ -306,7 +315,7 @@ async function activateHost(
 
 function filterBundleIdsForHost(
   bundleIds: string[],
-  host: "opencode" | "copilot-vscode" | "shared",
+  host: HostTarget,
   recommendationReport: RecommendationReport | null,
 ): string[] {
   const suggestedBundleIds = new Set(
@@ -331,7 +340,12 @@ function printActivateHelp(): void {
   diff      Compare current host activation to the previous activation view
   explain   Explain whether an asset is active for a host
   rollback  Point a host to a previous install generation
-  reset     Remove activation outputs`);
+  reset     Remove activation outputs
+
+Options:
+  --host <copilot-vscode|opencode|shared>
+  --recommendation-host <host-policy-id>
+  --intent <general|frontend|backend|security|docs|testing>`);
 }
 
 function getDefaultBundleIdsForHost(

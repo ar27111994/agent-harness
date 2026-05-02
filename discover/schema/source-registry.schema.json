@@ -83,7 +83,15 @@
             "minItems": 1,
             "items": {
               "type": "string",
-              "enum": ["copilot-vscode", "opencode", "shared"]
+              "enum": [
+                "copilot-vscode",
+                "opencode",
+                "shared",
+                "cursor",
+                "zed",
+                "claude-code",
+                "pi"
+              ]
             }
           },
           "assetKinds": {

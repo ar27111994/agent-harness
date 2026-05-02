@@ -14,7 +14,15 @@
     },
     "host": {
       "type": "string",
-      "enum": ["copilot-vscode", "opencode", "shared"]
+      "enum": [
+        "copilot-vscode",
+        "opencode",
+        "shared",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ]
     },
     "presetRefs": {
       "type": "object",
