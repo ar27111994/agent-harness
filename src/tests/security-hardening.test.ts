@@ -17,6 +17,10 @@ test("mirror file path resolution rejects path traversal", () => {
     resolveSafeMirrorFilePath(rawRoot, "nested/SKILL.md"),
     resolve(rawRoot, "nested", "SKILL.md"),
   );
+  assert.equal(
+    resolveSafeMirrorFilePath(rawRoot, "..foo/SKILL.md"),
+    resolve(rawRoot, "..foo", "SKILL.md"),
+  );
   assert.throws(
     () => resolveSafeMirrorFilePath(rawRoot, "../outside.txt"),
     /outside raw root/u,

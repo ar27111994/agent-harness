@@ -131,8 +131,20 @@ async function installBundleBatches(
       const progressState = await readJsonFileOrNull<InstallProgressState>(
         join(projectRoot, ...INSTALL_PROGRESS_STATE_PATH),
       );
-      const bundleState = progressState?.bundles[bundleId];
-      if (bundleState && bundleState.remainingAssets <= 0) {
+      if (!progressState) {
+        throw new Error(
+          `install bundle did not produce progress state for bundle '${bundleId}'`,
+        );
+      }
+
+      const bundleState = progressState.bundles[bundleId];
+      if (!bundleState) {
+        throw new Error(
+          `install bundle did not produce progress for bundle '${bundleId}'`,
+        );
+      }
+
+      if (bundleState.remainingAssets <= 0) {
         break;
       }
 

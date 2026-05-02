@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
@@ -793,7 +793,8 @@ export function resolveSafeMirrorFilePath(
 
   if (
     relativeTarget.length === 0 ||
-    relativeTarget.startsWith("..") ||
+    relativeTarget === ".." ||
+    relativeTarget.startsWith(`..${sep}`) ||
     isAbsolute(relativeTarget)
   ) {
     throw new Error(
