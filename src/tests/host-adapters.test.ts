@@ -62,11 +62,7 @@ test("native adapters write host-specific project files and wire plans", async (
       await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
       await assert.rejects(
         readFile(join(activationRoot, "wire-plan.json"), "utf8"),
-        (error: unknown) =>
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          error.code === "ENOENT",
+        { code: "ENOENT" },
       );
     }
   } finally {

@@ -52,11 +52,6 @@ export async function wireOpenCode(options: {
 }): Promise<void> {
   const { projectRoot, workspaceRoot, mode } = options;
   const activationRoot = join(projectRoot, "activate", "opencode");
-  const activationManifest = await readJsonFileOrNull<ActivationManifest>(
-    join(activationRoot, "activation-manifest.json"),
-  );
-  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
-
   const localOverlayRoot = join(workspaceRoot, ".opencode");
   const localContextRoot = join(
     localOverlayRoot,
@@ -107,6 +102,11 @@ export async function wireOpenCode(options: {
   await removeManagedAgentsSection(localAgentsPath);
   await removeManagedLinks(previousWirePlan?.linkedPaths ?? []);
   await ensureDirectory(localContextRoot);
+
+  const activationManifest = await readJsonFileOrNull<ActivationManifest>(
+    join(activationRoot, "activation-manifest.json"),
+  );
+  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
 
   await writeJsonFile(
     join(localContextRoot, "activation-manifest.json"),

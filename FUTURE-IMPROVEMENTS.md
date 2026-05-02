@@ -487,8 +487,8 @@ Suggested work:
 Primary file touch points:
 
 - `src/activate.ts`
-- `src/workspace-opencode.ts`
-- `src/workspace-vscode.ts`
+- `src/workspace.ts`
+- `src/pipeline.ts`
 - `src/host-adapters/opencode.ts`
 - `src/host-adapters/vscode.ts`
 - `src/host-adapters/native-wire.ts`

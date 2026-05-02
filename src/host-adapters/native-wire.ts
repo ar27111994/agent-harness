@@ -542,6 +542,8 @@ function buildNativeWirePlan(options: {
     agentFiles: options.materializedAssets.agentFiles.map(toPosixPath),
     skillDirs: options.materializedAssets.skillDirs.map(toPosixPath),
     pluginDirs: options.materializedAssets.pluginDirs.map(toPosixPath),
+    workflowFiles: options.materializedAssets.workflowFiles.map(toPosixPath),
+    referenceFiles: options.materializedAssets.referenceFiles.map(toPosixPath),
     hookFiles: options.materializedAssets.hookFiles.map(toPosixPath),
     mcpServers: options.materializedAssets.mcpServers,
     nativeInstallActions: [

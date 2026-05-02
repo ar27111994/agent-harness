@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - routed ad hoc environment access through the centralized config module
 - replaced checked-in workstation-specific local source paths with home-relative defaults
 - split new architecture, discovery, wire, host adapter, config, and preflight work into package-style seams, including host-native implementations under `src/host-adapters/`
+- consolidated workspace execution on `agent-harness workspace <host>`, removed legacy `agent-harness-vscode` and `agent-harness-opencode` package binaries, and added workspace scripts for all registered adapters
 - ignored local environment files and generated project-local native host wiring artifacts for Cursor, Zed, Claude Code, and Pi to prevent accidental commits from local smoke runs
 - extended Copilot workspace profiles and wire plans to distinguish plugins, extensions, native install actions, and shared MCP assets
 - expanded detection quality fixtures to cover roadmap archetypes and made recommendation policy tuning evidence-driven instead of ad hoc

@@ -3273,11 +3273,19 @@ async function enrichPyProjectSignals(
 
 function extractPyProjectDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
+  let currentSection = "";
   let inDependencyList = false;
 
   for (const rawLine of content.split(/\r?\n/u)) {
     const line = rawLine.replace(/\s+#.*$/u, "").trim();
-    if (/^(dependencies|requires)\s*=\s*\[/u.test(line)) {
+    const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
+    if (sectionMatch) {
+      currentSection = sectionMatch[1]?.trim() ?? "";
+      inDependencyList = false;
+      continue;
+    }
+
+    if (isPyProjectDependencyListStart(line, currentSection)) {
       inDependencyList = true;
     }
 
@@ -3306,6 +3314,21 @@ function extractPyProjectDependencyNames(content: string): string[] {
   }
 
   return uniqueStrings(dependencyNames);
+}
+
+function isPyProjectDependencyListStart(
+  line: string,
+  currentSection: string,
+): boolean {
+  if (currentSection === "project") {
+    return /^dependencies\s*=\s*\[/u.test(line);
+  }
+
+  if (currentSection === "project.optional-dependencies") {
+    return /^[A-Za-z0-9_.-]+\s*=\s*\[/u.test(line);
+  }
+
+  return false;
 }
 
 function isPlainRequirementLine(line: string): boolean {

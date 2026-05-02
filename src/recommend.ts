@@ -225,19 +225,33 @@ function buildTopRecommendationsForHost(
   const candidates = entries
     .filter((entry) => isEntryCompatibleWithRecommendationHost(entry, host))
     .filter((entry) => entry.compatibilityMode !== "incompatible")
+    .map((entry) => {
+      const candidate = buildCandidateRecommendation(
+        entry,
+        host,
+        demandContext,
+        policy,
+      );
+
+      return candidate
+        ? { candidate, preselectionScore: computeEntryPreselectionScore(entry) }
+        : null;
+    })
+    .filter(
+      (
+        candidate,
+      ): candidate is {
+        candidate: CandidateRecommendation;
+        preselectionScore: number;
+      } => candidate !== null,
+    )
     .sort(
       (left, right) =>
-        computeEntryPreselectionScore(right) -
-          computeEntryPreselectionScore(left) ||
-        left.id.localeCompare(right.id),
+        right.preselectionScore - left.preselectionScore ||
+        left.candidate.entry.id.localeCompare(right.candidate.entry.id),
     )
     .slice(0, getHostPreselectionLimit(host, policy))
-    .map((entry) =>
-      buildCandidateRecommendation(entry, host, demandContext, policy),
-    )
-    .filter(
-      (candidate): candidate is CandidateRecommendation => candidate !== null,
-    )
+    .map(({ candidate }) => candidate)
     .sort(
       (left, right) =>
         right.breakdown.total - left.breakdown.total ||

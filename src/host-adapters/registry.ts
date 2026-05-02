@@ -86,7 +86,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     recommendationHost: "opencode",
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
-    requiresLifecycleHostPaths: true,
+    requiresLifecycleHostPaths: false,
     capabilities: opencodeCapabilities,
     wire: wireOpenCode,
   },
@@ -99,7 +99,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
-    capabilities: vscodeCapabilities,
+    capabilities: [],
     wire: (options) => wireNativeHost("cursor", options),
   },
   {

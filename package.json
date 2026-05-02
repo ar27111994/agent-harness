@@ -6,9 +6,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "agent-harness": "./dist/cli.js",
-    "agent-harness-vscode": "./dist/workspace-vscode.js",
-    "agent-harness-opencode": "./dist/workspace-opencode.js"
+    "agent-harness": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -46,8 +44,12 @@
     "activate:reset": "node ./dist/cli.js activate reset",
     "rebuild:clean": "node ./dist/cli.js rebuild clean",
     "rebuild:full": "node ./dist/cli.js rebuild full",
-    "workspace:vscode": "node ./dist/workspace-vscode.js",
-    "workspace:opencode": "node ./dist/workspace-opencode.js",
+    "workspace:vscode": "node ./dist/cli.js workspace vscode",
+    "workspace:opencode": "node ./dist/cli.js workspace opencode",
+    "workspace:cursor": "node ./dist/cli.js workspace cursor",
+    "workspace:zed": "node ./dist/cli.js workspace zed",
+    "workspace:claude-code": "node ./dist/cli.js workspace claude-code",
+    "workspace:pi": "node ./dist/cli.js workspace pi",
     "setup:doctor": "node ./dist/cli.js setup doctor",
     "setup:hosts": "node ./dist/cli.js setup hosts",
     "wire:vscode": "node ./dist/cli.js wire vscode --apply",

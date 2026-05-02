@@ -151,7 +151,7 @@ From any target workspace:
 #### VS Code / GitHub Copilot
 
 ```bash
-agent-harness-vscode --intent frontend
+agent-harness workspace vscode --intent frontend
 ```
 
 or from this repository:
@@ -163,7 +163,7 @@ npm run workspace:vscode -- --intent frontend
 #### OpenCode
 
 ```bash
-agent-harness-opencode --intent backend
+agent-harness workspace opencode --intent backend
 ```
 
 or from this repository:
@@ -172,7 +172,7 @@ or from this repository:
 npm run workspace:opencode -- --intent backend
 ```
 
-#### Generic wrapper form
+#### Adapter-driven workspace commands
 
 ```bash
 agent-harness workspace vscode --intent docs
@@ -183,9 +183,11 @@ agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
 ```
 
-VS Code and OpenCode apply native wire-in flows. Cursor, Zed, Claude Code, and Pi are also registered through the host adapter model and write project-local native host files while reusing the nearest compatible lifecycle host.
+Equivalent repository scripts are available as `workspace:vscode`, `workspace:opencode`, `workspace:cursor`, `workspace:zed`, `workspace:claude-code`, and `workspace:pi`.
 
-These wrappers currently execute the full pipeline for the target workspace:
+VS Code and OpenCode apply native wire-in flows. Cursor, Zed, Claude Code, and Pi are also registered through the host adapter model and write project-local native host files while reusing the nearest compatible lifecycle host. The legacy `agent-harness-vscode` and `agent-harness-opencode` package binaries have been removed in favor of the single adapter-driven `agent-harness workspace <host>` command.
+
+These workspace commands currently execute the full pipeline for the target workspace:
 
 1. demand profile
 2. source index
@@ -323,6 +325,19 @@ npm run activate:reset
 node ./dist/cli.js activate rollback --host opencode --generation <generation-id>
 ```
 
+### Workspace
+
+```bash
+npm run workspace:vscode -- --intent frontend
+npm run workspace:opencode -- --intent backend
+npm run workspace:cursor -- --intent frontend
+npm run workspace:zed -- --intent docs
+npm run workspace:claude-code -- --intent backend
+npm run workspace:pi -- --intent docs
+```
+
+These scripts all dispatch through `node ./dist/cli.js workspace <host>`.
+
 ### Rebuild / operations
 
 ```bash
@@ -449,18 +464,15 @@ Lifecycle mapping:
 - Zed, Claude Code, and Pi reuse the OpenCode-compatible lifecycle host.
 - Pi stages MCP assets as references only unless your Pi installation includes an MCP extension, because Pi does not ship with built-in MCP support.
 
-### Automatic wire-in through workspace wrappers
+### Automatic wire-in through workspace commands
 
-The OpenCode and OpenCode-compatible wrappers run wire-in automatically after activation:
-
-```bash
-agent-harness-opencode --intent backend
-```
-
-or:
+Workspace commands run wire-in automatically after activation:
 
 ```bash
+agent-harness workspace vscode --intent frontend
 agent-harness workspace opencode --intent security
+agent-harness workspace cursor --intent frontend
+agent-harness workspace zed --intent docs
 agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
 ```
@@ -497,11 +509,15 @@ node ./dist/cli.js activate host --intent docs
 
 This biases activation ordering toward assets whose ids and capabilities align with the requested session intent.
 
-The same intent can be used through the one-command wrappers:
+The same intent can be used through the one-command workspace flow:
 
 ```bash
-agent-harness-vscode --intent frontend
-agent-harness-opencode --intent security
+agent-harness workspace vscode --intent frontend
+agent-harness workspace opencode --intent security
+agent-harness workspace cursor --intent frontend
+agent-harness workspace zed --intent docs
+agent-harness workspace claude-code --intent backend
+agent-harness workspace pi --intent docs
 ```
 
 ### Clean reset only

@@ -1097,6 +1097,12 @@ export function assertWirePlanManifest(
   if (record.pluginDirs !== undefined) {
     assertStringArray(record.pluginDirs, `${context}.pluginDirs`);
   }
+  if (record.workflowFiles !== undefined) {
+    assertStringArray(record.workflowFiles, `${context}.workflowFiles`);
+  }
+  if (record.referenceFiles !== undefined) {
+    assertStringArray(record.referenceFiles, `${context}.referenceFiles`);
+  }
   if (record.extensionIds !== undefined) {
     assertStringArray(record.extensionIds, `${context}.extensionIds`);
   }

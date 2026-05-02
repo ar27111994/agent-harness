@@ -699,6 +699,8 @@ export interface WirePlanManifest {
   agentFiles?: string[];
   skillDirs?: string[];
   pluginDirs?: string[];
+  workflowFiles?: string[];
+  referenceFiles?: string[];
   extensionIds?: string[];
   mcpServers?: string[];
   nativeInstallActions?: string[];

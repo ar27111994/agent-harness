@@ -1,27 +1,21 @@
-import { dirname } from "node:path";
-
 import { applyEdits, modify, parse } from "jsonc-parser";
 
-import {
-  ensureDirectory,
-  pathExists,
-  readTextFileOrNull,
-  writeTextFile,
-} from "../files.js";
+import { readTextFileOrNull, writeTextFile } from "../files.js";
 
 export async function readVsCodeSettings(
   settingsPath: string,
 ): Promise<Record<string, unknown>> {
-  const rawContent = (await readTextFileOrNull(settingsPath)) ?? "{}";
+  const rawContent = await readTextFileOrNull(settingsPath);
+
+  if (rawContent === null) {
+    return {};
+  }
+
   const errors: Array<{ error: number; offset: number; length: number }> = [];
   const parsedSettings = parse(rawContent, errors, {
     allowTrailingComma: true,
     disallowComments: false,
   });
-
-  if (errors.length > 0 && !(await pathExists(settingsPath))) {
-    return {};
-  }
 
   if (errors.length > 0) {
     throw new Error(
@@ -62,6 +56,5 @@ export async function patchVsCodeSettings(
     nextContent = applyEdits(nextContent, edits);
   }
 
-  await ensureDirectory(dirname(settingsPath));
   await writeTextFile(settingsPath, nextContent);
 }

@@ -33,6 +33,15 @@ import type {
 
 const ACTIVATION_MANIFEST_FILE = "activation-manifest.json";
 const ACTIVATION_PREVIOUS_MANIFEST_FILE = "activation-manifest.previous.json";
+const HOST_TARGETS = [
+  "copilot-vscode",
+  "opencode",
+  "shared",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+] as const satisfies readonly HostTarget[];
 
 export async function runActivate(
   args: string[],
@@ -71,10 +80,10 @@ async function activateHosts(
   args: string[] = [],
 ): Promise<void> {
   const sessionIntent = getOptionValue(args, "--intent") ?? "general";
-  const requestedRecommendationHost = getOptionValue(
-    args,
+  const requestedRecommendationHost = parseHostTargetOption(
+    getOptionValue(args, "--recommendation-host"),
     "--recommendation-host",
-  ) as HostTarget | undefined;
+  );
   const requestedHost = getOptionValue(args, "--host") as
     | "opencode"
     | "copilot-vscode"
@@ -719,6 +728,27 @@ function getOptionValue(
   }
 
   return args[optionIndex + 1];
+}
+
+function parseHostTargetOption(
+  value: string | undefined,
+  optionName: string,
+): HostTarget | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (isHostTarget(value)) {
+    return value;
+  }
+
+  throw new Error(
+    `Invalid ${optionName} value: ${value}. Must be one of: ${HOST_TARGETS.join(", ")}`,
+  );
+}
+
+function isHostTarget(value: string): value is HostTarget {
+  return HOST_TARGETS.includes(value as HostTarget);
 }
 
 function diffStringSets(
