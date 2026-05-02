@@ -38,6 +38,7 @@ const vscodeCapabilities: HostCapability[] = [
   { assetKind: "instruction", behaviors: ["stage", "wire"] },
   { assetKind: "agent", behaviors: ["stage", "wire"] },
   { assetKind: "skill", behaviors: ["stage", "wire"] },
+  { assetKind: "workflow", behaviors: ["stage"] },
   { assetKind: "plugin", behaviors: ["stage", "wire"] },
   { assetKind: "hook", behaviors: ["stage", "wire"] },
   {
