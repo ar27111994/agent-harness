@@ -58,6 +58,10 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 
+const cursorCapabilities: HostCapability[] = vscodeCapabilities.filter(
+  (capability) => capability.assetKind !== "extension",
+);
+
 const piCapabilities: HostCapability[] = opencodeCapabilities.map(
   (capability) =>
     capability.assetKind === "mcp-server"
@@ -99,7 +103,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
-    capabilities: [],
+    capabilities: cursorCapabilities,
     wire: (options) => wireNativeHost("cursor", options),
   },
   {

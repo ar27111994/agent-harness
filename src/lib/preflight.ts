@@ -43,42 +43,46 @@ export async function runHostPreflight(
 
   if (host === "copilot-vscode") {
     const requireHostPaths = options.requireHostPaths ?? false;
-    diagnostics.push(
-      requireDiagnostic(
-        await checkPathExists(
-          dirname(resolveVsCodeUserSettingsPath()),
-          "vscode-user-settings-directory",
-          requireHostPaths ? constants.W_OK : constants.F_OK,
+    if (requireHostPaths) {
+      diagnostics.push(
+        requireDiagnostic(
+          await checkPathExists(
+            dirname(resolveVsCodeUserSettingsPath()),
+            "vscode-user-settings-directory",
+            constants.W_OK,
+          ),
+          true,
         ),
-        requireHostPaths,
-      ),
-      {
-        severity: "info",
-        code: "vscode-native-install-boundary",
-        message:
-          "VS Code wire-in stages curated agent assets and settings, but native extension installation is handled by the extension installer flow.",
-      },
-    );
+      );
+    }
+    diagnostics.push({
+      severity: "info",
+      code: "vscode-native-install-boundary",
+      message:
+        "VS Code wire-in stages curated agent assets and settings, but native extension installation is handled by the extension installer flow.",
+    });
   }
 
   if (host === "opencode") {
     const requireHostPaths = options.requireHostPaths ?? false;
-    diagnostics.push(
-      requireDiagnostic(
-        await checkPathExists(
-          resolveDefaultOpenCodeConfigRoot(),
-          "opencode-config-directory",
-          requireHostPaths ? constants.W_OK : constants.F_OK,
+    if (requireHostPaths) {
+      diagnostics.push(
+        requireDiagnostic(
+          await checkPathExists(
+            resolveDefaultOpenCodeConfigRoot(),
+            "opencode-config-directory",
+            constants.W_OK,
+          ),
+          true,
         ),
-        requireHostPaths,
-      ),
-      {
-        severity: "info",
-        code: "opencode-project-overlay",
-        message:
-          "OpenCode wire-in writes a project-local .opencode overlay and managed links.",
-      },
-    );
+      );
+    }
+    diagnostics.push({
+      severity: "info",
+      code: "opencode-project-overlay",
+      message:
+        "OpenCode wire-in writes a project-local .opencode overlay and managed links.",
+    });
   }
 
   return diagnostics;
