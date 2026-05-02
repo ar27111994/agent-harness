@@ -1,6 +1,10 @@
 node_modules/
 dist/
 
+.env
+.env.*
+!.env.example
+
 activate/
 install/
 state/
@@ -17,8 +21,15 @@ mirror/quarantine/
 mirror/raw/
 
 .opencode/
+.cursor/
+.zed/
+.claude/
+.pi/
 .husky/_/
 .github/copilot-instructions.md
+.rules
 AGENTS.md
+CLAUDE.md
+SYSTEM.md
 
 *.log
