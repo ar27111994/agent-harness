@@ -33,6 +33,12 @@ import type {
 
 const ACTIVATION_MANIFEST_FILE = "activation-manifest.json";
 const ACTIVATION_PREVIOUS_MANIFEST_FILE = "activation-manifest.previous.json";
+type ActivationHost = "opencode" | "copilot-vscode" | "shared";
+const ACTIVATION_HOSTS = [
+  "opencode",
+  "copilot-vscode",
+  "shared",
+] as const satisfies readonly ActivationHost[];
 const HOST_TARGETS = [
   "copilot-vscode",
   "opencode",
@@ -81,17 +87,16 @@ async function activateHosts(
 ): Promise<void> {
   const sessionIntent = getOptionValue(args, "--intent") ?? "general";
   const requestedRecommendationHost = parseHostTargetOption(
-    getOptionValue(args, "--recommendation-host"),
+    getOptionalOptionValue(args, "--recommendation-host"),
     "--recommendation-host",
   );
-  const requestedHost = getOptionValue(args, "--host") as
-    | "opencode"
-    | "copilot-vscode"
-    | "shared"
-    | undefined;
-  const hosts: Array<"opencode" | "copilot-vscode" | "shared"> = requestedHost
+  const requestedHost = parseActivationHostOption(
+    getOptionalOptionValue(args, "--host"),
+    "--host",
+  );
+  const hosts: ActivationHost[] = requestedHost
     ? [requestedHost]
-    : ["opencode", "copilot-vscode", "shared"];
+    : [...ACTIVATION_HOSTS];
 
   for (const host of hosts) {
     await activateHost(
@@ -110,7 +115,7 @@ async function activateHosts(
 
 async function activateHost(
   projectRoot: string,
-  host: "opencode" | "copilot-vscode" | "shared",
+  host: ActivationHost,
   bundleIds: string[],
   sessionIntent: string,
   recommendationHost: HostTarget = host,
@@ -357,9 +362,7 @@ Options:
   --intent <general|frontend|backend|security|docs|testing>`);
 }
 
-function getDefaultBundleIdsForHost(
-  host: "opencode" | "copilot-vscode" | "shared",
-): string[] {
+function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
   if (host === "opencode") {
     return ["opencode-global", "community-stable"];
   }
@@ -383,9 +386,7 @@ function buildCopilotProfileId(assetIds: string[]): string {
     .slice(0, 96);
 }
 
-function getActivationBudget(
-  host: "opencode" | "copilot-vscode" | "shared",
-): number {
+function getActivationBudget(host: ActivationHost): number {
   if (host === "copilot-vscode") {
     return 60;
   }
@@ -571,11 +572,10 @@ async function rollbackActivation(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const host = getOptionValue(args, "--host") as
-    | "opencode"
-    | "copilot-vscode"
-    | "shared"
-    | undefined;
+  const host = parseActivationHostOption(
+    getOptionalOptionValue(args, "--host"),
+    "--host",
+  );
   const generationId = getOptionValue(args, "--generation");
 
   if (!host || !generationId) {
@@ -608,14 +608,11 @@ async function diffActivationState(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const requestedHost = getOptionValue(args, "--host") as
-    | "opencode"
-    | "copilot-vscode"
-    | "shared"
-    | undefined;
-  const hosts = requestedHost
-    ? [requestedHost]
-    : (["opencode", "copilot-vscode", "shared"] as const);
+  const requestedHost = parseActivationHostOption(
+    getOptionalOptionValue(args, "--host"),
+    "--host",
+  );
+  const hosts = requestedHost ? [requestedHost] : ACTIVATION_HOSTS;
 
   for (const host of hosts) {
     const runtimeRoot = join(projectRoot, "activate", host);
@@ -656,19 +653,16 @@ async function explainActivationState(
   args: string[],
 ): Promise<void> {
   const assetId = getOptionValue(args, "--asset") ?? args[0];
-  const requestedHost = getOptionValue(args, "--host") as
-    | "opencode"
-    | "copilot-vscode"
-    | "shared"
-    | undefined;
+  const requestedHost = parseActivationHostOption(
+    getOptionalOptionValue(args, "--host"),
+    "--host",
+  );
 
   if (!assetId) {
     throw new Error("explain requires --asset <assetId>");
   }
 
-  const hosts = requestedHost
-    ? [requestedHost]
-    : (["opencode", "copilot-vscode", "shared"] as const);
+  const hosts = requestedHost ? [requestedHost] : ACTIVATION_HOSTS;
   const lines: string[] = [];
 
   for (const host of hosts) {
@@ -730,6 +724,24 @@ function getOptionValue(
   return args[optionIndex + 1];
 }
 
+function getOptionalOptionValue(
+  args: string[],
+  optionName: string,
+): string | undefined {
+  const optionIndex = args.indexOf(optionName);
+
+  if (optionIndex === -1) {
+    return undefined;
+  }
+
+  const value = args[optionIndex + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`Missing value for ${optionName}.`);
+  }
+
+  return value;
+}
+
 function parseHostTargetOption(
   value: string | undefined,
   optionName: string,
@@ -749,6 +761,28 @@ function parseHostTargetOption(
 
 function isHostTarget(value: string): value is HostTarget {
   return HOST_TARGETS.includes(value as HostTarget);
+}
+
+function parseActivationHostOption(
+  value: string | undefined,
+  optionName: string,
+): ActivationHost | undefined {
+  const hostTarget = parseHostTargetOption(value, optionName);
+  if (hostTarget === undefined) {
+    return undefined;
+  }
+
+  if (isActivationHost(hostTarget)) {
+    return hostTarget;
+  }
+
+  throw new Error(
+    `Invalid ${optionName} value: ${hostTarget}. Must be one of: ${ACTIVATION_HOSTS.join(", ")}`,
+  );
+}
+
+function isActivationHost(value: HostTarget): value is ActivationHost {
+  return ACTIVATION_HOSTS.includes(value as ActivationHost);
 }
 
 function diffStringSets(

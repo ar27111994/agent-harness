@@ -106,7 +106,7 @@ export async function wireOpenCode(options: {
   const activationManifest = await readJsonFileOrNull<ActivationManifest>(
     join(activationRoot, "activation-manifest.json"),
   );
-  const sharedMcpAssetIds = await readSharedMcpAssetIds(projectRoot);
+  const sharedMcpAssetIds = await readSharedMcpAssetIdsBestEffort(projectRoot);
 
   await writeJsonFile(
     join(localContextRoot, "activation-manifest.json"),
@@ -230,6 +230,19 @@ async function resolveOpenCodeLinkedAssets(options: {
   return linkedAssets.sort((left, right) =>
     left.linkPath.localeCompare(right.linkPath),
   );
+}
+
+async function readSharedMcpAssetIdsBestEffort(
+  projectRoot: string,
+): Promise<string[]> {
+  try {
+    return await readSharedMcpAssetIds(projectRoot);
+  } catch (error) {
+    console.warn(
+      `Failed to project shared MCP assets into OpenCode wire plan: ${toLoggableErrorMessage(error)}`,
+    );
+    return [];
+  }
 }
 
 async function removeManagedAgentsSection(

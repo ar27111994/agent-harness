@@ -158,3 +158,26 @@ export function resolveHostAdapter(target: string): HostAdapter | null {
 export function listHostAdapters(): HostAdapter[] {
   return [...HOST_ADAPTERS];
 }
+
+export function isHostCompatibleWithRecommendationHost(
+  entryHosts: HostTarget[],
+  recommendationHost: HostTarget,
+): boolean {
+  if (entryHosts.includes(recommendationHost)) {
+    return true;
+  }
+
+  const lifecycleHost =
+    getLifecycleHostForRecommendationHost(recommendationHost);
+  return lifecycleHost ? entryHosts.includes(lifecycleHost) : false;
+}
+
+function getLifecycleHostForRecommendationHost(
+  recommendationHost: HostTarget,
+): LifecycleHost | null {
+  return (
+    HOST_ADAPTERS.find(
+      (adapter) => adapter.recommendationHost === recommendationHost,
+    )?.lifecycleHost ?? null
+  );
+}

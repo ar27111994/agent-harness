@@ -42,14 +42,102 @@ export async function loadDotEnvFile(
 function parseDotEnvContent(content: string): Array<[string, string]> {
   const entries: Array<[string, string]> = [];
 
-  for (const rawLine of content.split(/\r?\n/u)) {
-    const parsedLine = parseDotEnvLine(rawLine);
+  for (const logicalLine of collectDotEnvLogicalLines(content)) {
+    const parsedLine = parseDotEnvLine(logicalLine);
     if (parsedLine) {
       entries.push(parsedLine);
     }
   }
 
   return entries;
+}
+
+function collectDotEnvLogicalLines(content: string): string[] {
+  const logicalLines: string[] = [];
+  let currentLine = "";
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  let lineContinuation = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const character = content[index];
+    const nextCharacter = content[index + 1];
+
+    if (character === "\r" && nextCharacter === "\n") {
+      index += 1;
+      handleLogicalNewline();
+      continue;
+    }
+
+    if (character === "\n" || character === "\r") {
+      handleLogicalNewline();
+      continue;
+    }
+
+    if (lineContinuation) {
+      lineContinuation = false;
+      if (character === " " || character === "\t") {
+        continue;
+      }
+    }
+
+    currentLine += character;
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (quote === '"' && character === "\\") {
+      escaped = true;
+      continue;
+    }
+
+    if ((character === '"' || character === "'") && shouldToggleQuote()) {
+      quote = quote === character ? null : character;
+    }
+  }
+
+  if (quote !== null) {
+    throw new Error("Unterminated quoted value in .env file.");
+  }
+
+  if (currentLine.length > 0 || lineContinuation) {
+    logicalLines.push(currentLine);
+  }
+
+  return logicalLines;
+
+  function handleLogicalNewline(): void {
+    if (quote !== null) {
+      currentLine += "\n";
+      return;
+    }
+
+    if (currentLine.endsWith("\\") && !currentLine.endsWith("\\\\")) {
+      currentLine = currentLine.slice(0, -1);
+      lineContinuation = true;
+      return;
+    }
+
+    logicalLines.push(currentLine);
+    currentLine = "";
+    lineContinuation = false;
+  }
+
+  function shouldToggleQuote(): boolean {
+    if (quote !== null) {
+      return true;
+    }
+
+    const equalIndex = currentLine.indexOf("=");
+    if (equalIndex === -1) {
+      return false;
+    }
+
+    const valueBeforeCharacter = currentLine.slice(equalIndex + 1, -1);
+    return valueBeforeCharacter.trim().length === 0;
+  }
 }
 
 function parseDotEnvLine(rawLine: string): [string, string] | null {

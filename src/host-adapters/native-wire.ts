@@ -658,8 +658,28 @@ async function mergeJsonFile(
   filePath: string,
   patch: JsonObject,
 ): Promise<void> {
-  const currentValue = (await readJsonFileOrNull<JsonObject>(filePath)) ?? {};
-  await writeJsonFile(filePath, mergeJsonObjects(currentValue, patch));
+  const currentValue = await readJsonFileOrNull<unknown>(filePath);
+  const currentObject =
+    currentValue === null ? {} : assertJsonObject(currentValue, filePath);
+  await writeJsonFile(filePath, mergeJsonObjects(currentObject, patch));
+}
+
+function assertJsonObject(value: unknown, filePath: string): JsonObject {
+  if (isJsonObject(value)) {
+    return value;
+  }
+
+  throw new Error(
+    `Expected ${toPosixPath(filePath)} to contain a JSON object, but found ${describeJsonValue(value)}.`,
+  );
+}
+
+function describeJsonValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return "array";
+  }
+
+  return value === null ? "null" : typeof value;
 }
 
 async function removeManagedZedSettings(filePath: string): Promise<void> {

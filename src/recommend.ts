@@ -12,6 +12,7 @@ import {
   assertRecommendationPolicyBase,
   assertRecommendationReport,
 } from "./manifest-validation.js";
+import { isHostCompatibleWithRecommendationHost } from "./host-adapters/registry.js";
 import { buildRecommendationFixtures } from "./recommend-fixtures.js";
 import type {
   AssetCatalogEntry,
@@ -302,19 +303,7 @@ function isEntryCompatibleWithRecommendationHost(
   entry: AssetCatalogEntry,
   host: RecommendationHost,
 ): boolean {
-  if (entry.hosts.includes(host)) {
-    return true;
-  }
-
-  if (host === "cursor") {
-    return entry.hosts.includes("copilot-vscode");
-  }
-
-  if (host === "zed" || host === "claude-code" || host === "pi") {
-    return entry.hosts.includes("opencode");
-  }
-
-  return false;
+  return isHostCompatibleWithRecommendationHost(entry.hosts, host);
 }
 
 function selectCandidatesForHost(
