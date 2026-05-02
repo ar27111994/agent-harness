@@ -3,6 +3,10 @@ import { access } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
+import type {
+  HostAdapter,
+  HostRuntimeSpec,
+} from "../host-adapters/registry.js";
 import {
   resolveDefaultOpenCodeConfigRoot,
   resolveVsCodeUserSettingsPath,
@@ -39,23 +43,71 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
  * Runs adapter-specific readiness checks such as optional host CLI detection.
  */
 export async function runAdapterPreflight(
-  adapterId: string,
+  adapter: HostAdapter,
 ): Promise<PreflightDiagnostic[]> {
-  const executableByAdapter: Record<string, string> = {
-    "copilot-vscode": "code",
-    opencode: "opencode",
-    cursor: "cursor",
-    zed: "zed",
-    "claude-code": "claude",
-    pi: "pi",
-  };
-  const executableName = executableByAdapter[adapterId];
-
-  if (!executableName) {
+  if (!adapter.runtime) {
     return [];
   }
 
-  return [await checkExecutableOnPath(executableName, `${adapterId}-cli`)];
+  return [
+    await checkExecutableOnPath(
+      adapter.runtime.executable,
+      `${adapter.id}-cli`,
+      "warning",
+      adapter.runtime.guidance,
+    ),
+  ];
+}
+
+/**
+ * Runs runtime checks required before native install operations execute.
+ */
+export async function runNativeInstallPreflight(
+  adapter: HostAdapter,
+): Promise<PreflightDiagnostic[]> {
+  const diagnostics = await runAdapterRuntimePreflight(
+    adapter.runtime,
+    adapter.id,
+    true,
+  );
+  if (!adapter.nativeInstall) {
+    diagnostics.push({
+      severity: "error",
+      code: `${adapter.id}-native-install-unsupported`,
+      message: `${adapter.displayName} does not expose a native install provider.`,
+      action:
+        "Use wire preview/apply for project-local assets or choose a host with native install support.",
+    });
+  }
+
+  return diagnostics;
+}
+
+async function runAdapterRuntimePreflight(
+  runtime: HostRuntimeSpec | undefined,
+  adapterId: string,
+  required: boolean,
+): Promise<PreflightDiagnostic[]> {
+  if (!runtime) {
+    return required
+      ? [
+          {
+            severity: "error",
+            code: `${adapterId}-runtime-unconfigured`,
+            message: `No runtime executable is configured for ${adapterId}.`,
+          },
+        ]
+      : [];
+  }
+
+  return [
+    await checkExecutableOnPath(
+      runtime.executable,
+      `${adapterId}-cli`,
+      required ? "error" : "warning",
+      runtime.guidance,
+    ),
+  ];
 }
 
 /**
@@ -156,9 +208,11 @@ export function formatPreflightDiagnostics(
 /**
  * Builds a diagnostic that reports whether a host executable is available.
  */
-async function checkExecutableOnPath(
+export async function checkExecutableOnPath(
   executableName: string,
   code: string,
+  missingSeverity: PreflightSeverity = "warning",
+  guidance?: string,
 ): Promise<PreflightDiagnostic> {
   const executablePath = await findExecutableOnPath(executableName);
   if (executablePath) {
@@ -170,10 +224,11 @@ async function checkExecutableOnPath(
   }
 
   return {
-    severity: "warning",
+    severity: missingSeverity,
     code,
     message: `${executableName} was not found on PATH.`,
     action:
+      guidance ??
       "Install the host CLI or ensure it is available on PATH if you want runtime readiness validation beyond project-local file wiring.",
   };
 }

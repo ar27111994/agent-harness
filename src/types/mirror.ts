@@ -1,0 +1,125 @@
+import type { AssetKind, AuthorityTier, HostTarget } from "./core.js";
+
+export interface BundleTemplate {
+  id: string;
+  host: HostTarget;
+  description: string;
+  assetKinds: AssetKind[];
+  defaultPromotion: string;
+}
+
+export interface MirrorPolicy {
+  schemaVersion: number;
+  selection: {
+    officialBeatsPopularity: boolean;
+    requirePinnedProvenance: boolean;
+    communityDefaultPolicy: string;
+  };
+  audit: {
+    alwaysAudit: boolean;
+    quarantineOn: string[];
+  };
+  store: {
+    root: string;
+    rawDirectories: string[];
+    normalizedDirectories: string[];
+    bundlesDirectory: string;
+    quarantineDirectory: string;
+    auditDirectory: string;
+  };
+  bundleTemplates: BundleTemplate[];
+}
+
+export interface MirrorPlan {
+  schemaVersion: number;
+  generatedAt: string;
+  inputs: {
+    demandProfile: boolean;
+    sourceIndex: boolean;
+    catalogEntries: number;
+    mirrorEligibleEntries: number;
+    selectedCatalogEntries: number;
+  };
+  candidateBreakdown: {
+    byHost: Record<string, number>;
+    byAssetKind: Record<string, number>;
+  };
+  policies: {
+    officialBeatsPopularity: boolean;
+    communityDefaultPolicy: string;
+    alwaysAudit: boolean;
+  };
+  bundleTemplates: BundleTemplate[];
+  nextActions: string[];
+}
+
+export interface SelectionDuplicateDecision {
+  duplicateGroup: string;
+  selectedAssetId: string;
+  rejectedAssetIds: string[];
+  selectionReason: string;
+}
+
+export interface SelectionReport {
+  schemaVersion: number;
+  generatedAt: string;
+  inputCount: number;
+  selectedCount: number;
+  rejectedCount: number;
+  duplicateDecisions: SelectionDuplicateDecision[];
+}
+
+export interface BundleLockAsset {
+  assetId: string;
+  mirrorId: string;
+  projectionType: string;
+  activationEligible: boolean;
+  notes?: string;
+}
+
+export interface BundleLock {
+  schemaVersion: number;
+  bundleId: string;
+  generatedAt: string;
+  host: HostTarget;
+  assets: BundleLockAsset[];
+}
+
+export interface MirrorIndexEntry {
+  mirrorId: string;
+  assetId: string;
+  upstream: {
+    type: "repo" | "package" | "marketplace" | "docs" | "local";
+    url: string;
+    ref?: string;
+    commit?: string;
+    version?: string;
+  };
+  source: {
+    authorityTier: AuthorityTier;
+    publisher: string;
+    publisherVerified: boolean;
+  };
+  mirroredAt: string;
+  contentHash: string;
+  projectionCandidates: Array<{
+    host: HostTarget;
+    projectionType: string;
+  }>;
+  status:
+    | "approved"
+    | "approved-with-warning"
+    | "quarantined"
+    | "metadata-only"
+    | "reference-only";
+}
+
+export interface MirrorAcquireState {
+  schemaVersion: number;
+  updatedAt: string;
+  batchSize: number;
+  totalEligibleCount: number;
+  mirroredCount: number;
+  remainingCount: number;
+  lastBatchAssetIds: string[];
+}

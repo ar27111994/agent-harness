@@ -23,7 +23,7 @@ import type {
 import {
   formatExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
-  isValidVsCodeExtensionId,
+  resolveVsCodeExtensionId,
 } from "./extension-installer.js";
 import {
   toHomeRelativePath,
@@ -469,16 +469,6 @@ async function materializeExtensionMetadata(
   }
 
   return materializedExtensionIds;
-}
-
-function resolveVsCodeExtensionId(
-  asset: AssetCatalogEntry,
-): string | undefined {
-  const candidates = [asset.install.manifestEntry, asset.id];
-  return candidates.find(
-    (candidate): candidate is string =>
-      typeof candidate === "string" && isValidVsCodeExtensionId(candidate),
-  );
 }
 
 async function resetVsCodeWireIn(

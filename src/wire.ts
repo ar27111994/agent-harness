@@ -3,7 +3,11 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
-import { resolveHostAdapter } from "./host-adapters/registry.js";
+import {
+  listHostAdapters,
+  resolveHostAdapter,
+} from "./host-adapters/registry.js";
+import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
@@ -40,7 +44,16 @@ export async function runWire(
     ...(await runHostPreflight(hostAdapter.lifecycleHost, {
       requireHostPaths: mode !== "preview" && requiresLifecycleHostPaths,
     })),
-    ...(await runAdapterPreflight(hostAdapter.id)),
+    ...(await runAdapterPreflight(hostAdapter)),
+    ...(mode === "reset"
+      ? []
+      : await collectActivatedAssetPrerequisiteDiagnostics(
+          projectRoot,
+          hostAdapter,
+          {
+            missingEnvSeverity: mode === "preview" ? "warning" : "error",
+          },
+        )),
   ];
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
@@ -83,18 +96,23 @@ export function getWireMode(args: string[]): "preview" | "apply" | "reset" {
 }
 
 function printWireHelp(): void {
+  const commands = listHostAdapters()
+    .map(
+      (adapter) =>
+        `  ${getPreferredHostCommand(adapter.id).padEnd(12)} Preview/apply/reset ${adapter.displayName}`,
+    )
+    .join("\n");
   console.log(`wire commands:
-  vscode    Preview/apply/reset VS Code user-scoped wiring and workspace instructions export
-  opencode  Preview/apply/reset OpenCode project-local overlay export
-  cursor       Preview/apply/reset Cursor project-local rules and asset wiring
-  zed          Preview/apply/reset Zed project-local rules and asset wiring
-  claude-code  Preview/apply/reset Claude Code project-local files
-  pi           Preview/apply/reset Pi project-local files
+${commands}
 
 Options:
   --preview (default)
   --apply
   --reset`);
+}
+
+function getPreferredHostCommand(adapterId: string): string {
+  return adapterId === "copilot-vscode" ? "vscode" : adapterId;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

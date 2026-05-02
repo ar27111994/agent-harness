@@ -4,8 +4,8 @@ import {
   collectDetectorSignals,
   isDetectorInspectableFile,
 } from "../domains/discovery/detectors.js";
+import { createEmptySignalSet } from "../domains/discovery/signals.js";
 import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
-import type { DemandSignalSet } from "../types.js";
 
 const fixtures = ROADMAP_DETECTION_FIXTURES;
 
@@ -63,16 +63,6 @@ console.log(
     2,
   ),
 );
-
-function createEmptySignalSet(): DemandSignalSet {
-  return {
-    languages: [],
-    packageManagers: [],
-    frameworks: [],
-    concerns: [],
-    tooling: [],
-  };
-}
 
 function average(values: number[]): number {
   return values.reduce((total, value) => total + value, 0) / values.length;

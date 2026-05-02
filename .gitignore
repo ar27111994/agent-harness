@@ -7,6 +7,8 @@ dist/
 
 activate/
 install/
+!src/install/
+!src/install/**
 state/
 
 .tmp/

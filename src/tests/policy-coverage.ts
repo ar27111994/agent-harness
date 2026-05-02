@@ -6,6 +6,9 @@ import {
   collectDetectorSignals,
   isDetectorInspectableFile,
 } from "../domains/discovery/detectors.js";
+import { createEmptySignalSet } from "../domains/discovery/signals.js";
+import { TECHNOLOGY_SIGNATURES } from "../domains/discovery/technology-signatures.js";
+import { DETECTOR_SIGNATURES } from "../domains/discovery/detector-signatures.js";
 import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
 import type { DemandSignalSet, RecommendationPolicyBase } from "../types.js";
 
@@ -39,8 +42,15 @@ const coverageResults = ROADMAP_DETECTION_FIXTURES.map((fixture) => {
   } satisfies PolicyCoverageResult;
 });
 
+const signatureTerms = collectSignatureTerms();
+const unmappedSignatureTerms = signatureTerms.filter(
+  (term) => !policyTerms.has(term),
+);
 const unmappedTerms = [
-  ...new Set(coverageResults.flatMap((result) => result.unmappedTerms)),
+  ...new Set([
+    ...coverageResults.flatMap((result) => result.unmappedTerms),
+    ...unmappedSignatureTerms,
+  ]),
 ].sort((left, right) => left.localeCompare(right));
 const report = {
   schemaVersion: 1,
@@ -95,6 +105,42 @@ function collectPolicyTerms(policyBase: RecommendationPolicyBase): Set<string> {
   return terms;
 }
 
+function collectSignatureTerms(): string[] {
+  return [
+    ...TECHNOLOGY_SIGNATURES.flatMap((signature) =>
+      collectCoverageTerms({
+        languages: signature.signals.languages ?? [],
+        packageManagers: signature.signals.packageManagers ?? [],
+        frameworks: signature.signals.frameworks ?? [],
+        concerns: signature.signals.concerns ?? [],
+        tooling: signature.signals.tooling ?? [],
+      }),
+    ),
+    ...DETECTOR_SIGNATURES.flatMap((signature) =>
+      collectCoverageTerms({
+        languages: signature.signals.languages ?? [],
+        packageManagers: signature.signals.packageManagers ?? [],
+        frameworks: signature.signals.frameworks ?? [],
+        concerns: signature.signals.concerns ?? [],
+        tooling: signature.signals.tooling ?? [],
+      }),
+    ),
+    ...DETECTOR_SIGNATURES.flatMap((signature) =>
+      (signature.conditionalSignals ?? []).flatMap((conditionalSignals) =>
+        collectCoverageTerms({
+          languages: conditionalSignals.signals.languages ?? [],
+          packageManagers: conditionalSignals.signals.packageManagers ?? [],
+          frameworks: conditionalSignals.signals.frameworks ?? [],
+          concerns: conditionalSignals.signals.concerns ?? [],
+          tooling: conditionalSignals.signals.tooling ?? [],
+        }),
+      ),
+    ),
+  ]
+    .filter(uniqueValue)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 function collectCoverageTerms(signals: DemandSignalSet): string[] {
   return [
     ...signals.languages,
@@ -138,18 +184,12 @@ async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
+function uniqueValue(value: string, index: number, values: string[]): boolean {
+  return values.indexOf(value) === index;
+}
+
 function addTerms(target: Set<string>, values: string[]): void {
   for (const value of values) {
     target.add(value);
   }
-}
-
-function createEmptySignalSet(): DemandSignalSet {
-  return {
-    languages: [],
-    packageManagers: [],
-    frameworks: [],
-    concerns: [],
-    tooling: [],
-  };
 }

@@ -16,13 +16,16 @@ All notable changes to this project will be documented in this file.
 - policy coverage reporting that checks detector-emitted terms against recommendation policy maps, fails CI on unmapped terms, and emits human-reviewed draft policy suggestions
 - regression tests for dotenv duplicate/multiline parsing, CLI option missing-value handling, VS Code settings patching, safe mirror artifact paths, and PyPI metadata normalization
 - guarded HTTP helpers with origin allowlists, timeouts, and response byte limits for external content reads
+- domain-specific discovery modules for demand profiling, source indexing, source utilization, package/reference/local/GitHub/official-index harvesting, catalog selection, and catalog trust utilities
+- focused install-domain modules, domain-local manifest validators, and localized type modules that preserve stable public barrel entrypoints while reducing large shared files
+- explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, and planning-only docs out of packed artifacts
 
 ### Changed in 1.0.0
 
 - bumped the package version to `1.0.0`
 - routed ad hoc environment access through the centralized config module
 - replaced checked-in workstation-specific local source paths with home-relative defaults
-- split new architecture, discovery, wire, host adapter, config, and preflight work into package-style seams, including host-native implementations under `src/host-adapters/`
+- split new architecture, discovery, wire, host adapter, config, install, manifest-validation, type, and preflight work into package-style seams, including host-native implementations under `src/host-adapters/`
 - consolidated workspace execution on `agent-harness workspace <host>`, removed legacy `agent-harness-vscode` and `agent-harness-opencode` package binaries, and added workspace scripts for all registered adapters
 - ignored local environment files and generated project-local native host wiring artifacts for Cursor, Zed, Claude Code, and Pi to prevent accidental commits from local smoke runs
 - extended Copilot workspace profiles and wire plans to distinguish plugins, extensions, native install actions, and shared MCP assets
@@ -33,6 +36,7 @@ All notable changes to this project will be documented in this file.
 - made docs, registry, and marketplace source references attempt guarded summary harvesting and source utilization distinguish active, reference-only, and dormant sources
 - made VS Code settings path resolution lazy so `.env` overrides for path-related variables are honored after CLI bootstrap
 - centralized CLI option parsing and rejection of flag-looking tokens as missing option values
+- reduced `src/discover.ts`, `src/install.ts`, `src/manifest-validation.ts`, and `src/types.ts` to stable entrypoints backed by focused domain modules
 
 ### Fixed in 1.0.0
 

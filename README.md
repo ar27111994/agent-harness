@@ -39,9 +39,10 @@ It is built around one generic command surface and a host-adapter model. The lif
 3. Harvests candidate agent assets from local sources, source packs, documentation sources, package registries, and marketplace references.
 4. Mirrors selected assets into reproducible local artifacts.
 5. Installs mirrored assets into lifecycle-host package stores.
-6. Recomputes ranked recommendations from selected catalog entries.
-7. Activates ranked assets into host runtime views.
-8. Wires the activated assets into a target workspace through a selected host adapter.
+6. Executes explicit host-native install/verify/remove operations where an adapter supports them.
+7. Recomputes ranked recommendations from selected catalog entries.
+8. Activates ranked assets into host runtime views.
+9. Wires the activated assets into a target workspace through a selected host adapter.
 
 The goal is to make high-quality reusable agent context portable across tools without hardcoding one workstation, one operating system, or one AI host.
 
@@ -49,15 +50,15 @@ The goal is to make high-quality reusable agent context portable across tools wi
 
 The project intentionally separates these stages:
 
-| Stage       | Purpose                                                                                             | Typical output                                      |
-| ----------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `discover`  | Build demand profiles, source indexes, catalogs, selections, and source-utilization reports.        | `discover/output/`, `discover/catalog.assets.jsonl` |
-| `mirror`    | Build mirror plans, bundle locks, raw artifact caches, quarantine data, and audit records.          | `mirror/`                                           |
-| `install`   | Stage mirrored packages into lifecycle-host package stores and reconcile generations.               | `install/`                                          |
-| `recommend` | Rank assets per recommendation host using policy, demand signals, trust, cost, diversity, and caps. | `state/recommendations.json`                        |
-| `activate`  | Materialize active runtime views for lifecycle hosts from installed packages and recommendations.   | `activate/`                                         |
-| `wire`      | Preview by default, or explicitly apply/reset host-specific workspace integration.                  | host-specific files plus wire plans                 |
-| `workspace` | Run the end-to-end lifecycle for a selected host and then apply wire-in.                            | full pipeline output                                |
+| Stage       | Purpose                                                                                              | Typical output                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `discover`  | Build demand profiles, source indexes, catalogs, selections, and source-utilization reports.         | `discover/output/`, `discover/catalog.assets.jsonl` |
+| `mirror`    | Build mirror plans, bundle locks, raw artifact caches, quarantine data, and audit records.           | `mirror/`                                           |
+| `install`   | Stage mirrored packages, reconcile generations, and explicitly run supported host-native installers. | `install/`, `state/install/`                        |
+| `recommend` | Rank assets per recommendation host using policy, demand signals, trust, cost, diversity, and caps.  | `state/recommendations.json`                        |
+| `activate`  | Materialize active runtime views for lifecycle hosts from installed packages and recommendations.    | `activate/`                                         |
+| `wire`      | Preview by default, or explicitly apply/reset host-specific workspace integration.                   | host-specific files plus wire plans                 |
+| `workspace` | Run the end-to-end lifecycle for a selected host and then apply wire-in.                             | full pipeline output                                |
 
 Two host concepts are important:
 
@@ -133,7 +134,7 @@ agent-harness setup doctor --host claude-code
 agent-harness setup doctor --host pi
 ```
 
-`setup doctor` prints each adapter’s lifecycle host, recommendation host, default bundles, advertised capabilities, lifecycle preflight diagnostics, and adapter-specific CLI readiness diagnostics. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path.
+`setup doctor` prints each adapter’s lifecycle host, recommendation host, default bundles, runtime executable, advertised capabilities, lifecycle preflight diagnostics, adapter-specific CLI readiness diagnostics, and activated asset prerequisite guidance. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path or native installer runtime.
 
 ### Run a full workspace pipeline
 
@@ -265,6 +266,17 @@ node ./dist/cli.js discover select
 node ./dist/cli.js discover stats
 ```
 
+### Detection breadth and vendor signatures
+
+Demand detection is deterministic by default. It does not require an external AI/ML service or API key for normal operation. The scanner combines:
+
+- file-family detector signatures for docs, notebooks, datasets, media/design, CAD/hardware, games, mobile, robotics, security/networking, blockchain, business analysis, 3D printing, marketing/content, and research artifacts;
+- ecosystem dependency signatures for npm and PyPI packages;
+- vendor/platform signatures for common third-party stacks such as Node, React, Flutter-related manifests, Azure, AWS, GCP, Firebase, Supabase, Apify, MCP, AI/ML/DL/RL libraries, robotics, blockchain, security, and marketing/SEO packages;
+- generic language, package-manager, infrastructure, and API markers.
+
+These signatures live under `src/domains/discovery/` alongside focused demand-profile, source-registry, source-index, source-utilization, catalog-selection, package/reference/local/GitHub/official-index harvester, and catalog utility modules. Support for additional domains or vendors can be added as data-driven detector entries or focused harvester modules instead of one-off project-specific logic. Optional AI-assisted enrichment could be added later, but v1.0.0 intentionally keeps discovery reproducible and offline-capable by default.
+
 ### Recommend
 
 ```bash
@@ -300,9 +312,15 @@ npm run mirror:acquire
 
 ```bash
 npm run install:bundle
+node ./dist/cli.js install native --host vscode
+node ./dist/cli.js install native --host vscode --operation verify
+node ./dist/cli.js install native --host vscode --operation install --apply
+node ./dist/cli.js install native --host vscode --operation remove --apply
 npm run install:reconcile
 npm run install:reset
 ```
+
+`install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code extension assets are installed through the adapter-owned `code --install-extension` provider and results are written to `state/install/native-extensions.json`.
 
 ### Activate
 
@@ -419,6 +437,7 @@ Supported behavior:
 - materializes curated runtime folders under `~/.copilot/agent-harness/`
 - writes extension metadata for valid VS Code extension identifiers
 - emits native install action guidance for extension assets when possible
+- supports explicit extension install, verify, and remove via `install native --host vscode`
 - projects shared MCP references into the effective wire plan
 - resets managed settings entries and generated files without wiping unrelated user settings
 
@@ -450,7 +469,7 @@ Workspace and activation outputs:
 Current boundaries:
 
 - Applying VS Code wire-in requires the VS Code user settings directory to exist and be writable.
-- The adapter emits extension install guidance; it does not silently install marketplace extensions.
+- The adapter never silently installs marketplace extensions during `wire`; native extension installation is an explicit `install native --operation install --apply` action.
 
 ### OpenCode
 
@@ -806,15 +825,19 @@ agent-harness/
 ├── src/
 │   ├── config/
 │   ├── domains/
-│   │   └── discovery/
+│   │   ├── discovery/
+│   │   └── wire/
 │   ├── host-adapters/
 │   │   ├── native-wire.ts
 │   │   ├── opencode.ts
 │   │   ├── registry.ts
 │   │   ├── vscode-settings.ts
 │   │   └── vscode.ts
+│   ├── install/
 │   ├── lib/
+│   ├── manifest-validation/
 │   ├── tests/
+│   ├── types/
 │   ├── activate.ts
 │   ├── cli.ts
 │   ├── discover.ts
@@ -825,6 +848,7 @@ agent-harness/
 │   ├── setup.ts
 │   ├── wire.ts
 │   └── workspace.ts
+├── .npmignore
 ├── CHANGELOG.md
 ├── IMPLEMENTATION-PLAN.md
 ├── Roadmap.md

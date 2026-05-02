@@ -1,6 +1,12 @@
 import { extname } from "node:path";
 
 import type { DemandSignalSet } from "../../types.js";
+import {
+  DETECTOR_SIGNATURES,
+  type DetectorSignalSet,
+  type DetectorSignature,
+} from "./detector-signatures.js";
+import { addSignals } from "./signals.js";
 
 export interface FileDetector {
   id: string;
@@ -12,155 +18,9 @@ export interface FileDetector {
   ): void;
 }
 
-const DOCUMENTATION_EXTENSIONS = new Set([".md", ".mdx", ".rst", ".adoc"]);
-const NOTEBOOK_EXTENSIONS = new Set([".ipynb"]);
-const DATA_EXTENSIONS = new Set([
-  ".csv",
-  ".tsv",
-  ".parquet",
-  ".arrow",
-  ".orc",
-  ".avro",
-  ".jsonl",
-  ".sqlite",
-  ".duckdb",
-]);
-const MEDIA_EXTENSIONS = new Set([
-  ".psd",
-  ".ai",
-  ".fig",
-  ".sketch",
-  ".blend",
-  ".fbx",
-  ".glb",
-  ".gltf",
-  ".wav",
-  ".mp3",
-  ".flac",
-  ".mp4",
-  ".mov",
-  ".srt",
-]);
-const ENGINEERING_EXTENSIONS = new Set([
-  ".stl",
-  ".step",
-  ".stp",
-  ".iges",
-  ".igs",
-  ".dwg",
-  ".dxf",
-  ".kicad_pcb",
-  ".kicad_sch",
-  ".brd",
-  ".sch",
-]);
-const GAME_EXTENSIONS = new Set([".unity", ".uproject", ".uplugin", ".godot"]);
-const RESEARCH_EXTENSIONS = new Set([".bib", ".tex", ".qmd", ".rmd"]);
-const ML_EXTENSIONS = new Set([".onnx", ".safetensors", ".pt", ".pth", ".h5"]);
-
-export const FILE_DETECTORS: FileDetector[] = [
-  {
-    id: "documentation",
-    matches: (fileName) =>
-      DOCUMENTATION_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target, _fileName, filePath) => {
-      addSignals(target.concerns, ["documentation", "knowledge-base"]);
-      if (/research|paper|notes?|content/iu.test(filePath)) {
-        addSignals(target.concerns, ["research", "writing"]);
-      }
-      if (/security|threat|audit|compliance/iu.test(filePath)) {
-        addSignals(target.concerns, ["security"]);
-      }
-    },
-  },
-  {
-    id: "notebook",
-    matches: (fileName) =>
-      NOTEBOOK_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target) => {
-      addSignals(target.languages, ["python"]);
-      addSignals(target.concerns, ["notebooks", "data-science", "research"]);
-      addSignals(target.tooling, ["jupyter"]);
-      addSignals(target.tooling, ["pypi:jupyter", "pypi:ipykernel"]);
-    },
-  },
-  {
-    id: "dataset",
-    matches: (fileName) => DATA_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target, _fileName, filePath) => {
-      addSignals(target.concerns, ["data", "analytics"]);
-      if (/warehouse|etl|pipeline|lake|dataset|data/iu.test(filePath)) {
-        addSignals(target.concerns, ["data-engineering"]);
-      }
-      addSignals(target.tooling, ["pypi:pandas", "pypi:duckdb"]);
-    },
-  },
-  {
-    id: "media-design",
-    matches: (fileName) =>
-      MEDIA_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target) => {
-      addSignals(target.concerns, [
-        "media",
-        "design-assets",
-        "creative-production",
-      ]);
-      addSignals(target.tooling, ["asset-pipeline"]);
-    },
-  },
-  {
-    id: "engineering-artifacts",
-    matches: (fileName) =>
-      ENGINEERING_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target) => {
-      addSignals(target.concerns, ["cad", "hardware", "engineering"]);
-      addSignals(target.tooling, ["cad"]);
-    },
-  },
-  {
-    id: "game-engine",
-    matches: (fileName) => GAME_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target, fileName) => {
-      addSignals(target.concerns, ["game-development", "realtime-media"]);
-      addSignals(target.tooling, [
-        fileName.endsWith(".godot") ? "godot" : "game-engine",
-      ]);
-    },
-  },
-  {
-    id: "research",
-    matches: (fileName) =>
-      RESEARCH_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target) => {
-      addSignals(target.concerns, ["research", "publishing", "writing"]);
-      addSignals(target.tooling, ["latex"]);
-    },
-  },
-  {
-    id: "ml-artifact",
-    matches: (fileName) => ML_EXTENSIONS.has(extname(fileName).toLowerCase()),
-    applySignals: (target) => {
-      addSignals(target.concerns, [
-        "machine-learning",
-        "model-artifacts",
-        "ai",
-      ]);
-      addSignals(target.tooling, ["pypi:torch", "pypi:tensorflow"]);
-    },
-  },
-  {
-    id: "mobile",
-    matches: (fileName, filePath) =>
-      fileName === "pubspec.yaml" ||
-      fileName === "Podfile" ||
-      fileName === "AndroidManifest.xml" ||
-      /(^|[/\\])(ios|android)([/\\]|$)/u.test(filePath),
-    applySignals: (target) => {
-      addSignals(target.concerns, ["mobile"]);
-      addSignals(target.tooling, ["android", "ios"]);
-    },
-  },
-];
+export const FILE_DETECTORS: FileDetector[] = DETECTOR_SIGNATURES.map(
+  createSignatureDetector,
+);
 
 export function isDetectorInspectableFile(
   fileName: string,
@@ -184,10 +44,40 @@ export function collectDetectorSignals(
   }
 }
 
-function addSignals(target: string[], values: string[]): void {
-  for (const value of values) {
-    if (!target.includes(value)) {
-      target.push(value);
-    }
-  }
+function createSignatureDetector(signature: DetectorSignature): FileDetector {
+  const normalizedExtensions = new Set(
+    (signature.extensions ?? []).map((extension) => extension.toLowerCase()),
+  );
+  const normalizedFileNames = new Set(signature.fileNames ?? []);
+
+  return {
+    id: signature.id,
+    matches: (fileName, filePath) =>
+      normalizedExtensions.has(extname(fileName).toLowerCase()) ||
+      normalizedFileNames.has(fileName) ||
+      Boolean(signature.filePathPattern?.test(filePath)),
+    applySignals: (target, fileName, filePath) => {
+      applySignalSet(target, signature.signals);
+      for (const conditionalSignals of signature.conditionalSignals ?? []) {
+        const matchesFileName =
+          conditionalSignals.fileNamePattern?.test(fileName) ?? false;
+        const matchesFilePath =
+          conditionalSignals.filePathPattern?.test(filePath) ?? false;
+        if (matchesFileName || matchesFilePath) {
+          applySignalSet(target, conditionalSignals.signals);
+        }
+      }
+    },
+  };
+}
+
+function applySignalSet(
+  target: DemandSignalSet,
+  signals: DetectorSignalSet,
+): void {
+  addSignals(target.languages, signals.languages ?? []);
+  addSignals(target.packageManagers, signals.packageManagers ?? []);
+  addSignals(target.frameworks, signals.frameworks ?? []);
+  addSignals(target.concerns, signals.concerns ?? []);
+  addSignals(target.tooling, signals.tooling ?? []);
 }

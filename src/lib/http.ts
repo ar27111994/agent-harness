@@ -2,8 +2,10 @@ import { TextDecoder } from "node:util";
 
 export interface FetchWithGuardsOptions {
   allowedOrigins?: readonly string[];
+  body?: BodyInit;
   headers?: HeadersInit;
   maxBytes?: number;
+  method?: string;
   signal?: AbortSignal;
   timeoutMs?: number;
 }
@@ -52,7 +54,13 @@ export async function fetchTextWithGuards(
     const parsedUrl = assertAllowedHttpUrl(url, options.allowedOrigins ?? []);
     const response = await fetchWithTimeout(
       parsedUrl.toString(),
-      { headers: options.headers, redirect: "error", signal: options.signal },
+      {
+        body: options.body,
+        headers: options.headers,
+        method: options.method,
+        redirect: "error",
+        signal: options.signal,
+      },
       options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     );
 

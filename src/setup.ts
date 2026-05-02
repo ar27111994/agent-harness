@@ -3,6 +3,7 @@ import {
   resolveHostAdapter,
   type HostAdapter,
 } from "./host-adapters/registry.js";
+import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import {
   formatPreflightDiagnostics,
@@ -13,12 +14,15 @@ import {
 /**
  * Dispatches setup and doctor commands for host inventory and readiness checks.
  */
-export async function runSetup(args: string[]): Promise<number> {
+export async function runSetup(
+  args: string[],
+  projectRoot?: string,
+): Promise<number> {
   const [command = "doctor", ...rest] = args;
 
   switch (command) {
     case "doctor":
-      return (await runDoctor(rest)) ? 0 : 1;
+      return (await runDoctor(rest, projectRoot)) ? 0 : 1;
     case "hosts":
       printHosts();
       return 0;
@@ -35,7 +39,10 @@ export async function runSetup(args: string[]): Promise<number> {
  * Prints adapter metadata and preflight diagnostics, returning whether all
  * required checks passed.
  */
-async function runDoctor(args: string[]): Promise<boolean> {
+async function runDoctor(
+  args: string[],
+  projectRoot: string | undefined,
+): Promise<boolean> {
   const hostName = getOptionValue(args, "--host");
 
   const adapters = hostName
@@ -59,6 +66,12 @@ async function runDoctor(args: string[]): Promise<boolean> {
       `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
     );
     console.log(`Default bundles: ${adapter.defaultBundleIds.join(", ")}`);
+    if (adapter.runtime) {
+      console.log(`Runtime executable: ${adapter.runtime.executable}`);
+      if (adapter.runtime.guidance) {
+        console.log(`Runtime guidance: ${adapter.runtime.guidance}`);
+      }
+    }
     console.log("Capabilities:");
     for (const capability of adapter.capabilities) {
       console.log(
@@ -71,7 +84,14 @@ async function runDoctor(args: string[]): Promise<boolean> {
         requireHostPaths:
           adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
       })),
-      ...(await runAdapterPreflight(adapter.id)),
+      ...(await runAdapterPreflight(adapter)),
+      ...(projectRoot
+        ? await collectActivatedAssetPrerequisiteDiagnostics(
+            projectRoot,
+            adapter,
+            { missingEnvSeverity: "warning" },
+          )
+        : []),
     ];
     if (diagnostics.length > 0) {
       console.log(formatPreflightDiagnostics(diagnostics));
@@ -93,10 +113,14 @@ function printHosts(): void {
 }
 
 function printSetupHelp(): void {
+  const hostNames = listHostAdapters()
+    .flatMap((adapter) => [adapter.id, ...adapter.aliases])
+    .sort((left, right) => left.localeCompare(right))
+    .join("|");
   console.log(`setup commands:
   doctor        Check config, host readiness, capabilities, and guided setup notes
   hosts         List registered host adapters
 
 Options:
-  --host <vscode|opencode|cursor|zed|claude-code|pi>`);
+  --host <${hostNames}>`);
 }

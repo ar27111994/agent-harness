@@ -1,0 +1,43 @@
+# Development-only source and tests
+src/
+dist/tests/
+dist/**/*.map
+
+# Local/editor/CI metadata
+.github/
+.husky/
+.vscode/
+.cursor/
+.zed/
+.claude/
+.pi/
+.opencode/
+.tmp/
+node_modules/
+
+# Generated runtime state
+activate/
+install/
+state/
+discover/output/
+discover/catalog.assets.jsonl
+mirror/audit/
+mirror/bundles/
+mirror/index.jsonl
+mirror/quarantine/
+mirror/raw/
+
+# Development config
+eslint.config.mjs
+tsconfig.json
+.prettierignore
+.prettierrc.json
+.gitattributes
+.gitignore
+
+# Planning/local-only docs
+AGENTS.md
+IMPLEMENTATION-PLAN.md
+Roadmap.md
+FUTURE-IMPROVEMENTS.md
+CONTRIBUTING.md

@@ -12,7 +12,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": ["copilot-vscode"],
+      "hosts": ["copilot-vscode", "cursor"],
       "assetKinds": ["instruction", "agent", "workflow", "plugin"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -36,7 +36,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": ["copilot-vscode"],
+      "hosts": ["copilot-vscode", "cursor"],
       "assetKinds": [
         "skill",
         "agent",
@@ -73,7 +73,8 @@
       "priority": 95,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://marketplace.visualstudio.com"
+        "baseUrl": "https://marketplace.visualstudio.com",
+        "marketplaceApi": "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery"
       },
       "rules": {
         "officialPreferred": true,
@@ -91,13 +92,121 @@
         "verified": true,
         "owner": "anthropic"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": ["copilot-vscode", "opencode", "claude-code"],
       "assetKinds": ["skill", "plugin", "hook", "agent", "workflow"],
       "discoveryMode": "catalog",
       "priority": 90,
       "enabled": true,
       "endpoints": {
         "docsUrl": "https://docs.anthropic.com"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "cursor-docs",
+      "name": "Cursor Docs",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "Cursor",
+        "verified": true,
+        "owner": "cursor"
+      },
+      "hosts": ["copilot-vscode", "cursor"],
+      "assetKinds": ["instruction", "agent", "workflow", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 92,
+      "enabled": true,
+      "endpoints": {
+        "docsUrl": "https://docs.cursor.com"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "zed-docs",
+      "name": "Zed Docs",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "Zed",
+        "verified": true,
+        "owner": "zed-industries"
+      },
+      "hosts": ["opencode", "zed"],
+      "assetKinds": ["instruction", "agent", "workflow", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 92,
+      "enabled": true,
+      "endpoints": {
+        "docsUrl": "https://zed.dev/docs"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "pi-docs",
+      "name": "Pi Docs",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "Pi",
+        "verified": true,
+        "owner": "pi"
+      },
+      "hosts": ["opencode", "pi"],
+      "assetKinds": [
+        "instruction",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "discoveryMode": "catalog",
+      "priority": 92,
+      "enabled": true,
+      "endpoints": {
+        "docsUrl": "https://pi.dev/docs/latest"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "pi-packages",
+      "name": "Pi Packages",
+      "kind": "registry",
+      "authorityTier": "official-compatible",
+      "publisher": {
+        "name": "Pi",
+        "verified": true,
+        "owner": "pi"
+      },
+      "hosts": ["pi"],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "discoveryMode": "catalog",
+      "priority": 88,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://pi.dev/packages"
       },
       "rules": {
         "officialPreferred": true,
@@ -190,6 +299,167 @@
       "enabled": true,
       "endpoints": {
         "baseUrl": "https://pypi.org"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "cargo-registry",
+      "name": "crates.io",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Rust Foundation",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://crates.io"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "go-registry",
+      "name": "Go Packages",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Go",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://pkg.go.dev"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "maven-registry",
+      "name": "Maven Central",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Maven Central",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://central.sonatype.com"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "nuget-registry",
+      "name": "NuGet",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "NuGet",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://www.nuget.org"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "rubygems-registry",
+      "name": "RubyGems",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "RubyGems",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://rubygems.org"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "packagist-registry",
+      "name": "Packagist",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Packagist",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://packagist.org"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "swift-package-index",
+      "name": "Swift Package Index",
+      "kind": "package-registry",
+      "authorityTier": "official-compatible",
+      "publisher": {
+        "name": "Swift Package Index",
+        "verified": true
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://swiftpackageindex.com"
       },
       "rules": {
         "officialPreferred": true,

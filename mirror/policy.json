@@ -55,6 +55,7 @@
         "workflow",
         "hook",
         "plugin",
+        "extension",
         "mcp-server"
       ],
       "defaultPromotion": "manual"

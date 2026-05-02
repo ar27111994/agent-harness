@@ -63,6 +63,10 @@
       "actor-development": 1.25,
       "apify": 1.35,
       "backend": 0.8,
+      "api-design": 0.9,
+      "fullstack": 0.85,
+      "database": 1.0,
+      "e2e-testing": 0.85,
       "containerization": 1.1,
       "debugging": 1.1,
       "docker": 1.15,
@@ -71,7 +75,24 @@
       "infrastructure": 1.1,
       "integration": 0.75,
       "javascript": 0.55,
+      "java": 0.55,
+      "go": 0.55,
+      "rust": 0.55,
+      "csharp": 0.55,
       "node-backend": 1.15,
+      "python-backend": 1.15,
+      "nextjs": 1.05,
+      "supabase": 1.05,
+      "orm": 1.0,
+      "ai-sdk": 1.0,
+      "express": 1.05,
+      "fastify": 1.05,
+      "nestjs": 1.05,
+      "hono": 1.05,
+      "fastapi": 1.05,
+      "django": 1.05,
+      "flask": 1.05,
+      "litestar": 1.05,
       "testing": 0.8,
       "typescript": 0.55,
       "webhook": 1.25,
@@ -102,7 +123,37 @@
       "game-engine": 1.05,
       "latex": 0.9,
       "android": 1.05,
-      "ios": 1.05
+      "ios": 1.05,
+      "cloud": 1.05,
+      "aws": 1.05,
+      "gcp": 1.05,
+      "firebase": 1.05,
+      "blockchain": 1.0,
+      "web3": 1.0,
+      "cryptography": 1.05,
+      "pentesting": 1.1,
+      "robotics": 1.15,
+      "systems-engineering": 1.05,
+      "deep-learning": 1.15,
+      "reinforcement-learning": 1.1,
+      "marketing": 0.85,
+      "seo": 0.9,
+      "lead-generation": 0.9,
+      "content-creation": 0.85,
+      "test-runner": 0.8,
+      "actor-runtime": 1.0,
+      "networking": 1.0,
+      "business-analysis": 0.9,
+      "3d-printing": 1.05,
+      "fabrication": 1.0,
+      "frontend-tooling": 0.9,
+      "java-backend": 1.1,
+      "dotnet-backend": 1.1,
+      "go-backend": 1.1,
+      "rust-backend": 1.1,
+      "backend-framework": 1.0,
+      "data-platform": 1.05,
+      "design-systems": 0.95
     }
   },
   "hostDefaults": {
@@ -172,14 +223,42 @@
     }
   },
   "concernKeywordMap": {
-    "frontend": ["frontend", "react", "vue", "ui", "accessibility"],
+    "frontend": [
+      "frontend",
+      "react",
+      "nextjs",
+      "vue",
+      "angular",
+      "svelte",
+      "astro",
+      "ui",
+      "accessibility",
+      "frontend-tooling",
+      "design-systems"
+    ],
     "backend": [
       "backend",
       "express",
       "node-backend",
       "api",
+      "api-design",
+      "fullstack",
       "apify",
-      "webhook"
+      "webhook",
+      "python-backend",
+      "fastapi",
+      "django",
+      "flask",
+      "litestar",
+      "java",
+      "go",
+      "rust",
+      "csharp",
+      "java-backend",
+      "dotnet-backend",
+      "go-backend",
+      "rust-backend",
+      "backend-framework"
     ],
     "integration": [
       "integration",
@@ -200,7 +279,9 @@
       "data",
       "data-engineering",
       "data-science",
-      "jupyter"
+      "jupyter",
+      "data-platform",
+      "orm"
     ],
     "security": [
       "security",
@@ -211,7 +292,16 @@
       "governance"
     ],
     "docs": ["doc", "readme", "instruction", "guide", "reference"],
-    "testing": ["test", "testing", "jest", "playwright", "qa", "debugging"],
+    "testing": [
+      "test",
+      "testing",
+      "jest",
+      "playwright",
+      "qa",
+      "debugging",
+      "e2e-testing",
+      "test-runner"
+    ],
     "infra": [
       "infra",
       "devops",
@@ -219,9 +309,21 @@
       "docker",
       "kubernetes",
       "container",
-      "azure"
+      "azure",
+      "aws",
+      "gcp",
+      "cloud",
+      "firebase"
     ],
-    "automation": ["automation", "actor", "scraping", "crawler", "agent"],
+    "automation": [
+      "automation",
+      "actor",
+      "actor-runtime",
+      "scraping",
+      "web-scraping",
+      "crawler",
+      "agent"
+    ],
     "knowledge": ["documentation", "knowledge-base", "reference", "guide"],
     "research": [
       "research",
@@ -238,9 +340,36 @@
       "asset-pipeline",
       "realtime-media"
     ],
-    "engineering": ["cad", "hardware", "engineering"],
+    "marketing": [
+      "marketing",
+      "seo",
+      "lead-generation",
+      "advertising",
+      "content-creation"
+    ],
+    "security-research": [
+      "cryptography",
+      "pentesting",
+      "blockchain",
+      "web3",
+      "networking"
+    ],
+    "robotics": ["robotics", "systems-engineering", "ros"],
+    "advanced-ai": [
+      "deep-learning",
+      "reinforcement-learning",
+      "machine-learning",
+      "ai"
+    ],
+    "engineering": [
+      "cad",
+      "hardware",
+      "engineering",
+      "3d-printing",
+      "fabrication"
+    ],
     "game": ["game-development", "game-engine", "godot", "realtime-media"],
-    "ai": ["ai", "machine-learning", "model-artifacts"],
+    "ai": ["ai", "machine-learning", "model-artifacts", "ai-sdk"],
     "mobile": ["mobile", "android", "ios"]
   },
   "taskModeKeywordMap": {
@@ -287,12 +416,29 @@
       "integration",
       "mcp",
       "actor",
+      "actor-runtime",
       "apify",
-      "scraping"
+      "scraping",
+      "web-scraping"
     ],
-    "analysis": ["research", "data-science", "notebooks", "analytics"],
+    "analysis": [
+      "research",
+      "data-science",
+      "notebooks",
+      "analytics",
+      "business-analysis"
+    ],
     "design": ["media", "design-assets", "cad", "hardware", "game-development"],
-    "mobile": ["mobile", "android", "ios"]
+    "marketing": ["marketing", "seo", "lead-generation", "content-creation"],
+    "mobile": ["mobile", "android", "ios"],
+    "security": [
+      "security",
+      "cryptography",
+      "pentesting",
+      "blockchain",
+      "networking"
+    ],
+    "robotics": ["robotics", "systems-engineering", "ros"]
   },
   "domainKeywordGroups": {
     "azure": [
@@ -304,6 +450,8 @@
       "appconfiguration",
       "web-pubsub"
     ],
+    "aws": ["aws", "lambda", "dynamodb", "s3", "cloudformation"],
+    "gcp": ["gcp", "google-cloud", "bigquery", "cloud-run", "pubsub"],
     "expo": ["expo", "react-native"],
     "firebase": ["firebase", "firestore", "genkit"],
     "flutter": ["flutter", "dart"],
@@ -329,11 +477,37 @@
       "creative-production",
       "asset-pipeline"
     ],
-    "engineering": ["cad", "hardware", "engineering"],
+    "engineering": [
+      "cad",
+      "hardware",
+      "engineering",
+      "3d-printing",
+      "fabrication"
+    ],
     "game": ["game-development", "game-engine", "godot", "realtime-media"],
     "ai": ["ai", "machine-learning", "model-artifacts"],
     "mobile": ["mobile", "android", "ios"],
-    "research": ["research", "publishing", "writing", "latex", "notebooks"]
+    "marketing": ["marketing", "seo", "lead-generation", "content-creation"],
+    "research": ["research", "publishing", "writing", "latex", "notebooks"],
+    "robotics": ["robotics", "systems-engineering", "ros"],
+    "security-research": [
+      "cryptography",
+      "pentesting",
+      "blockchain",
+      "web3",
+      "networking"
+    ],
+    "advanced-ai": ["deep-learning", "reinforcement-learning"],
+    "business-analysis": ["business-analysis"],
+    "manufacturing": ["3d-printing", "fabrication"],
+    "backend-platforms": [
+      "java-backend",
+      "dotnet-backend",
+      "go-backend",
+      "rust-backend",
+      "backend-framework"
+    ],
+    "frontend-platforms": ["frontend-tooling", "design-systems"]
   },
   "synonyms": {
     "node-backend": ["node", "backend", "service", "api"],
@@ -345,7 +519,14 @@
       "crawler"
     ],
     "containerization": ["docker", "container", "containers"],
-    "testing": ["test", "qa", "playwright", "jest"],
+    "testing": [
+      "test",
+      "qa",
+      "playwright",
+      "jest",
+      "e2e-testing",
+      "test-runner"
+    ],
     "infrastructure": ["infra", "devops", "terraform", "kubernetes"],
     "documentation": ["docs", "readme", "guide", "reference", "knowledge-base"],
     "integration": ["webhook", "connector", "mcp", "workflow"],
@@ -357,9 +538,22 @@
       "postgres",
       "analytics",
       "data-engineering",
-      "data-science"
+      "data-science",
+      "data-platform",
+      "orm"
     ],
-    "frontend": ["react", "vue", "ui", "accessibility"],
+    "frontend": [
+      "react",
+      "nextjs",
+      "vue",
+      "angular",
+      "svelte",
+      "astro",
+      "ui",
+      "accessibility",
+      "frontend-tooling",
+      "design-systems"
+    ],
     "research": ["notebooks", "paper", "publishing", "writing", "latex"],
     "media": [
       "design-assets",
@@ -367,9 +561,50 @@
       "asset-pipeline",
       "realtime-media"
     ],
-    "engineering": ["cad", "hardware"],
+    "backend": [
+      "api-design",
+      "fullstack",
+      "express",
+      "fastify",
+      "nestjs",
+      "hono",
+      "fastapi",
+      "django",
+      "flask",
+      "litestar",
+      "java",
+      "go",
+      "rust",
+      "csharp",
+      "java-backend",
+      "dotnet-backend",
+      "go-backend",
+      "rust-backend",
+      "backend-framework",
+      "python-backend"
+    ],
+    "engineering": ["cad", "hardware", "3d-printing", "fabrication"],
     "game": ["game-development", "game-engine", "godot", "realtime-media"],
-    "ai": ["machine-learning", "model-artifacts"],
-    "mobile": ["android", "ios"]
+    "ai": [
+      "ai-sdk",
+      "machine-learning",
+      "model-artifacts",
+      "deep-learning",
+      "reinforcement-learning"
+    ],
+    "cloud": ["aws", "azure", "gcp", "firebase", "supabase"],
+    "marketing": ["seo", "lead-generation", "advertising", "content-creation"],
+    "mobile": ["android", "ios"],
+    "robotics": ["systems-engineering", "ros"],
+    "security": [
+      "cryptography",
+      "pentesting",
+      "blockchain",
+      "web3",
+      "networking"
+    ],
+    "analysis": ["business-analysis"],
+    "manufacturing": ["3d-printing", "fabrication"],
+    "languages": ["java", "go", "rust", "csharp"]
   }
 }

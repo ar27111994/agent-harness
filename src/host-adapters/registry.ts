@@ -1,7 +1,12 @@
-import type { AssetKind, HostTarget } from "../types.js";
+import type { AssetCatalogEntry, AssetKind, HostTarget } from "../types.js";
 import { wireOpenCode } from "./opencode.js";
 import { wireVsCode } from "./vscode.js";
 import { wireNativeHost } from "./native-wire.js";
+import {
+  buildVsCodeExtensionInstallActions,
+  resolveVsCodeExtensionId,
+  type ExtensionInstallAction,
+} from "./extension-installer.js";
 
 export type LifecycleHost = "copilot-vscode" | "opencode";
 export type WireMode = "preview" | "apply" | "reset";
@@ -17,6 +22,19 @@ export interface HostCapability {
   behaviors: HostBehavior[];
 }
 
+export interface HostRuntimeSpec {
+  executable: string;
+  versionArgs?: string[];
+  readinessArgs?: string[];
+  guidance?: string;
+  requiredFor?: HostBehavior[];
+}
+
+export interface HostNativeInstallProvider {
+  assetKind: AssetKind;
+  collectActions(assets: AssetCatalogEntry[]): ExtensionInstallAction[];
+}
+
 export interface HostAdapter {
   id: string;
   aliases: string[];
@@ -26,6 +44,8 @@ export interface HostAdapter {
   defaultBundleIds: string[];
   mutatesHostPaths: boolean;
   requiresLifecycleHostPaths?: boolean;
+  runtime?: HostRuntimeSpec;
+  nativeInstall?: HostNativeInstallProvider;
   capabilities: HostCapability[];
   wire(options: {
     projectRoot: string;
@@ -70,7 +90,7 @@ const piCapabilities: HostCapability[] = opencodeCapabilities.map(
       : capability,
 );
 
-export const HOST_ADAPTERS: HostAdapter[] = [
+const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
   {
     id: "copilot-vscode",
     aliases: ["vscode", "copilot"],
@@ -80,6 +100,23 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: true,
+    runtime: {
+      executable: "code",
+      readinessArgs: ["--list-extensions", "--show-versions"],
+      guidance:
+        "Install the VS Code CLI and ensure the 'code' command is available on PATH for native extension install and verification.",
+      requiredFor: ["native-install", "runtime-validation"],
+    },
+    nativeInstall: {
+      assetKind: "extension",
+      collectActions: (assets) =>
+        buildVsCodeExtensionInstallActions(
+          assets.flatMap((asset) => {
+            const extensionId = resolveVsCodeExtensionId(asset);
+            return extensionId ? [extensionId] : [];
+          }),
+        ),
+    },
     capabilities: vscodeCapabilities,
     wire: wireVsCode,
   },
@@ -92,6 +129,11 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "opencode",
+      guidance:
+        "Install the OpenCode CLI if you want runtime validation beyond project-local overlay wiring.",
+    },
     capabilities: opencodeCapabilities,
     wire: wireOpenCode,
   },
@@ -104,6 +146,11 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["copilot-core", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "cursor",
+      guidance:
+        "Install the Cursor CLI if you want runtime validation beyond project-local file wiring.",
+    },
     capabilities: cursorCapabilities,
     wire: (options) => wireNativeHost("cursor", options),
   },
@@ -116,6 +163,11 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "zed",
+      guidance:
+        "Install the Zed CLI if you want runtime validation beyond project-local file wiring.",
+    },
     capabilities: opencodeCapabilities,
     wire: (options) => wireNativeHost("zed", options),
   },
@@ -128,6 +180,11 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "claude",
+      guidance:
+        "Install the Claude Code CLI if you want runtime validation beyond project-local file wiring.",
+    },
     capabilities: opencodeCapabilities,
     wire: (options) => wireNativeHost("claude-code", options),
   },
@@ -140,10 +197,36 @@ export const HOST_ADAPTERS: HostAdapter[] = [
     defaultBundleIds: ["opencode-global", "community-stable"],
     mutatesHostPaths: true,
     requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "pi",
+      guidance:
+        "Install the Pi CLI if you want runtime validation beyond project-local file wiring.",
+    },
     capabilities: piCapabilities,
     wire: (options) => wireNativeHost("pi", options),
   },
 ];
+
+const hostAdapters = [...DEFAULT_HOST_ADAPTERS];
+
+export function registerHostAdapter(adapter: HostAdapter): void {
+  const normalizedId = adapter.id.toLowerCase();
+  const existingIndex = hostAdapters.findIndex(
+    (registeredAdapter) => registeredAdapter.id === normalizedId,
+  );
+  const normalizedAdapter = {
+    ...adapter,
+    id: normalizedId,
+    aliases: adapter.aliases.map((alias) => alias.toLowerCase()),
+  };
+
+  if (existingIndex >= 0) {
+    hostAdapters[existingIndex] = normalizedAdapter;
+    return;
+  }
+
+  hostAdapters.push(normalizedAdapter);
+}
 
 /**
  * Resolves a user-facing host target or alias to its registered adapter.
@@ -151,7 +234,7 @@ export const HOST_ADAPTERS: HostAdapter[] = [
 export function resolveHostAdapter(target: string): HostAdapter | null {
   const normalizedTarget = target.toLowerCase();
   return (
-    HOST_ADAPTERS.find(
+    hostAdapters.find(
       (adapter) =>
         adapter.id === normalizedTarget ||
         adapter.aliases.includes(normalizedTarget),
@@ -163,7 +246,7 @@ export function resolveHostAdapter(target: string): HostAdapter | null {
  * Returns a snapshot of all registered host adapters.
  */
 export function listHostAdapters(): HostAdapter[] {
-  return [...HOST_ADAPTERS];
+  return [...hostAdapters];
 }
 
 /**
@@ -199,7 +282,7 @@ function getAdapterForRecommendationHost(
   recommendationHost: HostTarget,
 ): HostAdapter | null {
   return (
-    HOST_ADAPTERS.find(
+    hostAdapters.find(
       (adapter) => adapter.recommendationHost === recommendationHost,
     ) ?? null
   );

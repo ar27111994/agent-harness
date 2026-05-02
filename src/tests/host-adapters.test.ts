@@ -18,6 +18,16 @@ test("native host adapters are registered with expected lifecycle hosts", () => 
   assert.equal(resolveHostAdapter("claudecode")?.id, "claude-code");
   assert.equal(resolveHostAdapter("pi-coding-agent")?.id, "pi");
 
+  const vscodeAdapter = resolveHostAdapter("vscode");
+  assert.ok(vscodeAdapter);
+  assert.equal(vscodeAdapter.runtime?.executable, "code");
+  assert.equal(vscodeAdapter.nativeInstall?.assetKind, "extension");
+  assert.ok(
+    vscodeAdapter.capabilities
+      .find((capability) => capability.assetKind === "extension")
+      ?.behaviors.includes("native-install"),
+  );
+
   assert.equal(resolveHostAdapter("claude")?.recommendationHost, "claude-code");
 
   const piAdapter = resolveHostAdapter("pi");

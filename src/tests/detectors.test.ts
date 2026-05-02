@@ -5,42 +5,11 @@ import {
   collectDetectorSignals,
   isDetectorInspectableFile,
 } from "../domains/discovery/detectors.js";
-import type { DemandSignalSet } from "../types.js";
-
-const cases: Array<{
-  fileName: string;
-  filePath: string;
-  expectedConcern: string;
-}> = [
-  {
-    fileName: "analysis.ipynb",
-    filePath: "research/analysis.ipynb",
-    expectedConcern: "notebooks",
-  },
-  {
-    fileName: "dataset.parquet",
-    filePath: "data/dataset.parquet",
-    expectedConcern: "data",
-  },
-  {
-    fileName: "part.step",
-    filePath: "cad/part.step",
-    expectedConcern: "cad",
-  },
-  {
-    fileName: "paper.tex",
-    filePath: "research/paper.tex",
-    expectedConcern: "research",
-  },
-  {
-    fileName: "model.onnx",
-    filePath: "models/model.onnx",
-    expectedConcern: "machine-learning",
-  },
-];
+import { createEmptySignalSet } from "../domains/discovery/signals.js";
+import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
 
 test("detector packs match representative non-software artifacts", () => {
-  for (const fixture of cases) {
+  for (const fixture of ROADMAP_DETECTION_FIXTURES) {
     const signals = createEmptySignalSet();
 
     assert.equal(
@@ -49,19 +18,18 @@ test("detector packs match representative non-software artifacts", () => {
       fixture.filePath,
     );
     collectDetectorSignals(fixture.fileName, fixture.filePath, signals);
-    assert.ok(
-      signals.concerns.includes(fixture.expectedConcern),
-      `${fixture.filePath} should emit ${fixture.expectedConcern}`,
-    );
+    for (const expectedConcern of fixture.expectedConcerns) {
+      assert.ok(
+        signals.concerns.includes(expectedConcern),
+        `${fixture.filePath} should emit ${expectedConcern}`,
+      );
+    }
+    for (const unexpectedConcern of fixture.unexpectedConcerns ?? []) {
+      assert.equal(
+        signals.concerns.includes(unexpectedConcern),
+        false,
+        `${fixture.filePath} should not emit ${unexpectedConcern}`,
+      );
+    }
   }
 });
-
-function createEmptySignalSet(): DemandSignalSet {
-  return {
-    languages: [],
-    packageManagers: [],
-    frameworks: [],
-    concerns: [],
-    tooling: [],
-  };
-}

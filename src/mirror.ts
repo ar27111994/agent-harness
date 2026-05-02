@@ -405,6 +405,7 @@ function shouldIncludeEntryInBundle(
         entry.assetKind === "workflow" ||
         entry.assetKind === "hook" ||
         entry.assetKind === "plugin" ||
+        entry.assetKind === "extension" ||
         (entry.assetKind === "skill" &&
           entry.source.authorityTier === "official-first-party" &&
           entry.fit.portfolioFit >= 0.3))

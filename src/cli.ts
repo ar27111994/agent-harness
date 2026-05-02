@@ -43,7 +43,10 @@ async function main(): Promise<number> {
       return runWire(args, workingDirectory, projectRoot);
     case "setup":
     case "doctor":
-      return runSetup(domain === "doctor" ? ["doctor", ...args] : args);
+      return runSetup(
+        domain === "doctor" ? ["doctor", ...args] : args,
+        projectRoot,
+      );
     case undefined:
       printHelp();
       return 0;
@@ -63,6 +66,7 @@ function printHelp(): void {
   mirror locks             Generate mirror bundle locks
   mirror acquire           Acquire raw mirror artifacts and resolve bundle locks
   install bundle            Stage installed assets from bundle locks
+  install native            Plan/verify/apply/remove host-native installs
   install reconcile         Recompute install progress and generations
   install reset             Remove install state
   activate host             Materialize active host views from installed bundles
