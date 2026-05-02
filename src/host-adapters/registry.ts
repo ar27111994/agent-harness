@@ -162,22 +162,31 @@ export function listHostAdapters(): HostAdapter[] {
 export function isHostCompatibleWithRecommendationHost(
   entryHosts: HostTarget[],
   recommendationHost: HostTarget,
+  assetKind: AssetKind,
 ): boolean {
+  const adapter = getAdapterForRecommendationHost(recommendationHost);
+  if (
+    adapter &&
+    !adapter.capabilities.some(
+      (capability) => capability.assetKind === assetKind,
+    )
+  ) {
+    return false;
+  }
+
   if (entryHosts.includes(recommendationHost)) {
     return true;
   }
 
-  const lifecycleHost =
-    getLifecycleHostForRecommendationHost(recommendationHost);
-  return lifecycleHost ? entryHosts.includes(lifecycleHost) : false;
+  return adapter ? entryHosts.includes(adapter.lifecycleHost) : false;
 }
 
-function getLifecycleHostForRecommendationHost(
+function getAdapterForRecommendationHost(
   recommendationHost: HostTarget,
-): LifecycleHost | null {
+): HostAdapter | null {
   return (
     HOST_ADAPTERS.find(
       (adapter) => adapter.recommendationHost === recommendationHost,
-    )?.lifecycleHost ?? null
+    ) ?? null
   );
 }

@@ -5,6 +5,7 @@ import {
 } from "./host-adapters/registry.js";
 import {
   formatPreflightDiagnostics,
+  runAdapterPreflight,
   runHostPreflight,
 } from "./lib/preflight.js";
 
@@ -62,10 +63,13 @@ async function runDoctor(args: string[]): Promise<boolean> {
       );
     }
 
-    const diagnostics = await runHostPreflight(adapter.lifecycleHost, {
-      requireHostPaths:
-        adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
-    });
+    const diagnostics = [
+      ...(await runHostPreflight(adapter.lifecycleHost, {
+        requireHostPaths:
+          adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+      })),
+      ...(await runAdapterPreflight(adapter.id)),
+    ];
     if (diagnostics.length > 0) {
       console.log(formatPreflightDiagnostics(diagnostics));
     }

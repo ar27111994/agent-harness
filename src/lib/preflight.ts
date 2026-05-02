@@ -1,6 +1,6 @@
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
-import { dirname } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import {
@@ -33,6 +33,26 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
   }
 
   return diagnostics;
+}
+
+export async function runAdapterPreflight(
+  adapterId: string,
+): Promise<PreflightDiagnostic[]> {
+  const executableByAdapter: Record<string, string> = {
+    "copilot-vscode": "code",
+    opencode: "opencode",
+    cursor: "cursor",
+    zed: "zed",
+    "claude-code": "claude",
+    pi: "pi",
+  };
+  const executableName = executableByAdapter[adapterId];
+
+  if (!executableName) {
+    return [];
+  }
+
+  return [await checkExecutableOnPath(executableName, `${adapterId}-cli`)];
 }
 
 export async function runHostPreflight(
@@ -124,6 +144,56 @@ export function formatPreflightDiagnostics(
       return `[${diagnostic.severity}] ${diagnostic.code}: ${diagnostic.message}${action}`;
     })
     .join("\n");
+}
+
+async function checkExecutableOnPath(
+  executableName: string,
+  code: string,
+): Promise<PreflightDiagnostic> {
+  const executablePath = await findExecutableOnPath(executableName);
+  if (executablePath) {
+    return {
+      severity: "info",
+      code,
+      message: `Found ${executableName} at ${executablePath}.`,
+    };
+  }
+
+  return {
+    severity: "warning",
+    code,
+    message: `${executableName} was not found on PATH.`,
+    action:
+      "Install the host CLI or ensure it is available on PATH if you want runtime readiness validation beyond project-local file wiring.",
+  };
+}
+
+async function findExecutableOnPath(
+  executableName: string,
+): Promise<string | null> {
+  const pathEntries = (process.env.PATH ?? "")
+    .split(delimiter)
+    .filter((entry) => entry.length > 0);
+  const extensions =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
+          .split(";")
+          .filter((entry) => entry.length > 0)
+      : [""];
+
+  for (const pathEntry of pathEntries) {
+    for (const extension of extensions) {
+      const candidate = join(pathEntry, `${executableName}${extension}`);
+      try {
+        await access(candidate, constants.X_OK);
+        return candidate;
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function checkPathExists(

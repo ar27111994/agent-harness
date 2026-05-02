@@ -303,7 +303,11 @@ function isEntryCompatibleWithRecommendationHost(
   entry: AssetCatalogEntry,
   host: RecommendationHost,
 ): boolean {
-  return isHostCompatibleWithRecommendationHost(entry.hosts, host);
+  return isHostCompatibleWithRecommendationHost(
+    entry.hosts,
+    host,
+    entry.assetKind,
+  );
 }
 
 function selectCandidatesForHost(

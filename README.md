@@ -130,7 +130,7 @@ agent-harness setup doctor --host claude-code
 agent-harness setup doctor --host pi
 ```
 
-`setup doctor` prints each adapter’s lifecycle host, recommendation host, default bundles, advertised capabilities, and preflight diagnostics.
+`setup doctor` prints each adapter’s lifecycle host, recommendation host, default bundles, advertised capabilities, lifecycle preflight diagnostics, and adapter-specific CLI readiness diagnostics. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path.
 
 ### Run a full workspace pipeline
 
@@ -642,7 +642,7 @@ Package registry discovery is driven by dependency evidence extracted from manif
 
 The discovery pipeline emits package dependency signals like `npm:<package>` and `pypi:<package>` only from dependency evidence. It filters requirement directives, direct references, VCS URLs, local paths, and non-package strings before querying package registries.
 
-For `pyproject.toml`, dependency extraction is intentionally scoped to project dependency sections, such as `[project].dependencies` and `[project.optional-dependencies]`, rather than build-system requirements.
+For `pyproject.toml`, dependency extraction is intentionally scoped to project dependency sections rather than build-system requirements. Supported sections include PEP 621 `[project].dependencies`, `[project.optional-dependencies]`, Poetry `[tool.poetry.dependencies]`, `[tool.poetry.dev-dependencies]`, and `[tool.poetry.group.<name>.dependencies]` sections.
 
 ### Recommendation policy layout
 
@@ -870,7 +870,7 @@ Run:
 agent-harness setup doctor --host <host>
 ```
 
-VS Code apply needs a writable VS Code user settings directory. OpenCode, Cursor, Zed, Claude Code, and Pi use project-local wiring and should not require global host profile mutation.
+VS Code apply needs a writable VS Code user settings directory. OpenCode, Cursor, Zed, Claude Code, and Pi use project-local wiring and should not require global host profile mutation. Missing host CLIs such as `cursor`, `zed`, `claude`, or `pi` are reported as readiness warnings so users know runtime validation is incomplete, but project-local preview/apply/reset can still proceed when no required path is missing.
 
 ### VS Code settings cannot be patched
 

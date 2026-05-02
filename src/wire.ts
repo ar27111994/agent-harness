@@ -7,6 +7,7 @@ import { resolveHostAdapter } from "./host-adapters/registry.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
+  runAdapterPreflight,
   runHostPreflight,
 } from "./lib/preflight.js";
 
@@ -31,9 +32,12 @@ export async function runWire(
 
   const requiresLifecycleHostPaths =
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
-  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
-    requireHostPaths: mode === "apply" && requiresLifecycleHostPaths,
-  });
+  const diagnostics = [
+    ...(await runHostPreflight(hostAdapter.lifecycleHost, {
+      requireHostPaths: mode === "apply" && requiresLifecycleHostPaths,
+    })),
+    ...(await runAdapterPreflight(hostAdapter.id)),
+  ];
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }

@@ -3290,6 +3290,13 @@ function extractPyProjectDependencyNames(content: string): string[] {
     }
 
     if (!inDependencyList) {
+      const poetryDependencyName = extractPoetryDependencyName(
+        line,
+        currentSection,
+      );
+      if (poetryDependencyName) {
+        dependencyNames.push(poetryDependencyName);
+      }
       continue;
     }
 
@@ -3314,6 +3321,36 @@ function extractPyProjectDependencyNames(content: string): string[] {
   }
 
   return uniqueStrings(dependencyNames);
+}
+
+function extractPoetryDependencyName(
+  line: string,
+  currentSection: string,
+): string | null {
+  if (!isPoetryDependencySection(currentSection)) {
+    return null;
+  }
+
+  const dependencyMatch = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u);
+  const dependencyName = dependencyMatch?.[1];
+  const dependencySpec = dependencyMatch?.[2]?.trim();
+  if (
+    !dependencyName ||
+    dependencyName.toLowerCase() === "python" ||
+    isPythonDirectReference(dependencySpec)
+  ) {
+    return null;
+  }
+
+  return isPlainPackageName(dependencyName) ? dependencyName : null;
+}
+
+function isPoetryDependencySection(currentSection: string): boolean {
+  return (
+    currentSection === "tool.poetry.dependencies" ||
+    currentSection === "tool.poetry.dev-dependencies" ||
+    /^tool\.poetry\.group\.[^.]+\.dependencies$/u.test(currentSection)
+  );
 }
 
 function isPyProjectDependencyListStart(

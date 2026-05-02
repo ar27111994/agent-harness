@@ -7,6 +7,7 @@ import { resolveHostAdapter } from "./host-adapters/registry.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
+  runAdapterPreflight,
   runHostPreflight,
 } from "./lib/preflight.js";
 import { runWorkspacePipeline } from "./pipeline.js";
@@ -32,9 +33,12 @@ export async function runWorkspace(
 
   const requiresLifecycleHostPaths =
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
-  const diagnostics = await runHostPreflight(hostAdapter.lifecycleHost, {
-    requireHostPaths: requiresLifecycleHostPaths,
-  });
+  const diagnostics = [
+    ...(await runHostPreflight(hostAdapter.lifecycleHost, {
+      requireHostPaths: requiresLifecycleHostPaths,
+    })),
+    ...(await runAdapterPreflight(hostAdapter.id)),
+  ];
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
   }
