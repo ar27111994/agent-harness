@@ -96,6 +96,6 @@ main()
     process.exitCode = exitCode;
   })
   .catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(error);
     process.exitCode = 1;
   });
