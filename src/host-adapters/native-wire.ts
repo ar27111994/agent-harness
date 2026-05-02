@@ -185,7 +185,10 @@ export async function wireNativeHost(
     sourceActivationRoot,
     spec.activationHost,
   );
-  const sharedMcpAssetIds = await readSharedMcpAssetIds(options.projectRoot);
+  const sharedMcpAssetIds = await readSharedMcpAssetIdsBestEffort(
+    options.projectRoot,
+    spec.displayName,
+  );
   const materializedAssets = await materializeNativeAssets(
     nativeAssets,
     managedRoot,
@@ -216,6 +219,20 @@ export async function wireNativeHost(
 
   await writeJsonFile(join(managedRoot, "wire-plan.json"), wirePlan);
   await writeJsonFile(join(hostActivationRoot, "wire-plan.json"), wirePlan);
+}
+
+async function readSharedMcpAssetIdsBestEffort(
+  projectRoot: string,
+  hostName: string,
+): Promise<string[]> {
+  try {
+    return await readSharedMcpAssetIds(projectRoot);
+  } catch (error) {
+    console.warn(
+      `Failed to project shared MCP assets into ${hostName} wire plan: ${toLoggableErrorMessage(error)}`,
+    );
+    return [];
+  }
 }
 
 async function loadNativeAssets(
@@ -849,6 +866,14 @@ function fileNameForAssetKind(nativeAsset: NativeAsset): string {
     default:
       return `${sanitizeAssetId(nativeAsset.assetId)}.md`;
   }
+}
+
+function toLoggableErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack ?? `${error.name}: ${error.message}`;
+  }
+
+  return String(error);
 }
 
 function buildMetadataFallback(asset: AssetCatalogEntry): string {
