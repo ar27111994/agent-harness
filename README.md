@@ -109,11 +109,13 @@ npm run build
 
 ### Optional local environment
 
-Runtime configuration is centralized in `src/config/runtime.ts`. `.env.example` documents supported variables. If you copy it to `.env`, treat that file as a private note for values you export in your shell; the CLI reads `process.env` and does not automatically load `.env` files.
+Runtime configuration is centralized in `src/config/runtime.ts`. `.env.example` documents supported variables. The CLI automatically loads a `.env` file from the current working directory before dispatching commands, without overriding variables that are already exported by your shell.
 
 ```bash
 cp .env.example .env
 ```
+
+Use `.env` for local machine values such as GitHub tokens, batch sizes, and scan budgets. Keep real secrets out of git.
 
 ### Inspect host readiness
 
@@ -694,7 +696,7 @@ npm run validate:recommendations
 
 ## Environment variables
 
-See `.env.example` for documented defaults. The CLI reads environment variables from `process.env`; export values in your shell or process manager before running commands.
+See `.env.example` for documented defaults. On startup, the CLI loads `.env` from the current working directory into `process.env` and preserves any variables already set by the parent shell or process manager.
 
 ### GitHub authentication
 

@@ -90,8 +90,12 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   };
 }
 
-export function clearRuntimeConfigForTests(): void {
+export function clearRuntimeConfig(): void {
   runtimeConfig = null;
+}
+
+export function clearRuntimeConfigForTests(): void {
+  clearRuntimeConfig();
 }
 
 function nonEmptyString(value: string | undefined): string | undefined {

@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added in 1.0.0
 
-- centralized runtime configuration with schema-style validation, documented `.env.example` defaults, and shared preflight diagnostics
+- centralized runtime configuration with schema-style validation, automatic current-working-directory `.env` loading, documented `.env.example` defaults, and shared preflight diagnostics
 - cross-platform path handling for VS Code settings, home-relative display paths, generated local source seeds, and source endpoint resolution
 - modular discovery detector packs for docs, notebooks, datasets, media/design assets, CAD/hardware, research, game engines, mobile, and ML artifact repos
 - scan budgets, expanded ignore profiles, link lifecycle tests, scan benchmark budgets, and Windows/macOS/Linux CI coverage

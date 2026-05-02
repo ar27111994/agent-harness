@@ -2,6 +2,8 @@
 
 import { fileURLToPath } from "node:url";
 
+import { loadDotEnvFile } from "./config/env-file.js";
+import { clearRuntimeConfig } from "./config/runtime.js";
 import { runDiscover } from "./discover.js";
 import { resolveProjectRoot } from "./files.js";
 import { runInstall } from "./install.js";
@@ -17,6 +19,8 @@ async function main(): Promise<number> {
   const [, , domain, ...args] = process.argv;
   const projectRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
   const workingDirectory = process.cwd();
+  await loadDotEnvFile(workingDirectory);
+  clearRuntimeConfig();
 
   switch (domain) {
     case "discover":
