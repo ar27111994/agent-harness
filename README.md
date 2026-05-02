@@ -347,30 +347,108 @@ npm run rebuild:full
 
 ## Host wire-in
 
-### VS Code / GitHub Copilot wire-in
+`agent-harness` has one generic workspace and wire CLI surface, backed by host-specific adapters. The generic commands stay stable while each adapter owns the files, settings, and reset semantics required by its host.
 
-The project supports semi-automatic and automatic VS Code wire-in.
+### Supported host matrix
 
-Supported behavior:
+| CLI target                  | Aliases                | Lifecycle host   | Recommendation host | Wire implementation                                                  | Default bundles                                     | Host path requirement                                                        |
+| --------------------------- | ---------------------- | ---------------- | ------------------- | -------------------------------------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `vscode` / `copilot-vscode` | `copilot`              | `copilot-vscode` | `copilot-vscode`    | VS Code user settings plus workspace instructions                    | `copilot-core`, `community-stable`, `shared-mcp`    | Requires writable VS Code user settings directory when applying              |
+| `opencode`                  | `open-code`            | `opencode`       | `opencode`          | Project-local `.opencode` overlay and managed links                  | `opencode-global`, `community-stable`, `shared-mcp` | Does not require a global OpenCode config directory for project-local wiring |
+| `cursor`                    | —                      | `copilot-vscode` | `cursor`            | Project-local Cursor rules and managed assets                        | `copilot-core`, `community-stable`, `shared-mcp`    | Does not mutate global Cursor or VS Code profiles                            |
+| `zed`                       | —                      | `opencode`       | `zed`               | Project-local `.rules`, `.zed/settings.json`, and managed assets     | `opencode-global`, `community-stable`, `shared-mcp` | Does not mutate global Zed or OpenCode profiles                              |
+| `claude-code`               | `claude`, `claudecode` | `opencode`       | `claude-code`       | Project-local Claude context, rules, skills, and commands            | `opencode-global`, `community-stable`, `shared-mcp` | Does not mutate global Claude Code or OpenCode profiles                      |
+| `pi`                        | `pi-coding-agent`      | `opencode`       | `pi`                | Project-local Pi agent/system context, skills, prompts, and settings | `opencode-global`, `community-stable`               | Does not mutate global Pi or OpenCode profiles                               |
 
-- updates **User-scoped** VS Code settings for protected AI path settings
-- writes workspace-local `.github/copilot-instructions.md`
-- materializes curated user-level runtime folders under `~/.copilot/agent-harness/`
-- preserves the VS Code security boundary by avoiding workspace-level mutation of user-only settings
+Definitions:
 
-Commands:
+- **CLI target** is what you pass to `agent-harness workspace <host>` or `agent-harness wire <host>`.
+- **Lifecycle host** controls install and activation materialization. Some hosts reuse the nearest compatible lifecycle host instead of duplicating package layout code.
+- **Recommendation host** controls host-specific ranking policy. Cursor, Zed, Claude Code, and Pi have independent recommendation policies even when they reuse a lifecycle host.
+- **Wire implementation** is the host-specific code that writes or removes host-native project files.
+
+### Workspace commands by host
+
+Workspace commands run discover, mirror, install, activate, and wire-in for the selected adapter:
+
+```bash
+agent-harness workspace vscode --intent frontend
+agent-harness workspace opencode --intent backend
+agent-harness workspace cursor --intent frontend
+agent-harness workspace zed --intent docs
+agent-harness workspace claude-code --intent backend
+agent-harness workspace pi --intent docs
+```
+
+Equivalent repository scripts:
+
+```bash
+npm run workspace:vscode -- --intent frontend
+npm run workspace:opencode -- --intent backend
+npm run workspace:cursor -- --intent frontend
+npm run workspace:zed -- --intent docs
+npm run workspace:claude-code -- --intent backend
+npm run workspace:pi -- --intent docs
+```
+
+The legacy `agent-harness-vscode` and `agent-harness-opencode` package binaries were removed in favor of this single adapter-driven command surface.
+
+### Wire commands by host
+
+Wire commands operate on the current workspace and support preview, apply, and reset modes:
 
 ```bash
 agent-harness wire vscode --preview
 agent-harness wire vscode --apply
 agent-harness wire vscode --reset
+
+agent-harness wire opencode --preview
+agent-harness wire opencode --apply
+agent-harness wire opencode --reset
+
+agent-harness wire cursor --preview
+agent-harness wire cursor --apply
+agent-harness wire cursor --reset
+
+agent-harness wire zed --preview
+agent-harness wire zed --apply
+agent-harness wire zed --reset
+
+agent-harness wire claude-code --preview
+agent-harness wire claude-code --apply
+agent-harness wire claude-code --reset
+
+agent-harness wire pi --preview
+agent-harness wire pi --apply
+agent-harness wire pi --reset
 ```
 
-Equivalent npm command:
+Equivalent repository scripts apply the corresponding wire-in:
 
 ```bash
 npm run wire:vscode
+npm run wire:opencode
+npm run wire:cursor
+npm run wire:zed
+npm run wire:claude-code
+npm run wire:pi
 ```
+
+Preview writes a host preview manifest without applying workspace mutations. Most adapter previews use `activate/<host>/wire-preview-<host>.json`; VS Code uses its lifecycle root, `activate/copilot-vscode/wire-preview-vscode.json`. Apply writes host-specific project files and an effective wire plan. Reset removes managed outputs created by the adapter.
+
+### VS Code / GitHub Copilot wire-in
+
+The VS Code adapter is intentionally host-specific because VS Code and Copilot use protected user settings plus workspace-local instruction files.
+
+Supported behavior:
+
+- updates **user-scoped** VS Code settings for protected AI path settings
+- writes workspace-local `.github/copilot-instructions.md`
+- materializes curated user-level runtime folders under `~/.copilot/agent-harness/`
+- projects shared MCP assets into the effective VS Code wire plan where available
+- writes extension metadata and native install action guidance for valid VS Code extension identifiers
+- preserves the VS Code security boundary by avoiding workspace-level mutation of user-only settings
+- resets only managed settings entries and managed generated files
 
 Patched VS Code user settings can include:
 
@@ -379,6 +457,7 @@ Patched VS Code user settings can include:
 - `chat.hookFilesLocations`
 - `chat.agentFilesLocations`
 - `chat.instructionsFilesLocations`
+- `github.copilot.chat.codeGeneration.instructions`
 
 For skills specifically, the wire-in uses the **parent curated skills folder**:
 
@@ -398,84 +477,170 @@ Curated user-level runtime folders include:
 - `~/.copilot/agent-harness/skills`
 - `~/.copilot/agent-harness/hooks`
 - `~/.copilot/agent-harness/plugins`
+- `~/.copilot/agent-harness/extensions`
 
-Workspace-local export:
+Workspace-local exports:
 
 - `.github/copilot-instructions.md`
+- `activate/copilot-vscode/wire-preview-vscode.json`
+- `activate/copilot-vscode/wire-plan.json`
+- `activate/copilot-vscode/workspace-profile-manifest.json`
+
+Current boundaries:
+
+- The adapter stages extension metadata and emits install guidance; it does not silently install marketplace extensions.
+- Applying VS Code wire-in requires the VS Code user settings directory to exist and be writable.
 
 ### OpenCode wire-in
 
-The project supports semi-automatic project-local OpenCode wire-in.
+The OpenCode adapter is intentionally host-specific because OpenCode consumes project-local overlays and directory layouts rather than VS Code settings.
 
 Supported behavior:
 
 - writes a project-local overlay under `.opencode/context/project-intelligence/agent-harness/`
 - creates managed directory links under `.opencode/<asset-kind>/`
-- does **not** overwrite the global OpenAgentsControl-managed install
+- updates the project `AGENTS.md` managed section when needed
+- writes an effective project wire plan under the `.opencode` overlay
+- projects shared MCP assets into the effective OpenCode wire plan where available
 - uses filesystem links instead of text-only workspace instructions
 - uses Windows directory junctions when running on Windows for compatibility
+- does **not** overwrite the global OpenAgentsControl-managed install
+- does **not** require a global OpenCode config directory for project-local apply/reset flows
 
-Commands:
+Managed project-local locations include:
+
+- `.opencode/context/project-intelligence/agent-harness/`
+- `.opencode/agents/`
+- `.opencode/skills/`
+- `.opencode/instructions/`
+- `.opencode/workflows/`
+- `.opencode/hooks/`
+- `.opencode/plugins/`
+- `.opencode/mcp-servers/`
+- `.opencode/extensions/`
+- `.opencode/prompt-packs/`
+- `.opencode/reference-packs/`
+- `AGENTS.md`
+
+Wire-plan outputs:
+
+- `activate/opencode/wire-preview-opencode.json`
+- `.opencode/context/project-intelligence/agent-harness/wire-plan.json`
+
+Current boundaries:
+
+- The adapter links activated assets into the workspace overlay; it does not mutate global OpenCode packages.
+- Reset removes managed sections, managed links, and the managed context overlay.
+
+### Cursor wire-in
+
+The Cursor adapter is a project-local native adapter that reuses the VS Code / Copilot lifecycle host for install and activation, while ranking assets through its own `cursor` recommendation policy.
+
+Supported behavior:
+
+- writes a project-local Cursor rule file at `.cursor/rules/agent-harness.mdc`
+- materializes selected assets under `.cursor/agent-harness/`
+- writes `activate/cursor/wire-preview-cursor.json`
+- writes `activate/cursor/wire-plan.json` on apply
+- avoids global Cursor profile mutation
+- avoids global VS Code profile mutation even though it reuses the Copilot-compatible lifecycle host
+
+Current boundaries:
+
+- Cursor extension/native-install capability is not advertised until the native Cursor wire flow can surface structured extension IDs and install actions.
+- Extension-like material is treated as reference material in the native project-local asset tree.
+
+### Zed wire-in
+
+The Zed adapter is a project-local native adapter that reuses the OpenCode-compatible lifecycle host for install and activation, while ranking assets through its own `zed` recommendation policy.
+
+Supported behavior:
+
+- updates the project `.rules` file with an agent-harness managed section
+- adds an `agent-harness` profile entry to `.zed/settings.json`
+- materializes selected assets under `.zed/agent-harness/`
+- writes `activate/zed/wire-preview-zed.json`
+- writes `activate/zed/wire-plan.json` on apply
+- avoids global Zed settings/profile mutation
+- avoids global OpenCode profile mutation even though it reuses the OpenCode-compatible lifecycle host
+
+Current boundaries:
+
+- The adapter writes project-local context and profile hints only.
+- Host marketplace/plugin installation remains a manual or future host-specific extension.
+
+### Claude Code wire-in
+
+The Claude Code adapter is a project-local native adapter that reuses the OpenCode-compatible lifecycle host for install and activation, while ranking assets through its own `claude-code` recommendation policy.
+
+Supported behavior:
+
+- writes managed project context to `CLAUDE.md`
+- writes managed local Claude context to `.claude/CLAUDE.md`
+- writes `.claude/rules/agent-harness.md`
+- writes `.claude/skills/agent-harness/SKILL.md`
+- writes `.claude/commands/agent-harness.md`
+- materializes selected assets under `.claude/agent-harness/`
+- writes `activate/claude-code/wire-preview-claude-code.json`
+- writes `activate/claude-code/wire-plan.json` on apply
+- avoids global Claude Code profile mutation
+
+Current boundaries:
+
+- The adapter stages MCP and reference assets as project-readable references.
+- It does not synthesize full Claude Code MCP server configuration without structured server metadata.
+
+### Pi wire-in
+
+The Pi adapter is a project-local native adapter that reuses the OpenCode-compatible lifecycle host for install and activation, while ranking assets through its own `pi` recommendation policy.
+
+Supported behavior:
+
+- writes managed project agent context to `AGENTS.md`
+- writes managed project system context to `SYSTEM.md`
+- writes `.pi/skills/agent-harness/SKILL.md`
+- writes `.pi/prompts/agent-harness.md`
+- updates `.pi/settings.json` with skill and prompt resource entries
+- materializes selected assets under `.pi/agent-harness/`
+- writes `activate/pi/wire-preview-pi.json`
+- writes `activate/pi/wire-plan.json` on apply
+- avoids global Pi profile mutation
+
+Current boundaries:
+
+- Pi does not include `shared-mcp` in its default bundles.
+- MCP assets are staged as references unless your Pi installation includes a compatible MCP extension.
+
+### Native adapter wire-plan contents
+
+Native project-local adapters emit effective wire plans with the paths they materialized. Depending on selected assets, these plans can include:
+
+- `instructionsFiles`
+- `agentFiles`
+- `skillDirs`
+- `pluginDirs`
+- `workflowFiles`
+- `referenceFiles`
+- `hookFiles`
+- `mcpServers`
+- `nativeInstallActions`
+
+### Setup and diagnostics
+
+Use setup commands to inspect the registered adapters and run host readiness diagnostics:
 
 ```bash
-agent-harness wire opencode --preview
-agent-harness wire opencode --apply
-agent-harness wire opencode --reset
+agent-harness setup hosts
+agent-harness setup doctor
+agent-harness setup doctor --host vscode
+agent-harness setup doctor --host opencode
+agent-harness setup doctor --host cursor
+agent-harness setup doctor --host zed
+agent-harness setup doctor --host claude-code
+agent-harness setup doctor --host pi
 ```
 
-Equivalent npm command:
-
-```bash
-npm run wire:opencode
-```
-
-### Native project-local adapter wire-in
-
-Cursor, Zed, Claude Code, and Pi are first-class native host adapters. They write project-local host files and host-specific wire plans under `activate/<host>/`, while avoiding global profile mutation.
-
-Commands:
-
-```bash
-agent-harness wire cursor --apply
-agent-harness wire zed --apply
-agent-harness wire claude-code --apply
-agent-harness wire pi --apply
-```
-
-Equivalent npm commands:
-
-```bash
-npm run wire:cursor
-npm run wire:zed
-npm run wire:claude-code
-npm run wire:pi
-```
-
-Native project-local outputs:
-
-- Cursor writes `.cursor/rules/agent-harness.mdc` and materializes assets under `.cursor/agent-harness/`.
-- Zed updates the project `.rules` file, adds an `agent-harness` profile to `.zed/settings.json`, and materializes assets under `.zed/agent-harness/`.
-- Claude Code writes managed `CLAUDE.md` context plus `.claude/CLAUDE.md`, `.claude/rules/agent-harness.md`, `.claude/skills/agent-harness/SKILL.md`, and `.claude/commands/agent-harness.md`.
-- Pi writes managed `AGENTS.md` and `SYSTEM.md` context plus `.pi/skills/agent-harness/SKILL.md`, `.pi/prompts/agent-harness.md`, and `.pi/settings.json` resource entries.
-
-Lifecycle mapping:
-
-- Cursor reuses the VS Code / Copilot lifecycle host.
-- Zed, Claude Code, and Pi reuse the OpenCode-compatible lifecycle host.
-- Pi stages MCP assets as references only unless your Pi installation includes an MCP extension, because Pi does not ship with built-in MCP support.
-
-### Automatic wire-in through workspace commands
-
-Workspace commands run wire-in automatically after activation:
-
-```bash
-agent-harness workspace vscode --intent frontend
-agent-harness workspace opencode --intent security
-agent-harness workspace cursor --intent frontend
-agent-harness workspace zed --intent docs
-agent-harness workspace claude-code --intent backend
-agent-harness workspace pi --intent docs
-```
+`setup doctor` prints lifecycle host, recommendation host, default bundles, advertised capability matrix, and preflight diagnostics for each adapter. Diagnostics are informational unless an adapter requires a writable host-native path for the selected operation.
 
 ## Common workflows
 
