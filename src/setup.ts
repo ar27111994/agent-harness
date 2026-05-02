@@ -115,5 +115,10 @@ function getOptionValue(
     return undefined;
   }
 
-  return args[optionIndex + 1];
+  const value = args[optionIndex + 1];
+  if (!value || value.startsWith("--")) {
+    return undefined;
+  }
+
+  return value;
 }
