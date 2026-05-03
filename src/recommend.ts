@@ -7,6 +7,8 @@ import {
   writeJsonFile,
 } from "./files.js";
 import {
+  assertAssetCatalogEntry,
+  assertDemandProfile,
   assertRecommendationHostPolicyOverride,
   assertRecommendationPolicy,
   assertRecommendationPolicyBase,
@@ -171,9 +173,11 @@ export async function writeRecommendationReport(
   const policy = await loadRecommendationPolicy(projectRoot);
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
+    assertDemandProfile,
   );
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+    assertAssetCatalogEntry,
   );
   const report = buildRecommendationReport(
     selectedEntries,

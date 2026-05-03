@@ -541,8 +541,10 @@ async function writePiNativeFiles(options: {
     ),
   );
   await mergeJsonFile(join(options.workspaceRoot, ".pi", "settings.json"), {
-    skills: ["skills"],
-    prompts: ["prompts"],
+    agentHarness: {
+      skills: ["skills/agent-harness"],
+      prompts: ["prompts/agent-harness.md"],
+    },
   });
 }
 
@@ -735,19 +737,7 @@ async function removeManagedPiSettings(filePath: string): Promise<void> {
     return;
   }
 
-  settings.skills = Array.isArray(settings.skills)
-    ? removeStringArrayValue(settings.skills, "skills")
-    : settings.skills;
-  settings.prompts = Array.isArray(settings.prompts)
-    ? removeStringArrayValue(settings.prompts, "prompts")
-    : settings.prompts;
-
-  if (Array.isArray(settings.skills) && settings.skills.length === 0) {
-    delete settings.skills;
-  }
-  if (Array.isArray(settings.prompts) && settings.prompts.length === 0) {
-    delete settings.prompts;
-  }
+  delete settings.agentHarness;
 
   await writeOrRemoveJsonFile(filePath, settings);
 }
@@ -976,15 +966,4 @@ function coerceStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
-}
-
-function removeStringArrayValue(
-  value: unknown,
-  valueToRemove: string,
-): unknown {
-  if (!Array.isArray(value)) {
-    return value;
-  }
-
-  return value.filter((entry) => entry !== valueToRemove);
 }

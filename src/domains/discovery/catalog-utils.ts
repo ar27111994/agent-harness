@@ -192,11 +192,12 @@ export function mergeRemoteCatalogEntries(
 }
 
 export function buildAssetStatus(source: SourceDefinition): AssetStatus {
+  const installEligible = source.rules.allowMirror && source.rules.allowInstall;
   return {
     cataloged: true,
     mirrorEligible: source.rules.allowMirror,
-    installEligible: false,
-    activationEligible: false,
+    installEligible,
+    activationEligible: installEligible,
   };
 }
 

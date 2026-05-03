@@ -32,6 +32,29 @@ test("recursive scan stops at explicit file budgets", async () => {
   }
 });
 
+test("recursive scan skips agent-harness generated directories by default", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ignore-"));
+  try {
+    await writeFile(join(root, "source.md"), "source", "utf8");
+    await mkdir(join(root, "activate"));
+    await mkdir(join(root, ".cursor"));
+    await writeFile(
+      join(root, "activate", "generated.md"),
+      "generated",
+      "utf8",
+    );
+    await writeFile(join(root, ".cursor", "rule.mdc"), "generated", "utf8");
+
+    const result = await listFilesRecursiveWithTelemetry(root);
+    assert.deepEqual(
+      result.files.map((filePath) => filePath.slice(root.length + 1)),
+      ["source.md"],
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("managed directory links can be created, replaced, and removed", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-link-"));
   try {

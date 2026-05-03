@@ -50,6 +50,11 @@ import {
   writeRemoteHarvestState,
 } from "./domains/discovery/remote-state.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
+import {
+  assertAssetCatalogEntry,
+  assertDemandProfile,
+  assertSelectionRegistry,
+} from "./manifest-validation.js";
 
 import type {
   AssetCatalogEntry,
@@ -111,9 +116,11 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
+    assertSelectionRegistry,
   );
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
+    assertDemandProfile,
   );
   const enabledSources = sourceRegistry.sources
     .filter((source) => source.enabled)
@@ -122,6 +129,7 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   const repoBatchSize = getRuntimeConfig().batches.remoteHarvest;
   const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
+    assertAssetCatalogEntry,
   );
 
   const catalogEntries: AssetCatalogEntry[] = [];
@@ -245,9 +253,11 @@ async function generateCatalog(projectRoot: string): Promise<void> {
 async function generateSelectionOutputs(projectRoot: string): Promise<void> {
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
+    assertSelectionRegistry,
   );
   const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...CATALOG_OUTPUT_PATH),
+    assertAssetCatalogEntry,
   );
   const groupedEntries = groupCatalogEntriesForSelection(catalogEntries);
   const selectedEntries: AssetCatalogEntry[] = [];

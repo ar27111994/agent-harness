@@ -14,8 +14,10 @@ dist/**/*.map
 .opencode/
 .tmp/
 node_modules/
+scripts/
 
 # Generated runtime state
+.agent-harness/
 activate/
 install/
 state/

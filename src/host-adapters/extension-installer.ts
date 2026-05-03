@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { extname } from "node:path";
 import { promisify } from "node:util";
 
 import type { AssetCatalogEntry } from "../types.js";
@@ -44,6 +45,8 @@ export type NativeCommandExecutor = (
 
 const VS_CODE_EXTENSION_ID_PATTERN =
   /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/iu;
+const NATIVE_COMMAND_TIMEOUT_MS = 30_000;
+const NATIVE_COMMAND_MAX_BUFFER_BYTES = 2_000_000;
 
 export function buildVsCodeExtensionInstallActions(
   extensionIds: string[],
@@ -175,31 +178,61 @@ async function executeNativeCommand(
   executable: string,
   args: string[],
 ): Promise<NativeCommandResult> {
-  try {
-    const result = await execFileAsync(executable, args, {
-      shell: false,
-      windowsHide: true,
-    });
-    return {
-      exitCode: 0,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
-  } catch (error) {
-    const execError = error as Error & {
-      code?: number | string;
-      stdout?: string;
-      stderr?: string;
-    };
-    return {
-      exitCode:
-        typeof execError.code === "number"
-          ? execError.code
-          : Number.MAX_SAFE_INTEGER,
-      stdout: execError.stdout ?? "",
-      stderr: execError.stderr ?? execError.message,
-    };
+  let lastError: unknown = null;
+
+  for (const candidateExecutable of buildExecutableCandidates(executable)) {
+    try {
+      const result = await execFileAsync(candidateExecutable, args, {
+        shell: false,
+        windowsHide: true,
+        timeout: NATIVE_COMMAND_TIMEOUT_MS,
+        maxBuffer: NATIVE_COMMAND_MAX_BUFFER_BYTES,
+      });
+      return {
+        exitCode: 0,
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+    } catch (error) {
+      lastError = error;
+      const execError = error as Error & { code?: number | string };
+      if (execError.code === "ENOENT") {
+        continue;
+      }
+      return toNativeCommandResult(execError);
+    }
   }
+
+  return toNativeCommandResult(lastError);
+}
+
+function buildExecutableCandidates(executable: string): string[] {
+  if (process.platform !== "win32" || extname(executable).length > 0) {
+    return [executable];
+  }
+
+  return [
+    executable,
+    `${executable}.cmd`,
+    `${executable}.exe`,
+    `${executable}.bat`,
+  ];
+}
+
+function toNativeCommandResult(error: unknown): NativeCommandResult {
+  const execError = error as Error & {
+    code?: number | string;
+    stdout?: string;
+    stderr?: string;
+  };
+  return {
+    exitCode:
+      typeof execError?.code === "number"
+        ? execError.code
+        : Number.MAX_SAFE_INTEGER,
+    stdout: execError?.stdout ?? "",
+    stderr: execError?.stderr ?? execError?.message ?? String(error),
+  };
 }
 
 function formatCommand(executable: string, args: string[]): string {

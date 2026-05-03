@@ -5,6 +5,7 @@ import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
 import { runInstall } from "./install.js";
+import { runRecommend } from "./recommend.js";
 import { runActivate } from "./activate.js";
 import type {
   BundleLock,
@@ -38,6 +39,7 @@ export async function runRebuild(
       await runDiscover(["sources"], projectRoot, projectRoot);
       await runDiscover(["catalog"], projectRoot, projectRoot);
       await runDiscover(["select"], projectRoot, projectRoot);
+      await runRecommend(["report"], projectRoot, projectRoot);
       await runMirror(["plan"], projectRoot, projectRoot);
       await runMirror(["locks"], projectRoot, projectRoot);
       await acquireAllMirrorBatches(projectRoot);

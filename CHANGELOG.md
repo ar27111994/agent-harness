@@ -18,6 +18,9 @@ All notable changes to this project will be documented in this file.
 - guarded HTTP helpers with origin allowlists, timeouts, and response byte limits for external content reads
 - domain-specific discovery modules for demand profiling, source indexing, source utilization, package/reference/local/GitHub/official-index harvesting, catalog selection, and catalog trust utilities
 - focused install-domain modules, domain-local manifest validators, and localized type modules that preserve stable public barrel entrypoints while reducing large shared files
+- scoped public package identity as `@ar27111994/agent-harness`, package metadata, npm `files` allowlist, prepack build, packed-artifact smoke validation, and release workflow with provenance-ready publish checks
+- mutable state-root support through `--state-root` and `AGENT_HARNESS_STATE_ROOT`, with packaged CLI defaults writing lifecycle output to workspace-local `.agent-harness/` instead of the package install directory
+- `quarantine list/inspect/approve/reject` review commands with review logging for quarantined mirror artifacts
 - explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, and planning-only docs out of packed artifacts
 
 ### Changed in 1.0.0
@@ -32,7 +35,7 @@ All notable changes to this project will be documented in this file.
 - expanded detection quality fixtures to cover roadmap archetypes and made recommendation policy tuning evidence-driven instead of ad hoc
 - refined host compatibility, activation host validation, native JSON merge safety, OpenCode shared MCP projection resilience, and Python dependency evidence extraction including Poetry `pyproject.toml` sections
 - changed `wire <host>` to default to preview mode; `--apply` or `--reset` is required for mutating wire operations
-- made workspace runs invoke the recommendation stage explicitly after discovery selection instead of relying on hidden `discover select` side effects
+- made workspace and full rebuild runs invoke the recommendation stage explicitly after discovery selection instead of relying on hidden `discover select` side effects
 - made docs, registry, and marketplace source references attempt guarded summary harvesting and source utilization distinguish active, reference-only, and dormant sources
 - made VS Code settings path resolution lazy so `.env` overrides for path-related variables are honored after CLI bootstrap
 - centralized CLI option parsing and rejection of flag-looking tokens as missing option values
@@ -40,10 +43,15 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed in 1.0.0
 
-- mirror multi-file artifact writes now reject path traversal outside the raw mirror root
+- mirror multi-file artifact writes now reject path traversal outside the raw mirror root, clean raw artifact directories before writing, store file manifests, and verify aggregate hashes during install
 - PyPI metadata is validated and normalized field-by-field before repository URL extraction
 - GitHub process-local rate-limit and health-update state can be reset between repeated in-process CLI invocations
 - install batching no longer treats a missing progress state as a completed bundle
+- GitHub/repo assets are mirrored through guarded fetches during mirror acquisition instead of being fetched live during wire-in
+- install and activation now enforce bundle activation eligibility and skip quarantined or unpromoted assets
+- mirror acquisition quarantines prompt-injection-like community content for manual review
+- VS Code and OpenCode wire-in preserve unmanaged instruction/`AGENTS.md` content through managed sections instead of wholesale replacement
+- isolated CLI smoke tests now run against temporary home/config/state roots so validation does not mutate real user host configuration
 
 ## [0.2.0] - 2026-04-27
 

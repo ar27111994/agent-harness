@@ -10,6 +10,7 @@ import {
   readTextFileOrNull,
   removeManagedSection,
   removePath,
+  upsertManagedSection,
   toPosixPath,
   writeJsonFile,
   writeTextFile,
@@ -139,6 +140,14 @@ export async function wireOpenCode(options: {
     throw error;
   }
 
+  await upsertManagedAgentsSection({
+    localAgentsPath,
+    localOverlayRoot,
+    localContextRoot,
+    linkedAssets,
+    sharedMcpAssetIds,
+  });
+
   const wirePlan: WirePlanManifest = {
     schemaVersion: 1,
     host: "opencode-project",
@@ -249,6 +258,49 @@ async function readSharedMcpAssetIdsBestEffort(
   }
 }
 
+async function upsertManagedAgentsSection(options: {
+  localAgentsPath: string;
+  localOverlayRoot: string;
+  localContextRoot: string;
+  linkedAssets: OpenCodeLinkedAsset[];
+  sharedMcpAssetIds: string[];
+}): Promise<void> {
+  const existingAgentsContent =
+    (await readTextFileOrNull(options.localAgentsPath)) ?? "";
+  const bodyLines = [
+    "# Agent Harness OpenCode overlay",
+    "",
+    `Managed overlay root: ${toPosixPath(options.localOverlayRoot)}`,
+    `Managed context root: ${toPosixPath(options.localContextRoot)}`,
+    "",
+    "## Linked assets",
+    ...(options.linkedAssets.length > 0
+      ? options.linkedAssets.map(
+          (asset) =>
+            `- ${asset.assetId} (${asset.assetKind}) -> ${toPosixPath(asset.linkPath)}`,
+        )
+      : ["- No active OpenCode assets were found at wire time."]),
+    ...(options.sharedMcpAssetIds.length > 0
+      ? [
+          "",
+          "## Shared MCP references",
+          ...options.sharedMcpAssetIds.map((assetId) => `- ${assetId}`),
+        ]
+      : []),
+    "",
+    "Review generated links before committing project-local host configuration.",
+  ];
+
+  await writeTextFile(
+    options.localAgentsPath,
+    upsertManagedSection({
+      originalContent: existingAgentsContent,
+      markerId: "agent-harness",
+      bodyLines,
+    }),
+  );
+}
+
 async function removeManagedAgentsSection(
   localAgentsPath: string,
 ): Promise<void> {
@@ -262,6 +314,11 @@ async function removeManagedAgentsSection(
     originalContent: existingAgentsContent,
     markerId: "agent-harness",
   });
+  if (nextAgentsContent.trim().length === 0) {
+    await removePath(localAgentsPath);
+    return;
+  }
+
   await writeTextFile(localAgentsPath, nextAgentsContent);
 }
 

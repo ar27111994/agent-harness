@@ -20,6 +20,8 @@ export function getInstallableAssets(
 ): BundleLock["assets"] {
   return bundleAssets.filter((asset) => {
     const mirrorEntry = mirrorIndexById.get(asset.mirrorId);
-    return Boolean(mirrorEntry && mirrorEntry.status !== "quarantined");
+    return Boolean(
+      asset.activationEligible && mirrorEntry && mirrorEntry.status !== "quarantined",
+    );
   });
 }

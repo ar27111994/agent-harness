@@ -72,8 +72,11 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Quarantine workflow current state
 
-- Mirror routes risky assets into `mirror/quarantine`.
-- Install skips quarantined entries.
+- Mirror routes risky assets and prompt-injection-like community content into `mirror/quarantine`.
+- Install and activation skip quarantined entries.
+- `quarantine list`, `quarantine inspect`, `quarantine approve`, and `quarantine reject` commands exist.
+- Review decisions, reasons, and timestamps are recorded under `state/quarantine/reviews.jsonl`.
+- Approval promotes a quarantined mirror entry to `approved-with-warning`.
 
 ### Quarantine workflow value
 
@@ -81,12 +84,10 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Quarantine workflow next steps
 
-- Add `quarantine list` command.
-- Add `quarantine inspect <assetId>` command.
-- Add `quarantine approve` / `quarantine reject` workflows.
-- Store review decisions and reasons.
-- Add promotion path from quarantine to mirror-approved state.
-- Record provenance and review timestamps for auditability.
+- Add richer interactive review UI/report output.
+- Add policy-specific prompt-injection classifier tuning.
+- Add reviewer identity and optional signed review attestations.
+- Add quarantine diffing and batch review helpers.
 
 ---
 

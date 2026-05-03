@@ -1,5 +1,6 @@
 .opencode/
 .tmp/
+.agent-harness/
 activate/
 discover/output/
 discover/catalog.assets.jsonl

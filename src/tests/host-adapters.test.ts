@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -37,6 +37,33 @@ test("native host adapters are registered with expected lifecycle hosts", () => 
     (capability) => capability.assetKind === "mcp-server",
   );
   assert.deepEqual(piMcpCapability?.behaviors, ["stage"]);
+});
+
+test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-opencode-"));
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+  const agentsPath = join(workspaceRoot, "AGENTS.md");
+
+  try {
+    await writeFile(agentsPath, "# Existing guidance\n\nKeep this.\n", "utf8");
+    const adapter = resolveHostAdapter("opencode");
+    assert.ok(adapter);
+
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+    const appliedContent = await readFile(agentsPath, "utf8");
+    assert.match(appliedContent, /Keep this\./u);
+    assert.match(appliedContent, /agent-harness:begin/u);
+
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
+    const resetContent = await readFile(agentsPath, "utf8");
+    assert.match(resetContent, /Keep this\./u);
+    assert.doesNotMatch(resetContent, /agent-harness:begin/u);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
 });
 
 test("native adapters write host-specific project files and wire plans", async () => {

@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, writeJsonFile } from "./files.js";
+import { readResponseTextWithLimit } from "./lib/http.js";
 import { assertGitHubRepoSnapshot } from "./manifest-validation.js";
 import type { SourceDefinition } from "./types.js";
 
@@ -197,6 +198,7 @@ export interface GitHubRepoSnapshot {
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_FETCH_TIMEOUT_MS = 10000;
+const GITHUB_JSON_MAX_BYTES = 2_000_000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
   "remote-cache",
@@ -456,7 +458,7 @@ async function fetchGitHubJson<T>(path: string): Promise<T> {
     );
   }
 
-  return (await response.json()) as T;
+  return parseGitHubJsonResponse<T>(response, path);
 }
 
 async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
@@ -473,7 +475,23 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
     );
   }
 
-  return (await response.json()) as T;
+  return parseGitHubJsonResponse<T>(response, path);
+}
+
+async function parseGitHubJsonResponse<T>(
+  response: Response,
+  path: string,
+): Promise<T> {
+  try {
+    return JSON.parse(
+      await readResponseTextWithLimit(response, GITHUB_JSON_MAX_BYTES),
+    ) as T;
+  } catch (error) {
+    throw new Error(
+      `GitHub API response could not be parsed for ${path}: ${getErrorMessage(error)}`,
+      { cause: error },
+    );
+  }
 }
 
 async function fetchGitHubResponse(path: string): Promise<Response> {

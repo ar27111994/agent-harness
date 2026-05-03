@@ -61,6 +61,9 @@ jobs:
       - name: Evaluate recommendation fixtures
         run: npm run validate:recommendations
 
+      - name: Run packed artifact smoke check
+        run: npm run smoke:pack
+
   guardrails:
     name: guardrails
     runs-on: ubuntu-latest

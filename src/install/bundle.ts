@@ -1,11 +1,14 @@
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import {
   copyPath,
+  createContentHash,
+  ensureCleanDirectory,
   pathExists,
   readJsonFile,
   readJsonFileOrNull,
   readJsonLinesFile,
+  readTextFileOrNull,
   toPosixPath,
   writeJsonFile,
 } from "../files.js";
@@ -127,7 +130,7 @@ export async function installBundles(
         continue;
       }
 
-      if (mirrorEntry.status === "quarantined") {
+      if (mirrorEntry.status === "quarantined" || !asset.activationEligible) {
         continue;
       }
 
@@ -146,6 +149,8 @@ export async function installBundles(
         continue;
       }
 
+      await verifyMirrorFileManifest(sourceMaterialPath, mirrorEntry.contentHash);
+
       const packageRoot = join(
         projectRoot,
         "install",
@@ -154,6 +159,7 @@ export async function installBundles(
         sanitizeAssetId(asset.assetId),
       );
       const filesRoot = join(packageRoot, "files");
+      await ensureCleanDirectory(filesRoot);
       await copyPath(sourceMaterialPath, filesRoot);
 
       const packageManifest: InstalledPackageManifest = {
@@ -243,6 +249,81 @@ function mergeInstalledPackages(
   return [...packagesByAssetId.values()].sort((left, right) =>
     left.assetId.localeCompare(right.assetId),
   );
+}
+
+interface MirrorFileManifest {
+  schemaVersion: 1;
+  aggregateHash: string;
+  files: Array<{
+    relativePath: string;
+    sha256: string;
+    sizeBytes: number;
+  }>;
+}
+
+async function verifyMirrorFileManifest(
+  sourceMaterialPath: string,
+  expectedAggregateHash: string,
+): Promise<void> {
+  const manifest = await readJsonFileOrNull<MirrorFileManifest>(
+    join(sourceMaterialPath, "manifest.json"),
+  );
+  if (!manifest) {
+    throw new Error(
+      `Mirror artifact is missing manifest.json: ${toPosixPath(sourceMaterialPath)}`,
+    );
+  }
+
+  const normalizedFiles = [...manifest.files].sort((left, right) =>
+    left.relativePath.localeCompare(right.relativePath),
+  );
+  for (const file of normalizedFiles) {
+    const filePath = resolveSafeMirrorFilePath(
+      sourceMaterialPath,
+      file.relativePath,
+    );
+    const content = await readTextFileOrNull(filePath);
+    if (content === null) {
+      throw new Error(`Mirror artifact file is missing: ${file.relativePath}`);
+    }
+
+    const actualHash = createContentHash(content);
+    const actualSize = Buffer.byteLength(content, "utf8");
+    if (actualHash !== file.sha256 || actualSize !== file.sizeBytes) {
+      throw new Error(`Mirror artifact hash mismatch: ${file.relativePath}`);
+    }
+  }
+
+  const aggregateHash = createContentHash(
+    normalizedFiles
+      .map((file) => `${file.relativePath}\0${file.sha256}\0${file.sizeBytes}`)
+      .join("\n"),
+  );
+  if (aggregateHash !== manifest.aggregateHash) {
+    throw new Error("Mirror artifact manifest aggregate hash mismatch");
+  }
+  if (aggregateHash !== expectedAggregateHash) {
+    throw new Error("Mirror artifact hash does not match mirror index");
+  }
+}
+
+function resolveSafeMirrorFilePath(rootPath: string, relativePath: string): string {
+  const resolvedRoot = resolve(rootPath);
+  const resolvedTarget = resolve(resolvedRoot, relativePath);
+  const relativeTarget = relative(resolvedRoot, resolvedTarget);
+
+  if (
+    relativeTarget.length === 0 ||
+    relativeTarget === ".." ||
+    relativeTarget.startsWith(`..${sep}`) ||
+    isAbsolute(relativeTarget)
+  ) {
+    throw new Error(
+      `Refusing to read mirrored artifact outside raw root: ${relativePath}`,
+    );
+  }
+
+  return resolvedTarget;
 }
 
 function getPendingAssets(

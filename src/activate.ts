@@ -184,6 +184,9 @@ async function activateHost(
       ) {
         continue;
       }
+      if (!packageManifest.activationEligible) {
+        continue;
+      }
       const destinationRoot = join(
         runtimeRoot,
         sanitizeAssetId(packageManifest.assetId),

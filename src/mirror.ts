@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
   createContentHash,
+  ensureCleanDirectory,
   ensureDirectory,
   readJsonFile,
   readJsonFileOrNull,
@@ -19,7 +20,12 @@ import {
 } from "./github.js";
 import { fetchOfficialIndexPageContent } from "./official-index.js";
 import { getOptionValue } from "./lib/cli-options.js";
-import { fetchTextWithGuards } from "./lib/http.js";
+import { fetchJsonWithGuards, fetchTextWithGuards } from "./lib/http.js";
+import {
+  assertAssetCatalogEntry,
+  assertMirrorIndexEntry,
+  assertMirrorPolicy,
+} from "./manifest-validation.js";
 import type {
   AssetCatalogEntry,
   BundleLock,
@@ -41,15 +47,29 @@ const MIRROR_ACQUIRE_STATE_OUTPUT_PATH = [
 ];
 const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 50;
 const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 150_000;
+const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = 500_000;
 const GITHUB_RAW_ALLOWED_ORIGINS = [
   "https://raw.githubusercontent.com",
 ] as const;
+const GITHUB_API_ALLOWED_ORIGINS = ["https://api.github.com"] as const;
 
 interface MaterializedMirrorArtifact {
   content: string;
   files?: Array<{
     relativePath: string;
     content: string;
+  }>;
+  upstreamRef?: string;
+  upstreamCommit?: string;
+}
+
+interface MirrorFileManifest {
+  schemaVersion: 1;
+  aggregateHash: string;
+  files: Array<{
+    relativePath: string;
+    sha256: string;
+    sizeBytes: number;
   }>;
 }
 
@@ -82,6 +102,7 @@ export async function runMirror(
 async function generateMirrorPlan(projectRoot: string): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
     join(projectRoot, "mirror", "policy.json"),
+    assertMirrorPolicy,
   );
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
@@ -91,9 +112,11 @@ async function generateMirrorPlan(projectRoot: string): Promise<void> {
   );
   const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "catalog.assets.jsonl"),
+    assertAssetCatalogEntry,
   );
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+    assertAssetCatalogEntry,
   );
   const selectedCatalogEntries = selectedEntries.length;
   const mirrorEligibleEntries = catalogEntries.filter(
@@ -198,12 +221,14 @@ function buildNextActions(
 async function generateBundleLocks(projectRoot: string): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
     join(projectRoot, "mirror", "policy.json"),
+    assertMirrorPolicy,
   );
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+    assertAssetCatalogEntry,
   );
   const mirrorEligibleEntries = selectedEntries.filter(
-    (entry) => entry.status.mirrorEligible,
+    (entry) => entry.status.mirrorEligible && entry.status.installEligible,
   );
 
   for (const bundleTemplate of policy.bundleTemplates) {
@@ -248,11 +273,16 @@ async function acquireMirrorArtifacts(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
+  const policy = await readJsonFile<MirrorPolicy>(
+    join(projectRoot, "mirror", "policy.json"),
+    assertMirrorPolicy,
+  );
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+    assertAssetCatalogEntry,
   );
   const mirrorEligibleEntries = selectedEntries.filter(
-    (entry) => entry.status.mirrorEligible,
+    (entry) => entry.status.mirrorEligible && entry.status.installEligible,
   );
   const rawBatchSize = Number(
     getOptionValue(args, "--batch-size") ??
@@ -266,6 +296,7 @@ async function acquireMirrorArtifacts(
       : 120;
   const existingMirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, ...MIRROR_INDEX_OUTPUT_PATH),
+    assertMirrorIndexEntry,
   );
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
@@ -280,19 +311,21 @@ async function acquireMirrorArtifacts(
     const materializedArtifact = await materializeMirrorArtifact(
       entry,
       projectRoot,
+      policy.selection.requirePinnedProvenance,
     );
     if (materializedArtifact === null) {
       continue;
     }
 
-    const mirrorId = `sha256-${createContentHash(`${entry.id}\n${materializedArtifact.content}`)}`;
+    const fileManifest = buildMirrorFileManifest(materializedArtifact);
+    const mirrorId = `sha256-${createContentHash(`${entry.id}\n${fileManifest.aggregateHash}`)}`;
     const rawRoot = join(
       projectRoot,
       "mirror",
       "raw",
       sanitizeMirrorId(mirrorId),
     );
-    await ensureDirectory(rawRoot);
+    await ensureCleanDirectory(rawRoot);
     await writeTextFile(
       join(rawRoot, "content.txt"),
       materializedArtifact.content,
@@ -305,19 +338,20 @@ async function acquireMirrorArtifacts(
       );
     }
 
+    await writeJsonFile(join(rawRoot, "manifest.json"), fileManifest);
     await writeJsonFile(join(rawRoot, "asset.json"), entry);
 
     const mirrorIndexEntry: MirrorIndexEntry = {
       mirrorId,
       assetId: entry.id,
-      upstream: buildUpstreamMetadata(entry),
+      upstream: buildUpstreamMetadata(entry, materializedArtifact),
       source: {
         authorityTier: entry.source.authorityTier,
         publisher: entry.source.publisher,
         publisherVerified: entry.source.publisherVerified,
       },
       mirroredAt: new Date().toISOString(),
-      contentHash: createContentHash(materializedArtifact.content),
+      contentHash: fileManifest.aggregateHash,
       projectionCandidates: entry.hosts.map((host) => ({
         host,
         projectionType:
@@ -325,7 +359,7 @@ async function acquireMirrorArtifacts(
             ? `native-${entry.assetKind}`
             : `adapted-${entry.assetKind}`,
       })),
-      status: determineMirrorStatus(entry),
+      status: determineMirrorStatus(entry, materializedArtifact),
     };
 
     if (
@@ -431,9 +465,10 @@ function createBundleLockAsset(
     assetId: entry.id,
     mirrorId: `unresolved:${entry.id}`,
     projectionType: determineProjectionType(entry, bundleId),
-    activationEligible: false,
-    notes:
-      "Resolve exact upstream artifact and replace unresolved mirrorId during raw mirror acquisition.",
+    activationEligible: entry.status.activationEligible,
+    notes: entry.status.activationEligible
+      ? "Resolve exact upstream artifact and replace unresolved mirrorId during raw mirror acquisition."
+      : "Asset is mirrored for audit only and will not activate until explicitly promoted.",
   };
 }
 
@@ -455,6 +490,7 @@ function determineProjectionType(
 async function materializeMirrorArtifact(
   entry: AssetCatalogEntry,
   projectRoot: string,
+  requirePinnedProvenance: boolean,
 ): Promise<MaterializedMirrorArtifact | null> {
   if (entry.install.method.endsWith("-summary")) {
     const referenceContent = await fetchOfficialIndexPageContent(
@@ -467,10 +503,15 @@ async function materializeMirrorArtifact(
     }
   }
 
+  if (entry.install.method === "github-tree-metadata") {
+    return materializeGitHubTreeArtifact(entry, requirePinnedProvenance);
+  }
+
   if (entry.install.method === "official-index-entry") {
     const officialIndexPackageArtifact = await materializeOfficialIndexPackage(
       entry,
       projectRoot,
+      requirePinnedProvenance,
     );
     if (officialIndexPackageArtifact !== null) {
       return officialIndexPackageArtifact;
@@ -511,9 +552,49 @@ async function materializeMirrorArtifact(
   };
 }
 
+async function materializeGitHubTreeArtifact(
+  entry: AssetCatalogEntry,
+  requirePinnedProvenance: boolean,
+): Promise<MaterializedMirrorArtifact | null> {
+  const repoInfo = parseGitHubBlobEntry(entry);
+  if (!repoInfo) {
+    return requirePinnedProvenance
+      ? null
+      : { content: JSON.stringify(entry, null, 2) };
+  }
+
+  const commitSha = await fetchGitHubBranchCommitSha(
+    repoInfo.owner,
+    repoInfo.repo,
+    repoInfo.ref,
+  );
+  if (requirePinnedProvenance && !commitSha) {
+    return null;
+  }
+
+  const fetchRef = commitSha ?? repoInfo.ref;
+  const content = await fetchGitHubFileContent(
+    repoInfo.owner,
+    repoInfo.repo,
+    fetchRef,
+    repoInfo.filePath,
+    MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
+  );
+  if (content === null) {
+    return null;
+  }
+
+  return {
+    content,
+    upstreamRef: repoInfo.ref,
+    upstreamCommit: commitSha ?? undefined,
+  };
+}
+
 async function materializeOfficialIndexPackage(
   entry: AssetCatalogEntry,
   projectRoot: string,
+  requirePinnedProvenance: boolean,
 ): Promise<MaterializedMirrorArtifact | null> {
   const slug = entry.install.manifestEntry;
   const owner = entry.source.sourceId.split(":")[1];
@@ -558,15 +639,26 @@ async function materializeOfficialIndexPackage(
       continue;
     }
 
+    const commitSha = await fetchGitHubBranchCommitSha(
+      snapshot.owner,
+      snapshot.repo,
+      snapshot.repoSummary.defaultBranch,
+    );
+    if (requirePinnedProvenance && !commitSha) {
+      continue;
+    }
+
     const materializedFiles: Array<{ relativePath: string; content: string }> =
       [];
+    const fetchRef = commitSha ?? snapshot.repoSummary.defaultBranch;
 
     for (const packageFile of packageFiles) {
       const fileContent = await fetchGitHubFileContent(
         snapshot.owner,
         snapshot.repo,
-        snapshot.repoSummary.defaultBranch,
+        fetchRef,
         packageFile.path,
+        MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
       );
       if (fileContent === null) {
         continue;
@@ -589,6 +681,8 @@ async function materializeOfficialIndexPackage(
     return {
       content: skillMarkdownFile?.content ?? JSON.stringify(entry, null, 2),
       files: materializedFiles,
+      upstreamRef: snapshot.repoSummary.defaultBranch,
+      upstreamCommit: commitSha ?? undefined,
     };
   }
 
@@ -639,21 +733,129 @@ async function fetchGitHubFileContent(
   repo: string,
   branch: string,
   filePath: string,
+  maxBytes: number,
 ): Promise<string | null> {
   return fetchTextWithGuards(
     buildGitHubRawFileUrl({ owner, repo, branch, filePath }),
     {
       allowedOrigins: GITHUB_RAW_ALLOWED_ORIGINS,
-      headers: {
-        "User-Agent": "agent-harness",
-      },
-      maxBytes: MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+      headers: buildGitHubHeaders(),
+      maxBytes,
     },
   );
 }
 
+async function fetchGitHubBranchCommitSha(
+  owner: string,
+  repo: string,
+  ref: string,
+): Promise<string | null> {
+  const commitData = await fetchJsonWithGuards(
+    `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(ref)}`,
+    {
+      allowedOrigins: GITHUB_API_ALLOWED_ORIGINS,
+      headers: buildGitHubHeaders({ accept: "application/vnd.github+json" }),
+      maxBytes: 500_000,
+    },
+  );
+
+  if (
+    typeof commitData === "object" &&
+    commitData !== null &&
+    !Array.isArray(commitData) &&
+    typeof (commitData as Record<string, unknown>).sha === "string"
+  ) {
+    return (commitData as Record<string, string>).sha;
+  }
+
+  return null;
+}
+
+function parseGitHubBlobEntry(entry: AssetCatalogEntry): {
+  owner: string;
+  repo: string;
+  ref: string;
+  filePath: string;
+} | null {
+  const filePath = entry.evidence.filePath;
+  if (!filePath) {
+    return null;
+  }
+
+  try {
+    const url = new URL(entry.source.originUrl);
+    if (url.hostname.toLowerCase() !== "github.com") {
+      return null;
+    }
+
+    const pathParts = url.pathname.split("/").filter(Boolean);
+    if (pathParts.length < 5 || pathParts[2] !== "blob") {
+      return null;
+    }
+
+    const owner = pathParts[0];
+    const repo = pathParts[1].replace(/\.git$/u, "");
+    const blobPath = pathParts.slice(3).join("/");
+    if (!blobPath.endsWith(filePath)) {
+      return null;
+    }
+
+    const ref = blobPath.slice(0, -filePath.length).replace(/\/$/u, "");
+    if (!owner || !repo || !ref) {
+      return null;
+    }
+
+    return { owner, repo, ref, filePath };
+  } catch {
+    return null;
+  }
+}
+
+function buildMirrorFileManifest(
+  materializedArtifact: MaterializedMirrorArtifact,
+): MirrorFileManifest {
+  const files = [
+    { relativePath: "content.txt", content: materializedArtifact.content },
+    ...(materializedArtifact.files ?? []),
+  ]
+    .map((file) => ({
+      relativePath: file.relativePath,
+      sha256: createContentHash(file.content),
+      sizeBytes: Buffer.byteLength(file.content, "utf8"),
+    }))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const aggregateHash = createContentHash(
+    files
+      .map((file) => `${file.relativePath}\0${file.sha256}\0${file.sizeBytes}`)
+      .join("\n"),
+  );
+
+  return {
+    schemaVersion: 1,
+    aggregateHash,
+    files,
+  };
+}
+
+function buildGitHubHeaders(options: { accept?: string } = {}): HeadersInit {
+  const headers: Record<string, string> = {
+    "User-Agent": "agent-harness",
+  };
+  if (options.accept) {
+    headers.Accept = options.accept;
+  }
+
+  const githubToken = getRuntimeConfig().github.token;
+  if (githubToken) {
+    headers.Authorization = `Bearer ${githubToken}`;
+  }
+
+  return headers;
+}
+
 function buildUpstreamMetadata(
   entry: AssetCatalogEntry,
+  materializedArtifact: MaterializedMirrorArtifact,
 ): MirrorIndexEntry["upstream"] {
   if (entry.source.originUrl.startsWith("file:///")) {
     return {
@@ -666,6 +868,8 @@ function buildUpstreamMetadata(
     return {
       type: "repo",
       url: entry.source.originUrl,
+      ref: materializedArtifact.upstreamRef,
+      commit: materializedArtifact.upstreamCommit,
     };
   }
 
@@ -677,7 +881,19 @@ function buildUpstreamMetadata(
 
 function determineMirrorStatus(
   entry: AssetCatalogEntry,
+  materializedArtifact: MaterializedMirrorArtifact,
 ): MirrorIndexEntry["status"] {
+  if (
+    hasPromptInjectionRisk(materializedArtifact) &&
+    entry.source.authorityTier !== "official-first-party"
+  ) {
+    return "quarantined";
+  }
+
+  if (hasPromptInjectionRisk(materializedArtifact)) {
+    return "approved-with-warning";
+  }
+
   if (
     entry.risk.level === "high" &&
     entry.source.authorityTier !== "official-first-party"
@@ -694,6 +910,25 @@ function determineMirrorStatus(
   }
 
   return "approved";
+}
+
+function hasPromptInjectionRisk(
+  materializedArtifact: MaterializedMirrorArtifact,
+): boolean {
+  const combinedContent = [
+    materializedArtifact.content,
+    ...(materializedArtifact.files ?? []).map((file) => file.content),
+  ]
+    .join("\n")
+    .toLowerCase();
+  return [
+    "ignore previous instructions",
+    "ignore all previous instructions",
+    "exfiltrate secrets",
+    "send environment variables",
+    "disable security",
+    "reveal your system prompt",
+  ].some((pattern) => combinedContent.includes(pattern));
 }
 
 async function resolveBundleLocks(

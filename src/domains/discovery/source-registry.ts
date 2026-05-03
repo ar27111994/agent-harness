@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { listFilesRecursive, pathExists, readJsonFile } from "../../files.js";
+import { assertSourceRegistry } from "../../manifest-validation.js";
 import type {
   AssetKind,
   HostTarget,
@@ -30,6 +31,7 @@ export async function loadSourceRegistry(
 ): Promise<SourceRegistry> {
   const baseRegistry = await readJsonFile<SourceRegistry>(
     join(projectRoot, "discover", "sources.json"),
+    assertSourceRegistry,
   );
   const sourcePackDirectory = join(projectRoot, "discover", "source-packs");
 
