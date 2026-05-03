@@ -18,7 +18,8 @@ All notable changes to this project will be documented in this file.
 - guarded HTTP helpers with origin allowlists, timeouts, and response byte limits for external content reads
 - domain-specific discovery modules for demand profiling, source indexing, source utilization, package/reference/local/GitHub/official-index harvesting, catalog selection, and catalog trust utilities
 - focused install-domain modules, domain-local manifest validators, and localized type modules that preserve stable public barrel entrypoints while reducing large shared files
-- scoped public package identity as `@ar27111994/agent-harness`, package metadata, npm `files` allowlist, prepack build, packed-artifact smoke validation, and release workflow with provenance-ready publish checks
+- scoped public package identity as `@ar27111994/agent-harness`, package metadata, npm `files` allowlist, prepack build, packed-artifact smoke validation, and release workflow with OIDC trusted publishing, provenance-ready publish checks, and package build validation in the publish job
+- Dependabot version and security update configuration for npm packages and GitHub Actions plus repository funding metadata and README npm/sponsor badges
 - mutable state-root support through `--state-root` and `AGENT_HARNESS_STATE_ROOT`, with packaged CLI defaults writing lifecycle output to workspace-local `.agent-harness/` instead of the package install directory
 - `quarantine list/inspect/approve/reject` review commands with review logging for quarantined mirror artifacts
 - optional `discover enrich` AI-assisted enrichment reports through an explicitly configured OpenAI-compatible endpoint

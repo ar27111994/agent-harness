@@ -5,6 +5,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](./package.json)
 [![Quality](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml/badge.svg)](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml)
 [![Latest Release](https://img.shields.io/github/v/release/ar27111994/agent-harness?display_name=tag)](https://github.com/ar27111994/agent-harness/releases)
+[![npm version](https://img.shields.io/npm/v/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
+[![npm downloads](https://img.shields.io/npm/dm/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
+[![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
 
 `agent-harness` is a Node.js 22+ TypeScript CLI, published as `@ar27111994/agent-harness`, for discovering, curating, staging, activating, and wiring reusable AI-agent assets into developer workspaces.
 
@@ -28,6 +31,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [FAQ](#faq)
 - [Current boundaries](#current-boundaries)
 - [Related documentation](#related-documentation)
+- [Sponsor](#sponsor)
 - [License](#license)
 
 ## What this project does
@@ -1083,6 +1087,14 @@ Known boundaries:
 - `IMPLEMENTATION-PLAN.md` — milestone-oriented execution plan
 - `FUTURE-IMPROVEMENTS.md` — follow-up ideas and architectural extensions
 - `CONTRIBUTING.md` — contribution workflow and hygiene
+
+## Sponsor
+
+[![Patreon](https://img.shields.io/badge/Support-Patreon-FF424D?logo=patreon&logoColor=white)](https://www.patreon.com/cw/ar27111994)
+[![Ko-fi](https://img.shields.io/badge/Support-Ko--fi-29ABE0?logo=kofi&logoColor=white)](https://ko-fi.com/ar27111994)
+[![Liberapay](https://img.shields.io/badge/Support-Liberapay-F6C915?logo=liberapay&logoColor=black)](https://liberapay.com/ar27111994)
+[![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/ar27111994)
+[![thanks.dev](https://img.shields.io/badge/Support-thanks.dev-181717?logo=github&logoColor=white)](https://thanks.dev/d/gh/ar27111994)
 
 ## License
 
