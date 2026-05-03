@@ -37,6 +37,11 @@ interface OfficialSkillIndexShape {
   }>;
 }
 
+interface OfficialUpstreamAllowlistShape {
+  schemaVersion: number;
+  owners: Record<string, string[]>;
+}
+
 const OFFICIAL_INDEX_CONTENT_MAX_BYTES = 1_000_000;
 const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://raw.githubusercontent.com",
@@ -58,6 +63,8 @@ export async function harvestOfficialSkillIndexes(
     return [];
   }
 
+  const officialUpstreamAllowlist =
+    await loadOfficialUpstreamAllowlist(projectRoot);
   const entries: AssetCatalogEntry[] = [];
 
   const seenIds = new Set<string>();
@@ -68,8 +75,10 @@ export async function harvestOfficialSkillIndexes(
       continue;
     }
 
-    const officialSkillRepoUrlsByOwnerAndSlug =
-      extractOfficialSkillRepoUrls(content);
+    const officialSkillRepoUrlsByOwnerAndSlug = extractOfficialSkillRepoUrls(
+      content,
+      officialUpstreamAllowlist,
+    );
 
     for (const parsedEntry of parseOfficialIndexEntries(
       content,
@@ -399,36 +408,72 @@ async function resolveOfficialIndexEntryToRepoSource(
     status: {
       ...entry.status,
       mirrorEligible: matchingSource.rules.allowMirror,
-      installEligible: matchingSource.rules.allowMirror,
-      activationEligible: matchingSource.rules.allowMirror,
+      installEligible:
+        matchingSource.rules.allowMirror && matchingSource.rules.allowInstall,
+      activationEligible:
+        matchingSource.rules.allowMirror && matchingSource.rules.allowInstall,
     },
   };
 }
 
-function extractOfficialSkillRepoUrls(content: string): Map<string, string> {
+async function loadOfficialUpstreamAllowlist(
+  projectRoot: string,
+): Promise<Record<string, string[]>> {
+  const allowlist = await readJsonFileOrNull<OfficialUpstreamAllowlistShape>(
+    join(projectRoot, "discover", "official-upstreams.json"),
+  );
+
+  return Object.fromEntries(
+    Object.entries(allowlist?.owners ?? {}).map(([owner, repoOwners]) => [
+      owner.toLowerCase(),
+      repoOwners.map((repoOwner) => repoOwner.toLowerCase()),
+    ]),
+  );
+}
+
+function extractOfficialSkillRepoUrls(
+  content: string,
+  allowlist: Record<string, string[]>,
+): Map<string, string> {
   const repoUrls = new Map<string, string>();
   const blocks = content.split(/(?=^#\s+)/mu);
 
   for (const block of blocks) {
-    const titleMatch = /^#\s+([^\n]+)$/mu.exec(block);
+    const officialEntryMatch =
+      /officialskills\.sh\/([^/]+)\/skills\/([^\s)]+)/u.exec(block);
     const repoMatch = /https:\/\/github\.com\/([^/]+\/[^/\s)]+)/u.exec(block);
-    if (!titleMatch || !repoMatch) {
+    if (!officialEntryMatch || !repoMatch) {
       continue;
     }
 
-    const title = titleMatch[1].trim();
-    const ownerMatch = /([A-Za-z0-9_-]+)\//u.exec(repoMatch[1]);
-    const owner = ownerMatch?.[1];
-    if (!owner) {
-      continue;
-    }
-
-    const slug = title
+    const officialOwner = officialEntryMatch[1].trim().toLowerCase();
+    const slug = officialEntryMatch[2]
+      .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9]+/gu, "-")
+      .replace(/[^a-z0-9-]+/gu, "-")
       .replace(/^-+|-+$/gu, "");
-    repoUrls.set(`${owner}:${slug}`, `https://github.com/${repoMatch[1]}`);
+    const repoOwner = repoMatch[1].split("/")[0]?.toLowerCase();
+    if (
+      !repoOwner ||
+      !isAllowedOfficialRepoOwner(officialOwner, repoOwner, allowlist)
+    ) {
+      continue;
+    }
+
+    repoUrls.set(
+      `${officialOwner}:${slug}`,
+      `https://github.com/${repoMatch[1]}`,
+    );
   }
 
   return repoUrls;
+}
+
+function isAllowedOfficialRepoOwner(
+  officialOwner: string,
+  repoOwner: string,
+  allowlist: Record<string, string[]>,
+): boolean {
+  const allowedOwners = allowlist[officialOwner] ?? [officialOwner];
+  return allowedOwners.includes(repoOwner);
 }

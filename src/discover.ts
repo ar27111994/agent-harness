@@ -27,6 +27,7 @@ import {
   mergeRemoteCatalogEntries,
 } from "./domains/discovery/catalog-utils.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
+import { writeAiEnrichmentReport } from "./domains/discovery/ai-enrichment.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -83,6 +84,9 @@ export async function runDiscover(
       return 0;
     case "select":
       await generateSelectionOutputs(projectRoot);
+      return 0;
+    case "enrich":
+      await writeAiEnrichmentReport(projectRoot);
       return 0;
     case "stats":
       await printCatalogStats(projectRoot);
@@ -330,5 +334,6 @@ function printDiscoverHelp(): void {
   catalog          Harvest local sources into discover/catalog.assets.jsonl
   select           Apply canonical selection rules and write selected/rejected JSONL outputs
   stats            Print catalog summary counts grouped by source, kind, host, and authority
+  enrich           Optionally run AI-assisted enrichment when configured
   inspect          Print catalog entries filtered by --source <id> or --id <assetId>`);
 }

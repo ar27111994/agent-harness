@@ -28,6 +28,8 @@ mirror/raw/
 .zed/
 .claude/
 .pi/
+.unipi/
+.vscode/
 .husky/_/
 .github/copilot-instructions.md
 .rules

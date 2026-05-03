@@ -21,6 +21,8 @@ All notable changes to this project will be documented in this file.
 - scoped public package identity as `@ar27111994/agent-harness`, package metadata, npm `files` allowlist, prepack build, packed-artifact smoke validation, and release workflow with provenance-ready publish checks
 - mutable state-root support through `--state-root` and `AGENT_HARNESS_STATE_ROOT`, with packaged CLI defaults writing lifecycle output to workspace-local `.agent-harness/` instead of the package install directory
 - `quarantine list/inspect/approve/reject` review commands with review logging for quarantined mirror artifacts
+- optional `discover enrich` AI-assisted enrichment reports through an explicitly configured OpenAI-compatible endpoint
+- `mirror diff` and `mirror explain` commands for phase-level inspection
 - explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, and planning-only docs out of packed artifacts
 
 ### Changed in 1.0.0
@@ -48,7 +50,8 @@ All notable changes to this project will be documented in this file.
 - GitHub process-local rate-limit and health-update state can be reset between repeated in-process CLI invocations
 - install batching no longer treats a missing progress state as a completed bundle
 - GitHub/repo assets are mirrored through guarded fetches during mirror acquisition instead of being fetched live during wire-in
-- install and activation now enforce bundle activation eligibility and skip quarantined or unpromoted assets
+- official-index upstream repository links are constrained by a checked-in owner allowlist
+- install and activation now enforce bundle activation eligibility, verify/copy only mirror-manifest-listed files, and skip quarantined or unpromoted assets
 - mirror acquisition quarantines prompt-injection-like community content for manual review
 - VS Code and OpenCode wire-in preserve unmanaged instruction/`AGENTS.md` content through managed sections instead of wholesale replacement
 - isolated CLI smoke tests now run against temporary home/config/state roots so validation does not mutate real user host configuration

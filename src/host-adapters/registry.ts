@@ -3,6 +3,7 @@ import { wireOpenCode } from "./opencode.js";
 import { wireVsCode } from "./vscode.js";
 import { wireNativeHost } from "./native-wire.js";
 import {
+  buildExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
   resolveVsCodeExtensionId,
   type ExtensionInstallAction,
@@ -79,9 +80,7 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 
-const cursorCapabilities: HostCapability[] = vscodeCapabilities.filter(
-  (capability) => capability.assetKind !== "extension",
-);
+const cursorCapabilities: HostCapability[] = vscodeCapabilities;
 
 const piCapabilities: HostCapability[] = opencodeCapabilities.map(
   (capability) =>
@@ -148,8 +147,22 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "cursor",
+      readinessArgs: ["--list-extensions", "--show-versions"],
       guidance:
-        "Install the Cursor CLI if you want runtime validation beyond project-local file wiring.",
+        "Install the Cursor CLI if you want runtime validation and native extension install/verification beyond project-local file wiring.",
+      requiredFor: ["native-install", "runtime-validation"],
+    },
+    nativeInstall: {
+      assetKind: "extension",
+      collectActions: (assets) =>
+        buildExtensionInstallActions({
+          executable: "cursor",
+          host: "cursor",
+          extensionIds: assets.flatMap((asset) => {
+            const extensionId = resolveVsCodeExtensionId(asset);
+            return extensionId ? [extensionId] : [];
+          }),
+        }),
     },
     capabilities: cursorCapabilities,
     wire: (options) => wireNativeHost("cursor", options),

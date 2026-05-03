@@ -34,6 +34,7 @@ try {
 
   const env = {
     ...process.env,
+    AGENT_HARNESS_HOME: homeRoot,
     AGENT_HARNESS_STATE_ROOT: stateRoot,
     APPDATA: appDataRoot,
     HOME: homeRoot,
@@ -42,7 +43,10 @@ try {
   };
 
   await runCli(workspaceRoot, env, ["setup", "hosts"]);
+  await runCli(workspaceRoot, env, ["setup", "login", "--provider", "github"]);
   await runCli(workspaceRoot, env, ["install", "native", "--host", "vscode"]);
+  await runCli(workspaceRoot, env, ["install", "native", "--host", "cursor"]);
+  await runCli(workspaceRoot, env, ["discover", "enrich"]);
 
   for (const host of hosts) {
     await runCli(workspaceRoot, env, ["wire", host, "--preview"]);

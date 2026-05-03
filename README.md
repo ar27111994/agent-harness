@@ -296,7 +296,20 @@ Demand detection is deterministic by default. It does not require an external AI
 - vendor/platform signatures for common third-party stacks such as Node, React, Flutter-related manifests, Azure, AWS, GCP, Firebase, Supabase, Apify, MCP, AI/ML/DL/RL libraries, robotics, blockchain, security, and marketing/SEO packages;
 - generic language, package-manager, infrastructure, and API markers.
 
-These signatures live under `src/domains/discovery/` alongside focused demand-profile, source-registry, source-index, source-utilization, catalog-selection, package/reference/local/GitHub/official-index harvester, and catalog utility modules. Support for additional domains or vendors can be added as data-driven detector entries or focused harvester modules instead of one-off project-specific logic. Optional AI-assisted enrichment could be added later, but v1.0.0 intentionally keeps discovery reproducible and offline-capable by default.
+These signatures live under `src/domains/discovery/` alongside focused demand-profile, source-registry, source-index, source-utilization, catalog-selection, package/reference/local/GitHub/official-index harvester, and catalog utility modules. Support for additional domains or vendors can be added as data-driven detector entries or focused harvester modules instead of one-off project-specific logic. Optional AI-assisted enrichment is available through `discover enrich`, but v1.0.0 intentionally keeps normal discovery reproducible and offline-capable by default.
+
+### AI-assisted enrichment
+
+AI-assisted enrichment is optional and disabled by default. When configured, it writes a bounded summary to `discover/output/ai-enrichment.json` using an OpenAI-compatible chat-completions endpoint.
+
+```bash
+AGENT_HARNESS_AI_ENRICHMENT_URL=https://api.openai.com/v1/chat/completions
+AGENT_HARNESS_AI_ENRICHMENT_API_KEY=<token>
+AGENT_HARNESS_AI_ENRICHMENT_MODEL=gpt-4o-mini
+agent-harness discover enrich
+```
+
+Use `setup login --provider ai` for configuration guidance.
 
 ### Recommend
 
@@ -327,6 +340,8 @@ node ./dist/cli.js recommend policy:print --host shared
 npm run mirror:plan
 npm run mirror:locks
 npm run mirror:acquire
+node ./dist/cli.js mirror diff
+node ./dist/cli.js mirror explain --asset <asset-id>
 ```
 
 ### Quarantine review
@@ -348,11 +363,13 @@ node ./dist/cli.js install native --host vscode
 node ./dist/cli.js install native --host vscode --operation verify
 node ./dist/cli.js install native --host vscode --operation install --apply
 node ./dist/cli.js install native --host vscode --operation remove --apply
+node ./dist/cli.js install native --host cursor
+node ./dist/cli.js install native --host cursor --operation verify
 npm run install:reconcile
 npm run install:reset
 ```
 
-`install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code extension assets are installed through the adapter-owned `code --install-extension` provider and results are written to `state/install/native-extensions.json`.
+`install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
 ### Activate
 
@@ -564,11 +581,12 @@ Supported behavior:
 - writes `activate/cursor/wire-plan.json` on apply
 - avoids global Cursor profile mutation
 - avoids global VS Code profile mutation
+- plans explicit Cursor native extension install/verify/remove actions when selected extension assets expose structured extension IDs
 
 Current boundaries:
 
-- Cursor extension/native-install capability is not advertised until Cursor native wire-in can surface structured extension IDs and install actions.
-- Extension-like assets are treated as reference material in the project-local managed tree.
+- Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
+- Extension-like assets without structured extension IDs are treated as reference material in the project-local managed tree.
 
 ### Zed
 
@@ -800,6 +818,14 @@ AGENT_HARNESS_SCAN_MAX_BYTES=50000000
 AGENT_HARNESS_STATE_ROOT=.agent-harness
 ```
 
+### Optional AI enrichment
+
+```bash
+AGENT_HARNESS_AI_ENRICHMENT_URL=
+AGENT_HARNESS_AI_ENRICHMENT_API_KEY=
+AGENT_HARNESS_AI_ENRICHMENT_MODEL=gpt-4o-mini
+```
+
 You can also pass `--state-root <path>` on the CLI. This option is global and may appear before or after the command domain.
 
 ### Optional platform path overrides
@@ -807,6 +833,7 @@ You can also pass `--state-root <path>` on the CLI. This option is global and ma
 Most users should leave these unset:
 
 ```bash
+# AGENT_HARNESS_HOME=
 # XDG_CONFIG_HOME=
 # APPDATA=
 ```
@@ -911,6 +938,7 @@ For release or adapter changes, also run:
 
 ```bash
 npm run smoke:cli
+npm run smoke:workspace
 npm run quality:detection
 npm run quality:policy
 npm run benchmark:scan
@@ -1029,7 +1057,7 @@ The project intentionally favors explicit host semantics over pretending every h
 Known boundaries:
 
 - VS Code extension assets are represented with metadata and install guidance; the harness does not silently install marketplace extensions.
-- Cursor currently does not advertise extension/native-install capability because the native Cursor wire plan does not yet surface structured extension IDs or install actions.
+- Cursor native extension installation is explicit and requires a compatible `cursor` CLI with VS Code-style extension commands.
 - OpenCode wire-in is project-local and does not mutate global OpenCode packages.
 - Claude Code and Pi MCP configuration is not synthesized without structured server metadata.
 - Pi stages MCP references only by default and does not include `shared-mcp` in its default bundles.

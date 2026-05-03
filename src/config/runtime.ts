@@ -33,7 +33,11 @@ export function getRuntimeConfig(): RuntimeConfig {
 }
 
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
-  const homeDirectory = homedir();
+  const homeDirectory =
+    nonEmptyString(env.AGENT_HARNESS_HOME) ??
+    nonEmptyString(env.HOME) ??
+    nonEmptyString(env.USERPROFILE) ??
+    homedir();
   const githubToken = env.GITHUB_PERSONAL_ACCESS_TOKEN || env.GITHUB_TOKEN;
 
   return {

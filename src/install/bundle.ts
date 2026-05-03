@@ -4,12 +4,14 @@ import {
   copyPath,
   createContentHash,
   ensureCleanDirectory,
+  listFilesRecursive,
   pathExists,
   readJsonFile,
   readJsonFileOrNull,
   readJsonLinesFile,
   readTextFileOrNull,
   toPosixPath,
+  toRelativePosixPath,
   writeJsonFile,
 } from "../files.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
@@ -149,7 +151,10 @@ export async function installBundles(
         continue;
       }
 
-      await verifyMirrorFileManifest(sourceMaterialPath, mirrorEntry.contentHash);
+      const mirrorManifest = await verifyMirrorFileManifest(
+        sourceMaterialPath,
+        mirrorEntry.contentHash,
+      );
 
       const packageRoot = join(
         projectRoot,
@@ -160,7 +165,7 @@ export async function installBundles(
       );
       const filesRoot = join(packageRoot, "files");
       await ensureCleanDirectory(filesRoot);
-      await copyPath(sourceMaterialPath, filesRoot);
+      await copyMirrorManifestFiles(sourceMaterialPath, filesRoot, mirrorManifest);
 
       const packageManifest: InstalledPackageManifest = {
         schemaVersion: 1,
@@ -264,7 +269,7 @@ interface MirrorFileManifest {
 async function verifyMirrorFileManifest(
   sourceMaterialPath: string,
   expectedAggregateHash: string,
-): Promise<void> {
+): Promise<MirrorFileManifest> {
   const manifest = await readJsonFileOrNull<MirrorFileManifest>(
     join(sourceMaterialPath, "manifest.json"),
   );
@@ -304,6 +309,52 @@ async function verifyMirrorFileManifest(
   }
   if (aggregateHash !== expectedAggregateHash) {
     throw new Error("Mirror artifact hash does not match mirror index");
+  }
+
+  await assertNoUnexpectedMirrorFiles(sourceMaterialPath, manifest);
+
+  return manifest;
+}
+
+async function copyMirrorManifestFiles(
+  sourceMaterialPath: string,
+  filesRoot: string,
+  manifest: MirrorFileManifest,
+): Promise<void> {
+  const relativePathsToCopy = [
+    ...manifest.files.map((file) => file.relativePath),
+    "asset.json",
+    "manifest.json",
+  ];
+
+  for (const relativePath of relativePathsToCopy) {
+    await copyPath(
+      resolveSafeMirrorFilePath(sourceMaterialPath, relativePath),
+      resolveSafeMirrorFilePath(filesRoot, relativePath),
+    );
+  }
+}
+
+async function assertNoUnexpectedMirrorFiles(
+  sourceMaterialPath: string,
+  manifest: MirrorFileManifest,
+): Promise<void> {
+  const allowedFiles = new Set([
+    ...manifest.files.map((file) => file.relativePath),
+    "asset.json",
+    "manifest.json",
+  ]);
+  const actualFiles = await listFilesRecursive(sourceMaterialPath, new Set(), {
+    maxDepth: 20,
+    maxFiles: 10_000,
+    maxBytes: 100_000_000,
+  });
+
+  for (const filePath of actualFiles) {
+    const relativePath = toRelativePosixPath(sourceMaterialPath, filePath);
+    if (!allowedFiles.has(relativePath)) {
+      throw new Error(`Mirror artifact contains unexpected file: ${relativePath}`);
+    }
   }
 }
 

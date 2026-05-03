@@ -55,6 +55,29 @@ test("recursive scan skips agent-harness generated directories by default", asyn
   }
 });
 
+test("recursive scan honors project ignore files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-gitignore-"));
+  try {
+    await mkdir(join(root, "ignored-dir"));
+    await writeFile(
+      join(root, ".gitignore"),
+      "ignored-dir/\nignored.md\n",
+      "utf8",
+    );
+    await writeFile(join(root, "included.md"), "included", "utf8");
+    await writeFile(join(root, "ignored.md"), "ignored", "utf8");
+    await writeFile(join(root, "ignored-dir", "nested.md"), "ignored", "utf8");
+
+    const result = await listFilesRecursiveWithTelemetry(root, new Set());
+    assert.deepEqual(
+      result.files.map((filePath) => filePath.slice(root.length + 1)).sort(),
+      [".gitignore", "included.md"],
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 test("managed directory links can be created, replaced, and removed", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-link-"));
   try {

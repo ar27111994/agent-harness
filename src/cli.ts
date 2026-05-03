@@ -151,6 +151,7 @@ function printHelp(): void {
   setup doctor              Check config, host readiness, and guided setup notes
   doctor                    Alias for setup doctor
   setup hosts               List registered host adapters
+  setup login               Print provider-specific login/OAuth guidance
   mirror plan               Build a mirror readiness plan from current outputs
 
 Global options:

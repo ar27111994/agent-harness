@@ -12,6 +12,10 @@ const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
 test("native host adapters are registered with expected lifecycle hosts", () => {
   assert.equal(resolveHostAdapter("cursor")?.lifecycleHost, "copilot-vscode");
   assert.equal(resolveHostAdapter("cursor")?.recommendationHost, "cursor");
+  assert.equal(
+    resolveHostAdapter("cursor")?.nativeInstall?.assetKind,
+    "extension",
+  );
   assert.equal(resolveHostAdapter("zed")?.lifecycleHost, "opencode");
   assert.equal(resolveHostAdapter("zed")?.recommendationHost, "zed");
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");

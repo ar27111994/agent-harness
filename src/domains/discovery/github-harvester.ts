@@ -79,6 +79,7 @@ function buildGitHubCatalogEntry(
       : classification.hosts;
   const contextCost = { sizeClass: "tiny", estimatedPromptWeight: 1 } as const;
   const risk = buildGitHubRisk(classification.assetKind);
+  const repoTrust = collectRepositoryTrustEvidence(snapshot);
   const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
 
   return {
@@ -97,22 +98,26 @@ function buildGitHubCatalogEntry(
       publisherVerified: source.publisher?.verified ?? false,
     },
     trust: {
-      score: computeTrustScore({
-        authorityTier: source.authorityTier,
-        sourceKind: source.kind,
-        sourcePriority: source.priority,
-        publisherVerified: source.publisher?.verified ?? false,
-        compatibilityMode: classification.compatibilityMode,
-        installMethod: "github-tree-metadata",
-      }),
-      signals: buildTrustSignals({
-        authorityTier: source.authorityTier,
-        sourceKind: source.kind,
-        sourcePriority: source.priority,
-        publisherVerified: source.publisher?.verified ?? false,
-        compatibilityMode: classification.compatibilityMode,
-        installMethod: "github-tree-metadata",
-      }),
+      score:
+        computeTrustScore({
+          authorityTier: source.authorityTier,
+          sourceKind: source.kind,
+          sourcePriority: source.priority,
+          publisherVerified: source.publisher?.verified ?? false,
+          compatibilityMode: classification.compatibilityMode,
+          installMethod: "github-tree-metadata",
+        }) + repoTrust.scoreBonus,
+      signals: [
+        ...buildTrustSignals({
+          authorityTier: source.authorityTier,
+          sourceKind: source.kind,
+          sourcePriority: source.priority,
+          publisherVerified: source.publisher?.verified ?? false,
+          compatibilityMode: classification.compatibilityMode,
+          installMethod: "github-tree-metadata",
+        }),
+        ...repoTrust.signals,
+      ],
     },
     capabilities,
     install: {
@@ -148,6 +153,36 @@ function buildGitHubCatalogEntry(
     },
     status: buildAssetStatus(source),
   };
+}
+
+function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
+  scoreBonus: number;
+  signals: string[];
+} {
+  const paths = snapshot.tree.entries.map((entry) => entry.path.toLowerCase());
+  const signals: string[] = [];
+  let scoreBonus = 0;
+
+  if (paths.some((path) => /(^|\/)security\.md$/u.test(path))) {
+    signals.push("security-policy-present");
+    scoreBonus += 3;
+  }
+  if (paths.some((path) => /(^|\/)licen[sc]e(\.|$)/u.test(path))) {
+    signals.push("license-present");
+    scoreBonus += 2;
+  }
+  if (paths.some((path) => path.startsWith(".github/workflows/"))) {
+    signals.push("ci-workflows-present");
+    scoreBonus += 2;
+  }
+  if (
+    paths.some((path) => /(^|\/)(test|tests|spec|__tests__)(\/|$)/u.test(path))
+  ) {
+    signals.push("tests-present");
+    scoreBonus += 2;
+  }
+
+  return { scoreBonus, signals };
 }
 
 function classifyGitHubTreePath(

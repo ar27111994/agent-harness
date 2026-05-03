@@ -371,6 +371,13 @@ export interface ScanBudgetOptions {
   maxBytes?: number;
 }
 
+interface IgnorePattern {
+  raw: string;
+  normalized: string;
+  directoryOnly: boolean;
+  basenameOnly: boolean;
+}
+
 export interface ScanBudgetTelemetry {
   visitedFiles: number;
   visitedBytes: number;
@@ -401,9 +408,12 @@ export async function listFilesRecursiveWithTelemetry(
     visitedBytes: 0,
     truncated: false,
   };
+  const ignorePatterns = await loadIgnorePatterns(rootPath);
   const files = await collectFilesFromDirectory(
     rootPath,
+    rootPath,
     ignoredDirectoryNames,
+    ignorePatterns,
     {
       maxDepth: budgetOptions.maxDepth ?? runtimeBudget.maxDepth,
       maxFiles: budgetOptions.maxFiles ?? runtimeBudget.maxFiles,
@@ -419,8 +429,10 @@ export async function listFilesRecursiveWithTelemetry(
 }
 
 async function collectFilesFromDirectory(
+  rootPath: string,
   directoryPath: string,
   ignoredDirectoryNames: ReadonlySet<string>,
+  ignorePatterns: IgnorePattern[],
   budgetOptions: Required<ScanBudgetOptions>,
   telemetry: ScanBudgetTelemetry,
   depth: number,
@@ -444,9 +456,13 @@ async function collectFilesFromDirectory(
     }
 
     const entryPath = `${directoryPath}${sep}${entry.name}`;
+    const relativeEntryPath = toRelativePosixPath(rootPath, entryPath);
 
     if (entry.isDirectory()) {
-      if (ignoredDirectoryNames.has(entry.name)) {
+      if (
+        ignoredDirectoryNames.has(entry.name) ||
+        isIgnoredByPattern(relativeEntryPath, entry.name, true, ignorePatterns)
+      ) {
         continue;
       }
 
@@ -456,8 +472,10 @@ async function collectFilesFromDirectory(
       }
 
       const nestedFiles = await collectFilesFromDirectory(
+        rootPath,
         entryPath,
         ignoredDirectoryNames,
+        ignorePatterns,
         budgetOptions,
         telemetry,
         depth + 1,
@@ -467,6 +485,12 @@ async function collectFilesFromDirectory(
     }
 
     if (entry.isFile()) {
+      if (
+        isIgnoredByPattern(relativeEntryPath, entry.name, false, ignorePatterns)
+      ) {
+        continue;
+      }
+
       let fileSize: number;
       try {
         fileSize = (await lstat(entryPath)).size;
@@ -494,4 +518,63 @@ async function collectFilesFromDirectory(
   }
 
   return collectedFiles;
+}
+
+async function loadIgnorePatterns(rootPath: string): Promise<IgnorePattern[]> {
+  const ignoreFileNames = [".agent-harnessignore", ".gitignore", ".ignore"];
+  const patterns: IgnorePattern[] = [];
+
+  for (const ignoreFileName of ignoreFileNames) {
+    const content = await readTextFileOrNull(
+      `${rootPath}${sep}${ignoreFileName}`,
+    );
+    if (!content) {
+      continue;
+    }
+
+    patterns.push(...parseIgnorePatterns(content));
+  }
+
+  return patterns;
+}
+
+function parseIgnorePatterns(content: string): IgnorePattern[] {
+  return content
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("#"))
+    .filter((line) => !line.startsWith("!"))
+    .map((line) => {
+      const directoryOnly = line.endsWith("/");
+      const normalized = line.replace(/^\/+|\/+$/gu, "").replace(/\\/gu, "/");
+      return {
+        raw: line,
+        normalized,
+        directoryOnly,
+        basenameOnly: !normalized.includes("/"),
+      };
+    })
+    .filter((pattern) => pattern.normalized.length > 0);
+}
+
+function isIgnoredByPattern(
+  relativePath: string,
+  basenameValue: string,
+  isDirectory: boolean,
+  patterns: IgnorePattern[],
+): boolean {
+  return patterns.some((pattern) => {
+    if (pattern.directoryOnly && !isDirectory) {
+      return false;
+    }
+
+    if (pattern.basenameOnly) {
+      return basenameValue === pattern.normalized;
+    }
+
+    return (
+      relativePath === pattern.normalized ||
+      relativePath.startsWith(`${pattern.normalized}/`)
+    );
+  });
 }

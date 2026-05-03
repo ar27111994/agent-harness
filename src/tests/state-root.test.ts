@@ -10,6 +10,7 @@ const REQUIRED_ASSET_FILES = [
   join("discover", "sources.json"),
   join("discover", "selections.json"),
   join("discover", "official-skills-indexes.json"),
+  join("discover", "official-upstreams.json"),
   join("discover", "pipeline.json"),
   join("mirror", "policy.json"),
 ];

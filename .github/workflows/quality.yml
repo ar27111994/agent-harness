@@ -58,6 +58,9 @@ jobs:
       - name: Run CLI and wire preview/apply/reset smoke checks
         run: npm run smoke:cli
 
+      - name: Run offline workspace lifecycle smoke checks
+        run: npm run smoke:workspace
+
       - name: Evaluate recommendation fixtures
         run: npm run validate:recommendations
 

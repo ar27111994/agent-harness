@@ -26,6 +26,9 @@ export async function runSetup(
     case "hosts":
       printHosts();
       return 0;
+    case "login":
+      printLoginGuidance(rest);
+      return 0;
     case "help":
       printSetupHelp();
       return 0;
@@ -104,6 +107,37 @@ async function runDoctor(
   return !hasErrors;
 }
 
+function printLoginGuidance(args: string[]): void {
+  const provider = getOptionValue(args, "--provider") ?? args[0] ?? "github";
+  const guidanceByProvider: Record<string, string[]> = {
+    github: [
+      "GitHub authentication improves discovery throughput for public and private repository sources.",
+      "Create a least-privileged token at https://github.com/settings/tokens?type=beta or https://github.com/settings/tokens.",
+      "Set GITHUB_PERSONAL_ACCESS_TOKEN or GITHUB_TOKEN in your shell, CI secret store, or local .env file.",
+    ],
+    npm: [
+      "npm authentication is required only for package publication.",
+      "Run npm login locally or configure NPM_TOKEN as a GitHub Actions secret for release publishing.",
+    ],
+    ai: [
+      "Optional AI enrichment uses an OpenAI-compatible chat completions endpoint.",
+      "Set AGENT_HARNESS_AI_ENRICHMENT_URL, AGENT_HARNESS_AI_ENRICHMENT_API_KEY, and optionally AGENT_HARNESS_AI_ENRICHMENT_MODEL.",
+    ],
+  };
+  const guidance = guidanceByProvider[provider.toLowerCase()];
+  if (!guidance) {
+    console.log(
+      `Unknown login provider '${provider}'. Known providers: ${Object.keys(guidanceByProvider).join(", ")}`,
+    );
+    return;
+  }
+
+  console.log(`# ${provider} login guidance`);
+  for (const line of guidance) {
+    console.log(`- ${line}`);
+  }
+}
+
 function printHosts(): void {
   for (const adapter of listHostAdapters()) {
     console.log(
@@ -120,7 +154,9 @@ function printSetupHelp(): void {
   console.log(`setup commands:
   doctor        Check config, host readiness, capabilities, and guided setup notes
   hosts         List registered host adapters
+  login         Print provider-specific login/OAuth guidance
 
 Options:
-  --host <${hostNames}>`);
+  --host <${hostNames}>
+  --provider <github|npm|ai>`);
 }

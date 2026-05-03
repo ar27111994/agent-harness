@@ -1,15 +1,14 @@
-import { homedir } from "node:os";
 import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 
 export function resolveHomeRelativePath(pathValue: string): string {
   if (pathValue === "~") {
-    return homedir();
+    return getRuntimeConfig().paths.homeDirectory;
   }
 
   if (pathValue.startsWith(`~${sep}`) || pathValue.startsWith("~/")) {
-    return join(homedir(), pathValue.slice(2));
+    return join(getRuntimeConfig().paths.homeDirectory, pathValue.slice(2));
   }
 
   return pathValue;
@@ -30,7 +29,7 @@ export function resolvePortablePath(
 }
 
 export function toHomeRelativePath(pathValue: string): string {
-  const homeDirectory = homedir();
+  const homeDirectory = getRuntimeConfig().paths.homeDirectory;
   const normalizedPath = normalize(pathValue);
   const relativeToHome = relative(homeDirectory, normalizedPath);
 

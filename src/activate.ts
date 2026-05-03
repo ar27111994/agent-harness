@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   copyPath,
@@ -174,10 +174,28 @@ async function activateHost(
     );
 
     for (const pkg of bundleManifest.packages) {
+      if (
+        !isPathWithinRoot(join(projectRoot, "install", host), pkg.manifestPath)
+      ) {
+        throw new Error(
+          `Refusing to activate package manifest outside install root: ${pkg.manifestPath}`,
+        );
+      }
+
       const packageManifest = await readJsonFile<InstalledPackageManifest>(
         pkg.manifestPath,
         assertInstalledPackageManifest,
       );
+      if (
+        !isPathWithinRoot(
+          join(projectRoot, "install", host, "packages"),
+          packageManifest.filesRoot,
+        )
+      ) {
+        throw new Error(
+          `Refusing to activate files outside package root: ${packageManifest.filesRoot}`,
+        );
+      }
       if (
         currentGeneration &&
         !currentGeneration.packageManifestPaths.includes(pkg.manifestPath)
@@ -380,6 +398,14 @@ function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
 
 function sanitizeAssetId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+}
+
+function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
+  const relativePath = relative(resolve(rootPath), resolve(targetPath));
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
+  );
 }
 
 function buildCopilotProfileId(assetIds: string[]): string {

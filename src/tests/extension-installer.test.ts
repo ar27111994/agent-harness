@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
   executeExtensionInstallAction,
   verifyVsCodeExtensionInstalled,
@@ -25,6 +26,19 @@ test("VS Code extension actions use executable and arg arrays", () => {
     "github.copilot",
   ]);
   assert.equal(actions[0]?.command, "code --install-extension github.copilot");
+});
+
+test("generic extension actions can target Cursor-compatible CLIs", () => {
+  const [action] = buildExtensionInstallActions({
+    executable: "cursor",
+    host: "cursor",
+    extensionIds: ["github.copilot"],
+  });
+
+  assert.ok(action);
+  assert.equal(action.executable, "cursor");
+  assert.equal(action.host, "cursor");
+  assert.equal(action.command, "cursor --install-extension github.copilot");
 });
 
 test("VS Code extension verification parses versioned output case-insensitively", () => {

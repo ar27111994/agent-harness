@@ -51,24 +51,37 @@ const NATIVE_COMMAND_MAX_BUFFER_BYTES = 2_000_000;
 export function buildVsCodeExtensionInstallActions(
   extensionIds: string[],
 ): ExtensionInstallAction[] {
-  return extensionIds.filter(isValidVsCodeExtensionId).map((extensionId) => {
-    const executable = "code";
-    const installArgs = ["--install-extension", extensionId];
-    const verifyArgs = ["--list-extensions", "--show-versions"];
-    const removeArgs = ["--uninstall-extension", extensionId];
-
-    return {
-      host: "copilot-vscode",
-      extensionId,
-      executable,
-      installArgs,
-      verifyArgs,
-      removeArgs,
-      command: formatCommand(executable, installArgs),
-      verifyCommand: formatCommand(executable, verifyArgs),
-      removeCommand: formatCommand(executable, removeArgs),
-    };
+  return buildExtensionInstallActions({
+    extensionIds,
+    executable: "code",
+    host: "copilot-vscode",
   });
+}
+
+export function buildExtensionInstallActions(options: {
+  extensionIds: string[];
+  executable: string;
+  host: string;
+}): ExtensionInstallAction[] {
+  return options.extensionIds
+    .filter(isValidVsCodeExtensionId)
+    .map((extensionId) => {
+      const installArgs = ["--install-extension", extensionId];
+      const verifyArgs = ["--list-extensions", "--show-versions"];
+      const removeArgs = ["--uninstall-extension", extensionId];
+
+      return {
+        host: options.host,
+        extensionId,
+        executable: options.executable,
+        installArgs,
+        verifyArgs,
+        removeArgs,
+        command: formatCommand(options.executable, installArgs),
+        verifyCommand: formatCommand(options.executable, verifyArgs),
+        removeCommand: formatCommand(options.executable, removeArgs),
+      };
+    });
 }
 
 export function isValidVsCodeExtensionId(extensionId: string): boolean {

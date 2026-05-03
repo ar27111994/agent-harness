@@ -17,6 +17,7 @@ const STATE_ASSET_PATHS = [
   ["discover", "sources.json"],
   ["discover", "selections.json"],
   ["discover", "official-skills-indexes.json"],
+  ["discover", "official-upstreams.json"],
   ["discover", "pipeline.json"],
   ["discover", "source-packs"],
   ["discover", "schema"],
