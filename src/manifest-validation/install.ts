@@ -8,12 +8,12 @@ import {
   ASSET_KINDS,
   assertArray,
   assertBoolean,
+  assertHostTarget,
   assertLiteral,
   assertNumber,
   assertRecord,
   assertString,
   assertStringArray,
-  HOST_TARGETS,
 } from "./primitives.js";
 
 export function assertInstalledPackageManifest(
@@ -24,7 +24,7 @@ export function assertInstalledPackageManifest(
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.assetId, `${context}.assetId`);
   assertString(record.mirrorId, `${context}.mirrorId`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   assertString(record.installedAt, `${context}.installedAt`);
   assertLiteral(record.assetKind, ASSET_KINDS, `${context}.assetKind`);
   assertString(record.filesRoot, `${context}.filesRoot`);
@@ -39,7 +39,7 @@ export function assertInstalledBundleManifest(
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.bundleId, `${context}.bundleId`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   assertString(record.installedAt, `${context}.installedAt`);
   assertArray(record.packages, `${context}.packages`).forEach(
     (entry, index) => {
@@ -63,7 +63,7 @@ export function assertInstallGenerationManifest(
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.generationId, `${context}.generationId`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertStringArray(record.bundleIds, `${context}.bundleIds`);
   assertStringArray(

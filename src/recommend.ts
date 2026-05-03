@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import {
+  pathExists,
   readJsonFile,
   readJsonFileOrNull,
   readJsonLinesFile,
@@ -14,7 +15,10 @@ import {
   assertRecommendationPolicyBase,
   assertRecommendationReport,
 } from "./manifest-validation.js";
-import { isHostCompatibleWithRecommendationHost } from "./host-adapters/registry.js";
+import {
+  isHostCompatibleWithRecommendationHost,
+  listHostAdapters,
+} from "./host-adapters/registry.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import { buildRecommendationFixtures } from "./recommend-fixtures.js";
 import type {
@@ -63,15 +67,9 @@ const EVALUATION_FILE_PATH = [
   "state",
   "recommendation-evaluation.json",
 ] as const;
-const RECOMMENDATION_HOSTS = [
-  "opencode",
-  "copilot-vscode",
-  "shared",
-  "cursor",
-  "zed",
-  "claude-code",
-  "pi",
-] as const satisfies readonly HostTarget[];
+const SHARED_RECOMMENDATION_HOST = "shared" as const satisfies HostTarget;
+// Cap each focused capability bucket so broad sources cannot crowd out
+// diversity-sensitive recommendations before host policy caps are applied.
 const FOCUSED_BUCKET_LIMIT = 20;
 const GENERIC_CAPABILITY_TERMS = new Set([
   "agent",
@@ -93,7 +91,7 @@ const GENERIC_CAPABILITY_TERMS = new Set([
   "tools",
 ]);
 
-type RecommendationHost = (typeof RECOMMENDATION_HOSTS)[number];
+type RecommendationHost = HostTarget;
 
 interface DemandTermContext {
   key: string;
@@ -196,19 +194,20 @@ export function buildRecommendationReport(
   policy: RecommendationPolicy,
 ): RecommendationReport {
   const demandContext = buildDemandContext(demandProfile, policy);
+  const recommendationHosts = getRecommendationHosts();
   const topByHost = Object.fromEntries(
-    RECOMMENDATION_HOSTS.map((host) => [
+    recommendationHosts.map((host) => [
       host,
       buildTopRecommendationsForHost(host, entries, demandContext, policy),
     ]),
   ) as Record<RecommendationHost, RecommendationEntry[]>;
   const hostSummaries = Object.fromEntries(
-    RECOMMENDATION_HOSTS.map((host) => [
+    recommendationHosts.map((host) => [
       host,
       buildHostSummary(host, topByHost[host], policy),
     ]),
   ) as Record<RecommendationHost, RecommendationHostSummary>;
-  const suggestedBundles = RECOMMENDATION_HOSTS.map((host) =>
+  const suggestedBundles = recommendationHosts.map((host) =>
     buildSuggestedBundle(host, topByHost[host], policy),
   );
 
@@ -1426,17 +1425,23 @@ async function loadRecommendationPolicy(
 
   assertRecommendationPolicyBase(basePolicy, basePolicyPath);
 
+  const recommendationHosts = getRecommendationHosts();
   const hostOverrides = await Promise.all(
-    RECOMMENDATION_HOSTS.map(async (host) => {
+    recommendationHosts.map(async (host) => {
       const overridePath = join(
         projectRoot,
         ...POLICY_HOST_DIRECTORY_PATH,
         `${host}.json`,
       );
-      const override = await readJsonFile<RecommendationHostPolicyOverride>(
-        overridePath,
-        assertRecommendationHostPolicyOverride,
-      );
+      const override = (await pathExists(overridePath))
+        ? await readJsonFile<RecommendationHostPolicyOverride>(
+            overridePath,
+            assertRecommendationHostPolicyOverride,
+          )
+        : buildDefaultRecommendationHostPolicyOverride(
+            host,
+            basePolicy.schemaVersion,
+          );
 
       if (override.schemaVersion !== basePolicy.schemaVersion) {
         throw new Error(
@@ -1460,15 +1465,44 @@ async function loadRecommendationPolicy(
       RecommendationHost,
       RecommendationHostPolicyOverride
     >,
+    recommendationHosts,
   );
 
   assertRecommendationPolicy(policy, "recommendation-policy");
   return policy;
 }
 
+function buildDefaultRecommendationHostPolicyOverride(
+  host: RecommendationHost,
+  schemaVersion: number,
+): RecommendationHostPolicyOverride {
+  const adapter = listHostAdapters().find(
+    (entry) => entry.recommendationHost === host,
+  );
+
+  return {
+    schemaVersion,
+    host,
+    policy: {
+      recommendationLimit: 12,
+      activationBudget: 2_500,
+      suggestedBundleId: adapter?.defaultBundleIds[0] ?? `${host}-bundle`,
+      fallbackSkillCount: 4,
+      maxPerSourceFamily: 4,
+      maxPerDuplicateGroup: 2,
+      maxPerAssetKind: {},
+      targetAssetKinds: [],
+      targetConcerns: [],
+      suppressedAssetIdPatterns: [],
+      suppressedCapabilityTerms: [],
+    },
+  };
+}
+
 function buildRecommendationPolicyFromSplitFiles(
   basePolicy: RecommendationPolicyBase,
   hostOverrides: Record<RecommendationHost, RecommendationHostPolicyOverride>,
+  recommendationHosts: readonly RecommendationHost[],
 ): RecommendationPolicy {
   const hostDefaults = basePolicy.hostDefaults ?? {};
   const presets = basePolicy.presets;
@@ -1477,7 +1511,7 @@ function buildRecommendationPolicyFromSplitFiles(
     schemaVersion: basePolicy.schemaVersion,
     scoring: basePolicy.scoring,
     hosts: Object.fromEntries(
-      RECOMMENDATION_HOSTS.map((host) => [
+      recommendationHosts.map((host) => [
         host,
         mergeRecommendationHostPolicy(
           hostDefaults,
@@ -1665,13 +1699,13 @@ async function explainRecommendation(
   if (requestedHostRaw !== undefined) {
     if (!isRecommendationHost(requestedHostRaw)) {
       throw new Error(
-        `Invalid --host value: ${requestedHostRaw}. Must be one of: ${RECOMMENDATION_HOSTS.join(", ")}`,
+        `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHosts().join(", ")}`,
       );
     }
     requestedHost = requestedHostRaw;
   }
 
-  const hosts = requestedHost ? [requestedHost] : RECOMMENDATION_HOSTS;
+  const hosts = requestedHost ? [requestedHost] : getRecommendationHosts();
   const lines: string[] = [];
 
   for (const host of hosts) {
@@ -1763,7 +1797,7 @@ async function printRecommendationPolicy(
 
   if (!isRecommendationHost(requestedHost)) {
     throw new Error(
-      `recommend policy:print requires --host to be one of: ${RECOMMENDATION_HOSTS.join(", ")}`,
+      `recommend policy:print requires --host to be one of: ${getRecommendationHosts().join(", ")}`,
     );
   }
 
@@ -1924,8 +1958,17 @@ function formatScoreBreakdown(breakdown: RecommendationScoreBreakdown): string {
   ].join(", ");
 }
 
+function getRecommendationHosts(): RecommendationHost[] {
+  return [
+    ...new Set([
+      SHARED_RECOMMENDATION_HOST,
+      ...listHostAdapters().map((adapter) => adapter.recommendationHost),
+    ]),
+  ];
+}
+
 function isRecommendationHost(value: string): value is RecommendationHost {
-  return RECOMMENDATION_HOSTS.includes(value as RecommendationHost);
+  return getRecommendationHosts().includes(value as RecommendationHost);
 }
 
 function printRecommendHelp(): void {

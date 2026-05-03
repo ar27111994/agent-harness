@@ -11,6 +11,7 @@ import {
   writeJsonFile,
   writeJsonFileWithSnapshot,
 } from "./files.js";
+import { listHostAdapters } from "./host-adapters/registry.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import {
   assertActivationManifest,
@@ -40,15 +41,7 @@ const ACTIVATION_HOSTS = [
   "copilot-vscode",
   "shared",
 ] as const satisfies readonly ActivationHost[];
-const HOST_TARGETS = [
-  "copilot-vscode",
-  "opencode",
-  "shared",
-  "cursor",
-  "zed",
-  "claude-code",
-  "pi",
-] as const satisfies readonly HostTarget[];
+const SHARED_HOST_TARGET = "shared" as const satisfies HostTarget;
 
 export async function runActivate(
   args: string[],
@@ -768,7 +761,7 @@ function parseHostTargetOption(
   }
 
   throw new Error(
-    `Invalid ${optionName} value: ${value}. Must be one of: ${HOST_TARGETS.join(", ")}`,
+    `Invalid ${optionName} value: ${value}. Must be one of: ${getHostTargets().join(", ")}`,
   );
 }
 
@@ -776,7 +769,16 @@ function parseHostTargetOption(
  * Returns whether a string is a supported recommendation host identifier.
  */
 function isHostTarget(value: string): value is HostTarget {
-  return HOST_TARGETS.includes(value as HostTarget);
+  return getHostTargets().includes(value as HostTarget);
+}
+
+function getHostTargets(): HostTarget[] {
+  return [
+    ...new Set([
+      SHARED_HOST_TARGET,
+      ...listHostAdapters().map((adapter) => adapter.recommendationHost),
+    ]),
+  ];
 }
 
 /**

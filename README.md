@@ -302,7 +302,7 @@ These signatures live under `src/domains/discovery/` alongside focused demand-pr
 
 ### AI-assisted enrichment
 
-AI-assisted enrichment is optional and disabled by default. When configured, it writes a bounded summary to `discover/output/ai-enrichment.json` using an OpenAI-compatible chat-completions endpoint.
+AI-assisted enrichment is optional and disabled by default. When configured, it writes a bounded summary to `discover/output/ai-enrichment.json` using an OpenAI-compatible chat-completions endpoint. The endpoint must use a known public provider origin; loopback, private-network, link-local, and non-allowlisted origins are rejected before any API key is sent.
 
 ```bash
 AGENT_HARNESS_AI_ENRICHMENT_URL=https://api.openai.com/v1/chat/completions

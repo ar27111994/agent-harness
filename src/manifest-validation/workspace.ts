@@ -4,12 +4,12 @@ import type {
   WirePlanManifest,
 } from "../types.js";
 import {
+  assertHostTarget,
   assertLiteral,
   assertNumber,
   assertRecord,
   assertString,
   assertStringArray,
-  HOST_TARGETS,
   WIRE_PLAN_HOSTS,
 } from "./primitives.js";
 
@@ -19,7 +19,7 @@ export function assertActivationManifest(
 ): asserts value is ActivationManifest {
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertStringArray(record.activeBundles, `${context}.activeBundles`);
   assertStringArray(record.activeAssets, `${context}.activeAssets`);

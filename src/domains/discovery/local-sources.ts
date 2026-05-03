@@ -24,7 +24,7 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
       rules: {
         officialPreferred: true,
         allowMirror: true,
-        allowInstall: false,
+        allowInstall: true,
       },
     },
     {
@@ -44,7 +44,7 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
       rules: {
         officialPreferred: true,
         allowMirror: true,
-        allowInstall: false,
+        allowInstall: true,
       },
     },
     {
@@ -52,11 +52,18 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
       name: "Local OpenCode Config",
       kind: "local-directory",
       authorityTier: "trusted-local",
-      publisher: { name: "local-opencode" },
+      publisher: { name: "local" },
       hosts: ["opencode"],
-      assetKinds: ["skill", "plugin", "agent"],
+      assetKinds: [
+        "skill",
+        "plugin",
+        "agent",
+        "workflow",
+        "hook",
+        "instruction",
+      ],
       discoveryMode: "seed",
-      priority: 94,
+      priority: 100,
       enabled: true,
       endpoints: {
         path: openCodeRoot,
@@ -64,17 +71,17 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
       rules: {
         officialPreferred: true,
         allowMirror: true,
-        allowInstall: false,
+        allowInstall: true,
       },
     },
     {
       id: "local-opencode-context",
-      name: "Local OpenCode Context Directory",
+      name: "Local OpenCode Context",
       kind: "local-directory",
       authorityTier: "trusted-local",
-      publisher: { name: "local-opencode" },
+      publisher: { name: "local" },
       hosts: ["opencode"],
-      assetKinds: ["workflow", "reference-pack"],
+      assetKinds: ["instruction", "workflow", "reference-pack"],
       discoveryMode: "seed",
       priority: 90,
       enabled: true,
@@ -84,7 +91,7 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
       rules: {
         officialPreferred: true,
         allowMirror: true,
-        allowInstall: false,
+        allowInstall: true,
       },
     },
   ];

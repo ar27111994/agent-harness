@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join, resolve } from "node:path";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
@@ -22,6 +22,14 @@ import { fetchOfficialIndexPageContent } from "./official-index.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import { fetchJsonWithGuards, fetchTextWithGuards } from "./lib/http.js";
 import {
+  resolveAllowedAbsolutePath,
+  resolveSafeMirrorFilePath,
+} from "./lib/safe-paths.js";
+import {
+  resolveDefaultOpenCodeConfigRoot,
+  resolveHomeRelativePath,
+} from "./lib/paths.js";
+import {
   assertAssetCatalogEntry,
   assertMirrorIndexEntry,
   assertMirrorPolicy,
@@ -37,6 +45,8 @@ import type {
   MirrorPolicy,
   SourceIndex,
 } from "./types.js";
+
+export { resolveSafeMirrorFilePath } from "./lib/safe-paths.js";
 
 const MIRROR_PLAN_OUTPUT_PATH = ["mirror", "audit", "mirror-plan.json"];
 const MIRROR_INDEX_OUTPUT_PATH = ["mirror", "index.jsonl"];
@@ -76,7 +86,7 @@ interface MirrorFileManifest {
 
 export async function runMirror(
   args: string[],
-  _workingDirectory: string,
+  workingDirectory: string,
   projectRoot: string,
 ): Promise<number> {
   const [command = "help", ...rest] = args;
@@ -89,7 +99,7 @@ export async function runMirror(
       await generateBundleLocks(projectRoot);
       return 0;
     case "acquire":
-      await acquireMirrorArtifacts(projectRoot, rest);
+      await acquireMirrorArtifacts(projectRoot, workingDirectory, rest);
       return 0;
     case "diff":
       await diffMirrorIndex(projectRoot);
@@ -280,6 +290,7 @@ async function generateBundleLocks(projectRoot: string): Promise<void> {
 
 async function acquireMirrorArtifacts(
   projectRoot: string,
+  workingDirectory: string,
   args: string[],
 ): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
@@ -315,12 +326,17 @@ async function acquireMirrorArtifacts(
   );
   const entriesToAcquire = unresolvedEntries.slice(0, batchSize);
   const newMirrorIndexEntries: MirrorIndexEntry[] = [];
+  const evidenceAllowedRoots = buildMirrorEvidenceAllowedRoots(
+    projectRoot,
+    workingDirectory,
+  );
 
   for (const entry of entriesToAcquire) {
     const materializedArtifact = await materializeMirrorArtifact(
       entry,
       projectRoot,
       policy.selection.requirePinnedProvenance,
+      evidenceAllowedRoots,
     );
     if (materializedArtifact === null) {
       continue;
@@ -596,6 +612,7 @@ async function materializeMirrorArtifact(
   entry: AssetCatalogEntry,
   projectRoot: string,
   requirePinnedProvenance: boolean,
+  evidenceAllowedRoots: readonly string[],
 ): Promise<MaterializedMirrorArtifact | null> {
   if (entry.install.method.endsWith("-summary")) {
     const referenceContent = await fetchOfficialIndexPageContent(
@@ -633,8 +650,18 @@ async function materializeMirrorArtifact(
   }
 
   const filePath = entry.evidence.filePath;
-  if (filePath && (await pathLooksReadable(filePath))) {
-    const fileContent = await readTextFileOrNull(filePath);
+  if (filePath) {
+    const safeFilePath = resolveAllowedMirrorEvidenceFilePath(
+      filePath,
+      evidenceAllowedRoots,
+    );
+    if (!safeFilePath) {
+      throw new Error(
+        `Refusing to read evidence file outside allowed roots: ${filePath}`,
+      );
+    }
+
+    const fileContent = await readTextFileOrNull(safeFilePath);
     if (fileContent !== null) {
       return {
         content: fileContent,
@@ -1120,30 +1147,27 @@ async function pathLooksReadable(filePath: string): Promise<boolean> {
     .catch(() => false);
 }
 
-function sanitizeMirrorId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+function buildMirrorEvidenceAllowedRoots(
+  projectRoot: string,
+  workingDirectory: string,
+): string[] {
+  return [
+    projectRoot,
+    workingDirectory,
+    resolveHomeRelativePath("~/.agents/skills"),
+    resolveDefaultOpenCodeConfigRoot(),
+  ].map((rootPath) => resolve(rootPath));
 }
 
-export function resolveSafeMirrorFilePath(
-  rawRoot: string,
-  relativePath: string,
-): string {
-  const resolvedRoot = resolve(rawRoot);
-  const resolvedTarget = resolve(resolvedRoot, relativePath);
-  const relativeTarget = relative(resolvedRoot, resolvedTarget);
+export function resolveAllowedMirrorEvidenceFilePath(
+  filePath: string,
+  allowedRoots: readonly string[],
+): string | null {
+  return resolveAllowedAbsolutePath(filePath, allowedRoots);
+}
 
-  if (
-    relativeTarget.length === 0 ||
-    relativeTarget === ".." ||
-    relativeTarget.startsWith(`..${sep}`) ||
-    isAbsolute(relativeTarget)
-  ) {
-    throw new Error(
-      `Refusing to write mirrored artifact outside raw root: ${relativePath}`,
-    );
-  }
-
-  return resolvedTarget;
+function sanitizeMirrorId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
 function countEntriesByHost(

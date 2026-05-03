@@ -23,6 +23,11 @@
     "zed"
   ],
   "type": "module",
+  "main": "dist/cli.js",
+  "exports": {
+    ".": "./dist/cli.js",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "agent-harness": "dist/cli.js"
   },

@@ -1,3 +1,4 @@
+import { isIP } from "node:net";
 import { TextDecoder } from "node:util";
 
 export interface FetchWithGuardsOptions {
@@ -100,6 +101,15 @@ export async function fetchJsonWithGuards(
 /**
  * Validates that a URL is HTTPS and belongs to one of the provided origins.
  */
+export function assertAllowedPublicHttpUrl(
+  url: string,
+  allowedOrigins: readonly string[],
+): URL {
+  const parsedUrl = assertAllowedHttpUrl(url, allowedOrigins);
+  assertPublicInternetHostname(parsedUrl);
+  return parsedUrl;
+}
+
 export function assertAllowedHttpUrl(
   url: string,
   allowedOrigins: readonly string[],
@@ -118,6 +128,71 @@ export function assertAllowedHttpUrl(
   }
 
   return parsedUrl;
+}
+
+export function assertPublicInternetHostname(parsedUrl: URL): void {
+  const hostname = parsedUrl.hostname
+    .replace(/^\[|\]$/gu, "")
+    .replace(/\.$/u, "")
+    .toLowerCase();
+
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    throw new Error(`URL hostname is not public: ${parsedUrl.hostname}`);
+  }
+
+  const ipVersion = isIP(hostname);
+  if (ipVersion === 4 && isPrivateIpv4Address(hostname)) {
+    throw new Error(`URL hostname is not public: ${parsedUrl.hostname}`);
+  }
+
+  if (ipVersion === 6 && isPrivateIpv6Address(hostname)) {
+    throw new Error(`URL hostname is not public: ${parsedUrl.hostname}`);
+  }
+}
+
+function isPrivateIpv4Address(hostname: string): boolean {
+  const octets = hostname.split(".").map((octet) => Number(octet));
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return true;
+  }
+
+  const [first, second] = octets;
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+
+function isPrivateIpv6Address(hostname: string): boolean {
+  const normalizedHostname = hostname.toLowerCase();
+  const mappedIpv4Prefix = "::ffff:";
+
+  if (normalizedHostname.startsWith(mappedIpv4Prefix)) {
+    return isPrivateIpv4Address(
+      normalizedHostname.slice(mappedIpv4Prefix.length),
+    );
+  }
+
+  const firstGroup = normalizedHostname.split(":")[0] ?? "";
+  const firstGroupValue = Number.parseInt(firstGroup, 16);
+
+  return (
+    normalizedHostname === "::" ||
+    normalizedHostname === "::1" ||
+    (Number.isFinite(firstGroupValue) &&
+      ((firstGroupValue >= 0xfc00 && firstGroupValue <= 0xfdff) ||
+        (firstGroupValue >= 0xfe80 && firstGroupValue <= 0xfebf)))
+  );
 }
 
 /**

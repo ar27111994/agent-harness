@@ -8,13 +8,13 @@ import {
   assertArray,
   assertAssetKindArray,
   assertBoolean,
+  assertHostTarget,
   assertLiteral,
   assertNumber,
   assertRecord,
   assertString,
   assertStringArray,
   AUTHORITY_TIERS,
-  HOST_TARGETS,
   MIRROR_STATUSES,
   UPSTREAM_TYPES,
 } from "./primitives.js";
@@ -49,9 +49,8 @@ export function assertMirrorPolicy(
         `${context}.bundleTemplates[${index}]`,
       );
       assertString(entryRecord.id, `${context}.bundleTemplates[${index}].id`);
-      assertLiteral(
+      assertHostTarget(
         entryRecord.host,
-        HOST_TARGETS,
         `${context}.bundleTemplates[${index}].host`,
       );
       assertAssetKindArray(
@@ -70,7 +69,7 @@ export function assertBundleLock(
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.bundleId, `${context}.bundleId`);
   assertString(record.generatedAt, `${context}.generatedAt`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   assertArray(record.assets, `${context}.assets`).forEach((entry, index) => {
     const entryRecord = assertRecord(entry, `${context}.assets[${index}]`);
     assertString(entryRecord.assetId, `${context}.assets[${index}].assetId`);

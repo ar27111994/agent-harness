@@ -231,6 +231,7 @@ export function registerHostAdapter(adapter: HostAdapter): void {
     ...adapter,
     id: normalizedId,
     aliases: adapter.aliases.map((alias) => alias.toLowerCase()),
+    recommendationHost: adapter.recommendationHost.toLowerCase(),
   };
 
   if (existingIndex >= 0) {

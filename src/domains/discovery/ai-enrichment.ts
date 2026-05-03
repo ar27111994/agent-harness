@@ -1,11 +1,15 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "../../config/runtime.js";
 import {
   readJsonFileOrNull,
   readJsonLinesFile,
   writeJsonFile,
 } from "../../files.js";
-import { fetchJsonWithGuards } from "../../lib/http.js";
+import {
+  assertAllowedPublicHttpUrl,
+  fetchJsonWithGuards,
+} from "../../lib/http.js";
 import {
   assertAssetCatalogEntry,
   assertDemandProfile,
@@ -25,14 +29,14 @@ interface AiEnrichmentReport {
 }
 
 const OUTPUT_PATH = ["discover", "output", "ai-enrichment.json"] as const;
-const DEFAULT_MODEL = "gpt-4o-mini";
 
 export async function writeAiEnrichmentReport(
   projectRoot: string,
 ): Promise<void> {
-  const endpointUrl = process.env.AGENT_HARNESS_AI_ENRICHMENT_URL;
-  const apiKey = process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY;
-  const model = process.env.AGENT_HARNESS_AI_ENRICHMENT_MODEL ?? DEFAULT_MODEL;
+  const config = getRuntimeConfig().aiEnrichment;
+  const endpointUrl = config.url;
+  const apiKey = config.apiKey;
+  const model = config.model;
   const outputPath = join(projectRoot, ...OUTPUT_PATH);
 
   if (!endpointUrl || !apiKey) {
@@ -58,9 +62,9 @@ export async function writeAiEnrichmentReport(
   );
 
   try {
-    const url = new URL(endpointUrl);
+    const url = assertAllowedPublicHttpUrl(endpointUrl, config.allowedOrigins);
     const response = await fetchJsonWithGuards(url.toString(), {
-      allowedOrigins: [url.origin],
+      allowedOrigins: config.allowedOrigins,
       body: JSON.stringify({
         model,
         messages: [

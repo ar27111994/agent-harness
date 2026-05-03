@@ -16,9 +16,13 @@ concurrency:
 
 jobs:
   release-checks:
-    name: release checks
-    runs-on: ubuntu-latest
+    name: release checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
       - name: Check out repository

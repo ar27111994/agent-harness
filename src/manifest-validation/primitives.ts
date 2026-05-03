@@ -2,6 +2,7 @@ import type {
   AssetKind,
   AssetPrerequisiteKind,
   AuthorityTier,
+  BuiltInHostTarget,
   CompatibilityMode,
   HostTarget,
   SourceKind,
@@ -48,7 +49,7 @@ export const ASSET_PREREQUISITE_KINDS: AssetPrerequisiteKind[] = [
   "manual",
 ];
 
-export const HOST_TARGETS: HostTarget[] = [
+export const HOST_TARGETS: BuiltInHostTarget[] = [
   "copilot-vscode",
   "opencode",
   "shared",
@@ -93,9 +94,20 @@ export const WIRE_PLAN_HOSTS = [
   "opencode-project",
 ] as const;
 
+const HOST_TARGET_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
+export function assertHostTarget(value: unknown, context: string): HostTarget {
+  const host = assertString(value, context);
+  if (!HOST_TARGET_PATTERN.test(host)) {
+    fail(context, "expected a lowercase host identifier");
+  }
+
+  return host;
+}
+
 export function assertHostTargetArray(value: unknown, context: string): void {
   assertArray(value, context).forEach((entry, index) => {
-    assertLiteral(entry, HOST_TARGETS, `${context}[${index}]`);
+    assertHostTarget(entry, `${context}[${index}]`);
   });
 }
 

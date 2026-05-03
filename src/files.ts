@@ -376,6 +376,8 @@ interface IgnorePattern {
   normalized: string;
   directoryOnly: boolean;
   basenameOnly: boolean;
+  negated: boolean;
+  regex: RegExp;
 }
 
 export interface ScanBudgetTelemetry {
@@ -461,7 +463,11 @@ async function collectFilesFromDirectory(
     if (entry.isDirectory()) {
       if (
         ignoredDirectoryNames.has(entry.name) ||
-        isIgnoredByPattern(relativeEntryPath, entry.name, true, ignorePatterns)
+        shouldSkipIgnoredDirectory(
+          relativeEntryPath,
+          entry.name,
+          ignorePatterns,
+        )
       ) {
         continue;
       }
@@ -543,15 +549,20 @@ function parseIgnorePatterns(content: string): IgnorePattern[] {
     .split(/\r?\n/u)
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"))
-    .filter((line) => !line.startsWith("!"))
     .map((line) => {
-      const directoryOnly = line.endsWith("/");
-      const normalized = line.replace(/^\/+|\/+$/gu, "").replace(/\\/gu, "/");
+      const negated = line.startsWith("!");
+      const patternText = negated ? line.slice(1) : line;
+      const directoryOnly = patternText.endsWith("/");
+      const normalized = patternText
+        .replace(/^\/+|\/+$/gu, "")
+        .replace(/\\/gu, "/");
       return {
         raw: line,
         normalized,
         directoryOnly,
         basenameOnly: !normalized.includes("/"),
+        negated,
+        regex: globPatternToRegExp(normalized),
       };
     })
     .filter((pattern) => pattern.normalized.length > 0);
@@ -563,18 +574,102 @@ function isIgnoredByPattern(
   isDirectory: boolean,
   patterns: IgnorePattern[],
 ): boolean {
-  return patterns.some((pattern) => {
-    if (pattern.directoryOnly && !isDirectory) {
-      return false;
+  let ignored = false;
+
+  for (const pattern of patterns) {
+    if (
+      !matchesIgnorePattern(relativePath, basenameValue, isDirectory, pattern)
+    ) {
+      continue;
     }
 
-    if (pattern.basenameOnly) {
-      return basenameValue === pattern.normalized;
+    ignored = !pattern.negated;
+  }
+
+  return ignored;
+}
+
+function shouldSkipIgnoredDirectory(
+  relativePath: string,
+  basenameValue: string,
+  patterns: IgnorePattern[],
+): boolean {
+  return (
+    isIgnoredByPattern(relativePath, basenameValue, true, patterns) &&
+    !patterns.some(
+      (pattern) =>
+        pattern.negated &&
+        !pattern.basenameOnly &&
+        patternMayMatchDescendant(pattern, relativePath),
+    )
+  );
+}
+
+function matchesIgnorePattern(
+  relativePath: string,
+  basenameValue: string,
+  isDirectory: boolean,
+  pattern: IgnorePattern,
+): boolean {
+  if (pattern.directoryOnly && !isDirectory) {
+    return false;
+  }
+
+  if (pattern.basenameOnly) {
+    return pattern.regex.test(basenameValue);
+  }
+
+  if (pattern.regex.test(relativePath)) {
+    return true;
+  }
+
+  if (pattern.normalized.endsWith("/**")) {
+    return relativePath === pattern.normalized.slice(0, -3);
+  }
+
+  return false;
+}
+
+function patternMayMatchDescendant(
+  pattern: IgnorePattern,
+  relativeDirectoryPath: string,
+): boolean {
+  const literalPrefix = pattern.normalized
+    .split(/[?*]/u)[0]
+    .replace(/\/+$/u, "");
+  return (
+    pattern.normalized === relativeDirectoryPath ||
+    pattern.normalized.startsWith(`${relativeDirectoryPath}/`) ||
+    literalPrefix === relativeDirectoryPath ||
+    literalPrefix.startsWith(`${relativeDirectoryPath}/`)
+  );
+}
+
+function globPatternToRegExp(pattern: string): RegExp {
+  let expression = "^";
+
+  for (let index = 0; index < pattern.length; index += 1) {
+    const character = pattern[index];
+    const nextCharacter = pattern[index + 1];
+
+    if (character === "*" && nextCharacter === "*") {
+      expression += ".*";
+      index += 1;
+      continue;
     }
 
-    return (
-      relativePath === pattern.normalized ||
-      relativePath.startsWith(`${pattern.normalized}/`)
-    );
-  });
+    if (character === "*") {
+      expression += "[^/]*";
+      continue;
+    }
+
+    if (character === "?") {
+      expression += "[^/]";
+      continue;
+    }
+
+    expression += escapeRegExp(character);
+  }
+
+  return new RegExp(`${expression}$`, "u");
 }

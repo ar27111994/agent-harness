@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve, sep } from "node:path";
+import { join } from "node:path";
 
 import {
   copyPath,
@@ -15,6 +15,8 @@ import {
   writeJsonFile,
 } from "../files.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
+import { resolveSafeMirrorFilePath } from "../lib/safe-paths.js";
+import { listHostAdapters } from "../host-adapters/registry.js";
 import {
   assertAssetCatalogEntry,
   assertBundleLock,
@@ -59,12 +61,7 @@ export async function installBundles(
   const selectedEntryById = new Map(
     selectedEntries.map((entry) => [entry.id, entry]),
   );
-  const allBundlePaths = [
-    join(projectRoot, "mirror", "bundles", "opencode-global.lock.json"),
-    join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
-    join(projectRoot, "mirror", "bundles", "shared-mcp.lock.json"),
-    join(projectRoot, "mirror", "bundles", "community-stable.lock.json"),
-  ];
+  const allBundleIds = getRegisteredBundleIds();
   const targetBundleIds = getOptionValues(args, "--bundle");
   const batchSizeRaw = Number(getOptionValue(args, "--batch-size") ?? "250");
   const batchSize =
@@ -76,15 +73,16 @@ export async function installBundles(
     Number.isFinite(manualBatchOffsetRaw) && manualBatchOffsetRaw >= 0
       ? Math.min(Math.floor(manualBatchOffsetRaw), Number.MAX_SAFE_INTEGER)
       : 0;
-  const bundlePaths =
-    targetBundleIds.length > 0
-      ? allBundlePaths.filter((bundlePath) =>
-          targetBundleIds.includes(extractBundleId(bundlePath)),
-        )
-      : allBundlePaths;
+  const bundleIds = targetBundleIds.length > 0 ? targetBundleIds : allBundleIds;
+  const bundlePaths = bundleIds.map((bundleId) =>
+    join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
+  );
 
   for (const bundlePath of bundlePaths) {
     if (!(await pathExists(bundlePath))) {
+      console.warn(
+        `Bundle lock not found: ${extractBundleId(bundlePath)} — run mirror locks/acquire first.`,
+      );
       continue;
     }
 
@@ -329,8 +327,8 @@ async function copyMirrorManifestFiles(
 
   for (const relativePath of relativePathsToCopy) {
     await copyPath(
-      resolveSafeMirrorFilePath(sourceMaterialPath, relativePath),
-      resolveSafeMirrorFilePath(filesRoot, relativePath),
+      resolveSafeMirrorFilePath(sourceMaterialPath, relativePath, "read"),
+      resolveSafeMirrorFilePath(filesRoot, relativePath, "write"),
     );
   }
 }
@@ -358,23 +356,12 @@ async function assertNoUnexpectedMirrorFiles(
   }
 }
 
-function resolveSafeMirrorFilePath(rootPath: string, relativePath: string): string {
-  const resolvedRoot = resolve(rootPath);
-  const resolvedTarget = resolve(resolvedRoot, relativePath);
-  const relativeTarget = relative(resolvedRoot, resolvedTarget);
-
-  if (
-    relativeTarget.length === 0 ||
-    relativeTarget === ".." ||
-    relativeTarget.startsWith(`..${sep}`) ||
-    isAbsolute(relativeTarget)
-  ) {
-    throw new Error(
-      `Refusing to read mirrored artifact outside raw root: ${relativePath}`,
-    );
-  }
-
-  return resolvedTarget;
+function getRegisteredBundleIds(): string[] {
+  return [
+    ...new Set(
+      listHostAdapters().flatMap((adapter) => adapter.defaultBundleIds),
+    ),
+  ].sort((left, right) => left.localeCompare(right));
 }
 
 function getPendingAssets(

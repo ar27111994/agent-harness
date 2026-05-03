@@ -3,8 +3,14 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
-import { fetchTextWithGuards } from "../lib/http.js";
-import { resolveSafeMirrorFilePath } from "../mirror.js";
+import {
+  assertAllowedPublicHttpUrl,
+  fetchTextWithGuards,
+} from "../lib/http.js";
+import {
+  resolveAllowedMirrorEvidenceFilePath,
+  resolveSafeMirrorFilePath,
+} from "../mirror.js";
 import {
   extractRepositoryUrlFromPypiMetadata,
   fetchPypiPackageMetadata,
@@ -54,6 +60,59 @@ test("guarded fetches preserve caller abort signals", async (context) => {
 
   assert.equal(observedSignal?.aborted, true);
   assert.equal(observedSignal?.reason, "caller-cancelled");
+});
+
+test("mirror evidence file paths must stay inside allowed roots", () => {
+  const allowedRoot = resolve(join(tmpdir(), "agent-harness-evidence-root"));
+
+  assert.equal(
+    resolveAllowedMirrorEvidenceFilePath(
+      resolve(allowedRoot, "nested", "SKILL.md"),
+      [allowedRoot],
+    ),
+    resolve(allowedRoot, "nested", "SKILL.md"),
+  );
+  assert.equal(
+    resolveAllowedMirrorEvidenceFilePath(
+      resolve(allowedRoot, "..foo", "SKILL.md"),
+      [allowedRoot],
+    ),
+    resolve(allowedRoot, "..foo", "SKILL.md"),
+  );
+  assert.equal(
+    resolveAllowedMirrorEvidenceFilePath(resolve(tmpdir(), "outside.txt"), [
+      allowedRoot,
+    ]),
+    null,
+  );
+  assert.equal(
+    resolveAllowedMirrorEvidenceFilePath("relative/SKILL.md", [allowedRoot]),
+    null,
+  );
+});
+
+test("guarded public URL validation rejects circular SSRF origins", () => {
+  assert.throws(
+    () =>
+      assertAllowedPublicHttpUrl("https://169.254.169.254/latest", [
+        "https://169.254.169.254",
+      ]),
+    /not public/u,
+  );
+  assert.throws(
+    () =>
+      assertAllowedPublicHttpUrl("https://localhost./v1/chat/completions", [
+        "https://localhost.",
+      ]),
+    /not public/u,
+  );
+  assert.throws(
+    () =>
+      assertAllowedPublicHttpUrl("https://example.com/v1/chat/completions", [
+        "https://api.openai.com",
+      ]),
+    /not allowed/u,
+  );
 });
 
 test("guarded fetches disable automatic cross-origin redirects", async (context) => {

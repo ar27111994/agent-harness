@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - `setup login` provider guidance for GitHub, npm, and optional AI enrichment configuration
 - `mirror diff` and `mirror explain` commands for phase-level inspection
 - explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, local tarballs, and planning-only docs out of packed artifacts
+- registry-driven recommendation-host enumeration, extensible host-target validation, package entry points, and release checks across Ubuntu, macOS, and Windows
 
 ### Changed in 1.0.0
 
@@ -50,7 +51,7 @@ All notable changes to this project will be documented in this file.
 - PyPI metadata is validated and normalized field-by-field before repository URL extraction
 - GitHub process-local rate-limit and health-update state can be reset between repeated in-process CLI invocations
 - install batching no longer treats a missing progress state as a completed bundle
-- demand profiling honors `.gitignore`, `.ignore`, and `.agent-harnessignore` patterns in addition to built-in generated-directory skips
+- demand profiling honors `.gitignore`, `.ignore`, and `.agent-harnessignore` patterns in addition to built-in generated-directory skips, including simple glob wildcards and negation re-inclusion rules
 - GitHub/repo assets are mirrored through guarded fetches during mirror acquisition instead of being fetched live during wire-in
 - official-index upstream repository links are constrained by a checked-in owner allowlist and schema-backed `discover/official-upstreams.json` asset
 - install and activation now enforce bundle activation eligibility, verify/copy only mirror-manifest-listed files, and skip quarantined or unpromoted assets
@@ -58,6 +59,11 @@ All notable changes to this project will be documented in this file.
 - VS Code and OpenCode wire-in preserve unmanaged instruction/`AGENTS.md` content through managed sections instead of wholesale replacement
 - isolated CLI and offline workspace lifecycle smoke tests now run against temporary home/config/state roots so validation does not mutate real user host configuration
 - Cursor native extension installation is planned through a compatible VS Code-style `cursor` CLI when structured extension IDs are available
+- mirror evidence file reads are restricted to the working directory, state root, and known local seed roots before any local file content is mirrored
+- optional AI enrichment now uses centralized runtime configuration, static public-provider origin allowlists, and private/loopback/link-local hostname rejection before sending API keys
+- install bundle discovery now derives lock paths from registered host adapter bundle defaults and warns when expected locks are missing
+- duplicate checked-in local source definitions were removed in favor of runtime-generated local sources with dynamic endpoints
+- shared mirror path guards are reused by both mirror acquisition and bundle installation, and GitHub timeout handling uses one `AbortError` helper
 
 ## [0.2.0] - 2026-04-27
 

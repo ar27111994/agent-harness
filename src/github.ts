@@ -530,16 +530,7 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
     } catch (error) {
       clearTimeout(timeout);
 
-      if (error instanceof Error && error.name === "AbortError") {
-        lastError = new Error(
-          `Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`,
-        );
-      } else if (
-        typeof error === "object" &&
-        error !== null &&
-        "name" in error &&
-        error.name === "AbortError"
-      ) {
+      if (isAbortError(error)) {
         lastError = new Error(
           `Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`,
         );
@@ -740,6 +731,15 @@ function buildRateLimitMessage(): string {
   }
 
   return `GitHub API rate limit active until ${new Date(githubRateLimitResetAt).toISOString()}`;
+}
+
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
 }
 
 function getErrorMessage(error: unknown): string {

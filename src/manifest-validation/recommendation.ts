@@ -7,6 +7,7 @@ import type {
 import {
   ASSET_KINDS,
   assertArray,
+  assertHostTarget,
   assertLiteral,
   assertMaybeArray,
   assertMaybeNumber,
@@ -51,9 +52,8 @@ export function assertRecommendationReport(
           entryRecord.assetId,
           `${context}.topByHost.${host}[${index}].assetId`,
         );
-        assertLiteral(
+        assertHostTarget(
           entryRecord.host,
-          HOST_TARGETS,
           `${context}.topByHost.${host}[${index}].host`,
         );
         assertNumber(
@@ -149,9 +149,8 @@ export function assertRecommendationReport(
       summary,
       `${context}.hostSummaries.${host}`,
     );
-    assertLiteral(
+    assertHostTarget(
       summaryRecord.host,
-      HOST_TARGETS,
       `${context}.hostSummaries.${host}.host`,
     );
     assertNumber(
@@ -202,9 +201,8 @@ export function assertRecommendationReport(
         bundle,
         `${context}.suggestedBundles[${index}]`,
       );
-      assertLiteral(
+      assertHostTarget(
         bundleRecord.host,
-        HOST_TARGETS,
         `${context}.suggestedBundles[${index}].host`,
       );
       assertString(
@@ -241,8 +239,14 @@ export function assertRecommendationPolicy(
 
   const hosts = assertRecord(record.hosts, `${context}.hosts`);
   HOST_TARGETS.forEach((host) => {
+    if (!Object.prototype.hasOwnProperty.call(hosts, host)) {
+      fail(`${context}.hosts`, `missing expected host: ${host}`);
+    }
+  });
+  Object.entries(hosts).forEach(([host, hostPolicy]) => {
+    assertHostTarget(host, `${context}.hosts.${host}`);
     assertRecommendationHostPolicy(
-      hosts[host],
+      hostPolicy,
       `${context}.hosts.${host}`,
       false,
     );
@@ -278,7 +282,7 @@ export function assertRecommendationHostPolicyOverride(
 ): asserts value is RecommendationHostPolicyOverride {
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
-  assertLiteral(record.host, HOST_TARGETS, `${context}.host`);
+  assertHostTarget(record.host, `${context}.host`);
   if (record.presetRefs !== undefined) {
     assertRecommendationPolicyPresetRefs(
       record.presetRefs,

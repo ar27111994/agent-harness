@@ -13,6 +13,7 @@ import {
   assertArray,
   assertAssetKindArray,
   assertBoolean,
+  assertHostTarget,
   assertHostTargetArray,
   assertLiteral,
   assertMaybeString,
@@ -24,7 +25,6 @@ import {
   AUTHORITY_TIERS,
   COMPATIBILITY_MODES,
   CONTEXT_COST_CLASSES,
-  HOST_TARGETS,
   RISK_LEVELS,
   SOURCE_KINDS,
 } from "./primitives.js";
@@ -364,11 +364,7 @@ function assertAssetPrerequisites(value: unknown, context: string): void {
       false,
     );
     if (prerequisite.host !== undefined) {
-      assertLiteral(
-        prerequisite.host,
-        HOST_TARGETS,
-        `${context}[${index}].host`,
-      );
+      assertHostTarget(prerequisite.host, `${context}[${index}].host`);
     }
   });
 }
