@@ -6,27 +6,19 @@ import { fetchOfficialIndexPageContent } from "./official-index.js";
 import type { AssetCatalogEntry } from "./types.js";
 
 export async function resolveAssetContent(options: {
-  projectRoot: string;
   activationRoot: string;
   assetId: string;
 }): Promise<{ asset: AssetCatalogEntry; content: string } | null> {
+  const sanitizedId = sanitizeAssetId(options.assetId);
   const asset = await readJsonFileOrNull<AssetCatalogEntry>(
-    join(
-      options.activationRoot,
-      sanitizeAssetId(options.assetId),
-      "asset.json",
-    ),
+    join(options.activationRoot, sanitizedId, "asset.json"),
   );
   if (!asset) {
     return null;
   }
 
   const mirroredContent = await readTextFileOrNull(
-    join(
-      options.activationRoot,
-      sanitizeAssetId(options.assetId),
-      "content.txt",
-    ),
+    join(options.activationRoot, sanitizedId, "content.txt"),
   );
 
   if (shouldUseMirroredContent(asset, mirroredContent)) {

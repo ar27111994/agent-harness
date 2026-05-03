@@ -406,7 +406,6 @@
       "guide",
       "prompt",
       "architecture",
-      "analysis",
       "reference"
     ],
     "automation": [
@@ -421,6 +420,7 @@
       "web-scraping"
     ],
     "analysis": [
+      "analysis",
       "research",
       "data-science",
       "notebooks",
@@ -500,6 +500,8 @@
     "business-analysis": ["business-analysis"],
     "manufacturing": ["3d-printing", "fabrication"],
     "backend-platforms": [
+      "node-backend",
+      "python-backend",
       "java-backend",
       "dotnet-backend",
       "go-backend",

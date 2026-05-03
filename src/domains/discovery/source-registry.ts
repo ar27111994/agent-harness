@@ -59,7 +59,7 @@ export async function loadSourceRegistry(
   );
   const existingRepoUrls = new Set(
     registryWithLocalSeeds.sources
-      .map((source) => source.endpoints.repo?.toLowerCase())
+      .map((source) => normalizeRepoIdentity(source.endpoints.repo))
       .filter((value): value is string => typeof value === "string"),
   );
 
@@ -69,10 +69,10 @@ export async function loadSourceRegistry(
       assertSourcePackShape,
     );
     for (const entry of sourcePack.entries) {
-      const normalizedRepoUrl = entry.repo.toLowerCase();
+      const normalizedRepoUrl = normalizeRepoIdentity(entry.repo);
       if (
         existingSourceIds.has(entry.id) ||
-        existingRepoUrls.has(normalizedRepoUrl)
+        (normalizedRepoUrl && existingRepoUrls.has(normalizedRepoUrl))
       ) {
         continue;
       }
@@ -111,7 +111,9 @@ export async function loadSourceRegistry(
       });
 
       existingSourceIds.add(entry.id);
-      existingRepoUrls.add(normalizedRepoUrl);
+      if (normalizedRepoUrl) {
+        existingRepoUrls.add(normalizedRepoUrl);
+      }
     }
   }
 
@@ -285,6 +287,34 @@ function assertOptionalEnumArray<T extends string>(
   assertArray(value, context).forEach((entry, index) => {
     assertOptionalEnum(entry, allowedValues, `${context}[${index}]`);
   });
+}
+
+function normalizeRepoIdentity(repo: string | undefined): string | undefined {
+  if (!repo) {
+    return undefined;
+  }
+
+  const normalizedRepo = repo.trim().replace(/\.git$/u, "");
+  const sshMatch = /^git@([^:]+):(.+)$/u.exec(normalizedRepo);
+  if (sshMatch?.[1] && sshMatch[2]) {
+    return `${sshMatch[1]}/${sshMatch[2]}`
+      .replace(/^\/+|\/+$/gu, "")
+      .toLowerCase();
+  }
+
+  const urlPath = extractUrlPath(normalizedRepo);
+  if (urlPath) {
+    try {
+      const parsedUrl = new URL(normalizedRepo);
+      return `${parsedUrl.hostname}/${urlPath}`
+        .replace(/^\/+|\/+$/gu, "")
+        .toLowerCase();
+    } catch {
+      return urlPath.replace(/^\/+|\/+$/gu, "").toLowerCase();
+    }
+  }
+
+  return normalizedRepo.replace(/^\/+|\/+$/gu, "").toLowerCase();
 }
 
 function getRepoOwner(repo: string): string | undefined {

@@ -19,7 +19,7 @@ void test("metadata prerequisites map known auth providers and explicit env vars
   const prerequisites = buildAssetPrerequisitesFromMetadata({
     providers: ["openai", "unknown-provider"],
     envVars: ["EXTRA_TOKEN"],
-    setupUrls: ["https://example.com/setup"],
+    setupUrl: "https://example.com/setup",
   });
 
   assert.deepEqual(

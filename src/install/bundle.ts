@@ -126,13 +126,10 @@ export async function installBundles(
     for (const asset of assetsToInstall) {
       const mirrorEntry = mirrorIndexById.get(asset.mirrorId);
       if (!mirrorEntry) {
-        continue;
+        throw new Error(
+          `Installable asset is missing mirror index entry: ${asset.mirrorId}`,
+        );
       }
-
-      if (mirrorEntry.status === "quarantined" || !asset.activationEligible) {
-        continue;
-      }
-
       const catalogEntry = selectedEntryById.get(asset.assetId);
       if (!catalogEntry) {
         continue;
@@ -269,6 +266,7 @@ async function verifyMirrorFileManifest(
 ): Promise<MirrorFileManifest> {
   const manifest = await readJsonFileOrNull<MirrorFileManifest>(
     join(sourceMaterialPath, "manifest.json"),
+    assertMirrorFileManifest,
   );
   if (!manifest) {
     throw new Error(
@@ -314,6 +312,43 @@ async function verifyMirrorFileManifest(
   await assertNoUnexpectedMirrorFiles(sourceMaterialPath, manifest);
 
   return manifest;
+}
+
+function assertMirrorFileManifest(
+  value: unknown,
+  context: string,
+): asserts value is MirrorFileManifest {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${context} must be an object`);
+  }
+
+  const record = value as Record<string, unknown>;
+  if (record.schemaVersion !== 1) {
+    throw new Error(`${context}.schemaVersion must be 1`);
+  }
+  if (typeof record.aggregateHash !== "string") {
+    throw new Error(`${context}.aggregateHash must be a string`);
+  }
+  if (!Array.isArray(record.files)) {
+    throw new Error(`${context}.files must be an array`);
+  }
+
+  record.files.forEach((file, index) => {
+    if (typeof file !== "object" || file === null || Array.isArray(file)) {
+      throw new Error(`${context}.files[${index}] must be an object`);
+    }
+
+    const fileRecord = file as Record<string, unknown>;
+    if (typeof fileRecord.relativePath !== "string") {
+      throw new Error(`${context}.files[${index}].relativePath must be a string`);
+    }
+    if (typeof fileRecord.sha256 !== "string") {
+      throw new Error(`${context}.files[${index}].sha256 must be a string`);
+    }
+    if (typeof fileRecord.sizeBytes !== "number") {
+      throw new Error(`${context}.files[${index}].sizeBytes must be a number`);
+    }
+  });
 }
 
 async function copyMirrorManifestFiles(

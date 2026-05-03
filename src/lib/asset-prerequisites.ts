@@ -22,7 +22,7 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
 export function buildAssetPrerequisitesFromMetadata(options: {
   providers: string[];
   envVars: string[];
-  setupUrls: string[];
+  setupUrl?: string;
 }): AssetPrerequisite[] {
   const prerequisites: AssetPrerequisite[] = [];
 
@@ -34,7 +34,7 @@ export function buildAssetPrerequisitesFromMetadata(options: {
       required: true,
       provider,
       envVars: knownEnvVars.length > 0 ? knownEnvVars : undefined,
-      setupUrl: options.setupUrls[0],
+      setupUrl: options.setupUrl,
       description:
         knownEnvVars.length > 0
           ? `Configure credentials for ${provider}.`
@@ -48,7 +48,7 @@ export function buildAssetPrerequisitesFromMetadata(options: {
       kind: "env",
       required: true,
       envVars: [envVar],
-      setupUrl: options.setupUrls[0],
+      setupUrl: options.setupUrl,
       description: `Set required environment variable ${envVar}.`,
     });
   }
@@ -67,6 +67,16 @@ export function buildPrerequisiteDiagnostics(
 
   for (const prerequisite of prerequisites) {
     const envVars = prerequisite.envVars ?? [];
+    if (prerequisite.kind === "env" && envVars.length === 0) {
+      diagnostics.push({
+        severity: missingEnvSeverity,
+        code: `asset-prerequisite-missing:${asset.id}:${prerequisite.id}`,
+        message: `${asset.displayName} has malformed environment prerequisite '${prerequisite.description}' with no environment variables listed.`,
+        action: buildPrerequisiteAction(prerequisite),
+      });
+      continue;
+    }
+
     if (prerequisite.kind === "env" && envVars.length > 0) {
       const hasAnyEnvVar = envVars.some(
         (envVar) => (env[envVar]?.trim().length ?? 0) > 0,
@@ -112,7 +122,7 @@ async function collectActivatedAssets(
   projectRoot: string,
   adapter: HostAdapter,
 ): Promise<AssetCatalogEntry[]> {
-  const assetIds = new Set<string>();
+  const assetMap = new Map<string, Set<string>>();
   const activationHosts = [adapter.lifecycleHost, "shared"] as const;
   const assets: AssetCatalogEntry[] = [];
 
@@ -122,7 +132,7 @@ async function collectActivatedAssets(
       join(activationRoot, "activation-manifest.json"),
     );
     for (const assetId of activationManifest?.activeAssets ?? []) {
-      assetIds.add(`${activationHost}\u0000${assetId}`);
+      addAssetId(assetMap, activationHost, assetId);
     }
 
     const profileManifest =
@@ -130,31 +140,38 @@ async function collectActivatedAssets(
         join(activationRoot, "workspace-profile-manifest.json"),
       );
     for (const assetId of profileManifest?.selectedAssetIds ?? []) {
-      assetIds.add(`${activationHost}\u0000${assetId}`);
+      addAssetId(assetMap, activationHost, assetId);
     }
   }
 
-  for (const encodedAssetId of assetIds) {
-    const [activationHost, assetId] = encodedAssetId.split("\u0000");
-    if (!activationHost || !assetId) {
-      continue;
-    }
-
-    const asset = await readJsonFileOrNull<AssetCatalogEntry>(
-      join(
-        projectRoot,
-        "activate",
-        activationHost,
-        sanitizeAssetId(assetId),
-        "asset.json",
-      ),
-    );
-    if (asset?.install.prerequisites?.length) {
-      assets.push(asset);
+  for (const [activationHost, assetIds] of assetMap.entries()) {
+    for (const assetId of assetIds) {
+      const asset = await readJsonFileOrNull<AssetCatalogEntry>(
+        join(
+          projectRoot,
+          "activate",
+          activationHost,
+          sanitizeAssetId(assetId),
+          "asset.json",
+        ),
+      );
+      if (asset?.install.prerequisites?.length) {
+        assets.push(asset);
+      }
     }
   }
 
   return assets.sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function addAssetId(
+  assetMap: Map<string, Set<string>>,
+  activationHost: string,
+  assetId: string,
+): void {
+  const assetIds = assetMap.get(activationHost) ?? new Set<string>();
+  assetIds.add(assetId);
+  assetMap.set(activationHost, assetIds);
 }
 
 function buildPrerequisiteAction(prerequisite: AssetPrerequisite): string {

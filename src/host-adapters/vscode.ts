@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { homedir } from "node:os";
-import { basename, dirname, extname, join } from "node:path";
+import { basename, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 
 import { resolveAssetContent } from "../asset-content.js";
@@ -247,7 +247,6 @@ async function materializeWorkspaceInstructions(
 
   for (const instructionId of profileManifest.selectedInstructionIds) {
     const resolvedAsset = await resolveAssetContent({
-      projectRoot: dirname(dirname(activationRoot)),
       activationRoot,
       assetId: instructionId,
     });
@@ -691,7 +690,6 @@ async function readActivationAssetData(
   sourcePath?: string;
 } | null> {
   const resolvedAsset = await resolveAssetContent({
-    projectRoot: dirname(dirname(activationRoot)),
     activationRoot,
     assetId,
   });

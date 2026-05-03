@@ -109,7 +109,7 @@ async function harvestVsCodeMarketplaceItems(
       method: "POST",
     });
     harvestedItems.push(
-      ...normalizeVsCodeMarketplaceItems(data, query).slice(
+      ...normalizeVsCodeMarketplaceItems(data, query, allowedOrigins).slice(
         0,
         VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
       ),
@@ -145,6 +145,7 @@ function buildGenericReferenceItem(
 function normalizeVsCodeMarketplaceItems(
   data: unknown,
   query: string,
+  allowedOrigins: readonly string[],
 ): HarvestedReferenceItem[] {
   if (!isRecord(data)) {
     return [];
@@ -157,7 +158,7 @@ function normalizeVsCodeMarketplaceItems(
     }
 
     return result.extensions.flatMap((extension) =>
-      normalizeVsCodeMarketplaceExtension(extension, query),
+      normalizeVsCodeMarketplaceExtension(extension, query, allowedOrigins),
     );
   });
 }
@@ -165,6 +166,7 @@ function normalizeVsCodeMarketplaceItems(
 function normalizeVsCodeMarketplaceExtension(
   value: unknown,
   query: string,
+  allowedOrigins: readonly string[],
 ): HarvestedReferenceItem[] {
   if (!isRecord(value)) {
     return [];
@@ -182,11 +184,17 @@ function normalizeVsCodeMarketplaceExtension(
   const extensionId = `${publisher}.${extensionName}`;
   const displayName = getString(value.displayName) ?? extensionId;
   const summary = getString(value.shortDescription) ?? displayName;
+  const rawOriginUrl = getString(value.url);
+  const rawOrigin = rawOriginUrl ? getAllowedOrigin(rawOriginUrl) : null;
+  const allowedOriginSet = new Set(
+    allowedOrigins.map((origin) => origin.toLowerCase()),
+  );
   const originUrl =
-    getString(value.url) ??
-    `https://marketplace.visualstudio.com/items?itemName=${encodeURIComponent(
-      extensionId,
-    )}`;
+    rawOriginUrl && rawOrigin && allowedOriginSet.has(rawOrigin.toLowerCase())
+      ? rawOriginUrl
+      : `https://marketplace.visualstudio.com/items?itemName=${encodeURIComponent(
+          extensionId,
+        )}`;
 
   return [
     {
@@ -205,7 +213,7 @@ function normalizeVsCodeMarketplaceExtension(
       compatibilityMode: "native",
       installMethod: "vscode-extension",
       manifestEntry: extensionId,
-      installs: getMarketplaceStatistic(value, "install") ?? 0,
+      installs: getMarketplaceStatistic(value, "install"),
       lastUpdated: getString(value.lastUpdated),
     },
   ];
@@ -270,7 +278,7 @@ function extractReferenceLinks(
   }
 
   for (const match of content.matchAll(
-    /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/giu,
+    /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gisu,
   )) {
     const href = normalizeSameOriginUrl(match[1] ?? "", baseUrl, allowedOrigin);
     const text = stripHtml(match[2] ?? "").trim();
@@ -407,7 +415,9 @@ function dedupeItems(
 ): HarvestedReferenceItem[] {
   const byUrl = new Map<string, HarvestedReferenceItem>();
   for (const item of items) {
-    byUrl.set(item.originUrl, item);
+    if (!byUrl.has(item.originUrl)) {
+      byUrl.set(item.originUrl, item);
+    }
   }
   return [...byUrl.values()].sort((left, right) =>
     left.originUrl.localeCompare(right.originUrl),

@@ -28,10 +28,11 @@ export function extractMarkdownMetadata(
   const authProviders = getStringArrayField(fields.auth);
   const requiredEnvVars = getStringArrayField(fields.requiresEnv);
   const setupUrls = getStringArrayField(fields.setupUrl);
+  const setupUrl = setupUrls[0];
   const prerequisites = buildAssetPrerequisitesFromMetadata({
     providers: authProviders,
     envVars: requiredEnvVars,
-    setupUrls,
+    setupUrl,
   });
   const lineCount = content.split(/\r?\n/u).length;
 
