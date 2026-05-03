@@ -16,6 +16,10 @@ List the key changes, grouped logically.
 
 List the commands and checks used to validate the change.
 
+- [ ] I ran `npm run validate` for code/config/doc changes.
+- [ ] I ran `npm run validate:release` for release, packaging, lifecycle, host adapter, or supply-chain changes.
+- [ ] I documented any intentionally skipped checks and why.
+
 ## Documentation Impact
 
 Note any README, contribution, release, or template updates included in this PR.

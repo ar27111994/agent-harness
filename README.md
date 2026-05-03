@@ -275,6 +275,7 @@ npm run discover:sources
 npm run discover:catalog
 npm run discover:select
 npm run discover:stats
+npm run discover:enrich
 ```
 
 Equivalent direct CLI examples:
@@ -285,6 +286,7 @@ node ./dist/cli.js discover sources
 node ./dist/cli.js discover catalog
 node ./dist/cli.js discover select
 node ./dist/cli.js discover stats
+node ./dist/cli.js discover enrich
 ```
 
 ### Detection breadth and vendor signatures
@@ -447,6 +449,16 @@ agent-harness workspace cursor --intent frontend
 agent-harness workspace zed --intent docs
 agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
+```
+
+### Setup
+
+```bash
+npm run setup:hosts
+npm run setup:doctor
+npm run setup:login -- --provider github
+npm run setup:login -- --provider npm
+npm run setup:login -- --provider ai
 ```
 
 ### Rebuild / operations

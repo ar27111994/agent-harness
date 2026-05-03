@@ -11,6 +11,7 @@ dist/**/*.map
 .zed/
 .claude/
 .pi/
+.unipi/
 .opencode/
 .tmp/
 node_modules/
@@ -26,6 +27,7 @@ discover/catalog.assets.jsonl
 mirror/audit/
 mirror/bundles/
 mirror/index.jsonl
+mirror/index.previous.jsonl
 mirror/quarantine/
 mirror/raw/
 
@@ -43,3 +45,6 @@ IMPLEMENTATION-PLAN.md
 Roadmap.md
 FUTURE-IMPROVEMENTS.md
 CONTRIBUTING.md
+
+# Local package artifacts
+*.tgz

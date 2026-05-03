@@ -1,64 +1,127 @@
 {
   "schemaVersion": 1,
+  "description": "Executable v1 lifecycle outline. Mutable outputs are written under the configured state root.",
   "phases": [
     {
       "id": "d0-demand-profile",
       "enabled": true,
+      "command": "discover demand-profile",
       "inputs": ["."],
       "outputs": ["discover/output/demand-profile.json"]
     },
     {
-      "id": "d1-source-refresh",
+      "id": "d1-source-index",
       "enabled": true,
-      "inputs": ["discover/sources.json", "discover/selections.json"],
+      "command": "discover sources",
+      "inputs": [
+        "discover/sources.json",
+        "discover/selections.json",
+        "discover/official-skills-indexes.json",
+        "discover/official-upstreams.json",
+        "discover/source-packs/"
+      ],
       "outputs": ["discover/output/source-index.json"]
     },
     {
-      "id": "d2-metadata-harvest",
+      "id": "d2-catalog-harvest",
       "enabled": true,
-      "inputs": ["discover/output/source-index.json"],
-      "outputs": ["discover/catalog.assets.jsonl"]
-    },
-    {
-      "id": "d3-normalize",
-      "enabled": true,
-      "inputs": ["discover/catalog.assets.jsonl"],
-      "outputs": ["discover/output/catalog.normalized.jsonl"]
-    },
-    {
-      "id": "d4-compatibility-classification",
-      "enabled": true,
-      "inputs": ["discover/output/catalog.normalized.jsonl"],
-      "outputs": ["discover/output/catalog.classified.jsonl"]
-    },
-    {
-      "id": "d5-evidence-enrichment",
-      "enabled": true,
-      "inputs": ["discover/output/catalog.classified.jsonl"],
-      "outputs": ["discover/output/catalog.enriched.jsonl"]
-    },
-    {
-      "id": "d6-dedupe-selection",
-      "enabled": true,
+      "command": "discover catalog",
       "inputs": [
-        "discover/output/catalog.enriched.jsonl",
-        "discover/selections.json"
+        "discover/output/demand-profile.json",
+        "discover/output/source-index.json",
+        "discover/sources.json",
+        "discover/source-packs/",
+        "discover/official-skills-indexes.json",
+        "discover/official-upstreams.json"
       ],
-      "outputs": ["discover/output/catalog.selected.jsonl"]
+      "outputs": [
+        "discover/catalog.assets.jsonl",
+        "discover/output/source-utilization.json",
+        "state/remote-cache/"
+      ]
     },
     {
-      "id": "d7-mirror-queue",
+      "id": "d3-selection",
       "enabled": true,
+      "command": "discover select",
+      "inputs": ["discover/catalog.assets.jsonl", "discover/selections.json"],
+      "outputs": [
+        "discover/output/catalog.selected.jsonl",
+        "discover/output/catalog.rejected.jsonl",
+        "discover/output/selection-report.json"
+      ]
+    },
+    {
+      "id": "d4-optional-ai-enrichment",
+      "enabled": false,
+      "command": "discover enrich",
+      "inputs": [
+        "discover/output/demand-profile.json",
+        "discover/output/catalog.selected.jsonl"
+      ],
+      "outputs": ["discover/output/ai-enrichment.json"],
+      "requiresEnvironment": [
+        "AGENT_HARNESS_AI_ENRICHMENT_URL",
+        "AGENT_HARNESS_AI_ENRICHMENT_API_KEY"
+      ]
+    },
+    {
+      "id": "r0-recommendations",
+      "enabled": true,
+      "command": "recommend report",
+      "inputs": [
+        "discover/output/demand-profile.json",
+        "discover/output/catalog.selected.jsonl",
+        "discover/recommendation-policy/"
+      ],
+      "outputs": ["state/recommendations.json"]
+    },
+    {
+      "id": "m0-mirror-plan-locks-acquire",
+      "enabled": true,
+      "commands": ["mirror plan", "mirror locks", "mirror acquire"],
       "inputs": [
         "discover/output/catalog.selected.jsonl",
         "mirror/policy.json"
       ],
       "outputs": [
         "mirror/audit/mirror-plan.json",
-        "mirror/bundles/opencode-global.lock.json",
-        "mirror/bundles/copilot-core.lock.json",
-        "mirror/bundles/shared-mcp.lock.json",
-        "mirror/bundles/community-stable.lock.json"
+        "mirror/bundles/*.lock.json",
+        "mirror/index.jsonl",
+        "mirror/index.previous.jsonl",
+        "mirror/raw/",
+        "mirror/quarantine/",
+        "state/mirror/acquire-state.json"
+      ]
+    },
+    {
+      "id": "i0-install-reconcile",
+      "enabled": true,
+      "commands": ["install bundle", "install reconcile"],
+      "inputs": ["mirror/index.jsonl", "mirror/bundles/*.lock.json"],
+      "outputs": [
+        "install/<host>/packages/",
+        "install/<host>/bundles/",
+        "install/generations/",
+        "state/install/progress.json"
+      ]
+    },
+    {
+      "id": "a0-activation",
+      "enabled": true,
+      "command": "activate host",
+      "inputs": ["install/", "state/recommendations.json"],
+      "outputs": ["activate/<host>/"]
+    },
+    {
+      "id": "w0-wire",
+      "enabled": true,
+      "command": "wire <host> --preview|--apply|--reset",
+      "inputs": ["activate/<host>/"],
+      "outputs": [
+        "activate/<host>/wire-preview-<host>.json",
+        "activate/<host>/wire-plan.json",
+        "host-specific managed workspace files"
       ]
     }
   ]

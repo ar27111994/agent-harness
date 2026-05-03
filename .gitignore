@@ -20,6 +20,7 @@ discover/catalog.assets.jsonl
 mirror/audit/
 mirror/bundles/
 mirror/index.jsonl
+mirror/index.previous.jsonl
 mirror/quarantine/
 mirror/raw/
 
@@ -38,3 +39,4 @@ CLAUDE.md
 SYSTEM.md
 
 *.log
+*.tgz

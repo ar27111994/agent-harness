@@ -33,6 +33,8 @@ interface OfficialSkillIndexShape {
     id: string;
     kind: string;
     url: string;
+    expectedOwner?: string;
+    pinnedRef?: string;
     description?: string;
   }>;
 }

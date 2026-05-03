@@ -5,6 +5,8 @@
       "id": "voltagent-awesome-agent-skills",
       "kind": "official-index",
       "url": "https://raw.githubusercontent.com/VoltAgent/awesome-agent-skills/refs/heads/main/README.md",
+      "expectedOwner": "VoltAgent",
+      "pinnedRef": "refs/heads/main",
       "description": "Discovery index for official and community agent skills. Official upstream repos remain canonical."
     }
   ]

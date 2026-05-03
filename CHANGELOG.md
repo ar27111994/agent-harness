@@ -22,8 +22,9 @@ All notable changes to this project will be documented in this file.
 - mutable state-root support through `--state-root` and `AGENT_HARNESS_STATE_ROOT`, with packaged CLI defaults writing lifecycle output to workspace-local `.agent-harness/` instead of the package install directory
 - `quarantine list/inspect/approve/reject` review commands with review logging for quarantined mirror artifacts
 - optional `discover enrich` AI-assisted enrichment reports through an explicitly configured OpenAI-compatible endpoint
+- `setup login` provider guidance for GitHub, npm, and optional AI enrichment configuration
 - `mirror diff` and `mirror explain` commands for phase-level inspection
-- explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, and planning-only docs out of packed artifacts
+- explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, local tarballs, and planning-only docs out of packed artifacts
 
 ### Changed in 1.0.0
 
@@ -32,7 +33,7 @@ All notable changes to this project will be documented in this file.
 - replaced checked-in workstation-specific local source paths with home-relative defaults
 - split new architecture, discovery, wire, host adapter, config, install, manifest-validation, type, and preflight work into package-style seams, including host-native implementations under `src/host-adapters/`
 - consolidated workspace execution on `agent-harness workspace <host>`, removed legacy `agent-harness-vscode` and `agent-harness-opencode` package binaries, and added workspace scripts for all registered adapters
-- ignored local environment files and generated project-local native host wiring artifacts for Cursor, Zed, Claude Code, and Pi to prevent accidental commits from local smoke runs
+- ignored local environment files, local package tarballs, mirror index snapshots, and generated project-local native host wiring artifacts for Cursor, Zed, Claude Code, and Pi to prevent accidental commits from local smoke runs
 - extended Copilot workspace profiles and wire plans to distinguish plugins, extensions, native install actions, and shared MCP assets
 - expanded detection quality fixtures to cover roadmap archetypes and made recommendation policy tuning evidence-driven instead of ad hoc
 - refined host compatibility, activation host validation, native JSON merge safety, OpenCode shared MCP projection resilience, and Python dependency evidence extraction including Poetry `pyproject.toml` sections
@@ -49,12 +50,14 @@ All notable changes to this project will be documented in this file.
 - PyPI metadata is validated and normalized field-by-field before repository URL extraction
 - GitHub process-local rate-limit and health-update state can be reset between repeated in-process CLI invocations
 - install batching no longer treats a missing progress state as a completed bundle
+- demand profiling honors `.gitignore`, `.ignore`, and `.agent-harnessignore` patterns in addition to built-in generated-directory skips
 - GitHub/repo assets are mirrored through guarded fetches during mirror acquisition instead of being fetched live during wire-in
-- official-index upstream repository links are constrained by a checked-in owner allowlist
+- official-index upstream repository links are constrained by a checked-in owner allowlist and schema-backed `discover/official-upstreams.json` asset
 - install and activation now enforce bundle activation eligibility, verify/copy only mirror-manifest-listed files, and skip quarantined or unpromoted assets
 - mirror acquisition quarantines prompt-injection-like community content for manual review
 - VS Code and OpenCode wire-in preserve unmanaged instruction/`AGENTS.md` content through managed sections instead of wholesale replacement
-- isolated CLI smoke tests now run against temporary home/config/state roots so validation does not mutate real user host configuration
+- isolated CLI and offline workspace lifecycle smoke tests now run against temporary home/config/state roots so validation does not mutate real user host configuration
+- Cursor native extension installation is planned through a compatible VS Code-style `cursor` CLI when structured extension IDs are available
 
 ## [0.2.0] - 2026-04-27
 

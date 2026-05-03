@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.local/discover/official-upstreams.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "owners"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "owners": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+$"
+        },
+        "uniqueItems": true
+      },
+      "propertyNames": {
+        "pattern": "^[A-Za-z0-9_.-]+$"
+      }
+    }
+  }
+}
