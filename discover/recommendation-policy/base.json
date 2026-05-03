@@ -71,7 +71,6 @@
       "debugging": 1.1,
       "docker": 1.15,
       "duckdb": 1.15,
-      "express": 1.15,
       "infrastructure": 1.1,
       "integration": 0.75,
       "javascript": 0.55,
@@ -530,7 +529,17 @@
     "infrastructure": ["infra", "devops", "terraform", "kubernetes"],
     "documentation": ["docs", "readme", "guide", "reference", "knowledge-base"],
     "integration": ["webhook", "connector", "mcp", "workflow"],
-    "security": ["auth", "audit", "threat", "governance"],
+    "security": [
+      "auth",
+      "audit",
+      "threat",
+      "governance",
+      "cryptography",
+      "pentesting",
+      "blockchain",
+      "web3",
+      "networking"
+    ],
     "data": [
       "database",
       "duckdb",
@@ -596,13 +605,6 @@
     "marketing": ["seo", "lead-generation", "advertising", "content-creation"],
     "mobile": ["android", "ios"],
     "robotics": ["systems-engineering", "ros"],
-    "security": [
-      "cryptography",
-      "pentesting",
-      "blockchain",
-      "web3",
-      "networking"
-    ],
     "analysis": ["business-analysis"],
     "manufacturing": ["3d-printing", "fabrication"],
     "languages": ["java", "go", "rust", "csharp"]

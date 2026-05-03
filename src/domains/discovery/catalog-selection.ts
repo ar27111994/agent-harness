@@ -143,7 +143,7 @@ function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
     incompatible: 1,
   };
 
-  return compatibilityRanks[compatibilityMode];
+  return compatibilityRanks[compatibilityMode] ?? 0;
 }
 
 function getRiskRank(riskLevel: AssetRisk["level"]): number {

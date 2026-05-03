@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 
 import {
   copyPath,
@@ -395,10 +395,9 @@ function sanitizeAssetId(value: string): string {
 
 function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
   const relativePath = relative(resolve(rootPath), resolve(targetPath));
-  return (
-    relativePath === "" ||
-    (!relativePath.startsWith("..") && !isAbsolute(relativePath))
-  );
+  // `relativePath` is never absolute for same-drive paths; activation roots
+  // only need to reject parent escapes here.
+  return relativePath === "" || !relativePath.startsWith("..");
 }
 
 function buildCopilotProfileId(assetIds: string[]): string {

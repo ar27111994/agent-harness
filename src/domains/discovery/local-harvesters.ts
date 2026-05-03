@@ -49,6 +49,8 @@ interface LocalManifestShape {
   entries?: string[];
 }
 
+const antigravityManifestEntryCache = new Map<string, Set<string>>();
+
 interface ClassifiedLocalFile {
   assetKind: AssetKind;
   compatibilityMode: CompatibilityMode;
@@ -312,6 +314,11 @@ export async function harvestLocalDirectorySource(
 async function loadAntigravityManifestEntrySet(
   projectRoot: string,
 ): Promise<Set<string>> {
+  const cachedEntries = antigravityManifestEntryCache.get(projectRoot);
+  if (cachedEntries) {
+    return cachedEntries;
+  }
+
   const antigravityManifestPath = resolveEndpointPath(
     "~/.agents/skills/.antigravity-install-manifest.json",
     projectRoot,
@@ -320,7 +327,11 @@ async function loadAntigravityManifestEntrySet(
     antigravityManifestPath,
   );
 
-  return new Set((manifest?.entries ?? []).map((entry) => entry.toLowerCase()));
+  const entries = new Set(
+    (manifest?.entries ?? []).map((entry) => entry.toLowerCase()),
+  );
+  antigravityManifestEntryCache.set(projectRoot, entries);
+  return entries;
 }
 
 function classifyManifestEntryAssetKind(manifestEntry: string): AssetKind {

@@ -15,7 +15,7 @@ export interface HarvestedReferenceItem {
   compatibilityMode: CompatibilityMode;
   installMethod: string;
   manifestEntry?: string;
-  stars?: number;
+  installs?: number;
   lastUpdated?: string;
 }
 
@@ -85,11 +85,18 @@ async function harvestVsCodeMarketplaceItems(
 ): Promise<HarvestedReferenceItem[]> {
   const queries = selectDemandQueries(demandProfile);
   const apiUrl = source.endpoints.marketplaceApi ?? VSCODE_MARKETPLACE_API;
+  const apiOrigin = getAllowedOrigin(apiUrl);
+  if (!apiOrigin) {
+    return [];
+  }
+  const allowedOrigins = [
+    ...new Set([...VSCODE_MARKETPLACE_ORIGINS, apiOrigin]),
+  ];
   const harvestedItems: HarvestedReferenceItem[] = [];
 
   for (const query of queries.slice(0, VSCODE_MARKETPLACE_MAX_QUERIES)) {
     const data = await fetchJsonWithGuards(apiUrl, {
-      allowedOrigins: VSCODE_MARKETPLACE_ORIGINS,
+      allowedOrigins,
       body: JSON.stringify(buildVsCodeMarketplaceRequest(query)),
       headers: {
         Accept: "application/json;api-version=7.2-preview.1;excludeUrls=true",
@@ -195,7 +202,7 @@ function normalizeVsCodeMarketplaceExtension(
       compatibilityMode: "native",
       installMethod: "vscode-extension",
       manifestEntry: extensionId,
-      stars: getMarketplaceStatistic(value, "install") ?? 0,
+      installs: getMarketplaceStatistic(value, "install") ?? 0,
       lastUpdated: getString(value.lastUpdated),
     },
   ];

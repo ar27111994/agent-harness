@@ -6,6 +6,7 @@ import type {
   SourceDefinition,
   SourceIndex,
 } from "../../types.js";
+import { countBy } from "./catalog-utils.js";
 import { SOURCE_INDEX_OUTPUT_PATH } from "./output-paths.js";
 import { loadSourceRegistry } from "./source-registry.js";
 
@@ -52,20 +53,6 @@ function compareSourcesByPriority(
   }
 
   return left.id.localeCompare(right.id);
-}
-
-function countBy<T>(
-  items: T[],
-  getKey: (item: T) => string,
-): Record<string, number> {
-  const counts: Record<string, number> = {};
-
-  for (const item of items) {
-    const key = getKey(item);
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
-  return counts;
 }
 
 function countHosts(sources: SourceDefinition[]): Record<string, number> {

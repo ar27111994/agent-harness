@@ -1,5 +1,9 @@
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+export function sanitizeMirrorId(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+}
+
 export function isPathWithinRoot(
   rootPath: string,
   targetPath: string,

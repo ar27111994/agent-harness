@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getOptionValue } from "../../lib/cli-options.js";
 import { readJsonLinesFile } from "../../files.js";
 import type { AssetCatalogEntry } from "../../types.js";
+import { countBy } from "./catalog-utils.js";
 import {
   CATALOG_OUTPUT_PATH,
   REJECTED_CATALOG_OUTPUT_PATH,
@@ -46,7 +47,13 @@ export async function inspectCatalog(
 ): Promise<void> {
   const sourceId = getOptionValue(args, "--source");
   const assetId = getOptionValue(args, "--id");
-  const limit = Number(getOptionValue(args, "--limit") ?? "20");
+  const limitOption = getOptionValue(args, "--limit");
+  const trimmedLimitOption = limitOption?.trim();
+  const parsedLimit = trimmedLimitOption
+    ? /^\d+$/u.test(trimmedLimitOption)
+      ? Number.parseInt(trimmedLimitOption, 10)
+      : Number.NaN
+    : 20;
   const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...CATALOG_OUTPUT_PATH),
   );
@@ -61,6 +68,11 @@ export async function inspectCatalog(
     matches = matches.filter((entry) => entry.id === assetId);
   }
 
+  const limit =
+    Number.isInteger(parsedLimit) && parsedLimit >= 0
+      ? Math.min(parsedLimit, matches.length)
+      : Math.min(20, matches.length);
+
   console.log(
     JSON.stringify(
       {
@@ -73,20 +85,6 @@ export async function inspectCatalog(
       2,
     ),
   );
-}
-
-function countBy<T>(
-  items: T[],
-  getKey: (item: T) => string,
-): Record<string, number> {
-  const counts: Record<string, number> = {};
-
-  for (const item of items) {
-    const key = getKey(item);
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
-
-  return counts;
 }
 
 function countHostsForCatalog(

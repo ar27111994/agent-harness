@@ -225,7 +225,7 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "robotics",
-    packages: { pypi: ["rclpy", "rospy", "pymavlink", "robotframework"] },
+    packages: { pypi: ["rclpy", "rospy", "pymavlink"] },
     textMarkers: ["ros2", "ros", "urdf", "xacro", "robotics"],
     signals: {
       concerns: ["robotics", "systems-engineering"],

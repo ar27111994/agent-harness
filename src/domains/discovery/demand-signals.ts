@@ -403,12 +403,26 @@ function extractPoetryDependencyName(
   if (
     !dependencyName ||
     dependencyName.toLowerCase() === "python" ||
-    isPythonDirectReference(dependencySpec)
+    isPythonDirectReference(dependencySpec) ||
+    isPoetryTableReference(dependencySpec)
   ) {
     return null;
   }
 
   return isPlainPackageName(dependencyName) ? dependencyName : null;
+}
+
+function isPoetryTableReference(value: string | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  const trimmedValue = value.trim();
+  return (
+    trimmedValue.startsWith("{") ||
+    /^\{[^}]*\b(?:path|git|url|file)\s*=/iu.test(trimmedValue) ||
+    /^(?:git\+|hg\+|ssh:\/\/|git:\/\/|https?:\/\/|file:)/iu.test(trimmedValue)
+  );
 }
 
 function isPoetryDependencySection(currentSection: string): boolean {
@@ -638,15 +652,40 @@ function addGenericTextSignals(
 }
 
 function extractCargoDependencyNames(content: string): string[] {
+  const dependencyNames: string[] = [];
+  let currentSection = "";
+
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const line = rawLine.replace(/\s+#.*$/u, "").trim();
+    const sectionMatch = /^\[([^\]]+)\]$/u.exec(line);
+    if (sectionMatch?.[1]) {
+      currentSection = sectionMatch[1].trim();
+      continue;
+    }
+
+    if (!isCargoDependencySection(currentSection)) {
+      continue;
+    }
+
+    const dependencyMatch = /^([A-Za-z0-9_-]+)\s*=/u.exec(line);
+    if (dependencyMatch?.[1]) {
+      dependencyNames.push(dependencyMatch[1]);
+    }
+  }
+
   return uniqueStrings(
-    content
-      .split(/\r?\n/u)
-      .map((line) => line.replace(/\s+#.*$/u, "").trim())
-      .flatMap((line) => {
-        const dependencyMatch = /^([A-Za-z0-9_-]+)\s*=/u.exec(line);
-        return dependencyMatch?.[1] ? [dependencyMatch[1]] : [];
-      })
-      .filter((dependencyName) => dependencyName !== "package"),
+    dependencyNames.filter((dependencyName) => dependencyName !== "package"),
+  );
+}
+
+function isCargoDependencySection(sectionName: string): boolean {
+  return (
+    sectionName === "dependencies" ||
+    sectionName === "dev-dependencies" ||
+    sectionName === "build-dependencies" ||
+    /^target\..+\.(?:dependencies|dev-dependencies|build-dependencies)$/u.test(
+      sectionName,
+    )
   );
 }
 

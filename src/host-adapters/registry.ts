@@ -222,16 +222,18 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
 
 const hostAdapters = [...DEFAULT_HOST_ADAPTERS];
 
+const HOST_TARGET_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+
 export function registerHostAdapter(adapter: HostAdapter): void {
   const normalizedId = adapter.id.toLowerCase();
   const existingIndex = hostAdapters.findIndex(
     (registeredAdapter) => registeredAdapter.id === normalizedId,
   );
-  const normalizedAdapter = {
+  const normalizedAdapter: HostAdapter = {
     ...adapter,
     id: normalizedId,
     aliases: adapter.aliases.map((alias) => alias.toLowerCase()),
-    recommendationHost: adapter.recommendationHost.toLowerCase(),
+    recommendationHost: normalizeHostTarget(adapter.recommendationHost),
   };
 
   if (existingIndex >= 0) {
@@ -240,6 +242,15 @@ export function registerHostAdapter(adapter: HostAdapter): void {
   }
 
   hostAdapters.push(normalizedAdapter);
+}
+
+function normalizeHostTarget(value: HostTarget): HostTarget {
+  const normalizedValue = value.toLowerCase();
+  if (!HOST_TARGET_PATTERN.test(normalizedValue)) {
+    throw new Error(`Invalid recommendation host identifier: ${value}`);
+  }
+
+  return normalizedValue as HostTarget;
 }
 
 /**

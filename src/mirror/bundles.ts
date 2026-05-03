@@ -72,16 +72,14 @@ export async function generateBundleLocks(projectRoot: string): Promise<void> {
 export async function resolveBundleLocks(
   projectRoot: string,
   mirrorIndexEntries: MirrorIndexEntry[],
+  bundleIds: readonly string[],
 ): Promise<void> {
   const mirrorIdByAssetId = new Map(
     mirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
-  const bundlePaths = [
-    join(projectRoot, "mirror", "bundles", "opencode-global.lock.json"),
-    join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
-    join(projectRoot, "mirror", "bundles", "shared-mcp.lock.json"),
-    join(projectRoot, "mirror", "bundles", "community-stable.lock.json"),
-  ];
+  const bundlePaths = bundleIds.map((bundleId) =>
+    join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
+  );
 
   for (const bundlePath of bundlePaths) {
     const bundleLock = await readJsonFile<BundleLock>(bundlePath);

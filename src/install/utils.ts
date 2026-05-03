@@ -6,9 +6,7 @@ export const INSTALL_HOSTS: Array<BundleLock["host"]> = [
   "shared",
 ];
 
-export function sanitizeMirrorId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
+
 
 export function sanitizeAssetId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");

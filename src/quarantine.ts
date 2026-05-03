@@ -8,6 +8,7 @@ import {
   writeJsonLinesFile,
 } from "./files.js";
 import { getOptionValue } from "./lib/cli-options.js";
+import { sanitizeMirrorId } from "./lib/safe-paths.js";
 import {
   assertAssetCatalogEntry,
   assertMirrorIndexEntry,
@@ -177,10 +178,6 @@ async function readMirrorIndex(
     join(projectRoot, ...MIRROR_INDEX_PATH),
     assertMirrorIndexEntry,
   );
-}
-
-function sanitizeMirrorId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
 function printQuarantineHelp(): void {

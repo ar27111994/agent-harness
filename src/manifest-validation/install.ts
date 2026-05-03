@@ -6,6 +6,8 @@ import type {
 } from "../types.js";
 import {
   ASSET_KINDS,
+  AUTHORITY_TIERS,
+  CONTEXT_COST_CLASSES,
   assertArray,
   assertBoolean,
   assertHostTarget,
@@ -26,8 +28,29 @@ export function assertInstalledPackageManifest(
   assertString(record.mirrorId, `${context}.mirrorId`);
   assertHostTarget(record.host, `${context}.host`);
   assertString(record.installedAt, `${context}.installedAt`);
+  assertString(record.projectionType, `${context}.projectionType`);
   assertLiteral(record.assetKind, ASSET_KINDS, `${context}.assetKind`);
+  assertLiteral(
+    record.sourceAuthorityTier,
+    AUTHORITY_TIERS,
+    `${context}.sourceAuthorityTier`,
+  );
+  const contextCost = assertRecord(
+    record.contextCost,
+    `${context}.contextCost`,
+  );
+  assertLiteral(
+    contextCost.sizeClass,
+    [...CONTEXT_COST_CLASSES],
+    `${context}.contextCost.sizeClass`,
+  );
+  assertNumber(
+    contextCost.estimatedPromptWeight,
+    `${context}.contextCost.estimatedPromptWeight`,
+  );
+  assertNumber(record.portfolioFit, `${context}.portfolioFit`);
   assertString(record.filesRoot, `${context}.filesRoot`);
+  assertStringArray(record.bundleMembership, `${context}.bundleMembership`);
   assertBoolean(record.activationEligible, `${context}.activationEligible`);
   assertBoolean(record.activeByDefault, `${context}.activeByDefault`);
 }
@@ -47,6 +70,10 @@ export function assertInstalledBundleManifest(
       assertString(
         entryRecord.assetId,
         `${context}.packages[${index}].assetId`,
+      );
+      assertString(
+        entryRecord.mirrorId,
+        `${context}.packages[${index}].mirrorId`,
       );
       assertString(
         entryRecord.manifestPath,
@@ -85,5 +112,32 @@ export function assertInstallProgressState(
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.updatedAt, `${context}.updatedAt`);
-  assertRecord(record.bundles, `${context}.bundles`);
+  const bundles = assertRecord(record.bundles, `${context}.bundles`);
+  for (const [bundleKey, bundleValue] of Object.entries(bundles)) {
+    const bundleRecord = assertRecord(
+      bundleValue,
+      `${context}.bundles.${bundleKey}`,
+    );
+    assertHostTarget(bundleRecord.host, `${context}.bundles.${bundleKey}.host`);
+    assertNumber(
+      bundleRecord.batchSize,
+      `${context}.bundles.${bundleKey}.batchSize`,
+    );
+    assertNumber(
+      bundleRecord.totalAssets,
+      `${context}.bundles.${bundleKey}.totalAssets`,
+    );
+    assertNumber(
+      bundleRecord.installedAssets,
+      `${context}.bundles.${bundleKey}.installedAssets`,
+    );
+    assertNumber(
+      bundleRecord.remainingAssets,
+      `${context}.bundles.${bundleKey}.remainingAssets`,
+    );
+    assertStringArray(
+      bundleRecord.lastBatchAssetIds,
+      `${context}.bundles.${bundleKey}.lastBatchAssetIds`,
+    );
+  }
 }

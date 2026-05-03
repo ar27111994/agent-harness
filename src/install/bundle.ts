@@ -15,7 +15,10 @@ import {
   writeJsonFile,
 } from "../files.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
-import { resolveSafeMirrorFilePath } from "../lib/safe-paths.js";
+import {
+  resolveSafeMirrorFilePath,
+  sanitizeMirrorId,
+} from "../lib/safe-paths.js";
 import { listHostAdapters } from "../host-adapters/registry.js";
 import {
   assertAssetCatalogEntry,
@@ -37,11 +40,7 @@ import {
   updateInstallProgressState,
   writeInstallGenerations,
 } from "./state.js";
-import {
-  getInstallableAssets,
-  sanitizeAssetId,
-  sanitizeMirrorId,
-} from "./utils.js";
+import { getInstallableAssets, sanitizeAssetId } from "./utils.js";
 
 export async function installBundles(
   projectRoot: string,
@@ -108,8 +107,8 @@ export async function installBundles(
     const existingRelevantPackages = (
       existingBundleManifest?.packages ?? []
     ).filter((pkg) => currentBundleAssetIds.has(pkg.assetId));
-    const alreadyInstalledAssetIds = new Set(
-      existingRelevantPackages.map((pkg) => pkg.assetId),
+    const alreadyInstalledAssetIdentities = new Set(
+      existingRelevantPackages.map((pkg) => buildInstallIdentity(pkg)),
     );
     const installableAssets = getInstallableAssets(
       bundleLock.assets,
@@ -117,7 +116,7 @@ export async function installBundles(
     );
     const pendingAssets = getPendingAssets(
       installableAssets,
-      alreadyInstalledAssetIds,
+      alreadyInstalledAssetIdentities,
     );
     const assetsToInstall = pendingAssets.slice(
       manualBatchOffset,
@@ -241,16 +240,18 @@ function mergeInstalledPackages(
   existingPackages: InstalledBundleManifest["packages"],
   newPackages: InstalledBundleManifest["packages"],
 ): InstalledBundleManifest["packages"] {
-  const packagesByAssetId = new Map(
-    existingPackages.map((pkg) => [pkg.assetId, pkg]),
+  const packagesByInstallIdentity = new Map(
+    existingPackages.map((pkg) => [buildInstallIdentity(pkg), pkg]),
   );
 
   for (const pkg of newPackages) {
-    packagesByAssetId.set(pkg.assetId, pkg);
+    packagesByInstallIdentity.set(buildInstallIdentity(pkg), pkg);
   }
 
-  return [...packagesByAssetId.values()].sort((left, right) =>
-    left.assetId.localeCompare(right.assetId),
+  return [...packagesByInstallIdentity.values()].sort(
+    (left, right) =>
+      left.assetId.localeCompare(right.assetId) ||
+      left.mirrorId.localeCompare(right.mirrorId),
   );
 }
 
@@ -280,6 +281,9 @@ async function verifyMirrorFileManifest(
   const normalizedFiles = [...manifest.files].sort((left, right) =>
     left.relativePath.localeCompare(right.relativePath),
   );
+  if (!normalizedFiles.some((file) => file.relativePath === "asset.json")) {
+    throw new Error("Mirror artifact manifest is missing asset.json");
+  }
   for (const file of normalizedFiles) {
     const filePath = resolveSafeMirrorFilePath(
       sourceMaterialPath,
@@ -321,7 +325,6 @@ async function copyMirrorManifestFiles(
 ): Promise<void> {
   const relativePathsToCopy = [
     ...manifest.files.map((file) => file.relativePath),
-    "asset.json",
     "manifest.json",
   ];
 
@@ -339,7 +342,6 @@ async function assertNoUnexpectedMirrorFiles(
 ): Promise<void> {
   const allowedFiles = new Set([
     ...manifest.files.map((file) => file.relativePath),
-    "asset.json",
     "manifest.json",
   ]);
   const actualFiles = await listFilesRecursive(sourceMaterialPath, new Set(), {
@@ -356,6 +358,13 @@ async function assertNoUnexpectedMirrorFiles(
   }
 }
 
+function buildInstallIdentity(packageIdentity: {
+  assetId: string;
+  mirrorId: string;
+}): string {
+  return `${packageIdentity.assetId}:${packageIdentity.mirrorId}`;
+}
+
 function getRegisteredBundleIds(): string[] {
   return [
     ...new Set(
@@ -366,9 +375,11 @@ function getRegisteredBundleIds(): string[] {
 
 function getPendingAssets(
   bundleAssets: BundleLock["assets"],
-  installedAssetIds: Set<string>,
+  installedAssetIdentities: Set<string>,
 ): BundleLock["assets"] {
-  return bundleAssets.filter((asset) => !installedAssetIds.has(asset.assetId));
+  return bundleAssets.filter(
+    (asset) => !installedAssetIdentities.has(buildInstallIdentity(asset)),
+  );
 }
 
 function extractBundleId(bundlePath: string): string {

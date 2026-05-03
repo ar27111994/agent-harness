@@ -1,7 +1,15 @@
 import { resolve } from "node:path";
 
-import { resolveDefaultOpenCodeConfigRoot, resolveHomeRelativePath } from "../lib/paths.js";
-import { resolveAllowedAbsolutePath } from "../lib/safe-paths.js";
+import {
+  resolveDefaultOpenCodeConfigRoot,
+  resolveHomeRelativePath,
+} from "../lib/paths.js";
+import {
+  resolveAllowedAbsolutePath,
+  sanitizeMirrorId,
+} from "../lib/safe-paths.js";
+
+export { sanitizeMirrorId };
 
 export function buildMirrorEvidenceAllowedRoots(
   projectRoot: string,
@@ -20,8 +28,4 @@ export function resolveAllowedMirrorEvidenceFilePath(
   allowedRoots: readonly string[],
 ): string | null {
   return resolveAllowedAbsolutePath(filePath, allowedRoots);
-}
-
-export function sanitizeMirrorId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }

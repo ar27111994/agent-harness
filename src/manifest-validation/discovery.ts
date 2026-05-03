@@ -280,7 +280,7 @@ export function assertGitHubRepoSnapshot(
     `${context}.repoSummary`,
   );
   assertString(repoSummary.name, `${context}.repoSummary.name`);
-  if (repoSummary.description !== null) {
+  if (repoSummary.description != null) {
     assertString(repoSummary.description, `${context}.repoSummary.description`);
   }
   assertString(repoSummary.fullName, `${context}.repoSummary.fullName`);
@@ -288,29 +288,29 @@ export function assertGitHubRepoSnapshot(
     repoSummary.defaultBranch,
     `${context}.repoSummary.defaultBranch`,
   );
-  if (repoSummary.updatedAt !== null) {
+  if (repoSummary.updatedAt != null) {
     assertString(repoSummary.updatedAt, `${context}.repoSummary.updatedAt`);
   }
-  if (repoSummary.pushedAt !== null) {
+  if (repoSummary.pushedAt != null) {
     assertString(repoSummary.pushedAt, `${context}.repoSummary.pushedAt`);
   }
   assertNumber(repoSummary.stars, `${context}.repoSummary.stars`);
-  if (repoSummary.language !== null) {
+  if (repoSummary.language != null) {
     assertString(repoSummary.language, `${context}.repoSummary.language`);
   }
   assertStringArray(repoSummary.topics, `${context}.repoSummary.topics`);
   assertBoolean(repoSummary.archived, `${context}.repoSummary.archived`);
   assertString(repoSummary.htmlUrl, `${context}.repoSummary.htmlUrl`);
 
-  if (record.readme !== null) {
+  if (record.readme != null) {
     const readme = assertRecord(record.readme, `${context}.readme`);
     assertString(readme.path, `${context}.readme.path`);
     assertString(readme.sha, `${context}.readme.sha`);
     assertNumber(readme.size, `${context}.readme.size`);
-    if (readme.htmlUrl !== null) {
+    if (readme.htmlUrl != null) {
       assertString(readme.htmlUrl, `${context}.readme.htmlUrl`);
     }
-    if (readme.downloadUrl !== null) {
+    if (readme.downloadUrl != null) {
       assertString(readme.downloadUrl, `${context}.readme.downloadUrl`);
     }
   }
@@ -326,7 +326,7 @@ export function assertGitHubRepoSnapshot(
       );
       assertString(entryRecord.path, `${context}.tree.entries[${index}].path`);
       assertString(entryRecord.type, `${context}.tree.entries[${index}].type`);
-      if (entryRecord.size !== null) {
+      if (entryRecord.size != null) {
         assertNumber(
           entryRecord.size,
           `${context}.tree.entries[${index}].size`,

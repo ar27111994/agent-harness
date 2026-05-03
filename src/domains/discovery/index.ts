@@ -1,22 +1,11 @@
-export * from "./catalog-inspection.js";
-export * from "./catalog-selection.js";
-export * from "./catalog-utils.js";
-export * from "./demand-profile.js";
-export * from "./detector-signatures.js";
-export * from "./detectors.js";
-export * from "./github-harvester.js";
-export * from "./local-harvesters.js";
-export * from "./local-sources.js";
-export * from "./markdown-metadata.js";
-export * from "./official-index-harvester.js";
-export * from "./output-paths.js";
-export * from "./package-candidates.js";
-export * from "./package-registry-harvester.js";
-export * from "./reference-harvesters.js";
-export * from "./reference-source-harvester.js";
-export * from "./remote-state.js";
-export * from "./signals.js";
-export * from "./source-index.js";
-export * from "./source-registry.js";
-export * from "./source-utilization.js";
-export * from "./technology-signatures.js";
+export { writeAiEnrichmentReport } from "./ai-enrichment.js";
+export { inspectCatalog, printCatalogStats } from "./catalog-inspection.js";
+export { buildDemandProfile } from "./demand-profile.js";
+export { generateSourceIndex } from "./source-index.js";
+export { loadSourceRegistry } from "./source-registry.js";
+export { writeSourceUtilizationReport } from "./source-utilization.js";
+export {
+  loadRemoteHarvestState,
+  writeRemoteHarvestState,
+  type RemoteHarvestState,
+} from "./remote-state.js";

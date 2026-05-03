@@ -66,7 +66,6 @@ function extractOfficialIndexPageSummary(html: string, url: string): string {
     skillSummary ??
       description ??
       "No concise summary was available from the official index page.",
-    whyItHelps ? "" : "",
     whyItHelps ? "## Why It Helps" : "",
     whyItHelps ?? "",
     "",

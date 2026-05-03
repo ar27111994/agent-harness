@@ -124,7 +124,10 @@ const repoFixtures: DemandProfileRepoFixture[] = [
           "<dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>",
       },
       { path: "api/go.mod", content: "github.com/gin-gonic/gin v1.10.0" },
-      { path: "backend/Cargo.toml", content: 'axum = "0.7"\ntonic = "0.12"' },
+      {
+        path: "backend/Cargo.toml",
+        content: '[dependencies]\naxum = "0.7"\ntonic = "0.12"',
+      },
       {
         path: "src/Web.csproj",
         content:

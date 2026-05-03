@@ -56,6 +56,7 @@ export async function harvestPackageRegistrySource(
           packageName,
           npmMetadata.description ?? packageName,
           extractRepositoryUrlFromNpmMetadata(npmMetadata),
+          npmMetadata.lastUpdated,
           demandProfile,
           selectionRegistry,
           "npm",
@@ -76,6 +77,7 @@ export async function harvestPackageRegistrySource(
           packageName,
           pypiMetadata.info.summary ?? packageName,
           extractRepositoryUrlFromPypiMetadata(pypiMetadata),
+          pypiMetadata.lastUpdated,
           demandProfile,
           selectionRegistry,
           "pypi",
@@ -90,6 +92,7 @@ export async function harvestPackageRegistrySource(
         packageName,
         `${packageName} package inferred from ${registryKind} dependency evidence`,
         buildPackageRegistryUrl(registryKind, packageName),
+        undefined,
         demandProfile,
         selectionRegistry,
         registryKind,
@@ -147,6 +150,7 @@ function buildPackageRegistryCatalogEntry(
   packageName: string,
   description: string,
   repositoryUrl: string | undefined,
+  lastUpdated: string | undefined,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
   registryKind: PackageRegistryKind,
@@ -167,6 +171,8 @@ function buildPackageRegistryCatalogEntry(
     assetKind === "mcp-server"
       ? ("native" satisfies CompatibilityMode)
       : ("adaptable" satisfies CompatibilityMode);
+  const packagePageUrl = buildPackageRegistryUrl(registryKind, packageName);
+  const originUrl = repositoryUrl ?? packagePageUrl;
 
   return {
     id: buildCatalogId(`${source.id}:${registryKind}`, packageName),
@@ -179,7 +185,7 @@ function buildPackageRegistryCatalogEntry(
       authorityTier: source.authorityTier,
       sourceKind: source.kind,
       sourcePriority: source.priority,
-      originUrl: repositoryUrl ?? source.endpoints.baseUrl,
+      originUrl,
       publisher: source.publisher?.name ?? source.id,
       publisherVerified: source.publisher?.verified ?? false,
     },
@@ -214,10 +220,10 @@ function buildPackageRegistryCatalogEntry(
       examplesFound: false,
       docsLinked: Boolean(repositoryUrl),
       lineCount: 1,
-      rootPath: repositoryUrl ?? source.endpoints.baseUrl,
+      rootPath: originUrl,
     },
     maintenance: {
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: lastUpdated ?? new Date(0).toISOString(),
       stars: 0,
       releaseCadence: `${registryKind}-metadata`,
     },

@@ -100,8 +100,8 @@ export async function prepareStateRoot(
   });
 }
 
-function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
-  const relativePath = relative(resolve(rootPath), resolve(targetPath));
+function isPathWithinRoot(containerPath: string, innerPath: string): boolean {
+  const relativePath = relative(resolve(containerPath), resolve(innerPath));
   return (
     relativePath === "" ||
     (!relativePath.startsWith("..") && !isAbsolute(relativePath))

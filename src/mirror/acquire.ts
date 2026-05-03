@@ -123,7 +123,7 @@ export async function acquireMirrorArtifacts(
       continue;
     }
 
-    const fileManifest = buildMirrorFileManifest(materializedArtifact);
+    const fileManifest = buildMirrorFileManifest(materializedArtifact, entry);
     const mirrorId = `sha256-${createContentHash(`${entry.id}\n${fileManifest.aggregateHash}`)}`;
     const rawRoot = join(
       projectRoot,
@@ -198,7 +198,11 @@ export async function acquireMirrorArtifacts(
     join(projectRoot, ...MIRROR_INDEX_SNAPSHOT_PATH),
     mergedMirrorIndexEntries,
   );
-  await resolveBundleLocks(projectRoot, mergedMirrorIndexEntries);
+  await resolveBundleLocks(
+    projectRoot,
+    mergedMirrorIndexEntries,
+    policy.bundleTemplates.map((template) => template.id),
+  );
   await writeMirrorAcquireState(projectRoot, {
     schemaVersion: 1,
     updatedAt: new Date().toISOString(),
@@ -558,9 +562,11 @@ function parseGitHubBlobEntry(entry: AssetCatalogEntry): {
 
 function buildMirrorFileManifest(
   materializedArtifact: MaterializedMirrorArtifact,
+  entry: AssetCatalogEntry,
 ): MirrorFileManifest {
   const files = [
     { relativePath: "content.txt", content: materializedArtifact.content },
+    { relativePath: "asset.json", content: `${JSON.stringify(entry, null, 2)}\n` },
     ...(materializedArtifact.files ?? []),
   ]
     .map((file) => ({

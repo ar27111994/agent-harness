@@ -145,7 +145,7 @@ function buildReferenceSourceCatalogEntry(
     },
     maintenance: {
       lastUpdated: harvestedItem?.lastUpdated ?? new Date().toISOString(),
-      stars: harvestedItem?.stars ?? 0,
+      stars: harvestedItem?.installs ?? 0,
       releaseCadence: "source-reference",
     },
     risk: buildRisk(false, false, false),

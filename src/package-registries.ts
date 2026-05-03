@@ -18,6 +18,7 @@ export interface NpmPackageMetadata {
   distTags?: Record<string, string>;
   keywords?: string[];
   versions?: Record<string, unknown>;
+  lastUpdated?: string;
 }
 
 export interface PypiPackageMetadata {
@@ -30,6 +31,7 @@ export interface PypiPackageMetadata {
     keywords?: string;
     package_url?: string;
   };
+  lastUpdated?: string;
 }
 
 export async function fetchNpmPackageMetadata(
@@ -89,6 +91,7 @@ function normalizeNpmPackageMetadata(
         )
       : undefined,
     versions: isRecord(data.versions) ? data.versions : undefined,
+    lastUpdated: normalizeStringRecord(data.time)?.modified,
   };
 }
 
@@ -130,7 +133,36 @@ function normalizePypiPackageMetadata(
         typeof data.info.keywords === "string" ? data.info.keywords : undefined,
       package_url: normalizeHttpUrl(data.info.package_url),
     },
+    lastUpdated: normalizePypiLastUpdated(data.releases),
   };
+}
+
+function normalizePypiLastUpdated(value: unknown): string | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const timestamps = Object.values(value).flatMap((releaseFiles) => {
+    if (!Array.isArray(releaseFiles)) {
+      return [];
+    }
+
+    return releaseFiles.flatMap((releaseFile) => {
+      if (!isRecord(releaseFile)) {
+        return [];
+      }
+
+      const timestamp =
+        typeof releaseFile.upload_time_iso_8601 === "string"
+          ? releaseFile.upload_time_iso_8601
+          : typeof releaseFile.upload_time === "string"
+            ? releaseFile.upload_time
+            : undefined;
+      return timestamp ? [timestamp] : [];
+    });
+  });
+
+  return timestamps.sort((left, right) => right.localeCompare(left))[0];
 }
 
 function normalizeUrlRecord(

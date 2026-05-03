@@ -195,12 +195,9 @@ function classifyGitHubTreePath(
 } | null {
   const normalizedPath = relativePath.toLowerCase();
   const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
-  const adaptableHosts = source.hosts.length > 1 ? source.hosts : source.hosts;
+  const adaptableHosts = source.hosts;
 
-  if (
-    normalizedPath.endsWith("/skill.md") ||
-    normalizedPath.endsWith("/skill.md")
-  ) {
+  if (normalizedPath.endsWith("/skill.md")) {
     return {
       assetKind: "skill",
       compatibilityMode: nativeHosts ? "native" : "adaptable",

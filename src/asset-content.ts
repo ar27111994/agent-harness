@@ -40,13 +40,6 @@ export async function resolveAssetContent(options: {
     return { asset, content: officialSkillPageContent };
   }
 
-  if (mirroredContent) {
-    return {
-      asset,
-      content: buildMetadataFallback(asset, mirroredContent),
-    };
-  }
-
   return {
     asset,
     content: buildMetadataFallback(asset),

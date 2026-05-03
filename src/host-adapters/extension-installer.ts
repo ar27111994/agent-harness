@@ -196,7 +196,7 @@ async function executeNativeCommand(
   for (const candidateExecutable of buildExecutableCandidates(executable)) {
     try {
       const result = await execFileAsync(candidateExecutable, args, {
-        shell: false,
+        shell: shouldRunCandidateThroughShell(candidateExecutable),
         windowsHide: true,
         timeout: NATIVE_COMMAND_TIMEOUT_MS,
         maxBuffer: NATIVE_COMMAND_MAX_BUFFER_BYTES,
@@ -217,6 +217,14 @@ async function executeNativeCommand(
   }
 
   return toNativeCommandResult(lastError);
+}
+
+function shouldRunCandidateThroughShell(candidateExecutable: string): boolean {
+  const extension = extname(candidateExecutable).toLowerCase();
+  return (
+    process.platform === "win32" &&
+    (extension === ".cmd" || extension === ".bat")
+  );
 }
 
 function buildExecutableCandidates(executable: string): string[] {
