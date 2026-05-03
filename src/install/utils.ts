@@ -1,12 +1,15 @@
 import { sanitizeAssetId } from "../lib/safe-paths.js";
+import type { LifecycleHost } from "../host-adapters/registry.js";
 import type { BundleLock, MirrorIndexEntry } from "../types.js";
 
-export const INSTALL_HOSTS: Array<BundleLock["host"]> = [
+type InstallHost = LifecycleHost | "shared";
+
+// Install roots are the registered lifecycle hosts plus the shared MCP root.
+export const INSTALL_HOSTS = [
   "opencode",
   "copilot-vscode",
   "shared",
-];
-
+] as const satisfies readonly InstallHost[];
 
 export { sanitizeAssetId };
 

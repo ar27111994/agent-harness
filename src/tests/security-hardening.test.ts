@@ -108,6 +108,27 @@ void test("guarded public URL validation rejects circular SSRF origins", () => {
   );
   assert.throws(
     () =>
+      assertAllowedPublicHttpUrl("https://[fec0::1]/metadata", [
+        "https://[fec0::1]",
+      ]),
+    /not public/u,
+  );
+  assert.throws(
+    () =>
+      assertAllowedPublicHttpUrl("https://[2002:7f00:0001::1]/metadata", [
+        "https://[2002:7f00:1::1]",
+      ]),
+    /not public/u,
+  );
+  assert.throws(
+    () =>
+      assertAllowedPublicHttpUrl("https://[::ffff:0:7f00:1]/metadata", [
+        "https://[::ffff:0:7f00:1]",
+      ]),
+    /not public/u,
+  );
+  assert.throws(
+    () =>
       assertAllowedPublicHttpUrl("https://example.com/v1/chat/completions", [
         "https://api.openai.com",
       ]),

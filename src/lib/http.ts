@@ -176,6 +176,11 @@ function isPrivateIpv4Address(hostname: string): boolean {
 function isPrivateIpv6Address(hostname: string): boolean {
   const normalizedHostname = hostname.toLowerCase();
   const mappedIpv4Prefix = "::ffff:";
+  const siitMappedIpv4Prefix = "::ffff:0:";
+
+  if (normalizedHostname.startsWith(siitMappedIpv4Prefix)) {
+    return true;
+  }
 
   if (normalizedHostname.startsWith(mappedIpv4Prefix)) {
     return isPrivateIpv4Address(
@@ -190,8 +195,9 @@ function isPrivateIpv6Address(hostname: string): boolean {
     normalizedHostname === "::" ||
     normalizedHostname === "::1" ||
     (Number.isFinite(firstGroupValue) &&
-      ((firstGroupValue >= 0xfc00 && firstGroupValue <= 0xfdff) ||
-        (firstGroupValue >= 0xfe80 && firstGroupValue <= 0xfebf)))
+      (firstGroupValue === 0x2002 ||
+        (firstGroupValue >= 0xfc00 && firstGroupValue <= 0xfdff) ||
+        (firstGroupValue >= 0xfe80 && firstGroupValue <= 0xfeff)))
   );
 }
 

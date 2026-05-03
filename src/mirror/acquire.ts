@@ -19,7 +19,10 @@ import {
 } from "../github.js";
 import { getOptionValue } from "../lib/cli-options.js";
 import { fetchJsonWithGuards, fetchTextWithGuards } from "../lib/http.js";
-import { resolveSafeMirrorFilePath } from "../lib/safe-paths.js";
+import {
+  isPathWithinRoot,
+  resolveSafeMirrorFilePath,
+} from "../lib/safe-paths.js";
 import {
   assertAssetCatalogEntry,
   assertMirrorIndexEntry,
@@ -287,6 +290,10 @@ async function materializeMirrorArtifact(
   }
 
   const cachePath = buildGitHubCachePath(entry, projectRoot);
+  if (cachePath && !isPathWithinRoot(projectRoot, cachePath)) {
+    throw new Error(`Refusing to read cache file outside project root: ${cachePath}`);
+  }
+
   if (cachePath && (await pathLooksReadable(cachePath))) {
     const cacheContent = await readTextFileOrNull(cachePath);
     if (cacheContent !== null) {
