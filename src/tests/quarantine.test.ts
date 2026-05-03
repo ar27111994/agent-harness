@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { runQuarantine } from "../quarantine.js";
 
-test("quarantine approve records review and promotes mirror status", async () => {
+void test("quarantine approve records review and promotes mirror status", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-quarantine-"),
   );
@@ -42,13 +42,23 @@ test("quarantine approve records review and promotes mirror status", async () =>
     )
       .trim()
       .split("\n");
-    assert.equal(JSON.parse(mirrorIndexLine).status, "approved-with-warning");
+    const mirrorIndexEntry = parseJsonRecord(mirrorIndexLine);
+    assert.equal(mirrorIndexEntry.status, "approved-with-warning");
     const reviewLog = await readFile(
       join(projectRoot, "state", "quarantine", "reviews.jsonl"),
       "utf8",
     );
-    assert.equal(JSON.parse(reviewLog.trim()).reason, "reviewed");
+    const reviewEntry = parseJsonRecord(reviewLog.trim());
+    assert.equal(reviewEntry.reason, "reviewed");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
 });
+
+function parseJsonRecord(content: string): Record<string, unknown> {
+  const value: unknown = JSON.parse(content);
+  assert.equal(typeof value, "object");
+  assert.notEqual(value, null);
+  assert.equal(Array.isArray(value), false);
+  return value as Record<string, unknown>;
+}

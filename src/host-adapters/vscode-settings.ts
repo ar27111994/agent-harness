@@ -18,7 +18,7 @@ export async function readVsCodeSettings(
   }
 
   const errors: Array<{ error: number; offset: number; length: number }> = [];
-  const parsedSettings = parse(rawContent, errors, {
+  const parsedSettings: unknown = parse(rawContent, errors, {
     allowTrailingComma: true,
     disallowComments: false,
   });

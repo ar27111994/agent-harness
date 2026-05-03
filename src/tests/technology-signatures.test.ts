@@ -4,7 +4,7 @@ import test from "node:test";
 import { createEmptySignalSet } from "../domains/discovery/signals.js";
 import { applyTechnologySignatures } from "../domains/discovery/technology-signatures.js";
 
-test("technology signatures detect third-party vendors without bespoke code paths", () => {
+void test("technology signatures detect third-party vendors without bespoke code paths", () => {
   const signals = createEmptySignalSet();
 
   applyTechnologySignatures(signals, {
@@ -30,7 +30,7 @@ test("technology signatures detect third-party vendors without bespoke code path
   assert.ok(signals.tooling.includes("web3"));
 });
 
-test("technology signatures detect AI, robotics, security, and data packages", () => {
+void test("technology signatures detect AI, robotics, security, and data packages", () => {
   const signals = createEmptySignalSet();
 
   applyTechnologySignatures(signals, {

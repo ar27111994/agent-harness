@@ -1,0 +1,289 @@
+import type {
+  AssetContextCost,
+  AssetKind,
+  DemandProfile,
+  RecommendationPolicy,
+  RecommendationSignalMatch,
+  RecommendationSignalType,
+} from "../types.js";
+import type { DemandContext, DemandTermContext } from "./model.js";
+
+export function collectMatchedSignals(
+  searchTerms: Set<string>,
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): RecommendationSignalMatch[] {
+  return demandContext.terms
+    .filter((term) => intersects(searchTerms, term.matchTerms))
+    .map((term) => {
+      const baseWeight =
+        policy.scoring.demandSignalWeights[term.signalType] *
+        Math.min(3, term.evidenceCount);
+      const termMultiplier =
+        policy.scoring.demandTermMultipliers[term.canonicalTerm] ?? 1;
+
+      return {
+        term: term.canonicalTerm,
+        signalType: term.signalType,
+        weight: Math.max(1, Math.round(baseWeight * termMultiplier)),
+        evidenceCount: term.evidenceCount,
+      };
+    })
+    .sort(
+      (left, right) =>
+        right.weight - left.weight || left.term.localeCompare(right.term),
+    );
+}
+
+export function buildDemandContext(
+  demandProfile: DemandProfile | null,
+  policy: RecommendationPolicy,
+): DemandContext {
+  if (!demandProfile) {
+    return {
+      terms: [],
+      hasSignals: false,
+      activeDomainGroups: new Set<string>(),
+    };
+  }
+
+  const demandTermMap = new Map<string, DemandTermContext>();
+
+  const registerTerm = (
+    signalType: RecommendationSignalType,
+    rawTerm: string,
+    evidenceIncrement: number,
+  ): void => {
+    const canonicalTerm = canonicalizePhrase(rawTerm, policy);
+    const key = `${signalType}:${canonicalTerm}`;
+    const matchTerms = buildSearchTerms([rawTerm], policy);
+    const existing = demandTermMap.get(key);
+
+    if (existing) {
+      existing.evidenceCount += evidenceIncrement;
+      for (const matchTerm of matchTerms) {
+        existing.matchTerms.add(matchTerm);
+      }
+      return;
+    }
+
+    demandTermMap.set(key, {
+      key,
+      canonicalTerm,
+      signalType,
+      evidenceCount: evidenceIncrement,
+      matchTerms,
+    });
+  };
+
+  for (const signalType of recommendationSignalTypes()) {
+    for (const rawTerm of demandProfile.signals[signalType]) {
+      registerTerm(signalType, rawTerm, 1);
+    }
+  }
+
+  for (const evidence of demandProfile.evidence) {
+    for (const signalType of recommendationSignalTypes()) {
+      for (const rawTerm of evidence.matchedSignals[signalType]) {
+        registerTerm(signalType, rawTerm, 1);
+      }
+    }
+  }
+
+  const terms = [...demandTermMap.values()].sort((left, right) =>
+    left.key.localeCompare(right.key),
+  );
+
+  return {
+    terms,
+    hasSignals: demandTermMap.size > 0,
+    activeDomainGroups: buildActiveDomainGroups(terms, policy),
+  };
+}
+
+function buildActiveDomainGroups(
+  terms: DemandTermContext[],
+  policy: RecommendationPolicy,
+): Set<string> {
+  const activeGroups = new Set<string>();
+
+  for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
+    const groupTerms = buildSearchTerms(keywords, policy);
+    if (terms.some((term) => intersects(term.matchTerms, groupTerms))) {
+      activeGroups.add(group);
+    }
+  }
+
+  return activeGroups;
+}
+
+export function computeOutOfDomainPenalty(
+  searchTerms: Set<string>,
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): number {
+  let penalty = 0;
+
+  for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
+    const groupTerms = buildSearchTerms(keywords, policy);
+    if (!intersects(searchTerms, groupTerms)) {
+      continue;
+    }
+    if (demandContext.activeDomainGroups.has(group)) {
+      continue;
+    }
+
+    penalty += policy.scoring.outOfDomainGroupPenalty;
+  }
+
+  return penalty;
+}
+
+export function buildCoverageTags(
+  searchTerms: Set<string>,
+  matchedSignals: RecommendationSignalMatch[],
+  policy: RecommendationPolicy,
+): string[] {
+  const tags = new Set<string>();
+
+  for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
+    if (intersects(searchTerms, buildSearchTerms(keywords, policy))) {
+      tags.add(concern);
+    }
+  }
+
+  for (const match of matchedSignals) {
+    if (match.signalType === "concerns") {
+      tags.add(match.term);
+    }
+  }
+
+  return [...tags].sort();
+}
+
+export function buildTaskModes(
+  searchTerms: Set<string>,
+  coverageTags: string[],
+  matchedSignals: RecommendationSignalMatch[],
+  policy: RecommendationPolicy,
+  contextCost: AssetContextCost,
+): string[] {
+  const modes = new Set<string>();
+
+  for (const [mode, keywords] of Object.entries(policy.taskModeKeywordMap)) {
+    if (intersects(searchTerms, buildSearchTerms(keywords, policy))) {
+      modes.add(mode);
+    }
+  }
+
+  if (coverageTags.includes("backend") || coverageTags.includes("frontend")) {
+    modes.add("implementation");
+  }
+  if (coverageTags.includes("testing") || coverageTags.includes("security")) {
+    modes.add("validation");
+  }
+  if (coverageTags.includes("infra")) {
+    modes.add("operations");
+  }
+  if (coverageTags.includes("docs")) {
+    modes.add("research");
+  }
+  if (
+    coverageTags.includes("integration") ||
+    coverageTags.includes("automation")
+  ) {
+    modes.add("automation");
+  }
+  if (matchedSignals.length > 0 && contextCost.estimatedPromptWeight <= 2) {
+    modes.add("focused");
+  }
+  if (matchedSignals.length >= 3 || coverageTags.length >= 3) {
+    modes.add("broad");
+  }
+
+  return [...modes].sort();
+}
+
+export function buildDuplicateGroup(
+  assetKind: AssetKind,
+  matchedSignals: RecommendationSignalMatch[],
+  coverageTags: string[],
+  existingGroup?: string,
+): string | undefined {
+  if (existingGroup) {
+    return existingGroup;
+  }
+
+  const primaryTerms = matchedSignals.map((match) => match.term).slice(0, 2);
+  const fallbackTerms = coverageTags.slice(0, 2);
+  const terms = primaryTerms.length > 0 ? primaryTerms : fallbackTerms;
+  if (terms.length === 0) {
+    return undefined;
+  }
+
+  return `${assetKind}:${terms.join("+")}`;
+}
+
+export function buildSearchTerms(
+  values: string[],
+  policy: RecommendationPolicy,
+): Set<string> {
+  const searchTerms = new Set<string>();
+
+  for (const value of values) {
+    const normalizedPhrase = canonicalizePhrase(value, policy);
+    if (normalizedPhrase) {
+      searchTerms.add(normalizedPhrase);
+    }
+
+    for (const token of value
+      .toLowerCase()
+      .split(/[^a-z0-9]+/u)
+      .filter((part) => part.length > 1)) {
+      searchTerms.add(canonicalizePhrase(token, policy));
+    }
+  }
+
+  return searchTerms;
+}
+
+function canonicalizePhrase(
+  value: string,
+  policy: RecommendationPolicy,
+): string {
+  const normalizedValue = normalizePhrase(value);
+
+  for (const [canonical, aliases] of Object.entries(policy.synonyms)) {
+    const normalizedCanonical = normalizePhrase(canonical);
+    if (normalizedCanonical === normalizedValue) {
+      return normalizedCanonical;
+    }
+    if (aliases.some((alias) => normalizePhrase(alias) === normalizedValue)) {
+      return normalizedCanonical;
+    }
+  }
+
+  return normalizedValue;
+}
+
+export function normalizePhrase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-+|-+$/gu, "")
+    .trim();
+}
+
+function intersects(left: Set<string>, right: Set<string>): boolean {
+  for (const value of left) {
+    if (right.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function recommendationSignalTypes(): RecommendationSignalType[] {
+  return ["languages", "packageManagers", "frameworks", "concerns", "tooling"];
+}

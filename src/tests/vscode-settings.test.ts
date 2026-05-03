@@ -9,7 +9,7 @@ import {
   readVsCodeSettings,
 } from "../host-adapters/vscode-settings.js";
 
-test("VS Code settings reader tolerates missing files and object JSONC", async () => {
+void test("VS Code settings reader tolerates missing files and object JSONC", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-"));
   const settingsPath = join(root, "Code", "User", "settings.json");
 
@@ -30,7 +30,7 @@ test("VS Code settings reader tolerates missing files and object JSONC", async (
   }
 });
 
-test("VS Code settings patch creates parent directories and preserves JSONC formatting", async () => {
+void test("VS Code settings patch creates parent directories and preserves JSONC formatting", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-"));
   const settingsPath = join(root, "Code", "User", "settings.json");
 

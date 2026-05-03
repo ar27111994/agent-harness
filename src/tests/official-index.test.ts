@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
 
-test("official index repo extraction respects checked-in owner allowlist", async (context) => {
+void test("official index repo extraction respects checked-in owner allowlist", async (context) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-official-index-"),
   );

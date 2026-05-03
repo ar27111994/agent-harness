@@ -213,7 +213,7 @@ const repoFixtures: DemandProfileRepoFixture[] = [
   },
 ];
 
-test("demand profiles produce meaningful signals for representative repo archetypes", async () => {
+void test("demand profiles produce meaningful signals for representative repo archetypes", async () => {
   for (const fixture of repoFixtures) {
     const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-"));
     try {

@@ -4,7 +4,7 @@ import test from "node:test";
 import { collectPackageCandidatesFromDemandProfile } from "../domains/discovery/package-candidates.js";
 import type { DemandProfile } from "../types.js";
 
-test("package candidates are de-duped, sorted, and scoped by registry", () => {
+void test("package candidates are de-duped, sorted, and scoped by registry", () => {
   const demandProfile = buildDemandProfile();
 
   assert.deepEqual(collectPackageCandidatesFromDemandProfile(null, "npm"), []);

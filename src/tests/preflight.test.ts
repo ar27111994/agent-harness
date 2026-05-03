@@ -7,7 +7,7 @@ import {
   runNativeInstallPreflight,
 } from "../lib/preflight.js";
 
-test("adapter runtime preflight is driven by adapter metadata", async () => {
+void test("adapter runtime preflight is driven by adapter metadata", async () => {
   const diagnostics = await runAdapterPreflight(buildFakeAdapter());
 
   assert.equal(diagnostics.length, 1);
@@ -19,7 +19,7 @@ test("adapter runtime preflight is driven by adapter metadata", async () => {
   );
 });
 
-test("native install preflight makes missing runtime fatal", async () => {
+void test("native install preflight makes missing runtime fatal", async () => {
   const diagnostics = await runNativeInstallPreflight({
     ...buildFakeAdapter(),
     nativeInstall: {
@@ -31,7 +31,7 @@ test("native install preflight makes missing runtime fatal", async () => {
   assert.equal(diagnostics[0]?.severity, "error");
 });
 
-test("native install preflight rejects adapters without native provider", async () => {
+void test("native install preflight rejects adapters without native provider", async () => {
   const diagnostics = await runNativeInstallPreflight(buildFakeAdapter());
 
   assert.ok(

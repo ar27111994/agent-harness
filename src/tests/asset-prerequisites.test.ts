@@ -14,7 +14,7 @@ import {
 } from "../lib/asset-prerequisites.js";
 import type { AssetCatalogEntry } from "../types.js";
 
-test("metadata prerequisites map known auth providers and explicit env vars", () => {
+void test("metadata prerequisites map known auth providers and explicit env vars", () => {
   const prerequisites = buildAssetPrerequisitesFromMetadata({
     providers: ["openai", "unknown-provider"],
     envVars: ["EXTRA_TOKEN"],
@@ -30,7 +30,7 @@ test("metadata prerequisites map known auth providers and explicit env vars", ()
   assert.equal(prerequisites[2]?.setupUrl, "https://example.com/setup");
 });
 
-test("missing and present environment prerequisites produce actionable diagnostics", (context) => {
+void test("missing and present environment prerequisites produce actionable diagnostics", (context) => {
   const previousOpenAiKey = process.env.OPENAI_API_KEY;
   context.after(() => {
     if (previousOpenAiKey === undefined) {
@@ -57,7 +57,7 @@ test("missing and present environment prerequisites produce actionable diagnosti
   assert.equal(readyDiagnostics[0]?.severity, "info");
 });
 
-test("activated asset prerequisite collection reads activation state", async () => {
+void test("activated asset prerequisite collection reads activation state", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-prereq-"));
   try {
     const activationRoot = join(projectRoot, "activate", "copilot-vscode");

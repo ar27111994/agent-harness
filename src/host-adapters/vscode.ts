@@ -627,15 +627,19 @@ function stripManagedCodeGenerationInstructions(value: unknown): unknown {
 }
 
 function upsertManagedCodeGenerationInstructions(value: unknown): unknown[] {
-  const existingEntries = Array.isArray(value)
-    ? value.filter((entry) => !isManagedCodeGenerationEntry(entry))
-    : [];
+  const existingEntries = toUnknownArray(value).filter(
+    (entry) => !isManagedCodeGenerationEntry(entry),
+  );
   return [
     ...existingEntries,
     {
       file: ".github/copilot-instructions.md",
     },
   ];
+}
+
+function toUnknownArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? (value as unknown[]) : [];
 }
 
 function isManagedCodeGenerationEntry(entry: unknown): boolean {

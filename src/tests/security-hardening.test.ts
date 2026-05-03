@@ -16,7 +16,7 @@ import {
   fetchPypiPackageMetadata,
 } from "../package-registries.js";
 
-test("mirror file path resolution rejects path traversal", () => {
+void test("mirror file path resolution rejects path traversal", () => {
   const rawRoot = resolve(join(tmpdir(), "agent-harness-mirror-root"));
 
   assert.equal(
@@ -37,7 +37,7 @@ test("mirror file path resolution rejects path traversal", () => {
   );
 });
 
-test("guarded fetches preserve caller abort signals", async (context) => {
+void test("guarded fetches preserve caller abort signals", async (context) => {
   const originalFetch = globalThis.fetch;
   const controller = new AbortController();
   let observedSignal: AbortSignal | undefined;
@@ -62,7 +62,7 @@ test("guarded fetches preserve caller abort signals", async (context) => {
   assert.equal(observedSignal?.reason, "caller-cancelled");
 });
 
-test("mirror evidence file paths must stay inside allowed roots", () => {
+void test("mirror evidence file paths must stay inside allowed roots", () => {
   const allowedRoot = resolve(join(tmpdir(), "agent-harness-evidence-root"));
 
   assert.equal(
@@ -91,7 +91,7 @@ test("mirror evidence file paths must stay inside allowed roots", () => {
   );
 });
 
-test("guarded public URL validation rejects circular SSRF origins", () => {
+void test("guarded public URL validation rejects circular SSRF origins", () => {
   assert.throws(
     () =>
       assertAllowedPublicHttpUrl("https://169.254.169.254/latest", [
@@ -115,7 +115,7 @@ test("guarded public URL validation rejects circular SSRF origins", () => {
   );
 });
 
-test("guarded fetches disable automatic cross-origin redirects", async (context) => {
+void test("guarded fetches disable automatic cross-origin redirects", async (context) => {
   const originalFetch = globalThis.fetch;
   let observedRedirectMode: RequestRedirect | undefined;
 
@@ -135,7 +135,7 @@ test("guarded fetches disable automatic cross-origin redirects", async (context)
   assert.equal(observedRedirectMode, "error");
 });
 
-test("PyPI metadata fetch validates response shape before use", async (context) => {
+void test("PyPI metadata fetch validates response shape before use", async (context) => {
   const originalFetch = globalThis.fetch;
   const responsePayload = JSON.stringify({
     info: {

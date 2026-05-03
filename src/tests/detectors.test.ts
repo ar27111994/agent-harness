@@ -8,7 +8,7 @@ import {
 import { createEmptySignalSet } from "../domains/discovery/signals.js";
 import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
 
-test("detector packs match representative non-software artifacts", () => {
+void test("detector packs match representative non-software artifacts", () => {
   for (const fixture of ROADMAP_DETECTION_FIXTURES) {
     const signals = createEmptySignalSet();
 

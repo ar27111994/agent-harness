@@ -9,7 +9,7 @@ import {
   type NativeCommandExecutor,
 } from "../host-adapters/extension-installer.js";
 
-test("VS Code extension actions use executable and arg arrays", () => {
+void test("VS Code extension actions use executable and arg arrays", () => {
   const actions = buildVsCodeExtensionInstallActions([
     "github.copilot",
     "not-a-valid-extension-id",
@@ -28,7 +28,7 @@ test("VS Code extension actions use executable and arg arrays", () => {
   assert.equal(actions[0]?.command, "code --install-extension github.copilot");
 });
 
-test("generic extension actions can target Cursor-compatible CLIs", () => {
+void test("generic extension actions can target Cursor-compatible CLIs", () => {
   const [action] = buildExtensionInstallActions({
     executable: "cursor",
     host: "cursor",
@@ -41,7 +41,7 @@ test("generic extension actions can target Cursor-compatible CLIs", () => {
   assert.equal(action.command, "cursor --install-extension github.copilot");
 });
 
-test("VS Code extension verification parses versioned output case-insensitively", () => {
+void test("VS Code extension verification parses versioned output case-insensitively", () => {
   assert.equal(
     verifyVsCodeExtensionInstalled(
       "GitHub.Copilot@1.2.3\nms-python.python@2025.1.0",
@@ -58,7 +58,7 @@ test("VS Code extension verification parses versioned output case-insensitively"
   );
 });
 
-test("extension install executor installs, verifies, and removes without shell commands", async () => {
+void test("extension install executor installs, verifies, and removes without shell commands", async () => {
   const [action] = buildVsCodeExtensionInstallActions(["github.copilot"]);
   assert.ok(action);
 

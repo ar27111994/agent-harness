@@ -23,7 +23,7 @@ const REQUIRED_ASSET_DIRECTORIES = [
   join("mirror", "schema"),
 ];
 
-test("state root defaults to package root for repository-local execution", () => {
+void test("state root defaults to package root for repository-local execution", () => {
   const prepared = resolveStateRoot({
     packageRoot: "/repo/agent-harness",
     workingDirectory: "/repo/agent-harness",
@@ -33,7 +33,7 @@ test("state root defaults to package root for repository-local execution", () =>
   assert.equal(prepared.stateRoot.endsWith("agent-harness"), true);
 });
 
-test("state root defaults to workspace-local .agent-harness outside package root", () => {
+void test("state root defaults to workspace-local .agent-harness outside package root", () => {
   const prepared = resolveStateRoot({
     packageRoot: "/opt/agent-harness",
     workingDirectory: "/workspace/project",
@@ -46,7 +46,7 @@ test("state root defaults to workspace-local .agent-harness outside package root
   );
 });
 
-test("prepareStateRoot syncs package assets into mutable state root", async () => {
+void test("prepareStateRoot syncs package assets into mutable state root", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-state-root-"));
   const packageRoot = join(root, "package");
   const stateRoot = join(root, "state");

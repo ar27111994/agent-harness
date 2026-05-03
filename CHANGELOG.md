@@ -25,7 +25,7 @@ All notable changes to this project will be documented in this file.
 - `setup login` provider guidance for GitHub, npm, and optional AI enrichment configuration
 - `mirror diff` and `mirror explain` commands for phase-level inspection
 - explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, local tarballs, and planning-only docs out of packed artifacts
-- registry-driven recommendation-host enumeration, extensible host-target validation, package entry points, and release checks across Ubuntu, macOS, and Windows
+- registry-driven recommendation-host enumeration, extensible host-target validation, package entry points, TypeScript declaration output, and release checks across Ubuntu, macOS, and Windows
 
 ### Changed in 1.0.0
 
@@ -43,6 +43,9 @@ All notable changes to this project will be documented in this file.
 - made docs, registry, and marketplace source references attempt guarded summary harvesting and source utilization distinguish active, reference-only, and dormant sources
 - made VS Code settings path resolution lazy so `.env` overrides for path-related variables are honored after CLI bootstrap
 - centralized CLI option parsing and rejection of flag-looking tokens as missing option values
+- split recommendation policy loading, CLI commands, host enumeration, internal recommendation models, and report/scoring logic into `src/recommend/` modules behind the stable `src/recommend.ts` facade
+- split mirror planning, bundle locking, acquisition/materialization, inspection, constants, and path handling into `src/mirror/` modules behind the stable `src/mirror.ts` facade
+- tightened ESLint with type-aware no-floating-promise and unsafe-access rules plus scoped console-output enforcement for CLI boundary modules
 - reduced `src/discover.ts`, `src/install.ts`, `src/manifest-validation.ts`, and `src/types.ts` to stable entrypoints backed by focused domain modules
 
 ### Fixed in 1.0.0

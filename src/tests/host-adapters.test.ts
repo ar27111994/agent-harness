@@ -9,7 +9,7 @@ import type { WirePlanManifest, WirePreviewManifest } from "../types.js";
 
 const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
 
-test("native host adapters are registered with expected lifecycle hosts", () => {
+void test("native host adapters are registered with expected lifecycle hosts", () => {
   assert.equal(resolveHostAdapter("cursor")?.lifecycleHost, "copilot-vscode");
   assert.equal(resolveHostAdapter("cursor")?.recommendationHost, "cursor");
   assert.equal(
@@ -43,7 +43,7 @@ test("native host adapters are registered with expected lifecycle hosts", () => 
   assert.deepEqual(piMcpCapability?.behaviors, ["stage"]);
 });
 
-test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {
+void test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-opencode-"));
   const workspaceRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-workspace-"),
@@ -70,7 +70,7 @@ test("OpenCode adapter upserts and resets only the managed AGENTS section", asyn
   }
 });
 
-test("native adapters write host-specific project files and wire plans", async () => {
+void test("native adapters write host-specific project files and wire plans", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-hosts-"));
   const workspaceRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-workspace-"),

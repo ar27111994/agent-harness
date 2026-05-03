@@ -1,0 +1,129 @@
+import { FOCUSED_BUCKET_LIMIT } from "./constants.js";
+import { countBy, countCoverageTagsFromEntries } from "./counts.js";
+import type {
+  RecommendationEntry,
+  RecommendationHostSummary,
+  RecommendationPolicy,
+  RecommendationSuggestedBundle,
+} from "../types.js";
+import type { RecommendationHost } from "./hosts.js";
+
+export function buildHostSummary(
+  host: RecommendationHost,
+  entries: RecommendationEntry[],
+  policy: RecommendationPolicy,
+): RecommendationHostSummary {
+  return {
+    host,
+    recommendationLimit: policy.hosts[host].recommendationLimit,
+    activationBudget: policy.hosts[host].activationBudget,
+    selectedCount: entries.length,
+    totalEstimatedPromptWeight: entries.reduce(
+      (total, entry) => total + entry.estimatedPromptWeight,
+      0,
+    ),
+    selectedAssetIds: entries.map((entry) => entry.assetId),
+    byAssetKind: countBy(entries, (entry) => entry.assetKind ?? "unknown"),
+    bySourceFamily: countBy(entries, (entry) => entry.sourceFamily),
+    byConcern: countCoverageTagsFromEntries(entries),
+    concernBuckets: buildConcernBuckets(entries),
+    taskModeBuckets: buildTaskModeBuckets(entries),
+  };
+}
+
+export function buildSuggestedBundle(
+  host: RecommendationHost,
+  entries: RecommendationEntry[],
+  policy: RecommendationPolicy,
+): RecommendationSuggestedBundle {
+  const hostPolicy = policy.hosts[host];
+  const selectedEntries = selectEntriesWithinBudget(
+    entries,
+    hostPolicy.activationBudget,
+  );
+
+  return {
+    host,
+    bundleId: hostPolicy.suggestedBundleId,
+    assetIds: selectedEntries.map((entry) => entry.assetId),
+    estimatedPromptWeight: selectedEntries.reduce(
+      (total, entry) => total + entry.estimatedPromptWeight,
+      0,
+    ),
+    concernBuckets: buildConcernBuckets(selectedEntries),
+    taskModeBuckets: buildTaskModeBuckets(selectedEntries),
+  };
+}
+
+function selectEntriesWithinBudget(
+  entries: RecommendationEntry[],
+  budget: number,
+): RecommendationEntry[] {
+  const selected: RecommendationEntry[] = [];
+  let remainingBudget = budget;
+
+  for (const entry of entries) {
+    if (
+      entry.estimatedPromptWeight <= remainingBudget ||
+      selected.length === 0
+    ) {
+      selected.push(entry);
+      remainingBudget -= entry.estimatedPromptWeight;
+    }
+  }
+
+  return selected;
+}
+
+function buildConcernBuckets(
+  entries: RecommendationEntry[],
+): Record<string, string[]> {
+  const buckets = new Map<string, string[]>();
+
+  for (const entry of entries) {
+    for (const tag of entry.coverageTags) {
+      const bucket = buckets.get(tag) ?? [];
+      bucket.push(entry.assetId);
+      buckets.set(tag, bucket);
+    }
+  }
+
+  return Object.fromEntries(
+    [...buckets.entries()].map(([key, value]) => [
+      key,
+      [...new Set(value)].sort(),
+    ]),
+  );
+}
+
+function buildTaskModeBuckets(
+  entries: RecommendationEntry[],
+): Record<string, string[]> {
+  const buckets = new Map<string, string[]>();
+
+  for (const entry of entries) {
+    for (const taskMode of entry.taskModes) {
+      const bucket = buckets.get(taskMode) ?? [];
+      bucket.push(entry.assetId);
+      buckets.set(taskMode, bucket);
+    }
+  }
+
+  buckets.set(
+    "focused",
+    entries
+      .slice(0, Math.min(FOCUSED_BUCKET_LIMIT, entries.length))
+      .map((entry) => entry.assetId),
+  );
+  buckets.set(
+    "broad",
+    entries.map((entry) => entry.assetId),
+  );
+
+  return Object.fromEntries(
+    [...buckets.entries()].map(([key, value]) => [
+      key,
+      [...new Set(value)].sort(),
+    ]),
+  );
+}

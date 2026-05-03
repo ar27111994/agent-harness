@@ -4,7 +4,7 @@ import test from "node:test";
 import { harvestReferenceItems } from "../domains/discovery/reference-harvesters.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
-test("generic docs harvester extracts same-origin reference links", async (context) => {
+void test("generic docs harvester extracts same-origin reference links", async (context) => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () =>
     new Response(
@@ -30,7 +30,7 @@ test("generic docs harvester extracts same-origin reference links", async (conte
   );
 });
 
-test("VS Code marketplace harvester produces native extension assets", async (context) => {
+void test("VS Code marketplace harvester produces native extension assets", async (context) => {
   const originalFetch = globalThis.fetch;
   let observedMethod: string | undefined;
   const observedBodies: string[] = [];

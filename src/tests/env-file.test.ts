@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { loadDotEnvFile } from "../config/env-file.js";
 
-test("dotenv loading preserves shell values while later file assignments win", async () => {
+void test("dotenv loading preserves shell values while later file assignments win", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-env-"));
   await writeFile(
     join(root, ".env"),

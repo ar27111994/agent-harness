@@ -12,7 +12,7 @@ import {
   replaceDirectoryLink,
 } from "../files.js";
 
-test("recursive scan stops at explicit file budgets", async () => {
+void test("recursive scan stops at explicit file budgets", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-scan-"));
   try {
     await writeFile(join(root, "one.txt"), "one", "utf8");
@@ -32,7 +32,7 @@ test("recursive scan stops at explicit file budgets", async () => {
   }
 });
 
-test("recursive scan skips agent-harness generated directories by default", async () => {
+void test("recursive scan skips agent-harness generated directories by default", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-ignore-"));
   try {
     await writeFile(join(root, "source.md"), "source", "utf8");
@@ -55,7 +55,7 @@ test("recursive scan skips agent-harness generated directories by default", asyn
   }
 });
 
-test("recursive scan honors project ignore files", async () => {
+void test("recursive scan honors project ignore files", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-gitignore-"));
   try {
     await mkdir(join(root, "generated"));
@@ -84,7 +84,7 @@ test("recursive scan honors project ignore files", async () => {
   }
 });
 
-test("managed directory links can be created, replaced, and removed", async () => {
+void test("managed directory links can be created, replaced, and removed", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-link-"));
   try {
     const firstTarget = join(root, "target-one");

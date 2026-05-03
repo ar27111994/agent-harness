@@ -4,7 +4,7 @@ import test from "node:test";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import { getWireMode } from "../wire.js";
 
-test("CLI option parsing rejects missing values and flag tokens", () => {
+void test("CLI option parsing rejects missing values and flag tokens", () => {
   assert.equal(getOptionValue(["--host", "vscode"], "--host"), "vscode");
   assert.equal(getOptionValue([], "--host"), undefined);
   assert.throws(
@@ -17,7 +17,7 @@ test("CLI option parsing rejects missing values and flag tokens", () => {
   );
 });
 
-test("wire mode parsing honors explicit apply and defaults to preview", () => {
+void test("wire mode parsing honors explicit apply and defaults to preview", () => {
   assert.equal(getWireMode([]), "preview");
   assert.equal(getWireMode(["--preview"]), "preview");
   assert.equal(getWireMode(["--apply"]), "apply");
@@ -28,7 +28,7 @@ test("wire mode parsing honors explicit apply and defaults to preview", () => {
   );
 });
 
-test("repeatable CLI option parsing rejects valueless entries", () => {
+void test("repeatable CLI option parsing rejects valueless entries", () => {
   assert.deepEqual(
     getOptionValues(["--bundle", "one", "--bundle", "two"], "--bundle"),
     ["one", "two"],

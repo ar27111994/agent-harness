@@ -24,8 +24,13 @@
   ],
   "type": "module",
   "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
   "exports": {
-    ".": "./dist/cli.js",
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js",
+      "default": "./dist/cli.js"
+    },
     "./package.json": "./package.json"
   },
   "bin": {
@@ -33,13 +38,25 @@
   },
   "files": [
     ".env.example",
+    "dist/*.d.ts",
     "dist/*.js",
+    "dist/config/**/*.d.ts",
     "dist/config/**/*.js",
+    "dist/domains/**/*.d.ts",
     "dist/domains/**/*.js",
+    "dist/host-adapters/**/*.d.ts",
     "dist/host-adapters/**/*.js",
+    "dist/install/**/*.d.ts",
     "dist/install/**/*.js",
+    "dist/lib/**/*.d.ts",
     "dist/lib/**/*.js",
+    "dist/manifest-validation/**/*.d.ts",
     "dist/manifest-validation/**/*.js",
+    "dist/mirror/**/*.d.ts",
+    "dist/mirror/**/*.js",
+    "dist/recommend/**/*.d.ts",
+    "dist/recommend/**/*.js",
+    "dist/types/**/*.d.ts",
     "dist/types/**/*.js",
     "discover/official-skills-indexes.json",
     "discover/official-upstreams.json",
