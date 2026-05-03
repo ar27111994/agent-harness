@@ -318,6 +318,7 @@
       "automation",
       "actor",
       "actor-runtime",
+      "apify",
       "scraping",
       "web-scraping",
       "crawler",
@@ -508,7 +509,16 @@
       "rust-backend",
       "backend-framework"
     ],
-    "frontend-platforms": ["frontend-tooling", "design-systems"]
+    "frontend-platforms": [
+      "frontend-tooling",
+      "design-systems",
+      "react",
+      "nextjs",
+      "vue",
+      "angular",
+      "svelte",
+      "astro"
+    ]
   },
   "synonyms": {
     "node-backend": ["node", "backend", "service", "api"],

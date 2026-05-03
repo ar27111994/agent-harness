@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "../config/runtime.js";
 import {
   copyPath,
   createContentHash,
@@ -132,6 +133,9 @@ export async function installBundles(
       }
       const catalogEntry = selectedEntryById.get(asset.assetId);
       if (!catalogEntry) {
+        debugInstallBundleSkip(
+          `Skipping ${asset.assetId}: no selected catalog entry found.`,
+        );
         continue;
       }
 
@@ -142,6 +146,9 @@ export async function installBundles(
         sanitizeMirrorId(mirrorEntry.mirrorId),
       );
       if (!(await pathExists(sourceMaterialPath))) {
+        debugInstallBundleSkip(
+          `Skipping ${asset.assetId}: mirror source material missing at ${toPosixPath(sourceMaterialPath)} for ${sanitizeMirrorId(mirrorEntry.mirrorId)}.`,
+        );
         continue;
       }
 
@@ -388,6 +395,13 @@ async function assertNoUnexpectedMirrorFiles(
     if (!allowedFiles.has(relativePath)) {
       throw new Error(`Mirror artifact contains unexpected file: ${relativePath}`);
     }
+  }
+}
+
+function debugInstallBundleSkip(message: string): void {
+  const debugValue = getRuntimeConfig().env.AGENT_HARNESS_DEBUG?.toLowerCase();
+  if (debugValue === "1" || debugValue === "true") {
+    process.stderr.write(`[agent-harness:debug] ${message}\n`);
   }
 }
 

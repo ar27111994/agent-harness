@@ -49,7 +49,18 @@ function shouldUseMirroredContent(
 async function resolveOfficialSkillPageContent(
   asset: AssetCatalogEntry,
 ): Promise<string | null> {
-  if (!asset.source.originUrl.includes("officialskills.sh/")) {
+  let originUrl: URL;
+  try {
+    originUrl = new URL(asset.source.originUrl);
+  } catch {
+    return null;
+  }
+
+  const hostname = originUrl.hostname.toLowerCase();
+  if (
+    hostname !== "officialskills.sh" &&
+    !hostname.endsWith(".officialskills.sh")
+  ) {
     return null;
   }
 

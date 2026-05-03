@@ -48,7 +48,6 @@ export function buildAssetPrerequisitesFromMetadata(options: {
       kind: "env",
       required: true,
       envVars: [envVar],
-      setupUrl: options.setupUrl,
       description: `Set required environment variable ${envVar}.`,
     });
   }
@@ -97,7 +96,7 @@ export function buildPrerequisiteDiagnostics(
     }
 
     diagnostics.push({
-      severity: prerequisite.required ? "warning" : "info",
+      severity: prerequisite.required ? missingEnvSeverity : "info",
       code: `asset-prerequisite-guidance:${asset.id}:${prerequisite.id}`,
       message: `${asset.displayName} requires prerequisite '${prerequisite.description}'.`,
       action: buildPrerequisiteAction(prerequisite),
@@ -123,7 +122,9 @@ async function collectActivatedAssets(
   adapter: HostAdapter,
 ): Promise<AssetCatalogEntry[]> {
   const assetMap = new Map<string, Set<string>>();
-  const activationHosts = [adapter.lifecycleHost, "shared"] as const;
+  const activationHosts = [
+    ...new Set<string>([adapter.lifecycleHost, "shared"]),
+  ];
   const assets: AssetCatalogEntry[] = [];
 
   for (const activationHost of activationHosts) {
@@ -155,7 +156,7 @@ async function collectActivatedAssets(
           "asset.json",
         ),
       );
-      if (asset?.install.prerequisites?.length) {
+      if (asset?.install?.prerequisites?.length) {
         assets.push(asset);
       }
     }
