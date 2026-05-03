@@ -43,8 +43,10 @@ function assertRemoteHarvestState(
   }
 
   const record = value as Record<string, unknown>;
-  if (typeof record.schemaVersion !== "number") {
-    throw new Error(`${context}.schemaVersion must be a number`);
+  if (record.schemaVersion !== 1) {
+    throw new Error(
+      `${context}.schemaVersion must be 1, got ${String(record.schemaVersion)}`,
+    );
   }
   if (typeof record.generatedAt !== "string") {
     throw new Error(`${context}.generatedAt must be a string`);

@@ -1,3 +1,4 @@
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type { BundleLock, MirrorIndexEntry } from "../types.js";
 
 export const INSTALL_HOSTS: Array<BundleLock["host"]> = [
@@ -7,10 +8,8 @@ export const INSTALL_HOSTS: Array<BundleLock["host"]> = [
 ];
 
 
+export { sanitizeAssetId };
 
-export function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
 
 export function getInstallableAssets(
   bundleAssets: BundleLock["assets"],

@@ -477,6 +477,14 @@ async function enrichMultiEcosystemDependencySignals(
   filePath: string,
   matchedSignals: DemandSignalSet,
 ): Promise<void> {
+  if (
+    fileName === "package.json" ||
+    fileName === "requirements.txt" ||
+    fileName === "pyproject.toml"
+  ) {
+    return;
+  }
+
   const content = await readTextFileOrNull(filePath);
   if (!content) {
     return;
@@ -751,12 +759,10 @@ function extractComposerDependencyNames(content: string): string[] {
   try {
     const parsed = JSON.parse(content) as {
       require?: Record<string, unknown>;
-      requireDev?: Record<string, unknown>;
       "require-dev"?: Record<string, unknown>;
     };
     return uniqueStrings([
       ...Object.keys(parsed.require ?? {}),
-      ...Object.keys(parsed.requireDev ?? {}),
       ...Object.keys(parsed["require-dev"] ?? {}),
     ]).filter((dependencyName) => dependencyName !== "php");
   } catch {

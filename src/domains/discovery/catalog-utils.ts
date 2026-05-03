@@ -44,7 +44,11 @@ export function buildRisk(
   hasExecScripts: boolean,
   requiresNetwork: boolean,
 ): AssetRisk {
-  if ((hasHooks && hasExecScripts) || (hasExecScripts && requiresNetwork)) {
+  const enabledRiskFlags = [hasHooks, hasExecScripts, requiresNetwork].filter(
+    Boolean,
+  ).length;
+
+  if (enabledRiskFlags >= 2) {
     return {
       level: "high",
       hasHooks,
@@ -123,7 +127,7 @@ export function computePortfolioFit(
     return 0;
   }
 
-  return Number(Math.min(1, matchCount / 3).toFixed(2));
+  return Number(Math.min(1, matchCount / demandTerms.size).toFixed(2));
 }
 
 export function computeHostFit(
@@ -363,7 +367,7 @@ export function splitIntoKeywords(value: string): string[] {
     .replace(/\.md$/u, "")
     .replace(/\.(ts|js|mts|cts)$/u, "")
     .split(/[^a-z0-9]+/u)
-    .filter((token) => token.length > 1);
+    .filter((token) => token.length >= 1);
 }
 
 export function uniqueStrings(values: string[]): string[] {

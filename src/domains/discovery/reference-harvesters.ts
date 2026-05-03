@@ -25,6 +25,9 @@ const VSCODE_MARKETPLACE_MAX_QUERIES = 4;
 const VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY = 6;
 const VSCODE_MARKETPLACE_API =
   "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery";
+const MARKETPLACE_FLAG_INCLUDE_VERSIONS = 0x1;
+const MARKETPLACE_FLAG_INCLUDE_FILES = 0x2;
+const MARKETPLACE_FLAG_INCLUDE_STATISTICS = 0x80;
 const VSCODE_MARKETPLACE_ORIGINS = [
   "https://marketplace.visualstudio.com",
 ] as const;
@@ -224,7 +227,12 @@ function buildVsCodeMarketplaceRequest(query: string): Record<string, unknown> {
         sortOrder: 0,
       },
     ],
-    flags: 0x1 | 0x2 | 0x80,
+    // VS Code Marketplace gallery flags: versions, files, and statistics.
+    // Docs: https://learn.microsoft.com/en-us/azure/devops/extend/develop/extension-query
+    flags:
+      MARKETPLACE_FLAG_INCLUDE_VERSIONS |
+      MARKETPLACE_FLAG_INCLUDE_FILES |
+      MARKETPLACE_FLAG_INCLUDE_STATISTICS,
   };
 }
 
@@ -331,7 +339,45 @@ function summarizeText(content: string): string {
 }
 
 function stripHtml(value: string): string {
-  return value.replace(/<[^>]+>/gu, " ").replace(/&amp;/gu, "&");
+  return decodeHtmlEntities(value.replace(/<[^>]+>/gu, " "));
+}
+
+function decodeHtmlEntities(value: string): string {
+  const namedEntities: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    nbsp: " ",
+    quot: '"',
+    apos: "'",
+  };
+
+  return value.replace(
+    /&(#x?[0-9a-f]+|[a-z]+);/giu,
+    (entity, token: string) => {
+      if (token.startsWith("#x") || token.startsWith("#X")) {
+        return decodeNumericEntity(entity, Number.parseInt(token.slice(2), 16));
+      }
+
+      if (token.startsWith("#")) {
+        return decodeNumericEntity(entity, Number.parseInt(token.slice(1), 10));
+      }
+
+      return namedEntities[token.toLowerCase()] ?? entity;
+    },
+  );
+}
+
+function decodeNumericEntity(entity: string, codePoint: number): string {
+  if (!Number.isFinite(codePoint)) {
+    return entity;
+  }
+
+  try {
+    return String.fromCodePoint(codePoint);
+  } catch {
+    return entity;
+  }
 }
 
 function getMarketplaceStatistic(

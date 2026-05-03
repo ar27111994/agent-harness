@@ -12,6 +12,7 @@ import {
   buildPrerequisiteDiagnostics,
   collectActivatedAssetPrerequisiteDiagnostics,
 } from "../lib/asset-prerequisites.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type { AssetCatalogEntry } from "../types.js";
 
 void test("metadata prerequisites map known auth providers and explicit env vars", () => {
@@ -71,7 +72,11 @@ void test("activated asset prerequisite collection reads activation state", asyn
       notes: [],
     });
     await writeJsonFile(
-      join(activationRoot, "github-copilot-auth-helper", "asset.json"),
+      join(
+        activationRoot,
+        sanitizeAssetId("github.copilot-auth-helper"),
+        "asset.json",
+      ),
       buildAssetWithPrerequisites(),
     );
 

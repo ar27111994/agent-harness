@@ -2,6 +2,11 @@ import { join } from "node:path";
 
 import { listFilesRecursive, pathExists, readJsonFile } from "../../files.js";
 import { assertSourceRegistry } from "../../manifest-validation.js";
+import {
+  ASSET_KINDS,
+  AUTHORITY_TIERS,
+  assertHostTarget,
+} from "../../manifest-validation/primitives.js";
 import type {
   AssetKind,
   HostTarget,
@@ -161,8 +166,9 @@ function assertSourcePackShape(
     const entryRecord = assertRecord(entry, `${context}.entries[${index}]`);
     assertString(entryRecord.id, `${context}.entries[${index}].id`);
     assertString(entryRecord.repo, `${context}.entries[${index}].repo`);
-    assertOptionalString(
+    assertOptionalEnum(
       entryRecord.authorityTier,
+      AUTHORITY_TIERS,
       `${context}.entries[${index}].authorityTier`,
     );
     assertOptionalString(
@@ -177,12 +183,13 @@ function assertSourcePackShape(
         `${context}.entries[${index}].publisherVerified must be a boolean`,
       );
     }
-    assertOptionalStringArray(
+    assertOptionalHostTargetArray(
       entryRecord.hosts,
       `${context}.entries[${index}].hosts`,
     );
-    assertOptionalStringArray(
+    assertOptionalEnumArray(
       entryRecord.assetKinds,
+      ASSET_KINDS,
       `${context}.entries[${index}].assetKinds`,
     );
     if (
@@ -242,13 +249,41 @@ function assertOptionalString(value: unknown, context: string): void {
   }
 }
 
-function assertOptionalStringArray(value: unknown, context: string): void {
+function assertOptionalHostTargetArray(value: unknown, context: string): void {
   if (value === undefined) {
     return;
   }
 
   assertArray(value, context).forEach((entry, index) => {
-    assertString(entry, `${context}[${index}]`);
+    assertHostTarget(entry, `${context}[${index}]`);
+  });
+}
+
+function assertOptionalEnum<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  context: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  if (typeof value !== "string" || !allowedValues.includes(value as T)) {
+    throw new Error(`${context} must be one of: ${allowedValues.join(", ")}`);
+  }
+}
+
+function assertOptionalEnumArray<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  context: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertArray(value, context).forEach((entry, index) => {
+    assertOptionalEnum(entry, allowedValues, `${context}[${index}]`);
   });
 }
 

@@ -368,7 +368,7 @@
       "fabrication"
     ],
     "game": ["game-development", "game-engine", "godot", "realtime-media"],
-    "ai": ["ai", "machine-learning", "model-artifacts", "ai-sdk"],
+    "ai": ["model-artifacts", "ai-sdk"],
     "mobile": ["mobile", "android", "ios"]
   },
   "taskModeKeywordMap": {

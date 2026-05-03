@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { readJsonFile, toPosixPath, writeJsonFile } from "../../files.js";
+import { assertSelectionRegistry } from "../../manifest-validation.js";
 import type {
   SelectionRegistry,
   SourceDefinition,
@@ -14,6 +15,7 @@ export async function generateSourceIndex(projectRoot: string): Promise<void> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
+    assertSelectionRegistry,
   );
   const enabledSources = sourceRegistry.sources
     .filter((source) => source.enabled)

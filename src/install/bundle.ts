@@ -240,18 +240,16 @@ function mergeInstalledPackages(
   existingPackages: InstalledBundleManifest["packages"],
   newPackages: InstalledBundleManifest["packages"],
 ): InstalledBundleManifest["packages"] {
-  const packagesByInstallIdentity = new Map(
-    existingPackages.map((pkg) => [buildInstallIdentity(pkg), pkg]),
+  const packagesByPackagePath = new Map(
+    existingPackages.map((pkg) => [sanitizeAssetId(pkg.assetId), pkg]),
   );
 
   for (const pkg of newPackages) {
-    packagesByInstallIdentity.set(buildInstallIdentity(pkg), pkg);
+    packagesByPackagePath.set(sanitizeAssetId(pkg.assetId), pkg);
   }
 
-  return [...packagesByInstallIdentity.values()].sort(
-    (left, right) =>
-      left.assetId.localeCompare(right.assetId) ||
-      left.mirrorId.localeCompare(right.mirrorId),
+  return [...packagesByPackagePath.values()].sort((left, right) =>
+    left.assetId.localeCompare(right.assetId),
   );
 }
 

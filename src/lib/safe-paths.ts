@@ -1,7 +1,15 @@
+import { createHash } from "node:crypto";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 export function sanitizeMirrorId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
+}
+
+export function sanitizeAssetId(value: string): string {
+  const base =
+    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
+  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
+  return `${base}-${suffix}`;
 }
 
 export function isPathWithinRoot(

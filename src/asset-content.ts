@@ -1,6 +1,7 @@
 import { join } from "node:path";
 
 import { readJsonFileOrNull, readTextFileOrNull } from "./files.js";
+import { sanitizeAssetId } from "./lib/safe-paths.js";
 import { fetchOfficialIndexPageContent } from "./official-index.js";
 import type { AssetCatalogEntry } from "./types.js";
 
@@ -63,10 +64,7 @@ async function resolveOfficialSkillPageContent(
   return fetchOfficialIndexPageContent(asset.source.originUrl);
 }
 
-function buildMetadataFallback(
-  asset: AssetCatalogEntry,
-  mirroredContent?: string,
-): string {
+function buildMetadataFallback(asset: AssetCatalogEntry): string {
   const lines = [
     `# ${asset.displayName}`,
     "",
@@ -80,20 +78,5 @@ function buildMetadataFallback(
     ...asset.capabilities.map((capability) => `- ${capability}`),
   ];
 
-  if (mirroredContent) {
-    lines.push(
-      "",
-      "## Mirrored content snapshot",
-      "",
-      "```json",
-      mirroredContent,
-      "```",
-    );
-  }
-
   return `${lines.join("\n").trim()}\n`;
-}
-
-function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }

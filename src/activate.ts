@@ -1,4 +1,4 @@
-import { join, relative, resolve } from "node:path";
+import { join } from "node:path";
 
 import {
   copyPath,
@@ -13,6 +13,7 @@ import {
 } from "./files.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
 import { getOptionValue } from "./lib/cli-options.js";
+import { isPathWithinRoot, sanitizeAssetId } from "./lib/safe-paths.js";
 import {
   assertActivationManifest,
   assertCopilotWorkspaceProfileManifest,
@@ -389,17 +390,6 @@ function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
   return ["shared-mcp"];
 }
 
-function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
-function isPathWithinRoot(rootPath: string, targetPath: string): boolean {
-  const relativePath = relative(resolve(rootPath), resolve(targetPath));
-  // `relativePath` is never absolute for same-drive paths; activation roots
-  // only need to reject parent escapes here.
-  return relativePath === "" || !relativePath.startsWith("..");
-}
-
 function buildCopilotProfileId(assetIds: string[]): string {
   return assetIds
     .slice(0, 12)
@@ -755,20 +745,14 @@ function parseHostTargetOption(
     return undefined;
   }
 
-  if (isHostTarget(value)) {
+  const targets = getHostTargets();
+  if (targets.includes(value as HostTarget)) {
     return value;
   }
 
   throw new Error(
-    `Invalid ${optionName} value: ${value}. Must be one of: ${getHostTargets().join(", ")}`,
+    `Invalid ${optionName} value: ${value}. Must be one of: ${targets.join(", ")}`,
   );
-}
-
-/**
- * Returns whether a string is a supported recommendation host identifier.
- */
-function isHostTarget(value: string): value is HostTarget {
-  return getHostTargets().includes(value as HostTarget);
 }
 
 function getHostTargets(): HostTarget[] {

@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import { readJsonFileOrNull } from "../files.js";
+import { sanitizeAssetId } from "./safe-paths.js";
 import type { HostAdapter } from "../host-adapters/registry.js";
 import type {
   ActivationManifest,
@@ -199,8 +200,4 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values.filter((value) => value.trim().length > 0))].sort(
     (left, right) => left.localeCompare(right),
   );
-}
-
-function sanitizeAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }

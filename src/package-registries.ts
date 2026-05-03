@@ -42,6 +42,7 @@ export async function fetchNpmPackageMetadata(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
       {
         allowedOrigins: NPM_REGISTRY_ORIGINS,
+        headers: { Accept: "application/vnd.npm.install-v1+json" },
         maxBytes: REGISTRY_METADATA_MAX_BYTES,
         timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
       },
@@ -82,7 +83,7 @@ function normalizeNpmPackageMetadata(
     name: typeof data.name === "string" ? data.name : packageName,
     description:
       typeof data.description === "string" ? data.description : undefined,
-    homepage: typeof data.homepage === "string" ? data.homepage : undefined,
+    homepage: normalizeHttpUrl(data.homepage),
     repository: normalizeNpmRepository(data.repository),
     distTags: normalizeStringRecord(data["dist-tags"]),
     keywords: Array.isArray(data.keywords)
@@ -99,17 +100,20 @@ function normalizeNpmRepository(
   value: unknown,
 ): NpmPackageMetadata["repository"] {
   if (typeof value === "string") {
-    return value;
+    return normalizeRepositoryHttpUrl(value);
   }
 
   if (!isRecord(value)) {
     return undefined;
   }
 
-  return {
-    type: typeof value.type === "string" ? value.type : undefined,
-    url: typeof value.url === "string" ? value.url : undefined,
-  };
+  const normalizedUrl = normalizeRepositoryHttpUrl(value.url);
+  return normalizedUrl
+    ? {
+        type: typeof value.type === "string" ? value.type : undefined,
+        url: normalizedUrl,
+      }
+    : undefined;
 }
 
 function normalizePypiPackageMetadata(
@@ -179,6 +183,14 @@ function normalizeUrlRecord(
       : [];
   });
   return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+}
+
+function normalizeRepositoryHttpUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  return normalizeHttpUrl(sanitizeRepositoryUrl(value));
 }
 
 function normalizeHttpUrl(value: unknown): string | undefined {
