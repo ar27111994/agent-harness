@@ -25,6 +25,9 @@ import {
   type JsonRecord,
 } from "./primitives.js";
 
+/**
+ * Validates unknown data as recommendation report.
+ */
 export function assertRecommendationReport(
   value: unknown,
   context: string,
@@ -229,6 +232,9 @@ export function assertRecommendationReport(
   );
 }
 
+/**
+ * Validates unknown data as recommendation policy.
+ */
 export function assertRecommendationPolicy(
   value: unknown,
   context: string,
@@ -255,6 +261,9 @@ export function assertRecommendationPolicy(
   assertRecommendationKeywordMaps(record, context);
 }
 
+/**
+ * Validates unknown data as recommendation policy base.
+ */
 export function assertRecommendationPolicyBase(
   value: unknown,
   context: string,
@@ -276,6 +285,9 @@ export function assertRecommendationPolicyBase(
   assertRecommendationKeywordMaps(record, context);
 }
 
+/**
+ * Validates unknown data as recommendation host policy override.
+ */
 export function assertRecommendationHostPolicyOverride(
   value: unknown,
   context: string,

@@ -65,6 +65,9 @@ import type {
   SelectionReport,
 } from "./types.js";
 
+/**
+ * Dispatches the discover CLI command group.
+ */
 export async function runDiscover(
   args: string[],
   workingDirectory: string,
@@ -114,6 +117,9 @@ async function generateDemandProfile(
   console.log(`Demand profile written to ${toPosixPath(outputPath)}`);
 }
 
+/**
+ * Re-exports demand profile construction for programmatic discovery callers.
+ */
 export { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 
 async function generateCatalog(projectRoot: string): Promise<void> {

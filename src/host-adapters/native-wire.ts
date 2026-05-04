@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import {
@@ -12,6 +11,7 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import type {
   ActivationManifest,
@@ -21,8 +21,11 @@ import type {
   WirePlanManifest,
   WirePreviewManifest,
 } from "../types.js";
-import type { WireMode } from "./registry.js";
+import type { WireMode } from "./types.js";
 
+/**
+ * Defines the supported native wire host values.
+ */
 export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi";
 
 type LifecycleActivationHost = "copilot-vscode" | "opencode";
@@ -131,6 +134,9 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
   },
 };
 
+/**
+ * Provides wire native host for the lifecycle pipeline.
+ */
 export async function wireNativeHost(
   host: NativeWireHost,
   options: {
@@ -164,7 +170,6 @@ export async function wireNativeHost(
   );
 
   if (options.mode === "preview") {
-    await removePath(join(hostActivationRoot, "wire-plan.json"));
     return;
   }
 
@@ -270,7 +275,7 @@ async function readNativeAssetFromActivation(
   activationRoot: string,
   assetId: string,
 ): Promise<NativeAsset | null> {
-  const assetRoot = join(activationRoot, sanitizeActivationAssetId(assetId));
+  const assetRoot = join(activationRoot, sanitizeAssetId(assetId));
   const asset = await readJsonFileOrNull<AssetCatalogEntry>(
     join(assetRoot, "asset.json"),
   );
@@ -915,17 +920,6 @@ function sortMaterializedAssets(
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
-}
-
-function sanitizeActivationAssetId(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
-}
-
-function sanitizeAssetId(value: string): string {
-  const base =
-    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
-  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
-  return `${base}-${suffix}`;
 }
 
 type JsonObject = Record<string, unknown>;

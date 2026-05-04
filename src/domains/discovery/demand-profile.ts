@@ -17,6 +17,9 @@ import {
   sortSignalSet,
 } from "./signals.js";
 
+/**
+ * Builds demand profile from the provided inputs.
+ */
 export async function buildDemandProfile(
   scanRoot: string,
 ): Promise<DemandProfile> {

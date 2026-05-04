@@ -1,13 +1,11 @@
-import {
-  fetchGitHubRepoSnapshot,
-  type GitHubRepoSnapshot,
-} from "../../github.js";
+import { fetchGitHubRepoSnapshot } from "../../github.js";
 import type {
   AssetCatalogEntry,
   AssetKind,
   AssetRisk,
   CompatibilityMode,
   DemandProfile,
+  GitHubRepoSnapshot,
   HostTarget,
   SelectionRegistry,
   SourceDefinition,
@@ -28,6 +26,9 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 
+/**
+ * Provides harvest git hub repo source for the lifecycle pipeline.
+ */
 export async function harvestGitHubRepoSource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
@@ -41,12 +42,20 @@ export async function harvestGitHubRepoSource(
       return [];
     }
 
+    if (snapshot.tree.truncated) {
+      console.warn(
+        `Skipping repo source ${source.id}: GitHub tree response was truncated.`,
+      );
+      return [];
+    }
+
     return snapshot.tree.entries
+      .filter((entry) => entry.type === "blob")
       .map((entry) =>
         buildGitHubCatalogEntry(
           snapshot,
           source,
-          entry.path,
+          entry,
           demandProfile,
           selectionRegistry,
         ),
@@ -62,10 +71,11 @@ export async function harvestGitHubRepoSource(
 function buildGitHubCatalogEntry(
   snapshot: GitHubRepoSnapshot,
   source: SourceDefinition,
-  relativePath: string,
+  treeEntry: GitHubRepoSnapshot["tree"]["entries"][number],
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
 ): AssetCatalogEntry | null {
+  const relativePath = treeEntry.path;
   const classification = classifyGitHubTreePath(relativePath, source);
 
   if (!classification) {
@@ -127,6 +137,7 @@ function buildGitHubCatalogEntry(
       adaptableHosts:
         classification.compatibilityMode === "adaptable" ? hosts : undefined,
       relativePath,
+      manifestEntry: treeEntry.sha,
     },
     evidence: {
       manifestFound: true,

@@ -15,6 +15,11 @@ import { createHash } from "node:crypto";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 
+const FILE_STAT_CONCURRENCY = 16;
+
+/**
+ * Defines default ignored directory names shared by the lifecycle pipeline.
+ */
 export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   ".git",
   ".idea",
@@ -51,11 +56,17 @@ export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   "venv",
 ]);
 
+/**
+ * Defines the supported json validator values.
+ */
 export type JsonValidator<T> = (
   value: unknown,
   context: string,
 ) => asserts value is T;
 
+/**
+ * Resolves project root from the provided inputs.
+ */
 export function resolveProjectRoot(scriptFilePath: string): string {
   const scriptDirectory = dirname(scriptFilePath);
   const directoryName = basename(scriptDirectory);
@@ -67,6 +78,9 @@ export function resolveProjectRoot(scriptFilePath: string): string {
   return scriptDirectory;
 }
 
+/**
+ * Provides path exists for the lifecycle pipeline.
+ */
 export async function pathExists(filePath: string): Promise<boolean> {
   try {
     await access(filePath);
@@ -76,6 +90,9 @@ export async function pathExists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * Provides path entry exists for the lifecycle pipeline.
+ */
 export async function pathEntryExists(filePath: string): Promise<boolean> {
   try {
     await lstat(filePath);
@@ -85,10 +102,16 @@ export async function pathEntryExists(filePath: string): Promise<boolean> {
   }
 }
 
+/**
+ * Ensures ensure directory exists or is ready for use.
+ */
 export async function ensureDirectory(directoryPath: string): Promise<void> {
   await mkdir(directoryPath, { recursive: true });
 }
 
+/**
+ * Reads json file from project state.
+ */
 export async function readJsonFile<T>(
   filePath: string,
   validator?: JsonValidator<T>,
@@ -113,27 +136,61 @@ export async function readJsonFile<T>(
   return parsedContent as T;
 }
 
+/**
+ * Reads json file or null from project state.
+ */
 export async function readJsonFileOrNull<T>(
   filePath: string,
   validator?: JsonValidator<T>,
 ): Promise<T | null> {
-  if (!(await pathExists(filePath))) {
-    return null;
-  }
+  try {
+    return await readJsonFile<T>(filePath, validator);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
 
-  return readJsonFile<T>(filePath, validator);
+    throw error;
+  }
 }
 
+/**
+ * Reads text file or null from project state.
+ */
 export async function readTextFileOrNull(
   filePath: string,
 ): Promise<string | null> {
-  if (!(await pathExists(filePath))) {
-    return null;
-  }
+  try {
+    return await readFile(filePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
 
-  return readFile(filePath, "utf8");
+    throw error;
+  }
 }
 
+/**
+ * Reads binary file bytes or null from project state.
+ */
+export async function readBinaryFileOrNull(
+  filePath: string,
+): Promise<Buffer | null> {
+  try {
+    return await readFile(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+/**
+ * Writes json file to project state.
+ */
 export async function writeJsonFile(
   filePath: string,
   value: unknown,
@@ -143,6 +200,9 @@ export async function writeJsonFile(
   await writeFile(filePath, json, "utf8");
 }
 
+/**
+ * Writes text file to project state.
+ */
 export async function writeTextFile(
   filePath: string,
   value: string,
@@ -151,6 +211,20 @@ export async function writeTextFile(
   await writeFile(filePath, value, "utf8");
 }
 
+/**
+ * Writes binary file bytes to project state.
+ */
+export async function writeBinaryFile(
+  filePath: string,
+  value: Buffer,
+): Promise<void> {
+  await ensureDirectory(dirname(filePath));
+  await writeFile(filePath, value);
+}
+
+/**
+ * Snapshots file if exists from the provided inputs.
+ */
 export async function snapshotFileIfExists(
   sourcePath: string,
   snapshotPath: string,
@@ -164,6 +238,9 @@ export async function snapshotFileIfExists(
   await writeTextFile(snapshotPath, content);
 }
 
+/**
+ * Writes json file with snapshot to project state.
+ */
 export async function writeJsonFileWithSnapshot(
   filePath: string,
   snapshotPath: string,
@@ -173,6 +250,9 @@ export async function writeJsonFileWithSnapshot(
   await writeJsonFile(filePath, value);
 }
 
+/**
+ * Writes json lines file with snapshot to project state.
+ */
 export async function writeJsonLinesFileWithSnapshot(
   filePath: string,
   snapshotPath: string,
@@ -182,6 +262,9 @@ export async function writeJsonLinesFileWithSnapshot(
   await writeJsonLinesFile(filePath, values);
 }
 
+/**
+ * Reads json lines file from project state.
+ */
 export async function readJsonLinesFile<T>(
   filePath: string,
   validator?: JsonValidator<T>,
@@ -217,6 +300,9 @@ export async function readJsonLinesFile<T>(
     });
 }
 
+/**
+ * Writes json lines file to project state.
+ */
 export async function writeJsonLinesFile(
   filePath: string,
   values: unknown[],
@@ -230,6 +316,9 @@ export async function writeJsonLinesFile(
   );
 }
 
+/**
+ * Provides copy path for the lifecycle pipeline.
+ */
 export async function copyPath(
   sourcePath: string,
   destinationPath: string,
@@ -238,6 +327,9 @@ export async function copyPath(
   await cp(sourcePath, destinationPath, { recursive: true, force: true });
 }
 
+/**
+ * Creates directory link for use by the lifecycle pipeline.
+ */
 export async function createDirectoryLink(
   linkPath: string,
   targetPath: string,
@@ -262,6 +354,9 @@ export async function createDirectoryLink(
   );
 }
 
+/**
+ * Provides replace directory link for the lifecycle pipeline.
+ */
 export async function replaceDirectoryLink(
   linkPath: string,
   targetPath: string,
@@ -282,10 +377,16 @@ export async function replaceDirectoryLink(
   await rename(temporaryLinkPath, linkPath);
 }
 
+/**
+ * Provides remove path for the lifecycle pipeline.
+ */
 export async function removePath(targetPath: string): Promise<void> {
   await rm(targetPath, { recursive: true, force: true });
 }
 
+/**
+ * Ensures ensure clean directory exists or is ready for use.
+ */
 export async function ensureCleanDirectory(
   directoryPath: string,
 ): Promise<void> {
@@ -293,10 +394,18 @@ export async function ensureCleanDirectory(
   await ensureDirectory(directoryPath);
 }
 
-export function createContentHash(content: string): string {
-  return createHash("sha256").update(content, "utf8").digest("hex");
+/**
+ * Creates content hash for use by the lifecycle pipeline.
+ */
+export function createContentHash(content: string | Buffer): string {
+  return typeof content === "string"
+    ? createHash("sha256").update(content, "utf8").digest("hex")
+    : createHash("sha256").update(content).digest("hex");
 }
 
+/**
+ * Provides upsert managed section for the lifecycle pipeline.
+ */
 export function upsertManagedSection(options: {
   originalContent: string;
   markerId: string;
@@ -321,6 +430,9 @@ export function upsertManagedSection(options: {
     : `${sectionContent}\n`;
 }
 
+/**
+ * Provides remove managed section for the lifecycle pipeline.
+ */
 export function removeManagedSection(options: {
   originalContent: string;
   markerId: string;
@@ -347,10 +459,16 @@ function getErrorMessage(error: unknown): string {
   return String(error);
 }
 
+/**
+ * Provides to posix path for the lifecycle pipeline.
+ */
 export function toPosixPath(filePath: string): string {
   return filePath.split(sep).join("/");
 }
 
+/**
+ * Provides to relative posix path for the lifecycle pipeline.
+ */
 export function toRelativePosixPath(
   rootPath: string,
   filePath: string,
@@ -358,6 +476,9 @@ export function toRelativePosixPath(
   return toPosixPath(relative(rootPath, filePath));
 }
 
+/**
+ * Provides count non empty lines for the lifecycle pipeline.
+ */
 export function countNonEmptyLines(content: string): number {
   return content
     .split(/\r?\n/u)
@@ -365,6 +486,9 @@ export function countNonEmptyLines(content: string): number {
     .filter((line) => line.length > 0).length;
 }
 
+/**
+ * Describes scan budget options data exchanged by the lifecycle pipeline.
+ */
 export interface ScanBudgetOptions {
   maxDepth?: number;
   maxFiles?: number;
@@ -380,6 +504,9 @@ interface IgnorePattern {
   regex: RegExp;
 }
 
+/**
+ * Describes scan budget telemetry data exchanged by the lifecycle pipeline.
+ */
 export interface ScanBudgetTelemetry {
   visitedFiles: number;
   visitedBytes: number;
@@ -387,6 +514,9 @@ export interface ScanBudgetTelemetry {
   truncationReason?: string;
 }
 
+/**
+ * Provides list files recursive for the lifecycle pipeline.
+ */
 export async function listFilesRecursive(
   rootPath: string,
   ignoredDirectoryNames: ReadonlySet<string> = DEFAULT_IGNORED_DIRECTORY_NAMES,
@@ -399,6 +529,9 @@ export async function listFilesRecursive(
   ).then((result) => result.files);
 }
 
+/**
+ * Provides list files recursive with telemetry for the lifecycle pipeline.
+ */
 export async function listFilesRecursiveWithTelemetry(
   rootPath: string,
   ignoredDirectoryNames: ReadonlySet<string> = DEFAULT_IGNORED_DIRECTORY_NAMES,
@@ -451,6 +584,8 @@ async function collectFilesFromDirectory(
 
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const collectedFiles: string[] = [];
+  const fileEntries: Array<{ entryPath: string; relativeEntryPath: string }> =
+    [];
 
   for (const entry of entries) {
     if (telemetry.truncated) {
@@ -462,7 +597,11 @@ async function collectFilesFromDirectory(
 
     if (entry.isDirectory()) {
       if (
-        ignoredDirectoryNames.has(entry.name) ||
+        shouldSkipDefaultIgnoredDirectory(
+          relativeEntryPath,
+          entry.name,
+          ignoredDirectoryNames,
+        ) ||
         shouldSkipIgnoredDirectory(
           relativeEntryPath,
           entry.name,
@@ -497,33 +636,77 @@ async function collectFilesFromDirectory(
         continue;
       }
 
-      let fileSize: number;
-      try {
-        fileSize = (await lstat(entryPath)).size;
-      } catch {
-        continue;
-      }
-
-      telemetry.visitedFiles += 1;
-      telemetry.visitedBytes += fileSize;
-
-      if (telemetry.visitedFiles > budgetOptions.maxFiles) {
-        telemetry.truncated = true;
-        telemetry.truncationReason = "max-files";
-        break;
-      }
-
-      if (telemetry.visitedBytes > budgetOptions.maxBytes) {
-        telemetry.truncated = true;
-        telemetry.truncationReason = "max-bytes";
-        break;
-      }
-
-      collectedFiles.push(entryPath);
+      fileEntries.push({ entryPath, relativeEntryPath });
     }
   }
 
+  const fileStats = await mapWithConcurrency(
+    fileEntries,
+    FILE_STAT_CONCURRENCY,
+    async (fileEntry) => {
+      if (telemetry.truncated) {
+        return null;
+      }
+
+      const stats = await lstat(fileEntry.entryPath).catch(() => null);
+      return stats?.isFile() ? { ...fileEntry, size: stats.size } : null;
+    },
+  );
+
+  for (const fileStat of fileStats) {
+    if (telemetry.truncated) {
+      break;
+    }
+    if (fileStat === null) {
+      continue;
+    }
+
+    telemetry.visitedFiles += 1;
+    telemetry.visitedBytes += fileStat.size;
+
+    if (telemetry.visitedFiles > budgetOptions.maxFiles) {
+      telemetry.truncated = true;
+      telemetry.truncationReason = "max-files";
+      break;
+    }
+
+    if (telemetry.visitedBytes > budgetOptions.maxBytes) {
+      telemetry.truncated = true;
+      telemetry.truncationReason = "max-bytes";
+      break;
+    }
+
+    collectedFiles.push(fileStat.entryPath);
+  }
+
   return collectedFiles;
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  task: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < values.length; index += concurrency) {
+    results.push(
+      ...(await Promise.all(
+        values.slice(index, index + concurrency).map(task),
+      )),
+    );
+  }
+  return results;
+}
+
+function shouldSkipDefaultIgnoredDirectory(
+  relativeEntryPath: string,
+  entryName: string,
+  ignoredDirectoryNames: ReadonlySet<string>,
+): boolean {
+  return (
+    ignoredDirectoryNames.has(entryName) ||
+    ignoredDirectoryNames.has(relativeEntryPath)
+  );
 }
 
 async function loadIgnorePatterns(rootPath: string): Promise<IgnorePattern[]> {

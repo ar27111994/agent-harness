@@ -50,6 +50,9 @@ function validateGenerationId(value: string | undefined): string | undefined {
   return value;
 }
 
+/**
+ * Provides diff install state for the lifecycle pipeline.
+ */
 export async function diffInstallState(
   projectRoot: string,
   args: string[],
@@ -96,6 +99,9 @@ export async function diffInstallState(
   }
 }
 
+/**
+ * Provides explain installed asset for the lifecycle pipeline.
+ */
 export async function explainInstalledAsset(
   projectRoot: string,
   args: string[],
@@ -152,6 +158,9 @@ export async function explainInstalledAsset(
   console.log(lines.join("\n"));
 }
 
+/**
+ * Provides manage install generations for the lifecycle pipeline.
+ */
 export async function manageInstallGenerations(
   projectRoot: string,
   args: string[],

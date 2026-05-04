@@ -16,6 +16,9 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://pypi.org",
 ] as const;
 
+/**
+ * Fetches official index page content with the configured runtime safeguards.
+ */
 export async function fetchOfficialIndexPageContent(
   url: string,
 ): Promise<string | null> {
@@ -34,6 +37,9 @@ export async function fetchOfficialIndexPageContent(
   return extractedContent.length > 0 ? extractedContent : null;
 }
 
+/**
+ * Builds official index asset status from the provided inputs.
+ */
 export function buildOfficialIndexAssetStatus(
   authorityTier: AuthorityTier,
 ): AssetStatus {

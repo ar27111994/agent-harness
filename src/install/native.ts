@@ -29,6 +29,9 @@ import { sanitizeAssetId } from "./utils.js";
 
 type NativeInstallCliOperation = "plan" | ExtensionInstallOperation;
 
+/**
+ * Provides native install management for the lifecycle pipeline.
+ */
 export async function manageNativeInstall(
   projectRoot: string,
   args: string[],

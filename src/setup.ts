@@ -109,7 +109,27 @@ async function runDoctor(
 
 function printLoginGuidance(args: string[]): void {
   const provider = getOptionValue(args, "--provider") ?? args[0] ?? "github";
-  const guidanceByProvider: Record<string, string[]> = {
+  const normalizedProvider = provider.toLowerCase();
+  const guidanceByProvider = buildLoginGuidanceByProvider();
+  const adapter = resolveHostAdapter(normalizedProvider);
+  const guidance =
+    guidanceByProvider[normalizedProvider] ??
+    (adapter ? buildAdapterLoginGuidance(adapter) : undefined);
+  if (!guidance) {
+    console.log(
+      `Unknown login provider '${provider}'. Known providers: ${getLoginProviderNames(guidanceByProvider).join(", ")}`,
+    );
+    return;
+  }
+
+  console.log(`# ${normalizedProvider} login guidance`);
+  for (const line of guidance) {
+    console.log(`- ${line}`);
+  }
+}
+
+function buildLoginGuidanceByProvider(): Record<string, string[]> {
+  return {
     github: [
       "GitHub authentication improves discovery throughput for public and private repository sources.",
       "Create a least-privileged token at https://github.com/settings/tokens?type=beta or https://github.com/settings/tokens.",
@@ -117,25 +137,69 @@ function printLoginGuidance(args: string[]): void {
     ],
     npm: [
       "npm authentication is required only for package publication.",
-      "Run npm login locally or configure NPM_TOKEN as a GitHub Actions secret for release publishing.",
+      "Use npm trusted publishing from GitHub Actions for releases, or run npm login locally for manual package management.",
+    ],
+    "copilot-vscode": [
+      "VS Code/Copilot host-login prerequisites require a signed-in GitHub Copilot session in VS Code.",
+      "Run code --version and code --list-extensions --show-versions to verify CLI and marketplace access.",
+      "Use the VS Code Accounts menu to sign in to GitHub if Copilot or extension access is unavailable.",
+    ],
+    vscode: [
+      "VS Code/Copilot host-login prerequisites require a signed-in GitHub Copilot session in VS Code.",
+      "Run code --version and code --list-extensions --show-versions to verify CLI and marketplace access.",
+      "Use the VS Code Accounts menu to sign in to GitHub if Copilot or extension access is unavailable.",
+    ],
+    cursor: [
+      "Cursor host-login prerequisites require a signed-in Cursor session.",
+      "Run cursor --version and cursor --list-extensions --show-versions to verify CLI and marketplace access.",
+      "Use Cursor account settings to sign in before applying host wire-in that depends on account state.",
+    ],
+    opencode: [
+      "OpenCode host-login prerequisites require a working OpenCode CLI session for runtime validation.",
+      "Run opencode --version to verify CLI availability.",
+    ],
+    anthropic: [
+      "Anthropic OAuth or token prerequisites require an Anthropic account or API key.",
+      "Set ANTHROPIC_API_KEY for token-based assets, or complete the OAuth flow described by the asset setup URL.",
+    ],
+    openai: [
+      "OpenAI OAuth or token prerequisites require an OpenAI account or API key.",
+      "Set OPENAI_API_KEY for token-based assets, or complete the OAuth flow described by the asset setup URL.",
+    ],
+    sentry: [
+      "Sentry OAuth or token prerequisites require access to the target Sentry organization.",
+      "Set SENTRY_AUTH_TOKEN for token-based assets, or complete the OAuth flow described by the asset setup URL.",
     ],
     ai: [
       "Optional AI enrichment uses an OpenAI-compatible chat completions endpoint.",
       "Set AGENT_HARNESS_AI_ENRICHMENT_URL, AGENT_HARNESS_AI_ENRICHMENT_API_KEY, and optionally AGENT_HARNESS_AI_ENRICHMENT_MODEL.",
     ],
   };
-  const guidance = guidanceByProvider[provider.toLowerCase()];
-  if (!guidance) {
-    console.log(
-      `Unknown login provider '${provider}'. Known providers: ${Object.keys(guidanceByProvider).join(", ")}`,
-    );
-    return;
-  }
+}
 
-  console.log(`# ${provider} login guidance`);
-  for (const line of guidance) {
-    console.log(`- ${line}`);
-  }
+function buildAdapterLoginGuidance(adapter: HostAdapter): string[] {
+  const runtimeGuidance = adapter.runtime?.guidance
+    ? [adapter.runtime.guidance]
+    : [];
+  return [
+    `${adapter.displayName} host-login prerequisites require a signed-in and usable host runtime when assets depend on account state.`,
+    ...runtimeGuidance,
+    `Run setup doctor --host ${adapter.id} to check CLI, version, and readiness diagnostics for this adapter.`,
+  ];
+}
+
+function getLoginProviderNames(
+  guidanceByProvider: Record<string, string[]>,
+): string[] {
+  return [
+    ...new Set([
+      ...Object.keys(guidanceByProvider),
+      ...listHostAdapters().flatMap((adapter) => [
+        adapter.id,
+        ...adapter.aliases,
+      ]),
+    ]),
+  ].sort((left, right) => left.localeCompare(right));
 }
 
 function printHosts(): void {
@@ -151,6 +215,9 @@ function printSetupHelp(): void {
     .flatMap((adapter) => [adapter.id, ...adapter.aliases])
     .sort((left, right) => left.localeCompare(right))
     .join("|");
+  const providerNames = getLoginProviderNames(
+    buildLoginGuidanceByProvider(),
+  ).join("|");
   console.log(`setup commands:
   doctor        Check config, host readiness, capabilities, and guided setup notes
   hosts         List registered host adapters
@@ -158,5 +225,5 @@ function printSetupHelp(): void {
 
 Options:
   --host <${hostNames}>
-  --provider <github|npm|ai>`);
+  --provider <${providerNames}>`);
 }

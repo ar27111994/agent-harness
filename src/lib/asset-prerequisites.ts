@@ -3,7 +3,10 @@ import { join } from "node:path";
 import { getRuntimeConfig } from "../config/runtime.js";
 import { readJsonFileOrNull } from "../files.js";
 import { sanitizeAssetId } from "./safe-paths.js";
-import type { HostAdapter } from "../host-adapters/registry.js";
+import {
+  resolveHostAdapter,
+  type HostAdapter,
+} from "../host-adapters/registry.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
@@ -19,9 +22,14 @@ const PROVIDER_ENV_VARS: Record<string, string[]> = {
   sentry: ["SENTRY_AUTH_TOKEN"],
 };
 
+/**
+ * Builds asset prerequisites from metadata from the provided inputs.
+ */
 export function buildAssetPrerequisitesFromMetadata(options: {
   providers: string[];
   envVars: string[];
+  hostLogins?: string[];
+  oauthProviders?: string[];
   setupUrl?: string;
 }): AssetPrerequisite[] {
   const prerequisites: AssetPrerequisite[] = [];
@@ -52,12 +60,44 @@ export function buildAssetPrerequisitesFromMetadata(options: {
     });
   }
 
+  for (const hostLogin of uniqueStrings(
+    (options.hostLogins ?? []).map(canonicalizeHostLogin),
+  )) {
+    prerequisites.push({
+      id: `host-login:${hostLogin}`,
+      kind: "host-login",
+      required: true,
+      host: hostLogin as AssetPrerequisite["host"],
+      setupUrl: options.setupUrl,
+      description: `Sign in to ${hostLogin}.`,
+    });
+  }
+
+  for (const oauthProvider of uniqueStrings(
+    (options.oauthProviders ?? []).map(normalizeToken),
+  )) {
+    prerequisites.push({
+      id: `oauth:${oauthProvider}`,
+      kind: "oauth",
+      required: true,
+      provider: oauthProvider,
+      setupUrl: options.setupUrl,
+      description: `Complete OAuth authorization for ${oauthProvider}.`,
+    });
+  }
+
   return dedupePrerequisites(prerequisites);
 }
 
+/**
+ * Builds prerequisite diagnostics from the provided inputs.
+ */
 export function buildPrerequisiteDiagnostics(
   asset: AssetCatalogEntry,
-  options: { missingEnvSeverity?: PreflightSeverity } = {},
+  options: {
+    adapter?: HostAdapter;
+    missingEnvSeverity?: PreflightSeverity;
+  } = {},
 ): PreflightDiagnostic[] {
   const prerequisites = asset.install.prerequisites ?? [];
   const missingEnvSeverity = options.missingEnvSeverity ?? "error";
@@ -95,6 +135,28 @@ export function buildPrerequisiteDiagnostics(
       continue;
     }
 
+    if (prerequisite.kind === "host-login") {
+      diagnostics.push(
+        buildHostLoginPrerequisiteDiagnostic(
+          asset,
+          prerequisite,
+          options.adapter,
+        ),
+      );
+      continue;
+    }
+
+    if (prerequisite.kind === "oauth") {
+      diagnostics.push(
+        buildOauthPrerequisiteDiagnostic(
+          asset,
+          prerequisite,
+          missingEnvSeverity,
+        ),
+      );
+      continue;
+    }
+
     diagnostics.push({
       severity: prerequisite.required ? missingEnvSeverity : "info",
       code: `asset-prerequisite-guidance:${asset.id}:${prerequisite.id}`,
@@ -106,6 +168,9 @@ export function buildPrerequisiteDiagnostics(
   return diagnostics;
 }
 
+/**
+ * Collects activated asset prerequisite diagnostics from the provided inputs.
+ */
 export async function collectActivatedAssetPrerequisiteDiagnostics(
   projectRoot: string,
   adapter: HostAdapter,
@@ -113,7 +178,7 @@ export async function collectActivatedAssetPrerequisiteDiagnostics(
 ): Promise<PreflightDiagnostic[]> {
   const assets = await collectActivatedAssets(projectRoot, adapter);
   return assets.flatMap((asset) =>
-    buildPrerequisiteDiagnostics(asset, options),
+    buildPrerequisiteDiagnostics(asset, { ...options, adapter }),
   );
 }
 
@@ -175,10 +240,69 @@ function addAssetId(
   assetMap.set(activationHost, assetIds);
 }
 
+function buildHostLoginPrerequisiteDiagnostic(
+  asset: AssetCatalogEntry,
+  prerequisite: AssetPrerequisite,
+  adapter: HostAdapter | undefined,
+): PreflightDiagnostic {
+  const hostMatches =
+    !prerequisite.host ||
+    !adapter ||
+    [adapter.id, adapter.lifecycleHost, adapter.recommendationHost].includes(
+      prerequisite.host,
+    );
+  return {
+    severity: hostMatches && prerequisite.required ? "warning" : "info",
+    code: `asset-prerequisite-host-login:${asset.id}:${prerequisite.id}`,
+    message: hostMatches
+      ? `${asset.displayName} requires a signed-in ${prerequisite.host ?? "host"} session.`
+      : `${asset.displayName} declares a host login prerequisite for ${prerequisite.host}; current host is ${adapter?.id ?? "unknown"}.`,
+    action: buildPrerequisiteAction(prerequisite),
+  };
+}
+
+function buildOauthPrerequisiteDiagnostic(
+  asset: AssetCatalogEntry,
+  prerequisite: AssetPrerequisite,
+  missingSeverity: PreflightSeverity,
+): PreflightDiagnostic {
+  const envVars = prerequisite.provider
+    ? (PROVIDER_ENV_VARS[prerequisite.provider] ?? [])
+    : [];
+  const canValidateWithEnv = envVars.length > 0;
+  const env = getRuntimeConfig().env;
+  const hasProviderToken = envVars.some(
+    (envVar) => (env[envVar]?.trim().length ?? 0) > 0,
+  );
+
+  return {
+    severity: hasProviderToken
+      ? "info"
+      : prerequisite.required && canValidateWithEnv
+        ? missingSeverity
+        : "warning",
+    code: hasProviderToken
+      ? `asset-prerequisite-oauth-ready:${asset.id}:${prerequisite.id}`
+      : `asset-prerequisite-oauth:${asset.id}:${prerequisite.id}`,
+    message: hasProviderToken
+      ? `${asset.displayName} OAuth prerequisite has provider credentials configured.`
+      : `${asset.displayName} requires OAuth authorization for ${prerequisite.provider ?? "its provider"}.`,
+    action: hasProviderToken
+      ? undefined
+      : buildPrerequisiteAction(prerequisite),
+  };
+}
+
 function buildPrerequisiteAction(prerequisite: AssetPrerequisite): string {
   const actions: string[] = [];
   if ((prerequisite.envVars?.length ?? 0) > 0) {
     actions.push(`Set ${formatEnvChoices(prerequisite.envVars ?? [])}`);
+  }
+  if (prerequisite.kind === "host-login" && prerequisite.host) {
+    actions.push(`Run setup login --provider ${prerequisite.host}`);
+  }
+  if (prerequisite.kind === "oauth" && prerequisite.provider) {
+    actions.push(`Run setup login --provider ${prerequisite.provider}`);
   }
   if (prerequisite.setupUrl) {
     actions.push(`See ${prerequisite.setupUrl}`);
@@ -212,6 +336,10 @@ function dedupePrerequisites(
 
 function normalizeToken(value: string): string {
   return value.trim().toLowerCase();
+}
+
+function canonicalizeHostLogin(value: string): string {
+  return resolveHostAdapter(value)?.id ?? normalizeToken(value);
 }
 
 function uniqueStrings(values: string[]): string[] {

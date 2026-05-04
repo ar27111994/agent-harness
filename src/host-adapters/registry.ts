@@ -1,4 +1,5 @@
 import type { AssetCatalogEntry, AssetKind, HostTarget } from "../types.js";
+import type { WireMode } from "./types.js";
 import { wireOpenCode } from "./opencode.js";
 import { wireVsCode } from "./vscode.js";
 import { wireNativeHost } from "./native-wire.js";
@@ -9,8 +10,15 @@ import {
   type ExtensionInstallAction,
 } from "./extension-installer.js";
 
+export type { WireMode } from "./types.js";
+
+/**
+ * Defines the supported lifecycle host values.
+ */
 export type LifecycleHost = "copilot-vscode" | "opencode";
-export type WireMode = "preview" | "apply" | "reset";
+/**
+ * Defines the supported host behavior values.
+ */
 export type HostBehavior =
   | "stage"
   | "wire"
@@ -18,11 +26,17 @@ export type HostBehavior =
   | "auth-assist"
   | "runtime-validation";
 
+/**
+ * Describes host capability data exchanged by the lifecycle pipeline.
+ */
 export interface HostCapability {
   assetKind: AssetKind;
   behaviors: HostBehavior[];
 }
 
+/**
+ * Describes host runtime spec data exchanged by the lifecycle pipeline.
+ */
 export interface HostRuntimeSpec {
   executable: string;
   versionArgs?: string[];
@@ -31,11 +45,17 @@ export interface HostRuntimeSpec {
   requiredFor?: HostBehavior[];
 }
 
+/**
+ * Describes host native install provider data exchanged by the lifecycle pipeline.
+ */
 export interface HostNativeInstallProvider {
   assetKind: AssetKind;
   collectActions(assets: AssetCatalogEntry[]): ExtensionInstallAction[];
 }
 
+/**
+ * Describes host adapter data exchanged by the lifecycle pipeline.
+ */
 export interface HostAdapter {
   id: string;
   aliases: string[];
@@ -101,6 +121,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: true,
     runtime: {
       executable: "code",
+      versionArgs: ["--version"],
       readinessArgs: ["--list-extensions", "--show-versions"],
       guidance:
         "Install the VS Code CLI and ensure the 'code' command is available on PATH for native extension install and verification.",
@@ -130,6 +151,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "opencode",
+      versionArgs: ["--version"],
       guidance:
         "Install the OpenCode CLI if you want runtime validation beyond project-local overlay wiring.",
     },
@@ -147,6 +169,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "cursor",
+      versionArgs: ["--version"],
       readinessArgs: ["--list-extensions", "--show-versions"],
       guidance:
         "Install the Cursor CLI if you want runtime validation and native extension install/verification beyond project-local file wiring.",
@@ -178,6 +201,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "zed",
+      versionArgs: ["--version"],
       guidance:
         "Install the Zed CLI if you want runtime validation beyond project-local file wiring.",
     },
@@ -195,6 +219,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "claude",
+      versionArgs: ["--version"],
       guidance:
         "Install the Claude Code CLI if you want runtime validation beyond project-local file wiring.",
     },
@@ -212,6 +237,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     requiresLifecycleHostPaths: false,
     runtime: {
       executable: "pi",
+      versionArgs: ["--version"],
       guidance:
         "Install the Pi CLI if you want runtime validation beyond project-local file wiring.",
     },
@@ -224,6 +250,9 @@ const hostAdapters = [...DEFAULT_HOST_ADAPTERS];
 
 const HOST_TARGET_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
+/**
+ * Provides register host adapter for the lifecycle pipeline.
+ */
 export function registerHostAdapter(adapter: HostAdapter): void {
   const normalizedId = adapter.id.toLowerCase();
   const existingIndex = hostAdapters.findIndex(

@@ -1,5 +1,8 @@
 import type { DemandProfile } from "../../types.js";
 
+/**
+ * Defines the supported package registry kind values.
+ */
 export type PackageRegistryKind =
   | "npm"
   | "pypi"
@@ -11,6 +14,9 @@ export type PackageRegistryKind =
   | "packagist"
   | "swift";
 
+/**
+ * Collects package candidates from demand profile from the provided inputs.
+ */
 export function collectPackageCandidatesFromDemandProfile(
   demandProfile: DemandProfile | null,
   registryKind: PackageRegistryKind,

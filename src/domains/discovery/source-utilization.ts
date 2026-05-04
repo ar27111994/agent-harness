@@ -5,6 +5,9 @@ import type { AssetCatalogEntry, SourceDefinition } from "../../types.js";
 import { countBy } from "./catalog-utils.js";
 import { SOURCE_UTILIZATION_OUTPUT_PATH } from "./output-paths.js";
 
+/**
+ * Writes source utilization report to project state.
+ */
 export async function writeSourceUtilizationReport(
   projectRoot: string,
   enabledSources: SourceDefinition[],

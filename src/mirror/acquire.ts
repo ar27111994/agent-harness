@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
@@ -9,16 +10,16 @@ import {
   readJsonLinesFile,
   readTextFileOrNull,
   toPosixPath,
+  writeBinaryFile,
   writeJsonFile,
   writeJsonLinesFileWithSnapshot,
-  writeTextFile,
 } from "../files.js";
 import {
   buildGitHubRawFileUrl,
   fetchGitHubRepoSnapshotByRepoUrl,
 } from "../github.js";
 import { getOptionValue } from "../lib/cli-options.js";
-import { fetchJsonWithGuards, fetchTextWithGuards } from "../lib/http.js";
+import { fetchBytesWithGuards, fetchJsonWithGuards } from "../lib/http.js";
 import {
   isPathWithinRoot,
   resolveSafeMirrorFilePath,
@@ -48,18 +49,20 @@ import {
 } from "./constants.js";
 import {
   buildMirrorEvidenceAllowedRoots,
-  resolveAllowedMirrorEvidenceFilePath,
+  resolveAllowedMirrorEvidenceFilePathForRead,
   sanitizeMirrorId,
 } from "./paths.js";
 
 interface MaterializedMirrorArtifact {
-  content: string;
+  content: Buffer;
   files?: Array<{
     relativePath: string;
-    content: string;
+    content: Buffer;
+    upstreamBlobSha?: string;
   }>;
   upstreamRef?: string;
   upstreamCommit?: string;
+  upstreamBlobSha?: string;
 }
 
 interface MirrorFileManifest {
@@ -69,9 +72,13 @@ interface MirrorFileManifest {
     relativePath: string;
     sha256: string;
     sizeBytes: number;
+    upstreamBlobSha?: string;
   }>;
 }
 
+/**
+ * Provides acquire mirror artifacts for the lifecycle pipeline.
+ */
 export async function acquireMirrorArtifacts(
   projectRoot: string,
   workingDirectory: string,
@@ -86,7 +93,7 @@ export async function acquireMirrorArtifacts(
     assertAssetCatalogEntry,
   );
   const mirrorEligibleEntries = selectedEntries.filter(
-    (entry) => entry.status.mirrorEligible && entry.status.installEligible,
+    (entry) => entry.status.mirrorEligible,
   );
   const rawBatchSize = Number(
     getOptionValue(args, "--batch-size") ??
@@ -135,13 +142,13 @@ export async function acquireMirrorArtifacts(
       sanitizeMirrorId(mirrorId),
     );
     await ensureCleanDirectory(rawRoot);
-    await writeTextFile(
+    await writeBinaryFile(
       join(rawRoot, "content.txt"),
       materializedArtifact.content,
     );
 
     for (const file of materializedArtifact.files ?? []) {
-      await writeTextFile(
+      await writeBinaryFile(
         resolveSafeMirrorFilePath(rawRoot, file.relativePath),
         file.content,
       );
@@ -182,7 +189,7 @@ export async function acquireMirrorArtifacts(
         sanitizeMirrorId(mirrorId),
       );
       await ensureDirectory(quarantineRoot);
-      await writeTextFile(
+      await writeBinaryFile(
         join(quarantineRoot, "content.txt"),
         materializedArtifact.content,
       );
@@ -240,7 +247,7 @@ async function materializeMirrorArtifact(
     );
     if (referenceContent !== null) {
       return {
-        content: referenceContent,
+        content: Buffer.from(referenceContent, "utf8"),
       };
     }
   }
@@ -259,19 +266,12 @@ async function materializeMirrorArtifact(
       return officialIndexPackageArtifact;
     }
 
-    const officialIndexContent = await fetchOfficialIndexPageContent(
-      entry.source.originUrl,
-    );
-    if (officialIndexContent !== null) {
-      return {
-        content: officialIndexContent,
-      };
-    }
+    return null;
   }
 
   const filePath = entry.evidence.filePath;
   if (filePath) {
-    const safeFilePath = resolveAllowedMirrorEvidenceFilePath(
+    const safeFilePath = await resolveAllowedMirrorEvidenceFilePathForRead(
       filePath,
       evidenceAllowedRoots,
     );
@@ -284,7 +284,7 @@ async function materializeMirrorArtifact(
     const fileContent = await readTextFileOrNull(safeFilePath);
     if (fileContent !== null) {
       return {
-        content: fileContent,
+        content: Buffer.from(fileContent, "utf8"),
       };
     }
   }
@@ -298,13 +298,13 @@ async function materializeMirrorArtifact(
     const cacheContent = await readTextFileOrNull(cachePath);
     if (cacheContent !== null) {
       return {
-        content: cacheContent,
+        content: Buffer.from(cacheContent, "utf8"),
       };
     }
   }
 
   return {
-    content: JSON.stringify(entry, null, 2),
+    content: Buffer.from(JSON.stringify(entry, null, 2), "utf8"),
   };
 }
 
@@ -316,7 +316,11 @@ async function materializeGitHubTreeArtifact(
   if (!repoInfo) {
     return requirePinnedProvenance
       ? null
-      : { content: JSON.stringify(entry, null, 2) };
+      : { content: Buffer.from(JSON.stringify(entry, null, 2), "utf8") };
+  }
+
+  if (!repoInfo.expectedBlobSha) {
+    return null;
   }
 
   const commitSha = await fetchGitHubBranchCommitSha(
@@ -329,12 +333,13 @@ async function materializeGitHubTreeArtifact(
   }
 
   const fetchRef = commitSha ?? repoInfo.ref;
-  const content = await fetchGitHubFileContent(
+  const content = await fetchVerifiedGitHubFileContent(
     repoInfo.owner,
     repoInfo.repo,
     fetchRef,
     repoInfo.filePath,
     MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
+    repoInfo.expectedBlobSha,
   );
   if (content === null) {
     return null;
@@ -344,6 +349,7 @@ async function materializeGitHubTreeArtifact(
     content,
     upstreamRef: repoInfo.ref,
     upstreamCommit: commitSha ?? undefined,
+    upstreamBlobSha: repoInfo.expectedBlobSha,
   };
 }
 
@@ -366,7 +372,7 @@ async function materializeOfficialIndexPackage(
       sourceId: entry.source.sourceId,
     });
 
-    if (!snapshot) {
+    if (!snapshot || snapshot.tree.truncated) {
       continue;
     }
 
@@ -378,18 +384,23 @@ async function materializeOfficialIndexPackage(
       continue;
     }
 
-    const packageFiles = snapshot.tree.entries
-      .filter(
+    const packageFileCandidates = snapshot.tree.entries.filter(
+      (treeEntry) =>
+        treeEntry.type === "blob" &&
+        treeEntry.path.startsWith(`${skillRootPath}/`),
+    );
+    if (
+      packageFileCandidates.length > MAX_OFFICIAL_INDEX_PACKAGE_FILES ||
+      packageFileCandidates.some(
         (treeEntry) =>
-          treeEntry.type === "blob" &&
-          treeEntry.path.startsWith(`${skillRootPath}/`),
+          treeEntry.size !== null &&
+          treeEntry.size > MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
       )
-      .filter(
-        (treeEntry) =>
-          treeEntry.size === null ||
-          treeEntry.size <= MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
-      )
-      .slice(0, MAX_OFFICIAL_INDEX_PACKAGE_FILES);
+    ) {
+      continue;
+    }
+
+    const packageFiles = packageFileCandidates;
 
     if (packageFiles.length === 0) {
       continue;
@@ -404,25 +415,31 @@ async function materializeOfficialIndexPackage(
       continue;
     }
 
-    const materializedFiles: Array<{ relativePath: string; content: string }> =
-      [];
+    const materializedFiles: Array<{
+      relativePath: string;
+      content: Buffer;
+      upstreamBlobSha?: string;
+    }> = [];
     const fetchRef = commitSha ?? snapshot.repoSummary.defaultBranch;
 
     for (const packageFile of packageFiles) {
-      const fileContent = await fetchGitHubFileContent(
+      const fileContent = await fetchVerifiedGitHubFileContent(
         snapshot.owner,
         snapshot.repo,
         fetchRef,
         packageFile.path,
         MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+        packageFile.sha,
       );
       if (fileContent === null) {
-        continue;
+        materializedFiles.length = 0;
+        break;
       }
 
       materializedFiles.push({
         relativePath: packageFile.path.slice(skillRootPath.length + 1),
         content: fileContent,
+        upstreamBlobSha: packageFile.sha,
       });
     }
 
@@ -435,7 +452,9 @@ async function materializeOfficialIndexPackage(
     );
 
     return {
-      content: skillMarkdownFile?.content ?? JSON.stringify(entry, null, 2),
+      content:
+        skillMarkdownFile?.content ??
+        Buffer.from(JSON.stringify(entry, null, 2), "utf8"),
       files: materializedFiles,
       upstreamRef: snapshot.repoSummary.defaultBranch,
       upstreamCommit: commitSha ?? undefined,
@@ -455,10 +474,35 @@ function buildOfficialIndexRepoUrlCandidates(
     `https://github.com/${owner}/skills`,
   ].filter(
     (value): value is string =>
-      typeof value === "string" && value.includes("github.com"),
+      typeof value === "string" && isGitHubHttpsRepositoryUrl(value),
   );
 
   return [...new Set(candidateRepoUrls)];
+}
+
+function isGitHubHttpsRepositoryUrl(value: string): boolean {
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.hostname.toLowerCase() === "github.com" &&
+      parsedUrl.pathname.split("/").filter(Boolean).length >= 2
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isGitHubHttpsUrl(value: string): boolean {
+  try {
+    const parsedUrl = new URL(value);
+    return (
+      parsedUrl.protocol === "https:" &&
+      parsedUrl.hostname.toLowerCase() === "github.com"
+    );
+  } catch {
+    return false;
+  }
 }
 
 function findOfficialIndexSkillRoot(
@@ -484,14 +528,15 @@ function findOfficialIndexSkillRoot(
     : null;
 }
 
-async function fetchGitHubFileContent(
+async function fetchVerifiedGitHubFileContent(
   owner: string,
   repo: string,
   branch: string,
   filePath: string,
   maxBytes: number,
-): Promise<string | null> {
-  return fetchTextWithGuards(
+  expectedBlobSha?: string,
+): Promise<Buffer | null> {
+  const content = await fetchBytesWithGuards(
     buildGitHubRawFileUrl({ owner, repo, branch, filePath }),
     {
       allowedOrigins: GITHUB_RAW_ALLOWED_ORIGINS,
@@ -499,6 +544,16 @@ async function fetchGitHubFileContent(
       maxBytes,
     },
   );
+
+  if (content === null) {
+    return null;
+  }
+
+  if (expectedBlobSha && createGitBlobSha(content) !== expectedBlobSha) {
+    return null;
+  }
+
+  return content;
 }
 
 async function fetchGitHubBranchCommitSha(
@@ -532,6 +587,7 @@ function parseGitHubBlobEntry(entry: AssetCatalogEntry): {
   repo: string;
   ref: string;
   filePath: string;
+  expectedBlobSha?: string;
 } | null {
   const filePath = entry.evidence.filePath;
   if (!filePath) {
@@ -561,7 +617,11 @@ function parseGitHubBlobEntry(entry: AssetCatalogEntry): {
       return null;
     }
 
-    return { owner, repo, ref, filePath };
+    const expectedBlobSha = isGitBlobSha(entry.install.manifestEntry)
+      ? entry.install.manifestEntry
+      : undefined;
+
+    return { owner, repo, ref, filePath, expectedBlobSha };
   } catch {
     return null;
   }
@@ -573,18 +633,29 @@ function buildMirrorFileManifest(
 ): MirrorFileManifest {
   const files = [
     { relativePath: "content.txt", content: materializedArtifact.content },
-    { relativePath: "asset.json", content: `${JSON.stringify(entry, null, 2)}\n` },
+    {
+      relativePath: "asset.json",
+      content: Buffer.from(`${JSON.stringify(entry, null, 2)}\n`, "utf8"),
+    },
     ...(materializedArtifact.files ?? []),
   ]
     .map((file) => ({
       relativePath: file.relativePath,
       sha256: createContentHash(file.content),
-      sizeBytes: Buffer.byteLength(file.content, "utf8"),
+      sizeBytes: file.content.byteLength,
+      upstreamBlobSha: file.upstreamBlobSha,
     }))
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
   const aggregateHash = createContentHash(
     files
-      .map((file) => `${file.relativePath}\0${file.sha256}\0${file.sizeBytes}`)
+      .map((file) =>
+        [
+          file.relativePath,
+          file.sha256,
+          String(file.sizeBytes),
+          file.upstreamBlobSha ?? "",
+        ].join("\0"),
+      )
       .join("\n"),
   );
 
@@ -622,7 +693,7 @@ function buildUpstreamMetadata(
     };
   }
 
-  if (entry.source.originUrl.includes("github.com")) {
+  if (isGitHubHttpsUrl(entry.source.originUrl)) {
     return {
       type: "repo",
       url: entry.source.originUrl,
@@ -674,19 +745,45 @@ function hasPromptInjectionRisk(
   materializedArtifact: MaterializedMirrorArtifact,
 ): boolean {
   const combinedContent = [
-    materializedArtifact.content,
-    ...(materializedArtifact.files ?? []).map((file) => file.content),
-  ]
-    .join("\n")
-    .toLowerCase();
-  return [
-    "ignore previous instructions",
-    "ignore all previous instructions",
-    "exfiltrate secrets",
-    "send environment variables",
-    "disable security",
-    "reveal your system prompt",
-  ].some((pattern) => combinedContent.includes(pattern));
+    materializedArtifact.content.toString("utf8"),
+    ...(materializedArtifact.files ?? []).map((file) =>
+      file.content.toString("utf8"),
+    ),
+  ].join("\n");
+  const normalizedContent = normalizePromptInjectionText(combinedContent);
+  return PROMPT_INJECTION_PATTERNS.some((pattern) =>
+    pattern.test(normalizedContent),
+  );
+}
+
+const PROMPT_INJECTION_PATTERNS = [
+  /\bignore\s+(?:all\s+)?(?:previous|prior|above|earlier)\s+(?:system\s+)?(?:instructions?|messages?|prompts?|rules?)\b/u,
+  /\b(?:override|bypass|disable|discard)\s+(?:the\s+)?(?:system|developer|safety|security)\s+(?:instructions?|messages?|prompts?|rules?)\b/u,
+  /\b(?:reveal|print|show|dump|output|leak)\s+(?:the\s+)?(?:system\s+prompt|developer\s+message|hidden\s+instructions?)\b/u,
+  /\b(?:exfiltrate|steal|leak|dump|print|send|upload|post|output)\s+(?:secrets?|credentials?|tokens?|api\s*keys?|environment\s+variables|env(?:ironment)?\s*(?:vars?)?)\b/u,
+  /\b(?:send|upload|post)\s+(?:.*\s+)?(?:to\s+)?(?:an?\s+)?(?:external|remote|attacker|webhook)\s+(?:server|url|endpoint)\b/u,
+  /\b(?:do\s+not|don't)\s+(?:tell|mention|disclose)\s+(?:the\s+)?user\b/u,
+];
+
+function normalizePromptInjectionText(content: string): string {
+  return content
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[`*_~>#|[\]{}()\\-]+/gu, " ")
+    .replace(/[^a-z0-9]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+function createGitBlobSha(content: Buffer): string {
+  return createHash("sha1")
+    .update(`blob ${content.byteLength}\0`)
+    .update(content)
+    .digest("hex");
+}
+
+function isGitBlobSha(value: string | undefined): value is string {
+  return Boolean(value && /^[a-f0-9]{40}$/iu.test(value));
 }
 
 async function writeMirrorAcquireState(
@@ -721,7 +818,7 @@ function buildGitHubCachePath(
 ): string | null {
   if (
     !entry.source.sourceId ||
-    !entry.source.originUrl.includes("github.com")
+    !isGitHubHttpsUrl(entry.source.originUrl)
   ) {
     return null;
   }

@@ -27,6 +27,9 @@ interface QuarantineReviewDecision {
 const MIRROR_INDEX_PATH = ["mirror", "index.jsonl"] as const;
 const REVIEW_LOG_PATH = ["state", "quarantine", "reviews.jsonl"] as const;
 
+/**
+ * Dispatches the quarantine CLI command group.
+ */
 export async function runQuarantine(
   args: string[],
   projectRoot: string,

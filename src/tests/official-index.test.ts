@@ -11,6 +11,8 @@ void test("official index repo extraction respects checked-in owner allowlist", 
     join(tmpdir(), "agent-harness-official-index-"),
   );
   const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
 
   try {
     await mkdir(join(projectRoot, "discover"), { recursive: true });
@@ -51,6 +53,7 @@ void test("official index repo extraction respects checked-in owner allowlist", 
       );
     context.after(() => {
       globalThis.fetch = originalFetch;
+      restoreFetchMockFlag(previousFetchMockFlag);
     });
 
     const entries = await harvestOfficialSkillIndexes(projectRoot, null, {
@@ -74,6 +77,16 @@ void test("official index repo extraction respects checked-in owner allowlist", 
     );
   } finally {
     globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
     await rm(projectRoot, { force: true, recursive: true });
   }
 });
+
+function restoreFetchMockFlag(previousValue: string | undefined): void {
+  if (previousValue === undefined) {
+    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    return;
+  }
+
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+}

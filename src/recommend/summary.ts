@@ -8,6 +8,9 @@ import type {
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
+/**
+ * Builds host summary from the provided inputs.
+ */
 export function buildHostSummary(
   host: RecommendationHost,
   entries: RecommendationEntry[],
@@ -31,6 +34,9 @@ export function buildHostSummary(
   };
 }
 
+/**
+ * Builds suggested bundle from the provided inputs.
+ */
 export function buildSuggestedBundle(
   host: RecommendationHost,
   entries: RecommendationEntry[],
@@ -63,10 +69,7 @@ function selectEntriesWithinBudget(
   let remainingBudget = budget;
 
   for (const entry of entries) {
-    if (
-      entry.estimatedPromptWeight <= remainingBudget ||
-      selected.length === 0
-    ) {
+    if (entry.estimatedPromptWeight <= remainingBudget) {
       selected.push(entry);
       remainingBudget -= entry.estimatedPromptWeight;
     }

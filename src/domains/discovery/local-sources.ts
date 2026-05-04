@@ -3,6 +3,9 @@ import { join } from "node:path";
 import type { SourceDefinition } from "../../types.js";
 import { resolveDefaultOpenCodeConfigRoot } from "../../lib/paths.js";
 
+/**
+ * Builds generated local sources from the provided inputs.
+ */
 export function buildGeneratedLocalSources(): SourceDefinition[] {
   const openCodeRoot = resolveDefaultOpenCodeConfigRoot();
 

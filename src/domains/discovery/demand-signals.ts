@@ -1,4 +1,4 @@
-import { readJsonFileOrNull, readTextFileOrNull } from "../../files.js";
+import { readTextFileOrNull } from "../../files.js";
 import type { DemandSignalSet } from "../../types.js";
 import {
   collectDetectorSignals,
@@ -32,8 +32,38 @@ const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
 const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
+const INSPECTABLE_FILE_NAMES = new Set([
+  "package.json",
+  "package-lock.json",
+  "pnpm-lock.yaml",
+  "yarn.lock",
+  "tsconfig.json",
+  "pyproject.toml",
+  "requirements.txt",
+  "Cargo.toml",
+  "go.mod",
+  "pom.xml",
+  "build.gradle",
+  "build.gradle.kts",
+  "Gemfile",
+  "composer.json",
+  "Package.swift",
+  "Dockerfile",
+  "docker-compose.yml",
+  "docker-compose.yaml",
+  "deno.json",
+  "actor.json",
+  "input_schema.json",
+]);
 
+/**
+ * Provides should inspect file for the lifecycle pipeline.
+ */
 export function shouldInspectFile(fileName: string, filePath: string): boolean {
+  if (isActorJsonFile(fileName, filePath) || fileName === "input_schema.json") {
+    return true;
+  }
+
   if (
     fileName.endsWith(".csproj") ||
     fileName.endsWith(".tf") ||
@@ -54,29 +84,7 @@ export function shouldInspectFile(fileName: string, filePath: string): boolean {
     return true;
   }
 
-  const inspectableNames = new Set([
-    "package.json",
-    "package-lock.json",
-    "pnpm-lock.yaml",
-    "yarn.lock",
-    "tsconfig.json",
-    "pyproject.toml",
-    "requirements.txt",
-    "Cargo.toml",
-    "go.mod",
-    "pom.xml",
-    "build.gradle",
-    "build.gradle.kts",
-    "Gemfile",
-    "composer.json",
-    "Package.swift",
-    "Dockerfile",
-    "docker-compose.yml",
-    "docker-compose.yaml",
-    "deno.json",
-  ]);
-
-  if (inspectableNames.has(fileName)) {
+  if (INSPECTABLE_FILE_NAMES.has(fileName)) {
     return true;
   }
 
@@ -86,6 +94,9 @@ export function shouldInspectFile(fileName: string, filePath: string): boolean {
   );
 }
 
+/**
+ * Collects demand signals for file from the provided inputs.
+ */
 export async function collectDemandSignalsForFile(
   fileName: string,
   filePath: string,
@@ -94,35 +105,38 @@ export async function collectDemandSignalsForFile(
 
   collectDetectorSignals(fileName, filePath, matchedSignals);
 
+  const fileContent = shouldReadFileContent(fileName, filePath)
+    ? await readTextFileOrNull(filePath)
+    : null;
+
   if (fileName === "package.json") {
-    await enrichPackageJsonSignals(filePath, matchedSignals);
+    enrichPackageJsonSignals(fileContent, matchedSignals);
   }
 
   if (fileName === "requirements.txt") {
-    await enrichRequirementsSignals(filePath, matchedSignals);
+    enrichRequirementsSignals(fileContent, matchedSignals);
   }
 
   if (fileName === "pyproject.toml") {
-    await enrichPyProjectSignals(filePath, matchedSignals);
+    enrichPyProjectSignals(fileContent, matchedSignals);
   }
 
-  await enrichMultiEcosystemDependencySignals(
-    fileName,
-    filePath,
-    matchedSignals,
-  );
+  enrichMultiEcosystemDependencySignals(fileName, fileContent, matchedSignals);
 
   if (isActorJsonFile(fileName, filePath)) {
-    await enrichActorJsonSignals(filePath, matchedSignals);
+    enrichActorJsonSignals(fileContent, matchedSignals);
   }
 
   if (shouldReadTextForTechnologySignals(fileName)) {
-    await enrichGenericTextSignals(filePath, matchedSignals);
+    enrichGenericTextSignals(fileContent, matchedSignals);
   }
 
   return matchedSignals;
 }
 
+/**
+ * Returns whether the provided value matches actor json file.
+ */
 export function isActorJsonFile(fileName: string, filePath: string): boolean {
   return (
     /^actor\.json$/iu.test(fileName) || ACTOR_JSON_PATH_PATTERN.test(filePath)
@@ -253,11 +267,11 @@ function collectStaticSignals(
   return matchedSignals;
 }
 
-async function enrichPackageJsonSignals(
-  filePath: string,
+function enrichPackageJsonSignals(
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
-  const packageJson = await readJsonFileOrNull<PackageJsonShape>(filePath);
+): void {
+  const packageJson = parseJsonOrNull<PackageJsonShape>(content);
 
   if (!packageJson) {
     return;
@@ -295,11 +309,10 @@ async function enrichPackageJsonSignals(
   addPackageDependencySignals(matchedSignals, "npm", [...dependencyNames]);
 }
 
-async function enrichRequirementsSignals(
-  filePath: string,
+function enrichRequirementsSignals(
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
-  const content = await readTextFileOrNull(filePath);
+): void {
   if (!content) {
     return;
   }
@@ -319,11 +332,10 @@ async function enrichRequirementsSignals(
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
 }
 
-async function enrichPyProjectSignals(
-  filePath: string,
+function enrichPyProjectSignals(
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
-  const content = await readTextFileOrNull(filePath);
+): void {
   if (!content) {
     return;
   }
@@ -472,11 +484,11 @@ function isPlainPackageName(value: string | undefined): value is string {
   return Boolean(value && /^[a-z0-9_.-]+$/iu.test(value));
 }
 
-async function enrichMultiEcosystemDependencySignals(
+function enrichMultiEcosystemDependencySignals(
   fileName: string,
-  filePath: string,
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
+): void {
   if (
     fileName === "package.json" ||
     fileName === "requirements.txt" ||
@@ -485,7 +497,6 @@ async function enrichMultiEcosystemDependencySignals(
     return;
   }
 
-  const content = await readTextFileOrNull(filePath);
   if (!content) {
     return;
   }
@@ -565,11 +576,10 @@ function addPackageDependencySignals(
   addSignals(matchedSignals.tooling, normalizedNames);
 }
 
-async function enrichGenericTextSignals(
-  filePath: string,
+function enrichGenericTextSignals(
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
-  const content = await readTextFileOrNull(filePath);
+): void {
   if (!content) {
     return;
   }
@@ -600,11 +610,11 @@ function shouldReadTextForTechnologySignals(fileName: string): boolean {
   );
 }
 
-async function enrichActorJsonSignals(
-  filePath: string,
+function enrichActorJsonSignals(
+  content: string | null,
   matchedSignals: DemandSignalSet,
-): Promise<void> {
-  const actorJson = await readJsonFileOrNull<ActorJsonShape>(filePath);
+): void {
+  const actorJson = parseJsonOrNull<ActorJsonShape>(content);
 
   if (!actorJson) {
     return;
@@ -631,6 +641,44 @@ async function enrichActorJsonSignals(
     text: actorTextSignals,
   });
   addGenericTextSignals(matchedSignals, actorTextSignals);
+}
+
+function shouldReadFileContent(fileName: string, filePath: string): boolean {
+  return (
+    fileName === "package.json" ||
+    fileName === "requirements.txt" ||
+    fileName === "pyproject.toml" ||
+    isActorJsonFile(fileName, filePath) ||
+    shouldReadTextForTechnologySignals(fileName) ||
+    shouldReadTextForDependencySignals(fileName)
+  );
+}
+
+function shouldReadTextForDependencySignals(fileName: string): boolean {
+  return (
+    [
+      "Cargo.toml",
+      "go.mod",
+      "pom.xml",
+      "build.gradle",
+      "build.gradle.kts",
+      "Gemfile",
+      "composer.json",
+      "Package.swift",
+    ].includes(fileName) || fileName.endsWith(".csproj")
+  );
+}
+
+function parseJsonOrNull<T>(content: string | null): T | null {
+  if (!content) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(content) as T;
+  } catch {
+    return null;
+  }
 }
 
 function addGenericTextSignals(

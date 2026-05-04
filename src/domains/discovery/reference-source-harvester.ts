@@ -2,6 +2,7 @@ import { fetchOfficialIndexPageContent } from "../../official-index.js";
 import type {
   AssetCatalogEntry,
   AssetKind,
+  AssetStatus,
   CompatibilityMode,
   DemandProfile,
   SelectionRegistry,
@@ -25,6 +26,9 @@ import {
   type HarvestedReferenceItem,
 } from "./reference-harvesters.js";
 
+/**
+ * Provides harvest reference source for the lifecycle pipeline.
+ */
 export async function harvestReferenceSource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
@@ -161,12 +165,24 @@ function buildReferenceSourceCatalogEntry(
       duplicateGroup: findDuplicateGroup(capabilities, selectionRegistry),
       candidateRankHint: buildCandidateRankHint(source.authorityTier),
     },
-    status: {
-      cataloged: true,
-      mirrorEligible: wasHarvested && source.rules.allowMirror,
-      installEligible: compatibilityMode === "native",
-      activationEligible: compatibilityMode === "native",
-    },
+    status: buildReferenceAssetStatus(source, compatibilityMode, wasHarvested),
+  };
+}
+
+function buildReferenceAssetStatus(
+  source: SourceDefinition,
+  compatibilityMode: CompatibilityMode,
+  wasHarvested: boolean,
+): AssetStatus {
+  const policyAllowsInstall =
+    wasHarvested && source.rules.allowMirror && source.rules.allowInstall;
+  const installEligible = compatibilityMode === "native" && policyAllowsInstall;
+
+  return {
+    cataloged: true,
+    mirrorEligible: wasHarvested && source.rules.allowMirror,
+    installEligible,
+    activationEligible: installEligible,
   };
 }
 

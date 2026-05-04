@@ -31,6 +31,9 @@ interface SourcePackShape {
   }>;
 }
 
+/**
+ * Loads source registry from project state.
+ */
 export async function loadSourceRegistry(
   projectRoot: string,
 ): Promise<SourceRegistry> {

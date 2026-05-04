@@ -1,10 +1,16 @@
-import { fetchJsonWithGuards } from "./lib/http.js";
+import {
+  fetchJsonWithGuards,
+  type FetchWithGuardsOptions,
+} from "./lib/http.js";
 
 const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
 const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;
 const REGISTRY_METADATA_MAX_BYTES = 2_000_000;
 const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
 
+/**
+ * Describes npm package metadata data exchanged by the lifecycle pipeline.
+ */
 export interface NpmPackageMetadata {
   name: string;
   description?: string;
@@ -21,6 +27,9 @@ export interface NpmPackageMetadata {
   lastUpdated?: string;
 }
 
+/**
+ * Describes pypi package metadata data exchanged by the lifecycle pipeline.
+ */
 export interface PypiPackageMetadata {
   info: {
     name: string;
@@ -34,8 +43,12 @@ export interface PypiPackageMetadata {
   lastUpdated?: string;
 }
 
+/**
+ * Fetches npm package metadata with the configured runtime safeguards.
+ */
 export async function fetchNpmPackageMetadata(
   packageName: string,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<NpmPackageMetadata | null> {
   try {
     const data = await fetchJsonWithGuards(
@@ -44,6 +57,7 @@ export async function fetchNpmPackageMetadata(
         allowedOrigins: NPM_REGISTRY_ORIGINS,
         headers: { Accept: "application/vnd.npm.install-v1+json" },
         maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        resolveHostname: options.resolveHostname,
         timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
       },
     );
@@ -57,8 +71,12 @@ export async function fetchNpmPackageMetadata(
   }
 }
 
+/**
+ * Fetches pypi package metadata with the configured runtime safeguards.
+ */
 export async function fetchPypiPackageMetadata(
   packageName: string,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<PypiPackageMetadata | null> {
   try {
     const data = await fetchJsonWithGuards(
@@ -66,6 +84,7 @@ export async function fetchPypiPackageMetadata(
       {
         allowedOrigins: PYPI_REGISTRY_ORIGINS,
         maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        resolveHostname: options.resolveHostname,
         timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
       },
     );
@@ -227,6 +246,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Provides extract repository url from npm metadata for the lifecycle pipeline.
+ */
 export function extractRepositoryUrlFromNpmMetadata(
   metadata: NpmPackageMetadata,
 ): string | undefined {
@@ -235,14 +257,17 @@ export function extractRepositoryUrlFromNpmMetadata(
   }
 
   if (typeof metadata.repository === "string") {
-    return sanitizeRepositoryUrl(metadata.repository);
+    return normalizeRepositoryHttpUrl(metadata.repository);
   }
 
   return metadata.repository.url
-    ? sanitizeRepositoryUrl(metadata.repository.url)
+    ? normalizeRepositoryHttpUrl(metadata.repository.url)
     : undefined;
 }
 
+/**
+ * Provides extract repository url from pypi metadata for the lifecycle pipeline.
+ */
 export function extractRepositoryUrlFromPypiMetadata(
   metadata: PypiPackageMetadata,
 ): string | undefined {
@@ -273,8 +298,54 @@ function isGitHubRepositoryUrl(value: string): boolean {
 }
 
 function sanitizeRepositoryUrl(value: string): string {
-  return value
-    .replace(/^git\+/u, "")
-    .replace(/\.git$/u, "")
-    .replace(/^git:/u, "https:");
+  const trimmedValue = stripUrlSuffix(value.trim());
+  const githubShorthand = /^github:([^/\s]+)\/(.+)$/iu.exec(trimmedValue);
+  if (githubShorthand?.[1] && githubShorthand[2]) {
+    return buildGitHubRepositoryUrl(githubShorthand[1], githubShorthand[2]);
+  }
+
+  const scpLikeGithubUrl = /^git@github\.com:([^/\s]+)\/(.+)$/iu.exec(
+    trimmedValue,
+  );
+  if (scpLikeGithubUrl?.[1] && scpLikeGithubUrl[2]) {
+    return buildGitHubRepositoryUrl(scpLikeGithubUrl[1], scpLikeGithubUrl[2]);
+  }
+
+  const withoutGitPrefix = trimmedValue.replace(/^git\+/iu, "");
+  const sshGithubUrl = /^ssh:\/\/git@github\.com\/([^/\s]+)\/(.+)$/iu.exec(
+    withoutGitPrefix,
+  );
+  if (sshGithubUrl?.[1] && sshGithubUrl[2]) {
+    return buildGitHubRepositoryUrl(sshGithubUrl[1], sshGithubUrl[2]);
+  }
+
+  const normalizedUrl = withoutGitPrefix.replace(/^git:/iu, "https:");
+  try {
+    const parsedUrl = new URL(normalizedUrl);
+    if (parsedUrl.hostname.toLowerCase() === "github.com") {
+      const [owner, repo] = parsedUrl.pathname.split("/").filter(Boolean);
+      return owner && repo
+        ? buildGitHubRepositoryUrl(owner, repo)
+        : normalizedUrl;
+    }
+  } catch {
+    return normalizedUrl.replace(/\.git$/iu, "");
+  }
+
+  return normalizedUrl.replace(/\.git$/iu, "");
+}
+
+function buildGitHubRepositoryUrl(owner: string, repo: string): string {
+  const cleanOwner = stripUrlSuffix(owner).split("/").filter(Boolean)[0];
+  const cleanRepo = stripUrlSuffix(repo)
+    .split("/")
+    .filter(Boolean)[0]
+    ?.replace(/\.git$/iu, "");
+  return cleanOwner && cleanRepo
+    ? `https://github.com/${cleanOwner}/${cleanRepo}`
+    : `https://github.com/${owner}/${repo.replace(/\.git$/iu, "")}`;
+}
+
+function stripUrlSuffix(value: string): string {
+  return value.split(/[?#]/u)[0] ?? value;
 }

@@ -1,8 +1,14 @@
 import type { DemandSignalSet } from "../../types.js";
 import { addSignals } from "./signals.js";
 
+/**
+ * Defines the supported package ecosystem values.
+ */
 export type PackageEcosystem = "npm" | "pypi";
 
+/**
+ * Describes technology signature data exchanged by the lifecycle pipeline.
+ */
 export interface TechnologySignature {
   id: string;
   packages?: Partial<Record<PackageEcosystem, string[]>>;
@@ -11,12 +17,18 @@ export interface TechnologySignature {
   signals: Partial<DemandSignalSet>;
 }
 
+/**
+ * Describes technology signal context data exchanged by the lifecycle pipeline.
+ */
 export interface TechnologySignalContext {
   dependencyNames?: string[];
   ecosystem?: PackageEcosystem;
   text?: string;
 }
 
+/**
+ * Defines technology signatures shared by the lifecycle pipeline.
+ */
 export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   {
     id: "react",
@@ -507,6 +519,9 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
 ];
 
+/**
+ * Provides apply technology signatures for the lifecycle pipeline.
+ */
 export function applyTechnologySignatures(
   target: DemandSignalSet,
   context: TechnologySignalContext,

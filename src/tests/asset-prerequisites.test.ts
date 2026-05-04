@@ -19,18 +19,28 @@ void test("metadata prerequisites map known auth providers and explicit env vars
   const prerequisites = buildAssetPrerequisitesFromMetadata({
     providers: ["openai", "unknown-provider"],
     envVars: ["EXTRA_TOKEN"],
+    hostLogins: ["vscode"],
+    oauthProviders: ["OpenAI"],
     setupUrl: "https://example.com/setup",
   });
 
   assert.deepEqual(
     prerequisites.map((prerequisite) => prerequisite.id),
-    ["auth:openai", "auth:unknown-provider", "env:EXTRA_TOKEN"],
+    [
+      "auth:openai",
+      "auth:unknown-provider",
+      "env:EXTRA_TOKEN",
+      "host-login:copilot-vscode",
+      "oauth:openai",
+    ],
   );
   assert.deepEqual(prerequisites[0]?.envVars, ["OPENAI_API_KEY"]);
   assert.equal(prerequisites[0]?.setupUrl, "https://example.com/setup");
   assert.equal(prerequisites[1]?.kind, "manual");
   assert.equal(prerequisites[1]?.setupUrl, "https://example.com/setup");
   assert.equal(prerequisites[2]?.setupUrl, undefined);
+  assert.equal(prerequisites[3]?.host, "copilot-vscode");
+  assert.equal(prerequisites[4]?.provider, "openai");
 });
 
 void test("missing and present environment prerequisites produce actionable diagnostics", (context) => {

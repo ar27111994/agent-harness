@@ -13,6 +13,9 @@ import {
   WIRE_PLAN_HOSTS,
 } from "./primitives.js";
 
+/**
+ * Validates unknown data as activation manifest.
+ */
 export function assertActivationManifest(
   value: unknown,
   context: string,
@@ -30,6 +33,9 @@ export function assertActivationManifest(
   }
 }
 
+/**
+ * Validates unknown data as copilot workspace profile manifest.
+ */
 export function assertCopilotWorkspaceProfileManifest(
   value: unknown,
   context: string,
@@ -41,15 +47,46 @@ export function assertCopilotWorkspaceProfileManifest(
   assertString(record.workspaceRoot, `${context}.workspaceRoot`);
   assertStringArray(record.bundleIds, `${context}.bundleIds`);
   assertStringArray(record.selectedAssetIds, `${context}.selectedAssetIds`);
-  if (record.selectedExtensionIds !== undefined) {
-    assertStringArray(
-      record.selectedExtensionIds,
-      `${context}.selectedExtensionIds`,
-    );
-  }
+  assertStringArray(
+    record.selectedInstructionIds,
+    `${context}.selectedInstructionIds`,
+  );
+  assertStringArray(record.selectedAgentIds, `${context}.selectedAgentIds`);
+  assertStringArray(
+    record.selectedWorkflowIds,
+    `${context}.selectedWorkflowIds`,
+  );
+  assertOptionalStringArray(
+    record.selectedPluginIds,
+    `${context}.selectedPluginIds`,
+  );
+  assertOptionalStringArray(
+    record.selectedExtensionIds,
+    `${context}.selectedExtensionIds`,
+  );
+  assertOptionalStringArray(
+    record.selectedHookIds,
+    `${context}.selectedHookIds`,
+  );
+  assertOptionalStringArray(
+    record.selectedSkillIds,
+    `${context}.selectedSkillIds`,
+  );
   assertNumber(record.activationBudget, `${context}.activationBudget`);
+  if (record.sessionIntent !== undefined) {
+    assertString(record.sessionIntent, `${context}.sessionIntent`);
+  }
 }
 
+function assertOptionalStringArray(value: unknown, context: string): void {
+  if (value !== undefined) {
+    assertStringArray(value, context);
+  }
+}
+
+/**
+ * Validates unknown data as wire plan manifest.
+ */
 export function assertWirePlanManifest(
   value: unknown,
   context: string,

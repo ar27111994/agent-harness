@@ -23,6 +23,9 @@ import type {
   RecommendationSignalMatch,
 } from "../types.js";
 
+/**
+ * Dispatches the recommend CLI command group.
+ */
 export async function runRecommend(
   args: string[],
   _workingDirectory: string,

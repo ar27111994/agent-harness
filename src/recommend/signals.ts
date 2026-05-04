@@ -8,6 +8,9 @@ import type {
 } from "../types.js";
 import type { DemandContext, DemandTermContext } from "./model.js";
 
+/**
+ * Collects matched signals from the provided inputs.
+ */
 export function collectMatchedSignals(
   searchTerms: Set<string>,
   demandContext: DemandContext,
@@ -35,6 +38,9 @@ export function collectMatchedSignals(
     );
 }
 
+/**
+ * Builds demand context from the provided inputs.
+ */
 export function buildDemandContext(
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
@@ -117,6 +123,9 @@ function buildActiveDomainGroups(
   return activeGroups;
 }
 
+/**
+ * Provides compute out of domain penalty for the lifecycle pipeline.
+ */
 export function computeOutOfDomainPenalty(
   searchTerms: Set<string>,
   demandContext: DemandContext,
@@ -139,6 +148,9 @@ export function computeOutOfDomainPenalty(
   return penalty;
 }
 
+/**
+ * Builds coverage tags from the provided inputs.
+ */
 export function buildCoverageTags(
   searchTerms: Set<string>,
   matchedSignals: RecommendationSignalMatch[],
@@ -161,6 +173,9 @@ export function buildCoverageTags(
   return [...tags].sort();
 }
 
+/**
+ * Builds task modes from the provided inputs.
+ */
 export function buildTaskModes(
   searchTerms: Set<string>,
   coverageTags: string[],
@@ -204,6 +219,9 @@ export function buildTaskModes(
   return [...modes].sort();
 }
 
+/**
+ * Builds duplicate group from the provided inputs.
+ */
 export function buildDuplicateGroup(
   assetKind: AssetKind,
   matchedSignals: RecommendationSignalMatch[],
@@ -224,6 +242,9 @@ export function buildDuplicateGroup(
   return `${assetKind}:${terms.join("+")}`;
 }
 
+/**
+ * Builds search terms from the provided inputs.
+ */
 export function buildSearchTerms(
   values: string[],
   policy: RecommendationPolicy,
@@ -266,6 +287,9 @@ function canonicalizePhrase(
   return normalizedValue;
 }
 
+/**
+ * Provides normalize phrase for the lifecycle pipeline.
+ */
 export function normalizePhrase(value: string): string {
   return value
     .toLowerCase()

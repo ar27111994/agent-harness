@@ -1,5 +1,8 @@
 import type { HostTarget } from "./core.js";
 
+/**
+ * Describes activation manifest data exchanged by the lifecycle pipeline.
+ */
 export interface ActivationManifest {
   schemaVersion: number;
   host: HostTarget;
@@ -11,6 +14,9 @@ export interface ActivationManifest {
   notes: string[];
 }
 
+/**
+ * Describes copilot workspace overlay manifest data exchanged by the lifecycle pipeline.
+ */
 export interface CopilotWorkspaceOverlayManifest {
   schemaVersion: 1;
   host: "copilot-vscode";
@@ -25,6 +31,9 @@ export interface CopilotWorkspaceOverlayManifest {
   taskModeBuckets?: Record<string, string[]>;
 }
 
+/**
+ * Describes copilot workspace profile manifest data exchanged by the lifecycle pipeline.
+ */
 export interface CopilotWorkspaceProfileManifest {
   schemaVersion: number;
   generatedAt: string;
@@ -43,6 +52,9 @@ export interface CopilotWorkspaceProfileManifest {
   sessionIntent?: string;
 }
 
+/**
+ * Describes wire plan manifest data exchanged by the lifecycle pipeline.
+ */
 export interface WirePlanManifest {
   schemaVersion: number;
   host:
@@ -70,6 +82,9 @@ export interface WirePlanManifest {
   notes: string[];
 }
 
+/**
+ * Describes wire preview manifest data exchanged by the lifecycle pipeline.
+ */
 export interface WirePreviewManifest {
   schemaVersion: number;
   host: "vscode" | "opencode";

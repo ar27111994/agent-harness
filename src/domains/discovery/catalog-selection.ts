@@ -6,6 +6,9 @@ import type {
   SelectionRegistry,
 } from "../../types.js";
 
+/**
+ * Groups catalog entries for selection in the lifecycle pipeline.
+ */
 export function groupCatalogEntriesForSelection(
   catalogEntries: AssetCatalogEntry[],
 ): Map<string, AssetCatalogEntry[]> {
@@ -21,6 +24,9 @@ export function groupCatalogEntriesForSelection(
   return groupedEntries;
 }
 
+/**
+ * Compares selection candidate values for stable ordering.
+ */
 export function compareSelectionCandidates(
   left: AssetCatalogEntry,
   right: AssetCatalogEntry,
@@ -95,6 +101,9 @@ export function compareSelectionCandidates(
   return left.id.localeCompare(right.id);
 }
 
+/**
+ * Builds selection reason from the provided inputs.
+ */
 export function buildSelectionReason(
   selectedEntry: AssetCatalogEntry,
   selectionRegistry: SelectionRegistry,

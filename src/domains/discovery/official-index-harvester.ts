@@ -49,6 +49,9 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://raw.githubusercontent.com",
 ] as const;
 
+/**
+ * Provides harvest official skill indexes for the lifecycle pipeline.
+ */
 export async function harvestOfficialSkillIndexes(
   projectRoot: string,
   demandProfile: DemandProfile | null,
@@ -300,6 +303,34 @@ function buildOfficialIndexDuplicateGroup(owner: string, slug: string): string {
   return `official-index:${owner}:${slug}`;
 }
 
+function normalizeGitHubRepoIdentity(
+  repoUrl: string | undefined,
+): string | null {
+  if (!repoUrl) {
+    return null;
+  }
+
+  const normalizedRepoUrl = repoUrl.trim().replace(/^git\+/iu, "");
+  const httpsMatch =
+    /^https:\/\/github\.com\/([^/]+)\/(.+?)(?:\.git)?\/?$/iu.exec(
+      normalizedRepoUrl,
+    );
+  const scpMatch = /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/iu.exec(
+    normalizedRepoUrl,
+  );
+  const sshMatch =
+    /^ssh:\/\/git@github\.com\/([^/]+)\/(.+?)(?:\.git)?\/?$/iu.exec(
+      normalizedRepoUrl,
+    );
+  const match = httpsMatch ?? scpMatch ?? sshMatch;
+
+  if (!match?.[1] || !match[2]) {
+    return null;
+  }
+
+  return `${match[1]}/${match[2].replace(/\.git$/iu, "")}`.toLowerCase();
+}
+
 function isOfficialIndexOwner(owner: string): boolean {
   return [
     "anthropics",
@@ -344,14 +375,24 @@ async function resolveOfficialIndexEntryToRepoSource(
   officialRepoUrl?: string,
 ): Promise<AssetCatalogEntry | null> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
+  const officialRepoIdentity = normalizeGitHubRepoIdentity(officialRepoUrl);
+  const expectedFallbackIdentity = normalizeGitHubRepoIdentity(
+    `https://github.com/${owner}/${slug}`,
+  );
   const matchingSource = sourceRegistry.sources.find((source) => {
-    const repoUrl = source.endpoints.repo?.toLowerCase();
-    if (officialRepoUrl && repoUrl === officialRepoUrl.toLowerCase()) {
-      return true;
+    const sourceRepoIdentity = normalizeGitHubRepoIdentity(
+      source.endpoints.repo,
+    );
+    if (!sourceRepoIdentity) {
+      return false;
+    }
+
+    if (officialRepoIdentity) {
+      return sourceRepoIdentity === officialRepoIdentity;
     }
 
     return (
-      repoUrl?.includes(`/${owner.toLowerCase()}/`) &&
+      sourceRepoIdentity === expectedFallbackIdentity &&
       source.authorityTier === entry.source.authorityTier
     );
   });

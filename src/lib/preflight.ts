@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 import { delimiter, dirname, join } from "node:path";
@@ -12,8 +13,14 @@ import {
   resolveVsCodeUserSettingsPath,
 } from "./paths.js";
 
+/**
+ * Defines the supported preflight severity values.
+ */
 export type PreflightSeverity = "info" | "warning" | "error";
 
+/**
+ * Describes preflight diagnostic data exchanged by the lifecycle pipeline.
+ */
 export interface PreflightDiagnostic {
   severity: PreflightSeverity;
   code: string;
@@ -21,6 +28,9 @@ export interface PreflightDiagnostic {
   action?: string;
 }
 
+/**
+ * Dispatches the config preflight CLI command group.
+ */
 export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
   const diagnostics: PreflightDiagnostic[] = [];
   const config = getRuntimeConfig();
@@ -45,18 +55,7 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
 export async function runAdapterPreflight(
   adapter: HostAdapter,
 ): Promise<PreflightDiagnostic[]> {
-  if (!adapter.runtime) {
-    return [];
-  }
-
-  return [
-    await checkExecutableOnPath(
-      adapter.runtime.executable,
-      `${adapter.id}-cli`,
-      "warning",
-      adapter.runtime.guidance,
-    ),
-  ];
+  return runAdapterRuntimePreflight(adapter.runtime, adapter.id, false);
 }
 
 /**
@@ -100,14 +99,49 @@ async function runAdapterRuntimePreflight(
       : [];
   }
 
-  return [
-    await checkExecutableOnPath(
-      runtime.executable,
-      `${adapterId}-cli`,
-      required ? "error" : "warning",
-      runtime.guidance,
-    ),
-  ];
+  const executableDiagnostic = await checkExecutableOnPath(
+    runtime.executable,
+    `${adapterId}-cli`,
+    required ? "error" : "warning",
+    runtime.guidance,
+  );
+  const diagnostics = [executableDiagnostic];
+
+  if (executableDiagnostic.severity !== "info") {
+    return diagnostics;
+  }
+
+  if (runtime.versionArgs?.length) {
+    diagnostics.push(
+      await checkRuntimeCommand({
+        executable: runtime.executable,
+        args: runtime.versionArgs,
+        code: `${adapterId}-version`,
+        failureSeverity: required ? "error" : "warning",
+        successMessage: `${runtime.executable} version command completed successfully.`,
+        failureAction:
+          runtime.guidance ??
+          "Confirm the host CLI is installed correctly and can report its version.",
+      }),
+    );
+  }
+
+  if (runtime.readinessArgs?.length) {
+    diagnostics.push(
+      await checkRuntimeCommand({
+        executable: runtime.executable,
+        args: runtime.readinessArgs,
+        code: `${adapterId}-readiness`,
+        failureSeverity: required ? "error" : "warning",
+        successMessage: `${runtime.executable} readiness command completed successfully.`,
+        failureAction:
+          runtime.guidance ??
+          "Sign in to the host CLI and confirm marketplace/runtime access is available.",
+      }),
+    );
+  }
+
+  return diagnostics;
 }
 
 /**
@@ -181,6 +215,9 @@ function requireDiagnostic(
   return diagnostic;
 }
 
+/**
+ * Validates unknown data as no preflight errors.
+ */
 export function assertNoPreflightErrors(
   diagnostics: PreflightDiagnostic[],
 ): void {
@@ -194,6 +231,9 @@ export function assertNoPreflightErrors(
   throw new Error(formatPreflightDiagnostics(errors));
 }
 
+/**
+ * Formats preflight diagnostics for user-facing output.
+ */
 export function formatPreflightDiagnostics(
   diagnostics: PreflightDiagnostic[],
 ): string {
@@ -266,6 +306,77 @@ async function findExecutableOnPath(
 
 /**
  * Checks file-system accessibility for a path with the requested access mode.
+ */
+interface RuntimeCommandCheckOptions {
+  executable: string;
+  args: string[];
+  code: string;
+  failureSeverity: PreflightSeverity;
+  successMessage: string;
+  failureAction: string;
+}
+
+async function checkRuntimeCommand(
+  options: RuntimeCommandCheckOptions,
+): Promise<PreflightDiagnostic> {
+  const result = await runRuntimeCommand(options.executable, options.args);
+  if (result.exitCode === 0) {
+    return {
+      severity: "info",
+      code: options.code,
+      message: options.successMessage,
+    };
+  }
+
+  return {
+    severity: options.failureSeverity,
+    code: options.code,
+    message: `${options.executable} ${options.args.join(" ")} failed: ${result.message}`,
+    action: options.failureAction,
+  };
+}
+
+async function runRuntimeCommand(
+  executable: string,
+  args: string[],
+): Promise<{ exitCode: number | null; message: string }> {
+  const timeoutMs = 5_000;
+
+  return new Promise((resolve) => {
+    const child = spawn(executable, args, {
+      shell: false,
+      stdio: ["ignore", "ignore", "pipe"],
+      windowsHide: true,
+    });
+    let settled = false;
+    let stderr = "";
+    const finish = (exitCode: number | null, message: string): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve({ exitCode, message });
+    };
+    const timer = setTimeout(() => {
+      child.kill();
+      finish(null, `timed out after ${timeoutMs}ms`);
+    }, timeoutMs);
+
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr = `${stderr}${chunk.toString("utf8")}`.slice(0, 2_000);
+    });
+    child.on("error", (error: NodeJS.ErrnoException) => {
+      finish(null, error.code ?? error.message);
+    });
+    child.on("close", (exitCode) => {
+      finish(exitCode, stderr.trim() || `exit code ${String(exitCode)}`);
+    });
+  });
+}
+
+/**
+ * Provides check path exists for the lifecycle pipeline.
  */
 export async function checkPathExists(
   pathValue: string,

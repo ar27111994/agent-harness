@@ -6,6 +6,9 @@ import type {
   SourceDefinition,
 } from "../../types.js";
 
+/**
+ * Describes harvested reference item data exchanged by the lifecycle pipeline.
+ */
 export interface HarvestedReferenceItem {
   displayName: string;
   originUrl: string;
@@ -32,6 +35,9 @@ const VSCODE_MARKETPLACE_ORIGINS = [
   "https://marketplace.visualstudio.com",
 ] as const;
 
+/**
+ * Provides harvest reference items for the lifecycle pipeline.
+ */
 export async function harvestReferenceItems(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,

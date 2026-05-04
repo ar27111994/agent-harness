@@ -7,6 +7,9 @@ import {
 import { manageNativeInstall } from "./install/native.js";
 import { reconcileInstallState, resetInstallState } from "./install/state.js";
 
+/**
+ * Dispatches the install CLI command group.
+ */
 export async function runInstall(
   args: string[],
   _workingDirectory: string,

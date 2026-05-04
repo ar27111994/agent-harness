@@ -6,6 +6,9 @@ import type {
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
+/**
+ * Describes demand term context data exchanged by the lifecycle pipeline.
+ */
 export interface DemandTermContext {
   key: string;
   canonicalTerm: string;
@@ -14,12 +17,18 @@ export interface DemandTermContext {
   matchTerms: Set<string>;
 }
 
+/**
+ * Describes demand context data exchanged by the lifecycle pipeline.
+ */
 export interface DemandContext {
   terms: DemandTermContext[];
   hasSignals: boolean;
   activeDomainGroups: Set<string>;
 }
 
+/**
+ * Describes candidate recommendation data exchanged by the lifecycle pipeline.
+ */
 export interface CandidateRecommendation {
   entry: AssetCatalogEntry;
   host: RecommendationHost;
@@ -32,6 +41,9 @@ export interface CandidateRecommendation {
   breakdown: RecommendationScoreBreakdown;
 }
 
+/**
+ * Describes dynamic score data exchanged by the lifecycle pipeline.
+ */
 export interface DynamicScore {
   total: number;
   coverage: number;

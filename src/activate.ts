@@ -1,7 +1,9 @@
+import { rename } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
   copyPath,
+  ensureCleanDirectory,
   ensureDirectory,
   pathExists,
   readJsonFile,
@@ -9,7 +11,6 @@ import {
   removePath,
   toPosixPath,
   writeJsonFile,
-  writeJsonFileWithSnapshot,
 } from "./files.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
 import { getOptionValue } from "./lib/cli-options.js";
@@ -44,6 +45,9 @@ const ACTIVATION_HOSTS = [
 ] as const satisfies readonly ActivationHost[];
 const SHARED_HOST_TARGET = "shared" as const satisfies HostTarget;
 
+/**
+ * Dispatches the activate CLI command group.
+ */
 export async function runActivate(
   args: string[],
   _workingDirectory: string,
@@ -117,7 +121,14 @@ async function activateHost(
 ): Promise<void> {
   const activeAssets = new Set<string>();
   const runtimeRoot = join(projectRoot, "activate", host);
-  await ensureDirectory(runtimeRoot);
+  const stagingRuntimeRoot = `${runtimeRoot}.tmp`;
+  await ensureDirectory(join(projectRoot, "activate"));
+  await ensureCleanDirectory(stagingRuntimeRoot);
+  const previousActivationManifest =
+    await readJsonFileOrNull<ActivationManifest>(
+      join(runtimeRoot, ACTIVATION_MANIFEST_FILE),
+      assertActivationManifest,
+    );
   const recommendationReport = await readJsonFileOrNull<RecommendationReport>(
     join(projectRoot, "state", "recommendations.json"),
     assertRecommendationReport,
@@ -200,7 +211,7 @@ async function activateHost(
         continue;
       }
       const destinationRoot = join(
-        runtimeRoot,
+        stagingRuntimeRoot,
         sanitizeAssetId(packageManifest.assetId),
       );
       candidates.push({ packageManifest, destinationRoot });
@@ -214,7 +225,7 @@ async function activateHost(
     activationBudget,
   );
 
-  await writeJsonFile(join(runtimeRoot, `${host}-overlay-plan.json`), {
+  await writeJsonFile(join(stagingRuntimeRoot, `${host}-overlay-plan.json`), {
     schemaVersion: 1,
     host,
     generatedAt: new Date().toISOString(),
@@ -308,7 +319,7 @@ async function activateHost(
     }
 
     await writeJsonFile(
-      join(runtimeRoot, "workspace-profile-manifest.json"),
+      join(stagingRuntimeRoot, "workspace-profile-manifest.json"),
       copilotProfileManifest,
     );
   }
@@ -336,11 +347,42 @@ async function activateHost(
     ],
   };
 
-  await writeJsonFileWithSnapshot(
-    join(runtimeRoot, ACTIVATION_MANIFEST_FILE),
-    join(runtimeRoot, ACTIVATION_PREVIOUS_MANIFEST_FILE),
+  if (previousActivationManifest) {
+    await writeJsonFile(
+      join(stagingRuntimeRoot, ACTIVATION_PREVIOUS_MANIFEST_FILE),
+      previousActivationManifest,
+    );
+  }
+  await writeJsonFile(
+    join(stagingRuntimeRoot, ACTIVATION_MANIFEST_FILE),
     activationManifest,
   );
+
+  await swapActivationRuntimeRoot(runtimeRoot, stagingRuntimeRoot);
+}
+
+async function swapActivationRuntimeRoot(
+  runtimeRoot: string,
+  stagingRuntimeRoot: string,
+): Promise<void> {
+  const backupRuntimeRoot = `${runtimeRoot}.previous`;
+  await removePath(backupRuntimeRoot);
+  const hadRuntimeRoot = await pathExists(runtimeRoot);
+
+  if (hadRuntimeRoot) {
+    await rename(runtimeRoot, backupRuntimeRoot);
+  }
+
+  try {
+    await rename(stagingRuntimeRoot, runtimeRoot);
+  } catch (error) {
+    if (hadRuntimeRoot && !(await pathExists(runtimeRoot))) {
+      await rename(backupRuntimeRoot, runtimeRoot).catch(() => undefined);
+    }
+    throw error;
+  }
+
+  await removePath(backupRuntimeRoot);
 }
 
 function filterBundleIdsForHost(

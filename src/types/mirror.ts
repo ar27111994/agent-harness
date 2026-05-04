@@ -1,5 +1,8 @@
 import type { AssetKind, AuthorityTier, HostTarget } from "./core.js";
 
+/**
+ * Describes bundle template data exchanged by the lifecycle pipeline.
+ */
 export interface BundleTemplate {
   id: string;
   host: HostTarget;
@@ -8,6 +11,9 @@ export interface BundleTemplate {
   defaultPromotion: string;
 }
 
+/**
+ * Describes mirror policy data exchanged by the lifecycle pipeline.
+ */
 export interface MirrorPolicy {
   schemaVersion: number;
   selection: {
@@ -30,6 +36,9 @@ export interface MirrorPolicy {
   bundleTemplates: BundleTemplate[];
 }
 
+/**
+ * Describes mirror plan data exchanged by the lifecycle pipeline.
+ */
 export interface MirrorPlan {
   schemaVersion: number;
   generatedAt: string;
@@ -53,6 +62,9 @@ export interface MirrorPlan {
   nextActions: string[];
 }
 
+/**
+ * Describes selection duplicate decision data exchanged by the lifecycle pipeline.
+ */
 export interface SelectionDuplicateDecision {
   duplicateGroup: string;
   selectedAssetId: string;
@@ -60,6 +72,9 @@ export interface SelectionDuplicateDecision {
   selectionReason: string;
 }
 
+/**
+ * Describes selection report data exchanged by the lifecycle pipeline.
+ */
 export interface SelectionReport {
   schemaVersion: number;
   generatedAt: string;
@@ -69,6 +84,9 @@ export interface SelectionReport {
   duplicateDecisions: SelectionDuplicateDecision[];
 }
 
+/**
+ * Describes bundle lock asset data exchanged by the lifecycle pipeline.
+ */
 export interface BundleLockAsset {
   assetId: string;
   mirrorId: string;
@@ -77,6 +95,9 @@ export interface BundleLockAsset {
   notes?: string;
 }
 
+/**
+ * Describes bundle lock data exchanged by the lifecycle pipeline.
+ */
 export interface BundleLock {
   schemaVersion: number;
   bundleId: string;
@@ -85,6 +106,9 @@ export interface BundleLock {
   assets: BundleLockAsset[];
 }
 
+/**
+ * Describes mirror index entry data exchanged by the lifecycle pipeline.
+ */
 export interface MirrorIndexEntry {
   mirrorId: string;
   assetId: string;
@@ -114,6 +138,9 @@ export interface MirrorIndexEntry {
     | "reference-only";
 }
 
+/**
+ * Describes mirror acquire state data exchanged by the lifecycle pipeline.
+ */
 export interface MirrorAcquireState {
   schemaVersion: number;
   updatedAt: string;

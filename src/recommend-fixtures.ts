@@ -29,6 +29,9 @@ interface FixtureAssetOptions {
   trustScore?: number;
 }
 
+/**
+ * Builds recommendation fixtures from the provided inputs.
+ */
 export function buildRecommendationFixtures(): RecommendationEvaluationFixture[] {
   return [
     buildBackendIntegrationFixture(),

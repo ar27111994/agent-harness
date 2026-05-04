@@ -3,9 +3,21 @@ import { generateBundleLocks } from "./mirror/bundles.js";
 import { diffMirrorIndex, explainMirrorArtifact } from "./mirror/inspect.js";
 import { generateMirrorPlan } from "./mirror/plan.js";
 
+/**
+ * Re-exports safe mirror path resolution for tests and mirror callers.
+ */
 export { resolveSafeMirrorFilePath } from "./lib/safe-paths.js";
-export { resolveAllowedMirrorEvidenceFilePath } from "./mirror/paths.js";
+/**
+ * Re-exports mirror evidence path guards for tests and mirror callers.
+ */
+export {
+  resolveAllowedMirrorEvidenceFilePath,
+  resolveAllowedMirrorEvidenceFilePathForRead,
+} from "./mirror/paths.js";
 
+/**
+ * Dispatches the mirror CLI command group.
+ */
 export async function runMirror(
   args: string[],
   workingDirectory: string,

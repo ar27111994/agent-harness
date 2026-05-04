@@ -6,16 +6,19 @@ import type { DemandProfile, SourceDefinition } from "../types.js";
 
 void test("generic docs harvester extracts same-origin reference links", async (context) => {
   const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
   globalThis.fetch = async () =>
     new Response(
       `<html><head><title>Docs Home</title></head><body>
         <a href="/guide">Guide</a>
-        <a href="https://external.example/ignore">External</a>
+        <a href="https://external.invalid/ignore">External</a>
       </body></html>`,
       { status: 200 },
     );
   context.after(() => {
     globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
   });
 
   const items = await harvestReferenceItems(buildDocsSource(), null);
@@ -23,15 +26,19 @@ void test("generic docs harvester extracts same-origin reference links", async (
   assert.equal(items.length, 2);
   assert.equal(items[0]?.assetKind, "reference-pack");
   assert.ok(
-    items.some((item) => item.originUrl === "https://docs.example/guide"),
+    items.some((item) => item.originUrl === "https://example.com/guide"),
   );
   assert.ok(
-    items.every((item) => item.originUrl.startsWith("https://docs.example")),
+    items.every(
+      (item) => new URL(item.originUrl).origin === "https://example.com",
+    ),
   );
 });
 
 void test("VS Code marketplace harvester produces native extension assets", async (context) => {
   const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
   let observedMethod: string | undefined;
   const observedBodies: string[] = [];
   globalThis.fetch = async (_url, init) => {
@@ -58,6 +65,7 @@ void test("VS Code marketplace harvester produces native extension assets", asyn
   };
   context.after(() => {
     globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
   });
 
   const items = await harvestReferenceItems(
@@ -73,6 +81,15 @@ void test("VS Code marketplace harvester produces native extension assets", asyn
   assert.equal(items[0]?.manifestEntry, "GitHub.copilot");
 });
 
+function restoreFetchMockFlag(previousValue: string | undefined): void {
+  if (previousValue === undefined) {
+    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    return;
+  }
+
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+}
+
 function buildDocsSource(): SourceDefinition {
   return {
     id: "docs-example",
@@ -84,7 +101,7 @@ function buildDocsSource(): SourceDefinition {
     discoveryMode: "catalog",
     priority: 100,
     enabled: true,
-    endpoints: { docsUrl: "https://docs.example" },
+    endpoints: { docsUrl: "https://example.com" },
     rules: {
       officialPreferred: true,
       allowMirror: true,

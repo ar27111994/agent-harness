@@ -2,6 +2,9 @@ import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 
+/**
+ * Resolves home relative path from the provided inputs.
+ */
 export function resolveHomeRelativePath(pathValue: string): string {
   if (pathValue === "~") {
     return getRuntimeConfig().paths.homeDirectory;
@@ -14,6 +17,9 @@ export function resolveHomeRelativePath(pathValue: string): string {
   return pathValue;
 }
 
+/**
+ * Resolves portable path from the provided inputs.
+ */
 export function resolvePortablePath(
   pathValue: string | undefined,
   projectRoot: string,
@@ -28,6 +34,9 @@ export function resolvePortablePath(
     : resolve(projectRoot, expandedValue);
 }
 
+/**
+ * Provides to home relative path for the lifecycle pipeline.
+ */
 export function toHomeRelativePath(pathValue: string): string {
   const homeDirectory = getRuntimeConfig().paths.homeDirectory;
   const normalizedPath = normalize(pathValue);
@@ -45,6 +54,9 @@ export function toHomeRelativePath(pathValue: string): string {
   return normalizedPath.split(sep).join("/");
 }
 
+/**
+ * Resolves vs code user settings path from the provided inputs.
+ */
 export function resolveVsCodeUserSettingsPath(): string {
   const config = getRuntimeConfig();
 
@@ -72,6 +84,9 @@ export function resolveVsCodeUserSettingsPath(): string {
   return join(config.paths.xdgConfigHome, "Code", "User", "settings.json");
 }
 
+/**
+ * Resolves default open code config root from the provided inputs.
+ */
 export function resolveDefaultOpenCodeConfigRoot(): string {
   const config = getRuntimeConfig();
 

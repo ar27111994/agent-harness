@@ -15,6 +15,9 @@ import {
 } from "./constants.js";
 import { sanitizeMirrorId } from "./paths.js";
 
+/**
+ * Provides diff mirror index for the lifecycle pipeline.
+ */
 export async function diffMirrorIndex(projectRoot: string): Promise<void> {
   const currentEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, ...MIRROR_INDEX_OUTPUT_PATH),
@@ -56,6 +59,9 @@ export async function diffMirrorIndex(projectRoot: string): Promise<void> {
   console.log(`  Changed assets: ${formatDiffList(changed)}`);
 }
 
+/**
+ * Provides explain mirror artifact for the lifecycle pipeline.
+ */
 export async function explainMirrorArtifact(
   projectRoot: string,
   args: string[],

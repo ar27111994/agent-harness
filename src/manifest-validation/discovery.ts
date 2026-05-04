@@ -1,7 +1,7 @@
-import type { GitHubRepoSnapshot } from "../github.js";
 import type {
   AssetCatalogEntry,
   DemandProfile,
+  GitHubRepoSnapshot,
   SelectionRegistry,
   SelectionReport,
   SourceIndex,
@@ -29,6 +29,9 @@ import {
   SOURCE_KINDS,
 } from "./primitives.js";
 
+/**
+ * Validates unknown data as source registry.
+ */
 export function assertSourceRegistry(
   value: unknown,
   context: string,
@@ -67,6 +70,9 @@ export function assertSourceRegistry(
   });
 }
 
+/**
+ * Validates unknown data as selection registry.
+ */
 export function assertSelectionRegistry(
   value: unknown,
   context: string,
@@ -125,6 +131,9 @@ export function assertSelectionRegistry(
   );
 }
 
+/**
+ * Validates unknown data as demand profile.
+ */
 export function assertDemandProfile(
   value: unknown,
   context: string,
@@ -153,6 +162,9 @@ export function assertDemandProfile(
   );
 }
 
+/**
+ * Validates unknown data as source index.
+ */
 export function assertSourceIndex(
   value: unknown,
   context: string,
@@ -170,6 +182,9 @@ export function assertSourceIndex(
   );
 }
 
+/**
+ * Validates unknown data as asset catalog entry.
+ */
 export function assertAssetCatalogEntry(
   value: unknown,
   context: string,
@@ -254,6 +269,9 @@ export function assertAssetCatalogEntry(
   );
 }
 
+/**
+ * Validates unknown data as selection report.
+ */
 export function assertSelectionReport(
   value: unknown,
   context: string,
@@ -266,6 +284,9 @@ export function assertSelectionReport(
   assertNumber(record.rejectedCount, `${context}.rejectedCount`);
 }
 
+/**
+ * Validates unknown data as git hub repo snapshot.
+ */
 export function assertGitHubRepoSnapshot(
   value: unknown,
   context: string,

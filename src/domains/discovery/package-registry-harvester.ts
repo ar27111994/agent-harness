@@ -31,6 +31,9 @@ import {
   type PackageRegistryKind,
 } from "./package-candidates.js";
 
+/**
+ * Provides harvest package registry source for the lifecycle pipeline.
+ */
 export async function harvestPackageRegistrySource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,

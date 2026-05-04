@@ -14,6 +14,9 @@ const DEFAULT_AI_ENRICHMENT_ALLOWED_ORIGINS = [
   "https://api.together.xyz",
 ] as const;
 
+/**
+ * Describes runtime config data exchanged by the lifecycle pipeline.
+ */
 export interface RuntimeConfig {
   env: NodeJS.ProcessEnv;
   aiEnrichment: {
@@ -46,11 +49,17 @@ export interface RuntimeConfig {
 
 let runtimeConfig: RuntimeConfig | null = null;
 
+/**
+ * Returns get runtime config for the provided inputs.
+ */
 export function getRuntimeConfig(): RuntimeConfig {
   runtimeConfig ??= loadRuntimeConfig(process.env);
   return runtimeConfig;
 }
 
+/**
+ * Loads runtime config from project state.
+ */
 export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   const homeDirectory =
     nonEmptyString(env.AGENT_HARNESS_HOME) ??
@@ -121,10 +130,16 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
   };
 }
 
+/**
+ * Clears clear runtime config process-local state.
+ */
 export function clearRuntimeConfig(): void {
   runtimeConfig = null;
 }
 
+/**
+ * Clears clear runtime config for tests process-local state.
+ */
 export function clearRuntimeConfigForTests(): void {
   clearRuntimeConfig();
 }

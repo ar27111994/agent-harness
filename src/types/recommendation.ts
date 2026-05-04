@@ -11,8 +11,14 @@ import type {
 } from "./core.js";
 import type { DemandProfile, DemandSignalSet } from "./discovery.js";
 
+/**
+ * Defines the supported recommendation signal type values.
+ */
 export type RecommendationSignalType = keyof DemandSignalSet;
 
+/**
+ * Describes recommendation scoring policy data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationScoringPolicy {
   demandMatchCap: number;
   portfolioFitMultiplier: number;
@@ -46,28 +52,43 @@ export interface RecommendationScoringPolicy {
   demandTermMultipliers: Record<string, number>;
 }
 
+/**
+ * Describes recommendation target asset kind preference data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationTargetAssetKindPreference {
   assetKind: AssetKind;
   minimum: number;
   weight: number;
 }
 
+/**
+ * Describes recommendation target concern preference data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationTargetConcernPreference {
   concern: string;
   minimum: number;
   weight: number;
 }
 
+/**
+ * Describes recommendation policy presets data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationPolicyPresets {
   targetAssetKinds?: Record<string, RecommendationTargetAssetKindPreference[]>;
   targetConcerns?: Record<string, RecommendationTargetConcernPreference[]>;
 }
 
+/**
+ * Describes recommendation policy preset refs data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationPolicyPresetRefs {
   targetAssetKinds?: string[];
   targetConcerns?: string[];
 }
 
+/**
+ * Describes recommendation host policy data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationHostPolicy {
   recommendationLimit: number;
   activationBudget: number;
@@ -87,6 +108,9 @@ export interface RecommendationHostPolicy {
   sourceSaturationPenaltyStep?: number;
 }
 
+/**
+ * Describes recommendation policy base data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationPolicyBase {
   schemaVersion: number;
   scoring: RecommendationScoringPolicy;
@@ -98,6 +122,9 @@ export interface RecommendationPolicyBase {
   synonyms: Record<string, string[]>;
 }
 
+/**
+ * Describes recommendation host policy override data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationHostPolicyOverride {
   schemaVersion: number;
   host: HostTarget;
@@ -105,6 +132,9 @@ export interface RecommendationHostPolicyOverride {
   policy: Partial<RecommendationHostPolicy>;
 }
 
+/**
+ * Describes recommendation policy data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationPolicy {
   schemaVersion: number;
   scoring: RecommendationScoringPolicy;
@@ -115,6 +145,9 @@ export interface RecommendationPolicy {
   synonyms: Record<string, string[]>;
 }
 
+/**
+ * Describes recommendation signal match data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationSignalMatch {
   term: string;
   signalType: RecommendationSignalType;
@@ -122,6 +155,9 @@ export interface RecommendationSignalMatch {
   evidenceCount: number;
 }
 
+/**
+ * Describes recommendation score breakdown data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationScoreBreakdown {
   authority: number;
   compatibility: number;
@@ -141,6 +177,9 @@ export interface RecommendationScoreBreakdown {
   total: number;
 }
 
+/**
+ * Describes recommendation entry data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationEntry {
   assetId: string;
   host: HostTarget;
@@ -160,6 +199,9 @@ export interface RecommendationEntry {
   scoreBreakdown: RecommendationScoreBreakdown;
 }
 
+/**
+ * Describes recommendation host summary data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationHostSummary {
   host: HostTarget;
   recommendationLimit: number;
@@ -174,6 +216,9 @@ export interface RecommendationHostSummary {
   taskModeBuckets: Record<string, string[]>;
 }
 
+/**
+ * Describes recommendation suggested bundle data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationSuggestedBundle {
   host: HostTarget;
   bundleId: string;
@@ -183,6 +228,9 @@ export interface RecommendationSuggestedBundle {
   taskModeBuckets: Record<string, string[]>;
 }
 
+/**
+ * Describes recommendation report data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationReport {
   schemaVersion: number;
   generatedAt: string;
@@ -192,6 +240,9 @@ export interface RecommendationReport {
   suggestedBundles: RecommendationSuggestedBundle[];
 }
 
+/**
+ * Describes recommendation evaluation expectation data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationEvaluationExpectation {
   host: HostTarget;
   requiredAssetIds?: string[];
@@ -207,6 +258,9 @@ export interface RecommendationEvaluationExpectation {
   }>;
 }
 
+/**
+ * Describes recommendation evaluation fixture data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationEvaluationFixture {
   schemaVersion: number;
   id: string;
@@ -216,12 +270,18 @@ export interface RecommendationEvaluationFixture {
   expectations: RecommendationEvaluationExpectation[];
 }
 
+/**
+ * Describes recommendation evaluation check data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationEvaluationCheck {
   name: string;
   passed: boolean;
   details: string;
 }
 
+/**
+ * Describes recommendation evaluation result data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationEvaluationResult {
   schemaVersion: number;
   generatedAt: string;

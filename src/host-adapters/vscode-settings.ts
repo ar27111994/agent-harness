@@ -8,6 +8,9 @@ import {
   writeTextFile,
 } from "../files.js";
 
+/**
+ * Reads vs code settings from project state.
+ */
 export async function readVsCodeSettings(
   settingsPath: string,
 ): Promise<Record<string, unknown>> {
@@ -40,6 +43,9 @@ export async function readVsCodeSettings(
   return parsedSettings as Record<string, unknown>;
 }
 
+/**
+ * Provides patch vs code settings for the lifecycle pipeline.
+ */
 export async function patchVsCodeSettings(
   settingsPath: string,
   updates: Record<string, unknown>,

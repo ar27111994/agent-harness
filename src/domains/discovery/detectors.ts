@@ -8,6 +8,9 @@ import {
 } from "./detector-signatures.js";
 import { addSignals } from "./signals.js";
 
+/**
+ * Describes file detector data exchanged by the lifecycle pipeline.
+ */
 export interface FileDetector {
   id: string;
   matches(fileName: string, filePath: string): boolean;
@@ -18,10 +21,16 @@ export interface FileDetector {
   ): void;
 }
 
+/**
+ * Defines file detectors shared by the lifecycle pipeline.
+ */
 export const FILE_DETECTORS: FileDetector[] = DETECTOR_SIGNATURES.map(
   createSignatureDetector,
 );
 
+/**
+ * Returns whether the provided value matches detector inspectable file.
+ */
 export function isDetectorInspectableFile(
   fileName: string,
   filePath: string,
@@ -31,6 +40,9 @@ export function isDetectorInspectableFile(
   );
 }
 
+/**
+ * Collects detector signals from the provided inputs.
+ */
 export function collectDetectorSignals(
   fileName: string,
   filePath: string,

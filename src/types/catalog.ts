@@ -6,6 +6,9 @@ import type {
   SourceKind,
 } from "./core.js";
 
+/**
+ * Describes asset source metadata data exchanged by the lifecycle pipeline.
+ */
 export interface AssetSourceMetadata {
   sourceId: string;
   authorityTier: AuthorityTier;
@@ -16,13 +19,22 @@ export interface AssetSourceMetadata {
   publisherVerified: boolean;
 }
 
+/**
+ * Describes asset trust data exchanged by the lifecycle pipeline.
+ */
 export interface AssetTrust {
   score: number;
   signals: string[];
 }
 
+/**
+ * Defines the supported asset prerequisite kind values.
+ */
 export type AssetPrerequisiteKind = "env" | "host-login" | "oauth" | "manual";
 
+/**
+ * Describes asset prerequisite data exchanged by the lifecycle pipeline.
+ */
 export interface AssetPrerequisite {
   id: string;
   kind: AssetPrerequisiteKind;
@@ -34,6 +46,9 @@ export interface AssetPrerequisite {
   host?: HostTarget;
 }
 
+/**
+ * Describes asset install metadata data exchanged by the lifecycle pipeline.
+ */
 export interface AssetInstallMetadata {
   method: string;
   nativeHosts?: HostTarget[];
@@ -44,6 +59,9 @@ export interface AssetInstallMetadata {
   prerequisites?: AssetPrerequisite[];
 }
 
+/**
+ * Describes asset evidence data exchanged by the lifecycle pipeline.
+ */
 export interface AssetEvidence {
   manifestFound: boolean;
   readmeFound: boolean;
@@ -56,12 +74,18 @@ export interface AssetEvidence {
   rootPath?: string;
 }
 
+/**
+ * Describes asset maintenance data exchanged by the lifecycle pipeline.
+ */
 export interface AssetMaintenance {
   lastUpdated: string;
   stars: number;
   releaseCadence: string;
 }
 
+/**
+ * Describes asset risk data exchanged by the lifecycle pipeline.
+ */
 export interface AssetRisk {
   level: "low" | "medium" | "high";
   hasHooks: boolean;
@@ -69,21 +93,33 @@ export interface AssetRisk {
   requiresNetwork: boolean;
 }
 
+/**
+ * Describes asset context cost data exchanged by the lifecycle pipeline.
+ */
 export interface AssetContextCost {
   sizeClass: "tiny" | "small" | "medium" | "large";
   estimatedPromptWeight: number;
 }
 
+/**
+ * Describes asset fit data exchanged by the lifecycle pipeline.
+ */
 export interface AssetFit {
   portfolioFit: number;
   hostFit: number;
 }
 
+/**
+ * Describes asset dedupe data exchanged by the lifecycle pipeline.
+ */
 export interface AssetDedupe {
   duplicateGroup?: string;
   candidateRankHint: string;
 }
 
+/**
+ * Describes asset status data exchanged by the lifecycle pipeline.
+ */
 export interface AssetStatus {
   cataloged: boolean;
   mirrorEligible: boolean;
@@ -91,6 +127,9 @@ export interface AssetStatus {
   activationEligible: boolean;
 }
 
+/**
+ * Describes asset catalog entry data exchanged by the lifecycle pipeline.
+ */
 export interface AssetCatalogEntry {
   id: string;
   displayName: string;

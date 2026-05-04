@@ -22,9 +22,12 @@ const BUNDLE_LOCK_FILE_NAMES = [
   "community-stable.lock.json",
 ];
 
+/**
+ * Dispatches the rebuild CLI command group.
+ */
 export async function runRebuild(
   args: string[],
-  _workingDirectory: string,
+  workingDirectory: string,
   projectRoot: string,
 ): Promise<number> {
   const [command = "help"] = args;
@@ -35,17 +38,17 @@ export async function runRebuild(
       return 0;
     case "full":
       await cleanState(projectRoot);
-      await runDiscover(["demand-profile"], projectRoot, projectRoot);
-      await runDiscover(["sources"], projectRoot, projectRoot);
-      await runDiscover(["catalog"], projectRoot, projectRoot);
-      await runDiscover(["select"], projectRoot, projectRoot);
-      await runRecommend(["report"], projectRoot, projectRoot);
-      await runMirror(["plan"], projectRoot, projectRoot);
-      await runMirror(["locks"], projectRoot, projectRoot);
-      await acquireAllMirrorBatches(projectRoot);
-      await installAllBundleBatches(projectRoot);
-      await runInstall(["reconcile"], projectRoot, projectRoot);
-      await runActivate(["host"], projectRoot, projectRoot);
+      await runDiscover(["demand-profile"], workingDirectory, projectRoot);
+      await runDiscover(["sources"], workingDirectory, projectRoot);
+      await runDiscover(["catalog"], workingDirectory, projectRoot);
+      await runDiscover(["select"], workingDirectory, projectRoot);
+      await runRecommend(["report"], workingDirectory, projectRoot);
+      await runMirror(["plan"], workingDirectory, projectRoot);
+      await runMirror(["locks"], workingDirectory, projectRoot);
+      await acquireAllMirrorBatches(projectRoot, workingDirectory);
+      await installAllBundleBatches(projectRoot, workingDirectory);
+      await runInstall(["reconcile"], workingDirectory, projectRoot);
+      await runActivate(["host"], workingDirectory, projectRoot);
       return 0;
     case "help":
       printRebuildHelp();
@@ -66,14 +69,17 @@ async function cleanState(projectRoot: string): Promise<void> {
   );
 }
 
-async function acquireAllMirrorBatches(projectRoot: string): Promise<void> {
+async function acquireAllMirrorBatches(
+  projectRoot: string,
+  workingDirectory: string,
+): Promise<void> {
   const batchSize = String(getRuntimeConfig().batches.mirrorAcquire);
   const maxBatches = 200;
 
   for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
     await runMirror(
       ["acquire", "--batch-size", batchSize],
-      projectRoot,
+      workingDirectory,
       projectRoot,
     );
     const state = await readJsonFileOrNull<MirrorAcquireState>(
@@ -89,7 +95,10 @@ async function acquireAllMirrorBatches(projectRoot: string): Promise<void> {
   );
 }
 
-async function installAllBundleBatches(projectRoot: string): Promise<void> {
+async function installAllBundleBatches(
+  projectRoot: string,
+  workingDirectory: string,
+): Promise<void> {
   const bundleIds = await discoverBundleIds(projectRoot);
   const batchSize = String(getRuntimeConfig().batches.installBundle);
   const maxBatchesPerBundle = 200;
@@ -102,7 +111,7 @@ async function installAllBundleBatches(projectRoot: string): Promise<void> {
     ) {
       await runInstall(
         ["bundle", "--bundle", bundleId, "--batch-size", batchSize],
-        projectRoot,
+        workingDirectory,
         projectRoot,
       );
       const progressState = await readJsonFileOrNull<InstallProgressState>(

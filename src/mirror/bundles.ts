@@ -18,6 +18,9 @@ import type {
   MirrorPolicy,
 } from "../types.js";
 
+/**
+ * Generates bundle locks artifacts for the lifecycle pipeline.
+ */
 export async function generateBundleLocks(projectRoot: string): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
     join(projectRoot, "mirror", "policy.json"),
@@ -28,7 +31,7 @@ export async function generateBundleLocks(projectRoot: string): Promise<void> {
     assertAssetCatalogEntry,
   );
   const mirrorEligibleEntries = selectedEntries.filter(
-    (entry) => entry.status.mirrorEligible && entry.status.installEligible,
+    (entry) => entry.status.mirrorEligible,
   );
 
   for (const bundleTemplate of policy.bundleTemplates) {
@@ -69,6 +72,9 @@ export async function generateBundleLocks(projectRoot: string): Promise<void> {
   );
 }
 
+/**
+ * Resolves bundle locks from the provided inputs.
+ */
 export async function resolveBundleLocks(
   projectRoot: string,
   mirrorIndexEntries: MirrorIndexEntry[],

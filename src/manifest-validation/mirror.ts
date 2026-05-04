@@ -19,6 +19,9 @@ import {
   UPSTREAM_TYPES,
 } from "./primitives.js";
 
+/**
+ * Validates unknown data as mirror policy.
+ */
 export function assertMirrorPolicy(
   value: unknown,
   context: string,
@@ -61,6 +64,9 @@ export function assertMirrorPolicy(
   );
 }
 
+/**
+ * Validates unknown data as bundle lock.
+ */
 export function assertBundleLock(
   value: unknown,
   context: string,
@@ -85,6 +91,9 @@ export function assertBundleLock(
   });
 }
 
+/**
+ * Validates unknown data as mirror index entry.
+ */
 export function assertMirrorIndexEntry(
   value: unknown,
   context: string,
@@ -111,6 +120,9 @@ export function assertMirrorIndexEntry(
   assertLiteral(record.status, [...MIRROR_STATUSES], `${context}.status`);
 }
 
+/**
+ * Validates unknown data as mirror acquire state.
+ */
 export function assertMirrorAcquireState(
   value: unknown,
   context: string,

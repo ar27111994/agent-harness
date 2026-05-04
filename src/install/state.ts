@@ -32,6 +32,9 @@ import {
 } from "./paths.js";
 import { getInstallableAssets, INSTALL_HOSTS } from "./utils.js";
 
+/**
+ * Updates update install progress state state with the provided inputs.
+ */
 export async function updateInstallProgressState(
   projectRoot: string,
   bundleId: string,
@@ -72,6 +75,9 @@ export async function updateInstallProgressState(
   );
 }
 
+/**
+ * Reconciles reconcile install state state from persisted manifests.
+ */
 export async function reconcileInstallState(projectRoot: string): Promise<void> {
   const mirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, "mirror", "index.jsonl"),
@@ -160,6 +166,9 @@ export async function reconcileInstallState(projectRoot: string): Promise<void> 
   );
 }
 
+/**
+ * Resets reset install state state and generated outputs.
+ */
 export async function resetInstallState(projectRoot: string): Promise<void> {
   await removePath(join(projectRoot, "install"));
   await removePath(join(projectRoot, "state", "install"));
@@ -168,6 +177,9 @@ export async function resetInstallState(projectRoot: string): Promise<void> {
   );
 }
 
+/**
+ * Writes install generations to project state.
+ */
 export async function writeInstallGenerations(
   projectRoot: string,
   progressState: InstallProgressState,

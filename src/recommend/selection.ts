@@ -3,7 +3,7 @@ import {
   buildCandidateRecommendation,
   computeEntryPreselectionScore,
 } from "./candidates.js";
-import { countBy, countCoverageTags } from "./counts.js";
+
 import type {
   AssetCatalogEntry,
   RecommendationEntry,
@@ -17,6 +17,9 @@ import type {
   DynamicScore,
 } from "./model.js";
 
+/**
+ * Builds top recommendations for host from the provided inputs.
+ */
 export function buildTopRecommendationsForHost(
   host: RecommendationHost,
   entries: AssetCatalogEntry[],
@@ -111,32 +114,27 @@ function preserveRequiredCoverageCandidates(
   >();
 
   for (const target of hostPolicy.targetAssetKinds) {
-    if (target.minimum <= 0) {
-      continue;
-    }
-    const match = scoredCandidates.find(
+    preserveMinimumCandidates(
+      scoredCandidates,
+      preserved,
+      target.minimum,
       (entry) => entry.candidate.entry.assetKind === target.assetKind,
     );
-    if (match) {
-      preserved.set(match.candidate.entry.id, match);
-    }
   }
 
   for (const target of hostPolicy.targetConcerns) {
-    if (target.minimum <= 0) {
-      continue;
-    }
-    const match = scoredCandidates.find((entry) =>
-      entry.candidate.coverageTags.includes(target.concern),
+    preserveMinimumCandidates(
+      scoredCandidates,
+      preserved,
+      target.minimum,
+      (entry) => entry.candidate.coverageTags.includes(target.concern),
     );
-    if (match) {
-      preserved.set(match.candidate.entry.id, match);
-    }
   }
 
   const selected = [...preserved.values()];
+  const effectiveLimit = Math.max(limit, preserved.size);
   for (const entry of scoredCandidates) {
-    if (selected.length >= limit) {
+    if (selected.length >= effectiveLimit) {
       break;
     }
     if (!preserved.has(entry.candidate.entry.id)) {
@@ -144,7 +142,41 @@ function preserveRequiredCoverageCandidates(
     }
   }
 
-  return selected.slice(0, limit).sort(compareScoredCandidates);
+  return selected.slice(0, effectiveLimit).sort(compareScoredCandidates);
+}
+
+function preserveMinimumCandidates(
+  scoredCandidates: Array<{
+    candidate: CandidateRecommendation;
+    preselectionScore: number;
+  }>,
+  preserved: Map<
+    string,
+    { candidate: CandidateRecommendation; preselectionScore: number }
+  >,
+  minimum: number,
+  matchesTarget: (entry: {
+    candidate: CandidateRecommendation;
+    preselectionScore: number;
+  }) => boolean,
+): void {
+  if (minimum <= 0) {
+    return;
+  }
+
+  let preservedCount = [...preserved.values()].filter(matchesTarget).length;
+  for (const entry of scoredCandidates) {
+    if (preservedCount >= minimum) {
+      return;
+    }
+    if (!matchesTarget(entry)) {
+      continue;
+    }
+    if (!preserved.has(entry.candidate.entry.id)) {
+      preserved.set(entry.candidate.entry.id, entry);
+      preservedCount += 1;
+    }
+  }
 }
 
 function computeCandidatePreselectionScore(
@@ -186,11 +218,11 @@ function selectCandidatesForHost(
   policy: RecommendationPolicy,
 ): CandidateRecommendation[] {
   const hostPolicy = policy.hosts[host];
-  const selected: CandidateRecommendation[] = [];
+  const selectionState = createSelectionState();
   const remaining = [...candidates];
 
   while (
-    selected.length < hostPolicy.recommendationLimit &&
+    selectionState.selected.length < hostPolicy.recommendationLimit &&
     remaining.length > 0
   ) {
     let bestIndex = -1;
@@ -198,13 +230,13 @@ function selectCandidatesForHost(
 
     for (let index = 0; index < remaining.length; index += 1) {
       const candidate = remaining[index];
-      if (exceedsHostCaps(candidate, selected, hostPolicy, false)) {
+      if (exceedsHostCaps(candidate, selectionState, hostPolicy)) {
         continue;
       }
 
       const candidateScore = scoreCandidateAgainstSelection(
         candidate,
-        selected,
+        selectionState,
         hostPolicy,
         policy,
         false,
@@ -229,50 +261,60 @@ function selectCandidatesForHost(
     }
 
     const [chosenCandidate] = remaining.splice(bestIndex, 1);
-    selected.push(applyDynamicScore(chosenCandidate, bestScore));
+    addCandidateToSelectionState(
+      selectionState,
+      applyDynamicScore(chosenCandidate, bestScore),
+    );
   }
 
-  if (selected.length >= hostPolicy.recommendationLimit) {
-    return selected;
+  if (selectionState.selected.length >= hostPolicy.recommendationLimit) {
+    return selectionState.selected;
   }
 
   for (const candidate of remaining) {
-    if (selected.length >= hostPolicy.recommendationLimit) {
+    if (selectionState.selected.length >= hostPolicy.recommendationLimit) {
       break;
     }
-    if (exceedsHostCaps(candidate, selected, hostPolicy, true)) {
+    if (exceedsHostCaps(candidate, selectionState, hostPolicy)) {
       continue;
     }
 
     const fallbackScore = scoreCandidateAgainstSelection(
       candidate,
-      selected,
+      selectionState,
       hostPolicy,
       policy,
       true,
     );
-    selected.push(applyDynamicScore(candidate, fallbackScore));
+    addCandidateToSelectionState(
+      selectionState,
+      applyDynamicScore(candidate, fallbackScore),
+    );
   }
 
-  return selected;
+  return selectionState.selected;
 }
 
 function scoreCandidateAgainstSelection(
   candidate: CandidateRecommendation,
-  selected: CandidateRecommendation[],
+  selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   policy: RecommendationPolicy,
   relaxed: boolean,
 ): DynamicScore {
-  const coverage = computeCoverageGain(candidate, selected, hostPolicy, policy);
-  const diversity = selected.some(
-    (entry) => entry.sourceFamily === candidate.sourceFamily,
-  )
-    ? 0
-    : policy.scoring.sourceDiversityBonus;
+  const coverage = computeCoverageGain(
+    candidate,
+    selectionState,
+    hostPolicy,
+    policy,
+  );
+  const diversity =
+    (selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0) > 0
+      ? 0
+      : policy.scoring.sourceDiversityBonus;
   const redundancyPenalty = computeRedundancyPenalty(
     candidate,
-    selected,
+    selectionState,
     hostPolicy,
     policy,
   );
@@ -301,18 +343,16 @@ function scoreCandidateAgainstSelection(
 
 function computeCoverageGain(
   candidate: CandidateRecommendation,
-  selected: CandidateRecommendation[],
+  selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   policy: RecommendationPolicy,
 ): number {
   let score = 0;
-  const selectedKinds = countBy(selected, (entry) => entry.entry.assetKind);
-  const selectedConcerns = countCoverageTags(selected);
 
   for (const target of hostPolicy.targetAssetKinds) {
     if (
       target.assetKind === candidate.entry.assetKind &&
-      (selectedKinds[target.assetKind] ?? 0) < target.minimum
+      (selectionState.kindCounts[target.assetKind] ?? 0) < target.minimum
     ) {
       score += target.weight * policy.scoring.coverageGainWeight;
     }
@@ -321,7 +361,7 @@ function computeCoverageGain(
   for (const target of hostPolicy.targetConcerns) {
     if (
       candidate.coverageTags.includes(target.concern) &&
-      (selectedConcerns[target.concern] ?? 0) < target.minimum
+      (selectionState.coverageTagCounts[target.concern] ?? 0) < target.minimum
     ) {
       score += target.weight * policy.scoring.coverageGainWeight;
     }
@@ -332,16 +372,15 @@ function computeCoverageGain(
 
 function computeRedundancyPenalty(
   candidate: CandidateRecommendation,
-  selected: CandidateRecommendation[],
+  selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   policy: RecommendationPolicy,
 ): number {
   let overlapCount = 0;
-  const sameSourceFamilyCount = selected.filter(
-    (entry) => entry.sourceFamily === candidate.sourceFamily,
-  ).length;
+  const sameSourceFamilyCount =
+    selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0;
 
-  for (const entry of selected) {
+  for (const entry of selectionState.selected) {
     if (entry.sourceFamily === candidate.sourceFamily) {
       overlapCount += 1;
     }
@@ -383,40 +422,73 @@ function computeSourceSaturationPenalty(
 
 function exceedsHostCaps(
   candidate: CandidateRecommendation,
-  selected: CandidateRecommendation[],
+  selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
-  relaxed: boolean,
 ): boolean {
-  const selectedKinds = countBy(selected, (entry) => entry.entry.assetKind);
   const assetKindCap = hostPolicy.maxPerAssetKind[candidate.entry.assetKind];
   if (
     assetKindCap !== undefined &&
-    (selectedKinds[candidate.entry.assetKind] ?? 0) >= assetKindCap
+    (selectionState.kindCounts[candidate.entry.assetKind] ?? 0) >= assetKindCap
   ) {
     return true;
   }
 
-  if (relaxed) {
-    return false;
-  }
-
   if (
-    selected.filter((entry) => entry.sourceFamily === candidate.sourceFamily)
-      .length >= hostPolicy.maxPerSourceFamily
+    (selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0) >=
+    hostPolicy.maxPerSourceFamily
   ) {
     return true;
   }
 
   if (
     candidate.duplicateGroup &&
-    selected.filter(
-      (entry) => entry.duplicateGroup === candidate.duplicateGroup,
-    ).length >= hostPolicy.maxPerDuplicateGroup
+    (selectionState.duplicateGroupCounts[candidate.duplicateGroup] ?? 0) >=
+      hostPolicy.maxPerDuplicateGroup
   ) {
     return true;
   }
 
   return false;
+}
+
+interface SelectionState {
+  selected: CandidateRecommendation[];
+  kindCounts: Record<string, number>;
+  sourceFamilyCounts: Record<string, number>;
+  duplicateGroupCounts: Record<string, number>;
+  coverageTagCounts: Record<string, number>;
+}
+
+function createSelectionState(): SelectionState {
+  return {
+    selected: [],
+    kindCounts: {},
+    sourceFamilyCounts: {},
+    duplicateGroupCounts: {},
+    coverageTagCounts: {},
+  };
+}
+
+function addCandidateToSelectionState(
+  selectionState: SelectionState,
+  candidate: CandidateRecommendation,
+): void {
+  selectionState.selected.push(candidate);
+  incrementCount(selectionState.kindCounts, candidate.entry.assetKind);
+  incrementCount(selectionState.sourceFamilyCounts, candidate.sourceFamily);
+  if (candidate.duplicateGroup) {
+    incrementCount(
+      selectionState.duplicateGroupCounts,
+      candidate.duplicateGroup,
+    );
+  }
+  for (const coverageTag of candidate.coverageTags) {
+    incrementCount(selectionState.coverageTagCounts, coverageTag);
+  }
+}
+
+function incrementCount(counts: Record<string, number>, key: string): void {
+  counts[key] = (counts[key] ?? 0) + 1;
 }
 
 function applyDynamicScore(

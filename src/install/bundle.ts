@@ -7,10 +7,10 @@ import {
   ensureCleanDirectory,
   listFilesRecursive,
   pathExists,
+  readBinaryFileOrNull,
   readJsonFile,
   readJsonFileOrNull,
   readJsonLinesFile,
-  readTextFileOrNull,
   toPosixPath,
   toRelativePosixPath,
   writeJsonFile,
@@ -26,6 +26,7 @@ import {
   assertBundleLock,
   assertInstallProgressState,
   assertInstalledBundleManifest,
+  assertInstalledPackageManifest,
   assertMirrorIndexEntry,
 } from "../manifest-validation.js";
 import type {
@@ -43,6 +44,9 @@ import {
 } from "./state.js";
 import { getInstallableAssets, sanitizeAssetId } from "./utils.js";
 
+/**
+ * Provides install bundles for the lifecycle pipeline.
+ */
 export async function installBundles(
   projectRoot: string,
   args: string[],
@@ -168,6 +172,18 @@ export async function installBundles(
       await ensureCleanDirectory(filesRoot);
       await copyMirrorManifestFiles(sourceMaterialPath, filesRoot, mirrorManifest);
 
+      const manifestPath = join(packageRoot, "install-manifest.json");
+      const previousPackageManifest =
+        await readJsonFileOrNull<InstalledPackageManifest>(
+          manifestPath,
+          assertInstalledPackageManifest,
+        );
+      const bundleMembership = [
+        ...new Set([
+          ...(previousPackageManifest?.bundleMembership ?? []),
+          bundleLock.bundleId,
+        ]),
+      ].sort((left, right) => left.localeCompare(right));
       const packageManifest: InstalledPackageManifest = {
         schemaVersion: 1,
         assetId: asset.assetId,
@@ -180,12 +196,11 @@ export async function installBundles(
         contextCost: catalogEntry.contextCost,
         portfolioFit: catalogEntry.fit.portfolioFit,
         filesRoot: toPosixPath(filesRoot),
-        bundleMembership: [bundleLock.bundleId],
+        bundleMembership,
         activationEligible: asset.activationEligible,
         activeByDefault: false,
       };
 
-      const manifestPath = join(packageRoot, "install-manifest.json");
       await writeJsonFile(manifestPath, packageManifest);
       packageManifests.push({
         assetId: asset.assetId,
@@ -264,6 +279,7 @@ interface MirrorFileManifest {
     relativePath: string;
     sha256: string;
     sizeBytes: number;
+    upstreamBlobSha?: string;
   }>;
 }
 
@@ -292,22 +308,20 @@ async function verifyMirrorFileManifest(
       sourceMaterialPath,
       file.relativePath,
     );
-    const content = await readTextFileOrNull(filePath);
+    const content = await readBinaryFileOrNull(filePath);
     if (content === null) {
       throw new Error(`Mirror artifact file is missing: ${file.relativePath}`);
     }
 
     const actualHash = createContentHash(content);
-    const actualSize = Buffer.byteLength(content, "utf8");
+    const actualSize = content.byteLength;
     if (actualHash !== file.sha256 || actualSize !== file.sizeBytes) {
       throw new Error(`Mirror artifact hash mismatch: ${file.relativePath}`);
     }
   }
 
   const aggregateHash = createContentHash(
-    normalizedFiles
-      .map((file) => `${file.relativePath}\0${file.sha256}\0${file.sizeBytes}`)
-      .join("\n"),
+    normalizedFiles.map(serializeMirrorManifestFileHashInput).join("\n"),
   );
   if (aggregateHash !== manifest.aggregateHash) {
     throw new Error("Mirror artifact manifest aggregate hash mismatch");
@@ -355,7 +369,26 @@ function assertMirrorFileManifest(
     if (typeof fileRecord.sizeBytes !== "number") {
       throw new Error(`${context}.files[${index}].sizeBytes must be a number`);
     }
+    if (
+      fileRecord.upstreamBlobSha !== undefined &&
+      typeof fileRecord.upstreamBlobSha !== "string"
+    ) {
+      throw new Error(
+        `${context}.files[${index}].upstreamBlobSha must be a string`,
+      );
+    }
   });
+}
+
+function serializeMirrorManifestFileHashInput(
+  file: MirrorFileManifest["files"][number],
+): string {
+  return [
+    file.relativePath,
+    file.sha256,
+    String(file.sizeBytes),
+    file.upstreamBlobSha ?? "",
+  ].join("\0");
 }
 
 async function copyMirrorManifestFiles(

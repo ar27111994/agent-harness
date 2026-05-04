@@ -25,6 +25,9 @@ import type {
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
+/**
+ * Writes recommendation report to project state.
+ */
 export async function writeRecommendationReport(
   projectRoot: string,
 ): Promise<RecommendationReport> {
@@ -48,6 +51,9 @@ export async function writeRecommendationReport(
   return report;
 }
 
+/**
+ * Builds recommendation report from the provided inputs.
+ */
 export function buildRecommendationReport(
   entries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,

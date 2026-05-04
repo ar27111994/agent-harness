@@ -1,6 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
+/**
+ * Describes dot env load result data exchanged by the lifecycle pipeline.
+ */
 export interface DotEnvLoadResult {
   path: string;
   loaded: boolean;

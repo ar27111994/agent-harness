@@ -1,20 +1,26 @@
 import type { RecommendationEntry } from "../types.js";
 import type { CandidateRecommendation } from "./model.js";
 
+/**
+ * Provides count coverage tags for the lifecycle pipeline.
+ */
 export function countCoverageTags(
   entries: CandidateRecommendation[],
 ): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const entry of entries) {
-    for (const tag of entry.coverageTags) {
-      counts[tag] = (counts[tag] ?? 0) + 1;
-    }
-  }
-  return counts;
+  return countCoverageTagsForItems(entries);
 }
 
+/**
+ * Provides count coverage tags from entries for the lifecycle pipeline.
+ */
 export function countCoverageTagsFromEntries(
   entries: RecommendationEntry[],
+): Record<string, number> {
+  return countCoverageTagsForItems(entries);
+}
+
+function countCoverageTagsForItems<T extends { coverageTags: string[] }>(
+  entries: T[],
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const entry of entries) {
@@ -25,6 +31,9 @@ export function countCoverageTagsFromEntries(
   return counts;
 }
 
+/**
+ * Provides count by for the lifecycle pipeline.
+ */
 export function countBy<T>(
   values: T[],
   selector: (value: T) => string,

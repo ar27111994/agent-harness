@@ -5,6 +5,9 @@ import { sanitizeAssetId } from "./lib/safe-paths.js";
 import { fetchOfficialIndexPageContent } from "./official-index.js";
 import type { AssetCatalogEntry } from "./types.js";
 
+/**
+ * Resolves asset content from the provided inputs.
+ */
 export async function resolveAssetContent(options: {
   activationRoot: string;
   assetId: string;

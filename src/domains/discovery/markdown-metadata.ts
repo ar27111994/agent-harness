@@ -1,6 +1,9 @@
 import type { AssetPrerequisite } from "../../types.js";
 import { buildAssetPrerequisitesFromMetadata } from "../../lib/asset-prerequisites.js";
 
+/**
+ * Describes parsed markdown metadata data exchanged by the lifecycle pipeline.
+ */
 export interface ParsedMarkdownMetadata {
   fields: Record<string, string | string[]>;
   heading: string | null;
@@ -15,6 +18,9 @@ export interface ParsedMarkdownMetadata {
   body: string;
 }
 
+/**
+ * Provides extract markdown metadata for the lifecycle pipeline.
+ */
 export function extractMarkdownMetadata(
   content: string,
 ): ParsedMarkdownMetadata {
@@ -27,11 +33,15 @@ export function extractMarkdownMetadata(
   const dependencies = getStringArrayField(fields.dependencies);
   const authProviders = getStringArrayField(fields.auth);
   const requiredEnvVars = getStringArrayField(fields.requiresEnv);
+  const requiredHostLogins = getStringArrayField(fields.requiresHostLogin);
+  const requiredOauthProviders = getStringArrayField(fields.requiresOAuth);
   const setupUrls = getStringArrayField(fields.setupUrl);
   const setupUrl = setupUrls[0];
   const prerequisites = buildAssetPrerequisitesFromMetadata({
     providers: authProviders,
     envVars: requiredEnvVars,
+    hostLogins: requiredHostLogins,
+    oauthProviders: requiredOauthProviders,
     setupUrl,
   });
   const lineCount = content.split(/\r?\n/u).length;
@@ -71,6 +81,8 @@ function parseFrontmatter(content: string): {
     "dependencies",
     "auth",
     "requiresEnv",
+    "requiresHostLogin",
+    "requiresOAuth",
     "setupUrl",
     "mode",
     "compatibility",
@@ -149,6 +161,9 @@ function stripWrappingQuotes(value: string): string {
   return value.replace(/^['"]|['"]$/gu, "");
 }
 
+/**
+ * Returns get first string field for the provided inputs.
+ */
 export function getFirstStringField(
   value: string | string[] | undefined,
 ): string | null {

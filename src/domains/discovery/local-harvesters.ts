@@ -57,6 +57,9 @@ interface ClassifiedLocalFile {
   hosts: HostTarget[];
 }
 
+/**
+ * Provides harvest local manifest source for the lifecycle pipeline.
+ */
 export async function harvestLocalManifestSource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
@@ -165,6 +168,9 @@ export async function harvestLocalManifestSource(
   });
 }
 
+/**
+ * Provides harvest local directory source for the lifecycle pipeline.
+ */
 export async function harvestLocalDirectorySource(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
@@ -373,7 +379,7 @@ function classifyLocalDirectoryFile(
   }
 
   if (source.id === "local-opencode-config") {
-    if (/^skills\/[^/]+\/SKILL\.md$/iu.test(relativePath)) {
+    if (/^skills\/.+\/SKILL\.md$/iu.test(relativePath)) {
       return {
         assetKind: "skill",
         compatibilityMode: "native",

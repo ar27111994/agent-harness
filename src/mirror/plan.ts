@@ -20,6 +20,9 @@ import type {
 } from "../types.js";
 import { MIRROR_PLAN_OUTPUT_PATH } from "./constants.js";
 
+/**
+ * Generates mirror plan artifacts for the lifecycle pipeline.
+ */
 export async function generateMirrorPlan(projectRoot: string): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
     join(projectRoot, "mirror", "policy.json"),

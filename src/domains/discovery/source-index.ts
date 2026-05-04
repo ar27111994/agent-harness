@@ -11,6 +11,9 @@ import { countBy } from "./catalog-utils.js";
 import { SOURCE_INDEX_OUTPUT_PATH } from "./output-paths.js";
 import { loadSourceRegistry } from "./source-registry.js";
 
+/**
+ * Generates source index artifacts for the lifecycle pipeline.
+ */
 export async function generateSourceIndex(projectRoot: string): Promise<void> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(

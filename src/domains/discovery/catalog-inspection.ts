@@ -10,6 +10,9 @@ import {
   SELECTED_CATALOG_OUTPUT_PATH,
 } from "./output-paths.js";
 
+/**
+ * Provides print catalog stats for the lifecycle pipeline.
+ */
 export async function printCatalogStats(projectRoot: string): Promise<void> {
   const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...CATALOG_OUTPUT_PATH),
@@ -41,6 +44,9 @@ export async function printCatalogStats(projectRoot: string): Promise<void> {
   console.log(JSON.stringify(stats, null, 2));
 }
 
+/**
+ * Provides inspect catalog for the lifecycle pipeline.
+ */
 export async function inspectCatalog(
   projectRoot: string,
   args: string[],

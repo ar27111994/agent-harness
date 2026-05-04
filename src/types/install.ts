@@ -1,6 +1,9 @@
 import type { AssetContextCost } from "./catalog.js";
 import type { AssetKind, AuthorityTier, HostTarget } from "./core.js";
 
+/**
+ * Describes installed package manifest data exchanged by the lifecycle pipeline.
+ */
 export interface InstalledPackageManifest {
   schemaVersion: number;
   assetId: string;
@@ -18,6 +21,9 @@ export interface InstalledPackageManifest {
   activeByDefault: boolean;
 }
 
+/**
+ * Describes installed bundle manifest data exchanged by the lifecycle pipeline.
+ */
 export interface InstalledBundleManifest {
   schemaVersion: number;
   bundleId: string;
@@ -30,6 +36,9 @@ export interface InstalledBundleManifest {
   }>;
 }
 
+/**
+ * Describes install generation manifest data exchanged by the lifecycle pipeline.
+ */
 export interface InstallGenerationManifest {
   schemaVersion: number;
   generationId: string;
@@ -41,6 +50,9 @@ export interface InstallGenerationManifest {
   pinReason?: string;
 }
 
+/**
+ * Describes install progress state data exchanged by the lifecycle pipeline.
+ */
 export interface InstallProgressState {
   schemaVersion: number;
   updatedAt: string;

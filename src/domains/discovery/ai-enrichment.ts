@@ -7,7 +7,7 @@ import {
   writeJsonFile,
 } from "../../files.js";
 import {
-  assertAllowedPublicHttpUrl,
+  assertAllowedPublicHttpUrlWithDns,
   fetchJsonWithGuards,
 } from "../../lib/http.js";
 import {
@@ -30,6 +30,9 @@ interface AiEnrichmentReport {
 
 const OUTPUT_PATH = ["discover", "output", "ai-enrichment.json"] as const;
 
+/**
+ * Writes ai enrichment report to project state.
+ */
 export async function writeAiEnrichmentReport(
   projectRoot: string,
 ): Promise<void> {
@@ -62,7 +65,10 @@ export async function writeAiEnrichmentReport(
   );
 
   try {
-    const url = assertAllowedPublicHttpUrl(endpointUrl, config.allowedOrigins);
+    const url = await assertAllowedPublicHttpUrlWithDns(
+      endpointUrl,
+      config.allowedOrigins,
+    );
     const response = await fetchJsonWithGuards(url.toString(), {
       allowedOrigins: config.allowedOrigins,
       body: JSON.stringify({

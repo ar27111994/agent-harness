@@ -11,6 +11,9 @@ import type {
   InstalledPackageManifest,
 } from "../types.js";
 
+/**
+ * Reads shared mcp asset ids from project state.
+ */
 export async function readSharedMcpAssetIds(
   projectRoot: string,
 ): Promise<string[]> {

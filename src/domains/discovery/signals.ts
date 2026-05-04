@@ -1,5 +1,8 @@
 import type { DemandSignalSet } from "../../types.js";
 
+/**
+ * Provides add signals for the lifecycle pipeline.
+ */
 export function addSignals(target: string[], values: string[]): void {
   for (const value of values) {
     if (!target.includes(value)) {
@@ -8,6 +11,9 @@ export function addSignals(target: string[], values: string[]): void {
   }
 }
 
+/**
+ * Provides merge signals for the lifecycle pipeline.
+ */
 export function mergeSignals(
   target: DemandSignalSet,
   source: DemandSignalSet,
@@ -19,6 +25,9 @@ export function mergeSignals(
   addSignals(target.tooling, source.tooling);
 }
 
+/**
+ * Provides sort signal set for the lifecycle pipeline.
+ */
 export function sortSignalSet(signalSet: DemandSignalSet): DemandSignalSet {
   return {
     languages: [...signalSet.languages].sort(),
@@ -29,6 +38,9 @@ export function sortSignalSet(signalSet: DemandSignalSet): DemandSignalSet {
   };
 }
 
+/**
+ * Creates empty signal set for use by the lifecycle pipeline.
+ */
 export function createEmptySignalSet(): DemandSignalSet {
   return {
     languages: [],
@@ -39,6 +51,9 @@ export function createEmptySignalSet(): DemandSignalSet {
   };
 }
 
+/**
+ * Provides has any signals for the lifecycle pipeline.
+ */
 export function hasAnySignals(signalSet: DemandSignalSet): boolean {
   return [
     signalSet.languages,

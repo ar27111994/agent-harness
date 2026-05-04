@@ -18,6 +18,9 @@ import {
   assertStringArray,
 } from "./primitives.js";
 
+/**
+ * Validates unknown data as installed package manifest.
+ */
 export function assertInstalledPackageManifest(
   value: unknown,
   context: string,
@@ -55,6 +58,9 @@ export function assertInstalledPackageManifest(
   assertBoolean(record.activeByDefault, `${context}.activeByDefault`);
 }
 
+/**
+ * Validates unknown data as installed bundle manifest.
+ */
 export function assertInstalledBundleManifest(
   value: unknown,
   context: string,
@@ -83,6 +89,9 @@ export function assertInstalledBundleManifest(
   );
 }
 
+/**
+ * Validates unknown data as install generation manifest.
+ */
 export function assertInstallGenerationManifest(
   value: unknown,
   context: string,
@@ -105,6 +114,9 @@ export function assertInstallGenerationManifest(
   }
 }
 
+/**
+ * Validates unknown data as install progress state.
+ */
 export function assertInstallProgressState(
   value: unknown,
   context: string,

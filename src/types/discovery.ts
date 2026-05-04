@@ -5,18 +5,27 @@ import type {
   SourceKind,
 } from "./core.js";
 
+/**
+ * Describes source publisher data exchanged by the lifecycle pipeline.
+ */
 export interface SourcePublisher {
   name: string;
   verified?: boolean;
   owner?: string;
 }
 
+/**
+ * Describes source rules data exchanged by the lifecycle pipeline.
+ */
 export interface SourceRules {
   officialPreferred: boolean;
   allowMirror: boolean;
   allowInstall: boolean;
 }
 
+/**
+ * Describes source definition data exchanged by the lifecycle pipeline.
+ */
 export interface SourceDefinition {
   id: string;
   name: string;
@@ -32,12 +41,18 @@ export interface SourceDefinition {
   rules: SourceRules;
 }
 
+/**
+ * Describes source registry data exchanged by the lifecycle pipeline.
+ */
 export interface SourceRegistry {
   $schema?: string;
   schemaVersion: number;
   sources: SourceDefinition[];
 }
 
+/**
+ * Describes selection policies data exchanged by the lifecycle pipeline.
+ */
 export interface SelectionPolicies {
   officialBeatsPopularity: boolean;
   starsAreTieBreakerOnly: boolean;
@@ -47,6 +62,9 @@ export interface SelectionPolicies {
   communityDefaultPolicy: "catalog-only-unless-promoted";
 }
 
+/**
+ * Describes duplicate group data exchanged by the lifecycle pipeline.
+ */
 export interface DuplicateGroup {
   id: string;
   capability: string;
@@ -54,6 +72,9 @@ export interface DuplicateGroup {
   selectionReason: string;
 }
 
+/**
+ * Describes selection registry data exchanged by the lifecycle pipeline.
+ */
 export interface SelectionRegistry {
   $schema?: string;
   schemaVersion: number;
@@ -62,6 +83,9 @@ export interface SelectionRegistry {
   duplicateGroups: DuplicateGroup[];
 }
 
+/**
+ * Describes demand signal set data exchanged by the lifecycle pipeline.
+ */
 export interface DemandSignalSet {
   languages: string[];
   packageManagers: string[];
@@ -70,12 +94,18 @@ export interface DemandSignalSet {
   tooling: string[];
 }
 
+/**
+ * Describes demand evidence data exchanged by the lifecycle pipeline.
+ */
 export interface DemandEvidence {
   path: string;
   fileName: string;
   matchedSignals: DemandSignalSet;
 }
 
+/**
+ * Describes demand profile data exchanged by the lifecycle pipeline.
+ */
 export interface DemandProfile {
   schemaVersion: number;
   generatedAt: string;
@@ -91,6 +121,9 @@ export interface DemandProfile {
   evidence: DemandEvidence[];
 }
 
+/**
+ * Describes source index data exchanged by the lifecycle pipeline.
+ */
 export interface SourceIndex {
   schemaVersion: number;
   generatedAt: string;
@@ -106,4 +139,44 @@ export interface SourceIndex {
     priority: number;
     hosts: HostTarget[];
   }>;
+}
+
+/**
+ * Describes git hub repo snapshot data exchanged by the lifecycle pipeline.
+ */
+export interface GitHubRepoSnapshot {
+  owner: string;
+  repo: string;
+  sourceId: string;
+  fetchedAt: string;
+  repoSummary: {
+    name: string;
+    fullName: string;
+    description: string | null;
+    defaultBranch: string;
+    updatedAt: string | null;
+    pushedAt: string | null;
+    stars: number;
+    language: string | null;
+    topics: string[];
+    archived: boolean;
+    htmlUrl: string;
+  };
+  readme: {
+    path: string;
+    sha: string;
+    size: number;
+    htmlUrl: string | null;
+    downloadUrl: string | null;
+  } | null;
+  tree: {
+    sha: string;
+    truncated: boolean;
+    entries: Array<{
+      path: string;
+      type: string;
+      size: number | null;
+      sha: string;
+    }>;
+  };
 }

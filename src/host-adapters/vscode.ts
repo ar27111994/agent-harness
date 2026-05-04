@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, extname, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
@@ -32,9 +31,13 @@ import {
   toHomeRelativePath,
   resolveVsCodeUserSettingsPath,
 } from "../lib/paths.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 
+/**
+ * Provides wire vs code for the lifecycle pipeline.
+ */
 export async function wireVsCode(options: {
   projectRoot: string;
   workspaceRoot: string;
@@ -673,10 +676,6 @@ function buildVsCodeSkillLocationOverrides(
   curatedRoot: string,
 ): Record<string, boolean> {
   return {
-    "~/.copilot/skills": false,
-    "~/.agents/skills": false,
-    "~/.claude/skills": false,
-    "~/.config/opencode/skills": false,
     [toHomePath(join(curatedRoot, "skills"))]: true,
   };
 }
@@ -736,6 +735,9 @@ interface MaterializedVsCodePaths {
   extensionIds: string[];
 }
 
+/**
+ * Builds copilot workspace overlay manifest from the provided inputs.
+ */
 export function buildCopilotWorkspaceOverlayManifest(options: {
   workspaceRoot: string;
   overlayPlan: CopilotWorkspaceOverlayManifest;
@@ -744,13 +746,6 @@ export function buildCopilotWorkspaceOverlayManifest(options: {
     ...options.overlayPlan,
     workspaceRoot: toPosixPath(options.workspaceRoot),
   };
-}
-
-function sanitizeAssetId(value: string): string {
-  const base =
-    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
-  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
-  return `${base}-${suffix}`;
 }
 
 function toHomePath(pathValue: string): string {

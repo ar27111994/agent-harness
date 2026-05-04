@@ -1,3 +1,6 @@
+/**
+ * Defines the supported authority tier values.
+ */
 export type AuthorityTier =
   | "trusted-local"
   | "official-first-party"
@@ -6,6 +9,9 @@ export type AuthorityTier =
   | "trusted-community"
   | "unverified-community";
 
+/**
+ * Defines the supported source kind values.
+ */
 export type SourceKind =
   | "repo"
   | "docs"
@@ -15,6 +21,9 @@ export type SourceKind =
   | "local-manifest"
   | "local-directory";
 
+/**
+ * Defines the supported asset kind values.
+ */
 export type AssetKind =
   | "skill"
   | "plugin"
@@ -27,6 +36,9 @@ export type AssetKind =
   | "prompt-pack"
   | "reference-pack";
 
+/**
+ * Defines the supported built in host target values.
+ */
 export type BuiltInHostTarget =
   | "copilot-vscode"
   | "opencode"
@@ -36,8 +48,14 @@ export type BuiltInHostTarget =
   | "claude-code"
   | "pi";
 
+/**
+ * Defines the supported host target values.
+ */
 export type HostTarget = BuiltInHostTarget | (string & {});
 
+/**
+ * Defines the supported compatibility mode values.
+ */
 export type CompatibilityMode =
   | "native"
   | "adaptable"

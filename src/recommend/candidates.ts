@@ -17,6 +17,9 @@ import type {
 import type { RecommendationHost } from "./hosts.js";
 import type { CandidateRecommendation, DemandContext } from "./model.js";
 
+/**
+ * Provides compute entry preselection score for the lifecycle pipeline.
+ */
 export function computeEntryPreselectionScore(
   entry: AssetCatalogEntry,
 ): number {
@@ -30,6 +33,9 @@ export function computeEntryPreselectionScore(
   );
 }
 
+/**
+ * Builds candidate recommendation from the provided inputs.
+ */
 export function buildCandidateRecommendation(
   entry: AssetCatalogEntry,
   host: RecommendationHost,

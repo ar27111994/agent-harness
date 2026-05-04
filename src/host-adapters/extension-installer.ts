@@ -6,8 +6,14 @@ import type { AssetCatalogEntry } from "../types.js";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Defines the supported extension install operation values.
+ */
 export type ExtensionInstallOperation = "install" | "verify" | "remove";
 
+/**
+ * Describes extension install action data exchanged by the lifecycle pipeline.
+ */
 export interface ExtensionInstallAction {
   host: string;
   extensionId: string;
@@ -20,6 +26,9 @@ export interface ExtensionInstallAction {
   removeCommand: string;
 }
 
+/**
+ * Describes native install result data exchanged by the lifecycle pipeline.
+ */
 export interface NativeInstallResult {
   host: string;
   extensionId: string;
@@ -32,12 +41,18 @@ export interface NativeInstallResult {
   message: string;
 }
 
+/**
+ * Describes native command result data exchanged by the lifecycle pipeline.
+ */
 export interface NativeCommandResult {
   exitCode: number;
   stdout: string;
   stderr: string;
 }
 
+/**
+ * Defines the supported native command executor values.
+ */
 export type NativeCommandExecutor = (
   executable: string,
   args: string[],
@@ -48,6 +63,9 @@ const VS_CODE_EXTENSION_ID_PATTERN =
 const NATIVE_COMMAND_TIMEOUT_MS = 30_000;
 const NATIVE_COMMAND_MAX_BUFFER_BYTES = 2_000_000;
 
+/**
+ * Builds vs code extension install actions from the provided inputs.
+ */
 export function buildVsCodeExtensionInstallActions(
   extensionIds: string[],
 ): ExtensionInstallAction[] {
@@ -58,6 +76,9 @@ export function buildVsCodeExtensionInstallActions(
   });
 }
 
+/**
+ * Builds extension install actions from the provided inputs.
+ */
 export function buildExtensionInstallActions(options: {
   extensionIds: string[];
   executable: string;
@@ -84,10 +105,16 @@ export function buildExtensionInstallActions(options: {
     });
 }
 
+/**
+ * Returns whether the provided value matches valid vs code extension id.
+ */
 export function isValidVsCodeExtensionId(extensionId: string): boolean {
   return VS_CODE_EXTENSION_ID_PATTERN.test(extensionId);
 }
 
+/**
+ * Resolves vs code extension id from the provided inputs.
+ */
 export function resolveVsCodeExtensionId(
   asset: AssetCatalogEntry,
 ): string | undefined {
@@ -98,6 +125,9 @@ export function resolveVsCodeExtensionId(
   );
 }
 
+/**
+ * Formats extension install actions for user-facing output.
+ */
 export function formatExtensionInstallActions(
   actions: ExtensionInstallAction[],
 ): string[] {
@@ -107,6 +137,9 @@ export function formatExtensionInstallActions(
   );
 }
 
+/**
+ * Executes execute extension install action through the configured runtime executor.
+ */
 export async function executeExtensionInstallAction(
   action: ExtensionInstallAction,
   operation: ExtensionInstallOperation,
@@ -149,6 +182,9 @@ export async function executeExtensionInstallAction(
   };
 }
 
+/**
+ * Verifies verify extension install action using host runtime output.
+ */
 export async function verifyExtensionInstallAction(
   action: ExtensionInstallAction,
   executor: NativeCommandExecutor = executeNativeCommand,
@@ -176,6 +212,9 @@ export async function verifyExtensionInstallAction(
   };
 }
 
+/**
+ * Verifies verify vs code extension installed using host runtime output.
+ */
 export function verifyVsCodeExtensionInstalled(
   listExtensionsOutput: string,
   extensionId: string,

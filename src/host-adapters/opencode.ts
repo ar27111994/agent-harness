@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { isAbsolute, join, relative, resolve } from "node:path";
 
 import {
@@ -16,6 +15,7 @@ import {
   writeTextFile,
 } from "../files.js";
 import { assertWirePlanManifest } from "../manifest-validation.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import type {
   ActivationManifest,
@@ -46,6 +46,9 @@ interface OpenCodeLinkedAsset {
   linkPath: string;
 }
 
+/**
+ * Provides wire open code for the lifecycle pipeline.
+ */
 export async function wireOpenCode(options: {
   projectRoot: string;
   workspaceRoot: string;
@@ -375,13 +378,6 @@ function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
     relativePath === "" ||
     (!relativePath.startsWith("..") && !isAbsolute(relativePath))
   );
-}
-
-function sanitizeAssetId(value: string): string {
-  const base =
-    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
-  const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
-  return `${base}-${suffix}`;
 }
 
 function toLoggableErrorMessage(error: unknown): string {

@@ -10,6 +10,9 @@ import type {
   SourceDefinition,
 } from "../../types.js";
 
+/**
+ * Provides count by for the lifecycle pipeline.
+ */
 export function countBy<T>(
   items: T[],
   getKey: (item: T) => string,
@@ -24,6 +27,9 @@ export function countBy<T>(
   return counts;
 }
 
+/**
+ * Defines generic capability tokens shared by the lifecycle pipeline.
+ */
 export const GENERIC_CAPABILITY_TOKENS = new Set([
   "agent",
   "agents",
@@ -39,6 +45,9 @@ export const GENERIC_CAPABILITY_TOKENS = new Set([
   "subagents",
 ]);
 
+/**
+ * Builds risk from the provided inputs.
+ */
 export function buildRisk(
   hasHooks: boolean,
   hasExecScripts: boolean,
@@ -74,6 +83,9 @@ export function buildRisk(
   };
 }
 
+/**
+ * Provides classify context cost for the lifecycle pipeline.
+ */
 export function classifyContextCost(lineCount: number): AssetContextCost {
   if (lineCount <= 40) {
     return { sizeClass: "tiny", estimatedPromptWeight: 1 };
@@ -90,6 +102,9 @@ export function classifyContextCost(lineCount: number): AssetContextCost {
   return { sizeClass: "large", estimatedPromptWeight: 8 };
 }
 
+/**
+ * Provides compute portfolio fit for the lifecycle pipeline.
+ */
 export function computePortfolioFit(
   capabilities: string[],
   demandProfile: DemandProfile | null,
@@ -130,6 +145,9 @@ export function computePortfolioFit(
   return Number(Math.min(1, matchCount / demandTerms.size).toFixed(2));
 }
 
+/**
+ * Provides compute host fit for the lifecycle pipeline.
+ */
 export function computeHostFit(
   hosts: HostTarget[],
   compatibilityMode: CompatibilityMode,
@@ -153,6 +171,9 @@ export function computeHostFit(
   return 0;
 }
 
+/**
+ * Provides find duplicate group for the lifecycle pipeline.
+ */
 export function findDuplicateGroup(
   capabilities: string[],
   selectionRegistry: SelectionRegistry,
@@ -171,6 +192,9 @@ export function findDuplicateGroup(
   return undefined;
 }
 
+/**
+ * Builds candidate rank hint from the provided inputs.
+ */
 export function buildCandidateRankHint(authorityTier: string): string {
   if (
     authorityTier === "official-first-party" ||
@@ -190,6 +214,9 @@ export function buildCandidateRankHint(authorityTier: string): string {
   return "candidate-catalog";
 }
 
+/**
+ * Provides merge remote catalog entries for the lifecycle pipeline.
+ */
 export function mergeRemoteCatalogEntries(
   existingEntries: AssetCatalogEntry[],
   newEntries: AssetCatalogEntry[],
@@ -209,6 +236,9 @@ export function mergeRemoteCatalogEntries(
   return [...byId.values()].sort(compareAssetCatalogEntries);
 }
 
+/**
+ * Builds asset status from the provided inputs.
+ */
 export function buildAssetStatus(source: SourceDefinition): AssetStatus {
   const installEligible = source.rules.allowMirror && source.rules.allowInstall;
   return {
@@ -219,6 +249,9 @@ export function buildAssetStatus(source: SourceDefinition): AssetStatus {
   };
 }
 
+/**
+ * Provides compute trust score for the lifecycle pipeline.
+ */
 export function computeTrustScore(input: {
   authorityTier: string;
   sourceKind: string;
@@ -252,6 +285,9 @@ export function computeTrustScore(input: {
   );
 }
 
+/**
+ * Builds trust signals from the provided inputs.
+ */
 export function buildTrustSignals(input: {
   authorityTier: string;
   sourceKind: string;
@@ -275,6 +311,9 @@ export function buildTrustSignals(input: {
   return signals;
 }
 
+/**
+ * Provides enhance trust for entry for the lifecycle pipeline.
+ */
 export function enhanceTrustForEntry(
   entry: AssetCatalogEntry,
 ): AssetCatalogEntry {
@@ -350,10 +389,16 @@ export function enhanceTrustForEntry(
   };
 }
 
+/**
+ * Builds catalog id from the provided inputs.
+ */
 export function buildCatalogId(sourceId: string, assetPath: string): string {
   return `${sourceId}:${encodeCatalogPath(assetPath)}`;
 }
 
+/**
+ * Compares asset catalog entries values for stable ordering.
+ */
 export function compareAssetCatalogEntries(
   left: AssetCatalogEntry,
   right: AssetCatalogEntry,
@@ -361,6 +406,9 @@ export function compareAssetCatalogEntries(
   return left.id.localeCompare(right.id);
 }
 
+/**
+ * Provides split into keywords for the lifecycle pipeline.
+ */
 export function splitIntoKeywords(value: string): string[] {
   return value
     .toLowerCase()
@@ -370,10 +418,16 @@ export function splitIntoKeywords(value: string): string[] {
     .filter((token) => token.length >= 1);
 }
 
+/**
+ * Provides unique strings for the lifecycle pipeline.
+ */
 export function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+/**
+ * Provides last path segment for the lifecycle pipeline.
+ */
 export function lastPathSegment(value: string): string {
   const normalizedValue = value.replace(/\/+/gu, "/");
   const segments = normalizedValue
@@ -383,6 +437,9 @@ export function lastPathSegment(value: string): string {
   return lastSegment.replace(/\.(md|ts|js|mts|cts)$/u, "");
 }
 
+/**
+ * Provides humanize slug for the lifecycle pipeline.
+ */
 export function humanizeSlug(value: string): string {
   return value
     .split(/[-_/]+/u)
@@ -391,6 +448,9 @@ export function humanizeSlug(value: string): string {
     .join(" ");
 }
 
+/**
+ * Compares sources by priority values for stable ordering.
+ */
 export function compareSourcesByPriority(
   left: SourceDefinition,
   right: SourceDefinition,
@@ -428,10 +488,11 @@ function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
 }
 
 function encodeCatalogPath(assetPath: string): string {
-  return assetPath
+  const segments = assetPath
     .replace(/\\/gu, "/")
     .split("/")
-    .filter((segment) => segment.length > 0)
-    .map((segment) => segment.toLowerCase().replace(/[^a-z0-9-]+/gu, "-"))
-    .join("__");
+    .filter((segment) => segment.length > 0);
+  const encodedPath = encodeURIComponent(segments.join("/"));
+
+  return encodedPath.length > 0 ? encodedPath : "root";
 }

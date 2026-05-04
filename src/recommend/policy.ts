@@ -26,6 +26,9 @@ import type {
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
+/**
+ * Loads recommendation policy from project state.
+ */
 export async function loadRecommendationPolicy(
   projectRoot: string,
 ): Promise<RecommendationPolicy> {

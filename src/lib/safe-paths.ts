@@ -1,10 +1,17 @@
 import { createHash } from "node:crypto";
+import { lstat, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
+/**
+ * Provides sanitize mirror id for the lifecycle pipeline.
+ */
 export function sanitizeMirrorId(value: string): string {
   return value.replace(/[^a-zA-Z0-9_-]+/gu, "-");
 }
 
+/**
+ * Provides sanitize asset id for the lifecycle pipeline.
+ */
 export function sanitizeAssetId(value: string): string {
   const base =
     value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
@@ -12,6 +19,9 @@ export function sanitizeAssetId(value: string): string {
   return `${base}-${suffix}`;
 }
 
+/**
+ * Returns whether the provided value matches path within root.
+ */
 export function isPathWithinRoot(
   rootPath: string,
   targetPath: string,
@@ -28,6 +38,9 @@ export function isPathWithinRoot(
   );
 }
 
+/**
+ * Resolves safe mirror file path from the provided inputs.
+ */
 export function resolveSafeMirrorFilePath(
   rawRoot: string,
   relativePath: string,
@@ -51,6 +64,9 @@ export function resolveSafeMirrorFilePath(
   return resolvedTarget;
 }
 
+/**
+ * Resolves allowed absolute path from the provided inputs.
+ */
 export function resolveAllowedAbsolutePath(
   pathValue: string,
   allowedRoots: readonly string[],
@@ -65,5 +81,41 @@ export function resolveAllowedAbsolutePath(
     isPathWithinRoot(rootPath, resolvedPath),
   )
     ? resolvedPath
+    : null;
+}
+
+/**
+ * Resolves allowed real file path from the provided inputs.
+ */
+export async function resolveAllowedRealFilePath(
+  pathValue: string,
+  allowedRoots: readonly string[],
+): Promise<string | null> {
+  const resolvedPath = resolveAllowedAbsolutePath(pathValue, allowedRoots);
+  if (!resolvedPath) {
+    return null;
+  }
+
+  const pathStats = await lstat(resolvedPath).catch(() => null);
+  if (!pathStats?.isFile() || pathStats.isSymbolicLink()) {
+    return null;
+  }
+
+  const [realTargetPath, realRootPaths] = await Promise.all([
+    realpath(resolvedPath).catch(() => null),
+    Promise.all(
+      allowedRoots.map((rootPath) => realpath(rootPath).catch(() => null)),
+    ),
+  ]);
+
+  if (!realTargetPath) {
+    return null;
+  }
+
+  return realRootPaths.some(
+    (realRootPath) =>
+      realRootPath !== null && isPathWithinRoot(realRootPath, realTargetPath),
+  )
+    ? realTargetPath
     : null;
 }

@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, writeJsonFile } from "./files.js";
 import { readResponseTextWithLimit } from "./lib/http.js";
-import { assertGitHubRepoSnapshot } from "./manifest-validation.js";
-import type { SourceDefinition } from "./types.js";
+import { assertGitHubRepoSnapshot } from "./manifest-validation/discovery.js";
+import type { GitHubRepoSnapshot, SourceDefinition } from "./types.js";
 
 interface GitHubRepoResponse {
   name: string;
@@ -159,43 +159,6 @@ interface GitHubDegradedModeSummary {
   degradedSources: GitHubSourceHealthEntry[];
 }
 
-export interface GitHubRepoSnapshot {
-  owner: string;
-  repo: string;
-  sourceId: string;
-  fetchedAt: string;
-  repoSummary: {
-    name: string;
-    fullName: string;
-    description: string | null;
-    defaultBranch: string;
-    updatedAt: string | null;
-    pushedAt: string | null;
-    stars: number;
-    language: string | null;
-    topics: string[];
-    archived: boolean;
-    htmlUrl: string;
-  };
-  readme: {
-    path: string;
-    sha: string;
-    size: number;
-    htmlUrl: string | null;
-    downloadUrl: string | null;
-  } | null;
-  tree: {
-    sha: string;
-    truncated: boolean;
-    entries: Array<{
-      path: string;
-      type: string;
-      size: number | null;
-      sha: string;
-    }>;
-  };
-}
-
 const GITHUB_API_BASE_URL = "https://api.github.com";
 const GITHUB_FETCH_TIMEOUT_MS = 10000;
 const GITHUB_JSON_MAX_BYTES = 2_000_000;
@@ -211,8 +174,12 @@ const GITHUB_DEGRADED_SUMMARY_PATH = [
   "github",
   "degraded-summary.json",
 ];
-const GITHUB_REPO_URL_PATTERN =
+const GITHUB_HTTPS_REPO_URL_PATTERN =
   /^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/iu;
+const GITHUB_SCP_REPO_URL_PATTERN =
+  /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/iu;
+const GITHUB_SSH_REPO_URL_PATTERN =
+  /^ssh:\/\/git@github\.com\/([^/]+)\/(.+?)(?:\.git)?\/?$/iu;
 let githubRateLimitResetAt: number | null = null;
 let githubHealthUpdateLock: Promise<void> = Promise.resolve();
 
@@ -225,31 +192,44 @@ export function clearGitHubState(): void {
   githubHealthUpdateLock = Promise.resolve();
 }
 
+/**
+ * Returns whether the provided value matches git hub repo source.
+ */
 export function isGitHubRepoSource(source: SourceDefinition): boolean {
   const repoUrl = source.endpoints.repo;
   return (
     source.kind === "repo" &&
     typeof repoUrl === "string" &&
-    GITHUB_REPO_URL_PATTERN.test(repoUrl)
+    parseGitHubRepoCoordinates(repoUrl) !== null
   );
 }
 
+/**
+ * Provides parse git hub repo coordinates for the lifecycle pipeline.
+ */
 export function parseGitHubRepoCoordinates(repoUrl: string): {
   owner: string;
   repo: string;
 } | null {
-  const match = GITHUB_REPO_URL_PATTERN.exec(repoUrl);
+  const normalizedRepoUrl = repoUrl.trim().replace(/^git\+/iu, "");
+  const match =
+    GITHUB_HTTPS_REPO_URL_PATTERN.exec(normalizedRepoUrl) ??
+    GITHUB_SCP_REPO_URL_PATTERN.exec(normalizedRepoUrl) ??
+    GITHUB_SSH_REPO_URL_PATTERN.exec(normalizedRepoUrl);
 
-  if (!match) {
+  if (!match?.[1] || !match[2]) {
     return null;
   }
 
   return {
     owner: match[1],
-    repo: match[2],
+    repo: match[2].replace(/\.git$/iu, ""),
   };
 }
 
+/**
+ * Fetches git hub repo snapshot with the configured runtime safeguards.
+ */
 export async function fetchGitHubRepoSnapshot(
   source: SourceDefinition,
   projectRoot: string,
@@ -273,6 +253,9 @@ export async function fetchGitHubRepoSnapshot(
   });
 }
 
+/**
+ * Fetches git hub repo snapshot by repo url with the configured runtime safeguards.
+ */
 export async function fetchGitHubRepoSnapshotByRepoUrl(options: {
   repoUrl: string;
   projectRoot: string;
@@ -291,6 +274,9 @@ export async function fetchGitHubRepoSnapshotByRepoUrl(options: {
   });
 }
 
+/**
+ * Builds git hub raw file url from the provided inputs.
+ */
 export function buildGitHubRawFileUrl(options: {
   owner: string;
   repo: string;

@@ -11,6 +11,9 @@ import {
 import { getRuntimeConfig } from "../config/runtime.js";
 import { resolvePortablePath } from "./paths.js";
 
+/**
+ * Defines state root env var shared by the lifecycle pipeline.
+ */
 export const STATE_ROOT_ENV_VAR = "AGENT_HARNESS_STATE_ROOT";
 
 const STATE_ASSET_PATHS = [
@@ -27,18 +30,27 @@ const STATE_ASSET_PATHS = [
   ["mirror", "schema"],
 ] as const;
 
+/**
+ * Describes state root resolution options data exchanged by the lifecycle pipeline.
+ */
 export interface StateRootResolutionOptions {
   packageRoot: string;
   workingDirectory: string;
   explicitStateRoot?: string;
 }
 
+/**
+ * Describes prepared state root data exchanged by the lifecycle pipeline.
+ */
 export interface PreparedStateRoot {
   packageRoot: string;
   stateRoot: string;
   usesPackageRoot: boolean;
 }
 
+/**
+ * Resolves state root from the provided inputs.
+ */
 export function resolveStateRoot(
   options: StateRootResolutionOptions,
 ): PreparedStateRoot {
@@ -60,6 +72,9 @@ export function resolveStateRoot(
   };
 }
 
+/**
+ * Provides prepare state root for the lifecycle pipeline.
+ */
 export async function prepareStateRoot(
   preparedRoot: PreparedStateRoot,
 ): Promise<void> {

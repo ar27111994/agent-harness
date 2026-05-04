@@ -68,6 +68,11 @@ All notable changes to this project will be documented in this file.
 - install bundle discovery now derives lock paths from registered host adapter bundle defaults and warns when expected locks are missing
 - duplicate checked-in local source definitions were removed in favor of runtime-generated local sources with dynamic endpoints
 - shared mirror path guards are reused by both mirror acquisition and bundle installation, and GitHub timeout handling uses one `AbortError` helper
+- guarded HTTP fetches now resolve and pin public DNS answers before requests, mirror evidence reads reject symlink escapes, GitHub mirror downloads verify raw-byte upstream blob SHAs, and prompt-injection quarantine detection covers normalized jailbreak and secret-exfiltration variants
+- recommendation selection now preserves policy minimums above one, keeps hard source/duplicate caps in fallback selection, and keeps suggested bundles within activation budgets
+- native and VS Code wire-in now preserve applied preview state, reuse activation asset path sanitization, and avoid clobbering user-owned global skill-location preferences
+- rebuild, scanning, discovery, activation, and install flows now use workspace roots consistently, skip generated discovery output, reuse demand-signal file reads, atomically stage activation runtime views before swapping, merge bundle membership, mirror audit-only assets, reject truncated GitHub snapshots, and validate all Copilot workspace profile selection arrays
+- public exported declarations now include API docstrings with a regression test that fails when exported source declarations lack JSDoc coverage
 
 ## [0.2.0] - 2026-04-27
 

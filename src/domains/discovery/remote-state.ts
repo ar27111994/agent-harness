@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { readJsonFileOrNull, writeJsonFile } from "../../files.js";
 import { REMOTE_HARVEST_STATE_OUTPUT_PATH } from "./output-paths.js";
 
+/**
+ * Describes remote harvest state data exchanged by the lifecycle pipeline.
+ */
 export interface RemoteHarvestState {
   schemaVersion: number;
   generatedAt: string;
@@ -10,6 +13,9 @@ export interface RemoteHarvestState {
   completedSourceIds: string[];
 }
 
+/**
+ * Loads remote harvest state from project state.
+ */
 export async function loadRemoteHarvestState(
   projectRoot: string,
 ): Promise<RemoteHarvestState> {
@@ -66,6 +72,9 @@ function assertRemoteHarvestState(
   });
 }
 
+/**
+ * Writes remote harvest state to project state.
+ */
 export async function writeRemoteHarvestState(
   projectRoot: string,
   state: RemoteHarvestState,

@@ -1,13 +1,22 @@
 import type { DemandSignalSet } from "../../types.js";
 
+/**
+ * Defines the supported detector signal set values.
+ */
 export type DetectorSignalSet = Partial<DemandSignalSet>;
 
+/**
+ * Describes detector conditional signals data exchanged by the lifecycle pipeline.
+ */
 export interface DetectorConditionalSignals {
   fileNamePattern?: RegExp;
   filePathPattern?: RegExp;
   signals: DetectorSignalSet;
 }
 
+/**
+ * Describes detector signature data exchanged by the lifecycle pipeline.
+ */
 export interface DetectorSignature {
   id: string;
   extensions?: string[];
@@ -17,6 +26,9 @@ export interface DetectorSignature {
   conditionalSignals?: DetectorConditionalSignals[];
 }
 
+/**
+ * Defines detector signatures shared by the lifecycle pipeline.
+ */
 export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   {
     id: "documentation",
