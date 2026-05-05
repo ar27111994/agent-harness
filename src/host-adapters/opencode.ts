@@ -84,7 +84,7 @@ export async function wireOpenCode(options: {
     ],
     notes: [
       "OpenCode wire-in writes a project-local overlay under .opencode/context/project-intelligence/agent-harness.",
-      "Selected assets are exposed through managed directory links under .opencode/<asset-kind>/.",
+      "Command assets are written as managed .opencode/commands/*.md files; other asset kinds use managed directory links.",
       "The global OpenAgentsControl-managed install is not modified.",
     ],
   };
@@ -269,7 +269,13 @@ async function materializeOpenCodeLinkedAsset(
     );
   }
 
-  const content = (await readTextFileOrNull(linkedAsset.sourcePath)) ?? "";
+  const content = await readTextFileOrNull(linkedAsset.sourcePath);
+  if (content === null) {
+    throw new Error(
+      `Cannot materialize OpenCode command file because source content is missing: ${toPosixPath(linkedAsset.sourcePath)} -> ${toPosixPath(linkedAsset.linkPath)}`,
+    );
+  }
+
   await writeTextFile(linkedAsset.linkPath, content);
 }
 

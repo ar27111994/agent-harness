@@ -402,11 +402,18 @@ function computeSelectedCoverageOverlap(
   selectedCandidate: CandidateRecommendation,
 ): number {
   const selectedCoverageTags = new Set(selectedCandidate.coverageTags);
-  const overlapCount = candidate.coverageTags.filter((tag) =>
-    selectedCoverageTags.has(tag),
-  ).length;
+  let overlapCount = 0;
 
-  return Math.min(2, overlapCount);
+  for (const tag of candidate.coverageTags) {
+    if (selectedCoverageTags.has(tag)) {
+      overlapCount += 1;
+      if (overlapCount >= 2) {
+        break;
+      }
+    }
+  }
+
+  return overlapCount;
 }
 
 function computeSourceSaturationPenalty(

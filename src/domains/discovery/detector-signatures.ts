@@ -213,7 +213,6 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   {
     id: "mobile",
     fileNames: [
-      "pubspec.yaml",
       "Podfile",
       "AndroidManifest.xml",
       "Info.plist",
