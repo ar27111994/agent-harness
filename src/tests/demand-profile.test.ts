@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { shouldInspectFile } from "../domains/discovery/demand-signals.js";
 import { buildDemandProfile } from "../discover.js";
 import type { DemandSignalSet } from "../types.js";
 
@@ -14,6 +15,17 @@ interface DemandProfileRepoFixture {
   unexpectedSignals?: Partial<DemandSignalSet>;
   expectedMatchedFilesMin: number;
 }
+
+void test("mobile project marker files are inspectable", () => {
+  for (const fileName of [
+    "Podfile",
+    "AndroidManifest.xml",
+    "Info.plist",
+    "project.pbxproj",
+  ]) {
+    assert.equal(shouldInspectFile(fileName, `mobile/${fileName}`), true);
+  }
+});
 
 const repoFixtures: DemandProfileRepoFixture[] = [
   {

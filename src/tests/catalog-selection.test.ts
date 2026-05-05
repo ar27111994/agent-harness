@@ -50,6 +50,7 @@ void test("catalog display names use parent folders for generic filenames", () =
     deriveDisplayNameFromPath("docs/firebase-auth/README.md"),
     "Firebase Auth",
   );
+  assert.equal(deriveDisplayNameFromPath("rules/frontend.mdc"), "Frontend");
 });
 
 function buildDemandProfile(): DemandProfile {

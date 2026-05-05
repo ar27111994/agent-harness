@@ -1073,8 +1073,8 @@ function buildAgentFile(
 ): string {
   return [
     "---",
-    `name: ${name}`,
-    `description: ${description}`,
+    `name: ${quoteFrontmatterScalar(name)}`,
+    `description: ${quoteFrontmatterScalar(description)}`,
     "---",
     "",
     ...bodyLines,
@@ -1089,8 +1089,8 @@ function buildSkillFile(
 ): string {
   return [
     "---",
-    `name: ${name}`,
-    `description: ${description}`,
+    `name: ${quoteFrontmatterScalar(name)}`,
+    `description: ${quoteFrontmatterScalar(description)}`,
     "---",
     "",
     ...bodyLines,
@@ -1101,12 +1101,16 @@ function buildSkillFile(
 function buildPromptTemplate(description: string, bodyLines: string[]): string {
   return [
     "---",
-    `description: ${description}`,
+    `description: ${quoteFrontmatterScalar(description)}`,
     "---",
     "",
     ...bodyLines,
     "",
   ].join("\n");
+}
+
+function quoteFrontmatterScalar(value: string): string {
+  return JSON.stringify(value.replace(/\r\n?/gu, "\n"));
 }
 
 function directoryNameForAssetKind(assetKind: AssetKind): string {

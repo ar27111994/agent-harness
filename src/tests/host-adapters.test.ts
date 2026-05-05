@@ -120,18 +120,12 @@ void test("Cursor native wire plan exposes supported staged asset buckets", asyn
 
   try {
     const activationRoot = join(projectRoot, "activate", "copilot-vscode");
-    const selectedAssets = [
-      buildAsset("asset-instruction", "instruction"),
-      buildAsset("asset-agent", "agent"),
-      buildAsset("asset-skill", "skill"),
-      buildAsset("asset-workflow", "workflow"),
-      buildAsset("asset-prompt-pack", "prompt-pack"),
-      buildAsset("asset-plugin", "plugin"),
-      buildAsset("asset-hook", "hook"),
-      buildAsset("asset-reference", "reference-pack"),
-      buildAsset("asset-mcp", "mcp-server"),
-      buildAsset("ms-python.python", "extension"),
-    ];
+    const yamlSensitiveDisplayName = 'YAML: "quoted"\n# heading';
+    const selectedAssets = buildAllAssetFixtures().map((asset) =>
+      asset.id === "asset-instruction"
+        ? { ...asset, displayName: yamlSensitiveDisplayName }
+        : asset,
+    );
 
     await writeJson(join(activationRoot, "workspace-profile-manifest.json"), {
       schemaVersion: 1,
@@ -186,6 +180,23 @@ void test("Cursor native wire plan exposes supported staged asset buckets", asyn
     assert.equal(pluginManifest.agents, "./agents");
     assert.equal(pluginManifest.skills, "./skills");
     assert.equal(pluginManifest.commands, "./commands");
+
+    const cursorRuleAsset = await readFile(
+      join(
+        workspaceRoot,
+        ".cursor",
+        "agent-harness",
+        "cursor-plugin",
+        "rules",
+        `${sanitizeAssetId("asset-instruction")}.mdc`,
+      ),
+      "utf8",
+    );
+    assert.ok(
+      cursorRuleAsset.includes(
+        `description: ${JSON.stringify(yamlSensitiveDisplayName)}`,
+      ),
+    );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
     await rm(workspaceRoot, { force: true, recursive: true });

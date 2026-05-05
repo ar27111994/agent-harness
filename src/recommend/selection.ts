@@ -381,10 +381,9 @@ function computeRedundancyPenalty(
   const duplicateGroupOverlap = candidate.duplicateGroup
     ? (selectionState.duplicateGroupCounts[candidate.duplicateGroup] ?? 0) * 2
     : 0;
-  const coverageOverlap = selectionState.selected.reduce(
-    (total, selectedCandidate) =>
-      total + computeSelectedCoverageOverlap(candidate, selectedCandidate),
-    0,
+  const coverageOverlap = computeIndexedCoverageOverlap(
+    candidate,
+    selectionState,
   );
   const overlapCount =
     sameSourceFamilyCount + duplicateGroupOverlap + coverageOverlap;
@@ -397,20 +396,14 @@ function computeRedundancyPenalty(
   return basePenalty + sourceSaturationPenalty;
 }
 
-function computeSelectedCoverageOverlap(
+function computeIndexedCoverageOverlap(
   candidate: CandidateRecommendation,
-  selectedCandidate: CandidateRecommendation,
+  selectionState: SelectionState,
 ): number {
-  const selectedCoverageTags = new Set(selectedCandidate.coverageTags);
   let overlapCount = 0;
 
   for (const tag of candidate.coverageTags) {
-    if (selectedCoverageTags.has(tag)) {
-      overlapCount += 1;
-      if (overlapCount >= 2) {
-        break;
-      }
-    }
+    overlapCount += Math.min(2, selectionState.coverageTagCounts[tag] ?? 0);
   }
 
   return overlapCount;

@@ -11,7 +11,7 @@ const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
 const NPM_SEARCH_RESULT_LIMIT = 12;
 
 /**
- * Describes npm package metadata data exchanged by the lifecycle pipeline.
+ * Describes npm package search result data exchanged by the lifecycle pipeline.
  */
 export interface NpmPackageSearchResult {
   name: string;
@@ -21,7 +21,7 @@ export interface NpmPackageSearchResult {
 }
 
 /**
- * Describes npm package metadata data exchanged by the lifecycle pipeline.
+ * Describes npm package metadata exchanged by the lifecycle pipeline.
  */
 export interface NpmPackageMetadata {
   name: string;
@@ -40,7 +40,7 @@ export interface NpmPackageMetadata {
 }
 
 /**
- * Describes pypi package metadata data exchanged by the lifecycle pipeline.
+ * Describes pypi package metadata exchanged by the lifecycle pipeline.
  */
 export interface PypiPackageMetadata {
   info: {

@@ -447,7 +447,7 @@ export function lastPathSegment(value: string): string {
     .split("/")
     .filter((segment) => segment.length > 0);
   const lastSegment = segments[segments.length - 1] ?? value;
-  return lastSegment.replace(/\.(md|ts|js|mts|cts)$/u, "");
+  return lastSegment.replace(/\.(md|mdc|ts|js|mts|cts)$/u, "");
 }
 
 /**
@@ -483,7 +483,7 @@ export function deriveDisplayNameFromPath(relativePath: string): string {
  */
 export function humanizeSlug(value: string): string {
   return value
-    .replace(/\.(md|markdown|txt|ya?ml|json)$/iu, "")
+    .replace(/\.(md|mdc|markdown|txt|ya?ml|json)$/iu, "")
     .split(/[-_/]+/u)
     .filter((segment) => segment.length > 0)
     .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
@@ -492,7 +492,7 @@ export function humanizeSlug(value: string): string {
 
 function normalizeDisplayNameSegment(value: string): string {
   return value
-    .replace(/\.(md|markdown|txt|ya?ml|json)$/iu, "")
+    .replace(/\.(md|mdc|markdown|txt|ya?ml|json)$/iu, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/^-|-$/gu, "");
