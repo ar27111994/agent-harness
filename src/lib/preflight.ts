@@ -351,6 +351,11 @@ async function runRuntimeCommand(
   return new Promise((resolve) => {
     const child = isWindowsShellWrapper
       ? spawn(
+          // We intentionally avoid `shell: true` here because Windows wrapper
+          // paths with spaces (notably VS Code's `code.cmd`) were misparsed
+          // during real-host validation. PowerShell preserves the executable
+          // path and argv boundaries while still invoking `.cmd` / `.bat`
+          // wrappers reliably.
           "powershell.exe",
           [
             "-NoProfile",

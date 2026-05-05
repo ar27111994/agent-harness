@@ -8,7 +8,9 @@ import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 void test("catalog selection rejects entries without demand overlap", () => {
   const result = filterCatalogEntriesByDemandRelevance(
     [
-      buildCatalogEntry("apify-skill", ["apify", "actor", "webhook"]),
+      buildCatalogEntry("apify-skill", ["apify", "actor", "webhook"], {
+        portfolioFit: 0.2,
+      }),
       buildCatalogEntry("flutter-skill", ["flutter", "dart", "mobile"]),
       buildCatalogEntry("postgres-mcp", ["postgres", "mcp"], {
         assetKind: "mcp-server",
@@ -66,13 +68,12 @@ void test("catalog selection rejects low-signal concern overlap without stronger
 
   assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
     "generic-stack",
-    "high-fit-entry",
     "specific-webhook",
   ]);
-  assert.deepEqual(
-    result.rejectedEntries.map((entry) => entry.id),
-    ["generic-docs"],
-  );
+  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
+    "generic-docs",
+    "high-fit-entry",
+  ]);
 });
 
 void test("catalog selection requires compound signal specificity", () => {
@@ -273,7 +274,7 @@ function buildCatalogEntry(
     },
     contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
     fit: {
-      portfolioFit: options.portfolioFit ?? (id === "apify-skill" ? 0.2 : 0),
+      portfolioFit: options.portfolioFit ?? 0,
       hostFit: 1,
     },
     dedupe: { candidateRankHint: "test" },

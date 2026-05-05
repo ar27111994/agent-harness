@@ -49,8 +49,9 @@ const LOW_SIGNAL_TERMS = new Set([
   "typescript",
 ]);
 
+const PACKAGE_REGISTRY_PREFIX_RE =
+  /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu;
 const IGNORED_CONCERN_TERMS = new Set(["base", "detector"]);
-const PORTFOLIO_FIT_RELEVANCE_THRESHOLD = 0.1;
 const LOW_SIGNAL_CONCERN_MATCH_THRESHOLD = 4;
 const HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD = 2;
 const COMMON_HIGH_SIGNAL_CATALOG_SHARE_THRESHOLD = 0.2;
@@ -290,9 +291,7 @@ function buildDemandTermSet(
 }
 
 function hasPackageEvidencePrefix(value: string): boolean {
-  return /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu.test(
-    value,
-  );
+  return PACKAGE_REGISTRY_PREFIX_RE.test(value);
 }
 
 function addDemandSignal(
@@ -418,10 +417,7 @@ function buildCatalogTermDocumentFrequency(
 }
 
 function stripPackageEvidencePrefix(value: string): string {
-  return value.replace(
-    /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu,
-    "",
-  );
+  return value.replace(PACKAGE_REGISTRY_PREFIX_RE, "");
 }
 
 function isEntryRelevantToDemand(
@@ -429,10 +425,6 @@ function isEntryRelevantToDemand(
   demandTerms: DemandRelevanceTerms,
 ): boolean {
   if (isExecutableMcpServerEntry(entry)) {
-    return true;
-  }
-
-  if (entry.fit.portfolioFit >= PORTFOLIO_FIT_RELEVANCE_THRESHOLD) {
     return true;
   }
 
