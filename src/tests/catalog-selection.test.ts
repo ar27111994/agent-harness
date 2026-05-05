@@ -26,6 +26,7 @@ void test("catalog selection rejects entries without demand overlap", () => {
         installEligible: true,
         relativePath: "servers/mcp-server.ts",
       }),
+      buildCatalogEntry("generic-npm-helper", ["npm"]),
     ],
     buildDemandProfile(),
   );
@@ -37,7 +38,7 @@ void test("catalog selection rejects entries without demand overlap", () => {
   ]);
   assert.deepEqual(
     result.rejectedEntries.map((entry) => entry.id),
-    ["flutter-skill", "metadata-only-mcp"],
+    ["flutter-skill", "metadata-only-mcp", "generic-npm-helper"],
   );
 });
 

@@ -175,7 +175,14 @@ function buildDemandTermSet(demandProfile: DemandProfile | null): Set<string> {
       ...demandProfile.signals.frameworks,
       ...demandProfile.signals.concerns,
       ...demandProfile.signals.tooling,
-    ].flatMap((value) => splitIntoKeywords(value)),
+    ].flatMap((value) => splitIntoKeywords(stripPackageEvidencePrefix(value))),
+  );
+}
+
+function stripPackageEvidencePrefix(value: string): string {
+  return value.replace(
+    /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu,
+    "",
   );
 }
 

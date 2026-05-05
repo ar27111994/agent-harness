@@ -35,6 +35,29 @@ void test("generic docs harvester extracts same-origin reference links", async (
   );
 });
 
+void test("generic extension registry items stay reference-only", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  globalThis.fetch = async () =>
+    new Response("# Extension Gallery\n\nReview extension metadata.\n", {
+      status: 200,
+    });
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  const items = await harvestReferenceItems(
+    buildExtensionRegistrySource(),
+    null,
+  );
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.assetKind, "reference-pack");
+  assert.equal(items[0]?.installMethod, "registry-summary");
+});
+
 void test("VS Code marketplace harvester produces native extension assets", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -102,6 +125,26 @@ function buildDocsSource(): SourceDefinition {
     priority: 100,
     enabled: true,
     endpoints: { docsUrl: "https://example.com" },
+    rules: {
+      officialPreferred: true,
+      allowMirror: true,
+      allowInstall: false,
+    },
+  };
+}
+
+function buildExtensionRegistrySource(): SourceDefinition {
+  return {
+    id: "zed-extension-registry",
+    name: "Zed Extension Gallery",
+    kind: "registry",
+    authorityTier: "official-marketplace",
+    hosts: ["zed"],
+    assetKinds: ["extension", "reference-pack"],
+    discoveryMode: "catalog",
+    priority: 90,
+    enabled: true,
+    endpoints: { baseUrl: "https://example.com/extensions" },
     rules: {
       officialPreferred: true,
       allowMirror: true,
