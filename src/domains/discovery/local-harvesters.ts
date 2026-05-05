@@ -413,27 +413,144 @@ function classifyLocalDirectoryFile(
     return null;
   }
 
+  if (source.id === "local-claude-code-config") {
+    return classifyClaudeCodeConfigFile(source, relativePath);
+  }
+
+  if (source.id === "local-cursor-config") {
+    return classifyCursorConfigFile(source, relativePath);
+  }
+
   if (source.id === "local-opencode-context") {
     if (!relativePath.endsWith(".md")) {
       return null;
     }
 
     if (/\/workflows\//iu.test(`/${relativePath}`)) {
-      return {
-        assetKind: "workflow",
-        compatibilityMode: "native",
-        hosts: source.hosts,
-      };
+      return buildNativeLocalFile(source, "workflow");
     }
 
-    return {
-      assetKind: "reference-pack",
-      compatibilityMode: "native",
-      hosts: source.hosts,
-    };
+    return buildNativeLocalFile(source, "reference-pack");
   }
 
   return null;
+}
+
+function classifyClaudeCodeConfigFile(
+  source: SourceDefinition,
+  relativePath: string,
+): ClassifiedLocalFile | null {
+  if (/^CLAUDE(?:\.local)?\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "instruction");
+  }
+
+  if (/^agents\/.+\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "agent");
+  }
+
+  if (/^commands\/.+\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "prompt-pack");
+  }
+
+  if (/^skills\/.+\/SKILL\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "skill");
+  }
+
+  if (/^workflows\/.+\.(md|ya?ml|json)$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "workflow");
+  }
+
+  if (/^(?:hooks\/.+\.json|settings(?:\.local)?\.json)$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "hook");
+  }
+
+  if (
+    /^(?:plugins\/.+\/\.claude-plugin\/plugin\.json|\.claude-plugin\/plugin\.json)$/iu.test(
+      relativePath,
+    )
+  ) {
+    return buildNativeLocalFile(source, "plugin");
+  }
+
+  if (/^(?:plugins\/.+\/)?\.mcp\.json$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "mcp-server");
+  }
+
+  if (/^(?:plugins\/.+\/)?README\.md$/iu.test(relativePath)) {
+    return buildReferenceLocalFile(source);
+  }
+
+  return null;
+}
+
+function classifyCursorConfigFile(
+  source: SourceDefinition,
+  relativePath: string,
+): ClassifiedLocalFile | null {
+  if (/^(?:plugins\/.+\/)?rules\/.+\.(?:mdc|md)$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "instruction");
+  }
+
+  if (/^\.cursorrules$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "instruction");
+  }
+
+  if (/^(?:plugins\/.+\/)?agents\/.+\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "agent");
+  }
+
+  if (/^(?:plugins\/.+\/)?commands\/.+\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "prompt-pack");
+  }
+
+  if (/^(?:plugins\/.+\/)?skills\/.+\/SKILL\.md$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "skill");
+  }
+
+  if (/^(?:plugins\/.+\/)?hooks\/.+\.json$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "hook");
+  }
+
+  if (/^hooks\.json$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "hook");
+  }
+
+  if (/^(?:plugins\/.+\/)?mcp\.json$/iu.test(relativePath)) {
+    return buildNativeLocalFile(source, "mcp-server");
+  }
+
+  if (
+    /^(?:plugins\/.+\/)?\.cursor-plugin\/plugin\.json$/iu.test(relativePath)
+  ) {
+    return buildNativeLocalFile(source, "plugin");
+  }
+
+  if (/^\.cursor-plugin\/marketplace\.json$/iu.test(relativePath)) {
+    return buildReferenceLocalFile(source);
+  }
+
+  return null;
+}
+
+function buildNativeLocalFile(
+  source: SourceDefinition,
+  assetKind: AssetKind,
+): ClassifiedLocalFile {
+  return {
+    assetKind,
+    compatibilityMode: "native",
+    hosts: source.hosts,
+  };
+}
+
+function buildReferenceLocalFile(
+  source: SourceDefinition,
+): ClassifiedLocalFile {
+  return {
+    assetKind: "reference-pack",
+    compatibilityMode: "reference-only",
+    hosts: source.hosts,
+  };
 }
 
 function toAntigravityManifestEntry(relativePath: string): string | null {
@@ -492,6 +609,22 @@ async function determineRisk(
     const hasHooks = false;
     const hasExecScripts = false;
     const requiresNetwork = false;
+    return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
+  }
+
+  if (assetKind === "hook") {
+    const hasHooks = true;
+    const hasExecScripts = /"command"\s*:|\bcommand\s*:|\bscript\s*:/iu.test(
+      content,
+    );
+    const requiresNetwork = /fetch\(|https?:\/\//iu.test(content);
+    return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
+  }
+
+  if (assetKind === "mcp-server") {
+    const hasHooks = false;
+    const hasExecScripts = /"command"\s*:/iu.test(content);
+    const requiresNetwork = /"url"\s*:|https?:\/\//iu.test(content);
     return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
   }
 

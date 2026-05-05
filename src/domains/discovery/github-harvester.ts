@@ -228,11 +228,25 @@ function classifyGitHubTreePath(
 
   if (
     normalizedPath.endsWith("copilot-instructions.md") ||
-    (/(^|\/)(instructions?)(\/|$)/u.test(normalizedPath) &&
-      normalizedPath.endsWith(".md"))
+    /(^|\/)(?:agents|claude)\.md$/u.test(normalizedPath) ||
+    (/(^|\/)(?:instructions?|rules?)(\/|$)/u.test(normalizedPath) &&
+      /\.(?:md|mdc)$/u.test(normalizedPath))
   ) {
     return {
       assetKind: "instruction",
+      compatibilityMode: nativeHosts ? "native" : "adaptable",
+      hosts: nativeHosts ?? adaptableHosts,
+    };
+  }
+
+  if (
+    /(^|\/)(?:commands?|prompts?|prompt-templates?)(\/|$)/u.test(
+      normalizedPath,
+    ) &&
+    normalizedPath.endsWith(".md")
+  ) {
+    return {
+      assetKind: "prompt-pack",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
     };
@@ -261,7 +275,9 @@ function classifyGitHubTreePath(
   }
 
   if (
-    /(^|\/)(plugins?)(\/|$)/u.test(normalizedPath) &&
+    (/\.claude-plugin\/plugin\.json$/u.test(normalizedPath) ||
+      /\.cursor-plugin\/plugin\.json$/u.test(normalizedPath) ||
+      /(^|\/)(plugins?)(\/|$)/u.test(normalizedPath)) &&
     /\.(md|sh|js|ts|json)$/u.test(normalizedPath)
   ) {
     return {

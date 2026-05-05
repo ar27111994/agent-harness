@@ -67,11 +67,19 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
     managedRootSegments: [".cursor", "agent-harness"],
     targetPathSegments: [
       [".cursor", "rules", "agent-harness.mdc"],
+      [
+        ".cursor",
+        "agent-harness",
+        "cursor-plugin",
+        ".cursor-plugin",
+        "plugin.json",
+      ],
       [".cursor", "agent-harness"],
     ],
     notes: [
       "Cursor native wire-in writes a project-local .cursor/rules/agent-harness.mdc rule file.",
       "Selected assets are materialized under .cursor/agent-harness for Cursor to reference from the rule.",
+      "A Cursor plugin-compatible component tree is staged under .cursor/agent-harness/cursor-plugin for hosts that register project plugin paths.",
       "The global Cursor profile is not modified.",
     ],
   },
@@ -102,13 +110,14 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
       ["CLAUDE.md"],
       [".claude", "CLAUDE.md"],
       [".claude", "rules", "agent-harness.md"],
+      [".claude", "agents", "agent-harness.md"],
       [".claude", "skills", "agent-harness", "SKILL.md"],
       [".claude", "commands", "agent-harness.md"],
       [".claude", "agent-harness"],
     ],
     notes: [
       "Claude Code native wire-in writes project CLAUDE.md context and .claude/rules/agent-harness.md.",
-      "Selected skills and workflows are exposed through .claude/skills/agent-harness and .claude/commands/agent-harness.md.",
+      "Selected agents, skills, workflows, and prompt packs are exposed through .claude/agents/agent-harness.md, .claude/skills/agent-harness, and .claude/commands/agent-harness.md.",
       "Project MCP server definitions are not synthesized without structured server configuration.",
     ],
   },
@@ -408,6 +417,13 @@ async function writeCursorNativeFiles(options: {
     "rules",
     "agent-harness.mdc",
   );
+  const managedLines = buildManagedInstructionLines({
+    hostName: "Cursor",
+    managedRoot: options.managedRoot,
+    nativeAssets: options.nativeAssets,
+    mcpServers: options.mcpServers,
+  });
+
   await writeTextFile(
     cursorRulePath,
     [
@@ -416,14 +432,116 @@ async function writeCursorNativeFiles(options: {
       "alwaysApply: true",
       "---",
       "",
-      ...buildManagedInstructionLines({
-        hostName: "Cursor",
-        managedRoot: options.managedRoot,
-        nativeAssets: options.nativeAssets,
-        mcpServers: options.mcpServers,
-      }),
+      ...managedLines,
     ].join("\n"),
   );
+  await writeCursorPluginFiles({
+    managedRoot: options.managedRoot,
+    nativeAssets: options.nativeAssets,
+    managedLines,
+  });
+}
+
+async function writeCursorPluginFiles(options: {
+  managedRoot: string;
+  nativeAssets: NativeAsset[];
+  managedLines: string[];
+}): Promise<void> {
+  const pluginRoot = join(options.managedRoot, "cursor-plugin");
+  const assetKinds = new Set(
+    options.nativeAssets.map((nativeAsset) => nativeAsset.assetKind),
+  );
+
+  await writeJsonFile(
+    join(pluginRoot, ".cursor-plugin", "plugin.json"),
+    buildCursorPluginManifest(assetKinds),
+  );
+  await writeTextFile(
+    join(pluginRoot, "rules", "agent-harness.mdc"),
+    [
+      "---",
+      "description: Agent Harness curated project context and reusable agent assets.",
+      "alwaysApply: true",
+      "---",
+      "",
+      ...options.managedLines,
+      "",
+    ].join("\n"),
+  );
+
+  for (const nativeAsset of options.nativeAssets) {
+    await writeCursorPluginAsset(pluginRoot, nativeAsset);
+  }
+}
+
+function buildCursorPluginManifest(assetKinds: Set<AssetKind>): JsonObject {
+  const manifest: JsonObject = {
+    name: "agent-harness",
+    version: "1.0.0",
+    description: "Curated Agent Harness project assets for Cursor.",
+    rules: "./rules",
+  };
+
+  if (assetKinds.has("skill")) {
+    manifest.skills = "./skills";
+  }
+  if (assetKinds.has("agent")) {
+    manifest.agents = "./agents";
+  }
+  if (assetKinds.has("workflow") || assetKinds.has("prompt-pack")) {
+    manifest.commands = "./commands";
+  }
+
+  return manifest;
+}
+
+async function writeCursorPluginAsset(
+  pluginRoot: string,
+  nativeAsset: NativeAsset,
+): Promise<void> {
+  const assetSlug = sanitizeAssetId(nativeAsset.assetId);
+
+  switch (nativeAsset.assetKind) {
+    case "instruction":
+      await writeTextFile(
+        join(pluginRoot, "rules", `${assetSlug}.mdc`),
+        buildPromptTemplate(nativeAsset.displayName, [nativeAsset.content]),
+      );
+      return;
+    case "agent":
+      await writeTextFile(
+        join(pluginRoot, "agents", `${assetSlug}.md`),
+        buildAgentFile(assetSlug, nativeAsset.displayName, [
+          nativeAsset.content,
+        ]),
+      );
+      return;
+    case "skill":
+      await writeTextFile(
+        join(pluginRoot, "skills", assetSlug, "SKILL.md"),
+        buildSkillFile(assetSlug, nativeAsset.displayName, [
+          nativeAsset.content,
+        ]),
+      );
+      return;
+    case "workflow":
+    case "prompt-pack":
+      await writeTextFile(
+        join(pluginRoot, "commands", `${assetSlug}.md`),
+        buildPromptTemplate(nativeAsset.displayName, [nativeAsset.content]),
+      );
+      return;
+    default:
+      await writeTextFile(
+        join(
+          pluginRoot,
+          "references",
+          directoryNameForAssetKind(nativeAsset.assetKind),
+          `${assetSlug}.md`,
+        ),
+        buildAssetMarkdown(nativeAsset),
+      );
+  }
 }
 
 async function writeZedNativeFiles(options: {
@@ -479,6 +597,14 @@ async function writeClaudeCodeNativeFiles(options: {
   await writeTextFile(
     join(options.workspaceRoot, ".claude", "rules", "agent-harness.md"),
     ["# Agent Harness Rules", "", ...managedLines].join("\n"),
+  );
+  await writeTextFile(
+    join(options.workspaceRoot, ".claude", "agents", "agent-harness.md"),
+    buildAgentFile(
+      "agent-harness",
+      "Use curated Agent Harness assets for this project.",
+      managedLines,
+    ),
   );
   await writeTextFile(
     join(
@@ -617,6 +743,9 @@ async function resetNativeHost(
       );
       await removePath(
         join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
+      );
+      await removePath(
+        join(workspaceRoot, ".claude", "agents", "agent-harness.md"),
       );
       await removePath(
         join(workspaceRoot, ".claude", "skills", "agent-harness"),
@@ -812,6 +941,22 @@ function buildAssetMarkdown(nativeAsset: NativeAsset): string {
     "## Content",
     "",
     nativeAsset.content.trim(),
+    "",
+  ].join("\n");
+}
+
+function buildAgentFile(
+  name: string,
+  description: string,
+  bodyLines: string[],
+): string {
+  return [
+    "---",
+    `name: ${name}`,
+    `description: ${description}`,
+    "---",
+    "",
+    ...bodyLines,
     "",
   ].join("\n");
 }

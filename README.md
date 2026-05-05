@@ -224,7 +224,7 @@ This scans the current workspace, ranks assets with the `zed` recommendation pol
 agent-harness workspace cursor --intent frontend
 ```
 
-Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific recommendation policy and project-local `.cursor` rules.
+Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific recommendation policy, project-local `.cursor` rules, prompt-pack command coverage, MCP references, and managed Cursor plugin-compatible assets.
 
 ### Inspect why an asset was recommended
 
@@ -600,6 +600,9 @@ Supported behavior:
 
 - writes `.cursor/rules/agent-harness.mdc`
 - materializes selected assets under `.cursor/agent-harness/`
+- stages a Cursor plugin-compatible component tree at `.cursor/agent-harness/cursor-plugin/` with a `.cursor-plugin/plugin.json` manifest
+- maps selected Cursor command-like assets from `workflow` and `prompt-pack` recommendations into staged plugin `commands/`
+- stages plugin-compatible `agents/`, `skills/`, `rules/`, and reference files for hosts that register project plugin paths
 - writes `activate/cursor/wire-preview-cursor.json`
 - writes `activate/cursor/wire-plan.json` on apply
 - avoids global Cursor profile mutation
@@ -609,6 +612,8 @@ Supported behavior:
 Current boundaries:
 
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
+- Cursor plugin assets are staged project-locally; registering plugin paths remains host/user-managed.
+- MCP assets are surfaced as references unless structured server configuration is available from the selected asset.
 - Extension-like assets without structured extension IDs are treated as reference material in the project-local managed tree.
 
 ### Zed
@@ -650,8 +655,10 @@ Supported behavior:
 - writes managed project context to `CLAUDE.md`
 - writes managed local Claude context to `.claude/CLAUDE.md`
 - writes `.claude/rules/agent-harness.md`
+- writes `.claude/agents/agent-harness.md`
 - writes `.claude/skills/agent-harness/SKILL.md`
 - writes `.claude/commands/agent-harness.md`
+- maps selected Claude Code command-like assets from `workflow` and `prompt-pack` recommendations into the managed command context
 - materializes selected assets under `.claude/agent-harness/`
 - writes `activate/claude-code/wire-preview-claude-code.json`
 - writes `activate/claude-code/wire-plan.json` on apply
@@ -730,6 +737,8 @@ Generated outputs include:
 ### Source utilization
 
 `discover/output/source-utilization.json` separates configured sources from operationally harvested sources so you can see whether broad source declarations are producing usable catalog entries.
+
+Generated local source seeds include host config roots for OpenCode, Claude Code, and Cursor. Claude Code harvesting recognizes `CLAUDE.md`, `.claude`-style `agents/`, `commands/`, `skills/`, hook settings, plugin manifests, and `.mcp.json`. Cursor harvesting recognizes rules, agents, commands, skills, hooks, plugin manifests, marketplace manifests, and `mcp.json` from the default Cursor config root. Claude Code and Cursor generated local config sources are catalog-only by default so local settings, hooks, and MCP files are not mirrored into project state unless a user-authored source explicitly opts in.
 
 ### Dependency-evidence package discovery
 

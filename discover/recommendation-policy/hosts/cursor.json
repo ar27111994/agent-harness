@@ -46,6 +46,16 @@
         "weight": 3
       },
       {
+        "assetKind": "prompt-pack",
+        "minimum": 6,
+        "weight": 3
+      },
+      {
+        "assetKind": "mcp-server",
+        "minimum": 4,
+        "weight": 2
+      },
+      {
         "assetKind": "hook",
         "minimum": 4,
         "weight": 2

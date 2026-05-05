@@ -1,6 +1,8 @@
 import { resolve } from "node:path";
 
 import {
+  resolveDefaultClaudeCodeConfigRoot,
+  resolveDefaultCursorConfigRoot,
   resolveDefaultOpenCodeConfigRoot,
   resolveHomeRelativePath,
 } from "../lib/paths.js";
@@ -27,6 +29,8 @@ export function buildMirrorEvidenceAllowedRoots(
     workingDirectory,
     resolveHomeRelativePath("~/.agents/skills"),
     resolveDefaultOpenCodeConfigRoot(),
+    resolveDefaultClaudeCodeConfigRoot(),
+    resolveDefaultCursorConfigRoot(),
   ].map((rootPath) => resolve(rootPath));
 }
 

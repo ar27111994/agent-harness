@@ -101,13 +101,39 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 
-const cursorCapabilities: HostCapability[] = vscodeCapabilities;
+const cursorCapabilities: HostCapability[] = [
+  { assetKind: "instruction", behaviors: ["stage", "wire"] },
+  { assetKind: "agent", behaviors: ["stage"] },
+  { assetKind: "skill", behaviors: ["stage"] },
+  { assetKind: "workflow", behaviors: ["stage"] },
+  { assetKind: "prompt-pack", behaviors: ["stage"] },
+  { assetKind: "plugin", behaviors: ["stage"] },
+  { assetKind: "hook", behaviors: ["stage"] },
+  { assetKind: "reference-pack", behaviors: ["stage"] },
+  {
+    assetKind: "extension",
+    behaviors: ["stage", "native-install", "runtime-validation"],
+  },
+  { assetKind: "mcp-server", behaviors: ["stage", "auth-assist"] },
+];
 
 const zedCapabilities: HostCapability[] = [
   { assetKind: "instruction", behaviors: ["stage", "wire"] },
   { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
   { assetKind: "extension", behaviors: ["stage", "wire"] },
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
+];
+
+const claudeCodeCapabilities: HostCapability[] = [
+  { assetKind: "instruction", behaviors: ["stage", "wire"] },
+  { assetKind: "agent", behaviors: ["stage", "wire"] },
+  { assetKind: "skill", behaviors: ["stage", "wire"] },
+  { assetKind: "workflow", behaviors: ["stage", "wire"] },
+  { assetKind: "prompt-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "plugin", behaviors: ["stage"] },
+  { assetKind: "hook", behaviors: ["stage"] },
+  { assetKind: "mcp-server", behaviors: ["stage", "auth-assist"] },
 ];
 
 const piCapabilities: HostCapability[] = opencodeCapabilities.map(
@@ -231,7 +257,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
       guidance:
         "Install the Claude Code CLI if you want runtime validation beyond project-local file wiring.",
     },
-    capabilities: opencodeCapabilities,
+    capabilities: claudeCodeCapabilities,
     wire: (options) => wireNativeHost("claude-code", options),
   },
   {

@@ -1,12 +1,18 @@
 import { join } from "node:path";
 
 import type { SourceDefinition } from "../../types.js";
-import { resolveDefaultOpenCodeConfigRoot } from "../../lib/paths.js";
+import {
+  resolveDefaultClaudeCodeConfigRoot,
+  resolveDefaultCursorConfigRoot,
+  resolveDefaultOpenCodeConfigRoot,
+} from "../../lib/paths.js";
 
 /**
  * Builds generated local sources from the provided inputs.
  */
 export function buildGeneratedLocalSources(): SourceDefinition[] {
+  const claudeCodeRoot = resolveDefaultClaudeCodeConfigRoot();
+  const cursorRoot = resolveDefaultCursorConfigRoot();
   const openCodeRoot = resolveDefaultOpenCodeConfigRoot();
 
   return [
@@ -96,6 +102,66 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
         officialPreferred: true,
         allowMirror: true,
         allowInstall: true,
+      },
+    },
+    {
+      id: "local-claude-code-config",
+      name: "Local Claude Code Config",
+      kind: "local-directory",
+      authorityTier: "trusted-local",
+      publisher: { name: "local" },
+      hosts: ["opencode", "claude-code"],
+      assetKinds: [
+        "skill",
+        "plugin",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "hook",
+        "instruction",
+        "mcp-server",
+        "reference-pack",
+      ],
+      discoveryMode: "seed",
+      priority: 100,
+      enabled: true,
+      endpoints: {
+        path: claudeCodeRoot,
+      },
+      rules: {
+        officialPreferred: true,
+        allowMirror: false,
+        allowInstall: false,
+      },
+    },
+    {
+      id: "local-cursor-config",
+      name: "Local Cursor Config",
+      kind: "local-directory",
+      authorityTier: "trusted-local",
+      publisher: { name: "local" },
+      hosts: ["copilot-vscode", "cursor"],
+      assetKinds: [
+        "skill",
+        "plugin",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "hook",
+        "instruction",
+        "mcp-server",
+        "reference-pack",
+      ],
+      discoveryMode: "seed",
+      priority: 100,
+      enabled: true,
+      endpoints: {
+        path: cursorRoot,
+      },
+      rules: {
+        officialPreferred: true,
+        allowMirror: false,
+        allowInstall: false,
       },
     },
   ];

@@ -109,3 +109,17 @@ export function resolveDefaultOpenCodeConfigRoot(): string {
 
   return join(config.paths.xdgConfigHome, "opencode");
 }
+
+/**
+ * Resolves default Claude Code config root from the provided inputs.
+ */
+export function resolveDefaultClaudeCodeConfigRoot(): string {
+  return join(getRuntimeConfig().paths.homeDirectory, ".claude");
+}
+
+/**
+ * Resolves default Cursor config root from the provided inputs.
+ */
+export function resolveDefaultCursorConfigRoot(): string {
+  return join(getRuntimeConfig().paths.homeDirectory, ".cursor");
+}

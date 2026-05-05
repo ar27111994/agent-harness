@@ -10,11 +10,19 @@ import type { WirePlanManifest, WirePreviewManifest } from "../types.js";
 const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
 
 void test("native host adapters are registered with expected lifecycle hosts", () => {
-  assert.equal(resolveHostAdapter("cursor")?.lifecycleHost, "copilot-vscode");
-  assert.equal(resolveHostAdapter("cursor")?.recommendationHost, "cursor");
-  assert.equal(
-    resolveHostAdapter("cursor")?.nativeInstall?.assetKind,
-    "extension",
+  const cursorAdapter = resolveHostAdapter("cursor");
+  assert.equal(cursorAdapter?.lifecycleHost, "copilot-vscode");
+  assert.equal(cursorAdapter?.recommendationHost, "cursor");
+  assert.equal(cursorAdapter?.nativeInstall?.assetKind, "extension");
+  assert.ok(
+    cursorAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "prompt-pack",
+    ),
+  );
+  assert.ok(
+    cursorAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "reference-pack",
+    ),
   );
   const zedAdapter = resolveHostAdapter("zed");
   assert.equal(zedAdapter?.lifecycleHost, "opencode");
@@ -38,7 +46,13 @@ void test("native host adapters are registered with expected lifecycle hosts", (
       ?.behaviors.includes("native-install"),
   );
 
-  assert.equal(resolveHostAdapter("claude")?.recommendationHost, "claude-code");
+  const claudeCodeAdapter = resolveHostAdapter("claude");
+  assert.equal(claudeCodeAdapter?.recommendationHost, "claude-code");
+  assert.ok(
+    claudeCodeAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "prompt-pack",
+    ),
+  );
 
   const opencodeAdapter = resolveHostAdapter("opencode");
   assert.ok(
@@ -112,6 +126,7 @@ void test("native adapters write host-specific project files and wire plans", as
       assert.equal(preview.mode, "apply");
       assert.ok(plan.nativeInstallActions?.length);
       await assertNativeHostFile(host, workspaceRoot);
+      await assertNativeHostExtras(host, workspaceRoot);
 
       await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
       await assert.rejects(
@@ -138,4 +153,32 @@ async function assertNativeHostFile(
 
   const content = await readFile(hostFileByHost[host], "utf8");
   assert.match(content, /Agent Harness/u);
+}
+
+async function assertNativeHostExtras(
+  host: (typeof NATIVE_HOSTS)[number],
+  workspaceRoot: string,
+): Promise<void> {
+  if (host === "cursor") {
+    const pluginManifest = await readFile(
+      join(
+        workspaceRoot,
+        ".cursor",
+        "agent-harness",
+        "cursor-plugin",
+        ".cursor-plugin",
+        "plugin.json",
+      ),
+      "utf8",
+    );
+    assert.match(pluginManifest, /agent-harness/u);
+  }
+
+  if (host === "claude-code") {
+    const agentFile = await readFile(
+      join(workspaceRoot, ".claude", "agents", "agent-harness.md"),
+      "utf8",
+    );
+    assert.match(agentFile, /Agent Harness/u);
+  }
 }

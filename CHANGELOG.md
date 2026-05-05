@@ -50,7 +50,7 @@ All notable changes to this project will be documented in this file.
 - tightened ESLint with type-aware no-floating-promise and unsafe-access rules plus scoped console-output enforcement for CLI boundary modules
 - reduced `src/discover.ts`, `src/install.ts`, `src/manifest-validation.ts`, and `src/types.ts` to stable entrypoints backed by focused domain modules
 - made catalog selection demand-aware before duplicate selection so irrelevant source-pack entries are rejected before recommendation
-- aligned OpenCode, Zed, and Pi capability matrices with documented host-specific assets including OpenCode commands, Zed extension/MCP support, and Pi prompt templates
+- aligned OpenCode, Zed, Pi, Cursor, and Claude Code capability matrices with documented host-specific assets including OpenCode commands, Zed extension/MCP support, Pi prompt templates, Cursor prompt/plugin assets, and Claude Code prompt/MCP assets
 - made CLI `--help` and `-h` flags route to command-group usage before lifecycle state is prepared
 
 ### Fixed in 1.0.0
@@ -82,6 +82,8 @@ All notable changes to this project will be documented in this file.
 - package-registry discovery now uses demand-derived npm search queries for executable MCP servers instead of checked-in package-name allowlists, and registry MCP classification recognizes executable server package patterns
 - GitHub tree harvesting no longer treats Markdown files that mention MCP as executable MCP servers
 - generic catalog filenames such as `SKILL.md` and `README.md` now fall back to human-readable parent directory names
+- Claude Code and Cursor local config harvesting now recognizes host-native agents, commands/prompt packs, skills, hooks, plugin manifests, MCP config files, and rule/context files while keeping generated local config sources catalog-only by default
+- Cursor wire-in now stages a plugin-compatible component tree under `.cursor/agent-harness/cursor-plugin`, and Claude Code wire-in now writes a managed `.claude/agents/agent-harness.md` project agent
 - recommendation redundancy scoring now uses maintained selection indexes instead of scanning every selected candidate for each score
 
 ## [0.2.0] - 2026-04-27

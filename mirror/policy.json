@@ -42,6 +42,7 @@
         "instruction",
         "workflow",
         "prompt-pack",
+        "reference-pack",
         "mcp-server"
       ],
       "defaultPromotion": "manual"
@@ -58,6 +59,8 @@
         "hook",
         "plugin",
         "extension",
+        "prompt-pack",
+        "reference-pack",
         "mcp-server"
       ],
       "defaultPromotion": "manual"

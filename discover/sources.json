@@ -67,7 +67,7 @@
         "verified": true,
         "owner": "microsoft"
       },
-      "hosts": ["copilot-vscode"],
+      "hosts": ["copilot-vscode", "cursor"],
       "assetKinds": ["extension", "plugin", "mcp-server"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -93,7 +93,17 @@
         "owner": "anthropic"
       },
       "hosts": ["copilot-vscode", "opencode", "claude-code"],
-      "assetKinds": ["skill", "plugin", "hook", "agent", "workflow"],
+      "assetKinds": [
+        "instruction",
+        "skill",
+        "plugin",
+        "hook",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "mcp-server",
+        "reference-pack"
+      ],
       "discoveryMode": "catalog",
       "priority": 90,
       "enabled": true,
@@ -117,7 +127,17 @@
         "owner": "cursor"
       },
       "hosts": ["copilot-vscode", "cursor"],
-      "assetKinds": ["instruction", "agent", "workflow", "reference-pack"],
+      "assetKinds": [
+        "instruction",
+        "skill",
+        "plugin",
+        "hook",
+        "agent",
+        "workflow",
+        "prompt-pack",
+        "mcp-server",
+        "reference-pack"
+      ],
       "discoveryMode": "catalog",
       "priority": 92,
       "enabled": true,

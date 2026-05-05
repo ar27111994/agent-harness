@@ -127,6 +127,8 @@ function shouldIncludeEntryInBundle(
         entry.assetKind === "hook" ||
         entry.assetKind === "plugin" ||
         entry.assetKind === "extension" ||
+        entry.assetKind === "prompt-pack" ||
+        entry.assetKind === "reference-pack" ||
         (entry.assetKind === "skill" &&
           entry.source.authorityTier === "official-first-party" &&
           entry.fit.portfolioFit >= 0.3))
