@@ -246,7 +246,6 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   {
     id: "robotics",
     extensions: [".urdf", ".xacro", ".rviz", ".launch"],
-    fileNames: ["package.xml", "CMakeLists.txt"],
     filePathPattern: /(^|[/\\])(ros|ros2|robot|robotics|urdf)([/\\]|$)/iu,
     signals: {
       concerns: ["robotics", "systems-engineering"],
@@ -256,7 +255,7 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   {
     id: "security-networking",
     extensions: [".pcap", ".pcapng", ".nessus", ".burp", ".nmap"],
-    filePathPattern: /(^|[/\\])(pentest|network|pcap|threat)([/\\]|$)/iu,
+    filePathPattern: /(^|[/\\])(pentest|pcap|threat|forensics|ctf)([/\\]|$)/iu,
     signals: {
       concerns: ["security", "pentesting", "networking"],
     },
@@ -273,8 +272,7 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   {
     id: "business-analysis",
     extensions: [".bpmn", ".drawio", ".docx", ".pptx", ".xlsx"],
-    filePathPattern:
-      /(^|[/\\])(analysis|business|requirements|process)([/\\]|$)/iu,
+    filePathPattern: /(^|[/\\])(analysis|business|process)([/\\]|$)/iu,
     signals: {
       concerns: ["business-analysis", "documentation"],
     },
@@ -296,11 +294,388 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
     },
   },
   {
-    id: "marketing-content",
+    id: "finance-trading",
+    extensions: [".pine", ".mq4", ".mq5"],
     filePathPattern:
-      /(^|[/\\])(marketing|seo|content|ads|advertising|lead-gen|leads)([/\\]|$)/iu,
+      /(^|[/\\])(trading|quant|finance|market-data|backtests?|forex|stocks?)([/\\]|$)/iu,
     signals: {
-      concerns: ["marketing", "seo", "content-creation", "lead-generation"],
+      concerns: [
+        "trading",
+        "market-analysis",
+        "quant-finance",
+        "financial-data",
+        "backtesting",
+      ],
     },
+  },
+  {
+    id: "bi-dashboarding",
+    extensions: [".pbix", ".pbit", ".pbip", ".twb", ".twbx", ".hyper", ".lkml"],
+    filePathPattern:
+      /(^|[/\\])(dashboards?|bi|business-intelligence|powerbi|tableau|looker)([/\\]|$)/iu,
+    signals: {
+      concerns: [
+        "business-intelligence",
+        "dashboarding",
+        "reporting",
+        "analytics",
+      ],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /\.(?:pbix|pbit|pbip)$/iu,
+        signals: { tooling: ["power-bi"] },
+      },
+      {
+        fileNamePattern: /\.(?:twb|twbx|hyper)$/iu,
+        signals: { tooling: ["tableau"] },
+      },
+      {
+        fileNamePattern: /\.lkml$/iu,
+        signals: { tooling: ["looker"] },
+      },
+    ],
+  },
+  {
+    id: "devops-platform",
+    fileNames: [
+      ".gitlab-ci.yml",
+      ".gitlab-ci.yaml",
+      "Jenkinsfile",
+      "azure-pipelines.yml",
+      "azure-pipelines.yaml",
+      "cloudbuild.yaml",
+      "Chart.yaml",
+      "kustomization.yaml",
+      "skaffold.yaml",
+      "ansible.cfg",
+      "Pulumi.yaml",
+      "Taskfile.yml",
+      "Taskfile.yaml",
+    ],
+    filePathPattern:
+      /(^|[/\\])(?:\.github[/\\]workflows|devops|platform-engineering|k8s|kubernetes|helm|charts|ansible|terraform|pulumi)([/\\]|$)/iu,
+    signals: {
+      concerns: ["devops", "ci-cd", "infrastructure", "platform-engineering"],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /^Chart\.yaml$/iu,
+        filePathPattern: /(^|[/\\])(helm|charts)([/\\]|$)/iu,
+        signals: { tooling: ["helm", "kubernetes"] },
+      },
+      {
+        fileNamePattern: /^(kustomization|skaffold)\.ya?ml$/iu,
+        filePathPattern: /(^|[/\\])(k8s|kubernetes)([/\\]|$)/iu,
+        signals: { tooling: ["kubernetes"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])ansible([/\\]|$)/iu,
+        signals: { tooling: ["ansible"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])pulumi([/\\]|$)/iu,
+        signals: { tooling: ["pulumi"] },
+      },
+    ],
+  },
+  {
+    id: "security-rules",
+    extensions: [".sarif", ".yara", ".yar", ".rego"],
+    fileNames: [
+      ".semgrep.yml",
+      ".semgrep.yaml",
+      ".snyk",
+      "gitleaks.toml",
+      "trivy.yaml",
+      "trivy.yml",
+      "grype.yaml",
+      "grype.yml",
+      "bandit.yaml",
+      "bandit.yml",
+      "codeql-config.yml",
+      "codeql-config.yaml",
+    ],
+    filePathPattern:
+      /(^|[/\\])(sast|threat-model|detections|osint|malware|reverse-engineering)([/\\]|$)/iu,
+    signals: {
+      concerns: [
+        "security",
+        "sast",
+        "policy-as-code",
+        "vulnerability-management",
+      ],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /\.(?:yara|yar)$/iu,
+        signals: { concerns: ["malware-analysis", "reverse-engineering"] },
+      },
+      {
+        fileNamePattern: /gitleaks|trivy|grype|snyk/iu,
+        signals: { concerns: ["secret-scanning", "container-security"] },
+      },
+    ],
+  },
+  {
+    id: "network-automation",
+    extensions: [".gns3", ".pkt", ".ovpn"],
+    fileNames: [
+      "named.conf",
+      "Corefile",
+      "dnsmasq.conf",
+      "nginx.conf",
+      "haproxy.cfg",
+      "envoy.yaml",
+      "nftables.conf",
+      "bird.conf",
+      "wg0.conf",
+    ],
+    filePathPattern:
+      /(^|[/\\])(netops|dns|vpn|wireguard|routing|firewall)([/\\]|$)/iu,
+    signals: {
+      concerns: ["networking", "netops", "network-automation"],
+    },
+  },
+  {
+    id: "mlops-model-artifacts",
+    extensions: [
+      ".gguf",
+      ".ggml",
+      ".tflite",
+      ".ckpt",
+      ".keras",
+      ".mlmodel",
+      ".mar",
+    ],
+    fileNames: ["dvc.yaml", "MLproject", "model-card.md"],
+    filePathPattern:
+      /(^|[/\\])(checkpoints?|mlruns|evals?|rag|vectors?)([/\\]|$)/iu,
+    signals: {
+      concerns: ["ai", "machine-learning", "model-artifacts"],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /^(dvc\.yaml|MLproject)$/iu,
+        signals: { concerns: ["mlops", "model-training"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])(rag|vectors?)([/\\]|$)/iu,
+        signals: { concerns: ["rag", "vector-search"] },
+      },
+    ],
+  },
+  {
+    id: "audio-production",
+    extensions: [
+      ".rpp",
+      ".sesx",
+      ".musicxml",
+      ".mxl",
+      ".sib",
+      ".ogg",
+      ".opus",
+      ".aiff",
+      ".aac",
+    ],
+    filePathPattern: /(^|[/\\])(audio|music|sound)([/\\]|$)/iu,
+    signals: {
+      concerns: ["media", "audio-production", "music", "creative-production"],
+    },
+  },
+  {
+    id: "video-vfx",
+    extensions: [
+      ".mkv",
+      ".webm",
+      ".avi",
+      ".m4v",
+      ".exr",
+      ".dpx",
+      ".hdr",
+      ".kra",
+      ".clip",
+      ".procreate",
+    ],
+    filePathPattern:
+      /(^|[/\\])(video|vfx|renders?|generative-art|motion-graphics)([/\\]|$)/iu,
+    signals: {
+      concerns: ["media", "video-production", "vfx", "image-processing"],
+    },
+  },
+  {
+    id: "embedded-systems",
+    extensions: [
+      ".ino",
+      ".dts",
+      ".dtsi",
+      ".ld",
+      ".asm",
+      ".hex",
+      ".elf",
+      ".uf2",
+      ".svd",
+      ".overlay",
+    ],
+    fileNames: [
+      "platformio.ini",
+      "arduino-cli.yaml",
+      "sdkconfig",
+      "Kconfig",
+      "defconfig",
+    ],
+    filePathPattern:
+      /(^|[/\\])(firmware|embedded|rtos|drivers|kernel|boards|zephyr|esp-idf)([/\\]|$)/iu,
+    signals: {
+      concerns: [
+        "embedded",
+        "firmware",
+        "rtos",
+        "systems-programming",
+        "hardware",
+      ],
+    },
+  },
+  {
+    id: "robotics-simulation",
+    extensions: [".sdf", ".srdf", ".world", ".bag"],
+    filePathPattern:
+      /(^|[/\\])(gazebo|ignition|webots|isaac|moveit|nav2|slam|px4|ardupilot|mavlink|drones)([/\\]|$)|\.launch\.py$/iu,
+    signals: {
+      concerns: ["robotics", "simulation"],
+    },
+    conditionalSignals: [
+      {
+        filePathPattern: /(^|[/\\])(nav2|slam|moveit)([/\\]|$)/iu,
+        signals: { concerns: ["slam", "motion-planning", "autonomy"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])(px4|ardupilot|mavlink|drones)([/\\]|$)/iu,
+        signals: { concerns: ["drones", "autonomy"] },
+      },
+    ],
+  },
+  {
+    id: "blockchain-extended",
+    extensions: [".move", ".cairo", ".clar", ".teal"],
+    fileNames: [
+      "Anchor.toml",
+      "truffle-config.js",
+      "brownie-config.yaml",
+      "ape-config.yaml",
+      "remappings.txt",
+    ],
+    filePathPattern:
+      /(^|[/\\])(smart-contracts|defi|solana|cairo|substrate|cosmwasm)([/\\]|$)/iu,
+    signals: {
+      concerns: ["blockchain", "cryptography", "smart-contracts", "defi"],
+    },
+  },
+  {
+    id: "data-mining-engineering",
+    extensions: [
+      ".db",
+      ".feather",
+      ".hdf5",
+      ".hdf",
+      ".zarr",
+      ".ndjson",
+      ".dbml",
+    ],
+    fileNames: [
+      "dbt_project.yml",
+      "profiles.yml",
+      "schema.yml",
+      "dvc.yaml",
+      "dvc.lock",
+      "great_expectations.yml",
+      "airflow.cfg",
+      ".sqlfluff",
+    ],
+    filePathPattern:
+      /(^|[/\\])(etl|elt|lakehouse|marts|pipelines|dags|scrapers|data-mining)([/\\]|$)/iu,
+    signals: {
+      concerns: [
+        "data",
+        "data-engineering",
+        "data-mining",
+        "etl",
+        "analytics-engineering",
+      ],
+    },
+  },
+  {
+    id: "slicer-printing",
+    extensions: [
+      ".amf",
+      ".bgcode",
+      ".ctb",
+      ".photon",
+      ".sl1",
+      ".curaprofile",
+      ".lys",
+      ".chitubox",
+    ],
+    fileNames: [
+      "printer.cfg",
+      "moonraker.conf",
+      "PrusaSlicer.ini",
+      "SuperSlicer.ini",
+    ],
+    filePathPattern:
+      /(^|[/\\])(slicer|prints|klipper|moonraker|cnc|additive-manufacturing)([/\\]|$)/iu,
+    signals: {
+      concerns: [
+        "3d-printing",
+        "fabrication",
+        "hardware",
+        "slicer",
+        "additive-manufacturing",
+      ],
+    },
+  },
+  {
+    id: "marketing-content",
+    fileNames: [
+      "robots.txt",
+      "sitemap.xml",
+      "next-sitemap.config.js",
+      "contentlayer.config.ts",
+      "sanity.config.ts",
+    ],
+    filePathPattern:
+      /(^|[/\\])(marketing|seo|content|ads|advertising|lead-gen|leads|blog|campaigns|landing-pages|editorial|cms|content-marketing)([/\\]|$)/iu,
+    signals: {
+      concerns: ["seo"],
+    },
+    conditionalSignals: [
+      {
+        filePathPattern:
+          /(^|[/\\])(marketing|ads|advertising|lead-gen|leads|campaigns|landing-pages)([/\\]|$)/iu,
+        signals: {
+          concerns: [
+            "marketing",
+            "content-creation",
+            "lead-generation",
+            "campaigns",
+          ],
+        },
+      },
+      {
+        filePathPattern:
+          /(^|[/\\])(content|editorial|content-marketing)([/\\]|$)/iu,
+        signals: { concerns: ["content-creation", "content-marketing"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])cms([/\\]|$)/iu,
+        signals: { concerns: ["cms"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])blog([/\\]|$)/iu,
+        signals: {
+          concerns: ["blog", "content-creation", "content-marketing"],
+        },
+      },
+    ],
   },
 ];

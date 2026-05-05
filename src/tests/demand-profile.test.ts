@@ -344,6 +344,236 @@ const repoFixtures: DemandProfileRepoFixture[] = [
     },
     expectedMatchedFilesMin: 2,
   },
+  {
+    archetype: "trading-bi-market-analysis",
+    files: [
+      {
+        path: "requirements-dev.txt",
+        content: "ccxt\nyfinance\nbacktrader\nstreamlit\n",
+      },
+      {
+        path: "trading/strategies/breakout.pine",
+        content: "strategy('breakout')",
+      },
+      { path: "dashboards/sales.pbix", content: "fixture" },
+    ],
+    expectedSignals: {
+      languages: ["python"],
+      concerns: [
+        "trading",
+        "market-analysis",
+        "quant-finance",
+        "financial-data",
+        "backtesting",
+        "business-intelligence",
+        "dashboarding",
+        "reporting",
+      ],
+      tooling: ["pypi:ccxt", "backtesting", "power-bi"],
+    },
+    expectedMatchedFilesMin: 3,
+  },
+  {
+    archetype: "devops-network-platform",
+    files: [
+      { path: ".github/workflows/ci.yml", content: "name: ci\n" },
+      { path: "charts/app/Chart.yaml", content: "apiVersion: v2\nname: app\n" },
+      { path: "ansible/playbook.yml", content: "- hosts: all\n" },
+      { path: "requirements/ops.txt", content: "ansible\nnapalm\nnetmiko\n" },
+    ],
+    expectedSignals: {
+      languages: ["python"],
+      concerns: [
+        "devops",
+        "ci-cd",
+        "infrastructure",
+        "platform-engineering",
+        "networking",
+        "netops",
+        "network-automation",
+      ],
+      tooling: ["kubernetes", "helm", "ansible", "pypi:netmiko"],
+    },
+    unexpectedSignals: {
+      concerns: ["business-analysis"],
+    },
+    expectedMatchedFilesMin: 4,
+  },
+  {
+    archetype: "mlops-rag-creative-media",
+    files: [
+      {
+        path: "requirements.txt",
+        content: "mlflow\nchromadb\nsentence-transformers\npydub\n",
+      },
+      { path: "models/assistant.gguf", content: "fixture" },
+      { path: "audio/theme.rpp", content: "fixture" },
+    ],
+    expectedSignals: {
+      concerns: [
+        "machine-learning",
+        "deep-learning",
+        "mlops",
+        "rag",
+        "vector-search",
+        "model-artifacts",
+        "audio-production",
+        "music",
+      ],
+      tooling: ["pypi:mlflow", "pypi:chromadb"],
+    },
+    expectedMatchedFilesMin: 3,
+  },
+  {
+    archetype: "embedded-robotics-blockchain",
+    files: [
+      {
+        path: "Cargo.toml",
+        content:
+          '[workspace.dependencies]\nembedded-hal = "1"\nanchor-lang = "0.30"\n',
+      },
+      {
+        path: "firmware/platformio.ini",
+        content: "[env:esp32]\nplatform = espressif32\n",
+      },
+      {
+        path: "robotics/nav2/nav.launch.py",
+        content: "from launch import LaunchDescription\n",
+      },
+    ],
+    expectedSignals: {
+      languages: ["rust"],
+      concerns: [
+        "embedded",
+        "firmware",
+        "hardware",
+        "iot",
+        "blockchain",
+        "smart-contracts",
+        "robotics",
+        "motion-planning",
+        "autonomy",
+      ],
+      tooling: ["cargo:embedded-hal", "cargo:anchor-lang"],
+    },
+    expectedMatchedFilesMin: 3,
+  },
+  {
+    archetype: "data-mining-seo-content",
+    files: [
+      { path: "dbt_project.yml", content: "name: analytics\n" },
+      { path: "dvc.yaml", content: "stages: {}\n" },
+      {
+        path: "scrapers/requirements.txt",
+        content: "scrapy\nbeautifulsoup4\n",
+      },
+      {
+        path: "content-marketing/cms/sitemap.xml",
+        content: "<urlset></urlset>",
+      },
+      {
+        path: "campaigns/landing-pages/robots.txt",
+        content: "User-agent: *\nAllow: /\n",
+      },
+      { path: "public/robots.txt", content: "User-agent: *\nAllow: /\n" },
+    ],
+    expectedSignals: {
+      languages: ["python"],
+      concerns: [
+        "data-engineering",
+        "data-mining",
+        "etl",
+        "analytics-engineering",
+        "marketing",
+        "seo",
+        "content-marketing",
+        "cms",
+        "campaigns",
+      ],
+      tooling: ["pypi:scrapy"],
+    },
+    unexpectedSignals: {
+      concerns: ["business-analysis"],
+    },
+    expectedMatchedFilesMin: 6,
+  },
+  {
+    archetype: "php-cms-frameworks",
+    files: [
+      {
+        path: "composer.json",
+        content: JSON.stringify({
+          require: {
+            "laravel/framework": "*",
+            "codeigniter4/framework": "*",
+            "laminas/laminas-mvc": "*",
+            "roots/wordpress": "*",
+            "drupal/core": "*",
+            "joomla/joomla-cms": "*",
+          },
+        }),
+      },
+    ],
+    expectedSignals: {
+      languages: ["php"],
+      packageManagers: ["composer"],
+      frameworks: ["backend-framework"],
+      concerns: ["backend", "api-design", "cms"],
+      tooling: [
+        "packagist:laravel/framework",
+        "packagist:codeigniter4/framework",
+        "wordpress",
+        "drupal",
+        "joomla",
+      ],
+    },
+    expectedMatchedFilesMin: 1,
+  },
+  {
+    archetype: "systems-and-beam-polyglot",
+    files: [
+      { path: "native/src/main.c", content: "int main(void) { return 0; }" },
+      { path: "native/src/lib.cpp", content: "int answer() { return 42; }" },
+      {
+        path: "native/CMakeLists.txt",
+        content: "project(native LANGUAGES C CXX)",
+      },
+      { path: "native/Makefile", content: "all:\n\tcc main.c\n" },
+      { path: "go/main.go", content: "package main\nfunc main() {}\n" },
+      { path: "rust/src/lib.rs", content: "pub fn answer() -> i32 { 42 }\n" },
+      { path: "erlang/src/app.erl", content: "-module(app).\n" },
+      { path: "erlang/rebar.config", content: "{deps, [cowboy]}.\n" },
+      {
+        path: "elixir/mix.exs",
+        content: 'defp deps, do: [{:phoenix, "~> 1.7"}]\n',
+      },
+      { path: "julia/Project.toml", content: 'DataFrames = "uuid"\n' },
+    ],
+    expectedSignals: {
+      languages: ["c", "cpp", "go", "rust", "erlang", "elixir", "julia"],
+      packageManagers: ["rebar", "hex", "julia-pkg"],
+      frameworks: ["backend-framework"],
+      concerns: ["backend", "systems-programming", "scientific-computing"],
+      tooling: ["cmake", "make"],
+    },
+    expectedMatchedFilesMin: 10,
+  },
+  {
+    archetype: "lockfile-no-text-intent",
+    files: [
+      {
+        path: "package-lock.json",
+        content: JSON.stringify({ packages: { "node_modules/debug": {} } }),
+      },
+    ],
+    expectedSignals: {
+      packageManagers: ["npm"],
+    },
+    unexpectedSignals: {
+      concerns: ["logging", "debugging", "mocking", "replay"],
+    },
+    expectedMatchedFilesMin: 1,
+  },
 ];
 
 void test("demand profiles produce meaningful signals for representative repo archetypes", async () => {

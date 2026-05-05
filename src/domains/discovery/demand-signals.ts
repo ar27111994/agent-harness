@@ -12,11 +12,14 @@ interface PackageJsonShape {
   description?: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   engines?: {
     node?: string;
   };
   keywords?: string[];
   name?: string;
+  packageManager?: string;
 }
 
 interface ActorJsonShape {
@@ -44,21 +47,38 @@ const INSPECTABLE_FILE_NAMES = new Set([
   "package-lock.json",
   "pnpm-lock.yaml",
   "yarn.lock",
+  "bun.lockb",
   "tsconfig.json",
   "pyproject.toml",
   "requirements.txt",
+  "constraints.txt",
   "pubspec.yaml",
   "Cargo.toml",
   "go.mod",
   "pom.xml",
   "build.gradle",
   "build.gradle.kts",
+  "settings.gradle",
+  "settings.gradle.kts",
+  "libs.versions.toml",
   "Gemfile",
   "composer.json",
   "Package.swift",
+  "mix.exs",
+  "rebar.config",
+  "Project.toml",
+  "Manifest.toml",
+  "CMakeLists.txt",
+  "Makefile",
+  "package.xml",
   "Dockerfile",
+  "Containerfile",
   "docker-compose.yml",
   "docker-compose.yaml",
+  "compose.yml",
+  "compose.yaml",
+  "Directory.Packages.props",
+  "packages.config",
   "deno.json",
   "actor.json",
   "input_schema.json",
@@ -74,9 +94,19 @@ export function shouldInspectFile(fileName: string, filePath: string): boolean {
 
   if (
     fileName.endsWith(".csproj") ||
+    fileName.endsWith(".sln") ||
     fileName.endsWith(".tf") ||
-    fileName.endsWith(".tfvars")
+    fileName.endsWith(".tfvars") ||
+    isLanguageSourceFile(fileName)
   ) {
+    return true;
+  }
+
+  if (isRequirementsFile(fileName, filePath)) {
+    return true;
+  }
+
+  if (isDockerfileName(fileName) || isComposeFileName(fileName)) {
     return true;
   }
 
@@ -121,7 +151,7 @@ export async function collectDemandSignalsForFile(
     enrichPackageJsonSignals(fileContent, matchedSignals);
   }
 
-  if (fileName === "requirements.txt") {
+  if (isRequirementsFile(fileName, filePath)) {
     enrichRequirementsSignals(fileContent, matchedSignals);
   }
 
@@ -155,6 +185,51 @@ export function isActorJsonFile(fileName: string, filePath: string): boolean {
   );
 }
 
+function isRequirementsFile(fileName: string, filePath: string): boolean {
+  const normalizedPath = filePath.replace(/\\/gu, "/");
+  return (
+    /^requirements(?:[-_.][A-Za-z0-9_.-]+)?\.txt$/iu.test(fileName) ||
+    /^constraints(?:[-_.][A-Za-z0-9_.-]+)?\.txt$/iu.test(fileName) ||
+    /(^|\/)requirements\/[^/]+\.txt$/iu.test(normalizedPath)
+  );
+}
+
+function isDockerfileName(fileName: string): boolean {
+  return (
+    /^Dockerfile(?:[.-][A-Za-z0-9_.-]+)?$/u.test(fileName) ||
+    fileName === "Containerfile"
+  );
+}
+
+function isComposeFileName(fileName: string): boolean {
+  return /^(?:docker-)?compose(?:[.-][A-Za-z0-9_.-]+)?\.ya?ml$/iu.test(
+    fileName,
+  );
+}
+
+function isLockfileName(fileName: string): boolean {
+  return [
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "bun.lockb",
+  ].includes(fileName);
+}
+
+function isNugetManifestFile(fileName: string): boolean {
+  return (
+    fileName.endsWith(".csproj") ||
+    fileName === "Directory.Packages.props" ||
+    fileName === "packages.config"
+  );
+}
+
+function isLanguageSourceFile(fileName: string): boolean {
+  return /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|rs|go|erl|hrl|ex|exs|jl|php|rb)$/iu.test(
+    fileName,
+  );
+}
+
 function collectStaticSignals(
   fileName: string,
   filePath: string,
@@ -183,9 +258,44 @@ function collectStaticSignals(
     addSignals(matchedSignals.languages, ["csharp"]);
   }
 
+  if (/\.rs$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["rust"]);
+  }
+
+  if (/\.go$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["go"]);
+  }
+
+  if (/\.(c|h)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["c"]);
+  }
+
+  if (/\.(cc|cpp|cxx|hh|hpp|hxx)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["cpp"]);
+  }
+
+  if (/\.(erl|hrl)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["erlang"]);
+  }
+
+  if (/\.(ex|exs)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["elixir"]);
+  }
+
+  if (/\.jl$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["julia"]);
+  }
+
+  if (/\.php$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["php"]);
+  }
+
+  if (/\.rb$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["ruby"]);
+  }
+
   if (fileName === "package.json") {
     addSignals(matchedSignals.languages, ["javascript"]);
-    addSignals(matchedSignals.packageManagers, ["npm"]);
   }
 
   if (fileName === "package-lock.json") {
@@ -200,12 +310,16 @@ function collectStaticSignals(
     addSignals(matchedSignals.packageManagers, ["yarn"]);
   }
 
+  if (fileName === "bun.lockb") {
+    addSignals(matchedSignals.packageManagers, ["bun"]);
+  }
+
   if (fileName === "tsconfig.json") {
     addSignals(matchedSignals.languages, ["typescript"]);
     addSignals(matchedSignals.tooling, ["typescript"]);
   }
 
-  if (fileName === "pyproject.toml" || fileName === "requirements.txt") {
+  if (fileName === "pyproject.toml" || isRequirementsFile(fileName, filePath)) {
     addSignals(matchedSignals.languages, ["python"]);
     addSignals(matchedSignals.packageManagers, ["pip"]);
   }
@@ -258,6 +372,30 @@ function collectStaticSignals(
     addSignals(matchedSignals.packageManagers, ["swiftpm"]);
   }
 
+  if (fileName === "mix.exs") {
+    addSignals(matchedSignals.languages, ["elixir"]);
+    addSignals(matchedSignals.packageManagers, ["hex"]);
+  }
+
+  if (fileName === "rebar.config") {
+    addSignals(matchedSignals.languages, ["erlang"]);
+    addSignals(matchedSignals.packageManagers, ["rebar"]);
+  }
+
+  if (fileName === "Project.toml" || fileName === "Manifest.toml") {
+    addSignals(matchedSignals.languages, ["julia"]);
+    addSignals(matchedSignals.packageManagers, ["julia-pkg"]);
+  }
+
+  if (fileName === "CMakeLists.txt") {
+    addSignals(matchedSignals.languages, ["c", "cpp"]);
+    addSignals(matchedSignals.tooling, ["cmake"]);
+  }
+
+  if (fileName === "Makefile") {
+    addSignals(matchedSignals.tooling, ["make"]);
+  }
+
   if (fileName === "Podfile") {
     addSignals(matchedSignals.packageManagers, ["cocoapods"]);
     addSignals(matchedSignals.concerns, ["mobile", "ios"]);
@@ -279,12 +417,7 @@ function collectStaticSignals(
     addSignals(matchedSignals.tooling, ["deno"]);
   }
 
-  if (
-    fileName === "Dockerfile" ||
-    fileName === "docker-compose.yml" ||
-    fileName === "docker-compose.yaml" ||
-    fileName.startsWith("docker-compose.")
-  ) {
+  if (isDockerfileName(fileName) || isComposeFileName(fileName)) {
     addSignals(matchedSignals.concerns, ["containerization", "infrastructure"]);
     addSignals(matchedSignals.tooling, ["docker"]);
   }
@@ -339,6 +472,8 @@ function enrichPackageJsonSignals(
   const dependencyNames = new Set<string>([
     ...Object.keys(packageJson.dependencies ?? {}),
     ...Object.keys(packageJson.devDependencies ?? {}),
+    ...Object.keys(packageJson.optionalDependencies ?? {}),
+    ...Object.keys(packageJson.peerDependencies ?? {}),
   ]);
   const packageTextSignals = [
     packageJson.name ?? "",
@@ -355,6 +490,8 @@ function enrichPackageJsonSignals(
     addSignals(matchedSignals.tooling, ["typescript"]);
   }
 
+  addPackageManagerSignal(packageJson.packageManager, matchedSignals);
+
   if (packageJson.engines?.node) {
     addSignals(matchedSignals.tooling, ["node"]);
   }
@@ -366,6 +503,24 @@ function enrichPackageJsonSignals(
   });
   addGenericTextSignals(matchedSignals, packageTextSignals);
   addPackageDependencySignals(matchedSignals, "npm", [...dependencyNames]);
+}
+
+function addPackageManagerSignal(
+  packageManager: string | undefined,
+  matchedSignals: DemandSignalSet,
+): void {
+  const packageManagerName = packageManager?.split("@")[0]?.trim();
+  if (
+    packageManagerName === "npm" ||
+    packageManagerName === "pnpm" ||
+    packageManagerName === "yarn" ||
+    packageManagerName === "bun"
+  ) {
+    addSignals(matchedSignals.packageManagers, [packageManagerName]);
+    return;
+  }
+
+  addSignals(matchedSignals.packageManagers, ["npm"]);
 }
 
 function enrichRequirementsSignals(
@@ -507,7 +662,6 @@ function isPoetryTableReference(value: string | undefined): boolean {
 
   const trimmedValue = value.trim();
   return (
-    trimmedValue.startsWith("{") ||
     /^\{[^}]*\b(?:path|git|url|file)\s*=/iu.test(trimmedValue) ||
     /^(?:git\+|hg\+|ssh:\/\/|git:\/\/|https?:\/\/|file:)/iu.test(trimmedValue)
   );
@@ -578,62 +732,79 @@ function enrichMultiEcosystemDependencySignals(
   }
 
   switch (fileName) {
-    case "Cargo.toml":
-      addPackageDependencySignals(
-        matchedSignals,
-        "cargo",
-        extractCargoDependencyNames(content),
-      );
+    case "Cargo.toml": {
+      const dependencyNames = extractCargoDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "cargo",
+      });
+      addPackageDependencySignals(matchedSignals, "cargo", dependencyNames);
       return;
-    case "go.mod":
-      addPackageDependencySignals(
-        matchedSignals,
-        "go",
-        extractGoModuleDependencyNames(content),
-      );
+    }
+    case "go.mod": {
+      const dependencyNames = extractGoModuleDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "go",
+      });
+      addPackageDependencySignals(matchedSignals, "go", dependencyNames);
       return;
-    case "pom.xml":
-      addPackageDependencySignals(
-        matchedSignals,
-        "maven",
-        extractMavenDependencyNames(content),
-      );
+    }
+    case "pom.xml": {
+      const dependencyNames = extractMavenDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "maven",
+      });
+      addPackageDependencySignals(matchedSignals, "maven", dependencyNames);
       return;
+    }
     case "build.gradle":
     case "build.gradle.kts": {
       const dependencyNames = extractMavenDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "maven",
+      });
       addPackageDependencySignals(matchedSignals, "maven", dependencyNames);
       enrichGradleSignals(content, fileName, matchedSignals);
       return;
     }
-    case "Gemfile":
-      addPackageDependencySignals(
-        matchedSignals,
-        "gem",
-        extractGemDependencyNames(content),
-      );
+    case "Gemfile": {
+      const dependencyNames = extractGemDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "gem",
+      });
+      addPackageDependencySignals(matchedSignals, "gem", dependencyNames);
       return;
-    case "composer.json":
-      addPackageDependencySignals(
-        matchedSignals,
-        "packagist",
-        extractComposerDependencyNames(content),
-      );
+    }
+    case "composer.json": {
+      const dependencyNames = extractComposerDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "packagist",
+      });
+      addPackageDependencySignals(matchedSignals, "packagist", dependencyNames);
       return;
-    case "Package.swift":
-      addPackageDependencySignals(
-        matchedSignals,
-        "swift",
-        extractSwiftDependencyNames(content),
-      );
+    }
+    case "Package.swift": {
+      const dependencyNames = extractSwiftDependencyNames(content);
+      applyTechnologySignatures(matchedSignals, {
+        dependencyNames,
+        ecosystem: "swift",
+      });
+      addPackageDependencySignals(matchedSignals, "swift", dependencyNames);
       return;
+    }
     default:
-      if (fileName.endsWith(".csproj")) {
-        addPackageDependencySignals(
-          matchedSignals,
-          "nuget",
-          extractNugetDependencyNames(content),
-        );
+      if (isNugetManifestFile(fileName)) {
+        const dependencyNames = extractNugetDependencyNames(content);
+        applyTechnologySignatures(matchedSignals, {
+          dependencyNames,
+          ecosystem: "nuget",
+        });
+        addPackageDependencySignals(matchedSignals, "nuget", dependencyNames);
         enrichDotNetProjectSignals(content, matchedSignals);
       }
   }
@@ -674,19 +845,27 @@ function enrichGenericTextSignals(
 }
 
 function shouldReadTextForTechnologySignals(fileName: string): boolean {
+  if (isLockfileName(fileName)) {
+    return false;
+  }
+
   return (
     /\.(json|ya?ml|toml|xml|gradle|csproj|props|targets|md|mdx|txt|ini|cfg|conf)$/iu.test(
       fileName,
     ) ||
+    isDockerfileName(fileName) ||
     [
-      "Dockerfile",
+      "Containerfile",
       "Gemfile",
       "Package.swift",
       "Podfile",
       "Makefile",
       "CMakeLists.txt",
+      "mix.exs",
+      "rebar.config",
+      "Project.toml",
+      "Manifest.toml",
       "go.mod",
-      "requirements.txt",
       "project.godot",
     ].includes(fileName)
   );
@@ -728,7 +907,7 @@ function enrichActorJsonSignals(
 function shouldReadFileContent(fileName: string, filePath: string): boolean {
   return (
     fileName === "package.json" ||
-    fileName === "requirements.txt" ||
+    isRequirementsFile(fileName, filePath) ||
     fileName === "pyproject.toml" ||
     isActorJsonFile(fileName, filePath) ||
     shouldReadTextForTechnologySignals(fileName) ||
@@ -747,7 +926,7 @@ function shouldReadTextForDependencySignals(fileName: string): boolean {
       "Gemfile",
       "composer.json",
       "Package.swift",
-    ].includes(fileName) || fileName.endsWith(".csproj")
+    ].includes(fileName) || isNugetManifestFile(fileName)
   );
 }
 
@@ -943,6 +1122,7 @@ function isCargoDependencySection(sectionName: string): boolean {
     sectionName === "dependencies" ||
     sectionName === "dev-dependencies" ||
     sectionName === "build-dependencies" ||
+    sectionName === "workspace.dependencies" ||
     /^target\..+\.(?:dependencies|dev-dependencies|build-dependencies)$/u.test(
       sectionName,
     )
@@ -975,7 +1155,7 @@ function extractMavenDependencyNames(content: string): string[] {
   }
 
   for (const gradleMatch of content.matchAll(
-    /(?:implementation|api|compileOnly|runtimeOnly|testImplementation)\s*\(?["']([^:"']+):([^:"']+):[^"']+["']/giu,
+    /(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|androidTestImplementation|kapt|annotationProcessor|classpath)\s*\(?["']([^:"']+):([^:"']+)(?::[^"']+)?["']/giu,
   )) {
     const groupId = gradleMatch[1]?.trim();
     const artifactId = gradleMatch[2]?.trim();
@@ -991,8 +1171,9 @@ function extractNugetDependencyNames(content: string): string[] {
   return uniqueStrings(
     [
       ...content.matchAll(
-        /<PackageReference\s+[^>]*Include=["']([^"']+)["']/giu,
+        /<(?:PackageReference|PackageVersion)\s+[^>]*Include=["']([^"']+)["']/giu,
       ),
+      ...content.matchAll(/<package\s+[^>]*id=["']([^"']+)["']/giu),
     ]
       .map((match) => match[1]?.trim())
       .filter((value): value is string => Boolean(value)),

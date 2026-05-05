@@ -4,7 +4,17 @@ import { addSignals } from "./signals.js";
 /**
  * Defines the supported package ecosystem values.
  */
-export type PackageEcosystem = "npm" | "pypi" | "pub";
+export type PackageEcosystem =
+  | "npm"
+  | "pypi"
+  | "pub"
+  | "cargo"
+  | "go"
+  | "maven"
+  | "nuget"
+  | "gem"
+  | "packagist"
+  | "swift";
 
 /**
  * Describes technology signature data exchanged by the lifecycle pipeline.
@@ -136,6 +146,7 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
     id: "database-orm",
     packages: {
       npm: ["drizzle-orm", "prisma", "sequelize", "typeorm", "mongoose"],
+      pypi: ["sqlalchemy", "alembic"],
     },
     signals: { concerns: ["database"], tooling: ["orm"] },
   },
@@ -275,7 +286,18 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   {
     id: "robotics",
     packages: { pypi: ["rclpy", "rospy", "pymavlink"] },
-    textMarkers: ["ros2", "ros", "urdf", "xacro", "robotics"],
+    textMarkers: [
+      "ros2",
+      "ros",
+      "urdf",
+      "xacro",
+      "robotics",
+      "ament_cmake",
+      "catkin",
+      "rclcpp",
+      "sensor_msgs",
+      "geometry_msgs",
+    ],
     signals: {
       concerns: ["robotics", "systems-engineering"],
       tooling: ["ros"],
@@ -336,7 +358,6 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
       ],
     },
     textMarkers: [
-      "seo",
       "marketing",
       "lead generation",
       "advertising",
@@ -344,6 +365,486 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
     ],
     signals: {
       concerns: ["marketing", "seo", "lead-generation", "content-creation"],
+    },
+  },
+  {
+    id: "finance-trading",
+    packages: {
+      npm: ["ccxt", "technicalindicators", "lightweight-charts"],
+      pypi: [
+        "ccxt",
+        "backtrader",
+        "yfinance",
+        "ta-lib",
+        "vectorbt",
+        "zipline-reloaded",
+        "quantlib",
+        "alpaca-py",
+        "ib-insync",
+      ],
+    },
+    textMarkers: [
+      "forex",
+      "stock trading",
+      "market analysis",
+      "backtesting",
+      "quant finance",
+      "portfolio analytics",
+    ],
+    signals: {
+      concerns: [
+        "trading",
+        "market-analysis",
+        "quant-finance",
+        "financial-data",
+        "backtesting",
+      ],
+      tooling: ["backtesting"],
+    },
+  },
+  {
+    id: "bi-dashboarding",
+    packages: {
+      npm: ["powerbi-client", "@superset-ui/core", "vega-lite"],
+      pypi: [
+        "streamlit",
+        "dash",
+        "plotly",
+        "apache-superset",
+        "metabase-api",
+        "shiny",
+      ],
+    },
+    textMarkers: [
+      "business intelligence",
+      "power bi",
+      "tableau",
+      "looker",
+      "dashboarding",
+      "reporting",
+    ],
+    signals: {
+      concerns: ["business-intelligence", "dashboarding", "reporting"],
+    },
+  },
+  {
+    id: "power-bi",
+    packages: { npm: ["powerbi-client"] },
+    textMarkers: ["power bi"],
+    signals: {
+      concerns: ["business-intelligence"],
+      tooling: ["power-bi"],
+    },
+  },
+  {
+    id: "devops-platform",
+    packages: {
+      npm: ["@pulumi/pulumi", "aws-cdk-lib", "cdk8s", "serverless"],
+      pypi: ["ansible", "kubernetes", "docker", "pulumi"],
+    },
+    packagePrefixes: { npm: ["@pulumi/"], pypi: ["apache-airflow-providers-"] },
+    textMarkers: [
+      "github actions",
+      "gitlab ci",
+      "jenkinsfile",
+      "kubernetes",
+      "helm",
+      "ansible",
+      "pulumi",
+      "platform engineering",
+    ],
+    signals: {
+      concerns: ["devops", "ci-cd", "infrastructure", "platform-engineering"],
+    },
+  },
+  {
+    id: "ansible",
+    packages: { pypi: ["ansible"] },
+    textMarkers: ["ansible"],
+    signals: {
+      concerns: ["devops", "infrastructure"],
+      tooling: ["ansible"],
+    },
+  },
+  {
+    id: "kubernetes",
+    packages: { npm: ["cdk8s"], pypi: ["kubernetes"] },
+    textMarkers: ["kubernetes"],
+    signals: {
+      concerns: ["devops", "infrastructure"],
+      tooling: ["kubernetes"],
+    },
+  },
+  {
+    id: "pulumi",
+    packages: { npm: ["@pulumi/pulumi"], pypi: ["pulumi"] },
+    packagePrefixes: { npm: ["@pulumi/"] },
+    textMarkers: ["pulumi"],
+    signals: {
+      concerns: ["devops", "infrastructure"],
+      tooling: ["pulumi"],
+    },
+  },
+  {
+    id: "security-advanced",
+    packages: {
+      npm: ["snyk", "eslint-plugin-security"],
+      pypi: [
+        "yara-python",
+        "volatility3",
+        "frida-tools",
+        "angr",
+        "z3-solver",
+        "mitmproxy",
+        "python-owasp-zap-v2.4",
+        "detect-secrets",
+      ],
+    },
+    textMarkers: [
+      "secret scanning",
+      "container security",
+      "policy as code",
+      "malware analysis",
+      "reverse engineering",
+      "osint",
+      "vulnerability management",
+    ],
+    signals: {
+      concerns: [
+        "security",
+        "sast",
+        "secret-scanning",
+        "policy-as-code",
+        "malware-analysis",
+        "reverse-engineering",
+        "osint",
+        "vulnerability-management",
+      ],
+    },
+  },
+  {
+    id: "network-automation",
+    packages: {
+      npm: ["mqtt", "dns2"],
+      pypi: [
+        "pyshark",
+        "dnspython",
+        "napalm",
+        "netmiko",
+        "ncclient",
+        "nornir",
+        "pyroute2",
+      ],
+    },
+    textMarkers: [
+      "network automation",
+      "netops",
+      "wireguard",
+      "routing",
+      "firewall",
+      "packet analysis",
+    ],
+    signals: {
+      concerns: ["networking", "netops", "network-automation"],
+    },
+  },
+  {
+    id: "classic-ml",
+    packages: {
+      pypi: ["xgboost", "lightgbm", "catboost"],
+    },
+    signals: { concerns: ["machine-learning"] },
+  },
+  {
+    id: "mlops",
+    packages: {
+      pypi: ["mlflow", "wandb", "optuna", "dvc", "huggingface-hub", "datasets"],
+    },
+    textMarkers: ["mlops", "model evaluation"],
+    signals: {
+      concerns: [
+        "machine-learning",
+        "mlops",
+        "model-training",
+        "model-evaluation",
+      ],
+    },
+  },
+  {
+    id: "model-serving",
+    packages: {
+      npm: ["@tensorflow/tfjs", "onnxruntime-node"],
+      pypi: ["accelerate", "peft"],
+    },
+    textMarkers: ["model serving"],
+    signals: {
+      concerns: ["machine-learning", "deep-learning", "model-serving"],
+    },
+  },
+  {
+    id: "rag-vector-search",
+    packages: {
+      npm: ["chromadb", "langgraph"],
+      pypi: [
+        "sentence-transformers",
+        "faiss-cpu",
+        "chromadb",
+        "weaviate-client",
+      ],
+    },
+    packagePrefixes: { npm: ["@xenova/"] },
+    textMarkers: ["vector search", "retrieval augmented generation", "rag"],
+    signals: {
+      concerns: [
+        "machine-learning",
+        "deep-learning",
+        "rag",
+        "vector-search",
+        "nlp",
+      ],
+    },
+  },
+  {
+    id: "computer-vision-nlp",
+    packages: {
+      pypi: ["ultralytics", "timm", "spacy"],
+    },
+    textMarkers: ["computer vision", "nlp"],
+    signals: {
+      concerns: ["machine-learning", "deep-learning", "computer-vision", "nlp"],
+    },
+  },
+  {
+    id: "creative-media-extended",
+    packages: {
+      npm: ["@ffmpeg/ffmpeg", "sharp", "jimp", "fabric", "paper", "p5"],
+      pypi: [
+        "pydub",
+        "soundfile",
+        "mido",
+        "pretty-midi",
+        "music21",
+        "aubio",
+        "openimageio",
+        "trimesh",
+        "bpy",
+        "moderngl",
+      ],
+    },
+    textMarkers: [
+      "audio production",
+      "video production",
+      "generative art",
+      "image processing",
+      "motion graphics",
+      "vfx",
+    ],
+    signals: {
+      concerns: [
+        "media",
+        "audio-production",
+        "music",
+        "video-production",
+        "vfx",
+        "image-processing",
+        "generative-art",
+        "3d-assets",
+      ],
+    },
+  },
+  {
+    id: "embedded-systems",
+    packages: {
+      npm: ["johnny-five"],
+      pypi: ["platformio", "esptool", "adafruit-circuitpython", "pyserial"],
+      cargo: ["embedded-hal", "cortex-m", "rtic", "probe-rs", "esp-idf-svc"],
+    },
+    textMarkers: [
+      "embedded",
+      "firmware",
+      "rtos",
+      "zephyr",
+      "esp-idf",
+      "platformio",
+      "arduino",
+      "kernel driver",
+    ],
+    signals: {
+      concerns: [
+        "embedded",
+        "firmware",
+        "rtos",
+        "systems-programming",
+        "hardware",
+        "iot",
+      ],
+    },
+  },
+  {
+    id: "robotics-simulation",
+    packages: {
+      npm: ["roslib", "rclnodejs"],
+      pypi: [
+        "rosbags",
+        "roslibpy",
+        "dronekit",
+        "pybullet",
+        "mujoco",
+        "webots",
+        "gymnasium-robotics",
+      ],
+    },
+    textMarkers: [
+      "gazebo",
+      "webots",
+      "moveit",
+      "nav2",
+      "slam",
+      "mavlink",
+      "autonomy",
+      "drone",
+    ],
+    signals: {
+      concerns: [
+        "robotics",
+        "simulation",
+        "slam",
+        "motion-planning",
+        "autonomy",
+        "drones",
+      ],
+    },
+  },
+  {
+    id: "blockchain-extended",
+    packages: {
+      npm: [
+        "@coral-xyz/anchor",
+        "@openzeppelin/contracts",
+        "truffle",
+        "ganache",
+        "@wagmi/core",
+      ],
+      pypi: ["eth-ape", "vyper", "py-solc-x", "bitcoinlib"],
+      cargo: [
+        "anchor-lang",
+        "solana-program",
+        "ink",
+        "cosmwasm-std",
+        "near-sdk",
+        "ethers",
+      ],
+    },
+    textMarkers: [
+      "smart contracts",
+      "defi",
+      "solana",
+      "substrate",
+      "cosmwasm",
+      "cairo",
+      "move language",
+    ],
+    signals: {
+      concerns: ["blockchain", "smart-contracts", "defi", "wallet"],
+      tooling: ["ethereum", "solana", "move", "cairo", "substrate", "cosmwasm"],
+    },
+  },
+  {
+    id: "data-mining-platforms",
+    packages: {
+      npm: ["apache-arrow", "danfojs-node", "arquero"],
+      pypi: [
+        "dlt",
+        "prefect",
+        "dagster",
+        "scrapy",
+        "beautifulsoup4",
+        "lxml",
+        "sqlfluff",
+      ],
+    },
+    packagePrefixes: { pypi: ["dbt-"] },
+    textMarkers: [
+      "data mining",
+      "analytics engineering",
+      "data quality",
+      "lakehouse",
+      "orchestration",
+      "streaming",
+    ],
+    signals: {
+      concerns: [
+        "data",
+        "data-engineering",
+        "data-mining",
+        "etl",
+        "elt",
+        "analytics-engineering",
+        "orchestration",
+        "data-quality",
+        "streaming",
+        "lakehouse",
+      ],
+    },
+  },
+  {
+    id: "cad-printing-extended",
+    packages: {
+      npm: ["@jscad/modeling", "jscad"],
+      pypi: [
+        "cadquery",
+        "solidpython",
+        "trimesh",
+        "numpy-stl",
+        "pyvista",
+        "open3d",
+      ],
+    },
+    textMarkers: [
+      "cadquery",
+      "additive manufacturing",
+      "klipper",
+      "slicer",
+      "cnc",
+    ],
+    signals: {
+      concerns: [
+        "cad",
+        "3d-printing",
+        "fabrication",
+        "additive-manufacturing",
+        "cnc",
+      ],
+      tooling: ["slicer", "klipper"],
+    },
+  },
+  {
+    id: "seo-technical",
+    packages: {
+      npm: ["next-seo", "next-sitemap", "@nuxtjs/seo"],
+      pypi: ["google-analytics-data"],
+    },
+    textMarkers: ["technical seo"],
+    signals: {
+      concerns: ["seo"],
+    },
+  },
+  {
+    id: "content-cms",
+    packages: {
+      npm: ["contentlayer", "@sanity/client"],
+      pypi: ["python-frontmatter", "pelican"],
+    },
+    textMarkers: [
+      "content marketing",
+      "cms",
+      "editorial calendar",
+      "landing pages",
+      "copywriting",
+      "campaigns",
+    ],
+    signals: {
+      concerns: ["content-creation", "content-marketing", "cms", "blog"],
     },
   },
   {
@@ -396,6 +897,16 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "java-backend",
+    packages: {
+      maven: [
+        "org.springframework.boot:spring-boot-starter-web",
+        "io.quarkus:quarkus-resteasy-reactive",
+        "io.micronaut:micronaut-http-server-netty",
+      ],
+    },
+    packagePrefixes: {
+      maven: ["org.springframework.boot:", "io.quarkus:", "io.micronaut:"],
+    },
     textMarkers: [
       "spring-boot",
       "org.springframework",
@@ -411,6 +922,16 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "dotnet-backend",
+    packages: {
+      nuget: [
+        "Microsoft.AspNetCore.App",
+        "Microsoft.AspNetCore.Mvc.Core",
+        "Microsoft.EntityFrameworkCore",
+      ],
+    },
+    packagePrefixes: {
+      nuget: ["Microsoft.AspNetCore.", "Microsoft.EntityFrameworkCore"],
+    },
     textMarkers: [
       "microsoft.aspnetcore",
       "entityframeworkcore",
@@ -426,6 +947,15 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "go-backend",
+    packages: {
+      go: [
+        "github.com/gin-gonic/gin",
+        "github.com/labstack/echo",
+        "github.com/gofiber/fiber",
+        "github.com/go-chi/chi",
+        "github.com/spf13/cobra",
+      ],
+    },
     textMarkers: [
       "github.com/gin-gonic/gin",
       "github.com/labstack/echo",
@@ -441,6 +971,7 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "rust-backend",
+    packages: { cargo: ["axum", "actix-web", "rocket", "tonic", "tauri"] },
     textMarkers: ["axum", "actix-web", "rocket", "tonic", "tauri"],
     signals: {
       languages: ["rust"],
@@ -449,11 +980,92 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
     },
   },
   {
-    id: "ruby-php-elixir-backend",
-    textMarkers: ["rails", "sinatra", "laravel", "symfony", "phoenix", "ecto"],
+    id: "ruby-backend",
+    packages: { gem: ["rails", "sinatra", "hanami", "roda", "grape"] },
+    textMarkers: ["rails", "sinatra", "hanami", "roda"],
     signals: {
+      languages: ["ruby"],
       concerns: ["backend", "api-design"],
       frameworks: ["backend-framework"],
+    },
+  },
+  {
+    id: "php-backend",
+    packages: {
+      packagist: [
+        "laravel/framework",
+        "symfony/symfony",
+        "symfony/framework-bundle",
+        "codeigniter4/framework",
+        "laminas/laminas-mvc",
+        "zendframework/zendframework",
+        "cakephp/cakephp",
+        "yiisoft/yii2",
+        "slim/slim",
+      ],
+    },
+    textMarkers: [
+      "laravel",
+      "symfony",
+      "codeigniter",
+      "laminas",
+      "zend framework",
+      "cakephp",
+      "yii2",
+      "slim framework",
+    ],
+    signals: {
+      languages: ["php"],
+      concerns: ["backend", "api-design"],
+      frameworks: ["backend-framework"],
+    },
+  },
+  {
+    id: "php-cms",
+    packages: {
+      packagist: [
+        "drupal/core",
+        "roots/wordpress",
+        "johnpbloch/wordpress",
+        "wp-cli/wp-cli",
+        "automattic/woocommerce",
+        "joomla/joomla-cms",
+      ],
+    },
+    packagePrefixes: {
+      packagist: ["wpackagist-plugin/", "wpackagist-theme/", "drupal/"],
+    },
+    textMarkers: ["wordpress", "drupal", "joomla", "woocommerce"],
+    signals: {
+      languages: ["php"],
+      concerns: ["backend", "cms"],
+      tooling: ["wordpress", "drupal", "joomla"],
+    },
+  },
+  {
+    id: "elixir-backend",
+    textMarkers: ["phoenix", "ecto", "plug", "mix.exs"],
+    signals: {
+      languages: ["elixir"],
+      concerns: ["backend", "api-design"],
+      frameworks: ["backend-framework"],
+    },
+  },
+  {
+    id: "erlang-backend",
+    textMarkers: ["cowboy", "rebar.config", "otp application"],
+    signals: {
+      languages: ["erlang"],
+      concerns: ["backend", "systems-programming"],
+      frameworks: ["backend-framework"],
+    },
+  },
+  {
+    id: "julia-computing",
+    textMarkers: ["julia", "dataframes", "flux.jl", "makie", "pluto notebook"],
+    signals: {
+      languages: ["julia"],
+      concerns: ["data", "analytics", "scientific-computing"],
     },
   },
   {

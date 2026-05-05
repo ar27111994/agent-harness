@@ -27,7 +27,7 @@ All notable changes to this project will be documented in this file.
 - `mirror diff` and `mirror explain` commands for phase-level inspection
 - explicit `.npmignore` release-artifact controls that keep source, tests, source maps, CI metadata, runtime state, local tarballs, and planning-only docs out of packed artifacts
 - registry-driven recommendation-host enumeration, extensible host-target validation, package entry points, TypeScript declaration output, and release checks across Ubuntu, macOS, and Windows
-- regression coverage for real-world TypeScript/Apify, Flutter/Firebase, and native mobile workspaces, demand relevance selection, command help side effects, executable MCP package search, and human-readable generic asset names
+- regression coverage for real-world TypeScript/Apify, Flutter/Firebase, native mobile, finance/trading, BI, DevOps/networking, MLOps/RAG, embedded/robotics/blockchain, data-mining/SEO, demand relevance selection, command help side effects, executable MCP package search, and human-readable generic asset names
 
 ### Changed in 1.0.0
 
@@ -78,6 +78,8 @@ All notable changes to this project will be documented in this file.
 - rebuild, scanning, discovery, activation, and install flows now use workspace roots consistently, skip generated discovery output, reuse demand-signal file reads, atomically stage activation runtime views before swapping, merge bundle membership, mirror audit-only assets, reject truncated GitHub snapshots, and validate all Copilot workspace profile selection arrays
 - public exported declarations now include API docstrings with a regression test that fails when exported source declarations lack JSDoc coverage
 - demand profiling now uses delimited technology text-marker matching to avoid substring false positives such as `ros` inside common TypeScript words
+- demand profiling now covers broader repo archetypes including finance/trading, BI/reporting, DevOps/platform engineering, network automation, advanced security, MLOps/RAG/vector search, creative media, embedded/firmware, robotics simulation, extended blockchain, data mining, slicer/3D-printing, and CMS/SEO/content workflows
+- dependency parsing now feeds technology signatures for Cargo, Go, Maven/Gradle, NuGet, RubyGems, Packagist, and SwiftPM manifests, handles Poetry inline table dependencies, requirements variants, Cargo workspace dependencies, Gradle two-part coordinates, NuGet central package management, and avoids prose-scanning lockfiles
 - demand profiling now detects Dart/Flutter `pubspec.yaml`, Firebase `pub` dependencies, Kotlin/Java Android, Swift, Objective-C, CocoaPods, SwiftPM, C#/.NET MAUI, and Xamarin mobile projects
 - package-registry discovery now uses demand-derived npm search queries for executable MCP servers instead of checked-in package-name allowlists, and registry MCP classification recognizes executable server package patterns
 - GitHub tree harvesting no longer treats Markdown files that mention MCP as executable MCP servers
