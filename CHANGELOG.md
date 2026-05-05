@@ -86,6 +86,7 @@ All notable changes to this project will be documented in this file.
 - generic catalog filenames such as `SKILL.md` and `README.md` now fall back to human-readable parent directory names
 - Claude Code and Cursor local config harvesting now recognizes host-native agents, commands/prompt packs, skills, hooks, plugin manifests, MCP config files, and rule/context files while keeping generated local config sources catalog-only by default
 - Cursor wire-in now stages a plugin-compatible component tree under `.cursor/agent-harness/cursor-plugin`, and Claude Code wire-in now writes a managed `.claude/agents/agent-harness.md` project agent
+- native host wire-in now exposes every selected asset kind through host managed references and wire-plan buckets for Cursor, Zed, Claude Code, and Pi
 - recommendation redundancy scoring now uses maintained selection indexes instead of scanning every selected candidate for each score
 
 ## [0.2.0] - 2026-04-27

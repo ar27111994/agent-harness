@@ -629,8 +629,8 @@ Supported behavior:
 
 - updates the project `.rules` file with an agent-harness managed section
 - adds an `agent-harness` profile entry to `.zed/settings.json`
-- catalogs Zed extension registry entries as reference material for review
-- materializes selected assets under `.zed/agent-harness/`
+- materializes selected assets of every supported asset kind under `.zed/agent-harness/`
+- surfaces agents, skills, workflows, prompt packs, plugins, hooks, extensions, reference packs, and MCP assets as project-readable references in managed Zed context
 - writes `activate/zed/wire-preview-zed.json`
 - writes `activate/zed/wire-plan.json` on apply
 - avoids global Zed profile/settings mutation
@@ -639,7 +639,7 @@ Supported behavior:
 Current boundaries:
 
 - The adapter writes project-local context and profile hints.
-- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are cataloged for review but are not recommended or wired until structured native extension wiring is implemented.
+- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references rather than installed automatically.
 
 ### Claude Code
 
@@ -659,7 +659,9 @@ Supported behavior:
 - writes `.claude/skills/agent-harness/SKILL.md`
 - writes `.claude/commands/agent-harness.md`
 - maps selected Claude Code command-like assets from `workflow` and `prompt-pack` recommendations into the managed command context
-- materializes selected assets under `.claude/agent-harness/`
+- includes selected instruction, agent, skill, workflow, and prompt-pack content in the matching managed Claude files
+- materializes selected assets of every supported asset kind under `.claude/agent-harness/`
+- surfaces plugins, hooks, extensions, reference packs, and MCP assets as managed project-readable references
 - writes `activate/claude-code/wire-preview-claude-code.json`
 - writes `activate/claude-code/wire-plan.json` on apply
 - avoids global Claude Code profile mutation
@@ -667,7 +669,7 @@ Supported behavior:
 Current boundaries:
 
 - MCP and reference assets are staged as project-readable references.
-- The adapter does not synthesize full Claude Code MCP server config without structured server metadata.
+- The adapter does not synthesize full Claude Code MCP server config or executable hook/plugin settings without structured server or executable configuration metadata.
 
 ### Pi
 
@@ -685,7 +687,9 @@ Supported behavior:
 - writes `.pi/skills/agent-harness/SKILL.md`
 - writes `.pi/prompts/agent-harness.md`
 - updates `.pi/settings.json` with skill and prompt resource entries
-- materializes selected assets under `.pi/agent-harness/`
+- includes selected instruction, agent, skill, workflow, and prompt-pack content in the matching managed Pi files
+- materializes selected assets of every supported asset kind under `.pi/agent-harness/`
+- surfaces plugins, hooks, extensions, reference packs, and MCP assets as managed project-readable references
 - writes `activate/pi/wire-preview-pi.json`
 - writes `activate/pi/wire-plan.json` on apply
 - avoids global Pi profile mutation
@@ -693,7 +697,7 @@ Supported behavior:
 Current boundaries:
 
 - Pi does not include `shared-mcp` in its default bundles.
-- MCP assets are staged as references unless your Pi installation includes a compatible MCP extension.
+- MCP, extension, hook, and plugin assets are wired as managed references unless your Pi installation includes compatible executable support.
 
 ### Native adapter wire-plan fields
 
@@ -705,6 +709,7 @@ Native project-local adapters emit effective wire plans with materialized paths.
 - `pluginDirs`
 - `workflowFiles`
 - `referenceFiles`
+- `extensionIds`
 - `hookFiles`
 - `mcpServers`
 - `nativeInstallActions`

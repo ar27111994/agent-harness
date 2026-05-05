@@ -13,6 +13,11 @@ import {
 } from "../files.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
+import {
+  buildExtensionInstallActions,
+  formatExtensionInstallActions,
+  resolveVsCodeExtensionId,
+} from "./extension-installer.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
@@ -45,6 +50,7 @@ interface NativeAsset {
   assetKind: AssetKind;
   displayName: string;
   content: string;
+  extensionId?: string;
 }
 
 interface MaterializedNativeAssets {
@@ -55,6 +61,7 @@ interface MaterializedNativeAssets {
   hookFiles: string[];
   workflowFiles: string[];
   referenceFiles: string[];
+  extensionIds: string[];
   mcpServers: string[];
 }
 
@@ -301,6 +308,7 @@ async function readNativeAssetFromActivation(
     assetKind: asset.assetKind,
     displayName: asset.displayName,
     content,
+    extensionId: resolveVsCodeExtensionId(asset),
   };
 }
 
@@ -331,6 +339,7 @@ async function materializeNativeAssets(
     hookFiles: [],
     workflowFiles: [],
     referenceFiles: [],
+    extensionIds: [],
     mcpServers: [],
   };
 
@@ -371,8 +380,13 @@ async function materializeNativeAssets(
         materializedAssets.mcpServers.push(nativeAsset.assetId);
         break;
       case "reference-pack":
+        materializedAssets.referenceFiles.push(contentPath);
+        break;
       case "extension":
         materializedAssets.referenceFiles.push(contentPath);
+        if (nativeAsset.extensionId) {
+          materializedAssets.extensionIds.push(nativeAsset.extensionId);
+        }
         break;
     }
   }
@@ -421,6 +435,7 @@ async function writeCursorNativeFiles(options: {
     hostName: "Cursor",
     managedRoot: options.managedRoot,
     nativeAssets: options.nativeAssets,
+    materializedAssets: options.materializedAssets,
     mcpServers: options.mcpServers,
   });
 
@@ -548,16 +563,20 @@ async function writeZedNativeFiles(options: {
   workspaceRoot: string;
   managedRoot: string;
   nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
 }): Promise<void> {
   const rulesPath = join(options.workspaceRoot, ".rules");
+  const managedLines = buildManagedInstructionLines({
+    hostName: "Zed",
+    managedRoot: options.managedRoot,
+    nativeAssets: options.nativeAssets,
+    materializedAssets: options.materializedAssets,
+    mcpServers: options.mcpServers,
+  });
   await upsertManagedSectionFile(rulesPath, "agent-harness-zed", [
-    ...buildManagedInstructionLines({
-      hostName: "Zed",
-      managedRoot: options.managedRoot,
-      nativeAssets: options.nativeAssets,
-      mcpServers: options.mcpServers,
-    }),
+    ...managedLines,
+    ...buildNativeAssetContentSections(options.nativeAssets, ["instruction"]),
   ]);
   await mergeJsonFile(join(options.workspaceRoot, ".zed", "settings.json"), {
     agent: {
@@ -575,12 +594,14 @@ async function writeClaudeCodeNativeFiles(options: {
   workspaceRoot: string;
   managedRoot: string;
   nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
 }): Promise<void> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Claude Code",
     managedRoot: options.managedRoot,
     nativeAssets: options.nativeAssets,
+    materializedAssets: options.materializedAssets,
     mcpServers: options.mcpServers,
   });
 
@@ -596,14 +617,22 @@ async function writeClaudeCodeNativeFiles(options: {
   );
   await writeTextFile(
     join(options.workspaceRoot, ".claude", "rules", "agent-harness.md"),
-    ["# Agent Harness Rules", "", ...managedLines].join("\n"),
+    [
+      "# Agent Harness Rules",
+      "",
+      ...managedLines,
+      ...buildNativeAssetContentSections(options.nativeAssets, ["instruction"]),
+    ].join("\n"),
   );
   await writeTextFile(
     join(options.workspaceRoot, ".claude", "agents", "agent-harness.md"),
     buildAgentFile(
       "agent-harness",
       "Use curated Agent Harness assets for this project.",
-      managedLines,
+      [
+        ...managedLines,
+        ...buildNativeAssetContentSections(options.nativeAssets, ["agent"]),
+      ],
     ),
   );
   await writeTextFile(
@@ -617,15 +646,21 @@ async function writeClaudeCodeNativeFiles(options: {
     buildSkillFile(
       "agent-harness",
       "Use curated Agent Harness assets for this project.",
-      managedLines,
+      [
+        ...managedLines,
+        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
+      ],
     ),
   );
   await writeTextFile(
     join(options.workspaceRoot, ".claude", "commands", "agent-harness.md"),
-    buildPromptTemplate(
-      "Use curated Agent Harness assets for this task.",
-      managedLines,
-    ),
+    buildPromptTemplate("Use curated Agent Harness assets for this task.", [
+      ...managedLines,
+      ...buildNativeAssetContentSections(options.nativeAssets, [
+        "prompt-pack",
+        "workflow",
+      ]),
+    ]),
   );
 }
 
@@ -633,12 +668,14 @@ async function writePiNativeFiles(options: {
   workspaceRoot: string;
   managedRoot: string;
   nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
 }): Promise<void> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Pi",
     managedRoot: options.managedRoot,
     nativeAssets: options.nativeAssets,
+    materializedAssets: options.materializedAssets,
     mcpServers: options.mcpServers,
   });
 
@@ -661,15 +698,23 @@ async function writePiNativeFiles(options: {
     buildSkillFile(
       "agent-harness",
       "Use curated Agent Harness assets for this project.",
-      managedLines,
+      [
+        ...managedLines,
+        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
+      ],
     ),
   );
   await writeTextFile(
     join(options.workspaceRoot, ".pi", "prompts", "agent-harness.md"),
-    buildPromptTemplate(
-      "Use curated Agent Harness assets for this task.",
-      managedLines,
-    ),
+    buildPromptTemplate("Use curated Agent Harness assets for this task.", [
+      ...managedLines,
+      ...buildNativeAssetContentSections(options.nativeAssets, [
+        "agent",
+        "instruction",
+        "prompt-pack",
+        "workflow",
+      ]),
+    ]),
   );
   await mergeJsonFile(join(options.workspaceRoot, ".pi", "settings.json"), {
     agentHarness: {
@@ -698,11 +743,16 @@ function buildNativeWirePlan(options: {
     pluginDirs: options.materializedAssets.pluginDirs.map(toPosixPath),
     workflowFiles: options.materializedAssets.workflowFiles.map(toPosixPath),
     referenceFiles: options.materializedAssets.referenceFiles.map(toPosixPath),
+    extensionIds: options.materializedAssets.extensionIds,
     hookFiles: options.materializedAssets.hookFiles.map(toPosixPath),
     mcpServers: options.materializedAssets.mcpServers,
     nativeInstallActions: [
       `${options.spec.displayName} project-local native wiring was applied under ${toPosixPath(options.workspaceRoot)}.`,
       "Restart or reload the host if it does not hot-reload project configuration files.",
+      ...buildNativeExtensionInstallActionLines(
+        options.spec,
+        options.materializedAssets.extensionIds,
+      ),
     ],
     notes: options.spec.notes,
   };
@@ -892,6 +942,7 @@ function buildManagedInstructionLines(options: {
   hostName: string;
   managedRoot: string;
   nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
 }): string[] {
   const lines = [
@@ -913,6 +964,8 @@ function buildManagedInstructionLines(options: {
     }
   }
 
+  appendMaterializedAssetPathLines(lines, options.materializedAssets);
+
   if (options.mcpServers.length > 0) {
     lines.push("", "## MCP references");
     for (const mcpServer of options.mcpServers) {
@@ -927,6 +980,74 @@ function buildManagedInstructionLines(options: {
     "- Treat hooks, plugins, extensions, and MCP references as opt-in capabilities that may require host-specific trust or setup.",
     "- Review managed files before committing project-local host configuration.",
   );
+
+  return lines;
+}
+
+function appendMaterializedAssetPathLines(
+  lines: string[],
+  materializedAssets: MaterializedNativeAssets,
+): void {
+  const pathGroups = [
+    ["Instruction files", materializedAssets.instructionFiles],
+    ["Agent files", materializedAssets.agentFiles],
+    ["Skill directories", materializedAssets.skillDirs],
+    ["Plugin directories", materializedAssets.pluginDirs],
+    ["Hook files", materializedAssets.hookFiles],
+    ["Workflow and prompt files", materializedAssets.workflowFiles],
+    ["Reference files", materializedAssets.referenceFiles],
+  ] as const;
+  const populatedPathGroups = pathGroups.filter(
+    ([, paths]) => paths.length > 0,
+  );
+
+  if (
+    populatedPathGroups.length === 0 &&
+    materializedAssets.extensionIds.length === 0
+  ) {
+    return;
+  }
+
+  lines.push("", "## Wired asset locations");
+  for (const [heading, paths] of populatedPathGroups) {
+    lines.push("", `### ${heading}`);
+    for (const path of paths) {
+      lines.push(`- ${toPosixPath(path)}`);
+    }
+  }
+
+  if (materializedAssets.extensionIds.length > 0) {
+    lines.push("", "### Extension IDs");
+    for (const extensionId of materializedAssets.extensionIds) {
+      lines.push(`- ${extensionId}`);
+    }
+  }
+}
+
+function buildNativeAssetContentSections(
+  nativeAssets: NativeAsset[],
+  assetKinds: AssetKind[],
+): string[] {
+  const selectedAssets = nativeAssets.filter((nativeAsset) =>
+    assetKinds.includes(nativeAsset.assetKind),
+  );
+
+  if (selectedAssets.length === 0) {
+    return [];
+  }
+
+  const lines = ["", "## Selected asset content"];
+  for (const asset of selectedAssets) {
+    lines.push(
+      "",
+      `### ${asset.displayName}`,
+      "",
+      `- Asset ID: ${asset.assetId}`,
+      `- Asset kind: ${asset.assetKind}`,
+      "",
+      asset.content.trim(),
+    );
+  }
 
   return lines;
 }
@@ -1059,8 +1180,26 @@ function sortMaterializedAssets(
     hookFiles: [...materializedAssets.hookFiles].sort(),
     workflowFiles: [...materializedAssets.workflowFiles].sort(),
     referenceFiles: [...materializedAssets.referenceFiles].sort(),
+    extensionIds: uniqueStrings(materializedAssets.extensionIds),
     mcpServers: [...materializedAssets.mcpServers].sort(),
   };
+}
+
+function buildNativeExtensionInstallActionLines(
+  spec: NativeHostSpec,
+  extensionIds: string[],
+): string[] {
+  if (spec.host !== "cursor" || extensionIds.length === 0) {
+    return [];
+  }
+
+  return formatExtensionInstallActions(
+    buildExtensionInstallActions({
+      executable: "cursor",
+      extensionIds,
+      host: "cursor",
+    }),
+  ).map((line) => `Cursor native extension action: ${line}`);
 }
 
 function uniqueStrings(values: string[]): string[] {

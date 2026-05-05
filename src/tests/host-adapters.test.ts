@@ -1,13 +1,34 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { resolveHostAdapter } from "../host-adapters/registry.js";
-import type { WirePlanManifest, WirePreviewManifest } from "../types.js";
+import {
+  resolveHostAdapter,
+  type HostAdapter,
+} from "../host-adapters/registry.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
+import type {
+  AssetCatalogEntry,
+  AssetKind,
+  WirePlanManifest,
+  WirePreviewManifest,
+} from "../types.js";
 
 const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
+const ALL_ASSET_KINDS = [
+  "agent",
+  "skill",
+  "instruction",
+  "workflow",
+  "hook",
+  "plugin",
+  "mcp-server",
+  "extension",
+  "prompt-pack",
+  "reference-pack",
+] as const satisfies readonly AssetKind[];
 
 void test("native host adapters are registered with expected lifecycle hosts", () => {
   const cursorAdapter = resolveHostAdapter("cursor");
@@ -24,14 +45,17 @@ void test("native host adapters are registered with expected lifecycle hosts", (
       (capability) => capability.assetKind === "reference-pack",
     ),
   );
+  assertWireCapabilities(cursorAdapter, ALL_ASSET_KINDS);
+  assert.ok(
+    cursorAdapter?.capabilities
+      .find((capability) => capability.assetKind === "extension")
+      ?.behaviors.includes("native-install"),
+  );
+
   const zedAdapter = resolveHostAdapter("zed");
   assert.equal(zedAdapter?.lifecycleHost, "opencode");
   assert.equal(zedAdapter?.recommendationHost, "zed");
-  assert.ok(
-    !zedAdapter?.capabilities.some(
-      (capability) => capability.assetKind === "extension",
-    ),
-  );
+  assertWireCapabilities(zedAdapter, ALL_ASSET_KINDS);
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");
   assert.equal(resolveHostAdapter("claudecode")?.id, "claude-code");
   assert.equal(resolveHostAdapter("pi-coding-agent")?.id, "pi");
@@ -48,26 +72,15 @@ void test("native host adapters are registered with expected lifecycle hosts", (
 
   const claudeCodeAdapter = resolveHostAdapter("claude");
   assert.equal(claudeCodeAdapter?.recommendationHost, "claude-code");
-  assert.ok(
-    claudeCodeAdapter?.capabilities.some(
-      (capability) => capability.assetKind === "prompt-pack",
-    ),
-  );
+  assertWireCapabilities(claudeCodeAdapter, ALL_ASSET_KINDS);
 
   const opencodeAdapter = resolveHostAdapter("opencode");
-  assert.ok(
-    opencodeAdapter?.capabilities.some(
-      (capability) => capability.assetKind === "prompt-pack",
-    ),
-  );
+  assertWireCapabilities(opencodeAdapter, ALL_ASSET_KINDS);
 
   const piAdapter = resolveHostAdapter("pi");
   assert.ok(piAdapter);
   assert.equal(piAdapter.recommendationHost, "pi");
-  const piMcpCapability = piAdapter.capabilities.find(
-    (capability) => capability.assetKind === "mcp-server",
-  );
-  assert.deepEqual(piMcpCapability?.behaviors, ["stage"]);
+  assertWireCapabilities(piAdapter, ALL_ASSET_KINDS);
 });
 
 void test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {
@@ -91,6 +104,119 @@ void test("OpenCode adapter upserts and resets only the managed AGENTS section",
     const resetContent = await readFile(agentsPath, "utf8");
     assert.match(resetContent, /Keep this\./u);
     assert.doesNotMatch(resetContent, /agent-harness:begin/u);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
+void test("Cursor native wire plan exposes supported staged asset buckets", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-cursor-wire-"),
+  );
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    const activationRoot = join(projectRoot, "activate", "copilot-vscode");
+    const selectedAssets = [
+      buildAsset("asset-instruction", "instruction"),
+      buildAsset("asset-agent", "agent"),
+      buildAsset("asset-skill", "skill"),
+      buildAsset("asset-workflow", "workflow"),
+      buildAsset("asset-prompt-pack", "prompt-pack"),
+      buildAsset("asset-plugin", "plugin"),
+      buildAsset("asset-hook", "hook"),
+      buildAsset("asset-reference", "reference-pack"),
+      buildAsset("asset-mcp", "mcp-server"),
+      buildAsset("ms-python.python", "extension"),
+    ];
+
+    await writeJson(join(activationRoot, "workspace-profile-manifest.json"), {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      profileId: "cursor-test-profile",
+      workspaceRoot,
+      bundleIds: [],
+      selectedAssetIds: selectedAssets.map((asset) => asset.id),
+      selectedInstructionIds: [],
+      selectedAgentIds: [],
+      selectedWorkflowIds: [],
+      selectedPluginIds: [],
+      selectedExtensionIds: [],
+      selectedHookIds: [],
+      selectedSkillIds: [],
+      activationBudget: 100,
+    });
+    for (const asset of selectedAssets) {
+      await writeActivationAsset(activationRoot, asset);
+    }
+
+    const adapter = resolveHostAdapter("cursor");
+    assert.ok(adapter);
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+    const plan = JSON.parse(
+      await readFile(
+        join(projectRoot, "activate", "cursor", "wire-plan.json"),
+        "utf8",
+      ),
+    ) as WirePlanManifest;
+    assertCompleteNativeWirePlan(plan);
+    assert.ok(
+      plan.nativeInstallActions?.some((action) =>
+        action.includes("--install-extension ms-python.python"),
+      ),
+    );
+
+    const pluginManifest = JSON.parse(
+      await readFile(
+        join(
+          workspaceRoot,
+          ".cursor",
+          "agent-harness",
+          "cursor-plugin",
+          ".cursor-plugin",
+          "plugin.json",
+        ),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(pluginManifest.agents, "./agents");
+    assert.equal(pluginManifest.skills, "./skills");
+    assert.equal(pluginManifest.commands, "./commands");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
+void test("OpenCode-compatible native wire plans expose every asset bucket", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-native-wire-"),
+  );
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    const selectedAssets = buildAllAssetFixtures();
+    await writeOpenCodeActivation(projectRoot, selectedAssets);
+
+    for (const host of ["zed", "claude-code", "pi"] as const) {
+      const adapter = resolveHostAdapter(host);
+      assert.ok(adapter);
+      await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+      const plan = JSON.parse(
+        await readFile(
+          join(projectRoot, "activate", host, "wire-plan.json"),
+          "utf8",
+        ),
+      ) as WirePlanManifest;
+      assertCompleteNativeWirePlan(plan);
+    }
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
     await rm(workspaceRoot, { force: true, recursive: true });
@@ -181,4 +307,150 @@ async function assertNativeHostExtras(
     );
     assert.match(agentFile, /Agent Harness/u);
   }
+}
+
+function assertCompleteNativeWirePlan(plan: WirePlanManifest): void {
+  assert.ok(plan.instructionsFiles?.length);
+  assert.ok(plan.agentFiles?.length);
+  assert.ok(plan.skillDirs?.length);
+  assert.ok(plan.pluginDirs?.length);
+  assert.ok(plan.hookFiles?.length);
+  assert.ok(plan.workflowFiles?.length);
+  assert.ok(plan.referenceFiles?.length);
+  assert.ok(plan.mcpServers?.includes("asset-mcp"));
+  assert.ok(plan.extensionIds?.includes("ms-python.python"));
+}
+
+function assertWireCapabilities(
+  adapter: HostAdapter | null | undefined,
+  assetKinds: readonly AssetKind[],
+): void {
+  assert.ok(adapter);
+  for (const assetKind of assetKinds) {
+    assert.ok(
+      adapter.capabilities
+        .find((capability) => capability.assetKind === assetKind)
+        ?.behaviors.includes("wire"),
+      `${adapter.id} should wire ${assetKind}`,
+    );
+  }
+}
+
+async function writeOpenCodeActivation(
+  projectRoot: string,
+  assets: AssetCatalogEntry[],
+): Promise<void> {
+  const activationRoot = join(projectRoot, "activate", "opencode");
+  await writeJson(join(activationRoot, "activation-manifest.json"), {
+    schemaVersion: 1,
+    host: "opencode",
+    generatedAt: new Date().toISOString(),
+    activeBundles: [],
+    activeAssets: assets.map((asset) => asset.id),
+    runtimeRoot: activationRoot,
+    notes: [],
+  });
+
+  for (const asset of assets) {
+    await writeActivationAsset(activationRoot, asset);
+  }
+}
+
+async function writeActivationAsset(
+  activationRoot: string,
+  asset: AssetCatalogEntry,
+): Promise<void> {
+  const assetRoot = join(activationRoot, sanitizeAssetId(asset.id));
+  await writeJson(join(assetRoot, "asset.json"), asset);
+  await writeFile(
+    join(assetRoot, "content.txt"),
+    `# ${asset.displayName}\n\n${asset.assetKind} fixture\n`,
+    "utf8",
+  );
+}
+
+async function writeJson(filePath: string, value: unknown): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
+  await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+function buildAllAssetFixtures(): AssetCatalogEntry[] {
+  return [
+    buildAsset("asset-instruction", "instruction"),
+    buildAsset("asset-agent", "agent"),
+    buildAsset("asset-skill", "skill"),
+    buildAsset("asset-workflow", "workflow"),
+    buildAsset("asset-prompt-pack", "prompt-pack"),
+    buildAsset("asset-plugin", "plugin"),
+    buildAsset("asset-hook", "hook"),
+    buildAsset("asset-reference", "reference-pack"),
+    buildAsset("asset-mcp", "mcp-server"),
+    buildAsset("ms-python.python", "extension"),
+  ];
+}
+
+function buildAsset(id: string, assetKind: AssetKind): AssetCatalogEntry {
+  return {
+    id,
+    displayName: id,
+    assetKind,
+    hosts: ["cursor"],
+    compatibilityMode: assetKind === "extension" ? "native" : "adaptable",
+    source: {
+      sourceId: "test-source",
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+      sourcePriority: 100,
+      originUrl: `file:///test/${id}`,
+      publisher: "test",
+      publisherVerified: true,
+    },
+    trust: {
+      score: 100,
+      signals: [],
+    },
+    capabilities: [assetKind],
+    install: {
+      method: assetKind === "extension" ? "vscode-extension" : "test-file",
+      adaptableHosts: ["cursor"],
+      manifestEntry: assetKind === "extension" ? id : undefined,
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      lineCount: 1,
+      filePath: `${id}.md`,
+      rootPath: "/test",
+    },
+    maintenance: {
+      lastUpdated: "2026-01-01T00:00:00.000Z",
+      stars: 0,
+      releaseCadence: "test",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: {
+      sizeClass: "tiny",
+      estimatedPromptWeight: 1,
+    },
+    fit: {
+      portfolioFit: 1,
+      hostFit: 1,
+    },
+    dedupe: {
+      candidateRankHint: "test",
+    },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
+  };
 }

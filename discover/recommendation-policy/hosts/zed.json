@@ -12,9 +12,15 @@
     "maxPerSourceFamily": 8,
     "maxPerDuplicateGroup": 6,
     "maxPerAssetKind": {
+      "skill": 24,
       "instruction": 24,
+      "plugin": 6,
+      "agent": 10,
+      "workflow": 8,
+      "hook": 6,
       "mcp-server": 12,
-      "extension": 12,
+      "extension": 8,
+      "prompt-pack": 8,
       "reference-pack": 12
     },
     "targetAssetKinds": [
@@ -22,6 +28,31 @@
         "assetKind": "instruction",
         "minimum": 10,
         "weight": 3
+      },
+      {
+        "assetKind": "reference-pack",
+        "minimum": 6,
+        "weight": 2
+      },
+      {
+        "assetKind": "skill",
+        "minimum": 6,
+        "weight": 2
+      },
+      {
+        "assetKind": "agent",
+        "minimum": 4,
+        "weight": 2
+      },
+      {
+        "assetKind": "workflow",
+        "minimum": 4,
+        "weight": 2
+      },
+      {
+        "assetKind": "prompt-pack",
+        "minimum": 4,
+        "weight": 2
       },
       {
         "assetKind": "mcp-server",
