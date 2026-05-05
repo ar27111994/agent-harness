@@ -120,7 +120,6 @@ const cursorCapabilities: HostCapability[] = [
 const zedCapabilities: HostCapability[] = [
   { assetKind: "instruction", behaviors: ["stage", "wire"] },
   { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
-  { assetKind: "extension", behaviors: ["stage", "wire"] },
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 

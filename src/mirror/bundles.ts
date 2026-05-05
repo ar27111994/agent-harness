@@ -119,20 +119,18 @@ function shouldIncludeEntryInBundle(
   }
 
   if (bundleId === "copilot-core") {
-    return (
-      entry.hosts.includes("copilot-vscode") &&
-      (entry.assetKind === "instruction" ||
-        entry.assetKind === "agent" ||
-        entry.assetKind === "workflow" ||
-        entry.assetKind === "hook" ||
-        entry.assetKind === "plugin" ||
-        entry.assetKind === "extension" ||
-        entry.assetKind === "prompt-pack" ||
-        entry.assetKind === "reference-pack" ||
-        (entry.assetKind === "skill" &&
-          entry.source.authorityTier === "official-first-party" &&
-          entry.fit.portfolioFit >= 0.3))
-    );
+    if (!entry.hosts.includes("copilot-vscode")) {
+      return false;
+    }
+
+    if (entry.assetKind === "skill") {
+      return (
+        entry.source.authorityTier === "official-first-party" &&
+        entry.fit.portfolioFit >= 0.3
+      );
+    }
+
+    return true;
   }
 
   if (bundleId === "shared-mcp") {

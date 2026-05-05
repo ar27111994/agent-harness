@@ -629,7 +629,7 @@ Supported behavior:
 
 - updates the project `.rules` file with an agent-harness managed section
 - adds an `agent-harness` profile entry to `.zed/settings.json`
-- stages Zed extension registry entries as extension assets for review and optional recommendation
+- catalogs Zed extension registry entries as reference material for review
 - materializes selected assets under `.zed/agent-harness/`
 - writes `activate/zed/wire-preview-zed.json`
 - writes `activate/zed/wire-plan.json` on apply
@@ -639,7 +639,7 @@ Supported behavior:
 Current boundaries:
 
 - The adapter writes project-local context and profile hints.
-- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; the adapter stages recommended extension assets in the managed tree and wire plan but does not mutate global extension installs.
+- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are cataloged for review but are not recommended or wired until structured native extension wiring is implemented.
 
 ### Claude Code
 

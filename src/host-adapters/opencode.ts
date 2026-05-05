@@ -265,7 +265,7 @@ async function materializeOpenCodeLinkedAsset(
 
   if (await pathEntryExists(linkedAsset.linkPath)) {
     throw new Error(
-      `Refusing to overwrite existing OpenCode command file: ${toPosixPath(linkedAsset.linkPath)}`,
+      `Refusing to overwrite existing OpenCode command file for asset ${linkedAsset.assetKind}:${linkedAsset.assetId}: ${toPosixPath(linkedAsset.linkPath)}`,
     );
   }
 

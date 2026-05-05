@@ -28,7 +28,7 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   assert.equal(zedAdapter?.lifecycleHost, "opencode");
   assert.equal(zedAdapter?.recommendationHost, "zed");
   assert.ok(
-    zedAdapter?.capabilities.some(
+    !zedAdapter?.capabilities.some(
       (capability) => capability.assetKind === "extension",
     ),
   );

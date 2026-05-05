@@ -297,7 +297,7 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
     id: "finance-trading",
     extensions: [".pine", ".mq4", ".mq5"],
     filePathPattern:
-      /(^|[/\\])(trading|quant|finance|market-data|backtests?|forex|stocks?)([/\\]|$)/iu,
+      /(^|[/\\])(trading|quant|market-data|backtests?|forex|stocks?|finance[-_]?trading|finance[-_]?data)([/\\]|$)/iu,
     signals: {
       concerns: [
         "trading",

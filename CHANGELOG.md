@@ -50,7 +50,7 @@ All notable changes to this project will be documented in this file.
 - tightened ESLint with type-aware no-floating-promise and unsafe-access rules plus scoped console-output enforcement for CLI boundary modules
 - reduced `src/discover.ts`, `src/install.ts`, `src/manifest-validation.ts`, and `src/types.ts` to stable entrypoints backed by focused domain modules
 - made catalog selection demand-aware before duplicate selection so irrelevant source-pack entries are rejected before recommendation
-- aligned OpenCode, Zed, Pi, Cursor, and Claude Code capability matrices with documented host-specific assets including OpenCode commands, Zed extension/MCP support, Pi prompt templates, Cursor prompt/plugin assets, and Claude Code prompt/MCP assets
+- aligned OpenCode, Zed, Pi, Cursor, and Claude Code capability matrices with documented host-specific assets including OpenCode commands, Zed MCP/reference support, Pi prompt templates, Cursor prompt/plugin assets, and Claude Code prompt/MCP assets
 - made CLI `--help` and `-h` flags route to command-group usage before lifecycle state is prepared
 
 ### Fixed in 1.0.0

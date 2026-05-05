@@ -225,7 +225,7 @@ function isNugetManifestFile(fileName: string): boolean {
 }
 
 function isLanguageSourceFile(fileName: string): boolean {
-  return /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|rs|go|erl|hrl|ex|exs|jl|php|rb)$/iu.test(
+  return /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|rs|go|erl|hrl|ex|exs|jl|php|rb|swift|m|mm|kt|kts|java|cs)$/iu.test(
     fileName,
   );
 }
