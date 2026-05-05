@@ -75,6 +75,53 @@ void test("catalog selection rejects low-signal concern overlap without stronger
   );
 });
 
+void test("catalog selection requires compound signal specificity", () => {
+  const result = filterCatalogEntriesByDemandRelevance(
+    [
+      buildCatalogEntry("analytics-engineering-pack", [
+        "analytics",
+        "engineering",
+      ]),
+      buildCatalogEntry("analytics-only-pack", ["analytics"]),
+      buildCatalogEntry("engineering-only-pack", ["engineering"]),
+      buildCatalogEntry("ai-sdk-pack", ["ai", "sdk"]),
+      buildCatalogEntry("ai-only-pack", ["ai"]),
+      buildCatalogEntry("sdk-only-pack", ["sdk"]),
+    ],
+    buildCompoundSignalDemandProfile(),
+  );
+
+  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
+    "ai-sdk-pack",
+    "analytics-engineering-pack",
+  ]);
+  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
+    "ai-only-pack",
+    "analytics-only-pack",
+    "engineering-only-pack",
+    "sdk-only-pack",
+  ]);
+});
+
+void test("catalog selection demotes catalog-common exact terms", () => {
+  const catalogEntries = [
+    ...Array.from({ length: 205 }, (_, index) =>
+      buildCatalogEntry(`ai-pack-${index + 1}`, ["ai"]),
+    ),
+    buildCatalogEntry("webhook-pack", ["webhook"]),
+  ];
+  const result = filterCatalogEntriesByDemandRelevance(
+    catalogEntries,
+    buildCommonTermDemandProfile(),
+  );
+
+  assert.deepEqual(
+    result.selectedEntries.map((entry) => entry.id),
+    ["webhook-pack"],
+  );
+  assert.equal(result.rejectedEntries.length, 205);
+});
+
 void test("catalog display names use parent folders for generic filenames", () => {
   assert.equal(
     deriveDisplayNameFromPath("skills/flutter-add-integration-test/SKILL.md"),
@@ -128,6 +175,46 @@ function buildLowSignalDemandProfile(): DemandProfile {
         "backend",
         "webhook",
       ],
+      tooling: [],
+    },
+    evidence: [],
+  };
+}
+
+function buildCompoundSignalDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: ["analytics-engineering"],
+      tooling: ["ai-sdk"],
+    },
+    evidence: [],
+  };
+}
+
+function buildCommonTermDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: ["ai", "webhook"],
       tooling: [],
     },
     evidence: [],
