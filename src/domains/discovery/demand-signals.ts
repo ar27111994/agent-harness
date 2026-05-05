@@ -850,11 +850,14 @@ function shouldReadTextForTechnologySignals(fileName: string): boolean {
     return false;
   }
 
+  if (isDockerfileName(fileName)) {
+    return false;
+  }
+
   return (
     /\.(json|ya?ml|toml|xml|gradle|csproj|props|targets|md|mdx|txt|ini|cfg|conf)$/iu.test(
       fileName,
     ) ||
-    isDockerfileName(fileName) ||
     [
       "Containerfile",
       "Gemfile",

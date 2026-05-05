@@ -340,14 +340,37 @@ async function runRuntimeCommand(
   executable: string,
   args: string[],
 ): Promise<{ exitCode: number | null; message: string }> {
-  const timeoutMs = 5_000;
+  const timeoutMs = 10_000;
+  const resolvedExecutable =
+    process.platform === "win32"
+      ? ((await findExecutableOnPath(executable)) ?? executable)
+      : executable;
+  const isWindowsShellWrapper =
+    process.platform === "win32" && /\.(?:cmd|bat)$/iu.test(resolvedExecutable);
 
   return new Promise((resolve) => {
-    const child = spawn(executable, args, {
-      shell: false,
-      stdio: ["ignore", "ignore", "pipe"],
-      windowsHide: true,
-    });
+    const child = isWindowsShellWrapper
+      ? spawn(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            buildWindowsPowerShellCommand(executable, args),
+          ],
+          {
+            shell: false,
+            stdio: ["ignore", "ignore", "pipe"],
+            windowsHide: true,
+          },
+        )
+      : spawn(resolvedExecutable, args, {
+          shell: false,
+          stdio: ["ignore", "ignore", "pipe"],
+          windowsHide: true,
+        });
     let settled = false;
     let stderr = "";
     const finish = (exitCode: number | null, message: string): void => {
@@ -373,6 +396,19 @@ async function runRuntimeCommand(
       finish(exitCode, stderr.trim() || `exit code ${String(exitCode)}`);
     });
   });
+}
+
+function buildWindowsPowerShellCommand(
+  executable: string,
+  args: string[],
+): string {
+  const quotedExecutable = quotePowerShellLiteral(executable);
+  const quotedArgs = args.map((argument) => quotePowerShellLiteral(argument));
+  return [`& ${quotedExecutable}`, ...quotedArgs].join(" ");
+}
+
+function quotePowerShellLiteral(value: string): string {
+  return `'${value.replace(/'/gu, "''")}'`;
 }
 
 /**

@@ -42,6 +42,39 @@ void test("catalog selection rejects entries without demand overlap", () => {
   );
 });
 
+void test("catalog selection rejects low-signal concern overlap without stronger evidence", () => {
+  const result = filterCatalogEntriesByDemandRelevance(
+    [
+      buildCatalogEntry("generic-docs", [
+        "documentation",
+        "knowledge-base",
+        "testing",
+      ]),
+      buildCatalogEntry("generic-stack", [
+        "backend",
+        "frontend",
+        "testing",
+        "documentation",
+      ]),
+      buildCatalogEntry("specific-webhook", ["webhook", "integration"]),
+      buildCatalogEntry("high-fit-entry", ["misc"], {
+        portfolioFit: 0.12,
+      }),
+    ],
+    buildLowSignalDemandProfile(),
+  );
+
+  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
+    "generic-stack",
+    "high-fit-entry",
+    "specific-webhook",
+  ]);
+  assert.deepEqual(
+    result.rejectedEntries.map((entry) => entry.id),
+    ["generic-docs"],
+  );
+});
+
 void test("catalog display names use parent folders for generic filenames", () => {
   assert.equal(
     deriveDisplayNameFromPath("skills/flutter-add-integration-test/SKILL.md"),
@@ -74,6 +107,33 @@ function buildDemandProfile(): DemandProfile {
   };
 }
 
+function buildLowSignalDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [
+        "documentation",
+        "knowledge-base",
+        "testing",
+        "frontend",
+        "backend",
+        "webhook",
+      ],
+      tooling: [],
+    },
+    evidence: [],
+  };
+}
+
 function buildCatalogEntry(
   id: string,
   capabilities: string[],
@@ -83,6 +143,7 @@ function buildCatalogEntry(
     installEligible: boolean;
     relativePath: string;
     sourceKind: AssetCatalogEntry["source"]["sourceKind"];
+    portfolioFit: number;
   }> = {},
 ): AssetCatalogEntry {
   return {
@@ -124,7 +185,10 @@ function buildCatalogEntry(
       requiresNetwork: false,
     },
     contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
-    fit: { portfolioFit: id === "apify-skill" ? 0.2 : 0, hostFit: 1 },
+    fit: {
+      portfolioFit: options.portfolioFit ?? (id === "apify-skill" ? 0.2 : 0),
+      hostFit: 1,
+    },
     dedupe: { candidateRankHint: "test" },
     status: {
       cataloged: true,

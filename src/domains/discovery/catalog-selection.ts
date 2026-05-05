@@ -13,6 +13,45 @@ interface RelevanceFilterResult {
   rejectedEntries: AssetCatalogEntry[];
 }
 
+interface DemandRelevanceTerms {
+  highSignalTerms: Set<string>;
+  lowSignalTerms: Set<string>;
+}
+
+const LOW_SIGNAL_TERMS = new Set([
+  "api",
+  "automation",
+  "backend",
+  "cd",
+  "ci",
+  "cloud",
+  "data",
+  "database",
+  "debugging",
+  "devops",
+  "docker",
+  "documentation",
+  "express",
+  "frontend",
+  "fullstack",
+  "infrastructure",
+  "integration",
+  "javascript",
+  "knowledge",
+  "logging",
+  "mobile",
+  "node",
+  "python",
+  "react",
+  "testing",
+  "tooling",
+  "typescript",
+]);
+
+const IGNORED_CONCERN_TERMS = new Set(["base", "detector"]);
+const PORTFOLIO_FIT_RELEVANCE_THRESHOLD = 0.1;
+const LOW_SIGNAL_CONCERN_MATCH_THRESHOLD = 4;
+
 /**
  * Filters catalog entries to assets that overlap with workspace demand signals.
  */
@@ -22,7 +61,10 @@ export function filterCatalogEntriesByDemandRelevance(
 ): RelevanceFilterResult {
   const demandTerms = buildDemandTermSet(demandProfile);
 
-  if (demandTerms.size === 0) {
+  if (
+    demandTerms.highSignalTerms.size === 0 &&
+    demandTerms.lowSignalTerms.size === 0
+  ) {
     return { selectedEntries: catalogEntries, rejectedEntries: [] };
   }
 
@@ -164,19 +206,68 @@ export function buildSelectionReason(
   return "Selected by compatibility, portfolio fit, risk, and context-cost ordering.";
 }
 
-function buildDemandTermSet(demandProfile: DemandProfile | null): Set<string> {
+function buildDemandTermSet(
+  demandProfile: DemandProfile | null,
+): DemandRelevanceTerms {
   if (!demandProfile) {
-    return new Set();
+    return {
+      highSignalTerms: new Set(),
+      lowSignalTerms: new Set(),
+    };
   }
 
-  return new Set(
-    [
-      ...demandProfile.signals.languages,
-      ...demandProfile.signals.frameworks,
-      ...demandProfile.signals.concerns,
-      ...demandProfile.signals.tooling,
-    ].flatMap((value) => splitIntoKeywords(stripPackageEvidencePrefix(value))),
+  const highSignalTerms = new Set<string>();
+  const lowSignalTerms = new Set<string>();
+
+  for (const language of demandProfile.signals.languages) {
+    addDemandKeywords(language, highSignalTerms, lowSignalTerms);
+  }
+
+  for (const framework of demandProfile.signals.frameworks) {
+    addDemandKeywords(framework, highSignalTerms, lowSignalTerms);
+  }
+
+  for (const concern of demandProfile.signals.concerns) {
+    addDemandKeywords(concern, highSignalTerms, lowSignalTerms);
+  }
+
+  for (const tooling of demandProfile.signals.tooling) {
+    if (hasPackageEvidencePrefix(tooling)) {
+      continue;
+    }
+
+    addDemandKeywords(tooling, highSignalTerms, lowSignalTerms);
+  }
+
+  return {
+    highSignalTerms,
+    lowSignalTerms,
+  };
+}
+
+function hasPackageEvidencePrefix(value: string): boolean {
+  return /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu.test(
+    value,
   );
+}
+
+function addDemandKeywords(
+  value: string,
+  highSignalTerms: Set<string>,
+  lowSignalTerms: Set<string>,
+): void {
+  for (const keyword of splitIntoKeywords(stripPackageEvidencePrefix(value))) {
+    if (IGNORED_CONCERN_TERMS.has(keyword)) {
+      continue;
+    }
+
+    if (LOW_SIGNAL_TERMS.has(keyword)) {
+      lowSignalTerms.add(keyword);
+      continue;
+    }
+
+    highSignalTerms.add(keyword);
+  }
 }
 
 function stripPackageEvidencePrefix(value: string): string {
@@ -188,22 +279,18 @@ function stripPackageEvidencePrefix(value: string): string {
 
 function isEntryRelevantToDemand(
   entry: AssetCatalogEntry,
-  demandTerms: Set<string>,
+  demandTerms: DemandRelevanceTerms,
 ): boolean {
   if (isExecutableMcpServerEntry(entry)) {
     return true;
   }
 
-  if (entry.fit.portfolioFit > 0) {
+  if (entry.fit.portfolioFit >= PORTFOLIO_FIT_RELEVANCE_THRESHOLD) {
     return true;
   }
 
   const entryTerms = new Set(
     [
-      entry.id,
-      entry.displayName,
-      entry.source.sourceId,
-      entry.source.publisher,
       ...entry.capabilities,
       entry.install.relativePath ?? "",
       entry.install.manifestEntry ?? "",
@@ -211,8 +298,20 @@ function isEntryRelevantToDemand(
     ].flatMap((value) => splitIntoKeywords(value)),
   );
 
-  for (const demandTerm of demandTerms) {
+  for (const demandTerm of demandTerms.highSignalTerms) {
     if (entryTerms.has(demandTerm)) {
+      return true;
+    }
+  }
+
+  let lowSignalOverlapCount = 0;
+  for (const demandTerm of demandTerms.lowSignalTerms) {
+    if (!entryTerms.has(demandTerm)) {
+      continue;
+    }
+
+    lowSignalOverlapCount += 1;
+    if (lowSignalOverlapCount >= LOW_SIGNAL_CONCERN_MATCH_THRESHOLD) {
       return true;
     }
   }

@@ -412,6 +412,27 @@ const repoFixtures: DemandProfileRepoFixture[] = [
     expectedMatchedFilesMin: 4,
   },
   {
+    archetype: "dockerfile-comment-no-embedded",
+    files: [
+      {
+        path: "Dockerfile",
+        content: [
+          "FROM ubuntu:22.04",
+          "# Create an embedded entrypoint script",
+          "RUN echo ready",
+        ].join("\n"),
+      },
+    ],
+    expectedSignals: {
+      concerns: ["containerization", "infrastructure"],
+      tooling: ["docker"],
+    },
+    unexpectedSignals: {
+      concerns: ["embedded", "firmware", "rtos", "hardware", "iot"],
+    },
+    expectedMatchedFilesMin: 1,
+  },
+  {
     archetype: "mlops-rag-creative-media",
     files: [
       {
