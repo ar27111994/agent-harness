@@ -521,10 +521,7 @@ function addPackageManagerSignal(
     packageManagerName === "bun"
   ) {
     addSignals(matchedSignals.packageManagers, [packageManagerName]);
-    return;
   }
-
-  addSignals(matchedSignals.packageManagers, ["npm"]);
 }
 
 function enrichRequirementsSignals(

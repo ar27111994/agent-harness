@@ -62,9 +62,14 @@ export async function fetchNpmPackageSearch(
   query: string,
   options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<NpmPackageSearchResult[]> {
+  const normalizedQuery = query.trim();
+  if (normalizedQuery.length === 0) {
+    return [];
+  }
+
   try {
     const searchUrl = new URL("https://registry.npmjs.org/-/v1/search");
-    searchUrl.searchParams.set("text", query);
+    searchUrl.searchParams.set("text", normalizedQuery);
     searchUrl.searchParams.set("size", String(NPM_SEARCH_RESULT_LIMIT));
     const data = await fetchJsonWithGuards(searchUrl.toString(), {
       allowedOrigins: NPM_REGISTRY_ORIGINS,
@@ -302,7 +307,10 @@ function normalizeHttpUrl(value: unknown): string | undefined {
 
 function normalizeStringArray(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
+    ? value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
     : [];
 }
 

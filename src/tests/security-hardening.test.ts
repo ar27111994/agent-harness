@@ -215,7 +215,7 @@ void test("npm package search normalizes package names and keywords", async (con
         package: {
           name: "@example/project-mcp",
           description: "Example MCP Server",
-          keywords: ["mcp", "server", 42],
+          keywords: ["mcp", " server ", "", "   ", 42],
           date: "2026-01-01T00:00:00.000Z",
         },
       },
@@ -245,6 +245,14 @@ void test("npm package search normalizes package names and keywords", async (con
       lastUpdated: "2026-01-01T00:00:00.000Z",
     },
   ]);
+});
+
+void test("npm package search skips blank queries", async () => {
+  const results = await fetchNpmPackageSearch("   ", {
+    resolveHostname: publicHostnameResolver,
+  });
+
+  assert.deepEqual(results, []);
 });
 
 void test("PyPI metadata fetch validates response shape before use", async (context) => {
