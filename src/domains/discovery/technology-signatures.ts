@@ -4,7 +4,7 @@ import { addSignals } from "./signals.js";
 /**
  * Defines the supported package ecosystem values.
  */
-export type PackageEcosystem = "npm" | "pypi";
+export type PackageEcosystem = "npm" | "pypi" | "pub";
 
 /**
  * Describes technology signature data exchanged by the lifecycle pipeline.
@@ -25,6 +25,8 @@ export interface TechnologySignalContext {
   ecosystem?: PackageEcosystem;
   text?: string;
 }
+
+const textMarkerPatternCache = new Map<string, RegExp>();
 
 /**
  * Defines technology signatures shared by the lifecycle pipeline.
@@ -145,9 +147,23 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
   },
   {
     id: "firebase",
-    packages: { npm: ["firebase", "firebase-admin"], pypi: ["firebase-admin"] },
-    packagePrefixes: { npm: ["@firebase/"] },
-    signals: { frameworks: ["firebase"], concerns: ["backend", "cloud"] },
+    packages: {
+      npm: ["firebase", "firebase-admin", "@firebase/app"],
+      pypi: ["firebase-admin"],
+      pub: [
+        "firebase_core",
+        "firebase_auth",
+        "firebase_database",
+        "firebase_messaging",
+        "firebase_storage",
+        "cloud_firestore",
+      ],
+    },
+    packagePrefixes: { npm: ["@firebase/", "firebase-"], pub: ["firebase_"] },
+    signals: {
+      frameworks: ["firebase"],
+      concerns: ["backend", "cloud", "database", "authentication"],
+    },
   },
   {
     id: "azure",
@@ -182,6 +198,27 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
       frameworks: ["apify"],
       concerns: ["automation", "web-scraping"],
       tooling: ["actor", "crawler"],
+    },
+  },
+  {
+    id: "flutter",
+    packages: { pub: ["flutter"] },
+    packagePrefixes: { pub: ["flutter_"] },
+    textMarkers: ["flutter"],
+    signals: {
+      languages: ["dart"],
+      frameworks: ["flutter"],
+      concerns: ["mobile", "frontend"],
+      tooling: ["flutter", "pub"],
+    },
+  },
+  {
+    id: "dart",
+    packages: { pub: ["dart"] },
+    signals: {
+      languages: ["dart"],
+      packageManagers: ["pub"],
+      tooling: ["dart"],
     },
   },
   {
@@ -577,7 +614,37 @@ function matchesTechnologySignature(
     }
   }
 
-  return (signature.textMarkers ?? []).some((marker) => text.includes(marker));
+  return (signature.textMarkers ?? []).some((marker) =>
+    matchesTextMarker(text, marker),
+  );
+}
+
+function matchesTextMarker(text: string, marker: string): boolean {
+  const normalizedMarker = marker.trim().toLowerCase();
+  if (!normalizedMarker) {
+    return false;
+  }
+
+  return buildDelimitedMarkerPattern(normalizedMarker).test(text);
+}
+
+function buildDelimitedMarkerPattern(marker: string): RegExp {
+  const cachedPattern = textMarkerPatternCache.get(marker);
+  if (cachedPattern) {
+    return cachedPattern;
+  }
+
+  const escapedMarker = escapeRegExp(marker).replace(/\s+/gu, "\\s+");
+  const pattern = new RegExp(
+    `(^|[^a-z0-9])${escapedMarker}([^a-z0-9]|$)`,
+    "iu",
+  );
+  textMarkerPatternCache.set(marker, pattern);
+  return pattern;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 function applySignalSet(

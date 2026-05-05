@@ -155,6 +155,30 @@
       }
     },
     {
+      "id": "zed-extension-registry",
+      "name": "Zed Extension Gallery",
+      "kind": "registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Zed",
+        "verified": true,
+        "owner": "zed-industries"
+      },
+      "hosts": ["zed"],
+      "assetKinds": ["extension", "mcp-server", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 90,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://zed.dev/extensions"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": false
+      }
+    },
+    {
       "id": "pi-docs",
       "name": "Pi Docs",
       "kind": "docs",

@@ -376,28 +376,18 @@ function computeRedundancyPenalty(
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   policy: RecommendationPolicy,
 ): number {
-  let overlapCount = 0;
   const sameSourceFamilyCount =
     selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0;
-
-  for (const entry of selectionState.selected) {
-    if (entry.sourceFamily === candidate.sourceFamily) {
-      overlapCount += 1;
-    }
-    if (
-      candidate.duplicateGroup &&
-      entry.duplicateGroup &&
-      candidate.duplicateGroup === entry.duplicateGroup
-    ) {
-      overlapCount += 2;
-    }
-    overlapCount += Math.min(
-      2,
-      candidate.coverageTags.filter((tag) => entry.coverageTags.includes(tag))
-        .length,
-    );
-  }
-
+  const duplicateGroupOverlap = candidate.duplicateGroup
+    ? (selectionState.duplicateGroupCounts[candidate.duplicateGroup] ?? 0) * 2
+    : 0;
+  const coverageOverlap = selectionState.selected.reduce(
+    (total, selectedCandidate) =>
+      total + computeSelectedCoverageOverlap(candidate, selectedCandidate),
+    0,
+  );
+  const overlapCount =
+    sameSourceFamilyCount + duplicateGroupOverlap + coverageOverlap;
   const basePenalty = overlapCount * policy.scoring.overlapPenalty;
   const sourceSaturationPenalty = computeSourceSaturationPenalty(
     sameSourceFamilyCount,
@@ -405,6 +395,18 @@ function computeRedundancyPenalty(
   );
 
   return basePenalty + sourceSaturationPenalty;
+}
+
+function computeSelectedCoverageOverlap(
+  candidate: CandidateRecommendation,
+  selectedCandidate: CandidateRecommendation,
+): number {
+  const selectedCoverageTags = new Set(selectedCandidate.coverageTags);
+  const overlapCount = candidate.coverageTags.filter((tag) =>
+    selectedCoverageTags.has(tag),
+  ).length;
+
+  return Math.min(2, overlapCount);
 }
 
 function computeSourceSaturationPenalty(

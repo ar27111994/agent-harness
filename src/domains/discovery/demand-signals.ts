@@ -27,6 +27,13 @@ interface ActorJsonShape {
   webServerSchema?: string;
 }
 
+const YAML_DEPENDENCY_SECTION_NAMES = new Set([
+  "dependencies",
+  "dev_dependencies",
+  "dependency_overrides",
+  "test_dependencies",
+]);
+
 const ACTOR_JSON_PATH_PATTERN = /[\\/]\.actor[\\/]actor\.json$/iu;
 const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
@@ -40,6 +47,7 @@ const INSPECTABLE_FILE_NAMES = new Set([
   "tsconfig.json",
   "pyproject.toml",
   "requirements.txt",
+  "pubspec.yaml",
   "Cargo.toml",
   "go.mod",
   "pom.xml",
@@ -121,6 +129,10 @@ export async function collectDemandSignalsForFile(
     enrichPyProjectSignals(fileContent, matchedSignals);
   }
 
+  if (fileName === "pubspec.yaml") {
+    enrichPubspecSignals(fileContent, matchedSignals);
+  }
+
   enrichMultiEcosystemDependencySignals(fileName, fileContent, matchedSignals);
 
   if (isActorJsonFile(fileName, filePath)) {
@@ -149,6 +161,28 @@ function collectStaticSignals(
 ): DemandSignalSet {
   const matchedSignals = createEmptySignalSet();
 
+  addMobilePathSignals(filePath, matchedSignals);
+
+  if (/\.swift$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["swift"]);
+  }
+
+  if (/\.(m|mm)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["objective-c"]);
+  }
+
+  if (/\.(kt|kts)$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["kotlin"]);
+  }
+
+  if (/\.java$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["java"]);
+  }
+
+  if (/\.cs$/iu.test(fileName)) {
+    addSignals(matchedSignals.languages, ["csharp"]);
+  }
+
   if (fileName === "package.json") {
     addSignals(matchedSignals.languages, ["javascript"]);
     addSignals(matchedSignals.packageManagers, ["npm"]);
@@ -176,6 +210,11 @@ function collectStaticSignals(
     addSignals(matchedSignals.packageManagers, ["pip"]);
   }
 
+  if (fileName === "pubspec.yaml") {
+    addSignals(matchedSignals.languages, ["dart"]);
+    addSignals(matchedSignals.packageManagers, ["pub"]);
+  }
+
   if (fileName === "Cargo.toml") {
     addSignals(matchedSignals.languages, ["rust"]);
     addSignals(matchedSignals.packageManagers, ["cargo"]);
@@ -193,6 +232,10 @@ function collectStaticSignals(
   ) {
     addSignals(matchedSignals.languages, ["java"]);
     addSignals(matchedSignals.packageManagers, ["maven-gradle"]);
+  }
+
+  if (fileName === "build.gradle.kts") {
+    addSignals(matchedSignals.languages, ["kotlin"]);
   }
 
   if (fileName.endsWith(".csproj")) {
@@ -213,6 +256,22 @@ function collectStaticSignals(
   if (fileName === "Package.swift") {
     addSignals(matchedSignals.languages, ["swift"]);
     addSignals(matchedSignals.packageManagers, ["swiftpm"]);
+  }
+
+  if (fileName === "Podfile") {
+    addSignals(matchedSignals.packageManagers, ["cocoapods"]);
+    addSignals(matchedSignals.concerns, ["mobile", "ios"]);
+    addSignals(matchedSignals.tooling, ["cocoapods", "ios"]);
+  }
+
+  if (fileName === "AndroidManifest.xml") {
+    addSignals(matchedSignals.concerns, ["mobile", "android"]);
+    addSignals(matchedSignals.tooling, ["android"]);
+  }
+
+  if (fileName === "Info.plist" || fileName === "project.pbxproj") {
+    addSignals(matchedSignals.concerns, ["mobile", "ios"]);
+    addSignals(matchedSignals.tooling, ["ios", "xcode"]);
   }
 
   if (fileName === "deno.json") {
@@ -347,6 +406,23 @@ function enrichPyProjectSignals(
     ecosystem: "pypi",
   });
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
+}
+
+function enrichPubspecSignals(
+  content: string | null,
+  matchedSignals: DemandSignalSet,
+): void {
+  if (!content) {
+    return;
+  }
+
+  const dependencyNames = extractPubspecDependencyNames(content);
+
+  applyTechnologySignatures(matchedSignals, {
+    dependencyNames,
+    ecosystem: "pub",
+  });
+  addPackageDependencySignals(matchedSignals, "pub", dependencyNames);
 }
 
 function extractPyProjectDependencyNames(content: string): string[] {
@@ -517,14 +593,19 @@ function enrichMultiEcosystemDependencySignals(
       );
       return;
     case "pom.xml":
-    case "build.gradle":
-    case "build.gradle.kts":
       addPackageDependencySignals(
         matchedSignals,
         "maven",
         extractMavenDependencyNames(content),
       );
       return;
+    case "build.gradle":
+    case "build.gradle.kts": {
+      const dependencyNames = extractMavenDependencyNames(content);
+      addPackageDependencySignals(matchedSignals, "maven", dependencyNames);
+      enrichGradleSignals(content, fileName, matchedSignals);
+      return;
+    }
     case "Gemfile":
       addPackageDependencySignals(
         matchedSignals,
@@ -553,6 +634,7 @@ function enrichMultiEcosystemDependencySignals(
           "nuget",
           extractNugetDependencyNames(content),
         );
+        enrichDotNetProjectSignals(content, matchedSignals);
       }
   }
 }
@@ -667,6 +749,128 @@ function shouldReadTextForDependencySignals(fileName: string): boolean {
       "Package.swift",
     ].includes(fileName) || fileName.endsWith(".csproj")
   );
+}
+
+function addMobilePathSignals(
+  filePath: string,
+  matchedSignals: DemandSignalSet,
+): void {
+  const normalizedPath = filePath.replace(/\\/gu, "/");
+
+  if (/(^|\/)(ios|iphone|ipad)(\/|$)/iu.test(normalizedPath)) {
+    addSignals(matchedSignals.concerns, ["mobile", "ios"]);
+    addSignals(matchedSignals.tooling, ["ios"]);
+  }
+
+  if (/(^|\/)android(\/|$)/iu.test(normalizedPath)) {
+    addSignals(matchedSignals.concerns, ["mobile", "android"]);
+    addSignals(matchedSignals.tooling, ["android"]);
+  }
+
+  if (/(^|\/)maui(\/|$)/iu.test(normalizedPath)) {
+    addSignals(matchedSignals.concerns, ["mobile"]);
+    addSignals(matchedSignals.frameworks, ["maui"]);
+    addSignals(matchedSignals.tooling, ["dotnet-maui"]);
+  }
+
+  if (/(^|\/)xamarin(\/|$)/iu.test(normalizedPath)) {
+    addSignals(matchedSignals.concerns, ["mobile"]);
+    addSignals(matchedSignals.frameworks, ["xamarin"]);
+    addSignals(matchedSignals.tooling, ["xamarin"]);
+  }
+}
+
+function extractPubspecDependencyNames(content: string): string[] {
+  const dependencyNames: string[] = [];
+  let currentSection = "";
+  let dependencyIndent: number | null = null;
+
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const sectionMatch = /^(\S[^:#]*):\s*$/u.exec(rawLine);
+    if (sectionMatch?.[1] && !rawLine.startsWith(" ")) {
+      currentSection = sectionMatch[1].trim();
+      dependencyIndent = null;
+      continue;
+    }
+
+    if (!YAML_DEPENDENCY_SECTION_NAMES.has(currentSection)) {
+      continue;
+    }
+
+    const dependencyMatch = /^(\s*)([A-Za-z0-9_]+):/u.exec(rawLine);
+    if (!dependencyMatch?.[1] || !dependencyMatch[2]) {
+      continue;
+    }
+
+    const indentLength = dependencyMatch[1].length;
+    dependencyIndent ??= indentLength;
+    if (indentLength === dependencyIndent) {
+      dependencyNames.push(dependencyMatch[2]);
+    }
+  }
+
+  return uniqueStrings(dependencyNames);
+}
+
+function enrichDotNetProjectSignals(
+  content: string,
+  matchedSignals: DemandSignalSet,
+): void {
+  const normalizedContent = content.toLowerCase();
+
+  if (
+    /<targetframeworks?>[^<]*(net[0-9.]+-ios|net[0-9.]+-maccatalyst)/iu.test(
+      content,
+    )
+  ) {
+    addSignals(matchedSignals.concerns, ["mobile", "ios"]);
+    addSignals(matchedSignals.tooling, ["ios"]);
+  }
+
+  if (/<targetframeworks?>[^<]*net[0-9.]+-android/iu.test(content)) {
+    addSignals(matchedSignals.concerns, ["mobile", "android"]);
+    addSignals(matchedSignals.tooling, ["android"]);
+  }
+
+  if (
+    normalizedContent.includes("<usemaui>true</usemaui>") ||
+    normalizedContent.includes("microsoft.maui")
+  ) {
+    addSignals(matchedSignals.frameworks, ["maui"]);
+    addSignals(matchedSignals.concerns, ["mobile"]);
+    addSignals(matchedSignals.tooling, ["dotnet-maui"]);
+  }
+
+  if (normalizedContent.includes("xamarin.forms")) {
+    addSignals(matchedSignals.frameworks, ["xamarin"]);
+    addSignals(matchedSignals.concerns, ["mobile"]);
+    addSignals(matchedSignals.tooling, ["xamarin"]);
+  }
+}
+
+function enrichGradleSignals(
+  content: string,
+  fileName: string,
+  matchedSignals: DemandSignalSet,
+): void {
+  const normalizedContent = content.toLowerCase();
+  if (
+    fileName === "build.gradle.kts" ||
+    normalizedContent.includes("org.jetbrains.kotlin.android") ||
+    normalizedContent.includes('kotlin("android")') ||
+    normalizedContent.includes("kotlin('android')")
+  ) {
+    addSignals(matchedSignals.languages, ["kotlin"]);
+  }
+
+  if (
+    normalizedContent.includes("com.android.application") ||
+    normalizedContent.includes("com.android.library") ||
+    normalizedContent.includes("org.jetbrains.kotlin.android")
+  ) {
+    addSignals(matchedSignals.concerns, ["mobile", "android"]);
+    addSignals(matchedSignals.tooling, ["android-gradle"]);
+  }
 }
 
 function parseJsonOrNull<T>(content: string | null): T | null {

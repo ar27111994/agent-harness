@@ -18,6 +18,7 @@ import {
 import {
   extractRepositoryUrlFromNpmMetadata,
   extractRepositoryUrlFromPypiMetadata,
+  fetchNpmPackageSearch,
   fetchPypiPackageMetadata,
 } from "../package-registries.js";
 
@@ -202,6 +203,48 @@ void test("guarded fetches disable automatic cross-origin redirects", async (con
 
   assert.equal(content, "ok");
   assert.equal(observedRedirectMode, "error");
+});
+
+void test("npm package search normalizes package names and keywords", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  const responsePayload = JSON.stringify({
+    objects: [
+      {
+        package: {
+          name: "@example/project-mcp",
+          description: "Example MCP Server",
+          keywords: ["mcp", "server", 42],
+          date: "2026-01-01T00:00:00.000Z",
+        },
+      },
+      { package: { name: 42 } },
+    ],
+  });
+
+  globalThis.fetch = async () =>
+    new Response(responsePayload, {
+      headers: { "content-length": String(Buffer.byteLength(responsePayload)) },
+      status: 200,
+    });
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  const results = await fetchNpmPackageSearch("example mcp server", {
+    resolveHostname: publicHostnameResolver,
+  });
+
+  assert.deepEqual(results, [
+    {
+      name: "@example/project-mcp",
+      description: "Example MCP Server",
+      keywords: ["mcp", "server"],
+      lastUpdated: "2026-01-01T00:00:00.000Z",
+    },
+  ]);
 });
 
 void test("PyPI metadata fetch validates response shape before use", async (context) => {

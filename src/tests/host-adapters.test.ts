@@ -16,8 +16,14 @@ void test("native host adapters are registered with expected lifecycle hosts", (
     resolveHostAdapter("cursor")?.nativeInstall?.assetKind,
     "extension",
   );
-  assert.equal(resolveHostAdapter("zed")?.lifecycleHost, "opencode");
-  assert.equal(resolveHostAdapter("zed")?.recommendationHost, "zed");
+  const zedAdapter = resolveHostAdapter("zed");
+  assert.equal(zedAdapter?.lifecycleHost, "opencode");
+  assert.equal(zedAdapter?.recommendationHost, "zed");
+  assert.ok(
+    zedAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "extension",
+    ),
+  );
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");
   assert.equal(resolveHostAdapter("claudecode")?.id, "claude-code");
   assert.equal(resolveHostAdapter("pi-coding-agent")?.id, "pi");
@@ -33,6 +39,13 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   );
 
   assert.equal(resolveHostAdapter("claude")?.recommendationHost, "claude-code");
+
+  const opencodeAdapter = resolveHostAdapter("opencode");
+  assert.ok(
+    opencodeAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "prompt-pack",
+    ),
+  );
 
   const piAdapter = resolveHostAdapter("pi");
   assert.ok(piAdapter);

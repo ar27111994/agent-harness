@@ -45,6 +45,19 @@ export const GENERIC_CAPABILITY_TOKENS = new Set([
   "subagents",
 ]);
 
+const GENERIC_DISPLAY_NAME_SEGMENTS = new Set([
+  "agent",
+  "agents",
+  "agents-md",
+  "copilot-instructions",
+  "index",
+  "instructions",
+  "readme",
+  "skill",
+  "skill-md",
+  "skills",
+]);
+
 /**
  * Builds risk from the provided inputs.
  */
@@ -438,14 +451,51 @@ export function lastPathSegment(value: string): string {
 }
 
 /**
+ * Derives a human-readable display name from a catalog path.
+ */
+export function deriveDisplayNameFromPath(relativePath: string): string {
+  const pathSegments = relativePath
+    .replace(/\\/gu, "/")
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  const fileSegment = pathSegments[pathSegments.length - 1] ?? relativePath;
+  const baseSegment = normalizeDisplayNameSegment(lastPathSegment(fileSegment));
+
+  if (GENERIC_DISPLAY_NAME_SEGMENTS.has(baseSegment)) {
+    for (let index = pathSegments.length - 2; index >= 0; index -= 1) {
+      const parentSegment = pathSegments[index];
+      if (!parentSegment) {
+        continue;
+      }
+
+      const normalizedParent = normalizeDisplayNameSegment(parentSegment);
+      if (!GENERIC_DISPLAY_NAME_SEGMENTS.has(normalizedParent)) {
+        return humanizeSlug(parentSegment);
+      }
+    }
+  }
+
+  return humanizeSlug(lastPathSegment(fileSegment));
+}
+
+/**
  * Provides humanize slug for the lifecycle pipeline.
  */
 export function humanizeSlug(value: string): string {
   return value
+    .replace(/\.(md|markdown|txt|ya?ml|json)$/iu, "")
     .split(/[-_/]+/u)
     .filter((segment) => segment.length > 0)
     .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
     .join(" ");
+}
+
+function normalizeDisplayNameSegment(value: string): string {
+  return value
+    .replace(/\.(md|markdown|txt|ya?ml|json)$/iu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, "-")
+    .replace(/^-|-$/gu, "");
 }
 
 /**

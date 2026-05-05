@@ -141,11 +141,26 @@ function buildGenericReferenceItem(
     originUrl: options.originUrl,
     summary: options.summary,
     capabilities: [source.kind, ...splitIntoKeywords(options.displayName)],
-    assetKind: "reference-pack",
+    assetKind: inferGenericReferenceAssetKind(source),
     compatibilityMode: "adaptable",
     installMethod: `${source.kind}-summary`,
     manifestEntry: options.originUrl,
   };
+}
+
+function inferGenericReferenceAssetKind(source: SourceDefinition): AssetKind {
+  if (source.assetKinds.length === 1 && source.assetKinds[0] !== "mcp-server") {
+    return source.assetKinds[0] ?? "reference-pack";
+  }
+
+  if (
+    source.id.includes("extension") &&
+    source.assetKinds.includes("extension")
+  ) {
+    return "extension";
+  }
+
+  return "reference-pack";
 }
 
 function normalizeVsCodeMarketplaceItems(

@@ -96,11 +96,19 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "plugin", behaviors: ["stage", "wire"] },
   { assetKind: "hook", behaviors: ["stage", "wire"] },
   { assetKind: "workflow", behaviors: ["stage", "wire"] },
+  { assetKind: "prompt-pack", behaviors: ["stage", "wire"] },
   { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
 ];
 
 const cursorCapabilities: HostCapability[] = vscodeCapabilities;
+
+const zedCapabilities: HostCapability[] = [
+  { assetKind: "instruction", behaviors: ["stage", "wire"] },
+  { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "extension", behaviors: ["stage", "wire"] },
+  { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
+];
 
 const piCapabilities: HostCapability[] = opencodeCapabilities.map(
   (capability) =>
@@ -205,7 +213,7 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
       guidance:
         "Install the Zed CLI if you want runtime validation beyond project-local file wiring.",
     },
-    capabilities: opencodeCapabilities,
+    capabilities: zedCapabilities,
     wire: (options) => wireNativeHost("zed", options),
   },
   {

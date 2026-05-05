@@ -2,6 +2,7 @@ import {
   extractRepositoryUrlFromNpmMetadata,
   extractRepositoryUrlFromPypiMetadata,
   fetchNpmPackageMetadata,
+  fetchNpmPackageSearch,
   fetchPypiPackageMetadata,
 } from "../../package-registries.js";
 import type {
@@ -27,6 +28,7 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 import {
+  collectNpmMcpSearchQueriesFromDemandProfile,
   collectPackageCandidatesFromDemandProfile,
   type PackageRegistryKind,
 } from "./package-candidates.js";
@@ -40,13 +42,20 @@ export async function harvestPackageRegistrySource(
   selectionRegistry: SelectionRegistry,
 ): Promise<AssetCatalogEntry[]> {
   const registryKind = getPackageRegistryKind(source);
-  const packageCandidates = collectPackageCandidatesFromDemandProfile(
-    demandProfile,
-    registryKind,
+  const packageCandidates = new Set(
+    collectPackageCandidatesFromDemandProfile(demandProfile, registryKind),
   );
   const entries: AssetCatalogEntry[] = [];
 
-  for (const packageName of packageCandidates) {
+  if (source.id === "npm-registry") {
+    for (const packageName of await searchNpmMcpServerPackages(demandProfile)) {
+      packageCandidates.add(packageName);
+    }
+  }
+
+  for (const packageName of [...packageCandidates].sort((left, right) =>
+    left.localeCompare(right),
+  )) {
     if (source.id === "npm-registry") {
       const npmMetadata = await fetchNpmPackageMetadata(packageName);
       if (!npmMetadata) {
@@ -63,6 +72,7 @@ export async function harvestPackageRegistrySource(
           demandProfile,
           selectionRegistry,
           "npm",
+          npmMetadata.keywords ?? [],
         ),
       );
       continue;
@@ -122,6 +132,72 @@ function getPackageRegistryKind(source: SourceDefinition): PackageRegistryKind {
   );
 }
 
+async function searchNpmMcpServerPackages(
+  demandProfile: DemandProfile | null,
+): Promise<string[]> {
+  const queries = collectNpmMcpSearchQueriesFromDemandProfile(demandProfile);
+  const packageNames = new Set<string>();
+
+  for (const query of queries) {
+    const results = await fetchNpmPackageSearch(query);
+    for (const result of results) {
+      if (
+        isMcpServerPackage(result.name, result.description, result.keywords)
+      ) {
+        packageNames.add(result.name);
+      }
+    }
+  }
+
+  return [...packageNames].sort((left, right) => left.localeCompare(right));
+}
+
+function isMcpServerPackage(
+  packageName: string,
+  description?: string,
+  keywords: string[] = [],
+): boolean {
+  const normalizedPackageName = packageName.toLowerCase();
+  if (normalizedPackageName.startsWith("@modelcontextprotocol/server-")) {
+    return true;
+  }
+
+  if (matchesExecutableMcpPackageName(normalizedPackageName)) {
+    return true;
+  }
+
+  const normalizedSearchText = [description ?? "", ...keywords]
+    .join(" ")
+    .toLowerCase();
+  const mentionsProtocol =
+    /\bmcp\b/u.test(normalizedSearchText) ||
+    normalizedSearchText.includes("model context protocol");
+  return mentionsProtocol && /\bservers?\b/u.test(normalizedSearchText);
+}
+
+function matchesExecutableMcpPackageName(packageName: string): boolean {
+  const nonExecutableQualifier =
+    "(?:sdk|docs?|client|ts|typescript|js|javascript|py|python|go|java|kotlin|swift)";
+  const mcpServerTokenPattern = new RegExp(
+    `(?:^|[\\/_-])(?:mcp-server|server-mcp)(?:$|[\\/_-](?!${nonExecutableQualifier}(?:$|[\\/_-])))`,
+    "u",
+  );
+  const mcpSuffixPattern = new RegExp(
+    `(?:^|-)mcp(?:$|-(?!${nonExecutableQualifier}(?:$|-))server(?:$|-(?!${nonExecutableQualifier}(?:$|-))))`,
+    "u",
+  );
+  const scopedMcpServerPattern = new RegExp(
+    `(?:^|/)mcp[-_]server(?:$|[-_](?!${nonExecutableQualifier}(?:$|[-_])))`,
+    "u",
+  );
+
+  return (
+    mcpServerTokenPattern.test(packageName) ||
+    mcpSuffixPattern.test(packageName) ||
+    scopedMcpServerPattern.test(packageName)
+  );
+}
+
 function buildPackageRegistryUrl(
   registryKind: PackageRegistryKind,
   packageName: string,
@@ -157,13 +233,19 @@ function buildPackageRegistryCatalogEntry(
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
   registryKind: PackageRegistryKind,
+  packageKeywords: string[] = [],
 ): AssetCatalogEntry {
   const capabilities = uniqueStrings([
     ...splitIntoKeywords(packageName),
     ...splitIntoKeywords(description),
+    ...packageKeywords.flatMap((keyword) => splitIntoKeywords(keyword)),
     registryKind,
   ]).filter((token) => !GENERIC_CAPABILITY_TOKENS.has(token));
-  const assetKind = packageName.includes("mcp")
+  const assetKind = isMcpServerPackage(
+    packageName,
+    description,
+    packageKeywords,
+  )
     ? ("mcp-server" satisfies AssetKind)
     : ("plugin" satisfies AssetKind);
   const hosts =

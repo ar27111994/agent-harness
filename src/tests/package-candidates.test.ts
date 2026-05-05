@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectPackageCandidatesFromDemandProfile } from "../domains/discovery/package-candidates.js";
+import {
+  collectNpmMcpSearchQueriesFromDemandProfile,
+  collectPackageCandidatesFromDemandProfile,
+} from "../domains/discovery/package-candidates.js";
 import type { DemandProfile } from "../types.js";
 
 void test("package candidates are de-duped, sorted, and scoped by registry", () => {
@@ -25,6 +28,42 @@ void test("package candidates are de-duped, sorted, and scoped by registry", () 
     ["org.springframework.boot:spring-boot-starter-web"],
   );
 });
+
+void test("MCP package discovery builds search queries instead of package allowlists", () => {
+  const demandProfile = buildMcpDemandProfile();
+
+  assert.deepEqual(
+    collectPackageCandidatesFromDemandProfile(demandProfile, "npm"),
+    [],
+  );
+  assert.deepEqual(collectNpmMcpSearchQueriesFromDemandProfile(demandProfile), [
+    "apify mcp server",
+    "firebase mcp server",
+    "database mcp server",
+    "duckdb mcp server",
+    "postgres mcp server",
+  ]);
+});
+
+function buildMcpDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 2,
+      matchedFiles: 2,
+    },
+    signals: {
+      languages: [],
+      packageManagers: ["npm"],
+      frameworks: ["apify", "firebase"],
+      concerns: ["data", "database"],
+      tooling: ["duckdb", "postgres"],
+    },
+    evidence: [],
+  };
+}
 
 function buildDemandProfile(): DemandProfile {
   return {

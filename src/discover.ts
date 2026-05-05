@@ -17,6 +17,7 @@ import {
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
   compareSelectionCandidates,
+  filterCatalogEntriesByDemandRelevance,
   groupCatalogEntriesForSelection,
   buildSelectionReason,
 } from "./domains/discovery/catalog-selection.js";
@@ -269,9 +270,21 @@ async function generateSelectionOutputs(projectRoot: string): Promise<void> {
     join(projectRoot, ...CATALOG_OUTPUT_PATH),
     assertAssetCatalogEntry,
   );
-  const groupedEntries = groupCatalogEntriesForSelection(catalogEntries);
+  const demandProfile = await readJsonFileOrNull<DemandProfile>(
+    join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH),
+    assertDemandProfile,
+  );
+  const relevanceFilter = filterCatalogEntriesByDemandRelevance(
+    catalogEntries,
+    demandProfile,
+  );
+  const groupedEntries = groupCatalogEntriesForSelection(
+    relevanceFilter.selectedEntries,
+  );
   const selectedEntries: AssetCatalogEntry[] = [];
-  const rejectedEntries: AssetCatalogEntry[] = [];
+  const rejectedEntries: AssetCatalogEntry[] = [
+    ...relevanceFilter.rejectedEntries,
+  ];
   const duplicateDecisions: SelectionDuplicateDecision[] = [];
 
   for (const [groupKey, groupEntries] of groupedEntries) {

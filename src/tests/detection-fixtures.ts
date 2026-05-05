@@ -17,7 +17,7 @@ export const ROADMAP_DETECTION_FIXTURES: DetectionFixture[] = [
     archetype: "mobile",
     fileName: "AndroidManifest.xml",
     filePath: "apps/android/AndroidManifest.xml",
-    expectedConcerns: ["mobile"],
+    expectedConcerns: ["mobile", "android"],
   },
   {
     archetype: "backend-api",

@@ -6,7 +6,19 @@ import {
 const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
 const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;
 const REGISTRY_METADATA_MAX_BYTES = 2_000_000;
+const REGISTRY_SEARCH_MAX_BYTES = 500_000;
 const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
+const NPM_SEARCH_RESULT_LIMIT = 12;
+
+/**
+ * Describes npm package metadata data exchanged by the lifecycle pipeline.
+ */
+export interface NpmPackageSearchResult {
+  name: string;
+  description?: string;
+  keywords: string[];
+  lastUpdated?: string;
+}
 
 /**
  * Describes npm package metadata data exchanged by the lifecycle pipeline.
@@ -41,6 +53,31 @@ export interface PypiPackageMetadata {
     package_url?: string;
   };
   lastUpdated?: string;
+}
+
+/**
+ * Searches npm package metadata with the configured runtime safeguards.
+ */
+export async function fetchNpmPackageSearch(
+  query: string,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<NpmPackageSearchResult[]> {
+  try {
+    const searchUrl = new URL("https://registry.npmjs.org/-/v1/search");
+    searchUrl.searchParams.set("text", query);
+    searchUrl.searchParams.set("size", String(NPM_SEARCH_RESULT_LIMIT));
+    const data = await fetchJsonWithGuards(searchUrl.toString(), {
+      allowedOrigins: NPM_REGISTRY_ORIGINS,
+      headers: { Accept: "application/json" },
+      maxBytes: REGISTRY_SEARCH_MAX_BYTES,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+    });
+
+    return normalizeNpmPackageSearchResults(data);
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -92,6 +129,40 @@ export async function fetchPypiPackageMetadata(
   } catch {
     return null;
   }
+}
+
+function normalizeNpmPackageSearchResults(
+  data: unknown,
+): NpmPackageSearchResult[] {
+  if (!isRecord(data) || !Array.isArray(data.objects)) {
+    return [];
+  }
+
+  return data.objects.flatMap((entry) => {
+    if (!isRecord(entry) || !isRecord(entry.package)) {
+      return [];
+    }
+
+    const packageName = entry.package.name;
+    if (typeof packageName !== "string" || packageName.trim().length === 0) {
+      return [];
+    }
+
+    return [
+      {
+        name: packageName,
+        description:
+          typeof entry.package.description === "string"
+            ? entry.package.description
+            : undefined,
+        keywords: normalizeStringArray(entry.package.keywords),
+        lastUpdated:
+          typeof entry.package.date === "string"
+            ? entry.package.date
+            : undefined,
+      },
+    ];
+  });
 }
 
 function normalizeNpmPackageMetadata(
@@ -227,6 +298,12 @@ function normalizeHttpUrl(value: unknown): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+    : [];
 }
 
 function normalizeStringRecord(

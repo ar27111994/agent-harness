@@ -30,6 +30,33 @@ void test("technology signatures detect third-party vendors without bespoke code
   assert.ok(signals.tooling.includes("web3"));
 });
 
+void test("technology signatures avoid substring false positives in text markers", () => {
+  const signals = createEmptySignalSet();
+
+  applyTechnologySignatures(signals, {
+    text: "standard TypeScript process errors with cross-platform macros",
+  });
+
+  assert.ok(!signals.concerns.includes("robotics"));
+  assert.ok(!signals.tooling.includes("ros"));
+});
+
+void test("technology signatures detect Flutter and Firebase pub dependencies", () => {
+  const signals = createEmptySignalSet();
+
+  applyTechnologySignatures(signals, {
+    dependencyNames: ["flutter", "firebase_core", "cloud_firestore"],
+    ecosystem: "pub",
+  });
+
+  assert.ok(signals.languages.includes("dart"));
+  assert.ok(signals.frameworks.includes("flutter"));
+  assert.ok(signals.frameworks.includes("firebase"));
+  assert.ok(signals.concerns.includes("mobile"));
+  assert.ok(signals.concerns.includes("database"));
+  assert.ok(signals.concerns.includes("authentication"));
+});
+
 void test("technology signatures detect AI, robotics, security, and data packages", () => {
   const signals = createEmptySignalSet();
 

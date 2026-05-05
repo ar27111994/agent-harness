@@ -3,6 +3,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import {
   createDirectoryLink,
   ensureDirectory,
+  pathEntryExists,
   pathExists,
   readJsonFile,
   readJsonFileOrNull,
@@ -30,12 +31,12 @@ const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
   agent: "agents",
   skill: "skills",
   instruction: "instructions",
-  workflow: "workflows",
+  workflow: "commands",
   hook: "hooks",
   plugin: "plugins",
   "mcp-server": "mcp-servers",
   extension: "extensions",
-  "prompt-pack": "prompt-packs",
+  "prompt-pack": "commands",
   "reference-pack": "reference-packs",
 };
 
@@ -44,6 +45,7 @@ interface OpenCodeLinkedAsset {
   assetKind: AssetKind;
   sourcePath: string;
   linkPath: string;
+  linkMode: "directory" | "file";
 }
 
 /**
@@ -135,7 +137,7 @@ export async function wireOpenCode(options: {
   const createdLinkPaths: string[] = [];
   try {
     for (const linkedAsset of linkedAssets) {
-      await createDirectoryLink(linkedAsset.linkPath, linkedAsset.sourcePath);
+      await materializeOpenCodeLinkedAsset(linkedAsset);
       createdLinkPaths.push(linkedAsset.linkPath);
     }
 
@@ -216,10 +218,16 @@ async function resolveOpenCodeLinkedAssets(options: {
       const packageManifest = await readJsonFile<InstalledPackageManifest>(
         pkg.manifestPath,
       );
-      const sourcePath = join(
+      const assetRoot = join(
         activationRoot,
         sanitizeAssetId(packageManifest.assetId),
       );
+      const commandLikeAsset = isOpenCodeCommandAsset(
+        packageManifest.assetKind,
+      );
+      const sourcePath = commandLikeAsset
+        ? join(assetRoot, "content.txt")
+        : assetRoot;
 
       if (!(await pathExists(sourcePath))) {
         continue;
@@ -229,10 +237,13 @@ async function resolveOpenCodeLinkedAssets(options: {
         assetId: packageManifest.assetId,
         assetKind: packageManifest.assetKind,
         sourcePath,
+        linkMode: commandLikeAsset ? "file" : "directory",
         linkPath: join(
           localOverlayRoot,
           OPENCODE_DIRECTORY_BY_ASSET_KIND[packageManifest.assetKind],
-          sanitizeAssetId(packageManifest.assetId),
+          commandLikeAsset
+            ? `${sanitizeAssetId(packageManifest.assetId)}.md`
+            : sanitizeAssetId(packageManifest.assetId),
         ),
       });
       seenAssetIds.add(pkg.assetId);
@@ -242,6 +253,28 @@ async function resolveOpenCodeLinkedAssets(options: {
   return linkedAssets.sort((left, right) =>
     left.linkPath.localeCompare(right.linkPath),
   );
+}
+
+async function materializeOpenCodeLinkedAsset(
+  linkedAsset: OpenCodeLinkedAsset,
+): Promise<void> {
+  if (linkedAsset.linkMode === "directory") {
+    await createDirectoryLink(linkedAsset.linkPath, linkedAsset.sourcePath);
+    return;
+  }
+
+  if (await pathEntryExists(linkedAsset.linkPath)) {
+    throw new Error(
+      `Refusing to overwrite existing OpenCode command file: ${toPosixPath(linkedAsset.linkPath)}`,
+    );
+  }
+
+  const content = (await readTextFileOrNull(linkedAsset.sourcePath)) ?? "";
+  await writeTextFile(linkedAsset.linkPath, content);
+}
+
+function isOpenCodeCommandAsset(assetKind: AssetKind): boolean {
+  return assetKind === "workflow" || assetKind === "prompt-pack";
 }
 
 /**

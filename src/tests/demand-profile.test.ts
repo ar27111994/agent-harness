@@ -11,6 +11,7 @@ interface DemandProfileRepoFixture {
   archetype: string;
   files: Array<{ path: string; content: string }>;
   expectedSignals: Partial<DemandSignalSet>;
+  unexpectedSignals?: Partial<DemandSignalSet>;
   expectedMatchedFilesMin: number;
 }
 
@@ -85,6 +86,135 @@ const repoFixtures: DemandProfileRepoFixture[] = [
       tooling: ["cad", "godot", "asset-pipeline"],
     },
     expectedMatchedFilesMin: 3,
+  },
+  {
+    archetype: "typescript-apify-webhook",
+    files: [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          name: "webhook-debugger-logger",
+          description: "Apify actor for webhook debugging and logging",
+          dependencies: {
+            "@apify/client": "latest",
+            apify: "latest",
+            express: "latest",
+            typescript: "latest",
+          },
+          devDependencies: { vitest: "latest" },
+        }),
+      },
+      {
+        path: "tsconfig.json",
+        content: JSON.stringify({ compilerOptions: { target: "ES2022" } }),
+      },
+    ],
+    expectedSignals: {
+      languages: ["javascript", "typescript"],
+      frameworks: ["apify", "express"],
+      concerns: [
+        "automation",
+        "web-scraping",
+        "backend",
+        "api-design",
+        "webhook",
+        "logging",
+        "debugging",
+      ],
+      tooling: ["actor", "crawler", "npm:@apify/client", "webhook"],
+    },
+    unexpectedSignals: {
+      languages: ["rust"],
+      concerns: [
+        "robotics",
+        "systems-engineering",
+        "pentesting",
+        "game-development",
+        "3d-printing",
+      ],
+    },
+    expectedMatchedFilesMin: 2,
+  },
+  {
+    archetype: "flutter-firebase-mobile",
+    files: [
+      {
+        path: "pubspec.yaml",
+        content:
+          "name: interact_note\ndependencies:\n    flutter:\n      sdk: flutter\n    firebase_core: ^3.0.0\n    firebase_auth: ^5.0.0\n    cloud_firestore: ^5.0.0\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\ntest_dependencies:\n    integration_test:\n      sdk: flutter\n",
+      },
+      {
+        path: "android/app/build.gradle.kts",
+        content:
+          'plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }\nandroid { namespace = "app.interactnote" }\n',
+      },
+    ],
+    expectedSignals: {
+      languages: ["dart", "kotlin"],
+      packageManagers: ["pub", "maven-gradle"],
+      frameworks: ["flutter", "firebase"],
+      concerns: [
+        "mobile",
+        "frontend",
+        "backend",
+        "database",
+        "authentication",
+        "android",
+      ],
+      tooling: [
+        "flutter",
+        "pub:flutter",
+        "pub:firebase_core",
+        "pub:integration_test",
+        "android-gradle",
+      ],
+    },
+    unexpectedSignals: {
+      frameworks: ["apify"],
+      concerns: ["robotics", "game-development", "pentesting", "web-scraping"],
+      tooling: ["pub:sdk"],
+    },
+    expectedMatchedFilesMin: 2,
+  },
+  {
+    archetype: "native-mobile-polyglot",
+    files: [
+      {
+        path: "ios/AppDelegate.swift",
+        content:
+          "import UIKit\nclass AppDelegate: UIResponder, UIApplicationDelegate {}\n",
+      },
+      {
+        path: "ios/LegacyViewController.m",
+        content:
+          "#import <UIKit/UIKit.h>\n@implementation LegacyViewController\n@end\n",
+      },
+      {
+        path: "ios/Podfile",
+        content: "platform :ios, '17.0'\ntarget 'Example' do\nend\n",
+      },
+      {
+        path: "android/app/src/main/java/com/example/MainActivity.java",
+        content: "package com.example; public class MainActivity {}\n",
+      },
+      {
+        path: "android/app/src/main/kotlin/com/example/MainActivity.kt",
+        content: "package com.example\nclass MainActivity\n",
+      },
+      {
+        path: "MobileApp.csproj",
+        content:
+          '<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net8.0-ios;net8.0-android</TargetFrameworks><UseMaui>true</UseMaui></PropertyGroup><ItemGroup><PackageReference Include="Microsoft.Maui.Controls" /></ItemGroup></Project>',
+      },
+    ],
+    expectedSignals: {
+      languages: ["swift", "objective-c", "java", "kotlin", "csharp"],
+      packageManagers: ["cocoapods", "nuget"],
+      frameworks: ["maui"],
+      concerns: ["mobile", "ios", "android"],
+      tooling: ["ios", "android", "cocoapods", "dotnet-maui"],
+    },
+    expectedMatchedFilesMin: 6,
   },
   {
     archetype: "cloud-automation-blockchain",
@@ -233,6 +363,11 @@ void test("demand profiles produce meaningful signals for representative repo ar
         profile.signals,
         fixture.expectedSignals,
       );
+      assertUnexpectedSignals(
+        fixture.archetype,
+        profile.signals,
+        fixture.unexpectedSignals ?? {},
+      );
     } finally {
       await rm(root, { force: true, recursive: true });
     }
@@ -261,6 +396,24 @@ function assertExpectedSignals(
       assert.ok(
         actualValues.includes(expectedValue),
         `${archetype} should emit ${signalKind}:${expectedValue}`,
+      );
+    }
+  }
+}
+
+function assertUnexpectedSignals(
+  archetype: string,
+  actualSignals: DemandSignalSet,
+  unexpectedSignals: Partial<DemandSignalSet>,
+): void {
+  for (const [signalKind, unexpectedValues] of Object.entries(
+    unexpectedSignals,
+  )) {
+    const actualValues = actualSignals[signalKind as keyof DemandSignalSet];
+    for (const unexpectedValue of unexpectedValues ?? []) {
+      assert.ok(
+        !actualValues.includes(unexpectedValue),
+        `${archetype} should not emit ${signalKind}:${unexpectedValue}`,
       );
     }
   }

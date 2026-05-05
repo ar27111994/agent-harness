@@ -1,10 +1,44 @@
+import { splitIntoKeywords } from "./catalog-utils.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
   AssetRisk,
   CompatibilityMode,
+  DemandProfile,
   SelectionRegistry,
 } from "../../types.js";
+
+interface RelevanceFilterResult {
+  selectedEntries: AssetCatalogEntry[];
+  rejectedEntries: AssetCatalogEntry[];
+}
+
+/**
+ * Filters catalog entries to assets that overlap with workspace demand signals.
+ */
+export function filterCatalogEntriesByDemandRelevance(
+  catalogEntries: AssetCatalogEntry[],
+  demandProfile: DemandProfile | null,
+): RelevanceFilterResult {
+  const demandTerms = buildDemandTermSet(demandProfile);
+
+  if (demandTerms.size === 0) {
+    return { selectedEntries: catalogEntries, rejectedEntries: [] };
+  }
+
+  const selectedEntries: AssetCatalogEntry[] = [];
+  const rejectedEntries: AssetCatalogEntry[] = [];
+
+  for (const entry of catalogEntries) {
+    if (isEntryRelevantToDemand(entry, demandTerms)) {
+      selectedEntries.push(entry);
+    } else {
+      rejectedEntries.push(entry);
+    }
+  }
+
+  return { selectedEntries, rejectedEntries };
+}
 
 /**
  * Groups catalog entries for selection in the lifecycle pipeline.
@@ -128,6 +162,71 @@ export function buildSelectionReason(
   }
 
   return "Selected by compatibility, portfolio fit, risk, and context-cost ordering.";
+}
+
+function buildDemandTermSet(demandProfile: DemandProfile | null): Set<string> {
+  if (!demandProfile) {
+    return new Set();
+  }
+
+  return new Set(
+    [
+      ...demandProfile.signals.languages,
+      ...demandProfile.signals.frameworks,
+      ...demandProfile.signals.concerns,
+      ...demandProfile.signals.tooling,
+    ].flatMap((value) => splitIntoKeywords(value)),
+  );
+}
+
+function isEntryRelevantToDemand(
+  entry: AssetCatalogEntry,
+  demandTerms: Set<string>,
+): boolean {
+  if (isExecutableMcpServerEntry(entry)) {
+    return true;
+  }
+
+  if (entry.fit.portfolioFit > 0) {
+    return true;
+  }
+
+  const entryTerms = new Set(
+    [
+      entry.id,
+      entry.displayName,
+      entry.source.sourceId,
+      entry.source.publisher,
+      ...entry.capabilities,
+      entry.install.relativePath ?? "",
+      entry.install.manifestEntry ?? "",
+      entry.evidence.filePath ?? "",
+    ].flatMap((value) => splitIntoKeywords(value)),
+  );
+
+  for (const demandTerm of demandTerms) {
+    if (entryTerms.has(demandTerm)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isExecutableMcpServerEntry(entry: AssetCatalogEntry): boolean {
+  return (
+    entry.assetKind === "mcp-server" &&
+    (entry.source.sourceKind === "package-registry" ||
+      (entry.status.installEligible &&
+        (!entry.install.method.endsWith("-metadata") ||
+          hasExecutableMcpSourcePath(entry))))
+  );
+}
+
+function hasExecutableMcpSourcePath(entry: AssetCatalogEntry): boolean {
+  return [entry.install.relativePath, entry.evidence.filePath].some(
+    (filePath) => /\.(js|ts|mjs|cjs|mts|cts)$/iu.test(filePath ?? ""),
+  );
 }
 
 function getAuthorityRank(authorityTier: string): number {

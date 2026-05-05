@@ -27,14 +27,13 @@ import {
   buildCatalogId,
   buildRisk,
   buildTrustSignals,
+  deriveDisplayNameFromPath,
   classifyContextCost,
   computeHostFit,
   computePortfolioFit,
   computeTrustScore,
   findDuplicateGroup,
   GENERIC_CAPABILITY_TOKENS,
-  humanizeSlug,
-  lastPathSegment,
   splitIntoKeywords,
   uniqueStrings,
 } from "./catalog-utils.js";
@@ -94,7 +93,7 @@ export async function harvestLocalManifestSource(
 
     return {
       id: buildCatalogId(source.id, manifestEntry),
-      displayName: humanizeSlug(lastPathSegment(manifestEntry)),
+      displayName: deriveDisplayNameFromPath(manifestEntry),
       assetKind,
       hosts,
       compatibilityMode,
@@ -232,7 +231,7 @@ export async function harvestLocalDirectorySource(
       displayName:
         getFirstStringField(metadata.fields.name) ??
         metadata.heading ??
-        humanizeSlug(lastPathSegment(relativePath)),
+        deriveDisplayNameFromPath(relativePath),
       assetKind: classification.assetKind,
       hosts: classification.hosts,
       compatibilityMode: classification.compatibilityMode,
@@ -387,7 +386,7 @@ function classifyLocalDirectoryFile(
       };
     }
 
-    if (/^agent\/.+\.md$/iu.test(relativePath)) {
+    if (/^agents?\/.+\.md$/iu.test(relativePath)) {
       return {
         assetKind: "agent",
         compatibilityMode: "native",
@@ -395,7 +394,15 @@ function classifyLocalDirectoryFile(
       };
     }
 
-    if (/^plugin\/.+\.(ts|js|mts|cts)$/iu.test(relativePath)) {
+    if (/^commands\/.+\.md$/iu.test(relativePath)) {
+      return {
+        assetKind: "prompt-pack",
+        compatibilityMode: "native",
+        hosts: source.hosts,
+      };
+    }
+
+    if (/^plugins?\/.+\.(ts|js|mts|cts)$/iu.test(relativePath)) {
       return {
         assetKind: "plugin",
         compatibilityMode: "native",

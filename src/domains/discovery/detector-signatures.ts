@@ -212,12 +212,37 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
   },
   {
     id: "mobile",
-    fileNames: ["pubspec.yaml", "Podfile", "AndroidManifest.xml"],
-    filePathPattern: /(^|[/\\])(ios|android)([/\\]|$)/u,
+    fileNames: [
+      "pubspec.yaml",
+      "Podfile",
+      "AndroidManifest.xml",
+      "Info.plist",
+      "project.pbxproj",
+    ],
+    filePathPattern: /(^|[/\\])(ios|android|mobile|xamarin|maui)([/\\]|$)/iu,
     signals: {
       concerns: ["mobile"],
-      tooling: ["android", "ios"],
     },
+    conditionalSignals: [
+      {
+        fileNamePattern: /^(Podfile|Info\.plist|project\.pbxproj)$/iu,
+        filePathPattern: /(^|[/\\])(ios|iphone|ipad)([/\\]|$)/iu,
+        signals: { concerns: ["ios"], tooling: ["ios", "xcode"] },
+      },
+      {
+        fileNamePattern: /^AndroidManifest\.xml$/iu,
+        filePathPattern: /(^|[/\\])android([/\\]|$)/iu,
+        signals: { concerns: ["android"], tooling: ["android"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])maui([/\\]|$)/iu,
+        signals: { frameworks: ["maui"], tooling: ["dotnet-maui"] },
+      },
+      {
+        filePathPattern: /(^|[/\\])xamarin([/\\]|$)/iu,
+        signals: { frameworks: ["xamarin"], tooling: ["xamarin"] },
+      },
+    ],
   },
   {
     id: "robotics",

@@ -293,13 +293,21 @@ node ./dist/cli.js discover stats
 node ./dist/cli.js discover enrich
 ```
 
+Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
+
+```bash
+agent-harness discover --help
+agent-harness wire vscode --help
+agent-harness recommend explain --help
+```
+
 ### Detection breadth and vendor signatures
 
 Demand detection is deterministic by default. It does not require an external AI/ML service or API key for normal operation. The scanner combines:
 
 - file-family detector signatures for docs, notebooks, datasets, media/design, CAD/hardware, games, mobile, robotics, security/networking, blockchain, business analysis, 3D printing, marketing/content, and research artifacts;
-- ecosystem dependency signatures for npm and PyPI packages;
-- vendor/platform signatures for common third-party stacks such as Node, React, Flutter-related manifests, Azure, AWS, GCP, Firebase, Supabase, Apify, MCP, AI/ML/DL/RL libraries, robotics, blockchain, security, and marketing/SEO packages;
+- ecosystem dependency signatures for npm, PyPI, Dart `pubspec.yaml`, CocoaPods, SwiftPM, NuGet, Maven, Gradle, and related native mobile manifests;
+- vendor/platform signatures for common third-party stacks such as Node, React, Flutter/Dart, Swift, Objective-C, Kotlin, Java Android, C#/.NET MAUI/Xamarin, Azure, AWS, GCP, Firebase, Supabase, Apify, MCP, AI/ML/DL/RL libraries, robotics, blockchain, security, and marketing/SEO packages;
 - generic language, package-manager, infrastructure, and API markers.
 
 These signatures live under `src/domains/discovery/` alongside focused demand-profile, source-registry, source-index, source-utilization, catalog-selection, package/reference/local/GitHub/official-index harvester, and catalog utility modules. Support for additional domains or vendors can be added as data-driven detector entries or focused harvester modules instead of one-off project-specific logic. Optional AI-assisted enrichment is available through `discover enrich`, but v1.0.0 intentionally keeps normal discovery reproducible and offline-capable by default.
@@ -547,7 +555,7 @@ This adapter is intentionally host-specific because OpenCode consumes project-lo
 Supported behavior:
 
 - writes `.opencode/context/project-intelligence/agent-harness/`
-- creates managed links under `.opencode/<asset-kind>/`
+- creates managed links under `.opencode/<asset-kind>/`, mapping workflow and prompt-pack assets to OpenCode `commands/`
 - writes an effective project-local wire plan under the `.opencode` overlay
 - projects shared MCP references into the wire plan when available
 - updates/removes managed `AGENTS.md` sections
@@ -561,12 +569,11 @@ Managed project-local locations:
 - `.opencode/agents/`
 - `.opencode/skills/`
 - `.opencode/instructions/`
-- `.opencode/workflows/`
+- `.opencode/commands/`
 - `.opencode/hooks/`
 - `.opencode/plugins/`
 - `.opencode/mcp-servers/`
 - `.opencode/extensions/`
-- `.opencode/prompt-packs/`
 - `.opencode/reference-packs/`
 - `AGENTS.md`
 
@@ -617,6 +624,7 @@ Supported behavior:
 
 - updates the project `.rules` file with an agent-harness managed section
 - adds an `agent-harness` profile entry to `.zed/settings.json`
+- stages Zed extension registry entries as extension assets for review and optional recommendation
 - materializes selected assets under `.zed/agent-harness/`
 - writes `activate/zed/wire-preview-zed.json`
 - writes `activate/zed/wire-plan.json` on apply
@@ -626,7 +634,7 @@ Supported behavior:
 Current boundaries:
 
 - The adapter writes project-local context and profile hints.
-- Host marketplace/plugin installation remains manual or future adapter-specific work.
+- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; the adapter stages recommended extension assets in the managed tree and wire plan but does not mutate global extension installs.
 
 ### Claude Code
 
@@ -730,10 +738,13 @@ Package registry discovery is driven by dependency evidence extracted from manif
 - `package.json`
 - `requirements.txt`
 - `pyproject.toml`
+- `pubspec.yaml`
 
-The discovery pipeline emits package dependency signals like `npm:<package>` and `pypi:<package>` only from dependency evidence. It filters requirement directives, direct references, VCS URLs, local paths, and non-package strings before querying package registries.
+The discovery pipeline emits package dependency signals like `npm:<package>`, `pypi:<package>`, and `pub:<package>` only from dependency evidence. It filters requirement directives, direct references, VCS URLs, local paths, and non-package strings before querying package registries.
 
 For `pyproject.toml`, dependency extraction is intentionally scoped to project dependency sections rather than build-system requirements. Supported sections include PEP 621 `[project].dependencies`, `[project.optional-dependencies]`, Poetry `[tool.poetry.dependencies]`, `[tool.poetry.dev-dependencies]`, and `[tool.poetry.group.<name>.dependencies]` sections.
+
+For MCP recommendations, npm registry discovery builds demand-derived npm search queries such as `<detected-term> mcp server` and `keywords:mcp-server`, then filters search results to executable-server package patterns. This avoids a checked-in package allowlist while still surfacing relevant MCP servers for detected stacks. GitHub tree harvesting treats Markdown MCP documentation as reference material instead of executable MCP server assets.
 
 ### Recommendation policy layout
 
@@ -751,6 +762,8 @@ Recommendation policy is split across smaller JSON files:
 - `discover/schema/recommendation-host-policy-override.schema.json`
 
 `base.json` holds global scoring, keyword maps, optional host defaults, and reusable presets. Each host file holds host-specific overrides. At runtime the loader composes these files into the effective recommendation policy.
+
+`discover select` first applies workspace-demand relevance filtering, then canonical duplicate selection. Entries with no language, framework, concern, tooling, or executable MCP overlap are rejected before recommendation so unrelated source packs do not dominate real-world reports.
 
 Recommendation scoring considers:
 
@@ -1013,6 +1026,20 @@ Preview should remove stale wire plans where the adapter owns them. If workspace
 agent-harness wire <host> --reset
 agent-harness wire <host> --preview
 ```
+
+### Recommendations are slow or irrelevant on a real workspace
+
+Run the pipeline from the target workspace so `discover demand-profile` can see the real manifests, then inspect selection counts before recommendation:
+
+```bash
+agent-harness discover demand-profile
+agent-harness discover catalog
+agent-harness discover select
+agent-harness discover stats
+agent-harness recommend report
+```
+
+`discover select` should reject entries that do not overlap with detected workspace signals. If relevant entries are missing, inspect `discover/output/demand-profile.json` and confirm the workspace manifests are not excluded by `.gitignore`, `.ignore`, or `.agent-harnessignore`.
 
 ### GitHub discovery is slow or rate-limited
 

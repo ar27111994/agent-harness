@@ -18,12 +18,27 @@ import { runSetup } from "./setup.js";
 import { runWire } from "./wire.js";
 import { prepareStateRoot, resolveStateRoot } from "./lib/state-root.js";
 
+const HELP_DEFAULT_DOMAINS = new Set([
+  "activate",
+  "discover",
+  "install",
+  "mirror",
+  "quarantine",
+  "rebuild",
+  "wire",
+  "workspace",
+]);
+
 async function main(): Promise<number> {
   const rawArgs = process.argv.slice(2);
   const globalOptions = parseGlobalOptions(rawArgs);
   const [domain, ...args] = globalOptions.args;
-  const packageRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
   const workingDirectory = process.cwd();
+  if (isHelpRequest(globalOptions.args)) {
+    return runHelpCommand(globalOptions.args, workingDirectory);
+  }
+
+  const packageRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
   if (!globalOptions.noDotEnv) {
     await loadDotEnvFile(workingDirectory);
   }
@@ -75,6 +90,66 @@ interface GlobalCliOptions {
   args: string[];
   stateRoot?: string;
   noDotEnv: boolean;
+}
+
+function isHelpRequest(args: string[]): boolean {
+  return (
+    args.length === 0 ||
+    args[0] === "help" ||
+    args.includes("--help") ||
+    args.includes("-h") ||
+    (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0] ?? ""))
+  );
+}
+
+function runHelpCommand(
+  args: string[],
+  workingDirectory: string,
+): Promise<number> {
+  const domain = resolveHelpDomain(args);
+
+  switch (domain) {
+    case "discover":
+      return runDiscover(["help"], workingDirectory, "");
+    case "mirror":
+      return runMirror(["help"], workingDirectory, "");
+    case "install":
+      return runInstall(["help"], workingDirectory, "");
+    case "activate":
+      return runActivate(["help"], workingDirectory, "");
+    case "recommend":
+      return runRecommend(["help"], workingDirectory, "");
+    case "quarantine":
+      return runQuarantine(["help"], "");
+    case "rebuild":
+      return runRebuild(["help"], workingDirectory, "");
+    case "workspace":
+      return runWorkspace(["help"], workingDirectory, "");
+    case "wire":
+      return runWire(["help"], workingDirectory, "");
+    case "setup":
+    case "doctor":
+      return runSetup(["help"], "");
+    case undefined:
+    case "help":
+      printHelp();
+      return Promise.resolve(0);
+    default:
+      printHelp();
+      return Promise.resolve(1);
+  }
+}
+
+function resolveHelpDomain(args: string[]): string | undefined {
+  const helpIndex = args.indexOf("help");
+  if (helpIndex !== -1) {
+    const domainAfterHelp = args[helpIndex + 1];
+    return domainAfterHelp && !domainAfterHelp.startsWith("-")
+      ? domainAfterHelp
+      : undefined;
+  }
+
+  return args.find((arg) => arg !== "--help" && arg !== "-h");
 }
 
 function parseGlobalOptions(args: string[]): GlobalCliOptions {

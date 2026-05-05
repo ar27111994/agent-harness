@@ -1,5 +1,19 @@
 import type { DemandProfile } from "../../types.js";
 
+const NPM_MCP_SEARCH_QUERY_LIMIT = 8;
+const NPM_MCP_SEARCH_TERM_STOPLIST = new Set([
+  "api",
+  "backend",
+  "cloud",
+  "data",
+  "frontend",
+  "integration",
+  "mobile",
+  "npm",
+  "service",
+  "testing",
+]);
+
 /**
  * Defines the supported package registry kind values.
  */
@@ -45,4 +59,50 @@ export function collectPackageCandidatesFromDemandProfile(
   return [...packageCandidates].sort((left, right) =>
     left.localeCompare(right),
   );
+}
+
+/**
+ * Builds npm search queries for executable MCP server package discovery from
+ * workspace demand signals instead of a checked-in package allowlist.
+ */
+export function collectNpmMcpSearchQueriesFromDemandProfile(
+  demandProfile: DemandProfile | null,
+): string[] {
+  if (!demandProfile) {
+    return [];
+  }
+
+  const demandTerms = [
+    ...new Set(
+      [
+        ...demandProfile.signals.frameworks,
+        ...demandProfile.signals.concerns,
+        ...demandProfile.signals.tooling,
+      ]
+        .flatMap(splitIntoTerms)
+        .filter((term) => term.length >= 3)
+        .filter((term) => !NPM_MCP_SEARCH_TERM_STOPLIST.has(term)),
+    ),
+  ];
+
+  const queries: string[] = [];
+  if (demandTerms.includes("mcp")) {
+    queries.push("keywords:mcp-server", "model context protocol server");
+  }
+
+  for (const term of demandTerms) {
+    if (term !== "mcp") {
+      queries.push(`${term} mcp server`);
+    }
+  }
+
+  return [...new Set(queries)].slice(0, NPM_MCP_SEARCH_QUERY_LIMIT);
+}
+
+function splitIntoTerms(value: string): string[] {
+  return value
+    .replace(/^(npm|pypi|cargo|go|maven|nuget|gem|packagist|swift|pub):/u, "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .filter((term) => term.length > 0);
 }

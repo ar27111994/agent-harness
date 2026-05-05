@@ -40,6 +40,8 @@
         "plugin",
         "agent",
         "instruction",
+        "workflow",
+        "prompt-pack",
         "mcp-server"
       ],
       "defaultPromotion": "manual"

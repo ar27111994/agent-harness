@@ -40,6 +40,11 @@
         "weight": 3
       },
       {
+        "assetKind": "prompt-pack",
+        "minimum": 6,
+        "weight": 3
+      },
+      {
         "assetKind": "instruction",
         "minimum": 6,
         "weight": 2

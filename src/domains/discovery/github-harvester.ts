@@ -15,13 +15,12 @@ import {
   buildCandidateRankHint,
   buildCatalogId,
   buildTrustSignals,
+  deriveDisplayNameFromPath,
   computeHostFit,
   computePortfolioFit,
   computeTrustScore,
   findDuplicateGroup,
   GENERIC_CAPABILITY_TOKENS,
-  humanizeSlug,
-  lastPathSegment,
   splitIntoKeywords,
   uniqueStrings,
 } from "./catalog-utils.js";
@@ -94,7 +93,7 @@ function buildGitHubCatalogEntry(
 
   return {
     id: buildCatalogId(source.id, relativePath),
-    displayName: humanizeSlug(lastPathSegment(relativePath)),
+    displayName: deriveDisplayNameFromPath(relativePath),
     assetKind: classification.assetKind,
     hosts,
     compatibilityMode: classification.compatibilityMode,
@@ -272,10 +271,7 @@ function classifyGitHubTreePath(
     };
   }
 
-  if (
-    /mcp/u.test(normalizedPath) &&
-    /\.(md|json|js|ts|ya?ml)$/u.test(normalizedPath)
-  ) {
+  if (isExecutableMcpServerPath(normalizedPath)) {
     return {
       assetKind: "mcp-server",
       compatibilityMode: "native",
@@ -292,6 +288,16 @@ function classifyGitHubTreePath(
   }
 
   return null;
+}
+
+function isExecutableMcpServerPath(normalizedPath: string): boolean {
+  if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
+    return false;
+  }
+
+  return /(^|\/)(mcp[-_ ]?servers?|servers?\/.*mcp|.*mcp[-_ ]?server.*)(\/|\.|$)/u.test(
+    normalizedPath,
+  );
 }
 
 function isGenericRepositoryArtifact(normalizedPath: string): boolean {

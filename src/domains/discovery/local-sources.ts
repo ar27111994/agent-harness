@@ -62,6 +62,7 @@ export function buildGeneratedLocalSources(): SourceDefinition[] {
         "plugin",
         "agent",
         "workflow",
+        "prompt-pack",
         "hook",
         "instruction",
       ],

@@ -33,6 +33,7 @@ try {
     recursive: true,
   });
   await mkdir(join(localOpenCodeRoot, "agent"), { recursive: true });
+  await mkdir(join(localOpenCodeRoot, "commands"), { recursive: true });
   await writeFile(
     join(localOpenCodeRoot, "skills", "repo-guide", "SKILL.md"),
     "---\nname: repo-guide\ndescription: Repository guidance\ntags: [documentation, testing]\n---\n# Repo Guide\nUse this repository guidance.\n",
@@ -41,6 +42,11 @@ try {
   await writeFile(
     join(localOpenCodeRoot, "agent", "reviewer.md"),
     "# Reviewer\nReview code changes for this repository.\n",
+    "utf8",
+  );
+  await writeFile(
+    join(localOpenCodeRoot, "commands", "review.md"),
+    "---\ndescription: Review current changes\n---\nReview the current changes and suggest fixes.\n",
     "utf8",
   );
   await writeFile(join(workspaceRoot, "README.md"), "# Workspace\n", "utf8");
@@ -68,7 +74,7 @@ try {
         authorityTier: "trusted-local",
         publisher: { name: "workspace-local", verified: true },
         hosts: ["copilot-vscode", "opencode"],
-        assetKinds: ["skill", "agent", "plugin"],
+        assetKinds: ["skill", "agent", "plugin", "prompt-pack"],
         discoveryMode: "seed",
         priority: 100,
         enabled: true,
