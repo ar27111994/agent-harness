@@ -76,6 +76,26 @@ void test("catalog selection rejects low-signal concern overlap without stronger
   ]);
 });
 
+void test("catalog selection keeps package-registry tooling evidence", () => {
+  const result = filterCatalogEntriesByDemandRelevance(
+    [
+      buildCatalogEntry("axum-helper", ["axum"]),
+      buildCatalogEntry("duckdb-helper", ["duckdb"]),
+      buildCatalogEntry("generic-tool", ["tooling"]),
+    ],
+    buildPackageRegistryDemandProfile(),
+  );
+
+  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
+    "axum-helper",
+    "duckdb-helper",
+  ]);
+  assert.deepEqual(
+    result.rejectedEntries.map((entry) => entry.id),
+    ["generic-tool"],
+  );
+});
+
 void test("catalog selection requires compound signal specificity", () => {
   const result = filterCatalogEntriesByDemandRelevance(
     [
@@ -101,6 +121,28 @@ void test("catalog selection requires compound signal specificity", () => {
     "analytics-only-pack",
     "engineering-only-pack",
     "sdk-only-pack",
+  ]);
+});
+
+void test("catalog selection does not collapse mixed phrases into generic exact terms", () => {
+  const result = filterCatalogEntriesByDemandRelevance(
+    [
+      buildCatalogEntry("api-design-helper", ["api", "design"]),
+      buildCatalogEntry("design-only-helper", ["design"]),
+      buildCatalogEntry("api-only-helper", ["api"]),
+      buildCatalogEntry("backend-helper", ["backend"]),
+    ],
+    buildApiDesignDemandProfile(),
+  );
+
+  assert.deepEqual(
+    result.selectedEntries.map((entry) => entry.id),
+    ["api-design-helper"],
+  );
+  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
+    "api-only-helper",
+    "backend-helper",
+    "design-only-helper",
   ]);
 });
 
@@ -182,6 +224,26 @@ function buildLowSignalDemandProfile(): DemandProfile {
   };
 }
 
+function buildPackageRegistryDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: ["cargo"],
+      frameworks: [],
+      concerns: [],
+      tooling: ["cargo:axum", "pypi:duckdb"],
+    },
+    evidence: [],
+  };
+}
+
 function buildCompoundSignalDemandProfile(): DemandProfile {
   return {
     schemaVersion: 1,
@@ -197,6 +259,26 @@ function buildCompoundSignalDemandProfile(): DemandProfile {
       frameworks: [],
       concerns: ["analytics-engineering"],
       tooling: ["ai-sdk"],
+    },
+    evidence: [],
+  };
+}
+
+function buildApiDesignDemandProfile(): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/tmp/project",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: ["api-design"],
+      tooling: [],
     },
     evidence: [],
   };

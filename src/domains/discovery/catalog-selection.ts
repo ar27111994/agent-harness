@@ -19,13 +19,22 @@ interface DemandRelevanceTerms {
   lowSignalTerms: Set<string>;
 }
 
+interface CatalogTermData {
+  documentFrequency: Map<string, number>;
+  entryTermsByEntry: Map<AssetCatalogEntry, Set<string>>;
+}
+
 const LOW_SIGNAL_TERMS = new Set([
   "api",
   "automation",
   "backend",
+  "bun",
+  "bundler",
+  "cargo",
   "cd",
   "ci",
   "cloud",
+  "composer",
   "data",
   "database",
   "debugging",
@@ -35,18 +44,28 @@ const LOW_SIGNAL_TERMS = new Set([
   "express",
   "frontend",
   "fullstack",
+  "go",
+  "gradle",
   "infrastructure",
   "integration",
   "javascript",
   "knowledge",
   "logging",
+  "maven",
   "mobile",
   "node",
+  "npm",
+  "nuget",
+  "pip",
+  "pnpm",
+  "pub",
   "python",
   "react",
+  "swift",
   "testing",
   "tooling",
   "typescript",
+  "yarn",
 ]);
 
 const PACKAGE_REGISTRY_PREFIX_RE =
@@ -64,11 +83,10 @@ export function filterCatalogEntriesByDemandRelevance(
   catalogEntries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,
 ): RelevanceFilterResult {
-  const catalogTermDocumentFrequency =
-    buildCatalogTermDocumentFrequency(catalogEntries);
+  const catalogTermData = buildCatalogTermData(catalogEntries);
   const demandTerms = buildDemandTermSet(
     demandProfile,
-    catalogTermDocumentFrequency,
+    catalogTermData.documentFrequency,
     catalogEntries.length,
   );
 
@@ -84,7 +102,9 @@ export function filterCatalogEntriesByDemandRelevance(
   const rejectedEntries: AssetCatalogEntry[] = [];
 
   for (const entry of catalogEntries) {
-    if (isEntryRelevantToDemand(entry, demandTerms)) {
+    const entryTerms =
+      catalogTermData.entryTermsByEntry.get(entry) ?? new Set();
+    if (isEntryRelevantToDemand(entry, entryTerms, demandTerms)) {
       selectedEntries.push(entry);
     } else {
       rejectedEntries.push(entry);
@@ -257,6 +277,17 @@ function buildDemandTermSet(
     );
   }
 
+  for (const packageManager of demandProfile.signals.packageManagers) {
+    addDemandSignal(
+      packageManager,
+      exactHighSignalTerms,
+      highSignalPhrases,
+      lowSignalTerms,
+      catalogTermDocumentFrequency,
+      catalogEntryCount,
+    );
+  }
+
   for (const concern of demandProfile.signals.concerns) {
     addDemandSignal(
       concern,
@@ -269,10 +300,6 @@ function buildDemandTermSet(
   }
 
   for (const tooling of demandProfile.signals.tooling) {
-    if (hasPackageEvidencePrefix(tooling)) {
-      continue;
-    }
-
     addDemandSignal(
       tooling,
       exactHighSignalTerms,
@@ -288,10 +315,6 @@ function buildDemandTermSet(
     highSignalPhrases,
     lowSignalTerms,
   };
-}
-
-function hasPackageEvidencePrefix(value: string): boolean {
-  return PACKAGE_REGISTRY_PREFIX_RE.test(value);
 }
 
 function addDemandSignal(
@@ -333,15 +356,15 @@ function addDemandSignal(
     return;
   }
 
-  if (uncommonKeywords.length === 1) {
-    exactHighSignalTerms.add(uncommonKeywords[0]);
+  if (
+    uncommonKeywords.length > 0 &&
+    keywords.length >= HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD
+  ) {
+    highSignalPhrases.push(keywords);
+    return;
   }
 
   for (const keyword of keywords) {
-    if (uncommonKeywords.includes(keyword)) {
-      continue;
-    }
-
     lowSignalTerms.add(keyword);
   }
 }
@@ -393,42 +416,33 @@ function isCatalogCommonHighSignal(
   );
 }
 
-function buildCatalogTermDocumentFrequency(
+function buildCatalogTermData(
   catalogEntries: AssetCatalogEntry[],
-): Map<string, number> {
+): CatalogTermData {
   const documentFrequency = new Map<string, number>();
+  const entryTermsByEntry = new Map<AssetCatalogEntry, Set<string>>();
 
   for (const entry of catalogEntries) {
-    const entryTerms = new Set(
-      [
-        ...entry.capabilities,
-        entry.install.relativePath ?? "",
-        entry.install.manifestEntry ?? "",
-        entry.evidence.filePath ?? "",
-      ].flatMap((value) => splitIntoKeywords(value)),
-    );
+    const entryTerms = buildEntryTermSet(entry);
+    entryTermsByEntry.set(entry, entryTerms);
 
     for (const term of entryTerms) {
       documentFrequency.set(term, (documentFrequency.get(term) ?? 0) + 1);
     }
   }
 
-  return documentFrequency;
+  return {
+    documentFrequency,
+    entryTermsByEntry,
+  };
 }
 
 function stripPackageEvidencePrefix(value: string): string {
   return value.replace(PACKAGE_REGISTRY_PREFIX_RE, "");
 }
 
-function isEntryRelevantToDemand(
-  entry: AssetCatalogEntry,
-  demandTerms: DemandRelevanceTerms,
-): boolean {
-  if (isExecutableMcpServerEntry(entry)) {
-    return true;
-  }
-
-  const entryTerms = new Set(
+function buildEntryTermSet(entry: AssetCatalogEntry): Set<string> {
+  return new Set(
     [
       ...entry.capabilities,
       entry.install.relativePath ?? "",
@@ -436,6 +450,16 @@ function isEntryRelevantToDemand(
       entry.evidence.filePath ?? "",
     ].flatMap((value) => splitIntoKeywords(value)),
   );
+}
+
+function isEntryRelevantToDemand(
+  entry: AssetCatalogEntry,
+  entryTerms: Set<string>,
+  demandTerms: DemandRelevanceTerms,
+): boolean {
+  if (isExecutableMcpServerEntry(entry)) {
+    return true;
+  }
 
   for (const demandTerm of demandTerms.exactHighSignalTerms) {
     if (entryTerms.has(demandTerm)) {
