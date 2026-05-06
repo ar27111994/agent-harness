@@ -30,7 +30,10 @@ import {
   assertMirrorIndexEntry,
   assertMirrorPolicy,
 } from "../manifest-validation.js";
-import { fetchOfficialIndexPageContent } from "../official-index.js";
+import {
+  fetchOfficialIndexPageContent,
+  fetchOfficialIndexPageRepositoryUrl,
+} from "../official-index.js";
 import type {
   AssetCatalogEntry,
   MirrorAcquireState,
@@ -319,7 +322,6 @@ async function materializeMirrorArtifact(
     const officialIndexPackageArtifact = await materializeOfficialIndexPackage(
       entry,
       projectRoot,
-      requirePinnedProvenance,
     );
     if (officialIndexPackageArtifact !== null) {
       return officialIndexPackageArtifact;
@@ -387,10 +389,6 @@ async function materializeGitHubTreeArtifact(
     repoInfo.repo,
     repoInfo.ref,
   );
-  if (requirePinnedProvenance && !commitSha) {
-    return null;
-  }
-
   const fetchRef = commitSha ?? repoInfo.ref;
   const content = await fetchVerifiedGitHubFileContent(
     repoInfo.owner,
@@ -415,7 +413,6 @@ async function materializeGitHubTreeArtifact(
 async function materializeOfficialIndexPackage(
   entry: AssetCatalogEntry,
   projectRoot: string,
-  requirePinnedProvenance: boolean,
 ): Promise<MaterializedMirrorArtifact | null> {
   const slug = entry.install.manifestEntry;
   const owner = entry.source.sourceId.split(":")[1];
@@ -424,7 +421,7 @@ async function materializeOfficialIndexPackage(
     return null;
   }
 
-  for (const repoUrl of buildOfficialIndexRepoUrlCandidates(entry, owner)) {
+  for (const repoUrl of await buildOfficialIndexRepoUrlCandidates(entry, owner)) {
     const snapshot = await fetchGitHubRepoSnapshotByRepoUrl({
       repoUrl,
       projectRoot,
@@ -470,9 +467,6 @@ async function materializeOfficialIndexPackage(
       snapshot.repo,
       snapshot.repoSummary.defaultBranch,
     );
-    if (requirePinnedProvenance && !commitSha) {
-      continue;
-    }
 
     const materializedFiles: Array<{
       relativePath: string;
@@ -523,11 +517,15 @@ async function materializeOfficialIndexPackage(
   return null;
 }
 
-function buildOfficialIndexRepoUrlCandidates(
+async function buildOfficialIndexRepoUrlCandidates(
   entry: AssetCatalogEntry,
   owner: string,
-): string[] {
+): Promise<string[]> {
+  const officialIndexRepoUrl = await fetchOfficialIndexPageRepositoryUrl(
+    entry.source.originUrl,
+  );
   const candidateRepoUrls = [
+    officialIndexRepoUrl,
     entry.evidence.rootPath,
     `https://github.com/${owner}/${owner}-skills`,
     `https://github.com/${owner}/skills`,

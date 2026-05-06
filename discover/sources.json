@@ -58,6 +58,37 @@
       }
     },
     {
+      "id": "github-awesome-copilot-site",
+      "name": "Awesome GitHub Copilot",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "GitHub",
+        "verified": true,
+        "owner": "github"
+      },
+      "hosts": ["copilot-vscode", "cursor"],
+      "assetKinds": [
+        "agent",
+        "skill",
+        "instruction",
+        "workflow",
+        "plugin",
+        "reference-pack"
+      ],
+      "discoveryMode": "catalog",
+      "priority": 99,
+      "enabled": true,
+      "endpoints": {
+        "docsUrl": "https://awesome-copilot.github.com/agents/"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
       "id": "vscode-marketplace",
       "name": "VS Code Marketplace",
       "kind": "marketplace",
@@ -277,6 +308,46 @@
       },
       "rules": {
         "officialPreferred": true,
+        "allowMirror": false,
+        "allowInstall": false
+      }
+    },
+    {
+      "id": "clawhub",
+      "name": "ClawHub",
+      "kind": "registry",
+      "authorityTier": "unverified-community",
+      "publisher": {
+        "name": "OpenClaw Community",
+        "verified": false,
+        "owner": "openclaw"
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "plugin",
+        "workflow",
+        "instruction",
+        "prompt-pack",
+        "reference-pack",
+        "mcp-server"
+      ],
+      "discoveryMode": "catalog",
+      "priority": 62,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://clawhub.ai/skills"
+      },
+      "rules": {
+        "officialPreferred": false,
         "allowMirror": false,
         "allowInstall": false
       }

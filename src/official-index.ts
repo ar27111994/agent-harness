@@ -22,19 +22,30 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
 export async function fetchOfficialIndexPageContent(
   url: string,
 ): Promise<string | null> {
-  const html = await fetchTextWithGuards(url, {
-    allowedOrigins: OFFICIAL_INDEX_ALLOWED_ORIGINS,
-    headers: {
-      "User-Agent": OFFICIAL_INDEX_USER_AGENT,
-    },
-    maxBytes: MAX_OFFICIAL_INDEX_PAGE_BYTES,
-  });
+  const html = await fetchOfficialIndexPageHtml(url);
   if (html === null) {
     return null;
   }
 
   const extractedContent = extractOfficialIndexPageSummary(html, url);
   return extractedContent.length > 0 ? extractedContent : null;
+}
+
+/**
+ * Fetches an official index page and extracts a backing GitHub repository URL
+ * when one is explicitly advertised.
+ */
+export async function fetchOfficialIndexPageRepositoryUrl(
+  url: string,
+): Promise<string | null> {
+  const html = await fetchOfficialIndexPageHtml(url);
+  if (html === null) {
+    return null;
+  }
+
+  return normalizeGitHubRepositoryUrl(
+    extractGitHubUrl(html, extractInstallCommand(html)),
+  );
 }
 
 /**
@@ -51,6 +62,16 @@ export function buildOfficialIndexAssetStatus(
     installEligible: isPromotableOfficialEntry,
     activationEligible: isPromotableOfficialEntry,
   };
+}
+
+async function fetchOfficialIndexPageHtml(url: string): Promise<string | null> {
+  return fetchTextWithGuards(url, {
+    allowedOrigins: OFFICIAL_INDEX_ALLOWED_ORIGINS,
+    headers: {
+      "User-Agent": OFFICIAL_INDEX_USER_AGENT,
+    },
+    maxBytes: MAX_OFFICIAL_INDEX_PAGE_BYTES,
+  });
 }
 
 function extractOfficialIndexPageSummary(html: string, url: string): string {
@@ -240,6 +261,28 @@ function decodeHtmlEntities(value: string): string {
     .replace(/&lt;/gu, "<")
     .replace(/&gt;/gu, ">")
     .replace(/&nbsp;/gu, " ");
+}
+
+function normalizeGitHubRepositoryUrl(url: string | null): string | null {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    if (parsedUrl.hostname.toLowerCase() !== "github.com") {
+      return null;
+    }
+
+    const pathParts = parsedUrl.pathname.split("/").filter(Boolean);
+    if (pathParts.length < 2) {
+      return null;
+    }
+
+    return `https://github.com/${pathParts[0]}/${pathParts[1]?.replace(/\.git$/u, "")}`;
+  } catch {
+    return null;
+  }
 }
 
 function escapeRegExp(value: string): string {

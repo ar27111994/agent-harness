@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -132,6 +133,73 @@ function buildAsset(id: string): AssetCatalogEntry {
   };
 }
 
+function buildGitHubTreeAsset(id: string): AssetCatalogEntry {
+  const filePath = "agents/example.agent.md";
+  const content = Buffer.from("# example\n", "utf8");
+  const blobSha = createGitBlobSha(content);
+
+  return {
+    ...buildAsset(id),
+    assetKind: "agent",
+    compatibilityMode: "native",
+    source: {
+      sourceId: "github-awesome-copilot",
+      authorityTier: "official-first-party",
+      sourceKind: "repo",
+      sourcePriority: 100,
+      originUrl: `https://github.com/github/awesome-copilot/blob/main/${filePath}`,
+      publisher: "GitHub",
+      publisherVerified: true,
+    },
+    install: {
+      method: "github-tree-metadata",
+      nativeHosts: ["copilot-vscode"],
+      manifestEntry: blobSha,
+      relativePath: filePath,
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      lineCount: 1,
+      filePath,
+      rootPath: "https://github.com/github/awesome-copilot",
+    },
+  };
+}
+
+function buildOfficialIndexAsset(id: string): AssetCatalogEntry {
+  return {
+    ...buildAsset(id),
+    assetKind: "skill",
+    compatibilityMode: "native",
+    source: {
+      sourceId: "official-index:cloudflare:cloudflare",
+      authorityTier: "official-first-party",
+      sourceKind: "docs",
+      sourcePriority: 100,
+      originUrl: "https://officialskills.sh/cloudflare/skills/cloudflare",
+      publisher: "Cloudflare",
+      publisherVerified: true,
+    },
+    install: {
+      method: "official-index-entry",
+      nativeHosts: ["copilot-vscode"],
+      manifestEntry: "cloudflare",
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      lineCount: 1,
+      filePath: "SKILL.md",
+      rootPath: "https://officialskills.sh/cloudflare/skills/cloudflare",
+    },
+  };
+}
+
 async function createAcquireFixture(
   entries: AssetCatalogEntry[],
 ): Promise<string> {
@@ -205,6 +273,22 @@ function createMaterializer(skippedIds: readonly string[]) {
       content: Buffer.from(`fixture:${entry.id}`, "utf8"),
     };
   };
+}
+
+function createGitBlobSha(content: Buffer): string {
+  return createHash("sha1")
+    .update(`blob ${content.byteLength}\0`)
+    .update(content)
+    .digest("hex");
+}
+
+function restoreFetchMockFlag(previousValue: string | undefined): void {
+  if (previousValue === undefined) {
+    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    return;
+  }
+
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
 }
 
 void test("mirror acquire checkpoint throws when persisted state is missing", () => {
@@ -309,6 +393,203 @@ void test("acquireMirrorArtifacts ignores stale persisted skipped ids outside th
       ["mirror-a"],
     );
   } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts mirrors pinned github-tree assets when commit lookup fails but raw fetch verifies", async (context) => {
+  const entry = buildGitHubTreeAsset("github-tree-agent");
+  const projectRoot = await createAcquireFixture([entry]);
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (requestUrl.startsWith("https://api.github.com/")) {
+      return new Response("rate limited", { status: 503 });
+    }
+
+    if (requestUrl.startsWith("https://raw.githubusercontent.com/")) {
+      return new Response("# example\n", { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${requestUrl}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  try {
+    const policy = buildMirrorPolicy();
+    await writeJsonFile(join(projectRoot, "mirror", "policy.json"), {
+      ...policy,
+      selection: {
+        ...policy.selection,
+        requirePinnedProvenance: true,
+      },
+    });
+
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [
+      "--batch-size",
+      "10",
+    ]);
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.equal(state.remainingCount, 0);
+    assert.equal(state.lastBatchMirroredCount, 1);
+    assert.equal(state.lastBatchSkippedCount, 0);
+    assert.deepEqual(state.lastBatchAssetIds, ["github-tree-agent"]);
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(mirrorIndex[0]?.assetId, "github-tree-agent");
+    assert.equal(mirrorIndex[0]?.upstream.commit, undefined);
+    assert.equal(assertMirrorAcquireCheckpoint(state, "fixture"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts mirrors official-index packages when commit lookup fails but raw files verify", async (context) => {
+  const entry = buildOfficialIndexAsset("official-index-cloudflare");
+  const projectRoot = await createAcquireFixture([entry]);
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const skillMarkdownContent = Buffer.from("# Cloudflare\n", "utf8");
+  const skillReadmeContent = Buffer.from("See SKILL.md\n", "utf8");
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (
+      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
+    ) {
+      return new Response(
+        [
+          "<html><body>",
+          '<a href="https://github.com/cloudflare/skills/tree/main/skills/cloudflare">View on GitHub</a>',
+          "</body></html>",
+        ].join(""),
+        { status: 200 },
+      );
+    }
+
+    if (requestUrl === "https://api.github.com/repos/cloudflare/skills") {
+      return Response.json({
+        name: "skills",
+        full_name: "cloudflare/skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          {
+            path: "cloudflare/SKILL.md",
+            type: "blob",
+            size: skillMarkdownContent.byteLength,
+            sha: createGitBlobSha(skillMarkdownContent),
+          },
+          {
+            path: "cloudflare/README.md",
+            type: "blob",
+            size: skillReadmeContent.byteLength,
+            sha: createGitBlobSha(skillReadmeContent),
+          },
+        ],
+      });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/skills/commits/main"
+    ) {
+      return new Response("rate limited", { status: 503 });
+    }
+
+    if (
+      requestUrl ===
+      "https://raw.githubusercontent.com/cloudflare/skills/main/cloudflare/SKILL.md"
+    ) {
+      return new Response(skillMarkdownContent, { status: 200 });
+    }
+
+    if (
+      requestUrl ===
+      "https://raw.githubusercontent.com/cloudflare/skills/main/cloudflare/README.md"
+    ) {
+      return new Response(skillReadmeContent, { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${requestUrl}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  try {
+    const policy = buildMirrorPolicy();
+    await writeJsonFile(join(projectRoot, "mirror", "policy.json"), {
+      ...policy,
+      selection: {
+        ...policy.selection,
+        requirePinnedProvenance: true,
+      },
+    });
+
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [
+      "--batch-size",
+      "10",
+    ]);
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.equal(state.remainingCount, 0);
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(mirrorIndex[0]?.assetId, "official-index-cloudflare");
+    assert.equal(mirrorIndex[0]?.upstream.commit, undefined);
+    assert.equal(assertMirrorAcquireCheckpoint(state, "fixture"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
     await rm(projectRoot, { force: true, recursive: true });
   }
 });

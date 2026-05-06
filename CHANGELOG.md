@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- added `github-awesome-copilot-site` as a default official docs source so discovery can harvest the `awesome-copilot.github.com` catalog alongside the backing repository
+- added `clawhub` as a default community registry source for broader catalog/reference coverage without enabling default mirror/install promotion
+
+### Changed
+
+- mirror acquisition now accepts pinned GitHub-tree and official-index artifacts when raw content verifies against the pinned blob SHA even if the GitHub branch-commit lookup is temporarily unavailable
+- README and `.env.example` now document that GitHub tokens help both discovery and GitHub-backed mirror acquisition on larger real-workspace runs
+
+### Fixed
+
+- guarded pinned GitHub lookups now honor Node's `lookup(..., { all: true })` callback shape, which eliminates the `ERR_INVALID_IP_ADDRESS` failure mode that caused real-workspace GitHub fetches to be skipped as null
+
 ## [1.0.0] - 2026-05-01
 
 ### Added in 1.0.0

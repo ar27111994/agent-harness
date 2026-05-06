@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertAllowedPublicHttpUrl,
   assertAllowedPublicHttpUrlWithDns,
+  createPinnedLookup,
   fetchTextWithGuards,
   type HostnameResolver,
 } from "../lib/http.js";
@@ -41,6 +42,55 @@ void test("mirror file path resolution rejects path traversal", () => {
     () => resolveSafeMirrorFilePath(rawRoot, ""),
     /outside raw root/u,
   );
+});
+
+void test("pinned lookup honors Node all-results callback mode", async () => {
+  const pinnedLookup = createPinnedLookup({
+    address: "203.0.113.10",
+    family: 4,
+  });
+
+  const allResults = await new Promise<
+    Array<{ address: string; family: 4 | 6 }>
+  >((resolve, reject) => {
+    pinnedLookup("example.com", { all: true, hints: 0 }, ((
+      error: Error | null,
+      addresses: Array<{ address: string; family: 4 | 6 }>,
+    ) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(addresses);
+    }) as never);
+  });
+
+  assert.deepEqual(allResults, [{ address: "203.0.113.10", family: 4 }]);
+});
+
+void test("pinned lookup honors Node single-result callback mode", async () => {
+  const pinnedLookup = createPinnedLookup({
+    address: "203.0.113.10",
+    family: 4,
+  });
+
+  const singleResult = await new Promise<{ address: string; family: 4 | 6 }>(
+    (resolve, reject) => {
+      pinnedLookup("example.com", { all: false, hints: 0 }, ((
+        error: Error | null,
+        address: string,
+        family: 4 | 6,
+      ) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve({ address, family });
+      }) as never);
+    },
+  );
+
+  assert.deepEqual(singleResult, { address: "203.0.113.10", family: 4 });
 });
 
 void test("guarded fetches preserve caller abort signals", async (context) => {

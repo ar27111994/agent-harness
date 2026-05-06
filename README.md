@@ -743,6 +743,8 @@ Generated outputs include:
 
 `discover/output/source-utilization.json` separates configured sources from operationally harvested sources so you can see whether broad source declarations are producing usable catalog entries.
 
+The checked-in default source registry intentionally mixes several source classes instead of relying on one curated repo. Out of the box it includes official docs and repos (for example GitHub Copilot docs, the `github/awesome-copilot` repo, and the `awesome-copilot.github.com` site), host-native marketplaces/registries (for example the VS Code Marketplace, Zed extension gallery, Pi packages, npm, and PyPI), and lighter-weight community registries such as `skills.sh` and ClawHub. That split keeps official sources preferred while still surfacing broader community references for real workspaces.
+
 Generated local source seeds include host config roots for OpenCode, Claude Code, and Cursor. Claude Code harvesting recognizes `CLAUDE.md`, `.claude`-style `agents/`, `commands/`, `skills/`, hook settings, plugin manifests, and `.mcp.json`. Cursor harvesting recognizes rules, agents, commands, skills, hooks, plugin manifests, marketplace manifests, and `mcp.json` from the default Cursor config root. Claude Code and Cursor generated local config sources are catalog-only by default so local settings, hooks, and MCP files are not mirrored into project state unless a user-authored source explicitly opts in.
 
 ### Dependency-evidence package discovery
@@ -820,7 +822,7 @@ See `.env.example` for documented defaults. On startup, the CLI loads `.env` fro
 
 ### GitHub authentication
 
-Optional GitHub tokens improve API throughput during discovery:
+Optional GitHub tokens improve API throughput during discovery and GitHub-backed mirror acquisition:
 
 ```bash
 GITHUB_PERSONAL_ACCESS_TOKEN=
@@ -1057,7 +1059,7 @@ agent-harness recommend report
 
 `discover select` should reject entries that do not overlap with detected workspace signals. If relevant entries are missing, inspect `discover/output/demand-profile.json` and confirm the workspace manifests are not excluded by `.gitignore`, `.ignore`, or `.agent-harnessignore`.
 
-### GitHub discovery is slow or rate-limited
+### GitHub discovery or mirror acquisition is slow or rate-limited
 
 Set a token before discovery or full workspace runs:
 
@@ -1065,7 +1067,7 @@ Set a token before discovery or full workspace runs:
 GITHUB_PERSONAL_ACCESS_TOKEN=<token>
 ```
 
-Use a least-privileged token with public repository read access unless your sources require more.
+Use a least-privileged token with public repository read access unless your sources require more. This is especially helpful on larger real-workspace runs where the harness needs both GitHub API metadata and raw-content verification for mirrored assets.
 
 ### A generated host file shows up in `git status`
 
