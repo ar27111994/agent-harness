@@ -106,6 +106,9 @@ export async function acquireMirrorArtifacts(
   const mirrorEligibleEntries = selectedEntries.filter(
     (entry) => entry.status.mirrorEligible,
   );
+  const mirrorEligibleAssetIds = new Set(
+    mirrorEligibleEntries.map((entry) => entry.id),
+  );
   const rawBatchSize = Number(
     getOptionValue(args, "--batch-size") ??
       getRuntimeConfig().batches.mirrorAcquire,
@@ -123,13 +126,18 @@ export async function acquireMirrorArtifacts(
   const previouslySkippedAssetIds = await readPersistedSkippedAssetIds(
     projectRoot,
   );
+  const scopedSkippedAssetIds = new Set(
+    [...previouslySkippedAssetIds].filter((assetId) =>
+      mirrorEligibleAssetIds.has(assetId),
+    ),
+  );
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
   const unresolvedEntries = mirrorEligibleEntries.filter(
     (entry) =>
       !existingMirrorIdsByAssetId.has(entry.id) &&
-      !previouslySkippedAssetIds.has(entry.id),
+      !scopedSkippedAssetIds.has(entry.id),
   );
   const entriesToAcquire = unresolvedEntries.slice(0, batchSize);
   const newMirrorIndexEntries: MirrorIndexEntry[] = [];
@@ -238,7 +246,7 @@ export async function acquireMirrorArtifacts(
     mergedMirrorIndexEntries.map((mirrorEntry) => mirrorEntry.assetId),
   );
   const cumulativeSkippedAssetIds = new Set([
-    ...previouslySkippedAssetIds,
+    ...scopedSkippedAssetIds,
     ...skippedAssetIds,
   ]);
   const totalMirroredCount = mirrorEligibleEntries.filter((entry) =>

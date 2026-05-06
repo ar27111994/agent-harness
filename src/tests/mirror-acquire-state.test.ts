@@ -147,11 +147,15 @@ async function createAcquireFixture(
   return projectRoot;
 }
 
+function acquireStatePath(projectRoot: string): string {
+  return join(projectRoot, "state", "mirror", "acquire-state.json");
+}
+
 async function readAcquireStateFixture(
   projectRoot: string,
 ): Promise<MirrorAcquireState> {
   return readJsonFile<MirrorAcquireState>(
-    join(projectRoot, "state", "mirror", "acquire-state.json"),
+    acquireStatePath(projectRoot),
     assertMirrorAcquireState,
   );
 }
@@ -236,6 +240,49 @@ void test("acquireMirrorArtifacts writes terminal incomplete state for all-skip 
     assert.throws(
       () => assertMirrorAcquireCheckpoint(state, "fixture"),
       /fixture mirror acquire ended incomplete: 0\/2 mirrored, 2 skipped/,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts ignores stale persisted skipped ids outside the current eligible set", async () => {
+  const entries = [buildAsset("mirror-a")];
+  const projectRoot = await createAcquireFixture(entries);
+
+  try {
+    await writeJsonFile(
+      acquireStatePath(projectRoot),
+      createAcquireState({
+        totalEligibleCount: 1,
+        skippedCount: 1,
+        skippedAssetIds: ["stale-skip"],
+        remainingCount: 0,
+        terminal: true,
+      }),
+    );
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--batch-size", "10"],
+      { materializeArtifact: createMaterializer([]) },
+    );
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.equal(state.remainingCount, 0);
+    assert.equal(state.lastBatchMirroredCount, 1);
+    assert.equal(state.lastBatchSkippedCount, 0);
+    assert.deepEqual(state.lastBatchAssetIds, ["mirror-a"]);
+    assert.deepEqual(
+      mirrorIndex.map((entry) => entry.assetId),
+      ["mirror-a"],
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
