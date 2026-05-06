@@ -135,6 +135,7 @@ export function assertMirrorAcquireState(
   assertNumber(record.mirroredCount, `${context}.mirroredCount`);
   assertNumber(record.remainingCount, `${context}.remainingCount`);
   assertNumber(record.skippedCount, `${context}.skippedCount`);
+  assertStringArray(record.skippedAssetIds, `${context}.skippedAssetIds`);
   assertStringArray(record.lastBatchAssetIds, `${context}.lastBatchAssetIds`);
   assertNumber(
     record.lastBatchMirroredCount,

@@ -7,6 +7,7 @@ import {
   ensureCleanDirectory,
   ensureDirectory,
   readJsonFile,
+  readJsonFileOrNull,
   readJsonLinesFile,
   readTextFileOrNull,
   toPosixPath,
@@ -76,6 +77,15 @@ interface MirrorFileManifest {
   }>;
 }
 
+interface AcquireMirrorArtifactsDependencies {
+  materializeArtifact?: (
+    entry: AssetCatalogEntry,
+    projectRoot: string,
+    requirePinnedProvenance: boolean,
+    evidenceAllowedRoots: readonly string[],
+  ) => Promise<MaterializedMirrorArtifact | null>;
+}
+
 /**
  * Provides acquire mirror artifacts for the lifecycle pipeline.
  */
@@ -83,6 +93,7 @@ export async function acquireMirrorArtifacts(
   projectRoot: string,
   workingDirectory: string,
   args: string[],
+  dependencies: AcquireMirrorArtifactsDependencies = {},
 ): Promise<void> {
   const policy = await readJsonFile<MirrorPolicy>(
     join(projectRoot, "mirror", "policy.json"),
@@ -109,11 +120,16 @@ export async function acquireMirrorArtifacts(
     join(projectRoot, ...MIRROR_INDEX_OUTPUT_PATH),
     assertMirrorIndexEntry,
   );
+  const previouslySkippedAssetIds = await readPersistedSkippedAssetIds(
+    projectRoot,
+  );
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
   const unresolvedEntries = mirrorEligibleEntries.filter(
-    (entry) => !existingMirrorIdsByAssetId.has(entry.id),
+    (entry) =>
+      !existingMirrorIdsByAssetId.has(entry.id) &&
+      !previouslySkippedAssetIds.has(entry.id),
   );
   const entriesToAcquire = unresolvedEntries.slice(0, batchSize);
   const newMirrorIndexEntries: MirrorIndexEntry[] = [];
@@ -122,9 +138,11 @@ export async function acquireMirrorArtifacts(
     projectRoot,
     workingDirectory,
   );
+  const materializeArtifact =
+    dependencies.materializeArtifact ?? materializeMirrorArtifact;
 
   for (const entry of entriesToAcquire) {
-    const materializedArtifact = await materializeMirrorArtifact(
+    const materializedArtifact = await materializeArtifact(
       entry,
       projectRoot,
       policy.selection.requirePinnedProvenance,
@@ -219,23 +237,19 @@ export async function acquireMirrorArtifacts(
   const mirroredAssetIds = new Set(
     mergedMirrorIndexEntries.map((mirrorEntry) => mirrorEntry.assetId),
   );
+  const cumulativeSkippedAssetIds = new Set([
+    ...previouslySkippedAssetIds,
+    ...skippedAssetIds,
+  ]);
   const totalMirroredCount = mirrorEligibleEntries.filter((entry) =>
     mirroredAssetIds.has(entry.id),
   ).length;
-  const batchRemainingCount =
-    mirrorEligibleEntries.length - totalMirroredCount - skippedAssetIds.length;
-  const exhaustedEligibleEntries = batchRemainingCount <= 0;
-  const stalledBatch =
-    entriesToAcquire.length > 0 &&
-    newMirrorIndexEntries.length === 0 &&
-    !exhaustedEligibleEntries;
-  const isTerminal = exhaustedEligibleEntries || stalledBatch;
-  const totalSkippedCount = exhaustedEligibleEntries
-    ? Math.max(0, mirrorEligibleEntries.length - totalMirroredCount)
-    : skippedAssetIds.length;
-  const actualRemainingCount = exhaustedEligibleEntries
-    ? 0
-    : Math.max(0, batchRemainingCount);
+  const totalSkippedCount = cumulativeSkippedAssetIds.size;
+  const actualRemainingCount = Math.max(
+    0,
+    mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount,
+  );
+  const isTerminal = actualRemainingCount <= 0;
 
   await writeMirrorAcquireState(projectRoot, {
     schemaVersion: 1,
@@ -243,8 +257,9 @@ export async function acquireMirrorArtifacts(
     batchSize,
     totalEligibleCount: mirrorEligibleEntries.length,
     mirroredCount: totalMirroredCount,
-    remainingCount: Math.max(0, actualRemainingCount),
+    remainingCount: actualRemainingCount,
     skippedCount: totalSkippedCount,
+    skippedAssetIds: [...cumulativeSkippedAssetIds].sort(),
     lastBatchAssetIds: entriesToAcquire.map((entry) => entry.id),
     lastBatchMirroredCount: newMirrorIndexEntries.length,
     lastBatchSkippedCount: skippedAssetIds.length,
@@ -255,17 +270,13 @@ export async function acquireMirrorArtifacts(
     console.log(
       `Mirror acquire complete: ${totalMirroredCount}/${mirrorEligibleEntries.length} artifacts under ${toPosixPath(join(projectRoot, "mirror"))}`,
     );
-  } else if (stalledBatch) {
-    console.log(
-      `Mirror acquire stalled: ${totalMirroredCount}/${mirrorEligibleEntries.length} mirrored, ${skippedAssetIds.length} skipped in last batch, ${actualRemainingCount} remaining`,
-    );
   } else if (isTerminal) {
     console.log(
       `Mirror acquire terminal: ${totalMirroredCount} mirrored, ${totalSkippedCount} skipped (unmirrorable) of ${mirrorEligibleEntries.length} eligible`,
     );
   } else {
     console.log(
-      `Mirror acquire batch: ${newMirrorIndexEntries.length} mirrored, ${skippedAssetIds.length} skipped this batch (${totalMirroredCount}/${mirrorEligibleEntries.length} total)`,
+      `Mirror acquire batch: ${newMirrorIndexEntries.length} mirrored, ${skippedAssetIds.length} skipped this batch (${totalMirroredCount}/${mirrorEligibleEntries.length} mirrored, ${totalSkippedCount} skipped total, ${actualRemainingCount} remaining)`,
     );
   }
 }
@@ -819,6 +830,24 @@ function createGitBlobSha(content: Buffer): string {
 
 function isGitBlobSha(value: string | undefined): value is string {
   return Boolean(value && /^[a-f0-9]{40}$/iu.test(value));
+}
+
+async function readPersistedSkippedAssetIds(
+  projectRoot: string,
+): Promise<Set<string>> {
+  const state = await readJsonFileOrNull<{ skippedAssetIds?: unknown }>(
+    join(projectRoot, ...MIRROR_ACQUIRE_STATE_OUTPUT_PATH),
+  );
+
+  if (!state || !Array.isArray(state.skippedAssetIds)) {
+    return new Set();
+  }
+
+  return new Set(
+    state.skippedAssetIds.filter(
+      (value): value is string => typeof value === "string",
+    ),
+  );
 }
 
 async function writeMirrorAcquireState(

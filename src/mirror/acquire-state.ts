@@ -14,6 +14,12 @@ export function assertMirrorAcquireCheckpoint(
     );
   }
 
+  if (state.skippedAssetIds.length !== state.skippedCount) {
+    throw new Error(
+      `${context} mirror acquire state is inconsistent: skippedAssetIds(${state.skippedAssetIds.length}) != skippedCount(${state.skippedCount})`,
+    );
+  }
+
   if (
     state.mirroredCount + state.skippedCount + state.remainingCount !==
     state.totalEligibleCount
