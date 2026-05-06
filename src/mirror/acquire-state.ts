@@ -21,7 +21,7 @@ export function assertMirrorAcquireCheckpoint(
   if (state.mirroredCount < state.totalEligibleCount) {
     throw new Error(
       `mirror acquire ended incomplete: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.skippedCount} skipped (unmirrorable). ` +
-        `Review skipped assets or adjust mirror policy.`,
+        `Review state/mirror/acquire-state.json (last batch: ${state.lastBatchAssetIds.length} asset(s)) or adjust mirror policy.`,
     );
   }
 
