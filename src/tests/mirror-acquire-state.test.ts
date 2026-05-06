@@ -151,6 +151,30 @@ function acquireStatePath(projectRoot: string): string {
   return join(projectRoot, "state", "mirror", "acquire-state.json");
 }
 
+function mirrorIndexPath(projectRoot: string): string {
+  return join(projectRoot, "mirror", "index.jsonl");
+}
+
+function createMirrorIndexEntry(assetId: string): MirrorIndexEntry {
+  return {
+    mirrorId: `sha256-${assetId}`,
+    assetId,
+    upstream: {
+      type: "local",
+      url: `file:///fixture/${assetId}`,
+    },
+    source: {
+      authorityTier: "trusted-local",
+      publisher: "test",
+      publisherVerified: true,
+    },
+    mirroredAt: new Date().toISOString(),
+    contentHash: `hash-${assetId}`,
+    projectionCandidates: [],
+    status: "approved",
+  };
+}
+
 async function readAcquireStateFixture(
   projectRoot: string,
 ): Promise<MirrorAcquireState> {
@@ -284,6 +308,54 @@ void test("acquireMirrorArtifacts ignores stale persisted skipped ids outside th
       mirrorIndex.map((entry) => entry.assetId),
       ["mirror-a"],
     );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts treats mirrored overlap ids as mirrored instead of skipped", async () => {
+  const entries = [buildAsset("mirror-a")];
+  const projectRoot = await createAcquireFixture(entries);
+
+  try {
+    await writeJsonLinesFile(mirrorIndexPath(projectRoot), [
+      createMirrorIndexEntry("mirror-a"),
+    ]);
+    await writeJsonFile(
+      acquireStatePath(projectRoot),
+      createAcquireState({
+        totalEligibleCount: 1,
+        mirroredCount: 0,
+        skippedCount: 1,
+        skippedAssetIds: ["mirror-a"],
+        remainingCount: 0,
+        terminal: true,
+      }),
+    );
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--batch-size", "10"],
+      { materializeArtifact: createMaterializer([]) },
+    );
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.equal(state.remainingCount, 0);
+    assert.equal(state.lastBatchMirroredCount, 0);
+    assert.equal(state.lastBatchSkippedCount, 0);
+    assert.deepEqual(state.lastBatchAssetIds, []);
+    assert.deepEqual(
+      mirrorIndex.map((entry) => entry.assetId),
+      ["mirror-a"],
+    );
+    assert.equal(assertMirrorAcquireCheckpoint(state, "fixture"), true);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

@@ -249,10 +249,15 @@ export async function acquireMirrorArtifacts(
     ...scopedSkippedAssetIds,
     ...skippedAssetIds,
   ]);
+  const effectiveSkippedAssetIds = new Set(
+    [...cumulativeSkippedAssetIds].filter(
+      (assetId) => !mirroredAssetIds.has(assetId),
+    ),
+  );
   const totalMirroredCount = mirrorEligibleEntries.filter((entry) =>
     mirroredAssetIds.has(entry.id),
   ).length;
-  const totalSkippedCount = cumulativeSkippedAssetIds.size;
+  const totalSkippedCount = effectiveSkippedAssetIds.size;
   const actualRemainingCount = Math.max(
     0,
     mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount,
@@ -267,7 +272,7 @@ export async function acquireMirrorArtifacts(
     mirroredCount: totalMirroredCount,
     remainingCount: actualRemainingCount,
     skippedCount: totalSkippedCount,
-    skippedAssetIds: [...cumulativeSkippedAssetIds].sort(),
+    skippedAssetIds: [...effectiveSkippedAssetIds].sort(),
     lastBatchAssetIds: entriesToAcquire.map((entry) => entry.id),
     lastBatchMirroredCount: newMirrorIndexEntries.length,
     lastBatchSkippedCount: skippedAssetIds.length,
