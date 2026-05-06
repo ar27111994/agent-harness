@@ -4,6 +4,7 @@ import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
+import { assertMirrorAcquireState } from "./manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "./mirror/acquire-state.js";
 import { runInstall } from "./install.js";
 import { runRecommend } from "./recommend.js";
@@ -95,6 +96,7 @@ async function acquireAllMirrorBatches(
     );
     const state = await readJsonFileOrNull<MirrorAcquireState>(
       join(projectRoot, ...MIRROR_ACQUIRE_STATE_PATH),
+      assertMirrorAcquireState,
     );
     if (assertMirrorAcquireCheckpoint(state, "workspace pipeline")) {
       return;

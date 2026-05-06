@@ -29,14 +29,14 @@ export function assertMirrorAcquireCheckpoint(
 
   if (state.remainingCount > 0) {
     throw new Error(
-      `mirror acquire stalled after batch: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.lastBatchSkippedCount} skipped in last batch, ${state.remainingCount} remaining. ` +
+      `${context} mirror acquire stalled after batch: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.lastBatchSkippedCount} skipped in last batch, ${state.remainingCount} remaining. ` +
         `Review state/mirror/acquire-state.json (last batch: ${state.lastBatchAssetIds.length} asset(s)) or adjust mirror policy.`,
     );
   }
 
   if (state.mirroredCount < state.totalEligibleCount) {
     throw new Error(
-      `mirror acquire ended incomplete: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.skippedCount} skipped (unmirrorable). ` +
+      `${context} mirror acquire ended incomplete: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.skippedCount} skipped (unmirrorable). ` +
         `Review state/mirror/acquire-state.json (last batch: ${state.lastBatchAssetIds.length} asset(s)) or adjust mirror policy.`,
     );
   }
