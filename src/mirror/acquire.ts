@@ -226,7 +226,9 @@ export async function acquireMirrorArtifacts(
     mirrorEligibleEntries.length - totalMirroredCount - skippedAssetIds.length;
   const exhaustedEligibleEntries = batchRemainingCount <= 0;
   const stalledBatch =
-    entriesToAcquire.length > 0 && newMirrorIndexEntries.length === 0;
+    entriesToAcquire.length > 0 &&
+    newMirrorIndexEntries.length === 0 &&
+    !exhaustedEligibleEntries;
   const isTerminal = exhaustedEligibleEntries || stalledBatch;
   const totalSkippedCount = exhaustedEligibleEntries
     ? Math.max(0, mirrorEligibleEntries.length - totalMirroredCount)
