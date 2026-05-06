@@ -148,5 +148,9 @@ export interface MirrorAcquireState {
   totalEligibleCount: number;
   mirroredCount: number;
   remainingCount: number;
+  skippedCount: number;
   lastBatchAssetIds: string[];
+  lastBatchMirroredCount: number;
+  lastBatchSkippedCount: number;
+  terminal: boolean;
 }

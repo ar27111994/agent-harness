@@ -95,7 +95,16 @@ async function acquireAllMirrorBatches(
     const state = await readJsonFileOrNull<MirrorAcquireState>(
       join(projectRoot, ...MIRROR_ACQUIRE_STATE_PATH),
     );
-    if (!state || state.remainingCount <= 0) {
+    if (!state) {
+      return;
+    }
+    if (state.terminal) {
+      if (state.mirroredCount < state.totalEligibleCount) {
+        throw new Error(
+          `mirror acquire ended incomplete: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.skippedCount} skipped (unmirrorable). ` +
+            `Review skipped assets or adjust mirror policy.`,
+        );
+      }
       return;
     }
   }

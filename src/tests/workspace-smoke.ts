@@ -4,11 +4,23 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { clearRuntimeConfig } from "../config/runtime.js";
-import { writeJsonFile, removePath } from "../files.js";
+import {
+  readJsonFileOrNull,
+  readJsonLinesFile,
+  writeJsonFile,
+  removePath,
+} from "../files.js";
 import { resolveHostAdapter } from "../host-adapters/registry.js";
 import { resolveDefaultOpenCodeConfigRoot } from "../lib/paths.js";
 import { prepareStateRoot } from "../lib/state-root.js";
+import { assertInstallProgressState } from "../manifest-validation/install.js";
+import {
+  assertMirrorAcquireState,
+  assertMirrorIndexEntry,
+} from "../manifest-validation/mirror.js";
 import { runWorkspacePipeline } from "../pipeline.js";
+import type { InstallProgressState } from "../types/install.js";
+import type { MirrorAcquireState, MirrorIndexEntry } from "../types/mirror.js";
 
 const packageRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const hosts = ["vscode", "opencode", "cursor", "zed", "claude-code", "pi"];
@@ -102,6 +114,68 @@ try {
       sessionIntent: "testing",
       bundleIds: adapter.defaultBundleIds,
     });
+
+    // Assert mirror acquire state consistency
+    const acquireState = await readJsonFileOrNull<MirrorAcquireState>(
+      join(stateRoot, "state", "mirror", "acquire-state.json"),
+      assertMirrorAcquireState,
+    );
+    if (!acquireState) {
+      throw new Error(
+        `[${host}] mirror acquire-state.json missing after pipeline`,
+      );
+    }
+    if (!acquireState.terminal) {
+      throw new Error(
+        `[${host}] mirror acquire state is non-terminal (remaining=${acquireState.remainingCount})`,
+      );
+    }
+    if (
+      acquireState.mirroredCount + acquireState.skippedCount !==
+      acquireState.totalEligibleCount
+    ) {
+      throw new Error(
+        `[${host}] mirror acquire state inconsistent: mirrored(${acquireState.mirroredCount}) + skipped(${acquireState.skippedCount}) != total(${acquireState.totalEligibleCount})`,
+      );
+    }
+    if (acquireState.totalEligibleCount > 0) {
+      const mirrorIndex = await readJsonLinesFile<MirrorIndexEntry>(
+        join(stateRoot, "mirror", "index.jsonl"),
+        assertMirrorIndexEntry,
+      );
+      if (mirrorIndex.length === 0) {
+        throw new Error(
+          `[${host}] eligible assets selected (${acquireState.totalEligibleCount}) but mirror index is empty`,
+        );
+      }
+    }
+
+    // Assert install progress state consistency
+    const progressState = await readJsonFileOrNull<InstallProgressState>(
+      join(stateRoot, "state", "install", "progress.json"),
+      assertInstallProgressState,
+    );
+    if (adapter.defaultBundleIds.length > 0 && !progressState) {
+      throw new Error(
+        `[${host}] install progress state missing for ${adapter.defaultBundleIds.length} expected bundle(s)`,
+      );
+    }
+    if (progressState) {
+      for (const bundleId of adapter.defaultBundleIds) {
+        const bundle = progressState.bundles[bundleId];
+        if (!bundle) {
+          throw new Error(
+            `[${host}] install progress missing expected bundle "${bundleId}"`,
+          );
+        }
+        if (bundle.remainingAssets > 0) {
+          throw new Error(
+            `[${host}] install progress bundle "${bundleId}" still has ${bundle.remainingAssets} remaining assets`,
+          );
+        }
+      }
+    }
+
     await adapter.wire({
       projectRoot: stateRoot,
       workspaceRoot,
