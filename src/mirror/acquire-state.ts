@@ -14,8 +14,24 @@ export function assertMirrorAcquireCheckpoint(
     );
   }
 
+  if (
+    state.mirroredCount + state.skippedCount + state.remainingCount !==
+    state.totalEligibleCount
+  ) {
+    throw new Error(
+      `${context} mirror acquire state is inconsistent: mirrored(${state.mirroredCount}) + skipped(${state.skippedCount}) + remaining(${state.remainingCount}) != total(${state.totalEligibleCount})`,
+    );
+  }
+
   if (!state.terminal) {
     return false;
+  }
+
+  if (state.remainingCount > 0) {
+    throw new Error(
+      `mirror acquire stalled after batch: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.lastBatchSkippedCount} skipped in last batch, ${state.remainingCount} remaining. ` +
+        `Review state/mirror/acquire-state.json (last batch: ${state.lastBatchAssetIds.length} asset(s)) or adjust mirror policy.`,
+    );
   }
 
   if (state.mirroredCount < state.totalEligibleCount) {

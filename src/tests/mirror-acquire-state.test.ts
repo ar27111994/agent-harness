@@ -80,37 +80,35 @@ void test("mirror acquire checkpoint throws for incomplete terminal state", () =
   );
 });
 
-void test("terminal state keeps mirrored and skipped counts cumulative", () => {
+void test("mirror acquire checkpoint throws for terminal stalled state", () => {
   const state = createAcquireState({
     totalEligibleCount: 20,
     mirroredCount: 14,
-    skippedCount: 6,
-    remainingCount: 0,
-    lastBatchMirroredCount: 0,
+    skippedCount: 3,
+    remainingCount: 3,
+    lastBatchAssetIds: ["a", "b", "c"],
     lastBatchSkippedCount: 3,
     terminal: true,
   });
 
-  assert.equal(
-    state.mirroredCount + state.skippedCount,
-    state.totalEligibleCount,
-    "terminal states should fully account for every eligible asset",
+  assert.throws(
+    () => assertMirrorAcquireCheckpoint(state, "workspace pipeline"),
+    /mirror acquire stalled after batch: 14\/20 mirrored, 3 skipped in last batch, 3 remaining/,
   );
 });
 
-void test("remaining count excludes both mirrored and skipped entries", () => {
+void test("mirror acquire checkpoint rejects inconsistent state arithmetic", () => {
   const state = createAcquireState({
     totalEligibleCount: 20,
     mirroredCount: 8,
     skippedCount: 5,
-    remainingCount: 7,
+    remainingCount: 6,
     lastBatchMirroredCount: 3,
     lastBatchSkippedCount: 2,
   });
 
-  assert.equal(
-    state.remainingCount,
-    state.totalEligibleCount - state.mirroredCount - state.skippedCount,
-    "remaining must account for skipped entries to avoid infinite loops",
+  assert.throws(
+    () => assertMirrorAcquireCheckpoint(state, "workspace pipeline"),
+    /workspace pipeline mirror acquire state is inconsistent/,
   );
 });

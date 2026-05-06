@@ -224,13 +224,16 @@ export async function acquireMirrorArtifacts(
   ).length;
   const batchRemainingCount =
     mirrorEligibleEntries.length - totalMirroredCount - skippedAssetIds.length;
-  const isTerminal =
-    batchRemainingCount <= 0 || newMirrorIndexEntries.length === 0;
-  const totalSkippedCount = isTerminal
+  const exhaustedEligibleEntries = batchRemainingCount <= 0;
+  const stalledBatch =
+    entriesToAcquire.length > 0 && newMirrorIndexEntries.length === 0;
+  const isTerminal = exhaustedEligibleEntries || stalledBatch;
+  const totalSkippedCount = exhaustedEligibleEntries
     ? Math.max(0, mirrorEligibleEntries.length - totalMirroredCount)
     : skippedAssetIds.length;
-  const actualRemainingCount =
-    mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount;
+  const actualRemainingCount = exhaustedEligibleEntries
+    ? 0
+    : Math.max(0, batchRemainingCount);
 
   await writeMirrorAcquireState(projectRoot, {
     schemaVersion: 1,
@@ -249,6 +252,10 @@ export async function acquireMirrorArtifacts(
   if (isTerminal && totalMirroredCount === mirrorEligibleEntries.length) {
     console.log(
       `Mirror acquire complete: ${totalMirroredCount}/${mirrorEligibleEntries.length} artifacts under ${toPosixPath(join(projectRoot, "mirror"))}`,
+    );
+  } else if (stalledBatch) {
+    console.log(
+      `Mirror acquire stalled: ${totalMirroredCount}/${mirrorEligibleEntries.length} mirrored, ${skippedAssetIds.length} skipped in last batch, ${actualRemainingCount} remaining`,
     );
   } else if (isTerminal) {
     console.log(
