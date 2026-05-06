@@ -216,15 +216,21 @@ export async function acquireMirrorArtifacts(
     policy.bundleTemplates.map((template) => template.id),
   );
 
+  const mirroredAssetIds = new Set(
+    mergedMirrorIndexEntries.map((mirrorEntry) => mirrorEntry.assetId),
+  );
   const totalMirroredCount = mirrorEligibleEntries.filter((entry) =>
-    mergedMirrorIndexEntries.some(
-      (mirrorEntry) => mirrorEntry.assetId === entry.id,
-    ),
+    mirroredAssetIds.has(entry.id),
   ).length;
-  const actualRemainingCount =
+  const batchRemainingCount =
     mirrorEligibleEntries.length - totalMirroredCount - skippedAssetIds.length;
   const isTerminal =
-    actualRemainingCount <= 0 || newMirrorIndexEntries.length === 0;
+    batchRemainingCount <= 0 || newMirrorIndexEntries.length === 0;
+  const totalSkippedCount = isTerminal
+    ? Math.max(0, mirrorEligibleEntries.length - totalMirroredCount)
+    : skippedAssetIds.length;
+  const actualRemainingCount =
+    mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount;
 
   await writeMirrorAcquireState(projectRoot, {
     schemaVersion: 1,
@@ -233,7 +239,7 @@ export async function acquireMirrorArtifacts(
     totalEligibleCount: mirrorEligibleEntries.length,
     mirroredCount: totalMirroredCount,
     remainingCount: Math.max(0, actualRemainingCount),
-    skippedCount: skippedAssetIds.length,
+    skippedCount: totalSkippedCount,
     lastBatchAssetIds: entriesToAcquire.map((entry) => entry.id),
     lastBatchMirroredCount: newMirrorIndexEntries.length,
     lastBatchSkippedCount: skippedAssetIds.length,
@@ -246,7 +252,7 @@ export async function acquireMirrorArtifacts(
     );
   } else if (isTerminal) {
     console.log(
-      `Mirror acquire terminal: ${totalMirroredCount} mirrored, ${skippedAssetIds.length} skipped (unmirrorable) of ${mirrorEligibleEntries.length} eligible`,
+      `Mirror acquire terminal: ${totalMirroredCount} mirrored, ${totalSkippedCount} skipped (unmirrorable) of ${mirrorEligibleEntries.length} eligible`,
     );
   } else {
     console.log(

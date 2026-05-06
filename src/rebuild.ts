@@ -4,6 +4,7 @@ import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
+import { assertMirrorAcquireCheckpoint } from "./mirror/acquire-state.js";
 import { runInstall } from "./install.js";
 import { runRecommend } from "./recommend.js";
 import { runActivate } from "./activate.js";
@@ -85,16 +86,7 @@ async function acquireAllMirrorBatches(
     const state = await readJsonFileOrNull<MirrorAcquireState>(
       join(projectRoot, ...MIRROR_ACQUIRE_STATE_PATH),
     );
-    if (!state) {
-      return;
-    }
-    if (state.terminal) {
-      if (state.mirroredCount < state.totalEligibleCount) {
-        throw new Error(
-          `mirror acquire ended incomplete: ${state.mirroredCount}/${state.totalEligibleCount} mirrored, ${state.skippedCount} skipped (unmirrorable). ` +
-            `Review skipped assets or adjust mirror policy.`,
-        );
-      }
+    if (assertMirrorAcquireCheckpoint(state, "rebuild full")) {
       return;
     }
   }
