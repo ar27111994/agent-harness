@@ -16,6 +16,18 @@ All notable changes to this project will be documented in this file.
 
 - None yet.
 
+## [1.0.1] - 2026-05-08
+
+### Changed
+
+- made the Release workflow rerun-safe for manual `workflow_dispatch` runs so already-published versions skip duplicate publish steps instead of failing noisy follow-up checks
+- normalized the `Unreleased` changelog section headings to keep post-release changelog structure consistent
+
+### Fixed
+
+- `official-index-entry` mirror acquisition now falls back to structured official-index page content when repo-backed package materialization fails for non-cap reasons, which unblocks the real `InterActNote` + OpenCode workspace flow that previously stopped on Flutter-related `materialize-failed` skips
+- official-index HTML entity decoding now unescapes ampersands last, preventing double-decoding of values like `&amp;quot;`
+
 ## [1.0.0] - 2026-05-01
 
 ### Added in 1.0.0
