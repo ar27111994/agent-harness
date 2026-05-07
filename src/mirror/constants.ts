@@ -21,15 +21,19 @@ export const MIRROR_ACQUIRE_STATE_OUTPUT_PATH = [
 /**
  * Defines max official index package files shared by the lifecycle pipeline.
  */
-export const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 50;
+export const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 1_000;
 /**
  * Defines max official index file size bytes shared by the lifecycle pipeline.
  */
-export const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 150_000;
+export const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 1_000_000;
+/**
+ * Defines max official index package total bytes shared by the lifecycle pipeline.
+ */
+export const MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES = 20_000_000;
 /**
  * Defines max github mirror file size bytes shared by the lifecycle pipeline.
  */
-export const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = 500_000;
+export const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = 1_000_000;
 /**
  * Defines the allowed github raw allowed origins used by guarded network requests.
  */

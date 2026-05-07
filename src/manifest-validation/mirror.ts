@@ -136,6 +136,15 @@ export function assertMirrorAcquireState(
   assertNumber(record.remainingCount, `${context}.remainingCount`);
   assertNumber(record.skippedCount, `${context}.skippedCount`);
   assertStringArray(record.skippedAssetIds, `${context}.skippedAssetIds`);
+  if (record.skippedAssetReasons !== undefined) {
+    const skippedAssetReasons = assertRecord(
+      record.skippedAssetReasons,
+      `${context}.skippedAssetReasons`,
+    );
+    Object.entries(skippedAssetReasons).forEach(([key, entryValue]) => {
+      assertString(entryValue, `${context}.skippedAssetReasons.${key}`);
+    });
+  }
   assertStringArray(record.lastBatchAssetIds, `${context}.lastBatchAssetIds`);
   assertNumber(
     record.lastBatchMirroredCount,
@@ -145,5 +154,14 @@ export function assertMirrorAcquireState(
     record.lastBatchSkippedCount,
     `${context}.lastBatchSkippedCount`,
   );
+  if (record.lastBatchSkippedReasons !== undefined) {
+    const lastBatchSkippedReasons = assertRecord(
+      record.lastBatchSkippedReasons,
+      `${context}.lastBatchSkippedReasons`,
+    );
+    Object.entries(lastBatchSkippedReasons).forEach(([key, entryValue]) => {
+      assertString(entryValue, `${context}.lastBatchSkippedReasons.${key}`);
+    });
+  }
   assertBoolean(record.terminal, `${context}.terminal`);
 }

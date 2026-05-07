@@ -150,8 +150,10 @@ export interface MirrorAcquireState {
   remainingCount: number;
   skippedCount: number;
   skippedAssetIds: string[];
+  skippedAssetReasons?: Record<string, string>;
   lastBatchAssetIds: string[];
   lastBatchMirroredCount: number;
   lastBatchSkippedCount: number;
+  lastBatchSkippedReasons?: Record<string, string>;
   terminal: boolean;
 }
