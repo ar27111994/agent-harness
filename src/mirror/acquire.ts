@@ -106,6 +106,8 @@ interface AcquireMirrorArtifactsDependencies {
   ) => Promise<MaterializeArtifactResult>;
 }
 
+const officialIndexRepoUrlCache = new Map<string, string | null>();
+
 /**
  * Provides acquire mirror artifacts for the lifecycle pipeline.
  */
@@ -584,9 +586,17 @@ async function buildOfficialIndexRepoUrlCandidates(
   entry: AssetCatalogEntry,
   owner: string,
 ): Promise<string[]> {
-  const officialIndexRepoUrl = await fetchOfficialIndexPageRepositoryUrl(
+  const cachedOfficialIndexRepoUrl = officialIndexRepoUrlCache.get(
     entry.source.originUrl,
   );
+  const officialIndexRepoUrl =
+    cachedOfficialIndexRepoUrl ??
+    (await fetchOfficialIndexPageRepositoryUrl(entry.source.originUrl));
+
+  if (!officialIndexRepoUrlCache.has(entry.source.originUrl)) {
+    officialIndexRepoUrlCache.set(entry.source.originUrl, officialIndexRepoUrl);
+  }
+
   const candidateRepoUrls = [
     officialIndexRepoUrl,
     entry.evidence.rootPath,
