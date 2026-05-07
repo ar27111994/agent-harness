@@ -581,6 +581,19 @@ async function materializeOfficialIndexPackage(
     };
   }
 
+  if (sawNonCapFailure) {
+    const referenceContent = await fetchOfficialIndexPageContent(
+      entry.source.originUrl,
+    );
+    if (referenceContent !== null) {
+      return {
+        artifact: {
+          content: Buffer.from(referenceContent, "utf8"),
+        },
+      };
+    }
+  }
+
   return {
     artifact: null,
     skipReason: sawNonCapFailure ? undefined : capSkipReason,

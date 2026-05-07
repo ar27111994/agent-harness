@@ -1090,7 +1090,7 @@ void test("acquireMirrorArtifacts mirrors official-index packages with files bet
   }
 });
 
-void test("acquireMirrorArtifacts falls back to materialize-failed when cap failures are followed by non-cap candidate failures", async (context) => {
+void test("acquireMirrorArtifacts falls back to official-index page content when cap failures are followed by non-cap candidate failures", async (context) => {
   const entry = buildOfficialIndexAsset(
     "official-index-cap-then-noncap-failure",
   );
@@ -1213,19 +1213,19 @@ void test("acquireMirrorArtifacts falls back to materialize-failed when cap fail
     ]);
 
     const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
 
     assert.equal(state.terminal, true);
-    assert.equal(state.mirroredCount, 0);
-    assert.equal(state.skippedCount, 1);
-    assert.deepEqual(state.skippedAssetIds, [
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.deepEqual(state.skippedAssetReasons, {});
+    assert.deepEqual(state.lastBatchSkippedReasons, {});
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(
+      mirrorIndex[0]?.assetId,
       "official-index-cap-then-noncap-failure",
-    ]);
-    assert.deepEqual(state.skippedAssetReasons, {
-      "official-index-cap-then-noncap-failure": "materialize-failed",
-    });
-    assert.deepEqual(state.lastBatchSkippedReasons, {
-      "official-index-cap-then-noncap-failure": "materialize-failed",
-    });
+    );
   } finally {
     globalThis.fetch = originalFetch;
     restoreFetchMockFlag(previousFetchMockFlag);
