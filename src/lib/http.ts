@@ -429,8 +429,7 @@ export function createPinnedLookup(
   address: ResolvedHostnameAddress,
 ): LookupFunction {
   return (_hostname, options, callback) => {
-    const resolvedCallback =
-      typeof options === "function" ? options : callback;
+    const resolvedCallback = typeof options === "function" ? options : callback;
 
     if (!resolvedCallback) {
       throw new TypeError("DNS lookup callback is required.");
