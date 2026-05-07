@@ -32,13 +32,15 @@ export async function fetchOfficialIndexPageInfo(url: string): Promise<{
     };
   }
 
-  const extractedContent = extractOfficialIndexPageSummary(html, url);
   const installCommand = extractInstallCommand(html);
+  const githubUrl = extractGitHubUrl(html, installCommand);
+  const extractedContent = extractOfficialIndexPageSummary(html, url, {
+    installCommand,
+    githubUrl,
+  });
   return {
     content: extractedContent.length > 0 ? extractedContent : null,
-    repositoryUrl: normalizeGitHubRepositoryUrl(
-      extractGitHubUrl(html, installCommand),
-    ),
+    repositoryUrl: normalizeGitHubRepositoryUrl(githubUrl),
   };
 }
 
@@ -87,11 +89,18 @@ async function fetchOfficialIndexPageHtml(url: string): Promise<string | null> {
   });
 }
 
-function extractOfficialIndexPageSummary(html: string, url: string): string {
+function extractOfficialIndexPageSummary(
+  html: string,
+  url: string,
+  options: {
+    installCommand?: string | null;
+    githubUrl?: string | null;
+  } = {},
+): string {
   const title = extractTitle(html);
   const description = extractMetaDescription(html);
-  const installCommand = extractInstallCommand(html);
-  const githubUrl = extractGitHubUrl(html, installCommand);
+  const installCommand = options.installCommand ?? extractInstallCommand(html);
+  const githubUrl = options.githubUrl ?? extractGitHubUrl(html, installCommand);
   const skillSummary = extractSectionParagraph("What This Skill Does", html);
   const whyItHelps = extractWhyItHelps(html);
   const useCases = extractSectionListItems("When to use it", html);

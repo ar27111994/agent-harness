@@ -595,14 +595,11 @@ async function materializeOfficialIndexPackage(
   }
 
   if (sawNonCapFailure && officialIndexPage.content !== null) {
-    const referenceContent = officialIndexPage.content;
-    if (referenceContent !== null) {
-      return {
-        artifact: {
-          content: Buffer.from(referenceContent, "utf8"),
-        },
-      };
-    }
+    return {
+      artifact: {
+        content: Buffer.from(officialIndexPage.content, "utf8"),
+      },
+    };
   }
 
   return {
@@ -617,7 +614,8 @@ async function buildOfficialIndexRepoUrlCandidates(
   resolvedOfficialIndexRepoUrl?: string | null,
 ): Promise<string[]> {
   let officialIndexRepoUrl =
-    resolvedOfficialIndexRepoUrl ?? officialIndexRepoUrlCache.get(entry.source.originUrl);
+    resolvedOfficialIndexRepoUrl ??
+    officialIndexRepoUrlCache.get(entry.source.originUrl);
 
   if (
     resolvedOfficialIndexRepoUrl === undefined &&
