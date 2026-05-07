@@ -462,6 +462,7 @@ async function materializeOfficialIndexPackage(
   const slug = entry.install.manifestEntry;
   const owner = entry.source.sourceId.split(":")[1];
   let capSkipReason: MirrorAcquireSkipReason | undefined;
+  let sawNonCapFailure = false;
 
   if (!slug || !owner) {
     return { artifact: null };
@@ -475,6 +476,7 @@ async function materializeOfficialIndexPackage(
     });
 
     if (!snapshot || snapshot.tree.truncated) {
+      sawNonCapFailure = true;
       continue;
     }
 
@@ -483,6 +485,7 @@ async function materializeOfficialIndexPackage(
       slug,
     );
     if (!skillRootPath) {
+      sawNonCapFailure = true;
       continue;
     }
 
@@ -519,6 +522,7 @@ async function materializeOfficialIndexPackage(
     const packageFiles = packageFileCandidates;
 
     if (packageFiles.length === 0) {
+      sawNonCapFailure = true;
       continue;
     }
 
@@ -557,6 +561,7 @@ async function materializeOfficialIndexPackage(
     }
 
     if (materializedFiles.length === 0) {
+      sawNonCapFailure = true;
       continue;
     }
 
@@ -578,7 +583,7 @@ async function materializeOfficialIndexPackage(
 
   return {
     artifact: null,
-    skipReason: capSkipReason,
+    skipReason: sawNonCapFailure ? undefined : capSkipReason,
   };
 }
 
@@ -586,14 +591,14 @@ async function buildOfficialIndexRepoUrlCandidates(
   entry: AssetCatalogEntry,
   owner: string,
 ): Promise<string[]> {
-  const cachedOfficialIndexRepoUrl = officialIndexRepoUrlCache.get(
+  let officialIndexRepoUrl = officialIndexRepoUrlCache.get(
     entry.source.originUrl,
   );
-  const officialIndexRepoUrl =
-    cachedOfficialIndexRepoUrl ??
-    (await fetchOfficialIndexPageRepositoryUrl(entry.source.originUrl));
 
   if (!officialIndexRepoUrlCache.has(entry.source.originUrl)) {
+    officialIndexRepoUrl = await fetchOfficialIndexPageRepositoryUrl(
+      entry.source.originUrl,
+    );
     officialIndexRepoUrlCache.set(entry.source.originUrl, officialIndexRepoUrl);
   }
 

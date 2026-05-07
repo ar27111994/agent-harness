@@ -1090,6 +1090,149 @@ void test("acquireMirrorArtifacts mirrors official-index packages with files bet
   }
 });
 
+void test("acquireMirrorArtifacts falls back to materialize-failed when cap failures are followed by non-cap candidate failures", async (context) => {
+  const entry = buildOfficialIndexAsset(
+    "official-index-cap-then-noncap-failure",
+  );
+  const projectRoot = await createAcquireFixture([entry]);
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  const repoUrl =
+    "https://github.com/cloudflare/cloudflare-skills/tree/main/skills/cloudflare";
+  const oversizedTree = Array.from(
+    { length: MAX_OFFICIAL_INDEX_PACKAGE_FILES + 1 },
+    (_, index) => ({
+      path:
+        index === 0
+          ? "skills/cloudflare/SKILL.md"
+          : `skills/cloudflare/references/oversized-${index}.md`,
+      type: "blob",
+      size: 128,
+      sha: `oversized-sha-${index}`,
+    }),
+  );
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (
+      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
+    ) {
+      return new Response(createOfficialIndexHtml(repoUrl), { status: 200 });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/cloudflare-skills"
+    ) {
+      return Response.json({
+        name: "cloudflare-skills",
+        full_name: "cloudflare/cloudflare-skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/cloudflare-skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "oversized-tree-sha",
+        truncated: false,
+        tree: oversizedTree,
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    if (requestUrl === "https://api.github.com/repos/cloudflare/skills") {
+      return Response.json({
+        name: "skills",
+        full_name: "cloudflare/skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "fallback-tree-sha",
+        truncated: false,
+        tree: [
+          {
+            path: "skills/other-skill/SKILL.md",
+            type: "blob",
+            size: 128,
+            sha: "other-skill-sha",
+          },
+        ],
+      });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    throw new Error(`Unexpected URL: ${requestUrl}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  try {
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [
+      "--batch-size",
+      "10",
+    ]);
+
+    const state = await readAcquireStateFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 0);
+    assert.equal(state.skippedCount, 1);
+    assert.deepEqual(state.skippedAssetIds, [
+      "official-index-cap-then-noncap-failure",
+    ]);
+    assert.deepEqual(state.skippedAssetReasons, {
+      "official-index-cap-then-noncap-failure": "materialize-failed",
+    });
+    assert.deepEqual(state.lastBatchSkippedReasons, {
+      "official-index-cap-then-noncap-failure": "materialize-failed",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("acquireMirrorArtifacts records official-index total-byte cap skips with reasons", async (context) => {
   const entry = buildOfficialIndexAsset("official-index-too-large");
   const projectRoot = await createAcquireFixture([entry]);
@@ -1183,14 +1326,7 @@ void test("acquireMirrorArtifacts records official-index total-byte cap skips wi
       return Response.json({
         sha: "owner-tree-sha",
         truncated: false,
-        tree: [
-          {
-            path: "skills/other-skill/SKILL.md",
-            type: "blob",
-            size: 128,
-            sha: "owner-skill-sha",
-          },
-        ],
+        tree: oversizedTree,
       });
     }
 
@@ -1328,14 +1464,7 @@ void test("acquireMirrorArtifacts records official-index file-count cap skips wi
       return Response.json({
         sha: "owner-tree-sha",
         truncated: false,
-        tree: [
-          {
-            path: "skills/other-skill/SKILL.md",
-            type: "blob",
-            size: 128,
-            sha: "owner-skill-sha",
-          },
-        ],
+        tree: oversizedTree,
       });
     }
 
