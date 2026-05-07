@@ -254,13 +254,13 @@ function cleanHtmlText(value: string): string | null {
 
 function decodeHtmlEntities(value: string): string {
   return value
-    .replace(/&amp;/gu, "&")
     .replace(/&quot;/gu, '"')
     .replace(/&#x27;/gu, "'")
     .replace(/&#39;/gu, "'")
     .replace(/&lt;/gu, "<")
     .replace(/&gt;/gu, ">")
-    .replace(/&nbsp;/gu, " ");
+    .replace(/&nbsp;/gu, " ")
+    .replace(/&amp;/gu, "&");
 }
 
 function normalizeGitHubRepositoryUrl(url: string | null): string | null {

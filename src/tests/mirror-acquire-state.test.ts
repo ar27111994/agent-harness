@@ -1091,9 +1091,22 @@ void test("acquireMirrorArtifacts mirrors official-index packages with files bet
 });
 
 void test("acquireMirrorArtifacts falls back to official-index page content when cap failures are followed by non-cap candidate failures", async (context) => {
-  const entry = buildOfficialIndexAsset(
+  const originUrl =
+    "https://officialskills.sh/cloudflare/skills/cloudflare?cap-then-noncap=1";
+  const baseEntry = buildOfficialIndexAsset(
     "official-index-cap-then-noncap-failure",
   );
+  const entry = {
+    ...baseEntry,
+    source: {
+      ...baseEntry.source,
+      originUrl,
+    },
+    evidence: {
+      ...baseEntry.evidence,
+      rootPath: originUrl,
+    },
+  };
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -1116,9 +1129,7 @@ void test("acquireMirrorArtifacts falls back to official-index page content when
   globalThis.fetch = async (url) => {
     const requestUrl = String(url);
 
-    if (
-      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
-    ) {
+    if (requestUrl === originUrl) {
       return new Response(createOfficialIndexHtml(repoUrl), { status: 200 });
     }
 

@@ -5,6 +5,43 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
+import { fetchOfficialIndexPageContent } from "../official-index.js";
+
+void test("official index page content does not double-decode escaped entities", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  try {
+    globalThis.fetch = async () =>
+      new Response(
+        [
+          "<html><head>",
+          "<title>Cloudflare/cloudflare — Agent Skills | officialskills.sh</title>",
+          '<meta name="description" content="Keeps &amp;quot;quoted&amp;quot; guidance intact." />',
+          "</head><body>",
+          "<section><h2>What This Skill Does</h2><p>Preserves &amp;quot;quoted&amp;quot; examples.</p></section>",
+          "npx skills add https://github.com/cloudflare/skills --skill cloudflare",
+          "</body></html>",
+        ].join(""),
+        { status: 200 },
+      );
+    context.after(() => {
+      globalThis.fetch = originalFetch;
+      restoreFetchMockFlag(previousFetchMockFlag);
+    });
+
+    const content = await fetchOfficialIndexPageContent(
+      "https://officialskills.sh/cloudflare/skills/cloudflare",
+    );
+
+    assert.match(content ?? "", /&quot;quoted&quot;/u);
+    assert.doesNotMatch(content ?? "", /"quoted"/u);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  }
+});
 
 void test("official index repo extraction respects checked-in owner allowlist", async (context) => {
   const projectRoot = await mkdtemp(
