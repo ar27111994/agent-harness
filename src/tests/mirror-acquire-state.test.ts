@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -1236,6 +1236,22 @@ void test("acquireMirrorArtifacts falls back to official-index page content when
     assert.equal(
       mirrorIndex[0]?.assetId,
       "official-index-cap-then-noncap-failure",
+    );
+
+    const mirroredContent = await readFile(
+      join(
+        projectRoot,
+        "mirror",
+        "raw",
+        mirrorIndex[0]?.mirrorId ?? "",
+        "content.txt",
+      ),
+      "utf8",
+    );
+    assert.ok(mirroredContent.includes(`**Official Page**: ${originUrl}`));
+    assert.match(
+      mirroredContent,
+      /\*\*GitHub\*\*: https:\/\/github\.com\/cloudflare\/cloudflare-skills\/tree\/main\/skills\/cloudflare/u,
     );
   } finally {
     globalThis.fetch = originalFetch;

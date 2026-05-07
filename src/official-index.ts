@@ -17,18 +17,38 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
 ] as const;
 
 /**
+ * Fetches an official index page once and extracts the structured fallback
+ * summary plus any advertised backing GitHub repository URL.
+ */
+export async function fetchOfficialIndexPageInfo(url: string): Promise<{
+  content: string | null;
+  repositoryUrl: string | null;
+}> {
+  const html = await fetchOfficialIndexPageHtml(url);
+  if (html === null) {
+    return {
+      content: null,
+      repositoryUrl: null,
+    };
+  }
+
+  const extractedContent = extractOfficialIndexPageSummary(html, url);
+  const installCommand = extractInstallCommand(html);
+  return {
+    content: extractedContent.length > 0 ? extractedContent : null,
+    repositoryUrl: normalizeGitHubRepositoryUrl(
+      extractGitHubUrl(html, installCommand),
+    ),
+  };
+}
+
+/**
  * Fetches official index page content with the configured runtime safeguards.
  */
 export async function fetchOfficialIndexPageContent(
   url: string,
 ): Promise<string | null> {
-  const html = await fetchOfficialIndexPageHtml(url);
-  if (html === null) {
-    return null;
-  }
-
-  const extractedContent = extractOfficialIndexPageSummary(html, url);
-  return extractedContent.length > 0 ? extractedContent : null;
+  return (await fetchOfficialIndexPageInfo(url)).content;
 }
 
 /**
@@ -38,14 +58,7 @@ export async function fetchOfficialIndexPageContent(
 export async function fetchOfficialIndexPageRepositoryUrl(
   url: string,
 ): Promise<string | null> {
-  const html = await fetchOfficialIndexPageHtml(url);
-  if (html === null) {
-    return null;
-  }
-
-  return normalizeGitHubRepositoryUrl(
-    extractGitHubUrl(html, extractInstallCommand(html)),
-  );
+  return (await fetchOfficialIndexPageInfo(url)).repositoryUrl;
 }
 
 /**
