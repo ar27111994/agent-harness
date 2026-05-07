@@ -629,6 +629,186 @@ void test("acquireMirrorArtifacts mirrors official-index packages when commit lo
   }
 });
 
+void test("acquireMirrorArtifacts falls back to later official-index repo candidates when an earlier candidate exceeds policy caps", async (context) => {
+  const entry = buildOfficialIndexAsset("official-index-fallback-candidate");
+  const projectRoot = await createAcquireFixture([entry]);
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  const oversizedRepoUrl =
+    "https://github.com/cloudflare/cloudflare-skills/tree/main/skills/cloudflare";
+  const oversizedTree = Array.from(
+    { length: MAX_OFFICIAL_INDEX_PACKAGE_FILES + 1 },
+    (_, index) => ({
+      path:
+        index === 0
+          ? "skills/cloudflare/SKILL.md"
+          : `skills/cloudflare/references/oversized-${index}.md`,
+      type: "blob",
+      size: 128,
+      sha: `oversized-sha-${index}`,
+    }),
+  );
+  const fallbackSkillMarkdownContent = Buffer.from(
+    "# Cloudflare fallback\n",
+    "utf8",
+  );
+  const fallbackReadmeContent = Buffer.from("Fallback repo\n", "utf8");
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+
+    if (
+      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
+    ) {
+      return new Response(createOfficialIndexHtml(oversizedRepoUrl), {
+        status: 200,
+      });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/cloudflare-skills"
+    ) {
+      return Response.json({
+        name: "cloudflare-skills",
+        full_name: "cloudflare/cloudflare-skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/cloudflare-skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "oversized-tree-sha",
+        truncated: false,
+        tree: oversizedTree,
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    if (requestUrl === "https://api.github.com/repos/cloudflare/skills") {
+      return Response.json({
+        name: "skills",
+        full_name: "cloudflare/skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "fallback-tree-sha",
+        truncated: false,
+        tree: [
+          {
+            path: "skills/cloudflare/SKILL.md",
+            type: "blob",
+            size: fallbackSkillMarkdownContent.byteLength,
+            sha: createGitBlobSha(fallbackSkillMarkdownContent),
+          },
+          {
+            path: "skills/cloudflare/README.md",
+            type: "blob",
+            size: fallbackReadmeContent.byteLength,
+            sha: createGitBlobSha(fallbackReadmeContent),
+          },
+        ],
+      });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/skills/commits/main"
+    ) {
+      return new Response("rate limited", { status: 503 });
+    }
+
+    if (
+      requestUrl ===
+      "https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/SKILL.md"
+    ) {
+      return new Response(fallbackSkillMarkdownContent, { status: 200 });
+    }
+
+    if (
+      requestUrl ===
+      "https://raw.githubusercontent.com/cloudflare/skills/main/skills/cloudflare/README.md"
+    ) {
+      return new Response(fallbackReadmeContent, { status: 200 });
+    }
+
+    throw new Error(`Unexpected URL: ${requestUrl}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  try {
+    const policy = buildMirrorPolicy();
+    await writeJsonFile(join(projectRoot, "mirror", "policy.json"), {
+      ...policy,
+      selection: {
+        ...policy.selection,
+        requirePinnedProvenance: true,
+      },
+    });
+
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [
+      "--batch-size",
+      "10",
+    ]);
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.skippedAssetIds, []);
+    assert.deepEqual(state.skippedAssetReasons, {});
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(mirrorIndex[0]?.assetId, "official-index-fallback-candidate");
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("acquireMirrorArtifacts mirrors official-index packages with more than the legacy file-count cap", async (context) => {
   const entry = buildOfficialIndexAsset("official-index-many-files");
   const projectRoot = await createAcquireFixture([entry]);
@@ -978,6 +1158,49 @@ void test("acquireMirrorArtifacts records official-index total-byte cap skips wi
       return new Response("not found", { status: 404 });
     }
 
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/cloudflare-skills"
+    ) {
+      return Response.json({
+        name: "cloudflare-skills",
+        full_name: "cloudflare/cloudflare-skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/cloudflare-skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "owner-tree-sha",
+        truncated: false,
+        tree: [
+          {
+            path: "skills/other-skill/SKILL.md",
+            type: "blob",
+            size: 128,
+            sha: "owner-skill-sha",
+          },
+        ],
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
     throw new Error(`Unexpected URL: ${requestUrl}`);
   };
 
@@ -1076,6 +1299,49 @@ void test("acquireMirrorArtifacts records official-index file-count cap skips wi
 
     if (
       requestUrl === "https://api.github.com/repos/cloudflare/skills/readme"
+    ) {
+      return new Response("not found", { status: 404 });
+    }
+
+    if (
+      requestUrl === "https://api.github.com/repos/cloudflare/cloudflare-skills"
+    ) {
+      return Response.json({
+        name: "cloudflare-skills",
+        full_name: "cloudflare/cloudflare-skills",
+        description: "fixture",
+        default_branch: "main",
+        updated_at: "2026-01-01T00:00:00.000Z",
+        pushed_at: "2026-01-01T00:00:00.000Z",
+        stargazers_count: 1,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/cloudflare/cloudflare-skills",
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/git/trees/main?recursive=1"
+    ) {
+      return Response.json({
+        sha: "owner-tree-sha",
+        truncated: false,
+        tree: [
+          {
+            path: "skills/other-skill/SKILL.md",
+            type: "blob",
+            size: 128,
+            sha: "owner-skill-sha",
+          },
+        ],
+      });
+    }
+
+    if (
+      requestUrl ===
+      "https://api.github.com/repos/cloudflare/cloudflare-skills/readme"
     ) {
       return new Response("not found", { status: 404 });
     }

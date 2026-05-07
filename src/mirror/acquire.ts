@@ -459,6 +459,7 @@ async function materializeOfficialIndexPackage(
 ): Promise<MaterializeArtifactResult> {
   const slug = entry.install.manifestEntry;
   const owner = entry.source.sourceId.split(":")[1];
+  let capSkipReason: MirrorAcquireSkipReason | undefined;
 
   if (!slug || !owner) {
     return { artifact: null };
@@ -493,10 +494,8 @@ async function materializeOfficialIndexPackage(
       0,
     );
     if (packageFileCandidates.length > MAX_OFFICIAL_INDEX_PACKAGE_FILES) {
-      return {
-        artifact: null,
-        skipReason: "official-index-package-too-many-files",
-      };
+      capSkipReason ??= "official-index-package-too-many-files";
+      continue;
     }
 
     if (
@@ -506,17 +505,13 @@ async function materializeOfficialIndexPackage(
           treeEntry.size > MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
       )
     ) {
-      return {
-        artifact: null,
-        skipReason: "official-index-file-too-large",
-      };
+      capSkipReason ??= "official-index-file-too-large";
+      continue;
     }
 
     if (packageTotalBytes > MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES) {
-      return {
-        artifact: null,
-        skipReason: "official-index-package-too-large",
-      };
+      capSkipReason ??= "official-index-package-too-large";
+      continue;
     }
 
     const packageFiles = packageFileCandidates;
@@ -581,6 +576,7 @@ async function materializeOfficialIndexPackage(
 
   return {
     artifact: null,
+    skipReason: capSkipReason,
   };
 }
 
