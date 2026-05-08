@@ -378,7 +378,7 @@ function normalizeHttpsOrigin(value: string, envName: string): string {
     return parsedUrl.origin;
   } catch (error) {
     throw new Error(
-      `${envName} must contain comma-separated https origins when set: ${value}`,
+      `${envName} must contain comma- or newline-separated https origins when set: ${value}`,
       { cause: error },
     );
   }

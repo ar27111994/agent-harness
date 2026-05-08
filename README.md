@@ -614,7 +614,7 @@ Documented OpenCode-native surfaces that this adapter uses or stays compatible w
 Agent-harness-managed overlay/reference locations:
 
 - `.opencode/context/project-intelligence/agent-harness/`
-- harness-managed `.opencode/` link targets such as `instructions/`, `hooks/`, `mcp-servers/`, `extensions/`, and `reference-packs/`
+- harness-managed context-root link targets such as `.opencode/context/project-intelligence/agent-harness/instructions/`, `.opencode/context/project-intelligence/agent-harness/hooks/`, `.opencode/context/project-intelligence/agent-harness/mcp-servers/`, `.opencode/context/project-intelligence/agent-harness/extensions/`, and `.opencode/context/project-intelligence/agent-harness/reference-packs/`
 - `AGENTS.md` managed sections
 
 Wire-plan outputs:
