@@ -115,6 +115,26 @@ export function buildDemandContext(
 }
 
 /**
+ * Determines whether a host concern target has medium/strong supporting demand
+ * evidence after canonicalizing the requested concern through policy synonyms.
+ */
+export function shouldEnforceConcernTarget(
+  concern: string,
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): boolean {
+  const canonicalConcern = canonicalizePhrase(concern, policy);
+
+  return demandContext.terms.some(
+    (term) =>
+      term.signalType === "concerns" &&
+      term.canonicalTerm === canonicalConcern &&
+      (term.evidenceStrengthCounts.strong > 0 ||
+        term.evidenceStrengthCounts.medium > 0),
+  );
+}
+
+/**
  * Creates an empty evidence-strength histogram for one demand term.
  */
 function createEmptyEvidenceStrengthCounts(

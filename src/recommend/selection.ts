@@ -3,6 +3,7 @@ import {
   buildCandidateRecommendation,
   computeEntryPreselectionScore,
 } from "./candidates.js";
+import { shouldEnforceConcernTarget } from "./signals.js";
 
 import type {
   AssetCatalogEntry,
@@ -130,7 +131,7 @@ function preserveRequiredCoverageCandidates(
   }
 
   for (const target of hostPolicy.targetConcerns) {
-    if (!shouldEnforceConcernTarget(target.concern, demandContext)) {
+    if (!shouldEnforceConcernTarget(target.concern, demandContext, policy)) {
       continue;
     }
 
@@ -154,19 +155,6 @@ function preserveRequiredCoverageCandidates(
   }
 
   return selected.slice(0, effectiveLimit).sort(compareScoredCandidates);
-}
-
-function shouldEnforceConcernTarget(
-  concern: string,
-  demandContext: DemandContext,
-): boolean {
-  return demandContext.terms.some(
-    (term) =>
-      term.signalType === "concerns" &&
-      term.canonicalTerm === concern &&
-      (term.evidenceStrengthCounts.strong > 0 ||
-        term.evidenceStrengthCounts.medium > 0),
-  );
 }
 
 function preserveMinimumCandidates(
@@ -389,7 +377,7 @@ function computeCoverageGain(
   }
 
   for (const target of hostPolicy.targetConcerns) {
-    if (!shouldEnforceConcernTarget(target.concern, demandContext)) {
+    if (!shouldEnforceConcernTarget(target.concern, demandContext, policy)) {
       continue;
     }
 

@@ -7,6 +7,7 @@ import {
   collectMatchedSignals,
   computeOutOfDomainPenalty,
   normalizePhrase,
+  shouldEnforceConcernTarget,
 } from "./signals.js";
 import type {
   AssetCatalogEntry,
@@ -61,6 +62,12 @@ export function buildCandidateRecommendation(
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): CandidateRecommendation | null {
+  const capabilitySearchTerms = buildSearchTerms(
+    [entry.id, entry.displayName, ...entry.capabilities],
+    policy,
+  );
+  const genericToolingTerms = buildGenericToolingTerms(policy);
+  const wrapperLikeTerms = buildSearchTerms([...WRAPPER_LIKE_TERMS], policy);
   const searchTerms = buildSearchTerms(
     [
       entry.id,
@@ -83,7 +90,12 @@ export function buildCandidateRecommendation(
     demandContext,
     policy,
   );
-  const matchQuality = analyzeMatchQuality(matchedSignals, searchTerms, policy);
+  const matchQuality = analyzeMatchQuality(
+    matchedSignals,
+    capabilitySearchTerms,
+    wrapperLikeTerms,
+    genericToolingTerms,
+  );
   const coverageTags = buildCoverageTags(searchTerms, matchedSignals, policy);
   const taskModes = buildTaskModes(
     searchTerms,
@@ -178,10 +190,14 @@ export function buildCandidateRecommendation(
 
 function analyzeMatchQuality(
   matchedSignals: RecommendationSignalMatch[],
-  searchTerms: Set<string>,
-  policy: RecommendationPolicy,
+  capabilitySearchTerms: Set<string>,
+  wrapperLikeTerms: Set<string>,
+  genericToolingTerms: Set<string>,
 ): MatchQuality {
-  const exactnessEligible = !isWrapperLikeAsset(searchTerms);
+  const exactnessEligible = !isWrapperLikeAsset(
+    capabilitySearchTerms,
+    wrapperLikeTerms,
+  );
   let exactStackWeight = 0;
   let ecosystemWeight = 0;
   let genericConcernWeight = 0;
@@ -198,7 +214,7 @@ function analyzeMatchQuality(
 
       if (
         match.signalType === "tooling" &&
-        isSpecificToolingSignal(match.term, policy)
+        isSpecificToolingSignal(match.term, genericToolingTerms)
       ) {
         exactStackWeight += match.weight;
         continue;
@@ -226,9 +242,12 @@ function analyzeMatchQuality(
   };
 }
 
-function isWrapperLikeAsset(searchTerms: Set<string>): boolean {
-  for (const term of searchTerms) {
-    if (WRAPPER_LIKE_TERMS.has(term)) {
+function isWrapperLikeAsset(
+  capabilitySearchTerms: Set<string>,
+  wrapperLikeTerms: Set<string>,
+): boolean {
+  for (const term of capabilitySearchTerms) {
+    if (wrapperLikeTerms.has(term)) {
       return true;
     }
   }
@@ -236,28 +255,23 @@ function isWrapperLikeAsset(searchTerms: Set<string>): boolean {
   return false;
 }
 
-function isSpecificToolingSignal(
-  term: string,
-  policy: RecommendationPolicy,
-): boolean {
-  const normalizedTerm = normalizePhrase(term);
-  if (GENERIC_CAPABILITY_TERMS.has(normalizedTerm)) {
-    return false;
-  }
+function buildGenericToolingTerms(policy: RecommendationPolicy): Set<string> {
+  const genericToolingTerms = new Set<string>(GENERIC_CAPABILITY_TERMS);
 
   for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
-    if (normalizePhrase(concern) === normalizedTerm) {
-      return false;
-    }
-
-    if (
-      keywords.some((keyword) => normalizePhrase(keyword) === normalizedTerm)
-    ) {
-      return false;
+    for (const term of buildSearchTerms([concern, ...keywords], policy)) {
+      genericToolingTerms.add(term);
     }
   }
 
-  return true;
+  return genericToolingTerms;
+}
+
+function isSpecificToolingSignal(
+  term: string,
+  genericToolingTerms: Set<string>,
+): boolean {
+  return !genericToolingTerms.has(normalizePhrase(term));
 }
 
 function computePortfolioFitBonus(matchQuality: MatchQuality): number {
@@ -281,19 +295,6 @@ function computeDemandExactnessBonus(matchQuality: MatchQuality): number {
   }
 
   return 0;
-}
-
-function shouldEnforceConcernTarget(
-  concern: string,
-  demandContext: DemandContext,
-): boolean {
-  return demandContext.terms.some(
-    (term) =>
-      term.signalType === "concerns" &&
-      term.canonicalTerm === concern &&
-      (term.evidenceStrengthCounts.strong > 0 ||
-        term.evidenceStrengthCounts.medium > 0),
-  );
 }
 
 function computeHostDeprioritizationPenalty(
@@ -343,7 +344,7 @@ function computeHostPreference(
   for (const target of hostPolicy.targetConcerns) {
     if (
       coverageTags.includes(target.concern) &&
-      shouldEnforceConcernTarget(target.concern, demandContext)
+      shouldEnforceConcernTarget(target.concern, demandContext, policy)
     ) {
       score += Math.max(1, Math.round(target.weight / 2));
     }
