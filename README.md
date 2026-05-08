@@ -1171,6 +1171,7 @@ Known boundaries:
 
 - `CHANGELOG.md` - release notes
 - `AGENT-SETUP-PLAYBOOK.md` - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- `SECURITY.md` - vulnerability reporting and supported-version policy
 - `Roadmap.md` - gap analysis and long-range direction
 - `IMPLEMENTATION-PLAN.md` - milestone-oriented execution plan
 - `FUTURE-IMPROVEMENTS.md` - follow-up ideas and architectural extensions
