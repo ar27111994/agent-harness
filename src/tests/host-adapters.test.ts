@@ -364,12 +364,12 @@ void test("Pi wire updates documented top-level settings arrays and cleans legac
       await readFile(join(workspaceRoot, ".pi", "settings.json"), "utf8"),
     ) as Record<string, unknown>;
     assert.deepEqual(appliedSettings.skills, [
-      "skills/agent-harness",
       "skills/custom-skill",
+      "skills/agent-harness",
     ]);
     assert.deepEqual(appliedSettings.prompts, [
-      "prompts/agent-harness.md",
       "prompts/custom.md",
+      "prompts/agent-harness.md",
     ]);
     assert.equal("agentHarness" in appliedSettings, false);
 

@@ -917,13 +917,12 @@ async function upsertManagedPiSettings(filePath: string): Promise<void> {
     existingValue === null ? {} : assertJsonObject(existingValue, filePath);
   delete settings.agentHarness;
 
-  await writeOrRemoveJsonFile(
-    filePath,
-    mergeJsonObjects(settings, {
-      skills: ["skills/agent-harness"],
-      prompts: ["prompts/agent-harness.md"],
-    }),
-  );
+  addManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
+  addManagedStringArrayEntries(settings, "prompts", [
+    "prompts/agent-harness.md",
+  ]);
+
+  await writeOrRemoveJsonFile(filePath, settings);
 }
 
 async function removeManagedPiSettings(filePath: string): Promise<void> {
@@ -1266,6 +1265,17 @@ function coerceStringArray(value: unknown): string[] {
     : [];
 }
 
+function addManagedStringArrayEntries(
+  settings: JsonObject,
+  key: string,
+  entriesToAdd: readonly string[],
+): void {
+  settings[key] = mergeStringArraysPreservingOrder(
+    coerceStringArray(settings[key]),
+    entriesToAdd,
+  );
+}
+
 function removeManagedStringArrayEntries(
   settings: JsonObject,
   key: string,
@@ -1284,4 +1294,23 @@ function removeManagedStringArrayEntries(
   }
 
   settings[key] = nextValues;
+}
+
+function mergeStringArraysPreservingOrder(
+  existingValues: readonly string[],
+  additionalValues: readonly string[],
+): string[] {
+  const mergedValues: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of [...existingValues, ...additionalValues]) {
+    if (seen.has(entry)) {
+      continue;
+    }
+
+    seen.add(entry);
+    mergedValues.push(entry);
+  }
+
+  return mergedValues;
 }
