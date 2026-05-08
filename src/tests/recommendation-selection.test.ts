@@ -4,6 +4,7 @@ import test from "node:test";
 import { buildTopRecommendationsForHost } from "../recommend/selection.js";
 import { buildDemandContext } from "../recommend/signals.js";
 import { buildSuggestedBundle } from "../recommend/summary.js";
+import { isPublisherVerifiedForAuthorityTier } from "../source-metadata.js";
 import type {
   AssetCatalogEntry,
   DemandProfile,
@@ -467,15 +468,6 @@ function buildPolicy(
   };
 }
 
-function isTestPublisherVerified(
-  authorityTier: AssetCatalogEntry["source"]["authorityTier"],
-): boolean {
-  return (
-    authorityTier !== "trusted-community" &&
-    authorityTier !== "unverified-community"
-  );
-}
-
 function buildCatalogEntry(
   id: string,
   assetKind: AssetCatalogEntry["assetKind"],
@@ -507,7 +499,7 @@ function buildCatalogEntry(
       sourcePriority,
       originUrl: `https://example.com/${id}`,
       publisher: sourceId,
-      publisherVerified: isTestPublisherVerified(authorityTier),
+      publisherVerified: isPublisherVerifiedForAuthorityTier(authorityTier),
     },
     trust: {
       score: sourcePriority,

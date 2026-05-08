@@ -1,3 +1,4 @@
+import { isPublisherVerifiedForAuthorityTier } from "./source-metadata.js";
 import type {
   AssetCatalogEntry,
   AssetKind,
@@ -612,13 +613,6 @@ function createDemandProfile(
   };
 }
 
-function isFixturePublisherVerified(authorityTier: AuthorityTier): boolean {
-  return (
-    authorityTier !== "trusted-community" &&
-    authorityTier !== "unverified-community"
-  );
-}
-
 function createAsset(
   id: string,
   options: FixtureAssetOptions,
@@ -636,7 +630,7 @@ function createAsset(
       sourcePriority: options.sourcePriority ?? 80,
       originUrl: `https://example.com/${options.sourceId}/${id}`,
       publisher: options.publisher,
-      publisherVerified: isFixturePublisherVerified(
+      publisherVerified: isPublisherVerifiedForAuthorityTier(
         options.authorityTier ?? "trusted-community",
       ),
     },

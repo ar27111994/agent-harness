@@ -420,7 +420,7 @@ function computeNegativePenalty(
     penalty += Math.max(2, policy.scoring.genericCapabilityPenalty);
   }
 
-  if (availableLocally && recommendationBasis === "local-availability") {
+  if (recommendationBasis === "local-availability") {
     penalty += Math.max(
       policy.scoring.weakDemandPenalty,
       policy.scoring.genericCapabilityPenalty + 4,
