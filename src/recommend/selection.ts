@@ -56,6 +56,7 @@ export function buildTopRecommendationsForHost(
   const candidates = preserveRequiredCoverageCandidates(
     scoredCandidates,
     host,
+    demandContext,
     policy,
     getHostPreselectionLimit(host, policy),
   )
@@ -66,7 +67,12 @@ export function buildTopRecommendationsForHost(
         left.entry.id.localeCompare(right.entry.id),
     );
 
-  const selectedCandidates = selectCandidatesForHost(host, candidates, policy);
+  const selectedCandidates = selectCandidatesForHost(
+    host,
+    candidates,
+    demandContext,
+    policy,
+  );
 
   return selectedCandidates.map((candidate, index) => ({
     assetId: candidate.entry.id,
@@ -104,6 +110,7 @@ function preserveRequiredCoverageCandidates(
     preselectionScore: number;
   }>,
   host: RecommendationHost,
+  demandContext: DemandContext,
   policy: RecommendationPolicy,
   limit: number,
 ): Array<{ candidate: CandidateRecommendation; preselectionScore: number }> {
@@ -123,6 +130,10 @@ function preserveRequiredCoverageCandidates(
   }
 
   for (const target of hostPolicy.targetConcerns) {
+    if (!shouldEnforceConcernTarget(target.concern, demandContext)) {
+      continue;
+    }
+
     preserveMinimumCandidates(
       scoredCandidates,
       preserved,
@@ -143,6 +154,19 @@ function preserveRequiredCoverageCandidates(
   }
 
   return selected.slice(0, effectiveLimit).sort(compareScoredCandidates);
+}
+
+function shouldEnforceConcernTarget(
+  concern: string,
+  demandContext: DemandContext,
+): boolean {
+  return demandContext.terms.some(
+    (term) =>
+      term.signalType === "concerns" &&
+      term.canonicalTerm === concern &&
+      (term.evidenceStrengthCounts.strong > 0 ||
+        term.evidenceStrengthCounts.medium > 0),
+  );
 }
 
 function preserveMinimumCandidates(
@@ -215,6 +239,7 @@ function isEntryCompatibleWithRecommendationHost(
 function selectCandidatesForHost(
   host: RecommendationHost,
   candidates: CandidateRecommendation[],
+  demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): CandidateRecommendation[] {
   const hostPolicy = policy.hosts[host];
@@ -238,6 +263,7 @@ function selectCandidatesForHost(
         candidate,
         selectionState,
         hostPolicy,
+        demandContext,
         policy,
         false,
       );
@@ -283,6 +309,7 @@ function selectCandidatesForHost(
       candidate,
       selectionState,
       hostPolicy,
+      demandContext,
       policy,
       true,
     );
@@ -299,6 +326,7 @@ function scoreCandidateAgainstSelection(
   candidate: CandidateRecommendation,
   selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
+  demandContext: DemandContext,
   policy: RecommendationPolicy,
   relaxed: boolean,
 ): DynamicScore {
@@ -306,6 +334,7 @@ function scoreCandidateAgainstSelection(
     candidate,
     selectionState,
     hostPolicy,
+    demandContext,
     policy,
   );
   const diversity =
@@ -345,6 +374,7 @@ function computeCoverageGain(
   candidate: CandidateRecommendation,
   selectionState: SelectionState,
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
+  demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): number {
   let score = 0;
@@ -359,6 +389,10 @@ function computeCoverageGain(
   }
 
   for (const target of hostPolicy.targetConcerns) {
+    if (!shouldEnforceConcernTarget(target.concern, demandContext)) {
+      continue;
+    }
+
     if (
       candidate.coverageTags.includes(target.concern) &&
       (selectionState.coverageTagCounts[target.concern] ?? 0) < target.minimum

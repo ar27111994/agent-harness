@@ -17,6 +17,25 @@ import type {
 import type { RecommendationHost } from "./hosts.js";
 import type { CandidateRecommendation, DemandContext } from "./model.js";
 
+const WRAPPER_LIKE_TERMS = new Set([
+  "config",
+  "docs",
+  "json",
+  "knowledge",
+  "reference",
+  "scenario",
+  "wrapper",
+  "yaml",
+  "yml",
+]);
+
+interface MatchQuality {
+  exactStackWeight: number;
+  ecosystemWeight: number;
+  genericConcernWeight: number;
+  hasOnlyGenericConcernMatch: boolean;
+}
+
 /**
  * Provides compute entry preselection score for the lifecycle pipeline.
  */
@@ -64,6 +83,7 @@ export function buildCandidateRecommendation(
     demandContext,
     policy,
   );
+  const matchQuality = analyzeMatchQuality(matchedSignals, searchTerms, policy);
   const coverageTags = buildCoverageTags(searchTerms, matchedSignals, policy);
   const taskModes = buildTaskModes(
     searchTerms,
@@ -88,19 +108,27 @@ export function buildCandidateRecommendation(
   const breakdown: RecommendationScoreBreakdown = {
     authority: policy.scoring.authorityWeights[entry.source.authorityTier],
     compatibility: policy.scoring.compatibilityWeights[entry.compatibilityMode],
-    portfolioFit: Math.round(
-      (entry.fit.portfolioFit * 0.7 + entry.fit.hostFit * 0.3) *
-        policy.scoring.portfolioFitMultiplier,
-    ),
+    portfolioFit:
+      Math.round(
+        (entry.fit.portfolioFit * 0.7 + entry.fit.hostFit * 0.3) *
+          policy.scoring.portfolioFitMultiplier,
+      ) + computePortfolioFitBonus(matchQuality),
     trust: Math.round(entry.trust.score / policy.scoring.trustDivisor),
     sourcePriority: Math.round(
       entry.source.sourcePriority / policy.scoring.sourcePriorityDivisor,
     ),
     demand: Math.min(
       policy.scoring.demandMatchCap,
-      matchedSignals.reduce((total, match) => total + match.weight, 0),
+      matchedSignals.reduce((total, match) => total + match.weight, 0) +
+        computeDemandExactnessBonus(matchQuality),
     ),
-    hostPreference: computeHostPreference(entry, host, coverageTags, policy),
+    hostPreference: computeHostPreference(
+      entry,
+      host,
+      coverageTags,
+      demandContext,
+      policy,
+    ),
     coverage: 0,
     diversity: 0,
     freshness: computeFreshnessScore(entry, policy),
@@ -119,6 +147,7 @@ export function buildCandidateRecommendation(
         entry,
         searchTerms,
         matchedSignals,
+        matchQuality,
         demandContext,
         policy,
       ) + hostDeprioritizationPenalty,
@@ -136,9 +165,135 @@ export function buildCandidateRecommendation(
     taskModes,
     matchedSignals,
     duplicateGroup,
-    reasons: buildBaseReasons(entry, matchedSignals, coverageTags, taskModes),
+    reasons: buildBaseReasons(
+      entry,
+      matchedSignals,
+      coverageTags,
+      taskModes,
+      matchQuality,
+    ),
     breakdown,
   };
+}
+
+function analyzeMatchQuality(
+  matchedSignals: RecommendationSignalMatch[],
+  searchTerms: Set<string>,
+  policy: RecommendationPolicy,
+): MatchQuality {
+  const exactnessEligible = !isWrapperLikeAsset(searchTerms);
+  let exactStackWeight = 0;
+  let ecosystemWeight = 0;
+  let genericConcernWeight = 0;
+
+  for (const match of matchedSignals) {
+    if (exactnessEligible) {
+      if (
+        match.signalType === "frameworks" ||
+        match.signalType === "packageManagers"
+      ) {
+        exactStackWeight += match.weight;
+        continue;
+      }
+
+      if (
+        match.signalType === "tooling" &&
+        isSpecificToolingSignal(match.term, policy)
+      ) {
+        exactStackWeight += match.weight;
+        continue;
+      }
+    }
+
+    if (match.signalType === "languages") {
+      ecosystemWeight += match.weight;
+      continue;
+    }
+
+    if (match.signalType === "concerns") {
+      genericConcernWeight += match.weight;
+    }
+  }
+
+  return {
+    exactStackWeight,
+    ecosystemWeight,
+    genericConcernWeight,
+    hasOnlyGenericConcernMatch:
+      genericConcernWeight > 0 &&
+      exactStackWeight === 0 &&
+      ecosystemWeight === 0,
+  };
+}
+
+function isWrapperLikeAsset(searchTerms: Set<string>): boolean {
+  for (const term of searchTerms) {
+    if (WRAPPER_LIKE_TERMS.has(term)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isSpecificToolingSignal(
+  term: string,
+  policy: RecommendationPolicy,
+): boolean {
+  const normalizedTerm = normalizePhrase(term);
+  if (GENERIC_CAPABILITY_TERMS.has(normalizedTerm)) {
+    return false;
+  }
+
+  for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
+    if (normalizePhrase(concern) === normalizedTerm) {
+      return false;
+    }
+
+    if (
+      keywords.some((keyword) => normalizePhrase(keyword) === normalizedTerm)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function computePortfolioFitBonus(matchQuality: MatchQuality): number {
+  if (matchQuality.exactStackWeight > 0) {
+    return matchQuality.exactStackWeight * 3 + matchQuality.ecosystemWeight;
+  }
+
+  if (matchQuality.ecosystemWeight > 0) {
+    return matchQuality.ecosystemWeight;
+  }
+
+  return 0;
+}
+
+function computeDemandExactnessBonus(matchQuality: MatchQuality): number {
+  if (matchQuality.exactStackWeight > 0) {
+    return (
+      matchQuality.exactStackWeight * 2 +
+      Math.round(matchQuality.ecosystemWeight / 2)
+    );
+  }
+
+  return 0;
+}
+
+function shouldEnforceConcernTarget(
+  concern: string,
+  demandContext: DemandContext,
+): boolean {
+  return demandContext.terms.some(
+    (term) =>
+      term.signalType === "concerns" &&
+      term.canonicalTerm === concern &&
+      (term.evidenceStrengthCounts.strong > 0 ||
+        term.evidenceStrengthCounts.medium > 0),
+  );
 }
 
 function computeHostDeprioritizationPenalty(
@@ -173,6 +328,7 @@ function computeHostPreference(
   entry: AssetCatalogEntry,
   host: RecommendationHost,
   coverageTags: string[],
+  demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): number {
   const hostPolicy = policy.hosts[host];
@@ -185,7 +341,10 @@ function computeHostPreference(
   }
 
   for (const target of hostPolicy.targetConcerns) {
-    if (coverageTags.includes(target.concern)) {
+    if (
+      coverageTags.includes(target.concern) &&
+      shouldEnforceConcernTarget(target.concern, demandContext)
+    ) {
       score += Math.max(1, Math.round(target.weight / 2));
     }
   }
@@ -197,6 +356,7 @@ function computeNegativePenalty(
   entry: AssetCatalogEntry,
   searchTerms: Set<string>,
   matchedSignals: RecommendationSignalMatch[],
+  matchQuality: MatchQuality,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): number {
@@ -217,6 +377,9 @@ function computeNegativePenalty(
   );
   if (specificTerms.length < 3) {
     penalty += policy.scoring.genericCapabilityPenalty;
+  }
+  if (matchQuality.hasOnlyGenericConcernMatch) {
+    penalty += Math.max(2, policy.scoring.genericCapabilityPenalty);
   }
 
   return penalty;
@@ -247,6 +410,7 @@ function buildBaseReasons(
   matchedSignals: RecommendationSignalMatch[],
   coverageTags: string[],
   taskModes: string[],
+  matchQuality: MatchQuality,
 ): string[] {
   const reasons = [
     `authority:${entry.source.authorityTier}`,
@@ -265,6 +429,14 @@ function buildBaseReasons(
 
   for (const taskMode of taskModes.slice(0, 3)) {
     reasons.push(`mode:${taskMode}`);
+  }
+
+  if (matchQuality.exactStackWeight > 0) {
+    reasons.push("fit:exact-stack");
+  } else if (matchQuality.ecosystemWeight > 0) {
+    reasons.push("fit:ecosystem");
+  } else if (matchQuality.genericConcernWeight > 0) {
+    reasons.push("fit:generic-concern");
   }
 
   return reasons;
