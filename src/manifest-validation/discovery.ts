@@ -29,6 +29,8 @@ import {
   SOURCE_KINDS,
 } from "./primitives.js";
 
+const DEMAND_EVIDENCE_STRENGTHS = ["strong", "medium", "weak"] as const;
+
 /**
  * Validates unknown data as source registry.
  */
@@ -155,8 +157,9 @@ export function assertDemandProfile(
         `${context}.evidence[${index}].fileName`,
       );
       if (entryRecord.evidenceStrength !== undefined) {
-        assertString(
+        assertLiteral(
           entryRecord.evidenceStrength,
+          DEMAND_EVIDENCE_STRENGTHS,
           `${context}.evidence[${index}].evidenceStrength`,
         );
       }

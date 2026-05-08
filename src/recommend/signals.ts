@@ -114,6 +114,9 @@ export function buildDemandContext(
   };
 }
 
+/**
+ * Creates an empty evidence-strength histogram for one demand term.
+ */
 function createEmptyEvidenceStrengthCounts(
   initialStrength?: DemandEvidenceStrength,
 ): Record<DemandEvidenceStrength, number> {
@@ -124,6 +127,9 @@ function createEmptyEvidenceStrengthCounts(
   };
 }
 
+/**
+ * Collapses evidence-strength counts into a capped weighting bucket.
+ */
 function computeWeightedEvidenceCount(
   evidenceStrengthCounts: Record<DemandEvidenceStrength, number>,
 ): number {
