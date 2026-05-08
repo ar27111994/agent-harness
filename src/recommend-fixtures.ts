@@ -41,6 +41,9 @@ export function buildRecommendationFixtures(): RecommendationEvaluationFixture[]
     buildBackendIntegrationFixture(),
     buildFrontendQualityFixture(),
     buildInfraSecurityFixture(),
+    buildPythonApiPrecisionFixture(),
+    buildLaravelWebStackFixture(),
+    buildNoisyDocsNarrowRuntimeFixture(),
     buildLocalAvailabilitySeparationFixture(),
     buildSharedExecutableBiasFixture(),
     buildSharedSourceSaturationFixture(),
@@ -323,6 +326,238 @@ function buildInfraSecurityFixture(): RecommendationEvaluationFixture {
         requiredAssetKinds: [{ assetKind: "mcp-server", minimum: 2 }],
         maxPerSourceFamily: 2,
         requiredConcerns: ["security", "integration", "data"],
+      },
+    ],
+  };
+}
+
+function buildPythonApiPrecisionFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "python-api-precision",
+    description:
+      "Python API workspaces should keep exact framework/testing assets above broad backend or docs overlap.",
+    demandProfile: createDemandProfile({
+      frameworks: ["fastapi"],
+      concerns: ["backend", "testing", "docs"],
+      tooling: ["python", "pytest", "pydantic"],
+    }),
+    catalogEntries: [
+      createAsset("fastapi-api-instruction", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["fastapi", "python", "backend", "pydantic"],
+        sourceId: "python-api-foundation",
+        publisher: "python-api-foundation",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("pytest-quality-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["pytest", "python", "testing", "fastapi"],
+        sourceId: "python-quality-lab",
+        publisher: "python-quality-lab",
+      }),
+      createAsset("generic-backend-agent", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["backend", "integration", "automation", "service"],
+        sourceId: "general-platform-lab",
+        publisher: "general-platform-lab",
+      }),
+      createAsset("docs-reference-pack", {
+        assetKind: "reference-pack",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["docs", "reference", "guide", "backend"],
+        sourceId: "docs-foundry",
+        publisher: "docs-foundry",
+        authorityTier: "official-compatible",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["fastapi-api-instruction", "pytest-quality-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        requiredConcerns: ["backend", "testing"],
+        rankedAbove: [
+          {
+            higherAssetId: "fastapi-api-instruction",
+            lowerAssetId: "generic-backend-agent",
+          },
+          {
+            higherAssetId: "pytest-quality-skill",
+            lowerAssetId: "generic-backend-agent",
+          },
+        ],
+      },
+      {
+        host: "opencode",
+        requiredAssetIds: ["fastapi-api-instruction", "pytest-quality-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        requiredConcerns: ["backend", "testing"],
+      },
+    ],
+  };
+}
+
+function buildLaravelWebStackFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "laravel-web-stack",
+    description:
+      "Laravel web app workspaces should favor exact PHP/Laravel assets over generic web or marketing overlap.",
+    demandProfile: createDemandProfile({
+      frameworks: ["laravel"],
+      concerns: ["backend", "frontend", "testing"],
+      tooling: ["php", "composer", "phpunit"],
+    }),
+    catalogEntries: [
+      createAsset("laravel-app-instruction", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["laravel", "php", "backend", "frontend"],
+        sourceId: "php-foundation",
+        publisher: "php-foundation",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("phpunit-testing-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["phpunit", "testing", "php", "laravel"],
+        sourceId: "qa-lab",
+        publisher: "qa-lab",
+      }),
+      createAsset("generic-web-agent", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["frontend", "backend", "integration", "automation"],
+        sourceId: "web-platform-lab",
+        publisher: "web-platform-lab",
+      }),
+      createAsset("seo-marketing-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["seo", "content", "marketing", "brand"],
+        sourceId: "growth-lab",
+        publisher: "growth-lab",
+        portfolioFit: 0.2,
+        hostFit: 0.3,
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["laravel-app-instruction", "phpunit-testing-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        requiredConcerns: ["backend", "frontend", "testing"],
+        rankedAbove: [
+          {
+            higherAssetId: "laravel-app-instruction",
+            lowerAssetId: "generic-web-agent",
+          },
+          {
+            higherAssetId: "phpunit-testing-skill",
+            lowerAssetId: "seo-marketing-skill",
+          },
+        ],
+      },
+      {
+        host: "opencode",
+        requiredAssetIds: ["laravel-app-instruction", "phpunit-testing-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        requiredConcerns: ["backend", "testing"],
+      },
+    ],
+  };
+}
+
+function buildNoisyDocsNarrowRuntimeFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "noisy-docs-narrow-runtime",
+    description:
+      "Docs-heavy workspaces with a narrow runtime stack should still rank exact runtime assets above broad docs/integration overlap.",
+    demandProfile: createDemandProfile({
+      frameworks: ["rust-cli"],
+      concerns: ["docs", "automation", "integration"],
+      tooling: ["rust", "cargo", "cli"],
+    }),
+    catalogEntries: [
+      createAsset("rust-cli-instruction", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["rust-cli", "rust", "cargo", "cli"],
+        sourceId: "rust-foundation",
+        publisher: "rust-foundation",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("cargo-testing-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["cargo", "rust", "testing", "cli"],
+        sourceId: "rust-quality-lab",
+        publisher: "rust-quality-lab",
+      }),
+      createAsset("generic-docs-automation-agent", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["docs", "automation", "integration", "guide"],
+        sourceId: "docs-ops-lab",
+        publisher: "docs-ops-lab",
+      }),
+      createAsset("broad-cloud-workflow", {
+        assetKind: "workflow",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["integration", "automation", "workflow", "cloud"],
+        sourceId: "general-cloud-lab",
+        publisher: "general-cloud-lab",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["rust-cli-instruction", "cargo-testing-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        rankedAbove: [
+          {
+            higherAssetId: "rust-cli-instruction",
+            lowerAssetId: "generic-docs-automation-agent",
+          },
+          {
+            higherAssetId: "cargo-testing-skill",
+            lowerAssetId: "broad-cloud-workflow",
+          },
+        ],
+      },
+      {
+        host: "opencode",
+        requiredAssetIds: ["rust-cli-instruction", "cargo-testing-skill"],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
       },
     ],
   };
