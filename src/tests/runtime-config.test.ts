@@ -67,6 +67,7 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
 
   assert.equal(config.aiEnrichment.requestTimeoutMs, 45_000);
   assert.equal(config.aiEnrichment.responseMaxBytes, 250_000);
+  assert.ok(allowedOrigins.has("https://api.openai.com"));
   assert.ok(allowedOrigins.has("https://proxy.example.com"));
   assert.ok(allowedOrigins.has(newEndpointOrigin));
   assert.equal(config.http.timeoutMs, 11_000);

@@ -626,7 +626,7 @@ Current boundaries:
 
 - The adapter links activated assets into a project-local overlay and reference tree.
 - It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.
-- Although `opencode.json` and `opencode.json` `mcp` are documented OpenCode-native surfaces, the adapter does not synthesize host-native MCP server config there yet because current asset metadata only carries MCP asset identity/reference content, not a normalized per-host server config payload.
+- Although `opencode.json` `mcp` is a documented OpenCode-native surface, the adapter does not synthesize host-native MCP server config there yet because current asset metadata only carries MCP asset identity/reference content, not a normalized per-host server config payload.
 - It does not install or modify global OpenCode packages, `opencode.json`, or global MCP configuration.
 
 ### Cursor
@@ -1038,7 +1038,7 @@ AGENT_HARNESS_SCAN_MAX_FILES=20000
 AGENT_HARNESS_SCAN_MAX_BYTES=50000000
 ```
 
-The runtime config exposes diagnostics as a boolean flag at `diagnostics.debugEnabled`; there is no full log-level hierarchy today. The legacy `AGENT_HARNESS_DEBUG` env var maps directly to that `diagnostics.debugEnabled` flag, so diagnostics can be controlled either through env-backed runtime config or by reading the resolved runtime config object.
+The runtime config exposes diagnostics as a boolean flag at `diagnostics.debugEnabled`; there is no full log-level hierarchy today. The current `AGENT_HARNESS_DEBUG` env var maps directly to `diagnostics.debugEnabled`, so diagnostics can be controlled either through that env var or by reading the resolved runtime config object.
 
 ### Mutable state root override
 
