@@ -106,6 +106,8 @@ async function explainRecommendation(
     lines.push(`  score: ${entry.score}`);
     lines.push(`  asset kind: ${entry.assetKind ?? "unknown"}`);
     lines.push(`  source: ${entry.sourceId} (${entry.sourceFamily})`);
+    lines.push(`  recommendation basis: ${entry.recommendationBasis}`);
+    lines.push(`  available locally: ${entry.availableLocally ? "yes" : "no"}`);
     lines.push(
       `  prompt weight: ${entry.estimatedPromptWeight} (${entry.contextSizeClass})`,
     );

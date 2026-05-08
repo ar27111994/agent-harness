@@ -1,6 +1,7 @@
 import type {
   AssetCatalogEntry,
   DemandEvidenceStrength,
+  RecommendationBasis,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
   RecommendationSignalType,
@@ -35,6 +36,8 @@ export interface CandidateRecommendation {
   entry: AssetCatalogEntry;
   host: RecommendationHost;
   sourceFamily: string;
+  availableLocally: boolean;
+  recommendationBasis: RecommendationBasis;
   coverageTags: string[];
   taskModes: string[];
   matchedSignals: RecommendationSignalMatch[];

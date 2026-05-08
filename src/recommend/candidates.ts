@@ -11,6 +11,7 @@ import {
 } from "./signals.js";
 import type {
   AssetCatalogEntry,
+  RecommendationBasis,
   RecommendationPolicy,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
@@ -96,6 +97,11 @@ export function buildCandidateRecommendation(
     wrapperLikeTerms,
     genericToolingTerms,
   );
+  const availableLocally = isLocallyAvailable(entry);
+  const recommendationBasis = determineRecommendationBasis(
+    availableLocally,
+    matchQuality,
+  );
   const coverageTags = buildCoverageTags(searchTerms, matchedSignals, policy);
   const taskModes = buildTaskModes(
     searchTerms,
@@ -160,6 +166,8 @@ export function buildCandidateRecommendation(
         searchTerms,
         matchedSignals,
         matchQuality,
+        availableLocally,
+        recommendationBasis,
         demandContext,
         policy,
       ) + hostDeprioritizationPenalty,
@@ -173,6 +181,8 @@ export function buildCandidateRecommendation(
     entry,
     host,
     sourceFamily: deriveSourceFamily(entry),
+    availableLocally,
+    recommendationBasis,
     coverageTags,
     taskModes,
     matchedSignals,
@@ -183,6 +193,8 @@ export function buildCandidateRecommendation(
       coverageTags,
       taskModes,
       matchQuality,
+      availableLocally,
+      recommendationBasis,
     ),
     breakdown,
   };
@@ -274,6 +286,29 @@ function isSpecificToolingSignal(
   return !genericToolingTerms.has(normalizePhrase(term));
 }
 
+function isLocallyAvailable(entry: AssetCatalogEntry): boolean {
+  return (
+    entry.source.authorityTier === "trusted-local" ||
+    entry.source.sourceKind === "local-directory" ||
+    entry.source.sourceKind === "local-manifest"
+  );
+}
+
+function determineRecommendationBasis(
+  availableLocally: boolean,
+  matchQuality: MatchQuality,
+): RecommendationBasis {
+  if (
+    availableLocally &&
+    matchQuality.exactStackWeight === 0 &&
+    matchQuality.ecosystemWeight === 0
+  ) {
+    return "local-availability";
+  }
+
+  return "workspace-fit";
+}
+
 function computePortfolioFitBonus(matchQuality: MatchQuality): number {
   if (matchQuality.exactStackWeight > 0) {
     return matchQuality.exactStackWeight * 3 + matchQuality.ecosystemWeight;
@@ -358,6 +393,8 @@ function computeNegativePenalty(
   searchTerms: Set<string>,
   matchedSignals: RecommendationSignalMatch[],
   matchQuality: MatchQuality,
+  availableLocally: boolean,
+  recommendationBasis: RecommendationBasis,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): number {
@@ -381,6 +418,13 @@ function computeNegativePenalty(
   }
   if (matchQuality.hasOnlyGenericConcernMatch) {
     penalty += Math.max(2, policy.scoring.genericCapabilityPenalty);
+  }
+
+  if (availableLocally && recommendationBasis === "local-availability") {
+    penalty += Math.max(
+      policy.scoring.weakDemandPenalty,
+      policy.scoring.genericCapabilityPenalty + 4,
+    );
   }
 
   return penalty;
@@ -412,6 +456,8 @@ function buildBaseReasons(
   coverageTags: string[],
   taskModes: string[],
   matchQuality: MatchQuality,
+  availableLocally: boolean,
+  recommendationBasis: RecommendationBasis,
 ): string[] {
   const reasons = [
     `authority:${entry.source.authorityTier}`,
@@ -439,6 +485,11 @@ function buildBaseReasons(
   } else if (matchQuality.genericConcernWeight > 0) {
     reasons.push("fit:generic-concern");
   }
+
+  if (availableLocally) {
+    reasons.push("availability:local");
+  }
+  reasons.push(`basis:${recommendationBasis}`);
 
   return reasons;
 }

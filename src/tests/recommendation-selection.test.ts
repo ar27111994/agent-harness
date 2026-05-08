@@ -268,6 +268,74 @@ void test("canonicalized concern targets still enforce coverage goals", () => {
   assert.ok(recommendations[0]?.reasons.includes("coverage-gap-fill"));
 });
 
+void test("local availability is surfaced separately from workspace fit", () => {
+  const policy = buildPolicy();
+  policy.concernKeywordMap = {
+    frontend: ["frontend"],
+    testing: ["testing"],
+  };
+
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: ["typescript"],
+          packageManagers: [],
+          frameworks: ["react"],
+          concerns: ["frontend", "testing"],
+          tooling: ["playwright"],
+        },
+      },
+    ]),
+    policy,
+  );
+
+  const recommendations = buildTopRecommendationsForHost(
+    "copilot-vscode",
+    [
+      buildCatalogEntry("local-generic-toolkit", "skill", 100, {
+        authorityTier: "trusted-local",
+        capabilities: ["skill", "automation", "workflow", "docs"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+        sourceId: "local-cursor-config",
+        sourceKind: "local-directory",
+      }),
+      buildCatalogEntry("community-react-testing", "skill", 45, {
+        capabilities: ["skill", "react", "frontend", "playwright"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+      }),
+      buildCatalogEntry("local-react-snippets", "skill", 95, {
+        authorityTier: "trusted-local",
+        capabilities: ["skill", "react", "frontend", "typescript"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+        sourceId: "local-cursor-config",
+        sourceKind: "local-directory",
+      }),
+    ],
+    demandContext,
+    policy,
+  );
+
+  assert.equal(recommendations[0]?.assetId, "local-react-snippets");
+
+  const localGeneric = recommendations.find(
+    (entry) => entry.assetId === "local-generic-toolkit",
+  );
+  assert.equal(localGeneric?.availableLocally, true);
+  assert.equal(localGeneric?.recommendationBasis, "local-availability");
+  assert.ok(localGeneric?.reasons.includes("availability:local"));
+  assert.ok(localGeneric?.reasons.includes("basis:local-availability"));
+
+  const localExact = recommendations.find(
+    (entry) => entry.assetId === "local-react-snippets",
+  );
+  assert.equal(localExact?.availableLocally, true);
+  assert.equal(localExact?.recommendationBasis, "workspace-fit");
+});
+
 void test("weak-only concern demand does not force coverage-gap fill", () => {
   const policy = buildPolicy({
     recommendationLimit: 1,
@@ -404,12 +472,14 @@ function buildCatalogEntry(
   assetKind: AssetCatalogEntry["assetKind"],
   sourcePriority: number,
   options: {
+    authorityTier?: AssetCatalogEntry["source"]["authorityTier"];
     capabilities?: string[];
     duplicateGroup?: string;
     evidenceFilePath?: string;
     fit?: { portfolioFit: number; hostFit: number };
     installRelativePath?: string;
     sourceId?: string;
+    sourceKind?: AssetCatalogEntry["source"]["sourceKind"];
   } = {},
 ): AssetCatalogEntry {
   const sourceId = options.sourceId ?? id;
@@ -421,14 +491,18 @@ function buildCatalogEntry(
     compatibilityMode: "native",
     source: {
       sourceId,
-      authorityTier: "trusted-community",
-      sourceKind: "repo",
+      authorityTier: options.authorityTier ?? "trusted-community",
+      sourceKind: options.sourceKind ?? "repo",
       sourcePriority,
       originUrl: `https://example.com/${id}`,
       publisher: sourceId,
-      publisherVerified: false,
+      publisherVerified:
+        (options.authorityTier ?? "trusted-community") !== "trusted-community",
     },
-    trust: { score: sourcePriority, signals: [] },
+    trust: {
+      score: sourcePriority,
+      signals: [`authority:${options.authorityTier ?? "trusted-community"}`],
+    },
     capabilities: options.capabilities ?? [assetKind, id],
     install: {
       method: "local-file",
@@ -480,6 +554,8 @@ function buildRecommendationEntry(
     assetKind: "skill",
     sourceId: "test",
     sourceFamily: "test",
+    availableLocally: false,
+    recommendationBasis: "workspace-fit",
     contextSizeClass: "tiny",
     estimatedPromptWeight,
     selectionStage: "top-by-host",

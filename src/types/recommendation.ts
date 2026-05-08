@@ -184,6 +184,12 @@ export interface RecommendationScoreBreakdown {
 }
 
 /**
+ * Defines whether a recommendation is present because it fits the workspace or
+ * because it is already available locally for convenience.
+ */
+export type RecommendationBasis = "workspace-fit" | "local-availability";
+
+/**
  * Describes recommendation entry data exchanged by the lifecycle pipeline.
  */
 export interface RecommendationEntry {
@@ -195,6 +201,8 @@ export interface RecommendationEntry {
   assetKind?: AssetKind;
   sourceId: string;
   sourceFamily: string;
+  availableLocally: boolean;
+  recommendationBasis: RecommendationBasis;
   contextSizeClass: AssetContextCost["sizeClass"];
   estimatedPromptWeight: number;
   duplicateGroup?: string;

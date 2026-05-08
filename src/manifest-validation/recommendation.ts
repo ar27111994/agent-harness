@@ -7,6 +7,7 @@ import type {
 import {
   ASSET_KINDS,
   assertArray,
+  assertBoolean,
   assertHostTarget,
   assertLiteral,
   assertMaybeArray,
@@ -78,6 +79,15 @@ export function assertRecommendationReport(
         assertString(
           entryRecord.sourceFamily,
           `${context}.topByHost.${host}[${index}].sourceFamily`,
+        );
+        assertBoolean(
+          entryRecord.availableLocally,
+          `${context}.topByHost.${host}[${index}].availableLocally`,
+        );
+        assertLiteral(
+          entryRecord.recommendationBasis,
+          ["workspace-fit", "local-availability"],
+          `${context}.topByHost.${host}[${index}].recommendationBasis`,
         );
         assertLiteral(
           entryRecord.contextSizeClass,

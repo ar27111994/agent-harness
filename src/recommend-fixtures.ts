@@ -6,6 +6,7 @@ import type {
   DemandProfile,
   HostTarget,
   RecommendationEvaluationFixture,
+  SourceKind,
 } from "./types.js";
 
 const FIXTURE_UPDATED_AT = new Date(
@@ -26,6 +27,8 @@ interface FixtureAssetOptions {
   estimatedPromptWeight?: number;
   portfolioFit?: number;
   hostFit?: number;
+  sourceKind?: SourceKind;
+  sourcePriority?: number;
   trustScore?: number;
 }
 
@@ -37,6 +40,7 @@ export function buildRecommendationFixtures(): RecommendationEvaluationFixture[]
     buildBackendIntegrationFixture(),
     buildFrontendQualityFixture(),
     buildInfraSecurityFixture(),
+    buildLocalAvailabilitySeparationFixture(),
     buildSharedExecutableBiasFixture(),
     buildSharedSourceSaturationFixture(),
   ];
@@ -323,6 +327,86 @@ function buildInfraSecurityFixture(): RecommendationEvaluationFixture {
   };
 }
 
+function buildLocalAvailabilitySeparationFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "local-availability-separation",
+    description:
+      "Local assets should stay visible for convenience without outranking stronger workspace-fit recommendations.",
+    demandProfile: createDemandProfile({
+      frameworks: ["react", "frontend"],
+      concerns: ["frontend", "testing"],
+      tooling: ["typescript", "playwright", "node"],
+    }),
+    catalogEntries: [
+      createAsset("official-react-guidance", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode"],
+        capabilities: ["react", "frontend", "typescript", "testing"],
+        sourceId: "ui-foundation",
+        publisher: "ui-foundation",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("local-generic-toolkit", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode"],
+        capabilities: ["automation", "workflow", "assistant", "docs"],
+        sourceId: "local-cursor-config",
+        publisher: "local",
+        authorityTier: "trusted-local",
+        sourceKind: "local-directory",
+        sourcePriority: 100,
+      }),
+      createAsset("local-react-snippets", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode"],
+        capabilities: ["react", "frontend", "typescript", "component"],
+        sourceId: "local-cursor-config",
+        publisher: "local",
+        authorityTier: "trusted-local",
+        sourceKind: "local-directory",
+        sourcePriority: 100,
+      }),
+      createAsset("community-react-testing", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode"],
+        capabilities: ["react", "frontend", "playwright", "testing"],
+        sourceId: "qa-lab",
+        publisher: "qa-lab",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: [
+          "official-react-guidance",
+          "local-react-snippets",
+          "community-react-testing",
+        ],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 2 },
+        ],
+        requiredConcerns: ["frontend", "testing"],
+        rankedAbove: [
+          {
+            higherAssetId: "official-react-guidance",
+            lowerAssetId: "local-generic-toolkit",
+          },
+          {
+            higherAssetId: "community-react-testing",
+            lowerAssetId: "local-generic-toolkit",
+          },
+          {
+            higherAssetId: "local-react-snippets",
+            lowerAssetId: "local-generic-toolkit",
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function buildSharedExecutableBiasFixture(): RecommendationEvaluationFixture {
   return {
     schemaVersion: 1,
@@ -541,8 +625,8 @@ function createAsset(
     source: {
       sourceId: options.sourceId,
       authorityTier: options.authorityTier ?? "trusted-community",
-      sourceKind: "repo",
-      sourcePriority: 80,
+      sourceKind: options.sourceKind ?? "repo",
+      sourcePriority: options.sourcePriority ?? 80,
       originUrl: `https://example.com/${options.sourceId}/${id}`,
       publisher: options.publisher,
       publisherVerified:

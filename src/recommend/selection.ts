@@ -84,6 +84,8 @@ export function buildTopRecommendationsForHost(
     assetKind: candidate.entry.assetKind,
     sourceId: candidate.entry.source.sourceId,
     sourceFamily: candidate.sourceFamily,
+    availableLocally: candidate.availableLocally,
+    recommendationBasis: candidate.recommendationBasis,
     contextSizeClass: candidate.entry.contextCost.sizeClass,
     estimatedPromptWeight: candidate.entry.contextCost.estimatedPromptWeight,
     duplicateGroup: candidate.duplicateGroup,
