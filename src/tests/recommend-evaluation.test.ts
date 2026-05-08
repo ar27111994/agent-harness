@@ -86,6 +86,15 @@ void test("top recommendation confidence distinguishes medium-or-strong, weak-on
   assert.equal(
     classifyTopRecommendationConfidence(
       createRecommendationEntry({
+        matchedSignals: [],
+      }),
+    ),
+    "none",
+  );
+
+  assert.equal(
+    classifyTopRecommendationConfidence(
+      createRecommendationEntry({
         matchedSignals: [
           {
             signalType: "frameworks",
@@ -96,6 +105,28 @@ void test("top recommendation confidence distinguishes medium-or-strong, weak-on
             evidenceStrengthCounts: {
               strong: 1,
               medium: 0,
+              weak: 0,
+            },
+          },
+        ],
+      }),
+    ),
+    "medium-or-strong",
+  );
+
+  assert.equal(
+    classifyTopRecommendationConfidence(
+      createRecommendationEntry({
+        matchedSignals: [
+          {
+            signalType: "frameworks",
+            term: "fastapi",
+            weight: 4,
+            evidenceCount: 1,
+            weightedEvidenceCount: 2,
+            evidenceStrengthCounts: {
+              strong: 0,
+              medium: 1,
               weak: 0,
             },
           },

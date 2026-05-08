@@ -195,6 +195,7 @@ function evaluateExpectation(
 ): RecommendationEvaluationCheck[] {
   const entries = report.topByHost[expectation.host] ?? [];
   const hostSummary = report.hostSummaries[expectation.host];
+  const activationBudget = hostSummary?.activationBudget ?? 0;
   const bundle = report.suggestedBundles.find(
     (entry) => entry.host === expectation.host,
   );
@@ -202,11 +203,9 @@ function evaluateExpectation(
 
   checks.push({
     name: `${expectation.host}-bundle-budget`,
-    passed: Boolean(
-      bundle && bundle.estimatedPromptWeight <= hostSummary.activationBudget,
-    ),
+    passed: Boolean(bundle && bundle.estimatedPromptWeight <= activationBudget),
     details: bundle
-      ? `bundle weight ${bundle.estimatedPromptWeight}/${hostSummary.activationBudget}`
+      ? `bundle weight ${bundle.estimatedPromptWeight}/${activationBudget}`
       : "missing bundle",
   });
 
@@ -233,7 +232,7 @@ function evaluateExpectation(
   if (expectation.maxPerSourceFamily !== undefined) {
     const topSourceFamilyCount = Math.max(
       0,
-      ...Object.values(hostSummary.bySourceFamily),
+      ...Object.values(hostSummary?.bySourceFamily ?? {}),
     );
     checks.push({
       name: `${expectation.host}-source-diversity`,
@@ -243,7 +242,7 @@ function evaluateExpectation(
   }
 
   for (const concern of expectation.requiredConcerns ?? []) {
-    const actualCount = hostSummary.byConcern[concern] ?? 0;
+    const actualCount = hostSummary?.byConcern?.[concern] ?? 0;
     checks.push({
       name: `${expectation.host}-concern-${concern}`,
       passed: actualCount > 0,
