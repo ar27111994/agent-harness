@@ -6,15 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- None yet.
+- added `AGENT-SETUP-PLAYBOOK.md`, a dedicated dry-run setup guide with a troubleshooting decision tree, asset-action classification guidance, and reusable AI-agent prompts for workspace/host/intention-based setup flows
 
 ### Changed
 
-- None yet.
+- README now links the dedicated `AGENT-SETUP-PLAYBOOK.md` guide and documents a preview-first workflow for AI-assisted setup/operator usage
+- README now includes a dry-run troubleshooting decision tree that separates demand detection, selection breadth, ranking/policy, and install/runtime follow-up
 
 ### Fixed
 
-- None yet.
+- documented operator guidance now makes it explicit that increasing selection count should not be the first move when relevant assets already exist in the selected set
 
 ## [1.0.1] - 2026-05-08
 

@@ -20,6 +20,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Supported hosts](#supported-hosts)
 - [Quick start](#quick-start)
 - [Usage examples](#usage-examples)
+- [Agent setup playbook](./AGENT-SETUP-PLAYBOOK.md)
 - [Command reference](#command-reference)
 - [Host wire-in details](#host-wire-in-details)
 - [Discovery and recommendations](#discovery-and-recommendations)
@@ -81,8 +82,8 @@ Some adapters intentionally reuse another lifecycle host while keeping their own
 | --------------------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
 | `vscode` / `copilot-vscode` | `copilot`              | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                    |
 | `opencode`                  | `open-code`            | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                  |
-| `cursor`                    | —                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
-| `zed`                       | —                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
+| `cursor`                    | -                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
+| `zed`                       | -                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
 | `claude-code`               | `claude`, `claudecode` | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands            |
 | `pi`                        | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings |
 
@@ -144,7 +145,7 @@ agent-harness setup doctor --host claude-code
 agent-harness setup doctor --host pi
 ```
 
-`setup doctor` prints each adapter’s lifecycle host, recommendation host, default bundles, runtime executable, advertised capabilities, lifecycle preflight diagnostics, adapter-specific CLI readiness diagnostics, and activated asset prerequisite guidance. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path or native installer runtime.
+`setup doctor` prints each adapter's lifecycle host, recommendation host, default bundles, runtime executable, advertised capabilities, lifecycle preflight diagnostics, adapter-specific CLI readiness diagnostics, and activated asset prerequisite guidance. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path or native installer runtime.
 
 ### Run a full workspace pipeline
 
@@ -200,6 +201,20 @@ agent-harness wire claude-code --preview
 ```
 
 Preview output is written under `activate/<host>/` and can be reviewed before `--apply`. Omitting a mode flag is equivalent to `--preview`.
+
+### Use an AI agent as a dry-run setup operator
+
+When you want another agent to operate `agent-harness` for you, start with a dry run before any apply/install step. This keeps workspace mutation, extension installation, and MCP/tool authentication separate from discovery and recommendation review.
+
+For the full playbook, reusable prompts, classification rules, and decision tree, see [`AGENT-SETUP-PLAYBOOK.md`](./AGENT-SETUP-PLAYBOOK.md).
+
+Short version:
+
+- run `agent-harness setup doctor --host <host>` first
+- inspect workspace evidence such as `discover/output/demand-profile.json`, `discover/output/selection-report.json`, and `state/recommendations.json`
+- run `agent-harness wire <host> --preview` before any apply
+- separate staged/wired assets from native installs and manual runtime follow-up
+- only run mutating install/apply commands after the dry run looks correct
 
 ### Apply and reset one host
 
@@ -1057,7 +1072,30 @@ agent-harness discover stats
 agent-harness recommend report
 ```
 
+Use this dry-run decision tree before changing policy or applying installs:
+
+1. **Check demand detection first.** Inspect `discover/output/demand-profile.json`.
+   - If the workspace stack is missing there, fix detection scope first.
+   - Common causes: running from the wrong directory, manifests hidden by `.gitignore`, `.ignore`, or `.agent-harnessignore`, or unsupported dependency evidence.
+2. **Check selection counts second.** Inspect `discover/output/selection-report.json`.
+   - If `selectedCount` is extremely low, then selection filtering may be too strict for that workspace.
+   - If `selectedCount` is already healthy, increasing selection count is usually the wrong first move.
+3. **Check ranking before changing selection.** Inspect `state/recommendations.json` and use `recommend explain` on both a relevant asset and an off-topic asset.
+   - If relevant technologies are present in demand/selection but weak recommendations still dominate, the problem is usually ranking, host policy, or source weighting.
+   - Example: a workspace can correctly detect `apify` and `duckdb`, yet still surface broad official assets if generic documentation/integration signals are overweighted.
+4. **Separate recommendation from installation.** Review `wire --preview` output and native install planning.
+   - A recommended asset is not automatically installed.
+   - Extension installation, MCP auth, runtime executables, and host logins may still need explicit approval or manual follow-up.
+5. **Only increase selection count as a last resort.** Do it when the workspace truly lacks enough relevant candidates after demand detection is correct.
+   - If the right assets are already in the selected set, tune policy or source mix instead of making the candidate pool larger.
+
 `discover select` should reject entries that do not overlap with detected workspace signals. If relevant entries are missing, inspect `discover/output/demand-profile.json` and confirm the workspace manifests are not excluded by `.gitignore`, `.ignore`, or `.agent-harnessignore`.
+
+A practical rule of thumb:
+
+- **Missing relevant assets entirely** → investigate detection, source coverage, or selection.
+- **Relevant assets exist but lose to noisy ones** → investigate ranking, policy, and source weighting.
+- **Assets are recommended but not active in the host** → inspect wire previews, native install planning, and manual runtime prerequisites.
 
 ### GitHub discovery or mirror acquisition is slow or rate-limited
 
@@ -1095,6 +1133,10 @@ Yes. Add a new implementation under `src/host-adapters/`, register it in `src/ho
 
 No. VS Code extension assets can produce metadata and install guidance, but the harness does not silently install marketplace extensions.
 
+### Should I increase selection count when recommendations look wrong?
+
+Usually no. First confirm that demand detection found the real workspace technologies, then inspect whether relevant assets already exist in the selected set. If they do, the problem is more likely ranking, host policy, or source weighting than selection breadth. Increase selection count only when the current selection genuinely omits relevant candidates.
+
 ### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
 
 They can reuse compatible install and activation package layouts while keeping independent recommendation policies and native project-local wire behavior.
@@ -1127,12 +1169,12 @@ Known boundaries:
 
 ## Related documentation
 
-- `CHANGELOG.md` — release notes
-- `SECURITY.md` — vulnerability reporting and supported-version policy
-- `Roadmap.md` — gap analysis and long-range direction
-- `IMPLEMENTATION-PLAN.md` — milestone-oriented execution plan
-- `FUTURE-IMPROVEMENTS.md` — follow-up ideas and architectural extensions
-- `CONTRIBUTING.md` — contribution workflow and hygiene
+- `CHANGELOG.md` - release notes
+- `AGENT-SETUP-PLAYBOOK.md` - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- `Roadmap.md` - gap analysis and long-range direction
+- `IMPLEMENTATION-PLAN.md` - milestone-oriented execution plan
+- `FUTURE-IMPROVEMENTS.md` - follow-up ideas and architectural extensions
+- `CONTRIBUTING.md` - contribution workflow and hygiene
 
 ## Sponsor
 
