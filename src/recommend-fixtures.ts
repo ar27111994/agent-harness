@@ -33,6 +33,15 @@ interface FixtureAssetOptions {
   trustScore?: number;
 }
 
+interface FixtureDemandProfileOptions extends Partial<
+  DemandProfile["signals"]
+> {
+  manifestFileName?: string;
+  manifestPath?: string;
+  readmeFileName?: string;
+  readmePath?: string;
+}
+
 /**
  * Builds recommendation fixtures from the provided inputs.
  */
@@ -338,9 +347,13 @@ function buildPythonApiPrecisionFixture(): RecommendationEvaluationFixture {
     description:
       "Python API workspaces should keep exact framework/testing assets above broad backend or docs overlap.",
     demandProfile: createDemandProfile({
+      languages: ["python"],
+      packageManagers: ["poetry"],
       frameworks: ["fastapi"],
       concerns: ["backend", "testing", "docs"],
       tooling: ["python", "pytest", "pydantic"],
+      manifestFileName: "pyproject.toml",
+      manifestPath: "pyproject.toml",
     }),
     catalogEntries: [
       createAsset("fastapi-api-instruction", {
@@ -416,9 +429,13 @@ function buildLaravelWebStackFixture(): RecommendationEvaluationFixture {
     description:
       "Laravel web app workspaces should favor exact PHP/Laravel assets over generic web or marketing overlap.",
     demandProfile: createDemandProfile({
+      languages: ["php"],
+      packageManagers: ["composer"],
       frameworks: ["laravel"],
       concerns: ["backend", "frontend", "testing"],
       tooling: ["php", "composer", "phpunit"],
+      manifestFileName: "composer.json",
+      manifestPath: "composer.json",
     }),
     catalogEntries: [
       createAsset("laravel-app-instruction", {
@@ -495,9 +512,13 @@ function buildNoisyDocsNarrowRuntimeFixture(): RecommendationEvaluationFixture {
     description:
       "Docs-heavy workspaces with a narrow runtime stack should still rank exact runtime assets above broad docs/integration overlap.",
     demandProfile: createDemandProfile({
+      languages: ["rust"],
+      packageManagers: ["cargo"],
       frameworks: ["rust-cli"],
       concerns: ["docs", "automation", "integration"],
       tooling: ["rust", "cargo", "cli"],
+      manifestFileName: "Cargo.toml",
+      manifestPath: "Cargo.toml",
     }),
     catalogEntries: [
       createAsset("rust-cli-instruction", {
@@ -804,7 +825,7 @@ function buildSharedSourceSaturationFixture(): RecommendationEvaluationFixture {
 }
 
 function createDemandProfile(
-  overrides: Partial<DemandProfile["signals"]>,
+  overrides: FixtureDemandProfileOptions,
 ): DemandProfile {
   return {
     schemaVersion: 1,
@@ -815,27 +836,27 @@ function createDemandProfile(
       matchedFiles: 4,
     },
     signals: {
-      languages: ["typescript"],
-      packageManagers: ["npm"],
+      languages: overrides.languages ?? ["typescript"],
+      packageManagers: overrides.packageManagers ?? ["npm"],
       frameworks: overrides.frameworks ?? [],
       concerns: overrides.concerns ?? [],
       tooling: overrides.tooling ?? [],
     },
     evidence: [
       {
-        path: "package.json",
-        fileName: "package.json",
+        path: overrides.manifestPath ?? "package.json",
+        fileName: overrides.manifestFileName ?? "package.json",
         matchedSignals: {
-          languages: ["typescript"],
-          packageManagers: ["npm"],
+          languages: overrides.languages ?? ["typescript"],
+          packageManagers: overrides.packageManagers ?? ["npm"],
           frameworks: overrides.frameworks ?? [],
           concerns: overrides.concerns ?? [],
           tooling: overrides.tooling ?? [],
         },
       },
       {
-        path: "README.md",
-        fileName: "README.md",
+        path: overrides.readmePath ?? "README.md",
+        fileName: overrides.readmeFileName ?? "README.md",
         matchedSignals: {
           languages: [],
           packageManagers: [],
