@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { shouldInspectFile } from "../domains/discovery/demand-signals.js";
+import {
+  getDemandEvidenceStrength,
+  shouldInspectFile,
+} from "../domains/discovery/demand-signals.js";
 import { buildDemandProfile } from "../discover.js";
 import type { DemandSignalSet } from "../types.js";
 
@@ -25,6 +28,29 @@ void test("mobile project marker files are inspectable", () => {
   ]) {
     assert.equal(shouldInspectFile(fileName, `mobile/${fileName}`), true);
   }
+});
+
+void test("demand evidence strength ignores planning templates and demotes markdown docs", () => {
+  assert.equal(
+    getDemandEvidenceStrength(
+      "feature_request.md",
+      ".github/ISSUE_TEMPLATE/feature_request.md",
+    ),
+    null,
+  );
+  assert.equal(getDemandEvidenceStrength("CHANGELOG.md", "CHANGELOG.md"), null);
+  assert.equal(
+    getDemandEvidenceStrength("README.md", "docs/README.md"),
+    "weak",
+  );
+  assert.equal(
+    getDemandEvidenceStrength("package.json", "package.json"),
+    "strong",
+  );
+  assert.equal(
+    getDemandEvidenceStrength("analysis.ipynb", "notebooks/analysis.ipynb"),
+    "medium",
+  );
 });
 
 const repoFixtures: DemandProfileRepoFixture[] = [
@@ -656,6 +682,68 @@ void test("demand profiles produce meaningful signals for representative repo ar
     } finally {
       await rm(root, { force: true, recursive: true });
     }
+  }
+});
+
+void test("demand profiles ignore planning templates and keep evidence strength visible", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-wave-"));
+
+  try {
+    await writeFixtureFiles(root, [
+      {
+        path: "package.json",
+        content: JSON.stringify({
+          dependencies: {
+            apify: "latest",
+            express: "latest",
+          },
+        }),
+      },
+      {
+        path: "README.md",
+        content:
+          "# Workspace\nThis README mentions robotics, pentesting, and game development but should stay weak.\n",
+      },
+      {
+        path: ".github/ISSUE_TEMPLATE/feature_request.md",
+        content:
+          "Please add marketing, robotics, and lead-generation workflows everywhere.\n",
+      },
+      {
+        path: "IMPLEMENTATION-PLAN.md",
+        content:
+          "Future ideas: blockchain, content-creation, realtime-media, and SEO.\n",
+      },
+    ]);
+
+    const profile = await buildDemandProfile(root);
+
+    assert.ok(profile.signals.frameworks.includes("apify"));
+    assert.ok(profile.signals.concerns.includes("automation"));
+    assert.ok(!profile.signals.concerns.includes("robotics"));
+    assert.ok(!profile.signals.concerns.includes("marketing"));
+    assert.ok(
+      !profile.evidence.some((entry) =>
+        entry.path.includes(".github/ISSUE_TEMPLATE/feature_request.md"),
+      ),
+    );
+    assert.ok(
+      !profile.evidence.some((entry) =>
+        entry.path.includes("IMPLEMENTATION-PLAN.md"),
+      ),
+    );
+    assert.equal(
+      profile.evidence.find((entry) => entry.path === "README.md")
+        ?.evidenceStrength,
+      "weak",
+    );
+    assert.equal(
+      profile.evidence.find((entry) => entry.path === "package.json")
+        ?.evidenceStrength,
+      "strong",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
   }
 });
 

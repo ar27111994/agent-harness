@@ -154,6 +154,12 @@ export function assertDemandProfile(
         entryRecord.fileName,
         `${context}.evidence[${index}].fileName`,
       );
+      if (entryRecord.evidenceStrength !== undefined) {
+        assertString(
+          entryRecord.evidenceStrength,
+          `${context}.evidence[${index}].evidenceStrength`,
+        );
+      }
       assertDemandSignalSet(
         entryRecord.matchedSignals,
         `${context}.evidence[${index}].matchedSignals`,

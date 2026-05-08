@@ -1,5 +1,6 @@
 import type {
   AssetCatalogEntry,
+  DemandEvidenceStrength,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
   RecommendationSignalType,
@@ -14,6 +15,7 @@ export interface DemandTermContext {
   canonicalTerm: string;
   signalType: RecommendationSignalType;
   evidenceCount: number;
+  evidenceStrengthCounts: Record<DemandEvidenceStrength, number>;
   matchTerms: Set<string>;
 }
 

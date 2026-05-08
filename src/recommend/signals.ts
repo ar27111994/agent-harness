@@ -1,6 +1,7 @@
 import type {
   AssetContextCost,
   AssetKind,
+  DemandEvidenceStrength,
   DemandProfile,
   RecommendationPolicy,
   RecommendationSignalMatch,
@@ -19,9 +20,12 @@ export function collectMatchedSignals(
   return demandContext.terms
     .filter((term) => intersects(searchTerms, term.matchTerms))
     .map((term) => {
+      const weightedEvidenceCount = computeWeightedEvidenceCount(
+        term.evidenceStrengthCounts,
+      );
       const baseWeight =
         policy.scoring.demandSignalWeights[term.signalType] *
-        Math.min(3, term.evidenceCount);
+        weightedEvidenceCount;
       const termMultiplier =
         policy.scoring.demandTermMultipliers[term.canonicalTerm] ?? 1;
 
@@ -30,6 +34,8 @@ export function collectMatchedSignals(
         signalType: term.signalType,
         weight: Math.max(1, Math.round(baseWeight * termMultiplier)),
         evidenceCount: term.evidenceCount,
+        weightedEvidenceCount,
+        evidenceStrengthCounts: { ...term.evidenceStrengthCounts },
       };
     })
     .sort(
@@ -58,7 +64,7 @@ export function buildDemandContext(
   const registerTerm = (
     signalType: RecommendationSignalType,
     rawTerm: string,
-    evidenceIncrement: number,
+    evidenceStrength: DemandEvidenceStrength,
   ): void => {
     const canonicalTerm = canonicalizePhrase(rawTerm, policy);
     const key = `${signalType}:${canonicalTerm}`;
@@ -66,7 +72,8 @@ export function buildDemandContext(
     const existing = demandTermMap.get(key);
 
     if (existing) {
-      existing.evidenceCount += evidenceIncrement;
+      existing.evidenceCount += 1;
+      existing.evidenceStrengthCounts[evidenceStrength] += 1;
       for (const matchTerm of matchTerms) {
         existing.matchTerms.add(matchTerm);
       }
@@ -77,21 +84,21 @@ export function buildDemandContext(
       key,
       canonicalTerm,
       signalType,
-      evidenceCount: evidenceIncrement,
+      evidenceCount: 1,
+      evidenceStrengthCounts:
+        createEmptyEvidenceStrengthCounts(evidenceStrength),
       matchTerms,
     });
   };
 
-  for (const signalType of recommendationSignalTypes()) {
-    for (const rawTerm of demandProfile.signals[signalType]) {
-      registerTerm(signalType, rawTerm, 1);
-    }
-  }
-
   for (const evidence of demandProfile.evidence) {
     for (const signalType of recommendationSignalTypes()) {
       for (const rawTerm of evidence.matchedSignals[signalType]) {
-        registerTerm(signalType, rawTerm, 1);
+        registerTerm(
+          signalType,
+          rawTerm,
+          evidence.evidenceStrength ?? "medium",
+        );
       }
     }
   }
@@ -105,6 +112,34 @@ export function buildDemandContext(
     hasSignals: demandTermMap.size > 0,
     activeDomainGroups: buildActiveDomainGroups(terms, policy),
   };
+}
+
+function createEmptyEvidenceStrengthCounts(
+  initialStrength?: DemandEvidenceStrength,
+): Record<DemandEvidenceStrength, number> {
+  return {
+    strong: initialStrength === "strong" ? 1 : 0,
+    medium: initialStrength === "medium" ? 1 : 0,
+    weak: initialStrength === "weak" ? 1 : 0,
+  };
+}
+
+function computeWeightedEvidenceCount(
+  evidenceStrengthCounts: Record<DemandEvidenceStrength, number>,
+): number {
+  if (evidenceStrengthCounts.strong > 0) {
+    return 3;
+  }
+
+  if (evidenceStrengthCounts.medium > 0) {
+    return Math.min(3, 1 + evidenceStrengthCounts.medium);
+  }
+
+  if (evidenceStrengthCounts.weak > 0) {
+    return 1;
+  }
+
+  return 0;
 }
 
 function buildActiveDomainGroups(

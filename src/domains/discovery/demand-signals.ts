@@ -1,5 +1,5 @@
 import { readTextFileOrNull } from "../../files.js";
-import type { DemandSignalSet } from "../../types.js";
+import type { DemandEvidenceStrength, DemandSignalSet } from "../../types.js";
 import {
   collectDetectorSignals,
   isDetectorInspectableFile,
@@ -38,6 +38,13 @@ const YAML_DEPENDENCY_SECTION_NAMES = new Set([
 ]);
 
 const ACTOR_JSON_PATH_PATTERN = /[\\/]\.actor[\\/]actor\.json$/iu;
+const IGNORED_DEMAND_EVIDENCE_PATTERNS = [
+  /(^|[/\\])\.github[/\\]ISSUE_TEMPLATE([/\\]|$)/iu,
+  /(^|[/\\])pull_request_template\.(md|txt)$/iu,
+  /(^|[/\\])(?:changelog|contributing)\.(md|mdx|txt)$/iu,
+  /(^|[/\\])(?:roadmap|implementation-plan|future-improvements)\.(md|mdx|txt)$/iu,
+];
+const WEAK_DEMAND_TEXT_FILE_PATTERN = /\.(md|mdx|rst|adoc|txt)$/iu;
 const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
@@ -92,6 +99,10 @@ const INSPECTABLE_FILE_NAMES = new Set([
  * Provides should inspect file for the lifecycle pipeline.
  */
 export function shouldInspectFile(fileName: string, filePath: string): boolean {
+  if (getDemandEvidenceStrength(fileName, filePath) === null) {
+    return false;
+  }
+
   if (isActorJsonFile(fileName, filePath) || fileName === "input_schema.json") {
     return true;
   }
@@ -143,7 +154,12 @@ export async function collectDemandSignalsForFile(
   fileName: string,
   filePath: string,
 ): Promise<DemandSignalSet> {
+  const evidenceStrength = getDemandEvidenceStrength(fileName, filePath);
   const matchedSignals = collectStaticSignals(fileName, filePath);
+
+  if (evidenceStrength === null) {
+    return matchedSignals;
+  }
 
   collectDetectorSignals(fileName, filePath, matchedSignals);
 
@@ -173,7 +189,10 @@ export async function collectDemandSignalsForFile(
     enrichActorJsonSignals(fileContent, matchedSignals);
   }
 
-  if (shouldReadTextForTechnologySignals(fileName)) {
+  if (
+    evidenceStrength !== "weak" &&
+    shouldReadTextForTechnologySignals(fileName)
+  ) {
     enrichGenericTextSignals(
       getTechnologySignalTextContent(fileName, fileContent),
       matchedSignals,
@@ -190,6 +209,55 @@ export function isActorJsonFile(fileName: string, filePath: string): boolean {
   return (
     /^actor\.json$/iu.test(fileName) || ACTOR_JSON_PATH_PATTERN.test(filePath)
   );
+}
+
+/**
+ * Classifies demand evidence strength for the lifecycle pipeline.
+ */
+export function getDemandEvidenceStrength(
+  fileName: string,
+  filePath: string,
+): DemandEvidenceStrength | null {
+  const normalizedPath = filePath.replace(/\\/gu, "/");
+
+  if (
+    IGNORED_DEMAND_EVIDENCE_PATTERNS.some((pattern) =>
+      pattern.test(normalizedPath),
+    )
+  ) {
+    return null;
+  }
+
+  if (
+    isActorJsonFile(fileName, filePath) ||
+    fileName === "input_schema.json" ||
+    isRequirementsFile(fileName, filePath) ||
+    isLockfileName(fileName) ||
+    isLanguageSourceFile(fileName) ||
+    isNugetManifestFile(fileName) ||
+    fileName.endsWith(".sln") ||
+    fileName.endsWith(".tf") ||
+    fileName.endsWith(".tfvars") ||
+    isDockerfileName(fileName) ||
+    isComposeFileName(fileName) ||
+    fileName.startsWith("playwright.config.") ||
+    fileName.startsWith("vitest.config.") ||
+    fileName.startsWith("jest.config.") ||
+    /openapi|swagger/iu.test(fileName) ||
+    INSPECTABLE_FILE_NAMES.has(fileName)
+  ) {
+    return "strong";
+  }
+
+  if (WEAK_DEMAND_TEXT_FILE_PATTERN.test(fileName)) {
+    return "weak";
+  }
+
+  if (isDetectorInspectableFile(fileName, filePath)) {
+    return "medium";
+  }
+
+  return null;
 }
 
 function isRequirementsFile(fileName: string, filePath: string): boolean {

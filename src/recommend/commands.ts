@@ -315,10 +315,18 @@ function formatMatchedSignals(matches: RecommendationSignalMatch[]): string {
   }
 
   return matches
-    .map(
-      (match) =>
-        `${match.signalType}:${match.term}(w=${match.weight},e=${match.evidenceCount})`,
-    )
+    .map((match) => {
+      const evidenceCounts = match.evidenceStrengthCounts;
+      const evidenceSummary = evidenceCounts
+        ? `,s=${evidenceCounts.strong}/m=${evidenceCounts.medium}/w=${evidenceCounts.weak}`
+        : "";
+      const weightedEvidenceSummary =
+        match.weightedEvidenceCount === undefined
+          ? ""
+          : `,ew=${match.weightedEvidenceCount}`;
+
+      return `${match.signalType}:${match.term}(w=${match.weight},e=${match.evidenceCount}${weightedEvidenceSummary}${evidenceSummary})`;
+    })
     .join(", ");
 }
 

@@ -8,6 +8,7 @@ import {
 import type { DemandEvidence, DemandProfile } from "../../types.js";
 import {
   collectDemandSignalsForFile,
+  getDemandEvidenceStrength,
   shouldInspectFile,
 } from "./demand-signals.js";
 import {
@@ -35,6 +36,11 @@ export async function buildDemandProfile(
       continue;
     }
 
+    const evidenceStrength = getDemandEvidenceStrength(fileName, filePath);
+    if (evidenceStrength === null) {
+      continue;
+    }
+
     const matchedSignals = await collectDemandSignalsForFile(
       fileName,
       filePath,
@@ -48,6 +54,7 @@ export async function buildDemandProfile(
     evidence.push({
       path: toRelativePosixPath(scanRoot, filePath),
       fileName,
+      evidenceStrength,
       matchedSignals,
     });
   }

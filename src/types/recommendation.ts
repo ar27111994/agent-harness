@@ -9,7 +9,11 @@ import type {
   CompatibilityMode,
   HostTarget,
 } from "./core.js";
-import type { DemandProfile, DemandSignalSet } from "./discovery.js";
+import type {
+  DemandEvidenceStrength,
+  DemandProfile,
+  DemandSignalSet,
+} from "./discovery.js";
 
 /**
  * Defines the supported recommendation signal type values.
@@ -153,6 +157,8 @@ export interface RecommendationSignalMatch {
   signalType: RecommendationSignalType;
   weight: number;
   evidenceCount: number;
+  weightedEvidenceCount?: number;
+  evidenceStrengthCounts?: Record<DemandEvidenceStrength, number>;
 }
 
 /**

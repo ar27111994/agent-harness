@@ -95,11 +95,17 @@ export interface DemandSignalSet {
 }
 
 /**
+ * Describes demand evidence strength shared by the lifecycle pipeline.
+ */
+export type DemandEvidenceStrength = "strong" | "medium" | "weak";
+
+/**
  * Describes demand evidence data exchanged by the lifecycle pipeline.
  */
 export interface DemandEvidence {
   path: string;
   fileName: string;
+  evidenceStrength?: DemandEvidenceStrength;
   matchedSignals: DemandSignalSet;
 }
 
