@@ -7,11 +7,10 @@ void test("runtime config preserves existing defaults when new env vars are unse
   const config = loadRuntimeConfig({
     HOME: "/home/tester",
   });
+  const allowedOrigins = new Set(config.aiEnrichment.allowedOrigins);
 
   assert.equal(config.aiEnrichment.model, "gpt-4o-mini");
-  assert.ok(
-    config.aiEnrichment.allowedOrigins.includes("https://api.openai.com"),
-  );
+  assert.ok(allowedOrigins.has("https://api.openai.com"));
   assert.equal(config.aiEnrichment.requestTimeoutMs, 20_000);
   assert.equal(config.aiEnrichment.responseMaxBytes, 1_000_000);
   assert.equal(config.http.timeoutMs, 10_000);
@@ -64,12 +63,12 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
     AGENT_HARNESS_DEBUG: "true",
   });
 
+  const allowedOrigins = new Set(config.aiEnrichment.allowedOrigins);
+
   assert.equal(config.aiEnrichment.requestTimeoutMs, 45_000);
   assert.equal(config.aiEnrichment.responseMaxBytes, 250_000);
-  assert.ok(
-    config.aiEnrichment.allowedOrigins.includes("https://proxy.example.com"),
-  );
-  assert.ok(config.aiEnrichment.allowedOrigins.includes(newEndpointOrigin));
+  assert.ok(allowedOrigins.has("https://proxy.example.com"));
+  assert.ok(allowedOrigins.has(newEndpointOrigin));
   assert.equal(config.http.timeoutMs, 11_000);
   assert.equal(config.http.maxResponseBytes, 1_500_000);
   assert.equal(config.github.fetchTimeoutMs, 12_000);
