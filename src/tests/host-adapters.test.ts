@@ -147,9 +147,15 @@ void test("OpenCode wire links every supported asset bucket into the project ove
     ) as WirePlanManifest;
     assert.equal(wirePlan.host, "opencode-project");
 
+    const managedContextRoot = join(
+      localOverlayRoot,
+      "context",
+      "project-intelligence",
+      "agent-harness",
+    );
     await assertPathExists(
       join(
-        localOverlayRoot,
+        managedContextRoot,
         "instructions",
         sanitizeAssetId("asset-instruction"),
       ),
@@ -164,20 +170,24 @@ void test("OpenCode wire links every supported asset bucket into the project ove
       join(localOverlayRoot, "plugins", sanitizeAssetId("asset-plugin")),
     );
     await assertPathExists(
-      join(localOverlayRoot, "hooks", sanitizeAssetId("asset-hook")),
+      join(managedContextRoot, "hooks", sanitizeAssetId("asset-hook")),
     );
     await assertPathExists(
       join(
-        localOverlayRoot,
+        managedContextRoot,
         "reference-packs",
         sanitizeAssetId("asset-reference"),
       ),
     );
     await assertPathExists(
-      join(localOverlayRoot, "mcp-servers", sanitizeAssetId("asset-mcp")),
+      join(managedContextRoot, "mcp-servers", sanitizeAssetId("asset-mcp")),
     );
     await assertPathExists(
-      join(localOverlayRoot, "extensions", sanitizeAssetId("ms-python.python")),
+      join(
+        managedContextRoot,
+        "extensions",
+        sanitizeAssetId("ms-python.python"),
+      ),
     );
     await assertPathExists(
       join(

@@ -30,14 +30,15 @@ import type {
 const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
   agent: "agents",
   skill: "skills",
-  instruction: "instructions",
+  instruction: "context/project-intelligence/agent-harness/instructions",
   workflow: "commands",
-  hook: "hooks",
+  hook: "context/project-intelligence/agent-harness/hooks",
   plugin: "plugins",
-  "mcp-server": "mcp-servers",
-  extension: "extensions",
+  "mcp-server": "context/project-intelligence/agent-harness/mcp-servers",
+  extension: "context/project-intelligence/agent-harness/extensions",
   "prompt-pack": "commands",
-  "reference-pack": "reference-packs",
+  "reference-pack":
+    "context/project-intelligence/agent-harness/reference-packs",
 };
 
 interface OpenCodeLinkedAsset {
@@ -84,8 +85,8 @@ export async function wireOpenCode(options: {
     ],
     notes: [
       "OpenCode wire-in writes a project-local overlay under .opencode/context/project-intelligence/agent-harness.",
-      "Command assets are written as managed .opencode/commands/*.md files; other asset kinds use harness-managed directory links.",
-      "Harness-managed overlay directories are staged project-local references and are not all claimed as documented OpenCode auto-discovery paths.",
+      "Documented OpenCode-native directories stay under .opencode/agents, .opencode/skills, .opencode/commands, and .opencode/plugins.",
+      "Undocumented asset buckets are staged under the managed context root instead of being projected as top-level .opencode directories.",
       "The global OpenCode/OpenAgentsControl-managed install is not modified.",
     ],
   };
@@ -160,7 +161,8 @@ export async function wireOpenCode(options: {
       mcpServers: sharedMcpAssetIds,
       notes: [
         "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
-        "Selected assets are linked into harness-managed project-local .opencode directories by asset kind.",
+        "Documented OpenCode-native asset buckets stay under .opencode/agents, .opencode/skills, .opencode/commands, and .opencode/plugins.",
+        "Undocumented asset buckets are staged under the managed context root as harness-owned references.",
         "On Windows, managed directory links are created as junctions for compatibility.",
         "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
       ],

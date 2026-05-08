@@ -504,6 +504,8 @@ npm run rebuild:full
 
 All host-specific behavior lives behind `src/host-adapters/`. Generic orchestration lives in `src/workspace.ts`, `src/wire.ts`, `src/pipeline.ts`, `src/install.ts`, `src/activate.ts`, and related lifecycle modules.
 
+For the checked-in host-surface classification backing the current README wording, see [`HOST-SURFACE-AUDIT.md`](./HOST-SURFACE-AUDIT.md).
+
 Preview, apply, and reset semantics are consistent across adapters:
 
 - **Preview** writes a wire preview manifest without applying workspace mutations.
@@ -520,6 +522,14 @@ Adapter implementation:
 - `src/host-adapters/vscode-settings.ts`
 
 This adapter is intentionally host-specific because VS Code and GitHub Copilot use protected user-scoped settings plus workspace-local instruction files.
+
+Current official docs:
+
+- <https://code.visualstudio.com/docs/copilot/customization/overview>
+- <https://code.visualstudio.com/docs/copilot/customization/custom-instructions>
+- <https://code.visualstudio.com/docs/copilot/customization/agent-skills>
+- <https://code.visualstudio.com/docs/copilot/customization/agent-plugins>
+- <https://code.visualstudio.com/docs/copilot/customization/mcp-servers>
 
 Supported behavior:
 
@@ -560,6 +570,7 @@ Workspace and activation outputs:
 Current boundaries:
 
 - Applying VS Code wire-in requires the VS Code user settings directory to exist and be writable.
+- The README treats instruction files, skills, plugins, and MCP as the primary documented public contract. Some patched settings remain implementation detail unless a current VS Code settings reference explicitly documents them.
 - The adapter never silently installs marketplace extensions during `wire`; native extension installation is an explicit `install native --operation install --apply` action.
 
 ### OpenCode
@@ -569,6 +580,17 @@ Adapter implementation:
 - `src/host-adapters/opencode.ts`
 
 This adapter is intentionally host-specific because OpenCode consumes project-local overlays and asset-kind directory layouts.
+
+Current official docs:
+
+- <https://opencode.ai/docs/rules/>
+- <https://opencode.ai/docs/agents/>
+- <https://opencode.ai/docs/skills/>
+- <https://opencode.ai/docs/commands/>
+- <https://opencode.ai/docs/plugins/>
+- <https://opencode.ai/docs/mcp-servers/>
+- <https://opencode.ai/docs/custom-tools/>
+- <https://opencode.ai/docs/config/>
 
 Supported behavior:
 
@@ -604,6 +626,7 @@ Current boundaries:
 
 - The adapter links activated assets into a project-local overlay and reference tree.
 - It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.
+- Although `opencode.json` and `opencode.json` `mcp` are documented OpenCode-native surfaces, the adapter does not synthesize host-native MCP server config there yet because current asset metadata only carries MCP asset identity/reference content, not a normalized per-host server config payload.
 - It does not install or modify global OpenCode packages, `opencode.json`, or global MCP configuration.
 
 ### Cursor
@@ -614,6 +637,16 @@ Adapter implementation:
 - registered as `cursor` in `src/host-adapters/registry.ts`
 
 Cursor is a project-local native adapter. It reuses the VS Code / Copilot lifecycle host for install and activation but ranks assets through its own `cursor` recommendation policy.
+
+Current official docs:
+
+- <https://cursor.com/docs/rules>
+- <https://cursor.com/docs/skills>
+- <https://cursor.com/docs/plugins>
+- <https://cursor.com/docs/mcp>
+- <https://cursor.com/docs/hooks>
+- <https://cursor.com/docs/subagents>
+- <https://cursor.com/marketplace>
 
 Supported behavior:
 
@@ -644,7 +677,7 @@ Current boundaries:
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
 - `.cursor/agent-harness/cursor-plugin/` is treated as a staged plugin bundle, not as a documented project-native auto-discovery location by itself.
 - Registering plugin paths remains host/user-managed.
-- MCP assets are surfaced as references unless structured server configuration is available from the selected asset.
+- `.cursor/mcp.json` is a documented Cursor-native surface, but the adapter does not synthesize it yet because MCP assets are currently carried as references/IDs rather than normalized host-native server config entries.
 - Extension-like assets without structured extension IDs are treated as reference material in the project-local managed tree.
 
 ### Zed
@@ -655,6 +688,12 @@ Adapter implementation:
 - registered as `zed` in `src/host-adapters/registry.ts`
 
 Zed is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `zed` recommendation policy.
+
+Current official docs:
+
+- <https://zed.dev/docs/ai/rules>
+- <https://zed.dev/docs/ai/mcp>
+- <https://zed.dev/docs/reference/all-settings.html>
 
 Supported behavior:
 
@@ -681,6 +720,7 @@ Current boundaries:
 
 - The adapter writes project-local context and profile hints.
 - `.zed/agent-harness/` is a managed reference tree, not a claim that every staged asset kind is a documented Zed-native directory.
+- Zed's documented MCP/context-server settings live in `.zed/settings.json`, but the adapter does not synthesize full `context_servers` entries yet because MCP assets do not currently carry a normalized host-native server config payload.
 - Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references rather than installed automatically.
 
 ### Claude Code
@@ -691,6 +731,14 @@ Adapter implementation:
 - registered as `claude-code` in `src/host-adapters/registry.ts`
 
 Claude Code is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `claude-code` recommendation policy.
+
+Current official docs:
+
+- <https://code.claude.com/docs/en/memory>
+- <https://code.claude.com/docs/en/slash-commands>
+- <https://code.claude.com/docs/en/sub-agents>
+- <https://code.claude.com/docs/en/hooks>
+- <https://code.claude.com/docs/en/settings>
 
 Supported behavior:
 
@@ -721,6 +769,15 @@ Adapter implementation:
 - registered as `pi` in `src/host-adapters/registry.ts`
 
 Pi is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `pi` recommendation policy.
+
+Current official docs:
+
+- <https://pi.dev/docs/latest/settings>
+- <https://pi.dev/docs/latest/skills>
+- <https://pi.dev/docs/latest/prompt-templates>
+- <https://pi.dev/docs/latest/extensions>
+- <https://pi.dev/docs/latest/packages>
+- <https://pi.dev/docs/latest/usage>
 
 Supported behavior:
 
@@ -1270,6 +1327,7 @@ Known boundaries:
 
 - `CHANGELOG.md` - release notes
 - `AGENT-SETUP-PLAYBOOK.md` - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- `HOST-SURFACE-AUDIT.md` - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
 - `SECURITY.md` - vulnerability reporting and supported-version policy
 - `Roadmap.md` - gap analysis and long-range direction
 - `IMPLEMENTATION-PLAN.md` - milestone-oriented execution plan
