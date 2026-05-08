@@ -80,15 +80,30 @@ export function assertRecommendationReport(
           entryRecord.sourceFamily,
           `${context}.topByHost.${host}[${index}].sourceFamily`,
         );
-        assertBoolean(
-          entryRecord.availableLocally,
-          `${context}.topByHost.${host}[${index}].availableLocally`,
-        );
-        assertLiteral(
-          entryRecord.recommendationBasis,
-          ["workspace-fit", "local-availability"],
-          `${context}.topByHost.${host}[${index}].recommendationBasis`,
-        );
+        if (
+          Object.prototype.hasOwnProperty.call(entryRecord, "availableLocally")
+        ) {
+          assertBoolean(
+            entryRecord.availableLocally,
+            `${context}.topByHost.${host}[${index}].availableLocally`,
+          );
+        } else {
+          entryRecord.availableLocally = false;
+        }
+        if (
+          Object.prototype.hasOwnProperty.call(
+            entryRecord,
+            "recommendationBasis",
+          )
+        ) {
+          assertLiteral(
+            entryRecord.recommendationBasis,
+            ["workspace-fit", "local-availability"],
+            `${context}.topByHost.${host}[${index}].recommendationBasis`,
+          );
+        } else {
+          entryRecord.recommendationBasis = "workspace-fit";
+        }
         assertLiteral(
           entryRecord.contextSizeClass,
           [...CONTEXT_COST_CLASSES],

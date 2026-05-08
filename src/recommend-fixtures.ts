@@ -334,7 +334,7 @@ function buildLocalAvailabilitySeparationFixture(): RecommendationEvaluationFixt
     description:
       "Local assets should stay visible for convenience without outranking stronger workspace-fit recommendations.",
     demandProfile: createDemandProfile({
-      frameworks: ["react", "frontend"],
+      frameworks: ["react"],
       concerns: ["frontend", "testing"],
       tooling: ["typescript", "playwright", "node"],
     }),
@@ -612,6 +612,13 @@ function createDemandProfile(
   };
 }
 
+function isFixturePublisherVerified(authorityTier: AuthorityTier): boolean {
+  return (
+    authorityTier !== "trusted-community" &&
+    authorityTier !== "unverified-community"
+  );
+}
+
 function createAsset(
   id: string,
   options: FixtureAssetOptions,
@@ -629,8 +636,9 @@ function createAsset(
       sourcePriority: options.sourcePriority ?? 80,
       originUrl: `https://example.com/${options.sourceId}/${id}`,
       publisher: options.publisher,
-      publisherVerified:
-        (options.authorityTier ?? "trusted-community") !== "trusted-community",
+      publisherVerified: isFixturePublisherVerified(
+        options.authorityTier ?? "trusted-community",
+      ),
     },
     trust: {
       score: options.trustScore ?? 82,

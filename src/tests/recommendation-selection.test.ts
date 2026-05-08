@@ -467,6 +467,15 @@ function buildPolicy(
   };
 }
 
+function isTestPublisherVerified(
+  authorityTier: AssetCatalogEntry["source"]["authorityTier"],
+): boolean {
+  return (
+    authorityTier !== "trusted-community" &&
+    authorityTier !== "unverified-community"
+  );
+}
+
 function buildCatalogEntry(
   id: string,
   assetKind: AssetCatalogEntry["assetKind"],
@@ -483,6 +492,8 @@ function buildCatalogEntry(
   } = {},
 ): AssetCatalogEntry {
   const sourceId = options.sourceId ?? id;
+  const authorityTier = options.authorityTier ?? "trusted-community";
+
   return {
     id,
     displayName: id,
@@ -491,17 +502,16 @@ function buildCatalogEntry(
     compatibilityMode: "native",
     source: {
       sourceId,
-      authorityTier: options.authorityTier ?? "trusted-community",
+      authorityTier,
       sourceKind: options.sourceKind ?? "repo",
       sourcePriority,
       originUrl: `https://example.com/${id}`,
       publisher: sourceId,
-      publisherVerified:
-        (options.authorityTier ?? "trusted-community") !== "trusted-community",
+      publisherVerified: isTestPublisherVerified(authorityTier),
     },
     trust: {
       score: sourcePriority,
-      signals: [`authority:${options.authorityTier ?? "trusted-community"}`],
+      signals: [`authority:${authorityTier}`],
     },
     capabilities: options.capabilities ?? [assetKind, id],
     install: {
