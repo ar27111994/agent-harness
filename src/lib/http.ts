@@ -87,6 +87,8 @@ export async function fetchTextWithGuards(
   url: string,
   options: FetchWithGuardsOptions = {},
 ): Promise<string | null> {
+  const httpConfig = getRuntimeConfig().http;
+
   try {
     const { addresses, parsedUrl } =
       await resolveAllowedPublicHttpUrlForRequest(
@@ -98,7 +100,7 @@ export async function fetchTextWithGuards(
       parsedUrl,
       addresses,
       options,
-      options.timeoutMs ?? getRuntimeConfig().http.timeoutMs,
+      options.timeoutMs ?? httpConfig.timeoutMs,
     );
 
     if (!response.ok) {
@@ -108,7 +110,7 @@ export async function fetchTextWithGuards(
 
     return await readResponseTextWithLimit(
       response,
-      options.maxBytes ?? getRuntimeConfig().http.maxResponseBytes,
+      options.maxBytes ?? httpConfig.maxResponseBytes,
     );
   } catch {
     return null;
@@ -122,6 +124,8 @@ export async function fetchBytesWithGuards(
   url: string,
   options: FetchWithGuardsOptions = {},
 ): Promise<Buffer | null> {
+  const httpConfig = getRuntimeConfig().http;
+
   try {
     const { addresses, parsedUrl } =
       await resolveAllowedPublicHttpUrlForRequest(
@@ -133,7 +137,7 @@ export async function fetchBytesWithGuards(
       parsedUrl,
       addresses,
       options,
-      options.timeoutMs ?? getRuntimeConfig().http.timeoutMs,
+      options.timeoutMs ?? httpConfig.timeoutMs,
     );
 
     if (!response.ok) {
@@ -143,7 +147,7 @@ export async function fetchBytesWithGuards(
 
     return await readResponseBytesWithLimit(
       response,
-      options.maxBytes ?? getRuntimeConfig().http.maxResponseBytes,
+      options.maxBytes ?? httpConfig.maxResponseBytes,
     );
   } catch {
     return null;

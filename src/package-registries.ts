@@ -64,10 +64,11 @@ export async function fetchNpmPackageSearch(
     return [];
   }
 
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
     const searchUrl = new URL("https://registry.npmjs.org/-/v1/search");
     searchUrl.searchParams.set("text", normalizedQuery);
-    const registriesConfig = getRuntimeConfig().registries;
     searchUrl.searchParams.set(
       "size",
       String(registriesConfig.npmSearchResultLimit),
@@ -93,8 +94,9 @@ export async function fetchNpmPackageMetadata(
   packageName: string,
   options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<NpmPackageMetadata | null> {
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
-    const registriesConfig = getRuntimeConfig().registries;
     const data = await fetchJsonWithGuards(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
       {
@@ -122,8 +124,9 @@ export async function fetchPypiPackageMetadata(
   packageName: string,
   options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<PypiPackageMetadata | null> {
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
-    const registriesConfig = getRuntimeConfig().registries;
     const data = await fetchJsonWithGuards(
       `https://pypi.org/pypi/${encodeURIComponent(packageName)}/json`,
       {
