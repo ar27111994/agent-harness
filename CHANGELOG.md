@@ -6,11 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- None yet.
+- recommendation fixture evaluation now records aggregate quality metrics, including top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency
 
 ### Changed
 
-- None yet.
+- README now documents the layered confidence model, explain-output reason classes, and how to read `recommend evaluate` as a precision-vs-fallback signal instead of only a pass/fail check
 
 ### Fixed
 

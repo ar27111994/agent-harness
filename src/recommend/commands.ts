@@ -5,19 +5,13 @@ import { getOptionValue } from "../lib/cli-options.js";
 import { assertRecommendationReport } from "../manifest-validation.js";
 import { buildRecommendationFixtures } from "../recommend-fixtures.js";
 import { EVALUATION_FILE_PATH, REPORT_FILE_PATH } from "./constants.js";
+import { buildRecommendationEvaluationResult } from "./evaluation.js";
 import { getRecommendationHosts, isRecommendationHost } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
-import {
-  buildRecommendationReport,
-  writeRecommendationReport,
-} from "./report.js";
+import { writeRecommendationReport } from "./report.js";
 import type { RecommendationHost } from "./hosts.js";
 import type {
-  RecommendationEvaluationCheck,
-  RecommendationEvaluationExpectation,
-  RecommendationEvaluationFixture,
   RecommendationEvaluationResult,
-  RecommendationPolicy,
   RecommendationReport,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
@@ -137,12 +131,8 @@ async function evaluateRecommendationFixtures(
   const shouldWrite = args.includes("--write");
   const policy = await loadRecommendationPolicy(projectRoot);
   const fixtures = buildRecommendationFixtures();
-  const results = fixtures.map((fixture) => evaluateFixture(fixture, policy));
-  const evaluationResult: RecommendationEvaluationResult = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    fixtures: results,
-  };
+  const evaluationResult: RecommendationEvaluationResult =
+    buildRecommendationEvaluationResult(fixtures, policy);
 
   if (shouldWrite) {
     await writeJsonFile(
@@ -152,7 +142,7 @@ async function evaluateRecommendationFixtures(
   }
 
   let hasFailures = false;
-  for (const result of results) {
+  for (const result of evaluationResult.fixtures) {
     console.log(
       `${result.passed ? "PASS" : "FAIL"} ${result.id}: ${result.description}`,
     );
@@ -165,6 +155,22 @@ async function evaluateRecommendationFixtures(
       hasFailures = true;
     }
   }
+
+  const { summary } = evaluationResult;
+  console.log("Summary:");
+  console.log(
+    `  fixtures: ${summary.passedFixtureCount}/${summary.fixtureCount} passed (${summary.failedFixtureCount} failed)`,
+  );
+  console.log(`  evaluated hosts: ${summary.evaluatedHostCount}`);
+  console.log(
+    `  top reason mix: exact=${summary.topReasonCounts.exactStack}, ecosystem=${summary.topReasonCounts.ecosystem}, generic=${summary.topReasonCounts.genericConcern}, none=${summary.topReasonCounts.none}`,
+  );
+  console.log(
+    `  top confidence: medium-or-strong=${summary.topConfidenceCounts.mediumOrStrong}, weak-only=${summary.topConfidenceCounts.weakOnly}, none=${summary.topConfidenceCounts.none}`,
+  );
+  console.log(
+    `  broad fallback tops: ${summary.broadFallbackTopCount}, local-availability tops: ${summary.localAvailabilityTopCount}`,
+  );
 
   return hasFailures ? 1 : 0;
 }
@@ -204,111 +210,6 @@ async function printRecommendationPolicy(
       pretty ? 2 : undefined,
     ),
   );
-}
-
-function evaluateFixture(
-  fixture: RecommendationEvaluationFixture,
-  policy: RecommendationPolicy,
-): RecommendationEvaluationResult["fixtures"][number] {
-  const report = buildRecommendationReport(
-    fixture.catalogEntries,
-    fixture.demandProfile,
-    policy,
-  );
-  const checks = fixture.expectations.flatMap((expectation) =>
-    evaluateExpectation(expectation, report),
-  );
-
-  return {
-    id: fixture.id,
-    description: fixture.description,
-    passed: checks.every((check) => check.passed),
-    checks,
-  };
-}
-
-function evaluateExpectation(
-  expectation: RecommendationEvaluationExpectation,
-  report: RecommendationReport,
-): RecommendationEvaluationCheck[] {
-  const entries = report.topByHost[expectation.host] ?? [];
-  const hostSummary = report.hostSummaries[expectation.host];
-  const bundle = report.suggestedBundles.find(
-    (entry) => entry.host === expectation.host,
-  );
-  const checks: RecommendationEvaluationCheck[] = [];
-
-  checks.push({
-    name: `${expectation.host}-bundle-budget`,
-    passed: Boolean(
-      bundle && bundle.estimatedPromptWeight <= hostSummary.activationBudget,
-    ),
-    details: bundle
-      ? `bundle weight ${bundle.estimatedPromptWeight}/${hostSummary.activationBudget}`
-      : "missing bundle",
-  });
-
-  for (const requiredAssetId of expectation.requiredAssetIds ?? []) {
-    const present = entries.some((entry) => entry.assetId === requiredAssetId);
-    checks.push({
-      name: `${expectation.host}-requires-${requiredAssetId}`,
-      passed: present,
-      details: present ? "present" : `missing from ${expectation.host}`,
-    });
-  }
-
-  for (const requiredKind of expectation.requiredAssetKinds ?? []) {
-    const actualCount = entries.filter(
-      (entry) => entry.assetKind === requiredKind.assetKind,
-    ).length;
-    checks.push({
-      name: `${expectation.host}-kind-${requiredKind.assetKind}`,
-      passed: actualCount >= requiredKind.minimum,
-      details: `found ${actualCount}, required ${requiredKind.minimum}`,
-    });
-  }
-
-  if (expectation.maxPerSourceFamily !== undefined) {
-    const topSourceFamilyCount = Math.max(
-      0,
-      ...Object.values(hostSummary.bySourceFamily),
-    );
-    checks.push({
-      name: `${expectation.host}-source-diversity`,
-      passed: topSourceFamilyCount <= expectation.maxPerSourceFamily,
-      details: `largest source family count ${topSourceFamilyCount}, expected <= ${expectation.maxPerSourceFamily}`,
-    });
-  }
-
-  for (const concern of expectation.requiredConcerns ?? []) {
-    const actualCount = hostSummary.byConcern[concern] ?? 0;
-    checks.push({
-      name: `${expectation.host}-concern-${concern}`,
-      passed: actualCount > 0,
-      details: actualCount > 0 ? `present ${actualCount} times` : "missing",
-    });
-  }
-
-  for (const pair of expectation.rankedAbove ?? []) {
-    const higherRank =
-      entries.find((entry) => entry.assetId === pair.higherAssetId)?.rank ??
-      null;
-    const lowerRank =
-      entries.find((entry) => entry.assetId === pair.lowerAssetId)?.rank ??
-      null;
-    const passed =
-      higherRank !== null && lowerRank !== null && higherRank < lowerRank;
-    checks.push({
-      name: `${expectation.host}-rank-${pair.higherAssetId}-above-${pair.lowerAssetId}`,
-      passed,
-      details:
-        higherRank === null || lowerRank === null
-          ? `missing ranks higher=${higherRank ?? "absent"} lower=${lowerRank ?? "absent"}`
-          : `higher rank ${higherRank}, lower rank ${lowerRank}`,
-    });
-  }
-
-  return checks;
 }
 
 function formatMatchedSignals(matches: RecommendationSignalMatch[]): string {
@@ -357,6 +258,6 @@ function printRecommendHelp(): void {
   console.log(`recommend commands:
   report    Recompute the recommendation report using the external policy (default)
   explain   Explain why an asset ranked for a host
-  evaluate  Run golden recommendation fixtures (use --write to persist results)
+  evaluate  Run golden recommendation fixtures and print quality summary metrics (use --write to persist results)
   policy:print  Print the merged effective policy (--host <host> to scope)`);
 }

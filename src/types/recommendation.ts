@@ -294,15 +294,66 @@ export interface RecommendationEvaluationCheck {
 }
 
 /**
+ * Describes top-recommendation confidence classes surfaced by fixture evaluation.
+ */
+export type RecommendationEvaluationTopConfidence =
+  | "medium-or-strong"
+  | "weak-only"
+  | "none";
+
+/**
+ * Describes the top recommendation observed for one evaluated host.
+ */
+export interface RecommendationEvaluationHostSummary {
+  host: HostTarget;
+  topAssetId: string | null;
+  topReasons: string[];
+  topRecommendationBasis: RecommendationBasis | null;
+  topAvailableLocally: boolean;
+  topConfidence: RecommendationEvaluationTopConfidence;
+  topCoverageTags: string[];
+}
+
+/**
+ * Describes one evaluated fixture result.
+ */
+export interface RecommendationEvaluationFixtureResult {
+  id: string;
+  description: string;
+  passed: boolean;
+  checks: RecommendationEvaluationCheck[];
+  hostSummaries: RecommendationEvaluationHostSummary[];
+}
+
+/**
+ * Describes aggregate quality metrics for the recommendation evaluation suite.
+ */
+export interface RecommendationEvaluationSummary {
+  fixtureCount: number;
+  passedFixtureCount: number;
+  failedFixtureCount: number;
+  evaluatedHostCount: number;
+  topReasonCounts: {
+    exactStack: number;
+    ecosystem: number;
+    genericConcern: number;
+    none: number;
+  };
+  broadFallbackTopCount: number;
+  localAvailabilityTopCount: number;
+  topConfidenceCounts: {
+    mediumOrStrong: number;
+    weakOnly: number;
+    none: number;
+  };
+}
+
+/**
  * Describes recommendation evaluation result data exchanged by the lifecycle pipeline.
  */
 export interface RecommendationEvaluationResult {
   schemaVersion: number;
   generatedAt: string;
-  fixtures: Array<{
-    id: string;
-    description: string;
-    passed: boolean;
-    checks: RecommendationEvaluationCheck[];
-  }>;
+  summary: RecommendationEvaluationSummary;
+  fixtures: RecommendationEvaluationFixtureResult[];
 }

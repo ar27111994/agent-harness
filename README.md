@@ -350,6 +350,7 @@ npm run recommend:update
 ```
 
 Omitting the recommendation subcommand defaults to `report`.
+`recommend evaluate` now ends with an aggregate summary so you can spot whether a fixture suite is being carried by exact-stack wins, weak-only generic matches, or broad fallback behavior.
 
 Explain a specific recommendation:
 
@@ -813,6 +814,30 @@ Recommendation scoring considers:
 - duplicate groups
 - per-host caps and budgets
 
+### Layered confidence model
+
+The recommendation pipeline now follows a stricter evidence hierarchy instead of treating repeated docs noise like runtime truth:
+
+- **Strong evidence**: manifests, lockfiles, imports, framework/runtime/config files
+- **Medium evidence**: deploy/config conventions, generated artifacts, directory conventions
+- **Weak evidence**: README/docs/examples
+- **Ignored by default**: issue templates, changelogs, roadmaps, planning docs
+
+That evidence feeds a ranking ladder:
+
+- `fit:exact-stack` → exact dependency/framework/runtime matches
+- `fit:ecosystem` → narrower ecosystem-adjacent matches
+- `fit:generic-concern` → broad concern overlap like testing/docs/backend
+- `coverage-gap-fill` → coverage-driven fallback signal when host coverage goals still need help; in evaluation summaries it is counted as a broad fallback only when no stronger exact/ecosystem fit is carrying the top slot
+
+`recommend explain` surfaces these reasons directly, along with matched-signal evidence counts and whether an asset was shown for actual workspace fit or only because it was already available locally:
+
+- `recommendation basis: workspace-fit | local-availability`
+- `available locally: yes | no`
+- `matched signals: ... s=<strong>/m=<medium>/w=<weak>`
+
+If a narrow repo shows a lot of `fit:generic-concern` or `coverage-gap-fill` winners, that is a signal to inspect policy breadth or source mix before increasing selection counts.
+
 The legacy `discover/recommendation-policy.json` path is still accepted as a fallback when only the older monolithic policy file exists.
 
 ### Quality and policy coverage
@@ -829,7 +854,7 @@ npm run validate:recommendations
 - `quality:detection` checks representative archetype fixtures and reports precision/recall-style metrics.
 - `quality:policy` verifies detector-emitted terms are represented in recommendation policy maps and writes draft suggestions for human review.
 - `benchmark:scan` enforces scan budget expectations.
-- `validate:recommendations` evaluates golden recommendation fixtures.
+- `validate:recommendations` evaluates golden recommendation fixtures and prints aggregate quality signals such as top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency.
 
 ## Environment variables
 
