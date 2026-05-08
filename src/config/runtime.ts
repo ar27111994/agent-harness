@@ -24,11 +24,50 @@ export interface RuntimeConfig {
     apiKey?: string;
     model: string;
     allowedOrigins: readonly string[];
+    requestTimeoutMs: number;
+    responseMaxBytes: number;
+  };
+  http: {
+    timeoutMs: number;
+    maxResponseBytes: number;
   };
   github: {
     token?: string;
     apiVersion: string;
     fetchMaxAttempts: number;
+    fetchTimeoutMs: number;
+    jsonMaxBytes: number;
+  };
+  registries: {
+    fetchTimeoutMs: number;
+    metadataMaxBytes: number;
+    searchMaxBytes: number;
+    npmSearchResultLimit: number;
+  };
+  discovery: {
+    referenceSourceMaxBytes: number;
+    genericReferenceMaxItems: number;
+    vscodeMarketplaceMaxQueries: number;
+    vscodeMarketplaceMaxItemsPerQuery: number;
+    npmMcpSearchQueryLimit: number;
+  };
+  officialIndex: {
+    pageMaxBytes: number;
+    contentMaxBytes: number;
+  };
+  hostCommands: {
+    nativeTimeoutMs: number;
+    nativeMaxBufferBytes: number;
+    preflightTimeoutMs: number;
+  };
+  mirrorLimits: {
+    maxOfficialIndexPackageFiles: number;
+    maxOfficialIndexFileSizeBytes: number;
+    maxOfficialIndexPackageTotalBytes: number;
+    maxGitHubMirrorFileSizeBytes: number;
+  };
+  diagnostics: {
+    debugEnabled: boolean;
   };
   batches: {
     remoteHarvest: number;
@@ -67,16 +106,39 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     nonEmptyString(env.USERPROFILE) ??
     homedir();
   const githubToken = env.GITHUB_PERSONAL_ACCESS_TOKEN || env.GITHUB_TOKEN;
+  const aiEnrichmentUrl = nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_URL);
 
   return {
     env,
     aiEnrichment: {
-      url: nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_URL),
+      url: aiEnrichmentUrl,
       apiKey: nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY),
       model:
         nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_MODEL) ??
         DEFAULT_AI_ENRICHMENT_MODEL,
-      allowedOrigins: DEFAULT_AI_ENRICHMENT_ALLOWED_ORIGINS,
+      allowedOrigins: buildAiEnrichmentAllowedOrigins(env, aiEnrichmentUrl),
+      requestTimeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS,
+        20_000,
+        "AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS",
+      ),
+      responseMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES",
+      ),
+    },
+    http: {
+      timeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_HTTP_TIMEOUT_MS,
+        10_000,
+        "AGENT_HARNESS_HTTP_TIMEOUT_MS",
+      ),
+      maxResponseBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_HTTP_MAX_RESPONSE_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_HTTP_MAX_RESPONSE_BYTES",
+      ),
     },
     github: {
       token: githubToken || undefined,
@@ -85,6 +147,123 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_GITHUB_FETCH_RETRIES,
         3,
         "AGENT_HARNESS_GITHUB_FETCH_RETRIES",
+      ),
+      fetchTimeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_GITHUB_FETCH_TIMEOUT_MS,
+        10_000,
+        "AGENT_HARNESS_GITHUB_FETCH_TIMEOUT_MS",
+      ),
+      jsonMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_GITHUB_JSON_MAX_BYTES,
+        2_000_000,
+        "AGENT_HARNESS_GITHUB_JSON_MAX_BYTES",
+      ),
+    },
+    registries: {
+      fetchTimeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_REGISTRY_FETCH_TIMEOUT_MS,
+        5_000,
+        "AGENT_HARNESS_REGISTRY_FETCH_TIMEOUT_MS",
+      ),
+      metadataMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_REGISTRY_METADATA_MAX_BYTES,
+        2_000_000,
+        "AGENT_HARNESS_REGISTRY_METADATA_MAX_BYTES",
+      ),
+      searchMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_REGISTRY_SEARCH_MAX_BYTES,
+        500_000,
+        "AGENT_HARNESS_REGISTRY_SEARCH_MAX_BYTES",
+      ),
+      npmSearchResultLimit: parsePositiveInteger(
+        env.AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT,
+        12,
+        "AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT",
+      ),
+    },
+    discovery: {
+      referenceSourceMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_REFERENCE_SOURCE_MAX_BYTES,
+        600_000,
+        "AGENT_HARNESS_REFERENCE_SOURCE_MAX_BYTES",
+      ),
+      genericReferenceMaxItems: parsePositiveInteger(
+        env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS,
+        8,
+        "AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS",
+      ),
+      vscodeMarketplaceMaxQueries: parsePositiveInteger(
+        env.AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES,
+        4,
+        "AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES",
+      ),
+      vscodeMarketplaceMaxItemsPerQuery: parsePositiveInteger(
+        env.AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
+        6,
+        "AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY",
+      ),
+      npmMcpSearchQueryLimit: parsePositiveInteger(
+        env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT,
+        8,
+        "AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT",
+      ),
+    },
+    officialIndex: {
+      pageMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES",
+      ),
+      contentMaxBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES",
+      ),
+    },
+    hostCommands: {
+      nativeTimeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_NATIVE_COMMAND_TIMEOUT_MS,
+        30_000,
+        "AGENT_HARNESS_NATIVE_COMMAND_TIMEOUT_MS",
+      ),
+      nativeMaxBufferBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_NATIVE_COMMAND_MAX_BUFFER_BYTES,
+        2_000_000,
+        "AGENT_HARNESS_NATIVE_COMMAND_MAX_BUFFER_BYTES",
+      ),
+      preflightTimeoutMs: parsePositiveInteger(
+        env.AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS,
+        10_000,
+        "AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS",
+      ),
+    },
+    mirrorLimits: {
+      maxOfficialIndexPackageFiles: parsePositiveInteger(
+        env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES,
+        1_000,
+        "AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES",
+      ),
+      maxOfficialIndexFileSizeBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES",
+      ),
+      maxOfficialIndexPackageTotalBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES,
+        20_000_000,
+        "AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES",
+      ),
+      maxGitHubMirrorFileSizeBytes: parsePositiveInteger(
+        env.AGENT_HARNESS_MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
+        1_000_000,
+        "AGENT_HARNESS_MAX_GITHUB_MIRROR_FILE_SIZE_BYTES",
+      ),
+    },
+    diagnostics: {
+      debugEnabled: parseBooleanFlag(
+        env.AGENT_HARNESS_DEBUG,
+        false,
+        "AGENT_HARNESS_DEBUG",
       ),
     },
     batches: {
@@ -144,6 +323,71 @@ export function clearRuntimeConfigForTests(): void {
   clearRuntimeConfig();
 }
 
+function buildAiEnrichmentAllowedOrigins(
+  env: NodeJS.ProcessEnv,
+  aiEnrichmentUrl: string | undefined,
+): readonly string[] {
+  const configuredOrigins = parseHttpsOriginList(
+    env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS,
+    "AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS",
+  );
+  const endpointOrigin = extractHttpsOrigin(aiEnrichmentUrl);
+
+  return dedupeStrings([
+    ...DEFAULT_AI_ENRICHMENT_ALLOWED_ORIGINS,
+    ...configuredOrigins,
+    ...(endpointOrigin ? [endpointOrigin] : []),
+  ]);
+}
+
+function extractHttpsOrigin(value: string | undefined): string | undefined {
+  const trimmedValue = nonEmptyString(value);
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedValue);
+    return parsedUrl.protocol === "https:" ? parsedUrl.origin : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseHttpsOriginList(
+  value: string | undefined,
+  envName: string,
+): string[] {
+  if (!value || value.trim().length === 0) {
+    return [];
+  }
+
+  return value
+    .split(/[\r\n,]+/u)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .map((entry) => normalizeHttpsOrigin(entry, envName));
+}
+
+function normalizeHttpsOrigin(value: string, envName: string): string {
+  try {
+    const parsedUrl = new URL(value);
+    if (parsedUrl.protocol !== "https:") {
+      throw new Error("origin must use https");
+    }
+    return parsedUrl.origin;
+  } catch (error) {
+    throw new Error(
+      `${envName} must contain comma-separated https origins when set: ${value}`,
+      { cause: error },
+    );
+  }
+}
+
+function dedupeStrings(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
 function nonEmptyString(value: string | undefined): string | undefined {
   const trimmedValue = value?.trim();
   return trimmedValue && trimmedValue.length > 0 ? trimmedValue : undefined;
@@ -164,4 +408,24 @@ function parsePositiveInteger(
   }
 
   return parsedValue;
+}
+
+function parseBooleanFlag(
+  value: string | undefined,
+  defaultValue: boolean,
+  envName: string,
+): boolean {
+  if (!value || value.trim().length === 0) {
+    return defaultValue;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalizedValue)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalizedValue)) {
+    return false;
+  }
+
+  throw new Error(`${envName} must be a boolean when set.`);
 }

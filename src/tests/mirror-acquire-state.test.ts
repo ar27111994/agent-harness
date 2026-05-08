@@ -18,10 +18,10 @@ import {
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
 import { acquireMirrorArtifacts } from "../mirror/acquire.js";
 import {
-  MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_PACKAGE_FILES,
-  MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES,
+  getMaxGitHubMirrorFileSizeBytes,
+  getMaxOfficialIndexFileSizeBytes,
+  getMaxOfficialIndexPackageFiles,
+  getMaxOfficialIndexPackageTotalBytes,
 } from "../mirror/constants.js";
 import type {
   AssetCatalogEntry,
@@ -29,6 +29,12 @@ import type {
   MirrorIndexEntry,
   MirrorPolicy,
 } from "../types.js";
+
+const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = getMaxGitHubMirrorFileSizeBytes();
+const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = getMaxOfficialIndexFileSizeBytes();
+const MAX_OFFICIAL_INDEX_PACKAGE_FILES = getMaxOfficialIndexPackageFiles();
+const MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES =
+  getMaxOfficialIndexPackageTotalBytes();
 
 function createAcquireState(
   overrides: Partial<MirrorAcquireState> = {},

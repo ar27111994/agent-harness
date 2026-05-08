@@ -98,9 +98,9 @@ export async function writeAiEnrichmentReport(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      maxBytes: 1_000_000,
+      maxBytes: config.responseMaxBytes,
       method: "POST",
-      timeoutMs: 20_000,
+      timeoutMs: config.requestTimeoutMs,
     });
     const content = extractCompletionContent(response);
     const parsedContent = parseEnrichmentContent(content);

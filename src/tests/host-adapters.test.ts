@@ -329,6 +329,54 @@ void test("OpenCode-compatible native wire plans expose every asset bucket", asy
   }
 });
 
+void test("Pi wire updates documented top-level settings arrays and cleans legacy config", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-pi-wire-"));
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    await writeOpenCodeActivation(projectRoot, buildAllAssetFixtures());
+    await writeJson(join(workspaceRoot, ".pi", "settings.json"), {
+      skills: ["skills/custom-skill"],
+      prompts: ["prompts/custom.md"],
+      agentHarness: {
+        skills: ["skills/legacy-agent-harness"],
+        prompts: ["prompts/legacy-agent-harness.md"],
+      },
+    });
+
+    const adapter = resolveHostAdapter("pi");
+    assert.ok(adapter);
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+    const appliedSettings = JSON.parse(
+      await readFile(join(workspaceRoot, ".pi", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(appliedSettings.skills, [
+      "skills/agent-harness",
+      "skills/custom-skill",
+    ]);
+    assert.deepEqual(appliedSettings.prompts, [
+      "prompts/agent-harness.md",
+      "prompts/custom.md",
+    ]);
+    assert.equal("agentHarness" in appliedSettings, false);
+
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
+
+    const resetSettings = JSON.parse(
+      await readFile(join(workspaceRoot, ".pi", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(resetSettings.skills, ["skills/custom-skill"]);
+    assert.deepEqual(resetSettings.prompts, ["prompts/custom.md"]);
+    assert.equal("agentHarness" in resetSettings, false);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
 void test("native adapters write host-specific project files and wire plans", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-hosts-"));
   const workspaceRoot = await mkdtemp(

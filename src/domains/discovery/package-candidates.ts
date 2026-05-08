@@ -1,6 +1,6 @@
+import { getRuntimeConfig } from "../../config/runtime.js";
 import type { DemandProfile } from "../../types.js";
 
-const NPM_MCP_SEARCH_QUERY_LIMIT = 8;
 const NPM_MCP_SEARCH_TERM_STOPLIST = new Set([
   "api",
   "backend",
@@ -96,7 +96,10 @@ export function collectNpmMcpSearchQueriesFromDemandProfile(
     }
   }
 
-  return [...new Set(queries)].slice(0, NPM_MCP_SEARCH_QUERY_LIMIT);
+  return [...new Set(queries)].slice(
+    0,
+    getRuntimeConfig().discovery.npmMcpSearchQueryLimit,
+  );
 }
 
 function splitIntoTerms(value: string): string[] {

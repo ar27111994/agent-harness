@@ -84,8 +84,9 @@ export async function wireOpenCode(options: {
     ],
     notes: [
       "OpenCode wire-in writes a project-local overlay under .opencode/context/project-intelligence/agent-harness.",
-      "Command assets are written as managed .opencode/commands/*.md files; other asset kinds use managed directory links.",
-      "The global OpenAgentsControl-managed install is not modified.",
+      "Command assets are written as managed .opencode/commands/*.md files; other asset kinds use harness-managed directory links.",
+      "Harness-managed overlay directories are staged project-local references and are not all claimed as documented OpenCode auto-discovery paths.",
+      "The global OpenCode/OpenAgentsControl-managed install is not modified.",
     ],
   };
 
@@ -159,7 +160,7 @@ export async function wireOpenCode(options: {
       mcpServers: sharedMcpAssetIds,
       notes: [
         "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
-        "Selected assets are linked into project-local .opencode installation directories by asset kind.",
+        "Selected assets are linked into harness-managed project-local .opencode directories by asset kind.",
         "On Windows, managed directory links are created as junctions for compatibility.",
         "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
       ],

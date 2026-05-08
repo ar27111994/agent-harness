@@ -1,9 +1,9 @@
+import { getRuntimeConfig } from "./config/runtime.js";
 import { fetchTextWithGuards } from "./lib/http.js";
 import type { AssetStatus, AuthorityTier } from "./types.js";
 
 const OFFICIAL_INDEX_USER_AGENT = "agent-harness";
 const MAX_LIST_ITEMS = 5;
-const MAX_OFFICIAL_INDEX_PAGE_BYTES = 1_000_000;
 const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://officialskills.sh",
   "https://raw.githubusercontent.com",
@@ -85,7 +85,7 @@ async function fetchOfficialIndexPageHtml(url: string): Promise<string | null> {
     headers: {
       "User-Agent": OFFICIAL_INDEX_USER_AGENT,
     },
-    maxBytes: MAX_OFFICIAL_INDEX_PAGE_BYTES,
+    maxBytes: getRuntimeConfig().officialIndex.pageMaxBytes,
   });
 }
 

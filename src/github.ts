@@ -160,8 +160,6 @@ interface GitHubDegradedModeSummary {
 }
 
 const GITHUB_API_BASE_URL = "https://api.github.com";
-const GITHUB_FETCH_TIMEOUT_MS = 10000;
-const GITHUB_JSON_MAX_BYTES = 2_000_000;
 const GITHUB_HEALTH_STATE_PATH = [
   "state",
   "remote-cache",
@@ -470,7 +468,10 @@ async function parseGitHubJsonResponse<T>(
 ): Promise<T> {
   try {
     return JSON.parse(
-      await readResponseTextWithLimit(response, GITHUB_JSON_MAX_BYTES),
+      await readResponseTextWithLimit(
+        response,
+        getRuntimeConfig().github.jsonMaxBytes,
+      ),
     ) as T;
   } catch (error) {
     throw new Error(
@@ -483,13 +484,14 @@ async function parseGitHubJsonResponse<T>(
 async function fetchGitHubResponse(path: string): Promise<Response> {
   let lastError: unknown = null;
 
-  const maxAttempts = getRuntimeConfig().github.fetchMaxAttempts;
+  const githubConfig = getRuntimeConfig().github;
+  const maxAttempts = githubConfig.fetchMaxAttempts;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     const controller = new AbortController();
     const timeout = setTimeout(
       () => controller.abort(),
-      GITHUB_FETCH_TIMEOUT_MS,
+      githubConfig.fetchTimeoutMs,
     );
 
     try {
@@ -518,7 +520,7 @@ async function fetchGitHubResponse(path: string): Promise<Response> {
 
       if (isAbortError(error)) {
         lastError = new Error(
-          `Request timed out after ${GITHUB_FETCH_TIMEOUT_MS}ms`,
+          `Request timed out after ${githubConfig.fetchTimeoutMs}ms`,
         );
       } else {
         lastError = error;

@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { extname } from "node:path";
 import { promisify } from "node:util";
 
+import { getRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
 const execFileAsync = promisify(execFile);
@@ -60,8 +61,6 @@ export type NativeCommandExecutor = (
 
 const VS_CODE_EXTENSION_ID_PATTERN =
   /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/iu;
-const NATIVE_COMMAND_TIMEOUT_MS = 30_000;
-const NATIVE_COMMAND_MAX_BUFFER_BYTES = 2_000_000;
 
 /**
  * Builds vs code extension install actions from the provided inputs.
@@ -234,11 +233,12 @@ async function executeNativeCommand(
 
   for (const candidateExecutable of buildExecutableCandidates(executable)) {
     try {
+      const hostCommandConfig = getRuntimeConfig().hostCommands;
       const result = await execFileAsync(candidateExecutable, args, {
         shell: shouldRunCandidateThroughShell(candidateExecutable),
         windowsHide: true,
-        timeout: NATIVE_COMMAND_TIMEOUT_MS,
-        maxBuffer: NATIVE_COMMAND_MAX_BUFFER_BYTES,
+        timeout: hostCommandConfig.nativeTimeoutMs,
+        maxBuffer: hostCommandConfig.nativeMaxBufferBytes,
       });
       return {
         exitCode: 0,

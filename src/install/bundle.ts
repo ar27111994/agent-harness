@@ -432,8 +432,7 @@ async function assertNoUnexpectedMirrorFiles(
 }
 
 function debugInstallBundleSkip(message: string): void {
-  const debugValue = getRuntimeConfig().env.AGENT_HARNESS_DEBUG?.toLowerCase();
-  if (debugValue === "1" || debugValue === "true") {
+  if (getRuntimeConfig().diagnostics.debugEnabled) {
     process.stderr.write(`[agent-harness:debug] ${message}\n`);
   }
 }

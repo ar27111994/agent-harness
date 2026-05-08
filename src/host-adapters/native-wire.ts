@@ -716,12 +716,9 @@ async function writePiNativeFiles(options: {
       ]),
     ]),
   );
-  await mergeJsonFile(join(options.workspaceRoot, ".pi", "settings.json"), {
-    agentHarness: {
-      skills: ["skills/agent-harness"],
-      prompts: ["prompts/agent-harness.md"],
-    },
-  });
+  await upsertManagedPiSettings(
+    join(options.workspaceRoot, ".pi", "settings.json"),
+  );
 }
 
 function buildNativeWirePlan(options: {
@@ -914,6 +911,20 @@ async function removeManagedZedSettings(filePath: string): Promise<void> {
   await writeOrRemoveJsonFile(filePath, settings);
 }
 
+async function upsertManagedPiSettings(filePath: string): Promise<void> {
+  const existingValue = await readJsonFileOrNull<unknown>(filePath);
+  const settings = asJsonObject(existingValue) ?? {};
+  delete settings.agentHarness;
+
+  await writeOrRemoveJsonFile(
+    filePath,
+    mergeJsonObjects(settings, {
+      skills: ["skills/agent-harness"],
+      prompts: ["prompts/agent-harness.md"],
+    }),
+  );
+}
+
 async function removeManagedPiSettings(filePath: string): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings = asJsonObject(existingValue);
@@ -921,6 +932,10 @@ async function removeManagedPiSettings(filePath: string): Promise<void> {
     return;
   }
 
+  removeManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
+  removeManagedStringArrayEntries(settings, "prompts", [
+    "prompts/agent-harness.md",
+  ]);
   delete settings.agentHarness;
 
   await writeOrRemoveJsonFile(filePath, settings);
@@ -1248,4 +1263,24 @@ function coerceStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
+}
+
+function removeManagedStringArrayEntries(
+  settings: JsonObject,
+  key: string,
+  entriesToRemove: readonly string[],
+): void {
+  if (!(key in settings)) {
+    return;
+  }
+
+  const nextValues = coerceStringArray(settings[key]).filter(
+    (entry) => !entriesToRemove.includes(entry),
+  );
+  if (nextValues.length === 0) {
+    delete settings[key];
+    return;
+  }
+
+  settings[key] = nextValues;
 }
