@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- None yet.
+
+### Changed
+
+- None yet.
+
+### Fixed
+
+- None yet.
+
+## [1.0.2] - 2026-05-08
+
+### Added
+
 - added `AGENT-SETUP-PLAYBOOK.md`, a dedicated dry-run setup guide with a troubleshooting decision tree, asset-action classification guidance, and reusable AI-agent prompts for workspace/host/intention-based setup flows
 
 ### Changed
