@@ -1038,6 +1038,8 @@ AGENT_HARNESS_SCAN_MAX_FILES=20000
 AGENT_HARNESS_SCAN_MAX_BYTES=50000000
 ```
 
+The runtime config exposes diagnostics as a boolean flag at `diagnostics.debugEnabled`; there is no full log-level hierarchy today. The legacy `AGENT_HARNESS_DEBUG` env var maps directly to that `diagnostics.debugEnabled` flag, so diagnostics can be controlled either through env-backed runtime config or by reading the resolved runtime config object.
+
 ### Mutable state root override
 
 ```bash

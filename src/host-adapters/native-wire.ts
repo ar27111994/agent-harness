@@ -913,7 +913,8 @@ async function removeManagedZedSettings(filePath: string): Promise<void> {
 
 async function upsertManagedPiSettings(filePath: string): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
-  const settings = asJsonObject(existingValue) ?? {};
+  const settings =
+    existingValue === null ? {} : assertJsonObject(existingValue, filePath);
   delete settings.agentHarness;
 
   await writeOrRemoveJsonFile(

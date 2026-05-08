@@ -32,12 +32,11 @@ void test("runtime config preserves existing defaults when new env vars are unse
 });
 
 void test("runtime config accepts custom runtime knobs and enrichment origins", () => {
+  const newEndpointOrigin = "https://gateway.example.com";
   const config = loadRuntimeConfig({
     HOME: "/home/tester",
-    AGENT_HARNESS_AI_ENRICHMENT_URL:
-      "https://gateway.example.com/v1/chat/completions",
-    AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS:
-      "https://proxy.example.com, https://gateway.example.com",
+    AGENT_HARNESS_AI_ENRICHMENT_URL: `${newEndpointOrigin}/v1/chat/completions`,
+    AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS: "https://proxy.example.com",
     AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS: "45000",
     AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES: "250000",
     AGENT_HARNESS_HTTP_TIMEOUT_MS: "11000",
@@ -70,9 +69,7 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   assert.ok(
     config.aiEnrichment.allowedOrigins.includes("https://proxy.example.com"),
   );
-  assert.ok(
-    config.aiEnrichment.allowedOrigins.includes("https://gateway.example.com"),
-  );
+  assert.ok(config.aiEnrichment.allowedOrigins.includes(newEndpointOrigin));
   assert.equal(config.http.timeoutMs, 11_000);
   assert.equal(config.http.maxResponseBytes, 1_500_000);
   assert.equal(config.github.fetchTimeoutMs, 12_000);
