@@ -171,7 +171,7 @@ npm run workspace:claude-code -- --intent backend
 npm run workspace:pi -- --intent docs
 ```
 
-The legacy package binaries `agent-harness-vscode` and `agent-harness-opencode` were removed. Use the single adapter-driven `agent-harness workspace <host>` command instead.
+Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup.
 
 ### Mutable state root
 
@@ -579,7 +579,23 @@ Supported behavior:
 - avoids global OpenAgentsControl install mutation
 - does not require a global OpenCode config directory for project-local apply/reset
 
+<<<<<<< Updated upstream
 Managed project-local locations:
+=======
+Documented OpenCode-native surfaces that this adapter uses or stays compatible with:
+
+- `AGENTS.md`
+- `opencode.json` `instructions`
+- `opencode.json` `mcp` when structured native payloads are present
+- `.opencode/agents/`
+- `.opencode/skills/`
+- `.opencode/commands/`
+- `.opencode/plugins/`
+- `.opencode/tools/` when structured native payloads are present
+
+Agent-harness-managed overlay/reference locations:
+
+> > > > > > > Stashed changes
 
 - `.opencode/context/project-intelligence/agent-harness/`
 - `.opencode/agents/`
@@ -600,8 +616,15 @@ Wire-plan outputs:
 
 Current boundaries:
 
+<<<<<<< Updated upstream
+
 - The adapter links activated assets into the workspace overlay.
-- It does not install or modify global OpenCode packages.
+- # It does not install or modify global OpenCode packages.
+- The adapter links activated assets into a project-local overlay and reference tree.
+- It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.
+- `opencode.json` remains opt-in: managed instruction entries are projected there automatically, and MCP/tool synthesis only happens when an asset carries structured host-native payloads for those documented surfaces.
+- It does not install or modify global OpenCode packages or any global OpenCode MCP configuration.
+  > > > > > > > Stashed changes
 
 ### Cursor
 
@@ -625,11 +648,34 @@ Supported behavior:
 - avoids global VS Code profile mutation
 - plans explicit Cursor native extension install/verify/remove actions when selected extension assets expose structured extension IDs
 
+<<<<<<< Updated upstream
 Current boundaries:
 
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
 - Cursor plugin assets are staged project-locally; registering plugin paths remains host/user-managed.
-- MCP assets are surfaced as references unless structured server configuration is available from the selected asset.
+- # MCP assets are surfaced as references unless structured server configuration is available from the selected asset.
+
+  Documented Cursor-native surfaces used directly:
+
+- `.cursor/rules/`
+- `.cursor/agents/`
+- `.cursor/mcp.json` when structured native payloads are present
+- `.cursor/hooks.json` / `.cursor/hooks/` when structured native payloads are present
+- compatible plugin bundle format via `.cursor-plugin/plugin.json`
+
+Agent-harness staged/plugin-compatible surfaces:
+
+- `.cursor/agent-harness/`
+- `.cursor/agent-harness/cursor-plugin/`
+- staged plugin `agents/`, `skills/`, `rules/`, `commands/`, and references
+
+Current boundaries:
+
+- Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
+- `.cursor/agent-harness/cursor-plugin/` is treated as a staged plugin bundle, not as a documented project-native auto-discovery location by itself.
+- Registering plugin paths remains host/user-managed.
+- `.cursor/mcp.json` and `.cursor/hooks*.json` synthesis is opt-in and only happens when an asset carries structured host-native payloads for those documented files.
+  > > > > > > > Stashed changes
 - Extension-like assets without structured extension IDs are treated as reference material in the project-local managed tree.
 
 ### Zed
@@ -655,7 +701,12 @@ Supported behavior:
 Current boundaries:
 
 - The adapter writes project-local context and profile hints.
-- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references rather than installed automatically.
+  <<<<<<< Updated upstream
+- # Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references rather than installed automatically.
+- `.zed/agent-harness/` is a managed reference tree, not a claim that every staged asset kind is a documented Zed-native directory.
+- Zed's documented MCP/context-server settings can now be synthesized when an asset includes structured host-native config payloads for `.zed/settings.json`.
+- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are still wired as managed project references unless a future asset model carries explicit extension-install intent.
+  > > > > > > > Stashed changes
 
 ### Claude Code
 
@@ -684,8 +735,9 @@ Supported behavior:
 
 Current boundaries:
 
-- MCP and reference assets are staged as project-readable references.
-- The adapter does not synthesize full Claude Code MCP server config or executable hook/plugin settings without structured server or executable configuration metadata.
+- MCP and reference assets are still staged as project-readable references by default.
+- The adapter can synthesize Claude Code `.mcp.json` and `.claude/settings*.json` surfaces when an asset includes structured host-native config payloads.
+- Executable hook/plugin settings still require asset metadata that deliberately targets those documented Claude surfaces.
 
 ### Pi
 
@@ -713,7 +765,12 @@ Supported behavior:
 Current boundaries:
 
 - Pi does not include `shared-mcp` in its default bundles.
-- MCP, extension, hook, and plugin assets are wired as managed references unless your Pi installation includes compatible executable support.
+  <<<<<<< Updated upstream
+- # MCP, extension, hook, and plugin assets are wired as managed references unless your Pi installation includes compatible executable support.
+- `.pi/agent-harness/` remains a harness-managed reference tree for non-native assets.
+- `.pi/extensions/` and `.pi/packages/` can now be synthesized when an asset includes structured host-native config payloads.
+- MCP, extension, hook, and plugin assets still fall back to managed references unless they carry compatible Pi-native payloads.
+  > > > > > > > Stashed changes
 
 ### Native adapter wire-plan fields
 
@@ -728,7 +785,29 @@ Native project-local adapters emit effective wire plans with materialized paths.
 - `extensionIds`
 - `hookFiles`
 - `mcpServers`
+- `nativeConfigOperations`
 - `nativeInstallActions`
+
+### Structured host-native file payloads
+
+Assets can now carry optional structured native-config payloads at `hostNativeConfig.<host>.files[]`.
+
+Each file payload includes:
+
+- `path` - workspace-relative target path on a documented host-native surface
+- `format` - `text` or `json`
+- `content` - file body for `text`, or JSON object for `json`
+- `merge` - optional for `json`; when `true`, the adapter deep-merges the payload into an existing host config file and records a reversible wire-plan operation
+
+The adapters only accept payload paths for documented host-native targets:
+
+- OpenCode: `opencode.json`, `.opencode/tools/...`
+- Cursor: `.cursor/mcp.json`, `.cursor/hooks.json`, `.cursor/hooks/...`, `.cursor/agents/...`
+- Zed: `.zed/settings.json`
+- Claude Code: `.mcp.json`, `.claude/settings.json`, `.claude/settings.local.json`
+- Pi: `.pi/extensions/...`, `.pi/packages/...`
+
+That keeps host-native synthesis opt-in and explicit instead of treating every staged reference as executable native config.
 
 ## Discovery and recommendations
 
@@ -759,7 +838,16 @@ Generated outputs include:
 
 `discover/output/source-utilization.json` separates configured sources from operationally harvested sources so you can see whether broad source declarations are producing usable catalog entries.
 
-The checked-in default source registry intentionally mixes several source classes instead of relying on one curated repo. Out of the box it includes official docs and repos (for example GitHub Copilot docs, the `github/awesome-copilot` repo, and the `awesome-copilot.github.com` site), host-native marketplaces/registries (for example the VS Code Marketplace, Zed extension gallery, Pi packages, npm, and PyPI), and lighter-weight community registries such as `skills.sh` and ClawHub. That split keeps official sources preferred while still surfacing broader community references for real workspaces.
+The checked-in default source registry intentionally mixes several source classes instead of relying on one curated repo. Out of the box it includes official docs and repos (for example GitHub Copilot docs, the `github/awesome-copilot` repo, and the `awesome-copilot.github.com` site), host-native marketplaces/registries (for example the VS Code Marketplace, Cursor Marketplace, Zed extension gallery, Pi packages, npm, and PyPI), and lighter-weight community registries such as `skills.sh` and ClawHub. That split keeps official sources preferred while still surfacing broader community references for real workspaces.
+
+Current direct official discovery coverage is modeled explicitly per host:
+
+- GitHub Copilot / VS Code: first-party docs plus the VS Code Marketplace
+- OpenCode: first-party docs
+- Cursor: first-party docs plus Cursor Marketplace, with shared VS Code Marketplace compatibility coverage still available where appropriate
+- Zed: first-party docs plus Zed Extension Gallery
+- Claude Code: first-party docs
+- Pi: first-party docs plus Pi Packages
 
 Generated local source seeds include host config roots for OpenCode, Claude Code, and Cursor. Claude Code harvesting recognizes `CLAUDE.md`, `.claude`-style `agents/`, `commands/`, `skills/`, hook settings, plugin manifests, and `.mcp.json`. Cursor harvesting recognizes rules, agents, commands, skills, hooks, plugin manifests, marketplace manifests, and `mcp.json` from the default Cursor config root. Claude Code and Cursor generated local config sources are catalog-only by default so local settings, hooks, and MCP files are not mirrored into project state unless a user-authored source explicitly opts in.
 
@@ -1053,7 +1141,7 @@ node ./dist/cli.js setup hosts
 npm run workspace:vscode -- --intent frontend
 ```
 
-The only package binary is now `agent-harness`; host-specific binaries such as `agent-harness-vscode` and `agent-harness-opencode` are intentionally removed.
+The supported package binary is `agent-harness`. Run host-specific flows through `agent-harness workspace <host>` or `agent-harness wire <host>`.
 
 ### Host readiness diagnostics fail
 
@@ -1142,9 +1230,9 @@ OpenCode uses managed directory links. On Windows, directory links are created a
 
 ## FAQ
 
-### Why is there one `agent-harness workspace <host>` command instead of separate binaries?
+### Why does the CLI use `agent-harness workspace <host>`?
 
-A single adapter-driven command keeps CLI behavior consistent across hosts. Host-specific behavior still exists, but it lives behind the adapter registry instead of separate wrapper entrypoints.
+The CLI keeps one adapter-driven command surface so host selection stays explicit while lifecycle behavior remains consistent across supported hosts.
 
 ### Why are there VS Code and OpenCode-specific files in `src/host-adapters/`?
 
@@ -1187,7 +1275,7 @@ Known boundaries:
 - VS Code extension assets are represented with metadata and install guidance; the harness does not silently install marketplace extensions.
 - Cursor native extension installation is explicit and requires a compatible `cursor` CLI with VS Code-style extension commands.
 - OpenCode wire-in is project-local and does not mutate global OpenCode packages.
-- Claude Code and Pi MCP configuration is not synthesized without structured server metadata.
+- Host-native MCP/hooks/tools/packages/settings synthesis is opt-in and only happens when an asset carries structured host-native file payloads for documented surfaces.
 - Pi stages MCP references only by default and does not include `shared-mcp` in its default bundles.
 - Quarantine review commands are intentionally conservative and audit-log based; richer interactive review UIs and policy-specific prompt-injection classifiers remain future enhancements.
 - Large modules are improved but not fully decomposed; continued package extraction and file-size reduction are future work.

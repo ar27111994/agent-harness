@@ -1,6 +1,17 @@
 import type { HostTarget } from "./core.js";
 
 /**
+ * Describes reversible host-native config operations recorded in wire plans.
+ */
+export interface NativeConfigOperation {
+  path: string;
+  format: "text" | "json";
+  mode: "write" | "merge";
+  content?: string | Record<string, unknown>;
+  previousContent?: Record<string, unknown> | null;
+}
+
+/**
  * Describes activation manifest data exchanged by the lifecycle pipeline.
  */
 export interface ActivationManifest {
@@ -79,6 +90,7 @@ export interface WirePlanManifest {
   mcpServers?: string[];
   nativeInstallActions?: string[];
   hookFiles?: string[];
+  nativeConfigOperations?: NativeConfigOperation[];
   notes: string[];
 }
 

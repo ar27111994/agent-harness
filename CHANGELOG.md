@@ -6,15 +6,21 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- structured host-native file payload support so assets can synthesize documented OpenCode, Cursor, Zed, Claude Code, and Pi config surfaces when explicit native payloads are present
+- explicit `cursor-marketplace` source coverage in the checked-in discovery registry plus regression coverage for direct official host-source representation
+- checked-in `mattpocock/skills` trusted-community repo coverage in the discovery registry
 - recommendation fixture evaluation now records aggregate quality metrics, including top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency
 
 ### Changed
 
+- OpenCode now projects managed instruction assets into `opencode.json` and native adapters can apply reversible structured payload merges for documented host config files
+- Cursor now writes project-local agent files under `.cursor/agents/agent-harness/` in addition to the staged plugin-compatible bundle
+- README and `HOST-SURFACE-AUDIT.md` now document current host-native synthesis boundaries, direct per-host discovery coverage, and the current CLI surface without migration-era wrapper-binary framing
 - README now documents the layered confidence model, explain-output reason classes, and how to read `recommend evaluate` as a precision-vs-fallback signal instead of only a pass/fail check
 
 ### Fixed
 
-- None yet.
+- active documentation no longer frames primary usage and troubleshooting around removed wrapper binaries instead of the supported `agent-harness` CLI surface
 
 ## [1.0.2] - 2026-05-08
 

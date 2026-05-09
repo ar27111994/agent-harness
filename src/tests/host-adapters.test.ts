@@ -151,7 +151,7 @@ void test("OpenCode wire links every supported asset bucket into the project ove
       join(
         localOverlayRoot,
         "instructions",
-        sanitizeAssetId("asset-instruction"),
+        `${sanitizeAssetId("asset-instruction")}.md`,
       ),
     );
     await assertPathExists(
@@ -372,6 +372,433 @@ void test("native adapters write host-specific project files and wire plans", as
   }
 });
 
+void test("OpenCode synthesizes structured native config payloads and removes them on reset", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-opencode-native-"),
+  );
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    const assets = [
+      buildAsset("asset-instruction", "instruction"),
+      buildAsset("opencode-native", "mcp-server", {
+        hostNativeConfig: {
+          opencode: {
+            files: [
+              {
+                path: "opencode.json",
+                format: "json",
+                merge: true,
+                content: {
+                  mcp: {
+                    "agent-harness-test": {
+                      command: "node",
+                      args: ["server.js"],
+                    },
+                  },
+                },
+              },
+              {
+                path: ".opencode/tools/agent-harness/test-tool.json",
+                format: "json",
+                content: {
+                  name: "test-tool",
+                  command: "node",
+                },
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    await writeOpenCodeActivation(projectRoot, assets);
+    await writeOpenCodeInstallBundle(projectRoot, assets);
+    await writeJson(join(workspaceRoot, "opencode.json"), {
+      telemetry: false,
+    });
+
+    const adapter = resolveHostAdapter("opencode");
+    assert.ok(adapter);
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+    const opencodeConfig = JSON.parse(
+      await readFile(join(workspaceRoot, "opencode.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.ok(Array.isArray(opencodeConfig.instructions));
+    assert.ok(
+      (opencodeConfig.instructions as string[]).some((entry) =>
+        entry.includes("asset-instruction"),
+      ),
+    );
+    assert.deepEqual(opencodeConfig.mcp, {
+      "agent-harness-test": {
+        command: "node",
+        args: ["server.js"],
+      },
+    });
+
+    const toolManifest = JSON.parse(
+      await readFile(
+        join(
+          workspaceRoot,
+          ".opencode",
+          "tools",
+          "agent-harness",
+          "test-tool.json",
+        ),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(toolManifest.name, "test-tool");
+
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
+
+    const restoredOpenCodeConfig = JSON.parse(
+      await readFile(join(workspaceRoot, "opencode.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(restoredOpenCodeConfig, {
+      telemetry: false,
+    });
+    await assert.rejects(
+      readFile(
+        join(
+          workspaceRoot,
+          ".opencode",
+          "tools",
+          "agent-harness",
+          "test-tool.json",
+        ),
+        "utf8",
+      ),
+      { code: "ENOENT" },
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
+void test("native adapters synthesize structured host config surfaces and reset them", async () => {
+  const cursorProjectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-cursor-native-"),
+  );
+  const cursorWorkspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+  const sharedProjectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-native-shared-"),
+  );
+  const sharedWorkspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    const cursorAssets = [
+      buildAsset("cursor-agent", "agent", {
+        hostNativeConfig: {
+          cursor: {
+            files: [
+              {
+                path: ".cursor/mcp.json",
+                format: "json",
+                merge: true,
+                content: {
+                  mcpServers: {
+                    "agent-harness-cursor": {
+                      command: "node",
+                      args: ["cursor-mcp.js"],
+                    },
+                  },
+                },
+              },
+              {
+                path: ".cursor/hooks.json",
+                format: "json",
+                merge: true,
+                content: {
+                  hooks: [
+                    {
+                      event: "afterSave",
+                      command: ".cursor/hooks/agent-harness/test.sh",
+                    },
+                  ],
+                },
+              },
+              {
+                path: ".cursor/hooks/agent-harness/test.sh",
+                format: "text",
+                content: "echo cursor\n",
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    const cursorActivationRoot = join(
+      cursorProjectRoot,
+      "activate",
+      "copilot-vscode",
+    );
+    await writeJson(
+      join(cursorActivationRoot, "workspace-profile-manifest.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        profileId: "cursor-native-profile",
+        workspaceRoot: cursorWorkspaceRoot,
+        bundleIds: [],
+        selectedAssetIds: cursorAssets.map((asset) => asset.id),
+        selectedInstructionIds: [],
+        selectedAgentIds: cursorAssets.map((asset) => asset.id),
+        selectedWorkflowIds: [],
+        selectedPluginIds: [],
+        selectedExtensionIds: [],
+        selectedHookIds: [],
+        selectedSkillIds: [],
+        activationBudget: 100,
+      },
+    );
+    for (const asset of cursorAssets) {
+      await writeActivationAsset(cursorActivationRoot, asset);
+    }
+
+    const cursorAdapter = resolveHostAdapter("cursor");
+    assert.ok(cursorAdapter);
+    await cursorAdapter.wire({
+      projectRoot: cursorProjectRoot,
+      workspaceRoot: cursorWorkspaceRoot,
+      mode: "apply",
+    });
+
+    const cursorMcp = JSON.parse(
+      await readFile(join(cursorWorkspaceRoot, ".cursor", "mcp.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(cursorMcp.mcpServers, {
+      "agent-harness-cursor": {
+        command: "node",
+        args: ["cursor-mcp.js"],
+      },
+    });
+    await assertPathExists(
+      join(cursorWorkspaceRoot, ".cursor", "hooks", "agent-harness", "test.sh"),
+    );
+    await assertPathExists(
+      join(
+        cursorWorkspaceRoot,
+        ".cursor",
+        "agents",
+        "agent-harness",
+        `${sanitizeAssetId("cursor-agent")}.md`,
+      ),
+    );
+
+    await cursorAdapter.wire({
+      projectRoot: cursorProjectRoot,
+      workspaceRoot: cursorWorkspaceRoot,
+      mode: "reset",
+    });
+    await assert.rejects(
+      readFile(join(cursorWorkspaceRoot, ".cursor", "mcp.json"), "utf8"),
+      { code: "ENOENT" },
+    );
+    await assert.rejects(
+      readFile(
+        join(
+          cursorWorkspaceRoot,
+          ".cursor",
+          "agents",
+          "agent-harness",
+          `${sanitizeAssetId("cursor-agent")}.md`,
+        ),
+        "utf8",
+      ),
+      { code: "ENOENT" },
+    );
+
+    const sharedAssets = [
+      buildAsset("zed-native", "mcp-server", {
+        hostNativeConfig: {
+          zed: {
+            files: [
+              {
+                path: ".zed/settings.json",
+                format: "json",
+                merge: true,
+                content: {
+                  context_servers: {
+                    "agent-harness-zed": {
+                      command: "node",
+                      args: ["zed-mcp.js"],
+                    },
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+      buildAsset("claude-native", "mcp-server", {
+        hostNativeConfig: {
+          "claude-code": {
+            files: [
+              {
+                path: ".mcp.json",
+                format: "json",
+                merge: true,
+                content: {
+                  mcpServers: {
+                    "agent-harness-claude": {
+                      command: "node",
+                      args: ["claude-mcp.js"],
+                    },
+                  },
+                },
+              },
+              {
+                path: ".claude/settings.local.json",
+                format: "json",
+                merge: true,
+                content: {
+                  hooks: {
+                    PostToolUse: ["echo claude"],
+                  },
+                },
+              },
+            ],
+          },
+        },
+      }),
+      buildAsset("pi-native", "plugin", {
+        hostNativeConfig: {
+          pi: {
+            files: [
+              {
+                path: ".pi/extensions/agent-harness/test-extension.json",
+                format: "json",
+                content: {
+                  name: "test-extension",
+                },
+              },
+              {
+                path: ".pi/packages/agent-harness/test-package.json",
+                format: "json",
+                content: {
+                  name: "test-package",
+                },
+              },
+            ],
+          },
+        },
+      }),
+    ];
+
+    await writeOpenCodeActivation(sharedProjectRoot, sharedAssets);
+
+    const zedAdapter = resolveHostAdapter("zed");
+    assert.ok(zedAdapter);
+    await zedAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "apply",
+    });
+    const zedSettings = JSON.parse(
+      await readFile(
+        join(sharedWorkspaceRoot, ".zed", "settings.json"),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    assert.deepEqual(
+      (zedSettings.context_servers as Record<string, unknown>)[
+        "agent-harness-zed"
+      ],
+      {
+        command: "node",
+        args: ["zed-mcp.js"],
+      },
+    );
+    await zedAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "reset",
+    });
+
+    const claudeAdapter = resolveHostAdapter("claude-code");
+    assert.ok(claudeAdapter);
+    await claudeAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "apply",
+    });
+    const claudeMcp = JSON.parse(
+      await readFile(join(sharedWorkspaceRoot, ".mcp.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(claudeMcp.mcpServers, {
+      "agent-harness-claude": {
+        command: "node",
+        args: ["claude-mcp.js"],
+      },
+    });
+    await claudeAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "reset",
+    });
+
+    const piAdapter = resolveHostAdapter("pi");
+    assert.ok(piAdapter);
+    await piAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "apply",
+    });
+    await assertPathExists(
+      join(
+        sharedWorkspaceRoot,
+        ".pi",
+        "extensions",
+        "agent-harness",
+        "test-extension.json",
+      ),
+    );
+    await assertPathExists(
+      join(
+        sharedWorkspaceRoot,
+        ".pi",
+        "packages",
+        "agent-harness",
+        "test-package.json",
+      ),
+    );
+    await piAdapter.wire({
+      projectRoot: sharedProjectRoot,
+      workspaceRoot: sharedWorkspaceRoot,
+      mode: "reset",
+    });
+    await assert.rejects(
+      readFile(
+        join(
+          sharedWorkspaceRoot,
+          ".pi",
+          "packages",
+          "agent-harness",
+          "test-package.json",
+        ),
+        "utf8",
+      ),
+      { code: "ENOENT" },
+    );
+  } finally {
+    await rm(cursorProjectRoot, { force: true, recursive: true });
+    await rm(cursorWorkspaceRoot, { force: true, recursive: true });
+    await rm(sharedProjectRoot, { force: true, recursive: true });
+    await rm(sharedWorkspaceRoot, { force: true, recursive: true });
+  }
+});
+
 async function assertNativeHostFile(
   host: (typeof NATIVE_HOSTS)[number],
   workspaceRoot: string,
@@ -574,7 +1001,11 @@ function buildAllAssetFixtures(): AssetCatalogEntry[] {
   ];
 }
 
-function buildAsset(id: string, assetKind: AssetKind): AssetCatalogEntry {
+function buildAsset(
+  id: string,
+  assetKind: AssetKind,
+  overrides: Partial<AssetCatalogEntry> = {},
+): AssetCatalogEntry {
   return {
     id,
     displayName: id,
@@ -637,5 +1068,6 @@ function buildAsset(id: string, assetKind: AssetKind): AssetCatalogEntry {
       installEligible: true,
       activationEligible: true,
     },
+    ...overrides,
   };
 }

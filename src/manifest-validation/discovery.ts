@@ -276,6 +276,12 @@ export function assertAssetCatalogEntry(
     status.activationEligible,
     `${context}.status.activationEligible`,
   );
+  if (record.hostNativeConfig !== undefined) {
+    assertAssetHostNativeConfigMap(
+      record.hostNativeConfig,
+      `${context}.hostNativeConfig`,
+    );
+  }
 }
 
 /**
@@ -397,6 +403,59 @@ function assertAssetPrerequisites(value: unknown, context: string): void {
       assertHostTarget(prerequisite.host, `${context}[${index}].host`);
     }
   });
+}
+
+function assertAssetHostNativeConfigMap(value: unknown, context: string): void {
+  const record = assertRecord(value, context);
+  for (const hostKey of ["opencode", "cursor", "zed", "claude-code", "pi"]) {
+    const hostValue = record[hostKey];
+    if (hostValue === undefined) {
+      continue;
+    }
+
+    const hostRecord = assertRecord(hostValue, `${context}.${hostKey}`);
+    assertArray(hostRecord.files, `${context}.${hostKey}.files`).forEach(
+      (entry, index) => {
+        const entryRecord = assertRecord(
+          entry,
+          `${context}.${hostKey}.files[${index}]`,
+        );
+        assertString(
+          entryRecord.path,
+          `${context}.${hostKey}.files[${index}].path`,
+        );
+        assertLiteral(
+          entryRecord.format,
+          ["text", "json"],
+          `${context}.${hostKey}.files[${index}].format`,
+        );
+        if (entryRecord.format === "text") {
+          assertString(
+            entryRecord.content,
+            `${context}.${hostKey}.files[${index}].content`,
+          );
+          if (entryRecord.merge !== undefined) {
+            throw new Error(
+              `${context}.${hostKey}.files[${index}].merge is only valid ` +
+                "for json payloads",
+            );
+          }
+          return;
+        }
+
+        assertRecord(
+          entryRecord.content,
+          `${context}.${hostKey}.files[${index}].content`,
+        );
+        if (entryRecord.merge !== undefined) {
+          assertBoolean(
+            entryRecord.merge,
+            `${context}.${hostKey}.files[${index}].merge`,
+          );
+        }
+      },
+    );
+  }
 }
 
 function assertDemandSignalSet(value: unknown, context: string): void {

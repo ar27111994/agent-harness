@@ -18,11 +18,18 @@ import {
   formatExtensionInstallActions,
   resolveVsCodeExtensionId,
 } from "./extension-installer.js";
+import {
+  applyHostNativeFilePayloads,
+  collectHostNativeFilePayloads,
+  revertNativeConfigOperations,
+} from "./native-config.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
+  AssetHostNativeConfigMap,
   AssetKind,
   CopilotWorkspaceProfileManifest,
+  NativeConfigOperation,
   WirePlanManifest,
   WirePreviewManifest,
 } from "../types.js";
@@ -51,6 +58,7 @@ interface NativeAsset {
   displayName: string;
   content: string;
   extensionId?: string;
+  hostNativeConfig?: AssetHostNativeConfigMap;
 }
 
 interface MaterializedNativeAssets {
@@ -219,7 +227,7 @@ export async function wireNativeHost(
     ...sharedMcpAssetIds,
   ]);
 
-  await writeHostNativeFiles({
+  const nativeConfigOperations = await writeHostNativeFiles({
     spec,
     workspaceRoot: options.workspaceRoot,
     managedRoot,
@@ -236,6 +244,7 @@ export async function wireNativeHost(
       ...materializedAssets,
       mcpServers,
     },
+    nativeConfigOperations,
   });
 
   await writeJsonFile(join(managedRoot, "wire-plan.json"), wirePlan);
@@ -309,6 +318,7 @@ async function readNativeAssetFromActivation(
     displayName: asset.displayName,
     content,
     extensionId: resolveVsCodeExtensionId(asset),
+    hostNativeConfig: asset.hostNativeConfig,
   };
 }
 
@@ -401,20 +411,16 @@ async function writeHostNativeFiles(options: {
   nativeAssets: NativeAsset[];
   materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
-}): Promise<void> {
+}): Promise<NativeConfigOperation[]> {
   switch (options.spec.host) {
     case "cursor":
-      await writeCursorNativeFiles(options);
-      return;
+      return writeCursorNativeFiles(options);
     case "zed":
-      await writeZedNativeFiles(options);
-      return;
+      return writeZedNativeFiles(options);
     case "claude-code":
-      await writeClaudeCodeNativeFiles(options);
-      return;
+      return writeClaudeCodeNativeFiles(options);
     case "pi":
-      await writePiNativeFiles(options);
-      return;
+      return writePiNativeFiles(options);
   }
 }
 
@@ -424,7 +430,7 @@ async function writeCursorNativeFiles(options: {
   nativeAssets: NativeAsset[];
   materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
-}): Promise<void> {
+}): Promise<NativeConfigOperation[]> {
   const cursorRulePath = join(
     options.workspaceRoot,
     ".cursor",
@@ -454,6 +460,14 @@ async function writeCursorNativeFiles(options: {
     managedRoot: options.managedRoot,
     nativeAssets: options.nativeAssets,
     managedLines,
+  });
+  await writeCursorNativeAgentFiles(
+    options.workspaceRoot,
+    options.nativeAssets,
+  );
+
+  return applyStructuredNativeConfig(options.workspaceRoot, "cursor", {
+    nativeAssets: options.nativeAssets,
   });
 }
 
@@ -486,6 +500,31 @@ async function writeCursorPluginFiles(options: {
 
   for (const nativeAsset of options.nativeAssets) {
     await writeCursorPluginAsset(pluginRoot, nativeAsset);
+  }
+}
+
+async function writeCursorNativeAgentFiles(
+  workspaceRoot: string,
+  nativeAssets: NativeAsset[],
+): Promise<void> {
+  const cursorAgentsRoot = join(
+    workspaceRoot,
+    ".cursor",
+    "agents",
+    "agent-harness",
+  );
+
+  for (const nativeAsset of nativeAssets) {
+    if (nativeAsset.assetKind !== "agent") {
+      continue;
+    }
+
+    await writeTextFile(
+      join(cursorAgentsRoot, `${sanitizeAssetId(nativeAsset.assetId)}.md`),
+      buildAgentFile(nativeAsset.assetId, nativeAsset.displayName, [
+        nativeAsset.content,
+      ]),
+    );
   }
 }
 
@@ -565,7 +604,7 @@ async function writeZedNativeFiles(options: {
   nativeAssets: NativeAsset[];
   materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
-}): Promise<void> {
+}): Promise<NativeConfigOperation[]> {
   const rulesPath = join(options.workspaceRoot, ".rules");
   const managedLines = buildManagedInstructionLines({
     hostName: "Zed",
@@ -588,6 +627,10 @@ async function writeZedNativeFiles(options: {
       },
     },
   });
+
+  return applyStructuredNativeConfig(options.workspaceRoot, "zed", {
+    nativeAssets: options.nativeAssets,
+  });
 }
 
 async function writeClaudeCodeNativeFiles(options: {
@@ -596,7 +639,7 @@ async function writeClaudeCodeNativeFiles(options: {
   nativeAssets: NativeAsset[];
   materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
-}): Promise<void> {
+}): Promise<NativeConfigOperation[]> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Claude Code",
     managedRoot: options.managedRoot,
@@ -662,6 +705,10 @@ async function writeClaudeCodeNativeFiles(options: {
       ]),
     ]),
   );
+
+  return applyStructuredNativeConfig(options.workspaceRoot, "claude-code", {
+    nativeAssets: options.nativeAssets,
+  });
 }
 
 async function writePiNativeFiles(options: {
@@ -670,7 +717,7 @@ async function writePiNativeFiles(options: {
   nativeAssets: NativeAsset[];
   materializedAssets: MaterializedNativeAssets;
   mcpServers: string[];
-}): Promise<void> {
+}): Promise<NativeConfigOperation[]> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Pi",
     managedRoot: options.managedRoot,
@@ -716,11 +763,32 @@ async function writePiNativeFiles(options: {
       ]),
     ]),
   );
-  await mergeJsonFile(join(options.workspaceRoot, ".pi", "settings.json"), {
-    agentHarness: {
-      skills: ["skills/agent-harness"],
-      prompts: ["prompts/agent-harness.md"],
-    },
+  await upsertManagedPiSettings(
+    join(options.workspaceRoot, ".pi", "settings.json"),
+  );
+
+  return applyStructuredNativeConfig(options.workspaceRoot, "pi", {
+    nativeAssets: options.nativeAssets,
+  });
+}
+
+async function applyStructuredNativeConfig(
+  workspaceRoot: string,
+  host: "cursor" | "zed" | "claude-code" | "pi",
+  options: {
+    nativeAssets: NativeAsset[];
+  },
+): Promise<NativeConfigOperation[]> {
+  const payloads = collectHostNativeFilePayloads(options.nativeAssets, host);
+
+  if (payloads.length === 0) {
+    return [];
+  }
+
+  return applyHostNativeFilePayloads({
+    workspaceRoot,
+    host,
+    payloads,
   });
 }
 
@@ -729,6 +797,7 @@ function buildNativeWirePlan(options: {
   workspaceRoot: string;
   managedRoot: string;
   materializedAssets: MaterializedNativeAssets;
+  nativeConfigOperations: NativeConfigOperation[];
 }): WirePlanManifest {
   return {
     schemaVersion: 1,
@@ -746,6 +815,7 @@ function buildNativeWirePlan(options: {
     extensionIds: options.materializedAssets.extensionIds,
     hookFiles: options.materializedAssets.hookFiles.map(toPosixPath),
     mcpServers: options.materializedAssets.mcpServers,
+    nativeConfigOperations: options.nativeConfigOperations,
     nativeInstallActions: [
       `${options.spec.displayName} project-local native wiring was applied under ${toPosixPath(options.workspaceRoot)}.`,
       "Restart or reload the host if it does not hot-reload project configuration files.",
@@ -764,6 +834,11 @@ async function resetNativeHost(
   hostActivationRoot: string,
 ): Promise<void> {
   const managedRoot = join(workspaceRoot, ...spec.managedRootSegments);
+  const previousWirePlan = await readJsonFileOrNull<WirePlanManifest>(
+    join(hostActivationRoot, "wire-plan.json"),
+  );
+
+  await revertNativeConfigOperations(previousWirePlan?.nativeConfigOperations);
   await removePath(managedRoot);
   await removePath(join(hostActivationRoot, "wire-plan.json"));
 
@@ -771,6 +846,9 @@ async function resetNativeHost(
     case "cursor":
       await removePath(
         join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
+      );
+      await removePath(
+        join(workspaceRoot, ".cursor", "agents", "agent-harness"),
       );
       return;
     case "zed":
@@ -914,6 +992,23 @@ async function removeManagedZedSettings(filePath: string): Promise<void> {
   await writeOrRemoveJsonFile(filePath, settings);
 }
 
+async function upsertManagedPiSettings(filePath: string): Promise<void> {
+  const existingValue = await readJsonFileOrNull<unknown>(filePath);
+  const settings =
+    existingValue === null ? {} : assertJsonObject(existingValue, filePath);
+
+  settings.skills = appendUniqueStringsPreservingOrder(
+    coerceStringArray(settings.skills),
+    ["skills/agent-harness"],
+  );
+  settings.prompts = appendUniqueStringsPreservingOrder(
+    coerceStringArray(settings.prompts),
+    ["prompts/agent-harness.md"],
+  );
+
+  await writeJsonFile(filePath, settings);
+}
+
 async function removeManagedPiSettings(filePath: string): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings = asJsonObject(existingValue);
@@ -921,7 +1016,26 @@ async function removeManagedPiSettings(filePath: string): Promise<void> {
     return;
   }
 
-  delete settings.agentHarness;
+  const skills = removeStringsPreservingOrder(
+    coerceStringArray(settings.skills),
+    ["skills/agent-harness"],
+  );
+  const prompts = removeStringsPreservingOrder(
+    coerceStringArray(settings.prompts),
+    ["prompts/agent-harness.md"],
+  );
+
+  if (skills.length > 0) {
+    settings.skills = skills;
+  } else {
+    delete settings.skills;
+  }
+
+  if (prompts.length > 0) {
+    settings.prompts = prompts;
+  } else {
+    delete settings.prompts;
+  }
 
   await writeOrRemoveJsonFile(filePath, settings);
 }
@@ -1248,4 +1362,26 @@ function coerceStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === "string")
     : [];
+}
+
+function appendUniqueStringsPreservingOrder(
+  existing: string[],
+  additions: string[],
+): string[] {
+  const next = [...existing];
+  for (const addition of additions) {
+    if (!next.includes(addition)) {
+      next.push(addition);
+    }
+  }
+
+  return next;
+}
+
+function removeStringsPreservingOrder(
+  existing: string[],
+  removals: string[],
+): string[] {
+  const removalSet = new Set(removals);
+  return existing.filter((entry) => !removalSet.has(entry));
 }

@@ -7,6 +7,60 @@ import type {
 } from "./core.js";
 
 /**
+ * Defines the supported host-native payload target values.
+ */
+export type HostNativeConfigTarget =
+  | "opencode"
+  | "cursor"
+  | "zed"
+  | "claude-code"
+  | "pi";
+
+/**
+ * Describes host-native text file payloads exchanged by the lifecycle pipeline.
+ */
+export interface AssetHostNativeTextFilePayload {
+  path: string;
+  format: "text";
+  content: string;
+}
+
+/**
+ * Describes host-native JSON file payloads exchanged by the lifecycle pipeline.
+ */
+export interface AssetHostNativeJsonFilePayload {
+  path: string;
+  format: "json";
+  content: Record<string, unknown>;
+  merge?: boolean;
+}
+
+/**
+ * Describes a host-native file payload exchanged by the lifecycle pipeline.
+ */
+export type AssetHostNativeFilePayload =
+  | AssetHostNativeTextFilePayload
+  | AssetHostNativeJsonFilePayload;
+
+/**
+ * Describes one host's structured native-config payloads.
+ */
+export interface AssetHostNativeConfig {
+  files: AssetHostNativeFilePayload[];
+}
+
+/**
+ * Describes host-native config payloads for supported adapters.
+ */
+export interface AssetHostNativeConfigMap {
+  opencode?: AssetHostNativeConfig;
+  cursor?: AssetHostNativeConfig;
+  zed?: AssetHostNativeConfig;
+  "claude-code"?: AssetHostNativeConfig;
+  pi?: AssetHostNativeConfig;
+}
+
+/**
  * Describes asset source metadata data exchanged by the lifecycle pipeline.
  */
 export interface AssetSourceMetadata {
@@ -147,4 +201,5 @@ export interface AssetCatalogEntry {
   fit: AssetFit;
   dedupe: AssetDedupe;
   status: AssetStatus;
+  hostNativeConfig?: AssetHostNativeConfigMap;
 }

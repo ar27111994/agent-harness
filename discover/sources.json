@@ -182,6 +182,30 @@
       }
     },
     {
+      "id": "cursor-marketplace",
+      "name": "Cursor Marketplace",
+      "kind": "marketplace",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Cursor",
+        "verified": true,
+        "owner": "cursor"
+      },
+      "hosts": ["cursor"],
+      "assetKinds": ["plugin", "extension", "mcp-server", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 94,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://cursor.com/marketplace"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
       "id": "zed-docs",
       "name": "Zed Docs",
       "kind": "docs",
@@ -941,6 +965,30 @@
       "enabled": true,
       "endpoints": {
         "repo": "https://github.com/pbakaus/impeccable.git"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
+      "id": "mattpocock-skills",
+      "name": "Matt Pocock Skills",
+      "kind": "repo",
+      "authorityTier": "trusted-community",
+      "publisher": {
+        "name": "Matt Pocock",
+        "verified": false,
+        "owner": "mattpocock"
+      },
+      "hosts": ["copilot-vscode", "opencode"],
+      "assetKinds": ["skill", "instruction", "workflow"],
+      "discoveryMode": "catalog",
+      "priority": 72,
+      "enabled": true,
+      "endpoints": {
+        "repo": "https://github.com/mattpocock/skills"
       },
       "rules": {
         "officialPreferred": true,
