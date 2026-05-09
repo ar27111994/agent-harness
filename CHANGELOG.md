@@ -9,6 +9,7 @@ All notable changes to this project will be documented in this file.
 - structured host-native file payload support so assets can synthesize documented OpenCode, Cursor, Zed, Claude Code, and Pi config surfaces when explicit native payloads are present
 - explicit `cursor-marketplace` source coverage in the checked-in discovery registry plus regression coverage for direct official host-source representation
 - checked-in `mattpocock/skills` trusted-community repo coverage in the discovery registry
+- widened generic official/community repo and registry sources to target every supported host instead of legacy minimized host pairs where the assets are portable across adapters
 - recommendation fixture evaluation now records aggregate quality metrics, including top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency
 
 ### Changed

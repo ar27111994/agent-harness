@@ -1,4 +1,4 @@
-import { join } from "node:path";
+import { resolve } from "node:path";
 
 import {
   pathEntryExists,
@@ -15,13 +15,14 @@ import type {
 } from "../types.js";
 
 type JsonObject = Record<string, unknown>;
+type NativeConfigHost = "opencode" | "cursor" | "zed" | "claude-code" | "pi";
 
 /**
  * Collects structured native-config file payloads for one host.
  */
 export function collectHostNativeFilePayloads(
   assets: Array<{ hostNativeConfig?: AssetHostNativeConfigMap }>,
-  host: "opencode" | "cursor" | "zed" | "claude-code" | "pi",
+  host: NativeConfigHost,
 ): AssetHostNativeFilePayload[] {
   return assets.flatMap((asset) => asset.hostNativeConfig?.[host]?.files ?? []);
 }
@@ -31,38 +32,56 @@ export function collectHostNativeFilePayloads(
  */
 export async function applyHostNativeFilePayloads(options: {
   workspaceRoot: string;
-  host: "opencode" | "cursor" | "zed" | "claude-code" | "pi";
+  host: NativeConfigHost;
   payloads: AssetHostNativeFilePayload[];
 }): Promise<NativeConfigOperation[]> {
   const operations: NativeConfigOperation[] = [];
 
-  for (const payload of options.payloads) {
-    const relativePath = normalizeRelativePayloadPath(payload.path);
-    assertAllowedHostNativePath(options.host, relativePath, payload);
-    const absolutePath = join(
-      options.workspaceRoot,
-      ...relativePath.split("/"),
-    );
-
-    if (payload.format === "json") {
-      const content = assertJsonObject(
-        payload.content,
-        `${options.host}:${relativePath}`,
+  try {
+    for (const payload of options.payloads) {
+      const relativePath = normalizeRelativePayloadPath(payload.path);
+      assertAllowedHostNativePath(options.host, relativePath, payload);
+      const absolutePath = resolveWorkspacePath(
+        options.workspaceRoot,
+        relativePath,
       );
 
-      if (payload.merge) {
-        const previousValue = await readJsonFileOrNull<unknown>(absolutePath);
-        const previousContent =
-          previousValue === null
-            ? null
-            : assertJsonObject(previousValue, absolutePath);
-        await mergeJsonFile(absolutePath, content);
+      if (payload.format === "json") {
+        const content = assertJsonObject(
+          payload.content,
+          `${options.host}:${relativePath}`,
+        );
+
+        if (payload.merge) {
+          const previousValue = await readJsonFileOrNull<unknown>(absolutePath);
+          const previousContent =
+            previousValue === null
+              ? null
+              : assertJsonObject(previousValue, absolutePath);
+          await mergeJsonFile(absolutePath, content);
+          operations.push({
+            path: relativePath,
+            format: "json",
+            mode: "merge",
+            content,
+            previousContent,
+          });
+          continue;
+        }
+
+        if (await pathEntryExists(absolutePath)) {
+          throw new Error(
+            `Refusing to overwrite existing ${options.host} ` +
+              `host-native JSON file: ${toPosixPath(absolutePath)}`,
+          );
+        }
+
+        await writeJsonFile(absolutePath, content);
         operations.push({
-          path: toPosixPath(absolutePath),
+          path: relativePath,
           format: "json",
-          mode: "merge",
+          mode: "write",
           content,
-          previousContent,
         });
         continue;
       }
@@ -70,32 +89,25 @@ export async function applyHostNativeFilePayloads(options: {
       if (await pathEntryExists(absolutePath)) {
         throw new Error(
           `Refusing to overwrite existing ${options.host} ` +
-            `host-native JSON file: ${toPosixPath(absolutePath)}`,
+            `host-native text file: ${toPosixPath(absolutePath)}`,
         );
       }
 
-      await writeJsonFile(absolutePath, content);
+      await writeTextFile(absolutePath, payload.content);
       operations.push({
-        path: toPosixPath(absolutePath),
-        format: "json",
+        path: relativePath,
+        format: "text",
         mode: "write",
+        content: payload.content,
       });
-      continue;
     }
-
-    if (await pathEntryExists(absolutePath)) {
-      throw new Error(
-        `Refusing to overwrite existing ${options.host} ` +
-          `host-native text file: ${toPosixPath(absolutePath)}`,
-      );
-    }
-
-    await writeTextFile(absolutePath, payload.content);
-    operations.push({
-      path: toPosixPath(absolutePath),
-      format: "text",
-      mode: "write",
+  } catch (error) {
+    await rollbackNativeConfigOperations({
+      workspaceRoot: options.workspaceRoot,
+      host: options.host,
+      operations,
     });
+    throw error;
   }
 
   return operations;
@@ -104,38 +116,12 @@ export async function applyHostNativeFilePayloads(options: {
 /**
  * Reverts previously applied native-config operations.
  */
-export async function revertNativeConfigOperations(
-  operations: NativeConfigOperation[] | undefined,
-): Promise<void> {
-  if (!operations || operations.length === 0) {
-    return;
-  }
-
-  for (const operation of [...operations].reverse()) {
-    if (operation.mode === "write") {
-      await removePath(operation.path);
-      continue;
-    }
-
-    if (operation.previousContent !== undefined) {
-      if (operation.previousContent === null) {
-        await removePath(operation.path);
-      } else {
-        await writeJsonFile(operation.path, operation.previousContent);
-      }
-      continue;
-    }
-
-    const currentValue = await readJsonFileOrNull<unknown>(operation.path);
-    const currentObject = asJsonObject(currentValue);
-    const patch = asJsonObject(operation.content);
-    if (!currentObject || !patch) {
-      continue;
-    }
-
-    const nextValue = removeJsonPatch(currentObject, patch);
-    await writeOrRemoveJsonFile(operation.path, nextValue);
-  }
+export async function revertNativeConfigOperations(options: {
+  workspaceRoot: string;
+  host: NativeConfigHost;
+  operations: NativeConfigOperation[] | undefined;
+}): Promise<void> {
+  await rollbackNativeConfigOperations(options);
 }
 
 /**
@@ -150,6 +136,109 @@ export function toWorkspaceRelativeConfigPath(
     "",
   );
   return relativePath.startsWith(".") ? relativePath : `./${relativePath}`;
+}
+
+async function rollbackNativeConfigOperations(options: {
+  workspaceRoot: string;
+  host: NativeConfigHost;
+  operations: NativeConfigOperation[] | undefined;
+}): Promise<void> {
+  if (!options.operations || options.operations.length === 0) {
+    return;
+  }
+
+  for (const operation of [...options.operations].reverse()) {
+    const absolutePath = resolveValidatedOperationPath(
+      options.workspaceRoot,
+      options.host,
+      operation,
+    );
+
+    if (operation.mode === "write") {
+      await removePath(absolutePath);
+      continue;
+    }
+
+    if (operation.previousContent !== undefined) {
+      if (operation.previousContent === null) {
+        await removePath(absolutePath);
+      } else {
+        await writeJsonFile(absolutePath, operation.previousContent);
+      }
+      continue;
+    }
+
+    const currentValue = await readJsonFileOrNull<unknown>(absolutePath);
+    const currentObject = asJsonObject(currentValue);
+    const patch = asJsonObject(operation.content);
+    if (!currentObject || !patch) {
+      continue;
+    }
+
+    const nextValue = removeJsonPatch(currentObject, patch);
+    await writeOrRemoveJsonFile(absolutePath, nextValue);
+  }
+}
+
+function resolveValidatedOperationPath(
+  workspaceRoot: string,
+  host: NativeConfigHost,
+  operation: NativeConfigOperation,
+): string {
+  const relativePath = normalizeRelativePayloadPath(operation.path);
+  assertAllowedHostNativePath(
+    host,
+    relativePath,
+    buildValidationPayload(relativePath, operation),
+  );
+  return resolveWorkspacePath(workspaceRoot, relativePath);
+}
+
+function buildValidationPayload(
+  relativePath: string,
+  operation: NativeConfigOperation,
+): AssetHostNativeFilePayload {
+  if (operation.format === "text") {
+    return {
+      path: relativePath,
+      format: "text",
+      content: typeof operation.content === "string" ? operation.content : "",
+    };
+  }
+
+  return {
+    path: relativePath,
+    format: "json",
+    merge: operation.mode === "merge",
+    content: isJsonObject(operation.content) ? operation.content : {},
+  };
+}
+
+function resolveWorkspacePath(
+  workspaceRoot: string,
+  relativePath: string,
+): string {
+  const absoluteWorkspaceRoot = resolve(workspaceRoot);
+  const absolutePath = resolve(
+    absoluteWorkspaceRoot,
+    ...relativePath.split("/"),
+  );
+  const normalizedWorkspaceRoot = toPosixPath(absoluteWorkspaceRoot).replace(
+    /\/+$/u,
+    "",
+  );
+  const normalizedPath = toPosixPath(absolutePath);
+
+  if (
+    normalizedPath === normalizedWorkspaceRoot ||
+    !normalizedPath.startsWith(`${normalizedWorkspaceRoot}/`)
+  ) {
+    throw new Error(
+      `Resolved host-native path escapes workspace root: ${relativePath}`,
+    );
+  }
+
+  return absolutePath;
 }
 
 function normalizeRelativePayloadPath(payloadPath: string): string {
@@ -182,7 +271,7 @@ function normalizeRelativePayloadPath(payloadPath: string): string {
 }
 
 function assertAllowedHostNativePath(
-  host: "opencode" | "cursor" | "zed" | "claude-code" | "pi",
+  host: NativeConfigHost,
   relativePath: string,
   payload: AssetHostNativeFilePayload,
 ): void {

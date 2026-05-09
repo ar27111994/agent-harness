@@ -322,7 +322,14 @@
         "name": "skills.sh",
         "verified": false
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "agent", "instruction", "prompt-pack"],
       "discoveryMode": "catalog",
       "priority": 60,
@@ -385,7 +392,14 @@
         "name": "Model Context Protocol",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["mcp-server"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -408,7 +422,14 @@
         "name": "npm",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
       "priority": 80,
@@ -431,7 +452,14 @@
         "name": "PyPI",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
       "priority": 75,
@@ -454,7 +482,14 @@
         "name": "Rust Foundation",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -477,7 +512,14 @@
         "name": "Go",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -500,7 +542,14 @@
         "name": "Maven Central",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -523,7 +572,14 @@
         "name": "NuGet",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -546,7 +602,14 @@
         "name": "RubyGems",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -569,7 +632,14 @@
         "name": "Packagist",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -592,7 +662,14 @@
         "name": "Swift Package Index",
         "verified": true
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -616,7 +693,14 @@
         "verified": true,
         "owner": "supabase"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "agent"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -638,7 +722,14 @@
       "publisher": {
         "name": "antigravity"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": [
         "skill",
         "agent",
@@ -670,7 +761,14 @@
         "verified": true,
         "owner": "anthropics"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -694,7 +792,14 @@
         "verified": true,
         "owner": "anthropics"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["reference-pack", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -718,7 +823,14 @@
         "verified": true,
         "owner": "remotion-dev"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -742,7 +854,14 @@
         "verified": true,
         "owner": "vercel-labs"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -766,7 +885,14 @@
         "verified": true,
         "owner": "openai"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -790,7 +916,14 @@
         "verified": true,
         "owner": "microsoft"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -814,7 +947,14 @@
         "verified": true,
         "owner": "google-gemini"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -838,7 +978,14 @@
         "verified": true,
         "owner": "apify"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -862,7 +1009,14 @@
         "verified": true,
         "owner": "expo"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -886,7 +1040,14 @@
         "verified": true,
         "owner": "huggingface"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -910,7 +1071,14 @@
         "verified": true,
         "owner": "neondatabase"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -934,7 +1102,15 @@
         "verified": true,
         "owner": "scopeblind"
       },
-      "hosts": ["copilot-vscode", "opencode", "shared"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "shared"
+      ],
       "assetKinds": ["mcp-server", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -958,7 +1134,14 @@
         "verified": false,
         "owner": "pbakaus"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 70,
@@ -982,7 +1165,14 @@
         "verified": false,
         "owner": "mattpocock"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 72,
@@ -1006,7 +1196,14 @@
         "verified": true,
         "owner": "flutter"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -1030,7 +1227,14 @@
         "verified": true,
         "owner": "genkit-ai"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -1054,7 +1258,14 @@
         "verified": true,
         "owner": "firebase"
       },
-      "hosts": ["copilot-vscode", "opencode"],
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
       "priority": 95,

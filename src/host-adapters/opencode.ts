@@ -107,16 +107,22 @@ export async function wireOpenCode(options: {
   }
 
   if (mode === "reset") {
-    await revertNativeConfigOperations(
-      previousWirePlan?.nativeConfigOperations,
-    );
+    await revertNativeConfigOperations({
+      workspaceRoot,
+      host: "opencode",
+      operations: previousWirePlan?.nativeConfigOperations,
+    });
     await removeManagedAgentsSection(localAgentsPath);
     await removeManagedLinks(previousWirePlan?.linkedPaths ?? []);
     await removePath(localContextRoot);
     return;
   }
 
-  await revertNativeConfigOperations(previousWirePlan?.nativeConfigOperations);
+  await revertNativeConfigOperations({
+    workspaceRoot,
+    host: "opencode",
+    operations: previousWirePlan?.nativeConfigOperations,
+  });
   await removeManagedAgentsSection(localAgentsPath);
   await removeManagedLinks(previousWirePlan?.linkedPaths ?? []);
   await ensureDirectory(localContextRoot);
@@ -151,6 +157,7 @@ export async function wireOpenCode(options: {
   );
 
   const createdLinkPaths: string[] = [];
+  let nativeConfigOperations: NativeConfigOperation[] = [];
   try {
     for (const linkedAsset of linkedAssets) {
       await materializeOpenCodeLinkedAsset(linkedAsset);
@@ -165,7 +172,7 @@ export async function wireOpenCode(options: {
       sharedMcpAssetIds,
     });
 
-    const nativeConfigOperations = await applyOpenCodeNativeConfig({
+    nativeConfigOperations = await applyOpenCodeNativeConfig({
       workspaceRoot,
       activeAssets,
       linkedAssets,
@@ -190,7 +197,14 @@ export async function wireOpenCode(options: {
 
     await writeJsonFile(join(localContextRoot, "wire-plan.json"), wirePlan);
   } catch (error) {
+    await revertNativeConfigOperations({
+      workspaceRoot,
+      host: "opencode",
+      operations: nativeConfigOperations,
+    });
+    await removeManagedAgentsSection(localAgentsPath);
     await removeManagedLinksBestEffort(createdLinkPaths);
+    await removePath(localContextRoot);
     throw error;
   }
 }

@@ -162,13 +162,20 @@ function assertNativeConfigOperations(value: unknown, context: string): void {
       ["write", "merge"],
       `${context}[${index}].mode`,
     );
-    if (operation.content !== undefined) {
-      if (operation.format === "text") {
-        assertString(operation.content, `${context}[${index}].content`);
-      } else {
-        assertRecord(operation.content, `${context}[${index}].content`);
+
+    if (operation.mode === "merge") {
+      if (operation.format !== "json") {
+        throw new Error(
+          `${context}[${index}].format must be "json" when ${context}[${index}].mode is "merge"`,
+        );
       }
+      assertRecord(operation.content, `${context}[${index}].content`);
+    } else if (operation.format === "text") {
+      assertString(operation.content, `${context}[${index}].content`);
+    } else {
+      assertRecord(operation.content, `${context}[${index}].content`);
     }
+
     if (
       operation.previousContent !== undefined &&
       operation.previousContent !== null

@@ -1,3 +1,4 @@
+import { rename } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -11,6 +12,7 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
+import { assertWirePlanManifest } from "../manifest-validation.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import {
@@ -218,37 +220,65 @@ export async function wireNativeHost(
     options.projectRoot,
     spec.displayName,
   );
-  const materializedAssets = await materializeNativeAssets(
-    nativeAssets,
-    managedRoot,
+  const managedWirePlanPath = join(managedRoot, "wire-plan.json");
+  const managedWirePlanTmpPath = join(managedRoot, "wire-plan.json.tmp");
+  const activationWirePlanPath = join(hostActivationRoot, "wire-plan.json");
+  const activationWirePlanTmpPath = join(
+    hostActivationRoot,
+    "wire-plan.json.tmp",
   );
-  const mcpServers = uniqueStrings([
-    ...materializedAssets.mcpServers,
-    ...sharedMcpAssetIds,
-  ]);
+  let nativeConfigOperations: NativeConfigOperation[] = [];
 
-  const nativeConfigOperations = await writeHostNativeFiles({
-    spec,
-    workspaceRoot: options.workspaceRoot,
-    managedRoot,
-    nativeAssets,
-    materializedAssets,
-    mcpServers,
-  });
+  try {
+    const materializedAssets = await materializeNativeAssets(
+      nativeAssets,
+      managedRoot,
+    );
+    const mcpServers = uniqueStrings([
+      ...materializedAssets.mcpServers,
+      ...sharedMcpAssetIds,
+    ]);
 
-  const wirePlan = buildNativeWirePlan({
-    spec,
-    workspaceRoot: options.workspaceRoot,
-    managedRoot,
-    materializedAssets: {
-      ...materializedAssets,
+    nativeConfigOperations = await writeHostNativeFiles({
+      spec,
+      workspaceRoot: options.workspaceRoot,
+      managedRoot,
+      nativeAssets,
+      materializedAssets,
       mcpServers,
-    },
-    nativeConfigOperations,
-  });
+    });
 
-  await writeJsonFile(join(managedRoot, "wire-plan.json"), wirePlan);
-  await writeJsonFile(join(hostActivationRoot, "wire-plan.json"), wirePlan);
+    const wirePlan = buildNativeWirePlan({
+      spec,
+      workspaceRoot: options.workspaceRoot,
+      managedRoot,
+      materializedAssets: {
+        ...materializedAssets,
+        mcpServers,
+      },
+      nativeConfigOperations,
+    });
+
+    await writeJsonFile(managedWirePlanTmpPath, wirePlan);
+    await writeJsonFile(activationWirePlanTmpPath, wirePlan);
+    await rename(managedWirePlanTmpPath, managedWirePlanPath);
+    await rename(activationWirePlanTmpPath, activationWirePlanPath);
+  } catch (error) {
+    await removePath(managedWirePlanTmpPath);
+    await removePath(activationWirePlanTmpPath);
+    await revertNativeConfigOperations({
+      workspaceRoot: options.workspaceRoot,
+      host: spec.host,
+      operations: nativeConfigOperations,
+    });
+    await cleanupFailedNativeHostApply(
+      spec,
+      options.workspaceRoot,
+      managedRoot,
+      hostActivationRoot,
+    );
+    throw error;
+  }
 }
 
 /**
@@ -836,9 +866,83 @@ async function resetNativeHost(
   const managedRoot = join(workspaceRoot, ...spec.managedRootSegments);
   const previousWirePlan = await readJsonFileOrNull<WirePlanManifest>(
     join(hostActivationRoot, "wire-plan.json"),
+    assertWirePlanManifest,
   );
 
-  await revertNativeConfigOperations(previousWirePlan?.nativeConfigOperations);
+  await revertNativeConfigOperations({
+    workspaceRoot,
+    host: spec.host,
+    operations: previousWirePlan?.nativeConfigOperations,
+  });
+  await removePath(managedRoot);
+  await removePath(join(hostActivationRoot, "wire-plan.json"));
+
+  switch (spec.host) {
+    case "cursor":
+      await removePath(
+        join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
+      );
+      await removePath(
+        join(workspaceRoot, ".cursor", "agents", "agent-harness"),
+      );
+      return;
+    case "zed":
+      await removeManagedSectionFile(
+        join(workspaceRoot, ".rules"),
+        "agent-harness-zed",
+      );
+      await removeManagedZedSettings(
+        join(workspaceRoot, ".zed", "settings.json"),
+      );
+      return;
+    case "claude-code":
+      await removeManagedSectionFile(
+        join(workspaceRoot, "CLAUDE.md"),
+        "agent-harness-claude-code",
+      );
+      await removeManagedSectionFile(
+        join(workspaceRoot, ".claude", "CLAUDE.md"),
+        "agent-harness-claude-code",
+      );
+      await removePath(
+        join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
+      );
+      await removePath(
+        join(workspaceRoot, ".claude", "agents", "agent-harness.md"),
+      );
+      await removePath(
+        join(workspaceRoot, ".claude", "skills", "agent-harness"),
+      );
+      await removePath(
+        join(workspaceRoot, ".claude", "commands", "agent-harness.md"),
+      );
+      return;
+    case "pi":
+      await removeManagedSectionFile(
+        join(workspaceRoot, "AGENTS.md"),
+        "agent-harness-pi",
+      );
+      await removeManagedSectionFile(
+        join(workspaceRoot, "SYSTEM.md"),
+        "agent-harness-pi",
+      );
+      await removePath(join(workspaceRoot, ".pi", "skills", "agent-harness"));
+      await removePath(
+        join(workspaceRoot, ".pi", "prompts", "agent-harness.md"),
+      );
+      await removeManagedPiSettings(
+        join(workspaceRoot, ".pi", "settings.json"),
+      );
+      return;
+  }
+}
+
+async function cleanupFailedNativeHostApply(
+  spec: NativeHostSpec,
+  workspaceRoot: string,
+  managedRoot: string,
+  hostActivationRoot: string,
+): Promise<void> {
   await removePath(managedRoot);
   await removePath(join(hostActivationRoot, "wire-plan.json"));
 

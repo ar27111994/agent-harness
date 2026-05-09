@@ -579,23 +579,7 @@ Supported behavior:
 - avoids global OpenAgentsControl install mutation
 - does not require a global OpenCode config directory for project-local apply/reset
 
-<<<<<<< Updated upstream
 Managed project-local locations:
-=======
-Documented OpenCode-native surfaces that this adapter uses or stays compatible with:
-
-- `AGENTS.md`
-- `opencode.json` `instructions`
-- `opencode.json` `mcp` when structured native payloads are present
-- `.opencode/agents/`
-- `.opencode/skills/`
-- `.opencode/commands/`
-- `.opencode/plugins/`
-- `.opencode/tools/` when structured native payloads are present
-
-Agent-harness-managed overlay/reference locations:
-
-> > > > > > > Stashed changes
 
 - `.opencode/context/project-intelligence/agent-harness/`
 - `.opencode/agents/`
@@ -609,6 +593,26 @@ Agent-harness-managed overlay/reference locations:
 - `.opencode/reference-packs/`
 - `AGENTS.md`
 
+Documented OpenCode-native surfaces that this adapter uses or stays compatible with:
+
+- `AGENTS.md`
+- `opencode.json` `instructions`
+- `opencode.json` `mcp` when structured native payloads are present
+- `.opencode/agents/`
+- `.opencode/skills/`
+- `.opencode/commands/`
+- `.opencode/plugins/`
+- `.opencode/tools/` when structured native payloads are present
+
+Agent-harness-managed overlay/reference locations:
+
+- `.opencode/context/project-intelligence/agent-harness/`
+- `.opencode/instructions/`
+- `.opencode/hooks/`
+- `.opencode/mcp-servers/`
+- `.opencode/extensions/`
+- `.opencode/reference-packs/`
+
 Wire-plan outputs:
 
 - `activate/opencode/wire-preview-opencode.json`
@@ -616,15 +620,10 @@ Wire-plan outputs:
 
 Current boundaries:
 
-<<<<<<< Updated upstream
-
-- The adapter links activated assets into the workspace overlay.
-- # It does not install or modify global OpenCode packages.
 - The adapter links activated assets into a project-local overlay and reference tree.
 - It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.
 - `opencode.json` remains opt-in: managed instruction entries are projected there automatically, and MCP/tool synthesis only happens when an asset carries structured host-native payloads for those documented surfaces.
 - It does not install or modify global OpenCode packages or any global OpenCode MCP configuration.
-  > > > > > > > Stashed changes
 
 ### Cursor
 
@@ -648,14 +647,7 @@ Supported behavior:
 - avoids global VS Code profile mutation
 - plans explicit Cursor native extension install/verify/remove actions when selected extension assets expose structured extension IDs
 
-<<<<<<< Updated upstream
-Current boundaries:
-
-- Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
-- Cursor plugin assets are staged project-locally; registering plugin paths remains host/user-managed.
-- # MCP assets are surfaced as references unless structured server configuration is available from the selected asset.
-
-  Documented Cursor-native surfaces used directly:
+Documented Cursor-native surfaces used directly:
 
 - `.cursor/rules/`
 - `.cursor/agents/`
@@ -672,10 +664,8 @@ Agent-harness staged/plugin-compatible surfaces:
 Current boundaries:
 
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
-- `.cursor/agent-harness/cursor-plugin/` is treated as a staged plugin bundle, not as a documented project-native auto-discovery location by itself.
-- Registering plugin paths remains host/user-managed.
+- `.cursor/agent-harness/` and `.cursor/agent-harness/cursor-plugin/` are staged project-local managed locations; `.cursor/agent-harness/cursor-plugin/` is treated as a compatible plugin bundle, and registering plugin paths remains host/user-managed.
 - `.cursor/mcp.json` and `.cursor/hooks*.json` synthesis is opt-in and only happens when an asset carries structured host-native payloads for those documented files.
-  > > > > > > > Stashed changes
 - Extension-like assets without structured extension IDs are treated as reference material in the project-local managed tree.
 
 ### Zed
@@ -701,12 +691,9 @@ Supported behavior:
 Current boundaries:
 
 - The adapter writes project-local context and profile hints.
-  <<<<<<< Updated upstream
-- # Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references rather than installed automatically.
+- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references unless explicit extension-install intent is provided.
 - `.zed/agent-harness/` is a managed reference tree, not a claim that every staged asset kind is a documented Zed-native directory.
-- Zed's documented MCP/context-server settings can now be synthesized when an asset includes structured host-native config payloads for `.zed/settings.json`.
-- Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are still wired as managed project references unless a future asset model carries explicit extension-install intent.
-  > > > > > > > Stashed changes
+- Zed's documented MCP/context-server settings can be synthesized when an asset includes structured host-native config payloads for `.zed/settings.json`.
 
 ### Claude Code
 
@@ -765,12 +752,9 @@ Supported behavior:
 Current boundaries:
 
 - Pi does not include `shared-mcp` in its default bundles.
-  <<<<<<< Updated upstream
-- # MCP, extension, hook, and plugin assets are wired as managed references unless your Pi installation includes compatible executable support.
 - `.pi/agent-harness/` remains a harness-managed reference tree for non-native assets.
-- `.pi/extensions/` and `.pi/packages/` can now be synthesized when an asset includes structured host-native config payloads.
-- MCP, extension, hook, and plugin assets still fall back to managed references unless they carry compatible Pi-native payloads.
-  > > > > > > > Stashed changes
+- `.pi/extensions/` and `.pi/packages/` can be synthesized when an asset includes structured host-native config payloads.
+- MCP, extension, hook, and plugin assets default to managed references unless they carry compatible Pi-native payloads.
 
 ### Native adapter wire-plan fields
 
