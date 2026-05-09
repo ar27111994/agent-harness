@@ -1,3 +1,5 @@
+import { getRuntimeConfig } from "../config/runtime.js";
+
 /**
  * Defines the mirror plan output path location used by persisted project state.
  */
@@ -19,21 +21,29 @@ export const MIRROR_ACQUIRE_STATE_OUTPUT_PATH = [
   "acquire-state.json",
 ];
 /**
- * Defines max official index package files shared by the lifecycle pipeline.
+ * Returns max official index package files shared by the lifecycle pipeline.
  */
-export const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 1_000;
+export function getMaxOfficialIndexPackageFiles(): number {
+  return getRuntimeConfig().mirrorLimits.maxOfficialIndexPackageFiles;
+}
 /**
- * Defines max official index file size bytes shared by the lifecycle pipeline.
+ * Returns max official index file size bytes shared by the lifecycle pipeline.
  */
-export const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 1_000_000;
+export function getMaxOfficialIndexFileSizeBytes(): number {
+  return getRuntimeConfig().mirrorLimits.maxOfficialIndexFileSizeBytes;
+}
 /**
- * Defines max official index package total bytes shared by the lifecycle pipeline.
+ * Returns max official index package total bytes shared by the lifecycle pipeline.
  */
-export const MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES = 20_000_000;
+export function getMaxOfficialIndexPackageTotalBytes(): number {
+  return getRuntimeConfig().mirrorLimits.maxOfficialIndexPackageTotalBytes;
+}
 /**
- * Defines max github mirror file size bytes shared by the lifecycle pipeline.
+ * Returns max github mirror file size bytes shared by the lifecycle pipeline.
  */
-export const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = 1_000_000;
+export function getMaxGitHubMirrorFileSizeBytes(): number {
+  return getRuntimeConfig().mirrorLimits.maxGitHubMirrorFileSizeBytes;
+}
 /**
  * Defines the allowed github raw allowed origins used by guarded network requests.
  */

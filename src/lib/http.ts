@@ -5,6 +5,8 @@ import { isIP, type LookupFunction } from "node:net";
 import { Readable } from "node:stream";
 import { TextDecoder } from "node:util";
 
+import { getRuntimeConfig } from "../config/runtime.js";
+
 /**
  * Describes resolved hostname address data exchanged by the lifecycle pipeline.
  */
@@ -46,8 +48,6 @@ export interface FetchWithGuardsOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 10_000;
-const DEFAULT_MAX_RESPONSE_BYTES = 1_000_000;
 const DEFAULT_FETCH = globalThis.fetch;
 
 /**
@@ -57,7 +57,7 @@ const DEFAULT_FETCH = globalThis.fetch;
 export async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
-  timeoutMs = DEFAULT_TIMEOUT_MS,
+  timeoutMs = getRuntimeConfig().http.timeoutMs,
 ): Promise<Response> {
   const controller = new AbortController();
   const abortFromCaller = (): void => {
@@ -87,6 +87,8 @@ export async function fetchTextWithGuards(
   url: string,
   options: FetchWithGuardsOptions = {},
 ): Promise<string | null> {
+  const httpConfig = getRuntimeConfig().http;
+
   try {
     const { addresses, parsedUrl } =
       await resolveAllowedPublicHttpUrlForRequest(
@@ -98,7 +100,7 @@ export async function fetchTextWithGuards(
       parsedUrl,
       addresses,
       options,
-      options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      options.timeoutMs ?? httpConfig.timeoutMs,
     );
 
     if (!response.ok) {
@@ -108,7 +110,7 @@ export async function fetchTextWithGuards(
 
     return await readResponseTextWithLimit(
       response,
-      options.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
+      options.maxBytes ?? httpConfig.maxResponseBytes,
     );
   } catch {
     return null;
@@ -122,6 +124,8 @@ export async function fetchBytesWithGuards(
   url: string,
   options: FetchWithGuardsOptions = {},
 ): Promise<Buffer | null> {
+  const httpConfig = getRuntimeConfig().http;
+
   try {
     const { addresses, parsedUrl } =
       await resolveAllowedPublicHttpUrlForRequest(
@@ -133,7 +137,7 @@ export async function fetchBytesWithGuards(
       parsedUrl,
       addresses,
       options,
-      options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      options.timeoutMs ?? httpConfig.timeoutMs,
     );
 
     if (!response.ok) {
@@ -143,7 +147,7 @@ export async function fetchBytesWithGuards(
 
     return await readResponseBytesWithLimit(
       response,
-      options.maxBytes ?? DEFAULT_MAX_RESPONSE_BYTES,
+      options.maxBytes ?? httpConfig.maxResponseBytes,
     );
   } catch {
     return null;

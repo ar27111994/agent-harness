@@ -340,7 +340,7 @@ async function runRuntimeCommand(
   executable: string,
   args: string[],
 ): Promise<{ exitCode: number | null; message: string }> {
-  const timeoutMs = 10_000;
+  const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
   const resolvedExecutable =
     process.platform === "win32"
       ? ((await findExecutableOnPath(executable)) ?? executable)

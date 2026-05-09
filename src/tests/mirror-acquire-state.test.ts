@@ -17,18 +17,17 @@ import {
 } from "../manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
 import { acquireMirrorArtifacts } from "../mirror/acquire.js";
-import {
-  MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_PACKAGE_FILES,
-  MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES,
-} from "../mirror/constants.js";
 import type {
   AssetCatalogEntry,
   MirrorAcquireState,
   MirrorIndexEntry,
   MirrorPolicy,
 } from "../types.js";
+
+const MAX_GITHUB_MIRROR_FILE_SIZE_BYTES = 1_000_000;
+const MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = 1_000_000;
+const MAX_OFFICIAL_INDEX_PACKAGE_FILES = 1_000;
+const MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES = 20_000_000;
 
 function createAcquireState(
   overrides: Partial<MirrorAcquireState> = {},

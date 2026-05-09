@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { harvestReferenceItems } from "../domains/discovery/reference-harvesters.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
@@ -56,6 +57,41 @@ void test("generic extension registry items stay reference-only", async (context
   assert.equal(items.length, 1);
   assert.equal(items[0]?.assetKind, "reference-pack");
   assert.equal(items[0]?.installMethod, "registry-summary");
+});
+
+void test("generic docs harvester respects configured reference caps", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const previousMaxItems =
+    process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS = "2";
+  clearRuntimeConfigForTests();
+  globalThis.fetch = async () =>
+    new Response(
+      `<html><head><title>Docs Home</title></head><body>
+        <a href="/guide">Guide</a>
+        <a href="/api">API</a>
+        <a href="/faq">FAQ</a>
+      </body></html>`,
+      { status: 200 },
+    );
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+    if (previousMaxItems === undefined) {
+      delete process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS;
+    } else {
+      process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS = previousMaxItems;
+    }
+    clearRuntimeConfigForTests();
+  });
+
+  const items = await harvestReferenceItems(buildDocsSource(), null);
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0]?.originUrl, "https://example.com");
+  assert.equal(items[1]?.originUrl, "https://example.com/guide");
 });
 
 void test("VS Code marketplace harvester produces native extension assets", async (context) => {

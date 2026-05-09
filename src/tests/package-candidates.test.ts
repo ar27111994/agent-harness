@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import {
   collectNpmMcpSearchQueriesFromDemandProfile,
   collectPackageCandidatesFromDemandProfile,
@@ -43,6 +44,26 @@ void test("MCP package discovery builds search queries instead of package allowl
     "duckdb mcp server",
     "postgres mcp server",
   ]);
+});
+
+void test("MCP package discovery respects configured query caps", (context) => {
+  const previousLimit = process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT;
+  process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT = "2";
+  clearRuntimeConfigForTests();
+
+  context.after(() => {
+    if (previousLimit === undefined) {
+      delete process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT;
+    } else {
+      process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT = previousLimit;
+    }
+    clearRuntimeConfigForTests();
+  });
+
+  assert.deepEqual(
+    collectNpmMcpSearchQueriesFromDemandProfile(buildMcpDemandProfile()),
+    ["apify mcp server", "firebase mcp server"],
+  );
 });
 
 function buildMcpDemandProfile(): DemandProfile {

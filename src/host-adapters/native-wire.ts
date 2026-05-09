@@ -1100,17 +1100,14 @@ async function upsertManagedPiSettings(filePath: string): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings =
     existingValue === null ? {} : assertJsonObject(existingValue, filePath);
+  delete settings.agentHarness;
 
-  settings.skills = appendUniqueStringsPreservingOrder(
-    coerceStringArray(settings.skills),
-    ["skills/agent-harness"],
-  );
-  settings.prompts = appendUniqueStringsPreservingOrder(
-    coerceStringArray(settings.prompts),
-    ["prompts/agent-harness.md"],
-  );
+  addManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
+  addManagedStringArrayEntries(settings, "prompts", [
+    "prompts/agent-harness.md",
+  ]);
 
-  await writeJsonFile(filePath, settings);
+  await writeOrRemoveJsonFile(filePath, settings);
 }
 
 async function removeManagedPiSettings(filePath: string): Promise<void> {
@@ -1120,26 +1117,11 @@ async function removeManagedPiSettings(filePath: string): Promise<void> {
     return;
   }
 
-  const skills = removeStringsPreservingOrder(
-    coerceStringArray(settings.skills),
-    ["skills/agent-harness"],
-  );
-  const prompts = removeStringsPreservingOrder(
-    coerceStringArray(settings.prompts),
-    ["prompts/agent-harness.md"],
-  );
-
-  if (skills.length > 0) {
-    settings.skills = skills;
-  } else {
-    delete settings.skills;
-  }
-
-  if (prompts.length > 0) {
-    settings.prompts = prompts;
-  } else {
-    delete settings.prompts;
-  }
+  removeManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
+  removeManagedStringArrayEntries(settings, "prompts", [
+    "prompts/agent-harness.md",
+  ]);
+  delete settings.agentHarness;
 
   await writeOrRemoveJsonFile(filePath, settings);
 }
@@ -1468,24 +1450,52 @@ function coerceStringArray(value: unknown): string[] {
     : [];
 }
 
-function appendUniqueStringsPreservingOrder(
-  existing: string[],
-  additions: string[],
-): string[] {
-  const next = [...existing];
-  for (const addition of additions) {
-    if (!next.includes(addition)) {
-      next.push(addition);
-    }
-  }
-
-  return next;
+function addManagedStringArrayEntries(
+  settings: JsonObject,
+  key: string,
+  entriesToAdd: readonly string[],
+): void {
+  settings[key] = mergeStringArraysPreservingOrder(
+    coerceStringArray(settings[key]),
+    entriesToAdd,
+  );
 }
 
-function removeStringsPreservingOrder(
-  existing: string[],
-  removals: string[],
+function removeManagedStringArrayEntries(
+  settings: JsonObject,
+  key: string,
+  entriesToRemove: readonly string[],
+): void {
+  if (!(key in settings)) {
+    return;
+  }
+
+  const nextValues = coerceStringArray(settings[key]).filter(
+    (entry) => !entriesToRemove.includes(entry),
+  );
+  if (nextValues.length === 0) {
+    delete settings[key];
+    return;
+  }
+
+  settings[key] = nextValues;
+}
+
+function mergeStringArraysPreservingOrder(
+  existingValues: readonly string[],
+  additionalValues: readonly string[],
 ): string[] {
-  const removalSet = new Set(removals);
-  return existing.filter((entry) => !removalSet.has(entry));
+  const mergedValues: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of [...existingValues, ...additionalValues]) {
+    if (seen.has(entry)) {
+      continue;
+    }
+
+    seen.add(entry);
+    mergedValues.push(entry);
+  }
+
+  return mergedValues;
 }

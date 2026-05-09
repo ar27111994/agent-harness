@@ -44,7 +44,6 @@ interface OfficialUpstreamAllowlistShape {
   owners: Record<string, string[]>;
 }
 
-const OFFICIAL_INDEX_CONTENT_MAX_BYTES = 1_000_000;
 const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://raw.githubusercontent.com",
 ] as const;
@@ -137,7 +136,7 @@ async function fetchOfficialIndexContent(url: string): Promise<string | null> {
   return fetchTextWithGuards(url, {
     allowedOrigins: OFFICIAL_INDEX_ALLOWED_ORIGINS,
     headers: buildOfficialIndexHeaders(),
-    maxBytes: OFFICIAL_INDEX_CONTENT_MAX_BYTES,
+    maxBytes: getRuntimeConfig().officialIndex.contentMaxBytes,
   });
 }
 

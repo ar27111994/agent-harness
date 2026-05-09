@@ -147,9 +147,15 @@ void test("OpenCode wire links every supported asset bucket into the project ove
     ) as WirePlanManifest;
     assert.equal(wirePlan.host, "opencode-project");
 
+    const managedContextRoot = join(
+      localOverlayRoot,
+      "context",
+      "project-intelligence",
+      "agent-harness",
+    );
     await assertPathExists(
       join(
-        localOverlayRoot,
+        managedContextRoot,
         "instructions",
         `${sanitizeAssetId("asset-instruction")}.md`,
       ),
@@ -164,20 +170,24 @@ void test("OpenCode wire links every supported asset bucket into the project ove
       join(localOverlayRoot, "plugins", sanitizeAssetId("asset-plugin")),
     );
     await assertPathExists(
-      join(localOverlayRoot, "hooks", sanitizeAssetId("asset-hook")),
+      join(managedContextRoot, "hooks", sanitizeAssetId("asset-hook")),
     );
     await assertPathExists(
       join(
-        localOverlayRoot,
+        managedContextRoot,
         "reference-packs",
         sanitizeAssetId("asset-reference"),
       ),
     );
     await assertPathExists(
-      join(localOverlayRoot, "mcp-servers", sanitizeAssetId("asset-mcp")),
+      join(managedContextRoot, "mcp-servers", sanitizeAssetId("asset-mcp")),
     );
     await assertPathExists(
-      join(localOverlayRoot, "extensions", sanitizeAssetId("ms-python.python")),
+      join(
+        managedContextRoot,
+        "extensions",
+        sanitizeAssetId("ms-python.python"),
+      ),
     );
     await assertPathExists(
       join(
@@ -323,6 +333,54 @@ void test("OpenCode-compatible native wire plans expose every asset bucket", asy
       ) as WirePlanManifest;
       assertCompleteNativeWirePlan(plan);
     }
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
+void test("Pi wire updates documented top-level settings arrays and cleans legacy config", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-pi-wire-"));
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    await writeOpenCodeActivation(projectRoot, buildAllAssetFixtures());
+    await writeJson(join(workspaceRoot, ".pi", "settings.json"), {
+      skills: ["skills/custom-skill"],
+      prompts: ["prompts/custom.md"],
+      agentHarness: {
+        skills: ["skills/legacy-agent-harness"],
+        prompts: ["prompts/legacy-agent-harness.md"],
+      },
+    });
+
+    const adapter = resolveHostAdapter("pi");
+    assert.ok(adapter);
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+    const appliedSettings = JSON.parse(
+      await readFile(join(workspaceRoot, ".pi", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(appliedSettings.skills, [
+      "skills/custom-skill",
+      "skills/agent-harness",
+    ]);
+    assert.deepEqual(appliedSettings.prompts, [
+      "prompts/custom.md",
+      "prompts/agent-harness.md",
+    ]);
+    assert.equal("agentHarness" in appliedSettings, false);
+
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
+
+    const resetSettings = JSON.parse(
+      await readFile(join(workspaceRoot, ".pi", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepEqual(resetSettings.skills, ["skills/custom-skill"]);
+    assert.deepEqual(resetSettings.prompts, ["prompts/custom.md"]);
+    assert.equal("agentHarness" in resetSettings, false);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
     await rm(workspaceRoot, { force: true, recursive: true });

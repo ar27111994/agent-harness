@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from "../../config/runtime.js";
 import { fetchJsonWithGuards, fetchTextWithGuards } from "../../lib/http.js";
 import type {
   AssetKind,
@@ -22,10 +23,6 @@ export interface HarvestedReferenceItem {
   lastUpdated?: string;
 }
 
-const GENERIC_REFERENCE_MAX_ITEMS = 8;
-const REFERENCE_SOURCE_MAX_BYTES = 600_000;
-const VSCODE_MARKETPLACE_MAX_QUERIES = 4;
-const VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY = 6;
 const VSCODE_MARKETPLACE_API =
   "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery";
 const MARKETPLACE_FLAG_INCLUDE_VERSIONS = 0x1;
@@ -62,9 +59,10 @@ async function harvestGenericReferenceItems(
     return [];
   }
 
+  const discoveryConfig = getRuntimeConfig().discovery;
   const content = await fetchTextWithGuards(originUrl, {
     allowedOrigins: [allowedOrigin],
-    maxBytes: REFERENCE_SOURCE_MAX_BYTES,
+    maxBytes: discoveryConfig.referenceSourceMaxBytes,
   });
   if (content === null) {
     return [];
@@ -76,7 +74,7 @@ async function harvestGenericReferenceItems(
     summary: summarizeText(content),
   });
   const linkItems = extractReferenceLinks(content, originUrl)
-    .slice(0, GENERIC_REFERENCE_MAX_ITEMS - 1)
+    .slice(0, discoveryConfig.genericReferenceMaxItems - 1)
     .map((link) =>
       buildGenericReferenceItem(source, {
         displayName: link.text,
@@ -101,9 +99,13 @@ async function harvestVsCodeMarketplaceItems(
   const allowedOrigins = [
     ...new Set([...VSCODE_MARKETPLACE_ORIGINS, apiOrigin]),
   ];
+  const discoveryConfig = getRuntimeConfig().discovery;
   const harvestedItems: HarvestedReferenceItem[] = [];
 
-  for (const query of queries.slice(0, VSCODE_MARKETPLACE_MAX_QUERIES)) {
+  for (const query of queries.slice(
+    0,
+    discoveryConfig.vscodeMarketplaceMaxQueries,
+  )) {
     const data = await fetchJsonWithGuards(apiUrl, {
       allowedOrigins,
       body: JSON.stringify(buildVsCodeMarketplaceRequest(query)),
@@ -111,20 +113,21 @@ async function harvestVsCodeMarketplaceItems(
         Accept: "application/json;api-version=7.2-preview.1;excludeUrls=true",
         "Content-Type": "application/json",
       },
-      maxBytes: REFERENCE_SOURCE_MAX_BYTES,
+      maxBytes: discoveryConfig.referenceSourceMaxBytes,
       method: "POST",
     });
     harvestedItems.push(
       ...normalizeVsCodeMarketplaceItems(data, query, allowedOrigins).slice(
         0,
-        VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
+        discoveryConfig.vscodeMarketplaceMaxItemsPerQuery,
       ),
     );
   }
 
   return dedupeItems(harvestedItems).slice(
     0,
-    VSCODE_MARKETPLACE_MAX_QUERIES * VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
+    discoveryConfig.vscodeMarketplaceMaxQueries *
+      discoveryConfig.vscodeMarketplaceMaxItemsPerQuery,
   );
 }
 
@@ -236,7 +239,8 @@ function buildVsCodeMarketplaceRequest(query: string): Record<string, unknown> {
         ],
         direction: 2,
         pageNumber: 1,
-        pageSize: VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
+        pageSize:
+          getRuntimeConfig().discovery.vscodeMarketplaceMaxItemsPerQuery,
         sortBy: 0,
         sortOrder: 0,
       },

@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from "./config/runtime.js";
 import {
   fetchJsonWithGuards,
   type FetchWithGuardsOptions,
@@ -5,10 +6,6 @@ import {
 
 const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
 const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;
-const REGISTRY_METADATA_MAX_BYTES = 2_000_000;
-const REGISTRY_SEARCH_MAX_BYTES = 500_000;
-const REGISTRY_FETCH_TIMEOUT_MS = 5_000;
-const NPM_SEARCH_RESULT_LIMIT = 12;
 
 /**
  * Describes npm package search result data exchanged by the lifecycle pipeline.
@@ -67,16 +64,21 @@ export async function fetchNpmPackageSearch(
     return [];
   }
 
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
     const searchUrl = new URL("https://registry.npmjs.org/-/v1/search");
     searchUrl.searchParams.set("text", normalizedQuery);
-    searchUrl.searchParams.set("size", String(NPM_SEARCH_RESULT_LIMIT));
+    searchUrl.searchParams.set(
+      "size",
+      String(registriesConfig.npmSearchResultLimit),
+    );
     const data = await fetchJsonWithGuards(searchUrl.toString(), {
       allowedOrigins: NPM_REGISTRY_ORIGINS,
       headers: { Accept: "application/json" },
-      maxBytes: REGISTRY_SEARCH_MAX_BYTES,
+      maxBytes: registriesConfig.searchMaxBytes,
       resolveHostname: options.resolveHostname,
-      timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
     });
 
     return normalizeNpmPackageSearchResults(data);
@@ -92,15 +94,17 @@ export async function fetchNpmPackageMetadata(
   packageName: string,
   options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<NpmPackageMetadata | null> {
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
     const data = await fetchJsonWithGuards(
       `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
       {
         allowedOrigins: NPM_REGISTRY_ORIGINS,
         headers: { Accept: "application/vnd.npm.install-v1+json" },
-        maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        maxBytes: registriesConfig.metadataMaxBytes,
         resolveHostname: options.resolveHostname,
-        timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+        timeoutMs: registriesConfig.fetchTimeoutMs,
       },
     );
     if (!isRecord(data)) {
@@ -120,14 +124,16 @@ export async function fetchPypiPackageMetadata(
   packageName: string,
   options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
 ): Promise<PypiPackageMetadata | null> {
+  const registriesConfig = getRuntimeConfig().registries;
+
   try {
     const data = await fetchJsonWithGuards(
       `https://pypi.org/pypi/${encodeURIComponent(packageName)}/json`,
       {
         allowedOrigins: PYPI_REGISTRY_ORIGINS,
-        maxBytes: REGISTRY_METADATA_MAX_BYTES,
+        maxBytes: registriesConfig.metadataMaxBytes,
         resolveHostname: options.resolveHostname,
-        timeoutMs: REGISTRY_FETCH_TIMEOUT_MS,
+        timeoutMs: registriesConfig.fetchTimeoutMs,
       },
     );
     return normalizePypiPackageMetadata(data, packageName);

@@ -45,10 +45,10 @@ import { resolveBundleLocks } from "./bundles.js";
 import {
   GITHUB_API_ALLOWED_ORIGINS,
   GITHUB_RAW_ALLOWED_ORIGINS,
-  MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
-  MAX_OFFICIAL_INDEX_PACKAGE_FILES,
-  MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES,
+  getMaxGitHubMirrorFileSizeBytes,
+  getMaxOfficialIndexFileSizeBytes,
+  getMaxOfficialIndexPackageFiles,
+  getMaxOfficialIndexPackageTotalBytes,
   MIRROR_ACQUIRE_STATE_OUTPUT_PATH,
   MIRROR_INDEX_OUTPUT_PATH,
   MIRROR_INDEX_SNAPSHOT_PATH,
@@ -439,7 +439,7 @@ async function materializeGitHubTreeArtifact(
     repoInfo.repo,
     fetchRef,
     repoInfo.filePath,
-    MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
+    getMaxGitHubMirrorFileSizeBytes(),
     repoInfo.expectedBlobSha,
   );
   if (content === null) {
@@ -511,7 +511,9 @@ async function materializeOfficialIndexPackage(
       (totalBytes, treeEntry) => totalBytes + Math.max(0, treeEntry.size ?? 0),
       0,
     );
-    if (packageFileCandidates.length > MAX_OFFICIAL_INDEX_PACKAGE_FILES) {
+    if (
+      packageFileCandidates.length > getMaxOfficialIndexPackageFiles()
+    ) {
       capSkipReason ??= "official-index-package-too-many-files";
       continue;
     }
@@ -520,14 +522,14 @@ async function materializeOfficialIndexPackage(
       packageFileCandidates.some(
         (treeEntry) =>
           treeEntry.size !== null &&
-          treeEntry.size > MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+          treeEntry.size > getMaxOfficialIndexFileSizeBytes(),
       )
     ) {
       capSkipReason ??= "official-index-file-too-large";
       continue;
     }
 
-    if (packageTotalBytes > MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES) {
+    if (packageTotalBytes > getMaxOfficialIndexPackageTotalBytes()) {
       capSkipReason ??= "official-index-package-too-large";
       continue;
     }
@@ -558,7 +560,7 @@ async function materializeOfficialIndexPackage(
         snapshot.repo,
         fetchRef,
         packageFile.path,
-        MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
+        getMaxOfficialIndexFileSizeBytes(),
         packageFile.sha,
       );
       if (fileContent === null) {
