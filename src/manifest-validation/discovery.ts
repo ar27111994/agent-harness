@@ -30,6 +30,15 @@ import {
 } from "./primitives.js";
 
 const DEMAND_EVIDENCE_STRENGTHS = ["strong", "medium", "weak"] as const;
+const HOST_NATIVE_CONFIG_HOST_KEYS = [
+  "opencode",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+] as const;
+
+type HostNativeConfigHostKey = (typeof HOST_NATIVE_CONFIG_HOST_KEYS)[number];
 
 /**
  * Validates unknown data as source registry.
@@ -407,7 +416,7 @@ function assertAssetPrerequisites(value: unknown, context: string): void {
 
 function assertAssetHostNativeConfigMap(value: unknown, context: string): void {
   const record = assertRecord(value, context);
-  for (const hostKey of ["opencode", "cursor", "zed", "claude-code", "pi"]) {
+  for (const hostKey of HOST_NATIVE_CONFIG_HOST_KEYS) {
     const hostValue = record[hostKey];
     if (hostValue === undefined) {
       continue;
@@ -420,16 +429,17 @@ function assertAssetHostNativeConfigMap(value: unknown, context: string): void {
           entry,
           `${context}.${hostKey}.files[${index}]`,
         );
-        assertString(
+        const entryPath = assertString(
           entryRecord.path,
           `${context}.${hostKey}.files[${index}].path`,
         );
-        assertLiteral(
+        const entryFormat = assertLiteral(
           entryRecord.format,
           ["text", "json"],
           `${context}.${hostKey}.files[${index}].format`,
         );
-        if (entryRecord.format === "text") {
+
+        if (entryFormat === "text") {
           assertString(
             entryRecord.content,
             `${context}.${hostKey}.files[${index}].content`,
@@ -440,21 +450,75 @@ function assertAssetHostNativeConfigMap(value: unknown, context: string): void {
                 "for json payloads",
             );
           }
-          return;
+        } else {
+          assertRecord(
+            entryRecord.content,
+            `${context}.${hostKey}.files[${index}].content`,
+          );
+          if (entryRecord.merge !== undefined) {
+            assertBoolean(
+              entryRecord.merge,
+              `${context}.${hostKey}.files[${index}].merge`,
+            );
+          }
         }
 
-        assertRecord(
-          entryRecord.content,
-          `${context}.${hostKey}.files[${index}].content`,
+        assertHostNativeFilePayloadConstraints(
+          hostKey,
+          entryPath,
+          entryFormat,
+          entryRecord.merge === true,
+          `${context}.${hostKey}.files[${index}]`,
         );
-        if (entryRecord.merge !== undefined) {
-          assertBoolean(
-            entryRecord.merge,
-            `${context}.${hostKey}.files[${index}].merge`,
-          );
-        }
       },
     );
+  }
+}
+
+function assertHostNativeFilePayloadConstraints(
+  hostKey: HostNativeConfigHostKey,
+  path: string,
+  format: "text" | "json",
+  merge: boolean,
+  context: string,
+): void {
+  const mergeOnlyJsonPaths: Record<HostNativeConfigHostKey, readonly string[]> =
+    {
+      opencode: ["opencode.json"],
+      cursor: [".cursor/mcp.json", ".cursor/hooks.json"],
+      zed: [".zed/settings.json"],
+      "claude-code": [
+        ".mcp.json",
+        ".claude/settings.json",
+        ".claude/settings.local.json",
+      ],
+      pi: [],
+    };
+
+  const writeOnlyPrefixes: Record<HostNativeConfigHostKey, readonly string[]> =
+    {
+      opencode: [".opencode/tools/"],
+      cursor: [".cursor/hooks/", ".cursor/agents/"],
+      zed: [],
+      "claude-code": [],
+      pi: [".pi/extensions/", ".pi/packages/"],
+    };
+
+  if (mergeOnlyJsonPaths[hostKey]?.includes(path)) {
+    if (format !== "json") {
+      throw new Error(`${context}.format must be "json" for ${path}`);
+    }
+    if (!merge) {
+      throw new Error(`${context}.merge must be true for ${path}`);
+    }
+    return;
+  }
+
+  if (writeOnlyPrefixes[hostKey]?.some((prefix) => path.startsWith(prefix))) {
+    if (merge) {
+      throw new Error(`${context}.merge must not be true for ${path}`);
+    }
+    return;
   }
 }
 

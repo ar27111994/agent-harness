@@ -54,7 +54,7 @@ void test("source registry models direct official discovery coverage for support
   assert.ok(cursorMarketplace);
   assert.equal(cursorMarketplace.kind, "marketplace");
   assert.equal(cursorMarketplace.authorityTier, "official-marketplace");
-  assert.deepEqual(cursorMarketplace.hosts, ["cursor"]);
+  assertSameHostSet(cursorMarketplace.hosts, ["cursor"]);
   assert.equal(
     cursorMarketplace.endpoints.baseUrl,
     "https://cursor.com/marketplace",
@@ -66,7 +66,7 @@ void test("source registry models direct official discovery coverage for support
   assert.ok(mattPocockSkills);
   assert.equal(mattPocockSkills.kind, "repo");
   assert.equal(mattPocockSkills.authorityTier, "trusted-community");
-  assert.deepEqual(mattPocockSkills.hosts, FULL_SUPPORTED_HOSTS);
+  assertSameHostSet(mattPocockSkills.hosts, FULL_SUPPORTED_HOSTS);
   assert.equal(
     mattPocockSkills.endpoints.repo,
     "https://github.com/mattpocock/skills",
@@ -76,7 +76,7 @@ void test("source registry models direct official discovery coverage for support
     (source) => source.id === "scopeblind-gateway",
   );
   assert.ok(scopeblindGateway);
-  assert.deepEqual(scopeblindGateway.hosts, [
+  assertSameHostSet(scopeblindGateway.hosts, [
     ...FULL_SUPPORTED_HOSTS,
     "shared",
   ]);
@@ -114,7 +114,15 @@ function assertSourceHasHosts(
 ): void {
   const source = sources.find((candidate) => candidate.id === sourceId);
   assert.ok(source, `${sourceId} should exist in the checked-in registry`);
-  assert.deepEqual(source.hosts, expectedHosts, mismatchMessage);
+  assertSameHostSet(source.hosts, expectedHosts, mismatchMessage);
+}
+
+function assertSameHostSet(
+  actualHosts: readonly string[],
+  expectedHosts: readonly string[],
+  message?: string,
+): void {
+  assert.deepEqual([...actualHosts].sort(), [...expectedHosts].sort(), message);
 }
 
 function assertHostHasOfficialDocs(

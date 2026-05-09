@@ -608,13 +608,13 @@ Managed project-local locations:
 - `.opencode/context/project-intelligence/agent-harness/`
 - `.opencode/agents/`
 - `.opencode/skills/`
-- `.opencode/instructions/`
 - `.opencode/commands/`
-- `.opencode/hooks/`
 - `.opencode/plugins/`
-- `.opencode/mcp-servers/`
-- `.opencode/extensions/`
-- `.opencode/reference-packs/`
+- `.opencode/context/project-intelligence/agent-harness/instructions/`
+- `.opencode/context/project-intelligence/agent-harness/hooks/`
+- `.opencode/context/project-intelligence/agent-harness/mcp-servers/`
+- `.opencode/context/project-intelligence/agent-harness/extensions/`
+- `.opencode/context/project-intelligence/agent-harness/reference-packs/`
 - `AGENTS.md`
 
 Documented OpenCode-native surfaces that this adapter uses or stays compatible with:

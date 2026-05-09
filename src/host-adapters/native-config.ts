@@ -448,7 +448,23 @@ function dedupeJsonArray(values: unknown[]): unknown[] {
 }
 
 function stableJsonKey(value: unknown): string {
-  return JSON.stringify(value);
+  return JSON.stringify(toStableJsonValue(value));
+}
+
+function toStableJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => toStableJsonValue(entry));
+  }
+
+  if (isJsonObject(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, entryValue]) => [key, toStableJsonValue(entryValue)]),
+    );
+  }
+
+  return value;
 }
 
 function assertJsonObject(value: unknown, context: string): JsonObject {

@@ -176,6 +176,14 @@ function assertNativeConfigOperations(value: unknown, context: string): void {
       assertRecord(operation.content, `${context}[${index}].content`);
     }
 
+    if (operation.mode === "merge") {
+      if (operation.previousContent === undefined) {
+        throw new Error(
+          `${context}[${index}].previousContent is required when ${context}[${index}].mode is "merge"`,
+        );
+      }
+    }
+
     if (
       operation.previousContent !== undefined &&
       operation.previousContent !== null
