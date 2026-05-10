@@ -436,6 +436,6 @@ function printDiscoverHelp(): void {
 AI enrichment options:
   --ai-enrich            Explicitly request enrichment after select/full
   --no-ai-enrich         Explicitly skip enrichment for this select/full run
-  --force                Ignore unchanged-input cache reuse and force a new provider call
+  --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
   --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
 }

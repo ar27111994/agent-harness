@@ -91,7 +91,6 @@ export async function runWorkspace(
       disableRequested: aiEnrichmentFlags.disableRequested,
       force: aiEnrichmentFlags.force,
       requireSuccess: aiEnrichmentFlags.requireSuccess,
-      suggestedCommand: `'agent-harness workspace ${target} --ai-enrich'`,
     }),
   );
 }
@@ -110,7 +109,7 @@ Options:
   --intent <general|frontend|backend|security|docs|testing>
   --ai-enrich            Explicitly request enrichment after workspace wiring
   --no-ai-enrich         Explicitly skip enrichment for this workspace run
-  --force                Ignore unchanged-input cache reuse and force a new provider call
+  --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
   --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
 }
 

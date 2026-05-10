@@ -629,7 +629,9 @@ function buildCachedAiEnrichmentArtifact(
   if (
     context.previousInput?.fingerprints.inputSha256 !==
       context.input.fingerprints.inputSha256 ||
-    !isReusableAiEnrichmentArtifact(context.previousArtifact)
+    !isReusableAiEnrichmentArtifact(context.previousArtifact) ||
+    context.previousArtifact.inputSha256 !==
+      context.input.fingerprints.inputSha256
   ) {
     return null;
   }

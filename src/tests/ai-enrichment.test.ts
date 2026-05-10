@@ -234,6 +234,93 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
   }
 });
 
+void test("cached output is not reused when the prior artifact input hash mismatches", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeDiscoveryInputs(root);
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
+      },
+      async () => {
+        const config = loadRuntimeConfig(process.env).aiEnrichment;
+        const demandProfile = buildDemandProfile();
+        const input = buildAiEnrichmentInputArtifact({
+          config,
+          demandProfile,
+          demandProfileHash: buildDemandProfileFingerprint(demandProfile),
+          selectedCatalogHash: await hashFile(
+            root,
+            "discover/output/catalog.selected.jsonl",
+          ),
+          selectedEntries: [
+            buildCatalogEntry("asset-a", ["react", "typescript"]),
+            buildCatalogEntry("asset-b", ["testing"]),
+          ],
+          trigger: "after-select",
+          explicit: false,
+          interactive: false,
+          ci: false,
+          configHash: buildAiEnrichmentConfigHash(config),
+        });
+
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment-input.json"),
+          input,
+        );
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            enabled: true,
+            mode: "after-select",
+            trigger: "after-select",
+            explicit: false,
+            interactive: false,
+            ci: false,
+            providerOrigin: "https://api.openai.com",
+            model: config.model,
+            status: "completed",
+            inputSha256: "different-input-sha",
+            fingerprints: {
+              demandProfileSha256: input.fingerprints.demandProfileSha256,
+              selectedCatalogSha256: input.fingerprints.selectedCatalogSha256,
+              configSha256: input.fingerprints.configSha256,
+            },
+            summary: "Stale summary",
+            recommendations: ["Stale recommendation"],
+          },
+        );
+
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+        });
+
+        assert.equal(result.outcome, "skipped");
+        const artifact = await readJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          assertAiEnrichmentReport,
+        );
+        assert.equal(artifact.status, "skipped");
+        assert.match(artifact.reason ?? "", /cooldown/u);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 void test("on-ambiguity mode writes a skipped artifact when deterministic outputs are confident", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
 
