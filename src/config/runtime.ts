@@ -515,8 +515,9 @@ function parseLiteral<T extends string>(
     return defaultValue;
   }
 
-  if ((allowedValues as readonly string[]).includes(value)) {
-    return value as T;
+  const normalizedValue = value.trim();
+  if ((allowedValues as readonly string[]).includes(normalizedValue)) {
+    return normalizedValue as T;
   }
 
   throw new Error(

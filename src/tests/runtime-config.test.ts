@@ -131,6 +131,15 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   assert.equal(config.diagnostics.debugEnabled, true);
 });
 
+void test("runtime config trims literal enrichment mode values", () => {
+  const config = loadRuntimeConfig({
+    HOME: "/home/tester",
+    AGENT_HARNESS_AI_ENRICHMENT_MODE: " manual ",
+  });
+
+  assert.equal(config.aiEnrichment.mode, "manual");
+});
+
 void test("runtime config rejects invalid numeric and boolean env vars", () => {
   assert.throws(
     () =>

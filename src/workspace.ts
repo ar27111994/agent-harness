@@ -122,16 +122,23 @@ function parseAiEnrichmentFlags(args: readonly string[]): {
 } {
   const explicitRequested = args.includes("--ai-enrich");
   const disableRequested = args.includes("--no-ai-enrich");
+  const requireSuccess = args.includes("--require-ai-enrich");
 
   if (explicitRequested && disableRequested) {
     throw new Error("--ai-enrich and --no-ai-enrich cannot be used together.");
+  }
+
+  if (disableRequested && requireSuccess) {
+    throw new Error(
+      "--no-ai-enrich and --require-ai-enrich cannot be used together.",
+    );
   }
 
   return {
     explicitRequested,
     disableRequested,
     force: args.includes("--force"),
-    requireSuccess: args.includes("--require-ai-enrich"),
+    requireSuccess,
   };
 }
 

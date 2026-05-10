@@ -203,7 +203,7 @@ export async function orchestrateAiEnrichment(
       outcome: artifact.status,
       artifact,
       input,
-      shouldFail: requireSuccess,
+      shouldFail: false,
       note: `AI enrichment skipped; artifacts written under ${outputDirectory}`,
     };
   }

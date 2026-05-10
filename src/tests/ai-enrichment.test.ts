@@ -8,6 +8,8 @@ import {
   buildAiEnrichmentInputArtifact,
   orchestrateAiEnrichment,
 } from "../domains/discovery/ai-enrichment.js";
+import { runDiscover } from "../discover.js";
+import { runWorkspace } from "../workspace.js";
 import {
   clearRuntimeConfigForTests,
   loadRuntimeConfig,
@@ -103,6 +105,40 @@ void test("explicit ai enrichment writes a disabled artifact when config is miss
         assert.equal(artifact.status, "disabled");
         assert.equal(artifact.enabled, false);
         assert.match(artifact.reason ?? "", /AGENT_HARNESS_AI_ENRICHMENT_URL/u);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("explicit disable does not fail even when require-success is requested", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeDiscoveryInputs(root);
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "***",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
+        AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI: "true",
+      },
+      async () => {
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: true,
+          force: false,
+          requireSuccess: true,
+          ci: true,
+        });
+
+        assert.equal(result.outcome, "skipped");
+        assert.equal(result.shouldFail, false);
       },
     );
   } finally {
@@ -477,6 +513,30 @@ void test("on-input-change reuses cached output across demand-profile generatedA
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+void test("discover rejects --no-ai-enrich with --require-ai-enrich", async () => {
+  await assert.rejects(
+    () =>
+      runDiscover(
+        ["select", "--no-ai-enrich", "--require-ai-enrich"],
+        "C:/fixture/workspace",
+        "C:/fixture/project",
+      ),
+    /--no-ai-enrich and --require-ai-enrich cannot be used together\./u,
+  );
+});
+
+void test("workspace rejects --no-ai-enrich with --require-ai-enrich", async () => {
+  await assert.rejects(
+    () =>
+      runWorkspace(
+        ["vscode", "--no-ai-enrich", "--require-ai-enrich"],
+        "C:/fixture/workspace",
+        "C:/fixture/project",
+      ),
+    /--no-ai-enrich and --require-ai-enrich cannot be used together\./u,
+  );
 });
 
 async function writeDiscoveryInputs(
