@@ -126,13 +126,11 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
       },
       async () => {
         const config = loadRuntimeConfig(process.env).aiEnrichment;
+        const demandProfile = buildDemandProfile();
         const input = buildAiEnrichmentInputArtifact({
           config,
-          demandProfile: buildDemandProfile(),
-          demandProfileHash: await hashFile(
-            root,
-            "discover/output/demand-profile.json",
-          ),
+          demandProfile,
+          demandProfileHash: buildDemandProfileFingerprint(demandProfile),
           selectedCatalogHash: await hashFile(
             root,
             "discover/output/catalog.selected.jsonl",
@@ -299,13 +297,11 @@ void test("on-ambiguity still evaluates ambiguity when earlier artifacts are reu
       },
       async () => {
         const config = loadRuntimeConfig(process.env).aiEnrichment;
+        const demandProfile = buildDemandProfile();
         const currentInput = buildAiEnrichmentInputArtifact({
           config,
-          demandProfile: buildDemandProfile(),
-          demandProfileHash: await hashFile(
-            root,
-            "discover/output/demand-profile.json",
-          ),
+          demandProfile,
+          demandProfileHash: buildDemandProfileFingerprint(demandProfile),
           selectedCatalogHash: await hashFile(
             root,
             "discover/output/catalog.selected.jsonl",
@@ -384,13 +380,115 @@ void test("on-ambiguity still evaluates ambiguity when earlier artifacts are reu
   }
 });
 
+void test("on-input-change reuses cached output across demand-profile generatedAt churn", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    const demandProfile = buildDemandProfile();
+    await writeDiscoveryInputs(root, { demandProfile });
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "on-input-change",
+      },
+      async () => {
+        const config = loadRuntimeConfig(process.env).aiEnrichment;
+        const selectedEntries = [
+          buildCatalogEntry("asset-a", ["react", "typescript"]),
+          buildCatalogEntry("asset-b", ["testing", "jest"]),
+        ];
+        const selectedCatalogHash = await hashFile(
+          root,
+          "discover/output/catalog.selected.jsonl",
+        );
+        const previousInput = buildAiEnrichmentInputArtifact({
+          config,
+          demandProfile,
+          demandProfileHash: buildDemandProfileFingerprint(demandProfile),
+          selectedCatalogHash,
+          selectedEntries,
+          trigger: "after-select",
+          explicit: false,
+          interactive: false,
+          ci: false,
+          configHash: buildAiEnrichmentConfigHash(config),
+        });
+
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment-input.json"),
+          previousInput,
+        );
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            enabled: true,
+            mode: "on-input-change",
+            trigger: "after-select",
+            explicit: false,
+            interactive: false,
+            ci: false,
+            providerOrigin: "https://api.openai.com",
+            model: config.model,
+            status: "completed",
+            inputSha256: previousInput.fingerprints.inputSha256,
+            fingerprints: {
+              demandProfileSha256:
+                previousInput.fingerprints.demandProfileSha256,
+              selectedCatalogSha256:
+                previousInput.fingerprints.selectedCatalogSha256,
+              configSha256: previousInput.fingerprints.configSha256,
+            },
+            summary: "Cached summary",
+            recommendations: ["Cached recommendation"],
+          },
+        );
+
+        await writeJsonFile(
+          join(root, "discover", "output", "demand-profile.json"),
+          {
+            ...demandProfile,
+            generatedAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        );
+
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+        });
+
+        assert.equal(result.outcome, "reused");
+        const artifact = await readJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          assertAiEnrichmentReport,
+        );
+        assert.equal(artifact.status, "reused");
+        assert.match(artifact.reason ?? "", /unchanged/u);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeDiscoveryInputs(
   projectRoot: string,
-  options: { selectedEntries?: AssetCatalogEntry[] } = {},
+  options: {
+    demandProfile?: DemandProfile;
+    selectedEntries?: AssetCatalogEntry[];
+  } = {},
 ): Promise<void> {
   await writeJsonFile(
     join(projectRoot, "discover", "output", "demand-profile.json"),
-    buildDemandProfile(),
+    options.demandProfile ?? buildDemandProfile(),
   );
   await writeJsonLinesFile(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
@@ -537,6 +635,22 @@ function buildAiEnrichmentConfigHash(
       redactSourceIdentifiers: config.redactSourceIdentifiers,
       requestTimeoutMs: config.requestTimeoutMs,
       responseMaxBytes: config.responseMaxBytes,
+    }),
+  );
+}
+
+function buildDemandProfileFingerprint(
+  demandProfile: DemandProfile | null,
+): string | null {
+  if (!demandProfile) {
+    return null;
+  }
+
+  return createContentHash(
+    JSON.stringify({
+      schemaVersion: demandProfile.schemaVersion,
+      signals: demandProfile.signals,
+      evidence: demandProfile.evidence,
     }),
   );
 }

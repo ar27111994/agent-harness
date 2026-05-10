@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { rename, writeFile } from "node:fs/promises";
+import { rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { getRuntimeConfig } from "../../config/runtime.js";
@@ -125,9 +125,7 @@ export async function orchestrateAiEnrichment(
     join(projectRoot, ...SELECTED_CATALOG_PATH),
     assertAssetCatalogEntry,
   );
-  const demandProfileHash = await hashFileOrNull(
-    join(projectRoot, ...DEMAND_PROFILE_PATH),
-  );
+  const demandProfileHash = buildDemandProfileFingerprint(demandProfile);
   const selectedCatalogHash = await hashFileOrNull(
     join(projectRoot, ...SELECTED_CATALOG_PATH),
   );
@@ -982,7 +980,24 @@ async function writeJsonFileAtomically(
   await ensureDirectory(dirname(filePath));
   const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await rm(filePath, { force: true });
   await rename(tempPath, filePath);
+}
+
+function buildDemandProfileFingerprint(
+  demandProfile: DemandProfile | null,
+): string | null {
+  if (!demandProfile) {
+    return null;
+  }
+
+  return createContentHash(
+    JSON.stringify({
+      schemaVersion: demandProfile.schemaVersion,
+      signals: demandProfile.signals,
+      evidence: demandProfile.evidence,
+    }),
+  );
 }
 
 async function hashFileOrNull(filePath: string): Promise<string | null> {
