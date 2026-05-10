@@ -726,6 +726,7 @@ function buildAiEnrichmentConfigHash(
   return createContentHash(
     JSON.stringify({
       urlOrigin: extractProviderOrigin(config.url),
+      url: normalizeConfiguredUrl(config.url),
       mode: config.mode,
       model: config.model,
       maxSelectedAssets: config.maxSelectedAssets,
@@ -987,6 +988,18 @@ async function writeJsonFileAtomically(
 async function hashFileOrNull(filePath: string): Promise<string | null> {
   const content = await readTextFileOrNull(filePath);
   return content === null ? null : createContentHash(content);
+}
+
+function normalizeConfiguredUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    return new URL(value).toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function extractProviderOrigin(value: string | undefined): string | undefined {

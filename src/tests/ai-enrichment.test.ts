@@ -527,6 +527,7 @@ function buildAiEnrichmentConfigHash(
   return createContentHash(
     JSON.stringify({
       urlOrigin: config.url ? new URL(config.url).origin : undefined,
+      url: config.url ? new URL(config.url).toString() : undefined,
       mode: config.mode,
       model: config.model,
       maxSelectedAssets: config.maxSelectedAssets,
