@@ -199,6 +199,20 @@ export async function installBundles(
         bundleMembership,
         activationEligible: asset.activationEligible,
         activeByDefault: false,
+        upstream: {
+          mirrorId: mirrorEntry.mirrorId,
+          mirroredAt: mirrorEntry.mirroredAt,
+          sourceId: catalogEntry.source.sourceId,
+          sourceOriginUrl: catalogEntry.source.originUrl,
+          sourceLastUpdated: catalogEntry.maintenance.lastUpdated,
+          upstream: mirrorEntry.upstream,
+        },
+        nativeInstall:
+          catalogEntry.assetKind === "extension"
+            ? {
+                extensionId: catalogEntry.install.manifestEntry,
+              }
+            : undefined,
       };
 
       await writeJsonFile(manifestPath, packageManifest);

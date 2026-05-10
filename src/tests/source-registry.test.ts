@@ -15,6 +15,7 @@ const FULL_SUPPORTED_HOSTS = [
 const PORTABLE_MULTI_HOST_SOURCE_IDS = [
   "skills-sh",
   "mcp-spec-docs",
+  "mcp-registry",
   "npm-registry",
   "pypi-registry",
   "cargo-registry",
@@ -70,6 +71,18 @@ void test("source registry models direct official discovery coverage for support
   assert.equal(
     mattPocockSkills.endpoints.repo,
     "https://github.com/mattpocock/skills",
+  );
+
+  const mcpRegistry = configuredSources.find(
+    (source) => source.id === "mcp-registry",
+  );
+  assert.ok(mcpRegistry);
+  assert.equal(mcpRegistry.kind, "registry");
+  assert.equal(mcpRegistry.authorityTier, "official-first-party");
+  assertSameHostSet(mcpRegistry.hosts, FULL_SUPPORTED_HOSTS);
+  assert.equal(
+    mcpRegistry.endpoints.apiUrl,
+    "https://registry.modelcontextprotocol.io/v0/servers",
   );
 
   const scopeblindGateway = configuredSources.find(

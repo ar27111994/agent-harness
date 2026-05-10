@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "../config/runtime.js";
 import { pathExists, readJsonFile, readJsonFileOrNull } from "../files.js";
 import { listHostAdapters } from "../host-adapters/registry.js";
 import {
@@ -79,17 +80,40 @@ export async function loadRecommendationPolicy(
     }),
   );
 
-  const policy = buildRecommendationPolicyFromSplitFiles(
-    basePolicy,
-    Object.fromEntries(hostOverrides) as Record<
-      RecommendationHost,
-      RecommendationHostPolicyOverride
-    >,
-    recommendationHosts,
+  const policy = applyRecommendationRuntimeOverrides(
+    buildRecommendationPolicyFromSplitFiles(
+      basePolicy,
+      Object.fromEntries(hostOverrides) as Record<
+        RecommendationHost,
+        RecommendationHostPolicyOverride
+      >,
+      recommendationHosts,
+    ),
   );
 
   assertRecommendationPolicy(policy, "recommendation-policy");
   return policy;
+}
+
+function applyRecommendationRuntimeOverrides(
+  policy: RecommendationPolicy,
+): RecommendationPolicy {
+  const limitOverrides = getRuntimeConfig().recommendation.limitOverrides;
+
+  return {
+    ...policy,
+    hosts: Object.fromEntries(
+      Object.entries(policy.hosts).map(([host, hostPolicy]) => {
+        const override = limitOverrides[host];
+        return [
+          host,
+          override
+            ? { ...hostPolicy, recommendationLimit: override.value }
+            : hostPolicy,
+        ];
+      }),
+    ) as RecommendationPolicy["hosts"],
+  };
 }
 
 function buildDefaultRecommendationHostPolicyOverride(

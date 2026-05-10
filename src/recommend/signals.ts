@@ -1,5 +1,9 @@
 import { hasDesignSystemSignals } from "../domains/discovery/demand-helpers.js";
 import { extractPackageManifestEntry } from "../lib/package-manifest-entry.js";
+import {
+  getSessionIntentConcernTerms,
+  getSessionIntentKeywords,
+} from "../lib/session-intent.js";
 import type {
   AssetContextCost,
   AssetKind,
@@ -8,6 +12,7 @@ import type {
   RecommendationPolicy,
   RecommendationSignalMatch,
   RecommendationSignalType,
+  SessionIntent,
 } from "../types.js";
 import type { DemandContext, DemandTermContext } from "./model.js";
 
@@ -52,6 +57,7 @@ export function collectMatchedSignals(
 export function buildDemandContext(
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
+  sessionIntent: SessionIntent = "general",
 ): DemandContext {
   if (!demandProfile) {
     return {
@@ -108,6 +114,7 @@ export function buildDemandContext(
   }
 
   registerBridgeDemandTerms(demandProfile, registerTerm);
+  registerSessionIntentTerms(sessionIntent, registerTerm);
 
   const terms = [...demandTermMap.values()].sort((left, right) =>
     left.key.localeCompare(right.key),
@@ -118,7 +125,7 @@ export function buildDemandContext(
     hasSignals: demandTermMap.size > 0,
     activeDomainGroups: buildActiveDomainGroups(terms, policy),
     packageManifestEntries: buildPackageManifestEntrySet(demandProfile),
-    demandKeywords: buildDemandKeywordSet(demandProfile, policy),
+    demandKeywords: buildDemandKeywordSet(demandProfile, policy, sessionIntent),
   };
 }
 
@@ -165,9 +172,23 @@ function buildPackageManifestEntrySet(
   );
 }
 
+function registerSessionIntentTerms(
+  sessionIntent: SessionIntent,
+  registerTerm: (
+    signalType: RecommendationSignalType,
+    rawTerm: string,
+    evidenceStrength: DemandEvidenceStrength,
+  ) => void,
+): void {
+  for (const concern of getSessionIntentConcernTerms(sessionIntent)) {
+    registerTerm("concerns", concern, "strong");
+  }
+}
+
 function buildDemandKeywordSet(
   demandProfile: DemandProfile,
   policy: RecommendationPolicy,
+  sessionIntent: SessionIntent,
 ): Set<string> {
   const keywords = new Set<string>();
 
@@ -188,6 +209,10 @@ function buildDemandKeywordSet(
 
   if (hasDesignSystemSignals(demandProfile)) {
     keywords.add("penpot");
+  }
+
+  for (const keyword of getSessionIntentKeywords(sessionIntent)) {
+    keywords.add(keyword);
   }
 
   return keywords;

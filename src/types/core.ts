@@ -54,6 +54,17 @@ export type BuiltInHostTarget =
 export type HostTarget = BuiltInHostTarget | (string & {});
 
 /**
+ * Defines the supported session intent values.
+ */
+export type SessionIntent =
+  | "general"
+  | "frontend"
+  | "backend"
+  | "security"
+  | "docs"
+  | "testing";
+
+/**
  * Defines the supported compatibility mode values.
  */
 export type CompatibilityMode =

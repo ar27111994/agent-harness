@@ -197,7 +197,8 @@
       "priority": 94,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://cursor.com/marketplace"
+        "baseUrl": "https://cursor.com/marketplace",
+        "sitemapUrl": "https://cursor.com/sitemap-marketplace.xml"
       },
       "rules": {
         "officialPreferred": true,
@@ -305,7 +306,8 @@
       "priority": 88,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://pi.dev/packages"
+        "baseUrl": "https://pi.dev/packages",
+        "pageTemplate": "https://pi.dev/packages?page={page}"
       },
       "rules": {
         "officialPreferred": true,
@@ -335,7 +337,8 @@
       "priority": 60,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://skills.sh"
+        "baseUrl": "https://skills.sh",
+        "sitemapUrl": "https://skills.sh/sitemap.xml"
       },
       "rules": {
         "officialPreferred": true,
@@ -375,7 +378,8 @@
       "priority": 62,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://clawhub.ai/skills"
+        "baseUrl": "https://clawhub.ai/skills",
+        "pluginsUrl": "https://clawhub.ai/plugins?sort=downloads"
       },
       "rules": {
         "officialPreferred": false,
@@ -414,6 +418,37 @@
       }
     },
     {
+      "id": "mcp-registry",
+      "name": "Official MCP Registry",
+      "kind": "registry",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "Model Context Protocol",
+        "verified": true
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi"
+      ],
+      "assetKinds": ["mcp-server"],
+      "discoveryMode": "catalog",
+      "priority": 96,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://registry.modelcontextprotocol.io/",
+        "apiUrl": "https://registry.modelcontextprotocol.io/v0/servers"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": false,
+        "allowInstall": true
+      }
+    },
+    {
       "id": "npm-registry",
       "name": "npm Registry",
       "kind": "package-registry",
@@ -435,7 +470,8 @@
       "priority": 80,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://www.npmjs.com"
+        "baseUrl": "https://www.npmjs.com",
+        "changesApi": "https://replicate.npmjs.com/_changes"
       },
       "rules": {
         "officialPreferred": true,
@@ -465,7 +501,8 @@
       "priority": 75,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://pypi.org"
+        "baseUrl": "https://pypi.org",
+        "sitemapUrl": "https://pypi.org/sitemap.xml"
       },
       "rules": {
         "officialPreferred": true,
@@ -495,7 +532,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://crates.io"
+        "baseUrl": "https://crates.io",
+        "apiUrl": "https://crates.io/api/v1/crates"
       },
       "rules": {
         "officialPreferred": true,
@@ -525,7 +563,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://pkg.go.dev"
+        "baseUrl": "https://pkg.go.dev",
+        "indexApi": "https://index.golang.org/index"
       },
       "rules": {
         "officialPreferred": true,
@@ -555,7 +594,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://central.sonatype.com"
+        "baseUrl": "https://central.sonatype.com",
+        "searchApi": "https://search.maven.org/solrsearch/select"
       },
       "rules": {
         "officialPreferred": true,
@@ -585,7 +625,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://www.nuget.org"
+        "baseUrl": "https://www.nuget.org",
+        "serviceIndexUrl": "https://api.nuget.org/v3/index.json"
       },
       "rules": {
         "officialPreferred": true,
@@ -645,7 +686,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://packagist.org"
+        "baseUrl": "https://packagist.org",
+        "listApi": "https://packagist.org/packages/list.json"
       },
       "rules": {
         "officialPreferred": true,
@@ -675,7 +717,8 @@
       "priority": 70,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://swiftpackageindex.com"
+        "baseUrl": "https://swiftpackageindex.com",
+        "sitemapUrl": "https://swiftpackageindex.com/sitemap.xml"
       },
       "rules": {
         "officialPreferred": true,

@@ -301,6 +301,7 @@ npm run validate:recommendations
 ```bash
 npm run discover:demand
 npm run discover:sources
+node ./dist/cli.js discover sync
 npm run discover:catalog
 npm run discover:select
 npm run discover:full
@@ -313,12 +314,32 @@ Equivalent direct CLI examples:
 ```bash
 node ./dist/cli.js discover demand-profile
 node ./dist/cli.js discover sources
+node ./dist/cli.js discover sync
 node ./dist/cli.js discover catalog
 node ./dist/cli.js discover select --ai-enrich
 node ./dist/cli.js discover full --ai-enrich
 node ./dist/cli.js discover stats
 node ./dist/cli.js discover enrich --force
 ```
+
+`discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
+
+Coverage modes remain explicit instead of silently pretending everything is equivalent:
+
+- **direct**: single-pass sources harvested during catalog generation (for example docs and local sources)
+- **rotating**: batch-rotated remote repo sources
+- **indexed**: sources with persistent resumable sync support
+- **sampled**: an honesty label kept only for sources that still lack a trustworthy exhaustive upstream surface in the current implementation
+
+In the checked-in built-in source registry, the goal is for `sampled` to disappear over time; after the indexed-source expansion it should only show up for newly added or still-unsupported custom sources, not for the main built-in registry families.
+
+The discovery configuration is assembled from multiple checked-in inputs on purpose:
+
+- `discover/sources.json` = first-class source definitions
+- `discover/source-packs/*.json` = repo-source expansions merged into the registry
+- `discover/official-skills-indexes.json` + `discover/official-upstreams.json` = official index seeds and owner allowlists used during catalog harvest
+
+`discover sources` now records those assembled configuration inputs in `discover/output/source-index.json` so the effective discovery universe is inspectable instead of implicit.
 
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
 
@@ -430,11 +451,15 @@ node ./dist/cli.js install native --host vscode --operation install --apply
 node ./dist/cli.js install native --host vscode --operation remove --apply
 node ./dist/cli.js install native --host cursor
 node ./dist/cli.js install native --host cursor --operation verify
+node ./dist/cli.js install refresh --host copilot-vscode
+node ./dist/cli.js install refresh --host copilot-vscode --apply
 npm run install:reconcile
 npm run install:reset
 ```
 
 `install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
+
+`install refresh` writes `state/install/refresh-report.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used.
 
 ### Activate
 
@@ -444,7 +469,7 @@ npm run activate:reset
 node ./dist/cli.js activate rollback --host opencode --generation <generation-id>
 ```
 
-You can bias activation ordering with `--intent`:
+You can bias recommendation ranking and activation ordering with a validated `--intent`:
 
 ```bash
 node ./dist/cli.js activate host --intent frontend
@@ -458,7 +483,7 @@ You can also activate one lifecycle host using another recommendation policy:
 node ./dist/cli.js activate host --host copilot-vscode --recommendation-host cursor
 ```
 
-`--recommendation-host` is validated against the supported host set.
+`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | security | docs | testing`) and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape.
 
 ### Wire
 
@@ -1070,9 +1095,9 @@ AGENT_HARNESS_AI_ENRICHMENT_MODEL=gpt-4o-mini
 AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS=
 AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS=20000
 AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES=1000000
-AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS=50
-AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS=12
-AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET=16
+AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS=50
+AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS=12
+AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET=16
 AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS=false
 AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS=false
 AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS=1
@@ -1083,6 +1108,8 @@ AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI=true
 ```
 
 These settings power both `discover enrich` and the bounded `recommend ai-review` / `recommend report --ai-review` flow. `AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS` extends the built-in public-provider allowlist. The configured endpoint origin is also auto-allowed when it is a valid public `https` origin, and DNS/public-IP checks still run before any request is sent.
+
+`AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS`, `AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS`, and `AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET` only bound the metadata included in the optional AI enrichment request. They do **not** cap deterministic discovery selection, they do **not** cap final recommendation breadth, and they do **not** install or enroll assets. The older `AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS`, `AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS`, and `AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET` aliases remain supported for backward compatibility.
 
 The enrichment-specific controls are grouped into four buckets:
 
@@ -1115,9 +1142,25 @@ AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS=10000
 AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS=8
 AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES=4
 AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY=6
+AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE=50
+AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN=10
 AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT=12
 AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT=8
 ```
+
+### Per-host recommendation limit overrides
+
+```bash
+AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT=12
+AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT=240
+AGENT_HARNESS_OPENCODE_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT=240
+AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_PI_RECOMMENDATION_LIMIT=80
+```
+
+These env vars override the checked-in host policy recommendation caps at runtime. Generated recommendation reports record whether the effective limit came from policy or an env override.
 
 ### Mirror safety limits
 
@@ -1139,6 +1182,7 @@ AGENT_HARNESS_GITHUB_FETCH_RETRIES=3
 
 ```bash
 AGENT_HARNESS_DEBUG=false
+AGENT_HARNESS_INSTALL_REFRESH_POLICY=manual
 AGENT_HARNESS_REMOTE_BATCH_SIZE=15
 AGENT_HARNESS_MIRROR_BATCH_SIZE=120
 AGENT_HARNESS_INSTALL_BATCH_SIZE=250

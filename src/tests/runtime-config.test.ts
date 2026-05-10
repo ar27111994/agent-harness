@@ -17,6 +17,8 @@ void test("runtime config preserves existing defaults when new env vars are unse
   assert.equal(config.aiEnrichment.maxSelectedAssets, 50);
   assert.equal(config.aiEnrichment.maxEvidenceItems, 12);
   assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 16);
+  assert.deepEqual(config.recommendation.limitOverrides, {});
+  assert.equal(config.install.refreshPolicy, "manual");
   assert.equal(config.aiEnrichment.redactFilePaths, false);
   assert.equal(config.aiEnrichment.redactSourceIdentifiers, false);
   assert.equal(config.aiEnrichment.retryMaxAttempts, 1);
@@ -50,9 +52,11 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
     AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS: "https://proxy.example.com",
     AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS: "45000",
     AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES: "250000",
-    AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS: "24",
-    AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS: "6",
-    AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET: "8",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS: "24",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS: "6",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET: "8",
+    AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT: "42",
+    AGENT_HARNESS_INSTALL_REFRESH_POLICY: "apply-safe",
     AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS: "true",
     AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS: "true",
     AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS: "3",
@@ -71,6 +75,8 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
     AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS: "4",
     AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "2",
     AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY: "3",
+    AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE: "40",
+    AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "6",
     AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT: "5",
     AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT: "2",
     AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES: "710000",
@@ -97,7 +103,16 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   assert.equal(config.aiEnrichment.redactSourceIdentifiers, true);
   assert.equal(config.aiEnrichment.retryMaxAttempts, 3);
   assert.equal(config.aiEnrichment.retryBackoffMs, 2_000);
+  assert.equal(
+    config.recommendation.limitOverrides["copilot-vscode"]?.value,
+    42,
+  );
+  assert.equal(
+    config.recommendation.limitOverrides["copilot-vscode"]?.envVar,
+    "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+  );
   assert.equal(config.aiEnrichment.autoMinIntervalMs, 60_000);
+  assert.equal(config.install.refreshPolicy, "apply-safe");
   assert.equal(config.aiEnrichment.requireSuccessInCi, true);
   assert.equal(config.aiEnrichment.allowCacheInCi, false);
   assert.ok(allowedOrigins.has("https://api.openai.com"));
@@ -115,6 +130,8 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   assert.equal(config.discovery.genericReferenceMaxItems, 4);
   assert.equal(config.discovery.vscodeMarketplaceMaxQueries, 2);
   assert.equal(config.discovery.vscodeMarketplaceMaxItemsPerQuery, 3);
+  assert.equal(config.discovery.vscodeMarketplaceSyncPageSize, 40);
+  assert.equal(config.discovery.sourceSyncMaxPagesPerRun, 6);
   assert.equal(config.discovery.npmMcpSearchQueryLimit, 2);
   assert.equal(config.officialIndex.pageMaxBytes, 710_000);
   assert.equal(config.officialIndex.contentMaxBytes, 810_000);
@@ -129,6 +146,16 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   );
   assert.equal(config.mirrorLimits.maxGitHubMirrorFileSizeBytes, 1_400_000);
   assert.equal(config.diagnostics.debugEnabled, true);
+});
+
+void test("runtime config prefers explicit AI enrichment input aliases", () => {
+  const config = loadRuntimeConfig({
+    HOME: "/home/tester",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS: "10",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS: "14",
+  });
+
+  assert.equal(config.aiEnrichment.maxSelectedAssets, 14);
 });
 
 void test("runtime config trims literal enrichment mode values", () => {
@@ -185,5 +212,14 @@ void test("runtime config rejects invalid numeric and boolean env vars", () => {
         AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS: "-1",
       }),
     /AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS/u,
+  );
+
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        HOME: "/home/tester",
+        AGENT_HARNESS_INSTALL_REFRESH_POLICY: "automatic",
+      }),
+    /AGENT_HARNESS_INSTALL_REFRESH_POLICY/u,
   );
 });

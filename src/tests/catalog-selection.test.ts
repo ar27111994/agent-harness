@@ -77,6 +77,47 @@ void test("selection relevance bridges design-system demand into penpot recall",
   assert.ok(selectedEntries.some((entry) => entry.id === "penpot-skill"));
 });
 
+void test("selection relevance rejects unrelated trusted-local guidance when meaningful stack anchors exist", () => {
+  const demandProfile = createDemandProfile({
+    languages: ["dart", "swift"],
+    packageManagers: ["pub"],
+    frameworks: ["flutter"],
+    concerns: ["frontend", "mobile", "testing", "integration"],
+    tooling: ["flutter", "xcode", "pub"],
+  });
+  const unrelatedLocalSkill = createEntry(
+    "api-endpoint-builder",
+    ["api", "backend", "integration", "testing", "automation"],
+    {
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+    },
+  );
+  const flutterLocalSkill = createEntry(
+    "flutter-architecting-apps",
+    ["flutter", "dart", "mobile", "frontend", "testing"],
+    {
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+    },
+  );
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [unrelatedLocalSkill, flutterLocalSkill],
+      demandProfile,
+    );
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["flutter-architecting-apps"],
+  );
+  assert.deepEqual(
+    rejectedEntries.map((entry) => entry.id),
+    ["api-endpoint-builder"],
+  );
+});
+
 function createDemandProfile(
   overrides: Partial<DemandProfile["signals"]>,
 ): DemandProfile {
@@ -112,7 +153,11 @@ function createDemandProfile(
   };
 }
 
-function createEntry(id: string, capabilities: string[]): AssetCatalogEntry {
+function createEntry(
+  id: string,
+  capabilities: string[],
+  overrides: Partial<AssetCatalogEntry["source"]> = {},
+): AssetCatalogEntry {
   return {
     id,
     displayName: id,
@@ -127,6 +172,7 @@ function createEntry(id: string, capabilities: string[]): AssetCatalogEntry {
       originUrl: `https://example.com/${id}`,
       publisher: "fixture-source",
       publisherVerified: false,
+      ...overrides,
     },
     trust: {
       score: 80,

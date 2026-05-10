@@ -193,14 +193,16 @@ function printHelp(): void {
   console.log(`agent-harness commands:
   discover demand-profile   Scan the working directory and emit a demand profile
   discover sources          Summarize enabled discovery sources
+  discover sync             Persist indexed discovery results for supported high-volume sources
   discover catalog          Build the unified asset catalog
   discover select           Apply canonical selection policies
-  discover full             Run demand-profile, sources, catalog, and select in one pass
+  discover full             Run demand-profile, sources, sync, catalog, and select in one pass
   discover stats            Print catalog/source stats
   mirror locks             Generate mirror bundle locks
   mirror acquire           Acquire raw mirror artifacts and resolve bundle locks
   install bundle            Stage installed assets from bundle locks
   install native            Plan/verify/apply/remove host-native installs
+  install refresh           Refresh mirrored install state and report/apply stale assets
   install reconcile         Recompute install progress and generations
   install reset             Remove install state
   activate host             Materialize active host views from installed bundles

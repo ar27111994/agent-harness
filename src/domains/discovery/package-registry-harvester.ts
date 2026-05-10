@@ -116,7 +116,12 @@ export async function harvestPackageRegistrySource(
   return entries;
 }
 
-function getPackageRegistryKind(source: SourceDefinition): PackageRegistryKind {
+/**
+ * Maps a configured package-registry source to its registry family.
+ */
+export function getPackageRegistryKind(
+  source: SourceDefinition,
+): PackageRegistryKind {
   const registryKindBySourceId: Record<string, PackageRegistryKind> = {
     "cargo-registry": "cargo",
     "go-registry": "go",
@@ -224,7 +229,10 @@ function buildPackageRegistryUrl(
   }
 }
 
-function buildPackageRegistryCatalogEntry(
+/**
+ * Builds a catalog entry from package-registry metadata or indexed package names.
+ */
+export function buildPackageRegistryCatalogEntry(
   source: SourceDefinition,
   packageName: string,
   description: string,

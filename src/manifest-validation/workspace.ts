@@ -1,3 +1,4 @@
+import { SESSION_INTENTS } from "../lib/session-intent.js";
 import type {
   ActivationManifest,
   CopilotWorkspaceProfileManifest,
@@ -74,7 +75,11 @@ export function assertCopilotWorkspaceProfileManifest(
   );
   assertNumber(record.activationBudget, `${context}.activationBudget`);
   if (record.sessionIntent !== undefined) {
-    assertString(record.sessionIntent, `${context}.sessionIntent`);
+    assertLiteral(
+      record.sessionIntent,
+      [...SESSION_INTENTS],
+      `${context}.sessionIntent`,
+    );
   }
 }
 

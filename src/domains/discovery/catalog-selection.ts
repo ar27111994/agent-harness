@@ -20,6 +20,7 @@ interface DemandRelevanceTerms {
   highSignalPhrases: string[][];
   lowSignalTerms: Set<string>;
   demandKeywords: Set<string>;
+  stackAnchorTerms: Set<string>;
 }
 
 interface CatalogTermData {
@@ -76,6 +77,14 @@ const LOW_SIGNAL_CONCERN_MATCH_THRESHOLD = 4;
 const HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD = 2;
 const COMMON_HIGH_SIGNAL_CATALOG_SHARE_THRESHOLD = 0.2;
 const MIN_CATALOG_SIZE_FOR_COMMON_HIGH_SIGNAL_FILTER = 200;
+const TRUSTED_LOCAL_GENERIC_OVERLAP_REJECTION_THRESHOLD = 4;
+const TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS = new Set([
+  "skill",
+  "agent",
+  "instruction",
+  "workflow",
+  "prompt-pack",
+]);
 
 /**
  * Filters catalog entries to assets that overlap with workspace demand signals.
@@ -250,6 +259,7 @@ function buildDemandTermSet(
       highSignalPhrases: [],
       lowSignalTerms: new Set(),
       demandKeywords: new Set(),
+      stackAnchorTerms: new Set(),
     };
   }
 
@@ -257,6 +267,7 @@ function buildDemandTermSet(
   const highSignalPhrases: string[][] = [];
   const lowSignalTerms = new Set<string>();
   const demandKeywords = new Set<string>();
+  const stackAnchorTerms = new Set<string>();
 
   for (const language of demandProfile.signals.languages) {
     addDemandSignal(
@@ -267,6 +278,7 @@ function buildDemandTermSet(
       demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
+      stackAnchorTerms,
     );
   }
 
@@ -279,6 +291,7 @@ function buildDemandTermSet(
       demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
+      stackAnchorTerms,
     );
   }
 
@@ -291,6 +304,7 @@ function buildDemandTermSet(
       demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
+      stackAnchorTerms,
     );
   }
 
@@ -315,6 +329,7 @@ function buildDemandTermSet(
       demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
+      stackAnchorTerms,
     );
   }
 
@@ -325,6 +340,7 @@ function buildDemandTermSet(
     highSignalPhrases,
     lowSignalTerms,
     demandKeywords,
+    stackAnchorTerms,
   };
 }
 
@@ -336,6 +352,7 @@ function addDemandSignal(
   demandKeywords: Set<string>,
   catalogTermDocumentFrequency: Map<string, number>,
   catalogEntryCount: number,
+  stackAnchorTerms?: Set<string>,
 ): void {
   const keywords = normalizeDemandSignalKeywords(value);
   for (const keyword of keywords) {
@@ -346,13 +363,17 @@ function addDemandSignal(
   }
 
   if (keywords.length === 1) {
-    addDemandKeyword(
+    const classification = classifyDemandKeyword(
       keywords[0],
-      exactHighSignalTerms,
-      lowSignalTerms,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
+    if (classification === "low") {
+      lowSignalTerms.add(keywords[0]);
+    } else {
+      exactHighSignalTerms.add(keywords[0]);
+      stackAnchorTerms?.add(keywords[0]);
+    }
     return;
   }
 
@@ -368,6 +389,9 @@ function addDemandSignal(
 
   if (uncommonKeywords.length >= HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD) {
     highSignalPhrases.push(uncommonKeywords);
+    for (const keyword of uncommonKeywords) {
+      stackAnchorTerms?.add(keyword);
+    }
     return;
   }
 
@@ -376,6 +400,9 @@ function addDemandSignal(
     keywords.length >= HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD
   ) {
     highSignalPhrases.push(keywords);
+    for (const keyword of uncommonKeywords) {
+      stackAnchorTerms?.add(keyword);
+    }
     return;
   }
 
@@ -384,13 +411,11 @@ function addDemandSignal(
   }
 }
 
-function addDemandKeyword(
+function classifyDemandKeyword(
   keyword: string,
-  exactHighSignalTerms: Set<string>,
-  lowSignalTerms: Set<string>,
   catalogTermDocumentFrequency: Map<string, number>,
   catalogEntryCount: number,
-): void {
+): "exact" | "low" {
   if (
     LOW_SIGNAL_TERMS.has(keyword) ||
     isCatalogCommonHighSignal(
@@ -399,11 +424,10 @@ function addDemandKeyword(
       catalogEntryCount,
     )
   ) {
-    lowSignalTerms.add(keyword);
-    return;
+    return "low";
   }
 
-  exactHighSignalTerms.add(keyword);
+  return "exact";
 }
 
 function normalizeDemandSignalKeywords(value: string): string[] {
@@ -509,6 +533,10 @@ function isEntryRelevantToDemand(
     return false;
   }
 
+  if (isRejectedByTrustedLocalGenericOverlap(entry, entryTerms, demandTerms)) {
+    return false;
+  }
+
   for (const demandTerm of demandTerms.exactHighSignalTerms) {
     if (entryTerms.has(demandTerm)) {
       return true;
@@ -539,6 +567,58 @@ function isEntryRelevantToDemand(
 
     lowSignalOverlapCount += 1;
     if (lowSignalOverlapCount >= LOW_SIGNAL_CONCERN_MATCH_THRESHOLD) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function isRejectedByTrustedLocalGenericOverlap(
+  entry: AssetCatalogEntry,
+  entryTerms: Set<string>,
+  demandTerms: DemandRelevanceTerms,
+): boolean {
+  if (
+    entry.source.authorityTier !== "trusted-local" ||
+    !["local-directory", "local-manifest"].includes(entry.source.sourceKind) ||
+    !TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS.has(entry.assetKind) ||
+    demandTerms.stackAnchorTerms.size === 0 ||
+    intersects(entryTerms, demandTerms.stackAnchorTerms)
+  ) {
+    return false;
+  }
+
+  for (const phrase of demandTerms.highSignalPhrases) {
+    if (
+      phrase.every((term) => demandTerms.stackAnchorTerms.has(term)) &&
+      phrase.some((term) => entryTerms.has(term))
+    ) {
+      return false;
+    }
+  }
+
+  return (
+    countOverlap(entryTerms, demandTerms.lowSignalTerms) >=
+    TRUSTED_LOCAL_GENERIC_OVERLAP_REJECTION_THRESHOLD
+  );
+}
+
+function countOverlap(left: Set<string>, right: Set<string>): number {
+  let overlapCount = 0;
+
+  for (const term of right) {
+    if (left.has(term)) {
+      overlapCount += 1;
+    }
+  }
+
+  return overlapCount;
+}
+
+function intersects(left: Set<string>, right: Set<string>): boolean {
+  for (const term of left) {
+    if (right.has(term)) {
       return true;
     }
   }

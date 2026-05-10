@@ -74,6 +74,7 @@ function createRecommendationReport(): RecommendationReport {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     policyVersion: 1,
+    sessionIntent: "general",
     topByHost: {
       shared: [],
       "copilot-vscode": [
@@ -142,6 +143,7 @@ function createSummary(host: string): RecommendationHostSummary {
   return {
     host,
     recommendationLimit: 10,
+    recommendationLimitSource: "policy",
     activationBudget: 20,
     selectedCount: 0,
     totalEstimatedPromptWeight: 0,

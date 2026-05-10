@@ -58,6 +58,33 @@ export const SOURCE_UTILIZATION_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the source sync report output path location used by persisted project state.
+ */
+export const SOURCE_SYNC_REPORT_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "source-sync.json",
+];
+
+/**
+ * Defines the source sync state output path location used by persisted project state.
+ */
+export const SOURCE_SYNC_STATE_OUTPUT_PATH = [
+  "state",
+  "discover",
+  "source-sync.json",
+];
+
+/**
+ * Defines the source sync indexed-entry output path location used by persisted project state.
+ */
+export const SOURCE_SYNC_ENTRIES_OUTPUT_PATH = [
+  "state",
+  "discover",
+  "source-sync.entries.jsonl",
+];
+
+/**
  * Defines the remote harvest state output path location used by persisted project state.
  */
 export const REMOTE_HARVEST_STATE_OUTPUT_PATH = [

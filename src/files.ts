@@ -1,5 +1,8 @@
+import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   access,
+  appendFile,
   cp,
   lstat,
   mkdir,
@@ -12,7 +15,7 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { basename, dirname, relative, sep } from "node:path";
-import { createHash } from "node:crypto";
+import { createInterface } from "node:readline";
 
 import { getRuntimeConfig } from "./config/runtime.js";
 
@@ -285,35 +288,50 @@ export async function readJsonLinesFile<T>(
   filePath: string,
   validator?: JsonValidator<T>,
 ): Promise<T[]> {
-  const content = await readTextFileOrNull(filePath);
-
-  if (!content) {
+  if (!(await pathExists(filePath))) {
     return [];
   }
 
-  return content
-    .split(/\r?\n/u)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .map((line, index) => {
+  const values: T[] = [];
+  const fileStream = createReadStream(filePath, { encoding: "utf8" });
+  const lineReader = createInterface({
+    input: fileStream,
+    crlfDelay: Infinity,
+  });
+  let lineNumber = 0;
+
+  try {
+    for await (const rawLine of lineReader) {
+      lineNumber += 1;
+      const line = rawLine.trim();
+      if (line.length === 0) {
+        continue;
+      }
+
       let parsedLine: unknown;
 
       try {
         parsedLine = JSON.parse(line);
       } catch (error) {
         throw new Error(
-          `Invalid JSONL in ${toPosixPath(filePath)}:${index + 1}: ${getErrorMessage(error)}`,
+          `Invalid JSONL in ${toPosixPath(filePath)}:${lineNumber}: ${getErrorMessage(error)}`,
           { cause: error },
         );
       }
 
       if (validator) {
         const validate: JsonValidator<T> = validator;
-        validate(parsedLine, `${toPosixPath(filePath)}:${index + 1}`);
+        validate(parsedLine, `${toPosixPath(filePath)}:${lineNumber}`);
       }
 
-      return parsedLine as T;
-    });
+      values.push(parsedLine as T);
+    }
+  } finally {
+    lineReader.close();
+    fileStream.destroy();
+  }
+
+  return values;
 }
 
 /**
@@ -323,13 +341,35 @@ export async function writeJsonLinesFile(
   filePath: string,
   values: unknown[],
 ): Promise<void> {
-  const serializedContent = values
-    .map((value) => JSON.stringify(value))
-    .join("\n");
-  await writeTextFile(
-    filePath,
-    serializedContent.length > 0 ? `${serializedContent}\n` : "",
-  );
+  await ensureDirectory(dirname(filePath));
+  const tempPath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const chunkSizeBytes = 1_000_000;
+  let chunk = "";
+
+  try {
+    await writeFile(tempPath, "", "utf8");
+
+    for (const value of values) {
+      const line = `${JSON.stringify(value)}\n`;
+      if (
+        chunk.length > 0 &&
+        Buffer.byteLength(chunk) + Buffer.byteLength(line) > chunkSizeBytes
+      ) {
+        await appendFile(tempPath, chunk, "utf8");
+        chunk = "";
+      }
+      chunk += line;
+    }
+
+    if (chunk.length > 0) {
+      await appendFile(tempPath, chunk, "utf8");
+    }
+
+    await rename(tempPath, filePath);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
 }
 
 /**

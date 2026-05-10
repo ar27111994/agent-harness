@@ -228,7 +228,49 @@ function normalizeVsCodeMarketplaceExtension(
   ];
 }
 
-function buildVsCodeMarketplaceRequest(query: string): Record<string, unknown> {
+/**
+ * Fetches one page of VS Code Marketplace results for a demand query.
+ */
+export async function fetchVsCodeMarketplaceItemsForQuery(
+  source: SourceDefinition,
+  query: string,
+  options: { pageNumber: number; pageSize: number },
+): Promise<HarvestedReferenceItem[]> {
+  const apiUrl = source.endpoints.marketplaceApi ?? VSCODE_MARKETPLACE_API;
+  const apiOrigin = getAllowedOrigin(apiUrl);
+  if (!apiOrigin) {
+    return [];
+  }
+
+  const allowedOrigins = [
+    ...new Set([...VSCODE_MARKETPLACE_ORIGINS, apiOrigin]),
+  ];
+  const discoveryConfig = getRuntimeConfig().discovery;
+  const data = await fetchJsonWithGuards(apiUrl, {
+    allowedOrigins,
+    body: JSON.stringify(
+      buildVsCodeMarketplaceRequest(
+        query,
+        options.pageNumber,
+        options.pageSize,
+      ),
+    ),
+    headers: {
+      Accept: "application/json;api-version=7.2-preview.1;excludeUrls=true",
+      "Content-Type": "application/json",
+    },
+    maxBytes: discoveryConfig.referenceSourceMaxBytes,
+    method: "POST",
+  });
+
+  return normalizeVsCodeMarketplaceItems(data, query, allowedOrigins);
+}
+
+function buildVsCodeMarketplaceRequest(
+  query: string,
+  pageNumber = 1,
+  pageSize = getRuntimeConfig().discovery.vscodeMarketplaceMaxItemsPerQuery,
+): Record<string, unknown> {
   return {
     assetTypes: ["Microsoft.VisualStudio.Services.VSIXPackage"],
     filters: [
@@ -238,9 +280,8 @@ function buildVsCodeMarketplaceRequest(query: string): Record<string, unknown> {
           { filterType: 10, value: query },
         ],
         direction: 2,
-        pageNumber: 1,
-        pageSize:
-          getRuntimeConfig().discovery.vscodeMarketplaceMaxItemsPerQuery,
+        pageNumber,
+        pageSize,
         sortBy: 0,
         sortOrder: 0,
       },
@@ -254,7 +295,12 @@ function buildVsCodeMarketplaceRequest(query: string): Record<string, unknown> {
   };
 }
 
-function selectDemandQueries(demandProfile: DemandProfile | null): string[] {
+/**
+ * Derives normalized discovery queries from the current demand profile.
+ */
+export function selectDemandQueries(
+  demandProfile: DemandProfile | null,
+): string[] {
   const demandSignals = demandProfile
     ? [
         ...demandProfile.signals.frameworks,

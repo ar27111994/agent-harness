@@ -19,7 +19,7 @@ import {
   buildGitHubRawFileUrl,
   fetchGitHubRepoSnapshotByRepoUrl,
 } from "../github.js";
-import { getOptionValue } from "../lib/cli-options.js";
+import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import { fetchBytesWithGuards, fetchJsonWithGuards } from "../lib/http.js";
 import {
   isPathWithinRoot,
@@ -132,6 +132,8 @@ export async function acquireMirrorArtifacts(
   const mirrorEligibleAssetIds = new Set(
     mirrorEligibleEntries.map((entry) => entry.id),
   );
+  const refreshRequested = args.includes("--refresh");
+  const refreshAssetIds = new Set(getOptionValues(args, "--asset"));
   const rawBatchSize = Number(
     getOptionValue(args, "--batch-size") ??
       getRuntimeConfig().batches.mirrorAcquire,
@@ -160,11 +162,19 @@ export async function acquireMirrorArtifacts(
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
-  const unresolvedEntries = mirrorEligibleEntries.filter(
-    (entry) =>
+  const unresolvedEntries = mirrorEligibleEntries.filter((entry) => {
+    const shouldRefreshEntry =
+      refreshRequested || refreshAssetIds.has(entry.id);
+
+    if (shouldRefreshEntry) {
+      return true;
+    }
+
+    return (
       !existingMirrorIdsByAssetId.has(entry.id) &&
-      !scopedSkippedAssetIds.has(entry.id),
-  );
+      !scopedSkippedAssetIds.has(entry.id)
+    );
+  });
   const entriesToAcquire = unresolvedEntries.slice(0, batchSize);
   const newMirrorIndexEntries: MirrorIndexEntry[] = [];
   const skippedAssetIds: string[] = [];

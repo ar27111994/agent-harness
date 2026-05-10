@@ -14,6 +14,10 @@ import {
 } from "./files.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
 import { getOptionValue } from "./lib/cli-options.js";
+import {
+  parseSessionIntent,
+  recommendationMatchesSessionIntent,
+} from "./lib/session-intent.js";
 import { isPathWithinRoot, sanitizeAssetId } from "./lib/safe-paths.js";
 import {
   assertActivationManifest,
@@ -33,6 +37,7 @@ import type {
   InstalledPackageManifest,
   RecommendationEntry,
   RecommendationReport,
+  SessionIntent,
 } from "./types.js";
 
 const ACTIVATION_MANIFEST_FILE = "activation-manifest.json";
@@ -84,7 +89,7 @@ async function activateHosts(
   projectRoot: string,
   args: string[] = [],
 ): Promise<void> {
-  const sessionIntent = getOptionValue(args, "--intent") ?? "general";
+  const sessionIntent = parseSessionIntent(getOptionValue(args, "--intent"));
   const requestedRecommendationHost = parseHostTargetOption(
     getOptionalOptionValue(args, "--recommendation-host"),
     "--recommendation-host",
@@ -116,7 +121,7 @@ async function activateHost(
   projectRoot: string,
   host: ActivationHost,
   bundleIds: string[],
-  sessionIntent: string,
+  sessionIntent: SessionIntent,
   recommendationHost: HostTarget = host,
 ): Promise<void> {
   const activeAssets = new Set<string>();
@@ -223,6 +228,7 @@ async function activateHost(
     preferredAssetOrder,
     recommendationEntryByAssetId,
     activationBudget,
+    sessionIntent,
   );
 
   await writeJsonFile(join(stagingRuntimeRoot, `${host}-overlay-plan.json`), {
@@ -249,6 +255,7 @@ async function activateHost(
     taskModeBuckets: buildTaskModeBuckets(
       selectedCandidates.map((candidate) => candidate.packageManifest.assetId),
       recommendationEntryByAssetId,
+      sessionIntent,
     ),
   } satisfies CopilotWorkspaceOverlayManifest | Record<string, unknown>);
 
@@ -261,7 +268,13 @@ async function activateHost(
       .map((candidate) => candidate.packageManifest)
       .filter((packageManifest) => packageManifest.assetKind === "skill")
       .sort((left, right) =>
-        compareActivationCandidates(left, right, preferredAssetOrder),
+        compareActivationCandidates(
+          left,
+          right,
+          preferredAssetOrder,
+          recommendationEntryByAssetId,
+          sessionIntent,
+        ),
       )
       .slice(0, 12)
       .map((packageManifest) => packageManifest.assetId);
@@ -456,7 +469,22 @@ function compareActivationCandidates(
   left: InstalledPackageManifest,
   right: InstalledPackageManifest,
   preferredAssetOrder: Map<string, number>,
+  recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+  sessionIntent: SessionIntent,
 ): number {
+  const intentDifference =
+    getSessionIntentMatchRank(
+      recommendationEntryByAssetId.get(right.assetId),
+      sessionIntent,
+    ) -
+    getSessionIntentMatchRank(
+      recommendationEntryByAssetId.get(left.assetId),
+      sessionIntent,
+    );
+  if (intentDifference !== 0) {
+    return intentDifference;
+  }
+
   const recommendedOrderDifference =
     getRecommendationOrder(left.assetId, preferredAssetOrder) -
     getRecommendationOrder(right.assetId, preferredAssetOrder);
@@ -494,6 +522,7 @@ function selectActivationCandidates(
   preferredAssetOrder: Map<string, number>,
   recommendationEntryByAssetId: Map<string, RecommendationEntry>,
   activationBudget: number,
+  sessionIntent: SessionIntent,
 ): Array<{
   packageManifest: InstalledPackageManifest;
   destinationRoot: string;
@@ -503,6 +532,8 @@ function selectActivationCandidates(
       left.packageManifest,
       right.packageManifest,
       preferredAssetOrder,
+      recommendationEntryByAssetId,
+      sessionIntent,
     ),
   );
   const selectedCandidates: Array<{
@@ -557,6 +588,7 @@ function buildConcernBuckets(
 function buildTaskModeBuckets(
   assetIds: string[],
   recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+  sessionIntent: SessionIntent,
 ): Record<string, string[]> {
   const buckets = new Map<string, string[]>();
 
@@ -572,7 +604,33 @@ function buildTaskModeBuckets(
     }
   }
 
-  buckets.set("focused", assetIds.slice(0, Math.min(20, assetIds.length)));
+  const originalOrder = new Map(
+    assetIds.map((assetId, index) => [assetId, index] as const),
+  );
+  const focusedAssetIds = [...assetIds].sort((left, right) => {
+    const intentDifference =
+      getSessionIntentMatchRank(
+        recommendationEntryByAssetId.get(right),
+        sessionIntent,
+      ) -
+      getSessionIntentMatchRank(
+        recommendationEntryByAssetId.get(left),
+        sessionIntent,
+      );
+    if (intentDifference !== 0) {
+      return intentDifference;
+    }
+
+    return (
+      getRecommendationOrder(left, originalOrder) -
+      getRecommendationOrder(right, originalOrder)
+    );
+  });
+
+  buckets.set(
+    "focused",
+    focusedAssetIds.slice(0, Math.min(20, focusedAssetIds.length)),
+  );
   buckets.set("broad", [...assetIds]);
 
   return Object.fromEntries(
@@ -581,6 +639,20 @@ function buildTaskModeBuckets(
       [...new Set(value)].sort(),
     ]),
   );
+}
+
+function getSessionIntentMatchRank(
+  recommendationEntry: RecommendationEntry | undefined,
+  sessionIntent: SessionIntent,
+): number {
+  return recommendationEntry &&
+    recommendationMatchesSessionIntent({
+      intent: sessionIntent,
+      coverageTags: recommendationEntry.coverageTags,
+      taskModes: recommendationEntry.taskModes,
+    })
+    ? 1
+    : 0;
 }
 
 function getRecommendationOrder(

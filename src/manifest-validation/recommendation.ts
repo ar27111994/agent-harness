@@ -1,3 +1,4 @@
+import { SESSION_INTENTS } from "../lib/session-intent.js";
 import type {
   RecommendationHostPolicyOverride,
   RecommendationPolicy,
@@ -37,6 +38,11 @@ export function assertRecommendationReport(
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertNumber(record.policyVersion, `${context}.policyVersion`);
+  assertLiteral(
+    record.sessionIntent,
+    [...SESSION_INTENTS],
+    `${context}.sessionIntent`,
+  );
   const topByHost = assertRecord(record.topByHost, `${context}.topByHost`);
 
   for (const expectedHost of HOST_TARGETS) {
@@ -184,6 +190,16 @@ export function assertRecommendationReport(
     assertNumber(
       summaryRecord.recommendationLimit,
       `${context}.hostSummaries.${host}.recommendationLimit`,
+    );
+    assertLiteral(
+      summaryRecord.recommendationLimitSource,
+      ["policy", "env"],
+      `${context}.hostSummaries.${host}.recommendationLimitSource`,
+    );
+    assertMaybeString(
+      summaryRecord.recommendationLimitEnvVar,
+      `${context}.hostSummaries.${host}.recommendationLimitEnvVar`,
+      false,
     );
     assertNumber(
       summaryRecord.activationBudget,

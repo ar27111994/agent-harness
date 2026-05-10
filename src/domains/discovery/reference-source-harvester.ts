@@ -59,7 +59,10 @@ export async function harvestReferenceSource(
   ];
 }
 
-function buildReferenceSourceCatalogEntry(
+/**
+ * Builds a reference-source catalog entry from harvested page content or item metadata.
+ */
+export function buildReferenceSourceCatalogEntry(
   source: SourceDefinition,
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,

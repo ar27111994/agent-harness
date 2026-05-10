@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { writeJsonFile } from "../../files.js";
 import type { AssetCatalogEntry, SourceDefinition } from "../../types.js";
+import type { SourceSyncState } from "./source-sync.js";
 import { countBy } from "./catalog-utils.js";
 import { SOURCE_UTILIZATION_OUTPUT_PATH } from "./output-paths.js";
 
@@ -12,6 +13,7 @@ export async function writeSourceUtilizationReport(
   projectRoot: string,
   enabledSources: SourceDefinition[],
   catalogEntries: AssetCatalogEntry[],
+  sourceSyncState?: SourceSyncState,
 ): Promise<void> {
   const catalogEntriesBySource = new Map<string, AssetCatalogEntry[]>();
   for (const entry of catalogEntries) {
@@ -23,17 +25,24 @@ export async function writeSourceUtilizationReport(
     }
   }
 
+  const sourceSyncById = new Map(
+    (sourceSyncState?.sources ?? []).map((source) => [source.sourceId, source]),
+  );
   const sources = enabledSources.map((source) => {
     const sourceEntries = catalogEntriesBySource.get(source.id) ?? [];
     const operationalEntries = sourceEntries.filter((entry) =>
       isOperationalCatalogEntry(entry),
     );
+    const syncState = sourceSyncById.get(source.id);
     return {
       id: source.id,
       kind: source.kind,
       configured: true,
       operational: operationalEntries.length > 0,
       harvestedEntries: sourceEntries.length,
+      indexedEntries: syncState?.indexedEntryCount ?? 0,
+      coverageMode: syncState?.coverageMode ?? "sampled",
+      syncStatus: syncState?.status,
       operationalEntries: operationalEntries.length,
       status:
         operationalEntries.length > 0

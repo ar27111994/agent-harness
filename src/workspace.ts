@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValue } from "./lib/cli-options.js";
+import { parseSessionIntent } from "./lib/session-intent.js";
 import {
   orchestrateAiEnrichment,
   type AiEnrichmentOrchestrationResult,
@@ -31,7 +32,7 @@ export async function runWorkspace(
   projectRoot: string,
 ): Promise<number> {
   const [target = "help", ...rest] = args;
-  const sessionIntent = getOptionValue(rest, "--intent") ?? "general";
+  const sessionIntent = parseSessionIntent(getOptionValue(rest, "--intent"));
   const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
 
   if (target === "help") {

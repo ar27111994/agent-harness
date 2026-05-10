@@ -23,12 +23,29 @@
       "outputs": ["discover/output/source-index.json"]
     },
     {
+      "id": "d1b-source-sync",
+      "enabled": true,
+      "command": "discover sync",
+      "inputs": [
+        "discover/output/demand-profile.json",
+        "discover/output/source-index.json",
+        "discover/sources.json",
+        "discover/source-packs/"
+      ],
+      "outputs": [
+        "discover/output/source-sync.json",
+        "state/discover/source-sync.json",
+        "state/discover/source-sync.entries.jsonl"
+      ]
+    },
+    {
       "id": "d2-catalog-harvest",
       "enabled": true,
       "command": "discover catalog",
       "inputs": [
         "discover/output/demand-profile.json",
         "discover/output/source-index.json",
+        "discover/output/source-sync.json",
         "discover/sources.json",
         "discover/source-packs/",
         "discover/official-skills-indexes.json",

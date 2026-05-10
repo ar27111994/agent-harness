@@ -18,6 +18,7 @@ import {
   assertHostTarget,
   assertHostTargetArray,
   assertLiteral,
+  assertMaybeNumber,
   assertMaybeString,
   assertMaybeStringArray,
   assertNumber,
@@ -40,6 +41,19 @@ function assertNullableString(value: unknown, context: string): void {
 }
 
 const DEMAND_EVIDENCE_STRENGTHS = ["strong", "medium", "weak"] as const;
+const SOURCE_COVERAGE_MODES = [
+  "direct",
+  "rotating",
+  "sampled",
+  "indexed",
+] as const;
+const SOURCE_SYNC_STATUSES = [
+  "not-applicable",
+  "unsupported",
+  "partial",
+  "complete",
+  "failed",
+] as const;
 const HOST_NATIVE_CONFIG_HOST_KEYS = [
   "opencode",
   "cursor",
@@ -207,6 +221,78 @@ export function assertSourceIndex(
   assertString(
     record.communityDefaultPolicy,
     `${context}.communityDefaultPolicy`,
+  );
+  const configurationInputs = assertRecord(
+    record.configurationInputs,
+    `${context}.configurationInputs`,
+  );
+  assertString(
+    configurationInputs.checkedInRegistryPath,
+    `${context}.configurationInputs.checkedInRegistryPath`,
+  );
+  assertStringArray(
+    configurationInputs.sourcePackFiles,
+    `${context}.configurationInputs.sourcePackFiles`,
+  );
+  assertStringArray(
+    configurationInputs.officialSkillIndexIds,
+    `${context}.configurationInputs.officialSkillIndexIds`,
+  );
+  assertStringArray(
+    configurationInputs.officialUpstreamNamespaces,
+    `${context}.configurationInputs.officialUpstreamNamespaces`,
+  );
+  assertArray(record.enabledSources, `${context}.enabledSources`).forEach(
+    (entry, index) => {
+      const entryRecord = assertRecord(
+        entry,
+        `${context}.enabledSources[${index}]`,
+      );
+      assertString(entryRecord.id, `${context}.enabledSources[${index}].id`);
+      assertLiteral(
+        entryRecord.kind,
+        SOURCE_KINDS,
+        `${context}.enabledSources[${index}].kind`,
+      );
+      assertLiteral(
+        entryRecord.authorityTier,
+        AUTHORITY_TIERS,
+        `${context}.enabledSources[${index}].authorityTier`,
+      );
+      assertNumber(
+        entryRecord.priority,
+        `${context}.enabledSources[${index}].priority`,
+      );
+      assertHostTargetArray(
+        entryRecord.hosts,
+        `${context}.enabledSources[${index}].hosts`,
+      );
+      assertLiteral(
+        entryRecord.coverageMode,
+        SOURCE_COVERAGE_MODES,
+        `${context}.enabledSources[${index}].coverageMode`,
+      );
+      assertLiteral(
+        entryRecord.syncStatus,
+        SOURCE_SYNC_STATUSES,
+        `${context}.enabledSources[${index}].syncStatus`,
+      );
+      assertMaybeNumber(
+        entryRecord.indexedEntryCount,
+        `${context}.enabledSources[${index}].indexedEntryCount`,
+        false,
+      );
+      assertMaybeString(
+        entryRecord.lastSyncedAt,
+        `${context}.enabledSources[${index}].lastSyncedAt`,
+        false,
+      );
+      assertMaybeString(
+        entryRecord.syncReason,
+        `${context}.enabledSources[${index}].syncReason`,
+        false,
+      );
+    },
   );
 }
 

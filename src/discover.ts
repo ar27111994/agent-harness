@@ -35,6 +35,12 @@ import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
+  getIndexedSourceIds,
+  loadIndexedCatalogEntries,
+  loadSourceSyncState,
+  syncIndexedSources,
+} from "./domains/discovery/source-sync.js";
+import {
   harvestLocalDirectorySource,
   harvestLocalManifestSource,
 } from "./domains/discovery/local-harvesters.js";
@@ -89,6 +95,9 @@ export async function runDiscover(
     case "catalog":
       await generateCatalog(projectRoot);
       return 0;
+    case "sync":
+      await syncIndexedSources(projectRoot);
+      return 0;
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       await generateSelectionOutputs(projectRoot);
@@ -107,6 +116,7 @@ export async function runDiscover(
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       await generateDemandProfile(workingDirectory, projectRoot);
       await generateSourceIndex(projectRoot);
+      await syncIndexedSources(projectRoot);
       await generateCatalog(projectRoot);
       await generateSelectionOutputs(projectRoot);
       return handleAiEnrichmentResult(
@@ -174,6 +184,9 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   const enabledSources = sourceRegistry.sources
     .filter((source) => source.enabled)
     .sort(compareSourcesByPriority);
+  const sourceSyncState = await loadSourceSyncState(projectRoot);
+  const indexedSourceIds = getIndexedSourceIds(sourceSyncState);
+  const indexedCatalogEntries = await loadIndexedCatalogEntries(projectRoot);
   const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
   const repoBatchSize = getRuntimeConfig().batches.remoteHarvest;
   const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
@@ -188,6 +201,15 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   );
 
   for (const source of nonRepoSources) {
+    if (indexedSourceIds.has(source.id)) {
+      catalogEntries.push(
+        ...indexedCatalogEntries.filter(
+          (entry) => entry.source.sourceId === source.id,
+        ),
+      );
+      continue;
+    }
+
     switch (source.kind) {
       case "local-manifest":
         catalogEntries.push(
@@ -274,15 +296,18 @@ async function generateCatalog(projectRoot: string): Promise<void> {
     )),
   );
 
-  const sortedEntries = catalogEntries
-    .map((entry) => enhanceTrustForEntry(entry))
-    .sort(compareAssetCatalogEntries);
+  const sortedEntries = [
+    ...new Map(
+      catalogEntries.map((entry) => [entry.id, enhanceTrustForEntry(entry)]),
+    ).values(),
+  ].sort(compareAssetCatalogEntries);
   const outputPath = join(projectRoot, ...CATALOG_OUTPUT_PATH);
   await writeJsonLinesFile(outputPath, sortedEntries);
   await writeSourceUtilizationReport(
     projectRoot,
     enabledSources,
     sortedEntries,
+    sourceSyncState,
   );
   await writeRemoteHarvestState(projectRoot, {
     schemaVersion: 1,
@@ -426,9 +451,10 @@ function printDiscoverHelp(): void {
   console.log(`discover commands:
   demand-profile   Scan the working directory and write discover/output/demand-profile.json
   sources          Summarize enabled discovery sources into discover/output/source-index.json
+  sync             Persist indexed discovery results for supported high-volume sources
   catalog          Harvest local sources into discover/catalog.assets.jsonl
   select           Apply canonical selection rules and write selected/rejected JSONL outputs
-  full             Run demand-profile, sources, catalog, and select in one pass
+  full             Run demand-profile, sources, sync, catalog, and select in one pass
   stats            Print catalog summary counts grouped by source, kind, host, and authority
   enrich           Run bounded AI-assisted enrichment against the selected catalog
   inspect          Print catalog entries filtered by --source <id> or --id <assetId>

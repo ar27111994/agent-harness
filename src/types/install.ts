@@ -1,5 +1,30 @@
 import type { AssetContextCost } from "./catalog.js";
 import type { AssetKind, AuthorityTier, HostTarget } from "./core.js";
+import type { MirrorIndexEntry } from "./mirror.js";
+
+/**
+ * Defines install refresh policy values.
+ */
+export type InstallRefreshPolicy = "manual" | "report-only" | "apply-safe";
+
+/**
+ * Defines one installed upstream fingerprint captured at install time.
+ */
+export interface InstalledUpstreamFingerprint {
+  mirrorId: string;
+  mirroredAt: string;
+  sourceId: string;
+  sourceOriginUrl: string;
+  sourceLastUpdated: string;
+  upstream: MirrorIndexEntry["upstream"];
+}
+
+/**
+ * Describes optional native-install identity recorded for one installed asset.
+ */
+export interface InstalledNativeInstallFingerprint {
+  extensionId?: string;
+}
 
 /**
  * Describes installed package manifest data exchanged by the lifecycle pipeline.
@@ -19,6 +44,8 @@ export interface InstalledPackageManifest {
   bundleMembership: string[];
   activationEligible: boolean;
   activeByDefault: boolean;
+  upstream?: InstalledUpstreamFingerprint;
+  nativeInstall?: InstalledNativeInstallFingerprint;
 }
 
 /**
@@ -67,4 +94,70 @@ export interface InstallProgressState {
       lastBatchAssetIds: string[];
     }
   >;
+}
+
+/**
+ * Defines install refresh status values.
+ */
+export type InstallRefreshStatus =
+  | "current"
+  | "stale"
+  | "pinned"
+  | "blocked"
+  | "unknown";
+
+/**
+ * Defines install refresh policy-decision values.
+ */
+export type InstallRefreshPolicyDecision =
+  | "ignore"
+  | "notify"
+  | "plan"
+  | "apply";
+
+/**
+ * Describes one install refresh asset status entry.
+ */
+export interface InstallRefreshAssetStatus {
+  assetId: string;
+  host: HostTarget;
+  bundleIds: string[];
+  assetKind: AssetKind;
+  status: InstallRefreshStatus;
+  policyDecision: InstallRefreshPolicyDecision;
+  pinned: boolean;
+  reason: string;
+  installedMirrorId: string;
+  latestMirrorId?: string;
+  installedFingerprint?: InstalledUpstreamFingerprint;
+  latestFingerprint?: InstalledUpstreamFingerprint;
+  nativeInstall?: {
+    extensionId?: string;
+    operation?: "install";
+  };
+}
+
+/**
+ * Describes one host-level install refresh summary.
+ */
+export interface InstallRefreshHostSummary {
+  host: HostTarget;
+  pinnedGeneration: boolean;
+  assetCount: number;
+  staleCount: number;
+  pinnedCount: number;
+  blockedCount: number;
+  currentCount: number;
+  assets: InstallRefreshAssetStatus[];
+}
+
+/**
+ * Describes install refresh report data exchanged by the lifecycle pipeline.
+ */
+export interface InstallRefreshReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  policy: InstallRefreshPolicy;
+  refreshedMirrorState: boolean;
+  hosts: InstallRefreshHostSummary[];
 }

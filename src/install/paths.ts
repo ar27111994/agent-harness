@@ -29,3 +29,12 @@ export const NATIVE_INSTALL_STATE_OUTPUT_PATH = [
   "install",
   "native-extensions.json",
 ];
+
+/**
+ * Defines the install refresh report output path location used by persisted project state.
+ */
+export const INSTALL_REFRESH_REPORT_OUTPUT_PATH = [
+  "state",
+  "install",
+  "refresh-report.json",
+];

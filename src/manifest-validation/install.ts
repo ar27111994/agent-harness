@@ -1,6 +1,7 @@
 import type {
   InstallGenerationManifest,
   InstallProgressState,
+  InstallRefreshReport,
   InstalledBundleManifest,
   InstalledPackageManifest,
 } from "../types.js";
@@ -56,6 +57,57 @@ export function assertInstalledPackageManifest(
   assertStringArray(record.bundleMembership, `${context}.bundleMembership`);
   assertBoolean(record.activationEligible, `${context}.activationEligible`);
   assertBoolean(record.activeByDefault, `${context}.activeByDefault`);
+  if (record.upstream !== undefined) {
+    const upstreamRecord = assertRecord(record.upstream, `${context}.upstream`);
+    assertString(upstreamRecord.mirrorId, `${context}.upstream.mirrorId`);
+    assertString(upstreamRecord.mirroredAt, `${context}.upstream.mirroredAt`);
+    assertString(upstreamRecord.sourceId, `${context}.upstream.sourceId`);
+    assertString(
+      upstreamRecord.sourceOriginUrl,
+      `${context}.upstream.sourceOriginUrl`,
+    );
+    assertString(
+      upstreamRecord.sourceLastUpdated,
+      `${context}.upstream.sourceLastUpdated`,
+    );
+    const upstreamFingerprint = assertRecord(
+      upstreamRecord.upstream,
+      `${context}.upstream.upstream`,
+    );
+    assertLiteral(
+      upstreamFingerprint.type,
+      ["repo", "package", "marketplace", "docs", "local"],
+      `${context}.upstream.upstream.type`,
+    );
+    assertString(upstreamFingerprint.url, `${context}.upstream.upstream.url`);
+    if (upstreamFingerprint.ref !== undefined) {
+      assertString(upstreamFingerprint.ref, `${context}.upstream.upstream.ref`);
+    }
+    if (upstreamFingerprint.commit !== undefined) {
+      assertString(
+        upstreamFingerprint.commit,
+        `${context}.upstream.upstream.commit`,
+      );
+    }
+    if (upstreamFingerprint.version !== undefined) {
+      assertString(
+        upstreamFingerprint.version,
+        `${context}.upstream.upstream.version`,
+      );
+    }
+  }
+  if (record.nativeInstall !== undefined) {
+    const nativeInstallRecord = assertRecord(
+      record.nativeInstall,
+      `${context}.nativeInstall`,
+    );
+    if (nativeInstallRecord.extensionId !== undefined) {
+      assertString(
+        nativeInstallRecord.extensionId,
+        `${context}.nativeInstall.extensionId`,
+      );
+    }
+  }
 }
 
 /**
@@ -152,4 +204,106 @@ export function assertInstallProgressState(
       `${context}.bundles.${bundleKey}.lastBatchAssetIds`,
     );
   }
+}
+
+/**
+ * Validates unknown data as install refresh report.
+ */
+export function assertInstallRefreshReport(
+  value: unknown,
+  context: string,
+): asserts value is InstallRefreshReport {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  if (record.schemaVersion !== 1) {
+    throw new Error(`${context}.schemaVersion must be 1`);
+  }
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertLiteral(
+    record.policy,
+    ["manual", "report-only", "apply-safe"],
+    `${context}.policy`,
+  );
+  assertBoolean(record.refreshedMirrorState, `${context}.refreshedMirrorState`);
+  assertArray(record.hosts, `${context}.hosts`).forEach((hostEntry, index) => {
+    const hostRecord = assertRecord(hostEntry, `${context}.hosts[${index}]`);
+    assertHostTarget(hostRecord.host, `${context}.hosts[${index}].host`);
+    assertBoolean(
+      hostRecord.pinnedGeneration,
+      `${context}.hosts[${index}].pinnedGeneration`,
+    );
+    assertNumber(
+      hostRecord.assetCount,
+      `${context}.hosts[${index}].assetCount`,
+    );
+    assertNumber(
+      hostRecord.staleCount,
+      `${context}.hosts[${index}].staleCount`,
+    );
+    assertNumber(
+      hostRecord.pinnedCount,
+      `${context}.hosts[${index}].pinnedCount`,
+    );
+    assertNumber(
+      hostRecord.blockedCount,
+      `${context}.hosts[${index}].blockedCount`,
+    );
+    assertNumber(
+      hostRecord.currentCount,
+      `${context}.hosts[${index}].currentCount`,
+    );
+    assertArray(hostRecord.assets, `${context}.hosts[${index}].assets`).forEach(
+      (assetEntry, assetIndex) => {
+        const assetRecord = assertRecord(
+          assetEntry,
+          `${context}.hosts[${index}].assets[${assetIndex}]`,
+        );
+        assertString(
+          assetRecord.assetId,
+          `${context}.hosts[${index}].assets[${assetIndex}].assetId`,
+        );
+        assertHostTarget(
+          assetRecord.host,
+          `${context}.hosts[${index}].assets[${assetIndex}].host`,
+        );
+        assertStringArray(
+          assetRecord.bundleIds,
+          `${context}.hosts[${index}].assets[${assetIndex}].bundleIds`,
+        );
+        assertLiteral(
+          assetRecord.assetKind,
+          ASSET_KINDS,
+          `${context}.hosts[${index}].assets[${assetIndex}].assetKind`,
+        );
+        assertLiteral(
+          assetRecord.status,
+          ["current", "stale", "pinned", "blocked", "unknown"],
+          `${context}.hosts[${index}].assets[${assetIndex}].status`,
+        );
+        assertLiteral(
+          assetRecord.policyDecision,
+          ["ignore", "notify", "plan", "apply"],
+          `${context}.hosts[${index}].assets[${assetIndex}].policyDecision`,
+        );
+        assertBoolean(
+          assetRecord.pinned,
+          `${context}.hosts[${index}].assets[${assetIndex}].pinned`,
+        );
+        assertString(
+          assetRecord.reason,
+          `${context}.hosts[${index}].assets[${assetIndex}].reason`,
+        );
+        assertString(
+          assetRecord.installedMirrorId,
+          `${context}.hosts[${index}].assets[${assetIndex}].installedMirrorId`,
+        );
+        if (assetRecord.latestMirrorId !== undefined) {
+          assertString(
+            assetRecord.latestMirrorId,
+            `${context}.hosts[${index}].assets[${assetIndex}].latestMirrorId`,
+          );
+        }
+      },
+    );
+  });
 }

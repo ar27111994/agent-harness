@@ -5,6 +5,7 @@ import {
   manageInstallGenerations,
 } from "./install/generations.js";
 import { manageNativeInstall } from "./install/native.js";
+import { manageInstallRefresh } from "./install/refresh.js";
 import { reconcileInstallState, resetInstallState } from "./install/state.js";
 
 /**
@@ -12,7 +13,7 @@ import { reconcileInstallState, resetInstallState } from "./install/state.js";
  */
 export async function runInstall(
   args: string[],
-  _workingDirectory: string,
+  workingDirectory: string,
   projectRoot: string,
 ): Promise<number> {
   const [command = "help", ...rest] = args;
@@ -23,6 +24,9 @@ export async function runInstall(
       return 0;
     case "native":
       await manageNativeInstall(projectRoot, rest);
+      return 0;
+    case "refresh":
+      await manageInstallRefresh(projectRoot, workingDirectory, rest);
       return 0;
     case "reconcile":
       await reconcileInstallState(projectRoot);
@@ -52,6 +56,7 @@ function printInstallHelp(): void {
   console.log(`install commands:
   bundle      Stage installed assets from mirror bundle locks
   native      Plan/verify/apply/remove host-native installs
+  refresh     Refresh mirrored install state and report/apply stale assets
   reconcile   Recompute install progress from bundle install manifests
   diff        Compare current vs previous or explicit install generations
   explain     Explain where an installed asset is present and active
@@ -61,5 +66,10 @@ function printInstallHelp(): void {
 Native install options:
   --host <vscode|opencode|cursor|zed|claude-code|pi>
   --operation <plan|install|verify|remove>
-  --apply     Required for mutating install/remove operations`);
+  --apply     Required for mutating install/remove operations
+
+Install refresh options:
+  --host <copilot-vscode|opencode|shared>
+  --apply     Apply eligible stale bundle refreshes after reporting
+  --no-mirror-refresh   Skip the explicit mirror refresh step and report from current local state only`);
 }

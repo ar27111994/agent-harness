@@ -1,4 +1,4 @@
-import type { HostTarget } from "./core.js";
+import type { HostTarget, SessionIntent } from "./core.js";
 
 /**
  * Describes reversible host-native config operations recorded in wire plans.
@@ -45,7 +45,7 @@ export interface CopilotWorkspaceOverlayManifest {
   selectedAssetIds: string[];
   activationBudget: number;
   mode: string;
-  sessionIntent?: string;
+  sessionIntent?: SessionIntent;
   concernBuckets?: Record<string, string[]>;
   taskModeBuckets?: Record<string, string[]>;
 }
@@ -68,7 +68,7 @@ export interface CopilotWorkspaceProfileManifest {
   selectedHookIds?: string[];
   selectedSkillIds?: string[];
   activationBudget: number;
-  sessionIntent?: string;
+  sessionIntent?: SessionIntent;
 }
 
 /**

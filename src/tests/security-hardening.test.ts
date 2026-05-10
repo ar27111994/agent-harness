@@ -122,6 +122,34 @@ void test("guarded fetches preserve caller abort signals", async (context) => {
   assert.equal(observedSignal?.reason, "caller-cancelled");
 });
 
+void test("guarded fetches time out stalled response bodies", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode("partial"));
+        },
+      }),
+      { status: 200 },
+    );
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  const content = await fetchTextWithGuards("https://example.com/index.txt", {
+    allowedOrigins: ["https://example.com"],
+    timeoutMs: 25,
+    resolveHostname: publicHostnameResolver,
+  });
+
+  assert.equal(content, null);
+});
+
 void test("mirror evidence file paths must stay inside allowed roots", () => {
   const allowedRoot = resolve(join(tmpdir(), "agent-harness-evidence-root"));
 

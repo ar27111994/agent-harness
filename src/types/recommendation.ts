@@ -8,6 +8,7 @@ import type {
   AuthorityTier,
   CompatibilityMode,
   HostTarget,
+  SessionIntent,
 } from "./core.js";
 import type {
   DemandEvidenceStrength,
@@ -214,11 +215,18 @@ export interface RecommendationEntry {
 }
 
 /**
+ * Defines where one effective recommendation policy scalar came from.
+ */
+export type RecommendationPolicyValueSource = "policy" | "env";
+
+/**
  * Describes recommendation host summary data exchanged by the lifecycle pipeline.
  */
 export interface RecommendationHostSummary {
   host: HostTarget;
   recommendationLimit: number;
+  recommendationLimitSource: RecommendationPolicyValueSource;
+  recommendationLimitEnvVar?: string;
   activationBudget: number;
   selectedCount: number;
   totalEstimatedPromptWeight: number;
@@ -249,6 +257,7 @@ export interface RecommendationReport {
   schemaVersion: number;
   generatedAt: string;
   policyVersion: number;
+  sessionIntent: SessionIntent;
   topByHost: Record<string, RecommendationEntry[]>;
   hostSummaries: Record<string, RecommendationHostSummary>;
   suggestedBundles: RecommendationSuggestedBundle[];

@@ -22,6 +22,7 @@ import type {
   RecommendationHostSummary,
   RecommendationPolicy,
   RecommendationReport,
+  SessionIntent,
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
@@ -30,10 +31,13 @@ import type { RecommendationHost } from "./hosts.js";
  */
 export async function writeRecommendationReport(
   projectRoot: string,
-  policy?: RecommendationPolicy,
+  options: {
+    policy?: RecommendationPolicy;
+    sessionIntent?: SessionIntent;
+  } = {},
 ): Promise<RecommendationReport> {
   const resolvedPolicy =
-    policy ?? (await loadRecommendationPolicy(projectRoot));
+    options.policy ?? (await loadRecommendationPolicy(projectRoot));
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
     assertDemandProfile,
@@ -46,6 +50,7 @@ export async function writeRecommendationReport(
     selectedEntries,
     demandProfile,
     resolvedPolicy,
+    options.sessionIntent ?? "general",
   );
 
   await writeJsonFile(join(projectRoot, ...REPORT_FILE_PATH), report);
@@ -60,8 +65,13 @@ export function buildRecommendationReport(
   entries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
+  sessionIntent: SessionIntent = "general",
 ): RecommendationReport {
-  const demandContext = buildDemandContext(demandProfile, policy);
+  const demandContext = buildDemandContext(
+    demandProfile,
+    policy,
+    sessionIntent,
+  );
   const recommendationHosts = getRecommendationHosts();
   const topByHost = Object.fromEntries(
     recommendationHosts.map((host) => [
@@ -83,6 +93,7 @@ export function buildRecommendationReport(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     policyVersion: policy.schemaVersion,
+    sessionIntent,
     topByHost,
     hostSummaries,
     suggestedBundles,

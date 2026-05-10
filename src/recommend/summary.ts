@@ -1,3 +1,4 @@
+import { getRuntimeConfig } from "../config/runtime.js";
 import { FOCUSED_BUCKET_LIMIT } from "./constants.js";
 import { countBy, countCoverageTagsFromEntries } from "./counts.js";
 import type {
@@ -16,9 +17,13 @@ export function buildHostSummary(
   entries: RecommendationEntry[],
   policy: RecommendationPolicy,
 ): RecommendationHostSummary {
+  const limitOverride = getRuntimeConfig().recommendation.limitOverrides[host];
+
   return {
     host,
     recommendationLimit: policy.hosts[host].recommendationLimit,
+    recommendationLimitSource: limitOverride ? "env" : "policy",
+    recommendationLimitEnvVar: limitOverride?.envVar,
     activationBudget: policy.hosts[host].activationBudget,
     selectedCount: entries.length,
     totalEstimatedPromptWeight: entries.reduce(

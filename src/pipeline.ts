@@ -13,6 +13,7 @@ import type {
   HostTarget,
   InstallProgressState,
   MirrorAcquireState,
+  SessionIntent,
 } from "./types.js";
 
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
@@ -27,7 +28,7 @@ export async function runWorkspacePipeline(options: {
   workspaceRoot: string;
   targetHost: "copilot-vscode" | "opencode";
   recommendationHost: HostTarget;
-  sessionIntent: string;
+  sessionIntent: SessionIntent;
   bundleIds: string[];
 }): Promise<void> {
   const {
@@ -46,7 +47,11 @@ export async function runWorkspacePipeline(options: {
   await runDiscover(["sources"], workspaceRoot, projectRoot);
   await runDiscover(["catalog"], workspaceRoot, projectRoot);
   await runDiscover(["select"], workspaceRoot, projectRoot);
-  await runRecommend(["report"], workspaceRoot, projectRoot);
+  await runRecommend(
+    ["report", "--intent", sessionIntent],
+    workspaceRoot,
+    projectRoot,
+  );
   await runMirror(["plan"], workspaceRoot, projectRoot);
   await runMirror(["locks"], workspaceRoot, projectRoot);
   await acquireAllMirrorBatches(projectRoot, workspaceRoot, mirrorBatchSize);

@@ -128,6 +128,21 @@ export interface DemandProfile {
 }
 
 /**
+ * Defines source coverage-mode values for discovery reporting.
+ */
+export type SourceCoverageMode = "direct" | "rotating" | "sampled" | "indexed";
+
+/**
+ * Defines source sync-status values for discovery reporting.
+ */
+export type SourceSyncStatus =
+  | "not-applicable"
+  | "unsupported"
+  | "partial"
+  | "complete"
+  | "failed";
+
+/**
  * Describes source index data exchanged by the lifecycle pipeline.
  */
 export interface SourceIndex {
@@ -138,12 +153,23 @@ export interface SourceIndex {
   byKind: Record<string, number>;
   hostCoverage: Record<string, number>;
   communityDefaultPolicy: string;
+  configurationInputs: {
+    checkedInRegistryPath: string;
+    sourcePackFiles: string[];
+    officialSkillIndexIds: string[];
+    officialUpstreamNamespaces: string[];
+  };
   enabledSources: Array<{
     id: string;
     kind: SourceKind;
     authorityTier: AuthorityTier;
     priority: number;
     hosts: HostTarget[];
+    coverageMode: SourceCoverageMode;
+    syncStatus: SourceSyncStatus;
+    indexedEntryCount?: number;
+    lastSyncedAt?: string;
+    syncReason?: string;
   }>;
 }
 

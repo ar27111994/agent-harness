@@ -3,6 +3,16 @@ import { join } from "node:path";
 
 import type { AiEnrichmentMode } from "../types.js";
 
+const RECOMMENDATION_LIMIT_OVERRIDE_ENV_BY_HOST = {
+  shared: "AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT",
+  "copilot-vscode": "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+  opencode: "AGENT_HARNESS_OPENCODE_RECOMMENDATION_LIMIT",
+  cursor: "AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT",
+  zed: "AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT",
+  "claude-code": "AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT",
+  pi: "AGENT_HARNESS_PI_RECOMMENDATION_LIMIT",
+} as const;
+
 const DEFAULT_AI_ENRICHMENT_MODEL = "gpt-4o-mini";
 const AI_ENRICHMENT_MODES = [
   "off",
@@ -49,6 +59,12 @@ export interface RuntimeConfig {
     requireSuccessInCi: boolean;
     allowCacheInCi: boolean;
   };
+  recommendation: {
+    limitOverrides: Record<string, { value: number; envVar: string }>;
+  };
+  install: {
+    refreshPolicy: "manual" | "report-only" | "apply-safe";
+  };
   http: {
     timeoutMs: number;
     maxResponseBytes: number;
@@ -71,6 +87,8 @@ export interface RuntimeConfig {
     genericReferenceMaxItems: number;
     vscodeMarketplaceMaxQueries: number;
     vscodeMarketplaceMaxItemsPerQuery: number;
+    vscodeMarketplaceSyncPageSize: number;
+    sourceSyncMaxPagesPerRun: number;
     npmMcpSearchQueryLimit: number;
   };
   officialIndex: {
@@ -155,20 +173,29 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         1_000_000,
         "AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES",
       ),
-      maxSelectedAssets: parsePositiveInteger(
-        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS,
+      maxSelectedAssets: parsePositiveIntegerAlias(
+        env,
+        [
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS",
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS",
+        ],
         50,
-        "AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS",
       ),
-      maxEvidenceItems: parsePositiveInteger(
-        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS,
+      maxEvidenceItems: parsePositiveIntegerAlias(
+        env,
+        [
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS",
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS",
+        ],
         12,
-        "AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS",
       ),
-      maxCapabilitiesPerAsset: parsePositiveInteger(
-        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET,
+      maxCapabilitiesPerAsset: parsePositiveIntegerAlias(
+        env,
+        [
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET",
+          "AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET",
+        ],
         16,
-        "AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET",
       ),
       redactFilePaths: parseBooleanFlag(
         env.AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS,
@@ -204,6 +231,17 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI,
         true,
         "AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI",
+      ),
+    },
+    recommendation: {
+      limitOverrides: buildRecommendationLimitOverrides(env),
+    },
+    install: {
+      refreshPolicy: parseLiteral(
+        env.AGENT_HARNESS_INSTALL_REFRESH_POLICY,
+        ["manual", "report-only", "apply-safe"],
+        "manual",
+        "AGENT_HARNESS_INSTALL_REFRESH_POLICY",
       ),
     },
     http: {
@@ -279,6 +317,16 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
         6,
         "AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY",
+      ),
+      vscodeMarketplaceSyncPageSize: parsePositiveInteger(
+        env.AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE,
+        50,
+        "AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE",
+      ),
+      sourceSyncMaxPagesPerRun: parsePositiveInteger(
+        env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN,
+        10,
+        "AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN",
       ),
       npmMcpSearchQueryLimit: parsePositiveInteger(
         env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT,
@@ -401,6 +449,25 @@ export function clearRuntimeConfigForTests(): void {
   clearRuntimeConfig();
 }
 
+function buildRecommendationLimitOverrides(
+  env: NodeJS.ProcessEnv,
+): Record<string, { value: number; envVar: string }> {
+  return Object.fromEntries(
+    Object.entries(RECOMMENDATION_LIMIT_OVERRIDE_ENV_BY_HOST).flatMap(
+      ([host, envVar]) => {
+        const rawValue = nonEmptyString(env[envVar]);
+        if (!rawValue) {
+          return [];
+        }
+
+        return [
+          [host, { value: parsePositiveInteger(rawValue, 1, envVar), envVar }],
+        ];
+      },
+    ),
+  );
+}
+
 function buildAiEnrichmentAllowedOrigins(
   env: NodeJS.ProcessEnv,
   aiEnrichmentUrl: string | undefined,
@@ -469,6 +536,21 @@ function dedupeStrings(values: readonly string[]): string[] {
 function nonEmptyString(value: string | undefined): string | undefined {
   const trimmedValue = value?.trim();
   return trimmedValue && trimmedValue.length > 0 ? trimmedValue : undefined;
+}
+
+function parsePositiveIntegerAlias(
+  env: NodeJS.ProcessEnv,
+  envNames: readonly string[],
+  defaultValue: number,
+): number {
+  for (const envName of envNames) {
+    const rawValue = nonEmptyString(env[envName]);
+    if (rawValue) {
+      return parsePositiveInteger(rawValue, defaultValue, envName);
+    }
+  }
+
+  return defaultValue;
 }
 
 function parsePositiveInteger(
