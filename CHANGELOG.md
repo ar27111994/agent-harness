@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-05-10
+
 ### Added
 
 - structured host-native file payload support so assets can synthesize documented OpenCode, Cursor, Zed, Claude Code, and Pi config surfaces when explicit native payloads are present
@@ -22,6 +24,9 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - active documentation no longer frames primary usage and troubleshooting around removed wrapper binaries instead of the supported `agent-harness` CLI surface
+- AI enrichment validators now accept nullable fingerprint hashes for disabled/skipped artifact fingerprints during explicit opt-out and other non-completed flows
+- Zed and Pi native reset cleanup now removes empty managed parent directories instead of leaving empty host metadata folders behind
+- demand discovery now prioritizes root manifests under scan-budget pressure and ignores `.agent`, `.dart_tool`, and `.specify` metadata directories by default so real-workspace detection is less distorted by tool metadata
 
 ## [1.0.2] - 2026-05-08
 
