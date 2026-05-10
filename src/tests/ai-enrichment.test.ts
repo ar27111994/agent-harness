@@ -242,6 +242,148 @@ void test("on-ambiguity mode writes a skipped artifact when deterministic output
   }
 });
 
+void test("manual suggestion treats suggested commands as complete commands", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeDiscoveryInputs(root);
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "manual",
+      },
+      async () => {
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+          interactive: true,
+          suggestedCommand: "'agent-harness discover full --ai-enrich'",
+        });
+
+        assert.equal(result.outcome, "suggested");
+        assert.ok(result.note);
+        const flagMatches = result.note.match(/--ai-enrich/gu) ?? [];
+        assert.equal(flagMatches.length, 1);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("on-ambiguity still evaluates ambiguity when earlier artifacts are reusable", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeDiscoveryInputs(root, {
+      selectedEntries: [
+        buildCatalogEntry("asset-react", ["react", "frontend", "typescript"]),
+        buildCatalogEntry("asset-testing", ["testing", "jest", "react"]),
+      ],
+    });
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "on-ambiguity",
+      },
+      async () => {
+        const config = loadRuntimeConfig(process.env).aiEnrichment;
+        const currentInput = buildAiEnrichmentInputArtifact({
+          config,
+          demandProfile: buildDemandProfile(),
+          demandProfileHash: await hashFile(
+            root,
+            "discover/output/demand-profile.json",
+          ),
+          selectedCatalogHash: await hashFile(
+            root,
+            "discover/output/catalog.selected.jsonl",
+          ),
+          selectedEntries: [
+            buildCatalogEntry("asset-react", [
+              "react",
+              "frontend",
+              "typescript",
+            ]),
+            buildCatalogEntry("asset-testing", ["testing", "jest", "react"]),
+          ],
+          trigger: "after-select",
+          explicit: false,
+          interactive: false,
+          ci: false,
+          configHash: buildAiEnrichmentConfigHash(config),
+        });
+
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment-input.json"),
+          {
+            ...currentInput,
+            fingerprints: {
+              ...currentInput.fingerprints,
+              inputSha256: "different-input-sha",
+            },
+          },
+        );
+        await writeJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          {
+            schemaVersion: 1,
+            generatedAt: new Date().toISOString(),
+            enabled: true,
+            mode: "on-ambiguity",
+            trigger: "after-select",
+            explicit: false,
+            interactive: false,
+            ci: false,
+            providerOrigin: "https://api.openai.com",
+            model: config.model,
+            status: "completed",
+            inputSha256: "different-input-sha",
+            fingerprints: {
+              demandProfileSha256:
+                currentInput.fingerprints.demandProfileSha256,
+              selectedCatalogSha256:
+                currentInput.fingerprints.selectedCatalogSha256,
+              configSha256: currentInput.fingerprints.configSha256,
+            },
+            summary: "Cached summary",
+            recommendations: ["Cached recommendation"],
+          },
+        );
+
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+        });
+
+        assert.equal(result.outcome, "skipped");
+        const artifact = await readJsonFile(
+          join(root, "discover", "output", "ai-enrichment.json"),
+          assertAiEnrichmentReport,
+        );
+        assert.equal(artifact.status, "skipped");
+        assert.match(artifact.reason ?? "", /on-ambiguity/u);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeDiscoveryInputs(
   projectRoot: string,
   options: { selectedEntries?: AssetCatalogEntry[] } = {},

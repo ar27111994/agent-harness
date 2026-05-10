@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
@@ -553,7 +554,7 @@ function buildAiEnrichmentSuggestion(options: {
     return undefined;
   }
 
-  return `AI enrichment is configured but stays manual by default. Re-run ${options.suggestedCommand ?? "this command"} with --ai-enrich or use 'agent-harness discover enrich'.`;
+  return `AI enrichment is configured but stays manual by default. Re-run ${options.suggestedCommand ?? "this command with --ai-enrich"} or use 'agent-harness discover enrich'.`;
 }
 
 function evaluateAutomaticPolicySkip(
@@ -562,10 +563,7 @@ function evaluateAutomaticPolicySkip(
   context: AiEnrichmentRequestContext,
   ci: boolean,
 ): AiEnrichmentReport | null {
-  if (
-    mode === "on-ambiguity" &&
-    !isReusableAiEnrichmentArtifact(context.previousArtifact)
-  ) {
+  if (mode === "on-ambiguity") {
     const ambiguity = analyzeAiEnrichmentAmbiguity({
       demandProfile: context.demandProfile,
       selectedEntries: context.selectedEntries,
@@ -599,6 +597,8 @@ function evaluateAutomaticPolicySkip(
   if (
     config.autoMinIntervalMs > 0 &&
     context.previousArtifact &&
+    context.previousArtifact.status !== "skipped" &&
+    context.previousArtifact.status !== "disabled" &&
     Date.now() - Date.parse(context.previousArtifact.generatedAt) <
       config.autoMinIntervalMs
   ) {
@@ -979,7 +979,7 @@ async function writeJsonFileAtomically(
   value: unknown,
 ): Promise<void> {
   await ensureDirectory(dirname(filePath));
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`;
+  const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
   await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   await rename(tempPath, filePath);
 }
