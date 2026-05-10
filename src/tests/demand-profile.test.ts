@@ -813,6 +813,11 @@ void test("demand profiles ignore agent metadata directories by default", async 
         content:
           "Document deepeval, pytest, pyyaml, and google-genai for AI research workflows.\n",
       },
+      {
+        path: ".dart_tool/some_meta.txt",
+        content:
+          "Ignore kotlin gradle metadata and pytest-like markers from generated files.\n",
+      },
     ]);
 
     const profile = await buildDemandProfile(root);
@@ -820,9 +825,14 @@ void test("demand profiles ignore agent metadata directories by default", async 
     assert.ok(profile.signals.languages.includes("dart"));
     assert.ok(profile.signals.frameworks.includes("flutter"));
     assert.ok(!profile.signals.languages.includes("python"));
+    assert.ok(!profile.signals.languages.includes("kotlin"));
+    assert.ok(!profile.signals.packageManagers.includes("gradle"));
     assert.ok(!profile.signals.tooling.includes("pypi:deepeval"));
     assert.ok(
       !profile.evidence.some((entry) => entry.path.startsWith(".agent/")),
+    );
+    assert.ok(
+      !profile.evidence.some((entry) => entry.path.startsWith(".dart_tool/")),
     );
   } finally {
     await rm(root, { force: true, recursive: true });

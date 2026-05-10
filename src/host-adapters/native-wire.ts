@@ -1,5 +1,5 @@
-import { readdir, rename } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { readdir, rename, rmdir } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   ensureDirectory,
@@ -1353,6 +1353,16 @@ async function removeEmptyParentDirectories(
 ): Promise<void> {
   const boundary = resolve(stopDirectory);
   let currentDirectory = resolve(startDirectory);
+  const relativeToBoundary = relative(boundary, currentDirectory);
+
+  if (
+    /^(?:\.\.)(?:[\\/]|$)/u.test(relativeToBoundary) ||
+    isAbsolute(relativeToBoundary)
+  ) {
+    throw new Error(
+      `Expected directory '${toPosixPath(currentDirectory)}' to be within cleanup boundary '${toPosixPath(boundary)}'.`,
+    );
+  }
 
   while (currentDirectory !== boundary) {
     let entries: string[];
@@ -1369,7 +1379,20 @@ async function removeEmptyParentDirectories(
       return;
     }
 
-    await removePath(currentDirectory);
+    try {
+      await rmdir(currentDirectory);
+    } catch (error) {
+      const errorCode = (error as NodeJS.ErrnoException).code;
+      if (
+        errorCode === "ENOENT" ||
+        errorCode === "ENOTEMPTY" ||
+        errorCode === "EEXIST"
+      ) {
+        return;
+      }
+      throw error;
+    }
+
     const parentDirectory = dirname(currentDirectory);
     if (parentDirectory === currentDirectory) {
       return;
