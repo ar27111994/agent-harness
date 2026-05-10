@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValue } from "./lib/cli-options.js";
-import { parseSessionIntent } from "./lib/session-intent.js";
+import {
+  parseSessionIntent,
+  SESSION_INTENT_CHOICES,
+} from "./lib/session-intent.js";
 import {
   orchestrateAiEnrichment,
   type AiEnrichmentOrchestrationResult,
@@ -107,7 +110,7 @@ function printWorkspaceHelp(): void {
 ${commands}
 
 Options:
-  --intent <general|frontend|backend|security|docs|testing>
+  --intent <${SESSION_INTENT_CHOICES}>
   --ai-enrich            Explicitly request enrichment after workspace wiring
   --no-ai-enrich         Explicitly skip enrichment for this workspace run
   --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs

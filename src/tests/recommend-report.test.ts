@@ -43,6 +43,52 @@ void test("recommendation reports apply validated session intent to ranking", as
   );
 });
 
+void test("recommendation reports rank entries for expanded session intent families", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const entries = [
+    createEntry("devops-skill", ["devops", "ci-cd", "kubernetes"]),
+    createEntry("product-skill", ["business-analysis", "planning", "roadmap"]),
+    createEntry("marketing-skill", ["marketing", "seo", "content-marketing"]),
+    createEntry("design-skill", ["design-assets", "branding", "penpot"]),
+    createEntry("data-skill", ["analytics", "sql", "reporting"]),
+    createEntry("mobile-skill", ["mobile", "flutter", "ios"]),
+  ];
+
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "devops")
+      .topByHost["copilot-vscode"][0]?.assetId,
+    "devops-skill",
+  );
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "product")
+      .topByHost["copilot-vscode"][0]?.assetId,
+    "product-skill",
+  );
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "marketing")
+      .topByHost["copilot-vscode"][0]?.assetId,
+    "marketing-skill",
+  );
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "design")
+      .topByHost["copilot-vscode"][0]?.assetId,
+    "design-skill",
+  );
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "data").topByHost[
+      "copilot-vscode"
+    ][0]?.assetId,
+    "data-skill",
+  );
+  assert.equal(
+    buildRecommendationReport(entries, demandProfile, policy, "mobile")
+      .topByHost["copilot-vscode"][0]?.assetId,
+    "mobile-skill",
+  );
+});
+
 void test("recommendation reports expose env-sourced recommendation limits", async () => {
   clearRuntimeConfigForTests();
   const previousEnvValue =

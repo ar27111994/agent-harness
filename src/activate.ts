@@ -17,6 +17,7 @@ import { getOptionValue } from "./lib/cli-options.js";
 import {
   parseSessionIntent,
   recommendationMatchesSessionIntent,
+  SESSION_INTENT_CHOICES,
 } from "./lib/session-intent.js";
 import { isPathWithinRoot, sanitizeAssetId } from "./lib/safe-paths.js";
 import {
@@ -430,7 +431,7 @@ function printActivateHelp(): void {
 Options:
   --host <copilot-vscode|opencode|shared>
   --recommendation-host <host-policy-id>
-  --intent <general|frontend|backend|security|docs|testing>`);
+  --intent <${SESSION_INTENT_CHOICES}>`);
 }
 
 function getDefaultBundleIdsForHost(host: ActivationHost): string[] {

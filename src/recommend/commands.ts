@@ -2,7 +2,10 @@ import { join } from "node:path";
 
 import { readJsonFile, writeJsonFile } from "../files.js";
 import { getOptionValue } from "../lib/cli-options.js";
-import { parseSessionIntent } from "../lib/session-intent.js";
+import {
+  parseSessionIntent,
+  SESSION_INTENT_CHOICES,
+} from "../lib/session-intent.js";
 import { assertRecommendationReport } from "../manifest-validation.js";
 import { buildRecommendationFixtures } from "../recommend-fixtures.js";
 import { EVALUATION_FILE_PATH, REPORT_FILE_PATH } from "./constants.js";
@@ -360,7 +363,7 @@ function printRecommendHelp(): void {
   policy:print  Print the merged effective policy (--host <host> to scope)
 
 Recommendation options:
-  --intent <general|frontend|backend|security|docs|testing>
+  --intent <${SESSION_INTENT_CHOICES}>
 
 AI review options:
   --host <host>

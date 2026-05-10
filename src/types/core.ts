@@ -60,9 +60,16 @@ export type SessionIntent =
   | "general"
   | "frontend"
   | "backend"
+  | "mobile"
+  | "devops"
   | "security"
   | "docs"
-  | "testing";
+  | "testing"
+  | "research"
+  | "data"
+  | "design"
+  | "product"
+  | "marketing";
 
 /**
  * Defines the supported compatibility mode values.

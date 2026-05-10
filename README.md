@@ -153,26 +153,28 @@ From the target workspace directory, run one of:
 
 ```bash
 agent-harness workspace vscode --intent frontend
-agent-harness workspace opencode --intent backend
+agent-harness workspace opencode --intent devops
 agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
-agent-harness workspace zed --intent docs
-agent-harness workspace claude-code --intent backend
-agent-harness workspace pi --intent docs
+agent-harness workspace zed --intent design
+agent-harness workspace claude-code --intent research
+agent-harness workspace pi --intent product
 ```
 
 From this repository, equivalent npm scripts are available:
 
 ```bash
 npm run workspace:vscode -- --intent frontend
-npm run workspace:opencode -- --intent backend
+npm run workspace:opencode -- --intent devops
 npm run workspace:cursor -- --intent frontend
-npm run workspace:zed -- --intent docs
-npm run workspace:claude-code -- --intent backend
-npm run workspace:pi -- --intent docs
+npm run workspace:zed -- --intent design
+npm run workspace:claude-code -- --intent research
+npm run workspace:pi -- --intent product
 ```
 
 Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
+
+Supported canonical intents are `general`, `frontend`, `backend`, `mobile`, `devops`, `security`, `docs`, `testing`, `research`, `data`, `design`, `product`, and `marketing`. Common aliases are normalized automatically, for example `documentation` → `docs`, `ci-cd` / `infra` → `devops`, `branding` → `design`, and `ba` / `planning` / `product-research` → `product`.
 
 ### Mutable state root
 
@@ -474,8 +476,9 @@ You can bias recommendation ranking and activation ordering with a validated `--
 
 ```bash
 node ./dist/cli.js activate host --intent frontend
-node ./dist/cli.js activate host --intent security
-node ./dist/cli.js activate host --intent docs
+node ./dist/cli.js activate host --intent devops
+node ./dist/cli.js activate host --intent design
+node ./dist/cli.js activate host --intent product
 ```
 
 You can also activate one lifecycle host using another recommendation policy:
@@ -484,7 +487,7 @@ You can also activate one lifecycle host using another recommendation policy:
 node ./dist/cli.js activate host --host copilot-vscode --recommendation-host cursor
 ```
 
-`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | security | docs | testing`) and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape.
+`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape.
 
 ### Wire
 
@@ -533,12 +536,12 @@ Workspace commands run discover, mirror, install, activate, and wire-in for the 
 
 ```bash
 agent-harness workspace vscode --intent frontend
-agent-harness workspace opencode --intent backend
+agent-harness workspace opencode --intent devops
 agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
-agent-harness workspace zed --intent docs
-agent-harness workspace claude-code --intent backend
-agent-harness workspace pi --intent docs
+agent-harness workspace zed --intent design
+agent-harness workspace claude-code --intent research
+agent-harness workspace pi --intent product
 ```
 
 `workspace <host>` also accepts `--no-ai-enrich`, `--force`, and `--require-ai-enrich` for explicit control of the bounded enrichment sidecar.
