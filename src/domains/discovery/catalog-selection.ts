@@ -21,6 +21,7 @@ interface DemandRelevanceTerms {
   lowSignalTerms: Set<string>;
   demandKeywords: Set<string>;
   stackAnchorTerms: Set<string>;
+  primaryStackAnchorTerms: Set<string>;
 }
 
 interface CatalogTermData {
@@ -78,6 +79,7 @@ const HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD = 2;
 const COMMON_HIGH_SIGNAL_CATALOG_SHARE_THRESHOLD = 0.2;
 const MIN_CATALOG_SIZE_FOR_COMMON_HIGH_SIGNAL_FILTER = 200;
 const TRUSTED_LOCAL_GENERIC_OVERLAP_REJECTION_THRESHOLD = 4;
+const TRUSTED_LOCAL_STRONG_ANCHOR_MIN_COUNT = 2;
 const TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS = new Set([
   "skill",
   "agent",
@@ -260,6 +262,7 @@ function buildDemandTermSet(
       lowSignalTerms: new Set(),
       demandKeywords: new Set(),
       stackAnchorTerms: new Set(),
+      primaryStackAnchorTerms: new Set(),
     };
   }
 
@@ -268,6 +271,7 @@ function buildDemandTermSet(
   const lowSignalTerms = new Set<string>();
   const demandKeywords = new Set<string>();
   const stackAnchorTerms = new Set<string>();
+  const primaryStackAnchorTerms = new Set<string>();
 
   for (const language of demandProfile.signals.languages) {
     addDemandSignal(
@@ -279,6 +283,7 @@ function buildDemandTermSet(
       catalogTermDocumentFrequency,
       catalogEntryCount,
       stackAnchorTerms,
+      primaryStackAnchorTerms,
     );
   }
 
@@ -292,6 +297,7 @@ function buildDemandTermSet(
       catalogTermDocumentFrequency,
       catalogEntryCount,
       stackAnchorTerms,
+      primaryStackAnchorTerms,
     );
   }
 
@@ -305,6 +311,7 @@ function buildDemandTermSet(
       catalogTermDocumentFrequency,
       catalogEntryCount,
       stackAnchorTerms,
+      primaryStackAnchorTerms,
     );
   }
 
@@ -329,11 +336,17 @@ function buildDemandTermSet(
       demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
-      stackAnchorTerms,
+      tooling.startsWith("detector:") ? undefined : stackAnchorTerms,
     );
   }
 
-  addBridgeDemandTerms(demandProfile, exactHighSignalTerms, demandKeywords);
+  addBridgeDemandTerms(
+    demandProfile,
+    exactHighSignalTerms,
+    demandKeywords,
+    stackAnchorTerms,
+    primaryStackAnchorTerms,
+  );
 
   return {
     exactHighSignalTerms,
@@ -341,6 +354,7 @@ function buildDemandTermSet(
     lowSignalTerms,
     demandKeywords,
     stackAnchorTerms,
+    primaryStackAnchorTerms,
   };
 }
 
@@ -353,6 +367,7 @@ function addDemandSignal(
   catalogTermDocumentFrequency: Map<string, number>,
   catalogEntryCount: number,
   stackAnchorTerms?: Set<string>,
+  primaryStackAnchorTerms?: Set<string>,
 ): void {
   const keywords = normalizeDemandSignalKeywords(value);
   for (const keyword of keywords) {
@@ -373,6 +388,7 @@ function addDemandSignal(
     } else {
       exactHighSignalTerms.add(keywords[0]);
       stackAnchorTerms?.add(keywords[0]);
+      primaryStackAnchorTerms?.add(keywords[0]);
     }
     return;
   }
@@ -391,6 +407,7 @@ function addDemandSignal(
     highSignalPhrases.push(uncommonKeywords);
     for (const keyword of uncommonKeywords) {
       stackAnchorTerms?.add(keyword);
+      primaryStackAnchorTerms?.add(keyword);
     }
     return;
   }
@@ -402,6 +419,7 @@ function addDemandSignal(
     highSignalPhrases.push(keywords);
     for (const keyword of uncommonKeywords) {
       stackAnchorTerms?.add(keyword);
+      primaryStackAnchorTerms?.add(keyword);
     }
     return;
   }
@@ -444,10 +462,14 @@ function addBridgeDemandTerms(
   demandProfile: DemandProfile,
   exactHighSignalTerms: Set<string>,
   demandKeywords: Set<string>,
+  stackAnchorTerms: Set<string>,
+  primaryStackAnchorTerms: Set<string>,
 ): void {
   if (hasDesignSystemSignals(demandProfile)) {
     exactHighSignalTerms.add("penpot");
     demandKeywords.add("penpot");
+    stackAnchorTerms.add("penpot");
+    primaryStackAnchorTerms.add("penpot");
   }
 }
 
@@ -510,14 +532,20 @@ function stripPackageEvidencePrefix(value: string): string {
 }
 
 function buildEntryTermSet(entry: AssetCatalogEntry): Set<string> {
-  return new Set(
-    [
-      ...entry.capabilities,
-      entry.install.relativePath ?? "",
-      entry.install.manifestEntry ?? "",
-      entry.evidence.filePath ?? "",
-    ].flatMap((value) => splitIntoKeywords(value)),
-  );
+  return new Set([
+    ...entry.capabilities.flatMap((value) => splitIntoKeywords(value)),
+    ...splitPathKeywords(entry.install.relativePath),
+    ...splitPathKeywords(entry.install.manifestEntry),
+    ...splitPathKeywords(entry.evidence.filePath),
+  ]);
+}
+
+function splitPathKeywords(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return splitIntoKeywords(value).filter((token) => token.length > 1);
 }
 
 function isEntryRelevantToDemand(
@@ -530,6 +558,12 @@ function isEntryRelevantToDemand(
   }
 
   if (isRejectedBySpecializedDemandGate(entryTerms, demandTerms)) {
+    return false;
+  }
+
+  if (
+    isRejectedByTrustedLocalWeakStackAlignment(entry, entryTerms, demandTerms)
+  ) {
     return false;
   }
 
@@ -572,6 +606,35 @@ function isEntryRelevantToDemand(
   }
 
   return false;
+}
+
+function isRejectedByTrustedLocalWeakStackAlignment(
+  entry: AssetCatalogEntry,
+  entryTerms: Set<string>,
+  demandTerms: DemandRelevanceTerms,
+): boolean {
+  if (
+    entry.source.authorityTier !== "trusted-local" ||
+    !["local-directory", "local-manifest"].includes(entry.source.sourceKind) ||
+    !TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS.has(entry.assetKind)
+  ) {
+    return false;
+  }
+
+  const hasStrongAnchors =
+    demandTerms.primaryStackAnchorTerms.size > 0 ||
+    demandTerms.stackAnchorTerms.size >=
+      TRUSTED_LOCAL_STRONG_ANCHOR_MIN_COUNT ||
+    demandTerms.highSignalPhrases.length > 0;
+  if (!hasStrongAnchors) {
+    return false;
+  }
+
+  if (intersects(entryTerms, demandTerms.primaryStackAnchorTerms)) {
+    return false;
+  }
+
+  return countOverlap(entryTerms, demandTerms.stackAnchorTerms) < 2;
 }
 
 function isRejectedByTrustedLocalGenericOverlap(
