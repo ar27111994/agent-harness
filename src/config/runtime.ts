@@ -1,7 +1,18 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import type { AiEnrichmentMode } from "../types.js";
+
 const DEFAULT_AI_ENRICHMENT_MODEL = "gpt-4o-mini";
+const AI_ENRICHMENT_MODES = [
+  "off",
+  "manual",
+  "after-select",
+  "after-workspace",
+  "on-ambiguity",
+  "on-input-change",
+  "ci-only",
+] as const satisfies readonly AiEnrichmentMode[];
 const DEFAULT_AI_ENRICHMENT_ALLOWED_ORIGINS = [
   "https://api.openai.com",
   "https://openrouter.ai",
@@ -22,10 +33,21 @@ export interface RuntimeConfig {
   aiEnrichment: {
     url?: string;
     apiKey?: string;
+    mode: AiEnrichmentMode;
     model: string;
     allowedOrigins: readonly string[];
     requestTimeoutMs: number;
     responseMaxBytes: number;
+    maxSelectedAssets: number;
+    maxEvidenceItems: number;
+    maxCapabilitiesPerAsset: number;
+    redactFilePaths: boolean;
+    redactSourceIdentifiers: boolean;
+    retryMaxAttempts: number;
+    retryBackoffMs: number;
+    autoMinIntervalMs: number;
+    requireSuccessInCi: boolean;
+    allowCacheInCi: boolean;
   };
   http: {
     timeoutMs: number;
@@ -113,6 +135,12 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     aiEnrichment: {
       url: aiEnrichmentUrl,
       apiKey: nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY),
+      mode: parseLiteral(
+        env.AGENT_HARNESS_AI_ENRICHMENT_MODE,
+        AI_ENRICHMENT_MODES,
+        "manual",
+        "AGENT_HARNESS_AI_ENRICHMENT_MODE",
+      ),
       model:
         nonEmptyString(env.AGENT_HARNESS_AI_ENRICHMENT_MODEL) ??
         DEFAULT_AI_ENRICHMENT_MODEL,
@@ -126,6 +154,56 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES,
         1_000_000,
         "AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES",
+      ),
+      maxSelectedAssets: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS,
+        50,
+        "AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS",
+      ),
+      maxEvidenceItems: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS,
+        12,
+        "AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS",
+      ),
+      maxCapabilitiesPerAsset: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET,
+        16,
+        "AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET",
+      ),
+      redactFilePaths: parseBooleanFlag(
+        env.AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS,
+        false,
+        "AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS",
+      ),
+      redactSourceIdentifiers: parseBooleanFlag(
+        env.AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS,
+        false,
+        "AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS",
+      ),
+      retryMaxAttempts: parsePositiveInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS,
+        1,
+        "AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS",
+      ),
+      retryBackoffMs: parseNonNegativeInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS,
+        1_000,
+        "AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS",
+      ),
+      autoMinIntervalMs: parseNonNegativeInteger(
+        env.AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS,
+        300_000,
+        "AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS",
+      ),
+      requireSuccessInCi: parseBooleanFlag(
+        env.AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI,
+        false,
+        "AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI",
+      ),
+      allowCacheInCi: parseBooleanFlag(
+        env.AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI,
+        true,
+        "AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI",
       ),
     },
     http: {
@@ -408,6 +486,42 @@ function parsePositiveInteger(
   }
 
   return parsedValue;
+}
+
+function parseNonNegativeInteger(
+  value: string | undefined,
+  defaultValue: number,
+  envName: string,
+): number {
+  if (!value || value.trim().length === 0) {
+    return defaultValue;
+  }
+
+  const parsedValue = Number(value);
+  if (!Number.isInteger(parsedValue) || parsedValue < 0) {
+    throw new Error(`${envName} must be a non-negative integer when set.`);
+  }
+
+  return parsedValue;
+}
+
+function parseLiteral<T extends string>(
+  value: string | undefined,
+  allowedValues: readonly T[],
+  defaultValue: T,
+  envName: string,
+): T {
+  if (!value || value.trim().length === 0) {
+    return defaultValue;
+  }
+
+  if ((allowedValues as readonly string[]).includes(value)) {
+    return value as T;
+  }
+
+  throw new Error(
+    `${envName} must be one of: ${allowedValues.join(", ")} when set.`,
+  );
 }
 
 function parseBooleanFlag(

@@ -1,7 +1,12 @@
 /**
- * Re-exports AI enrichment report writing for discovery callers.
+ * Re-exports AI enrichment orchestration helpers for discovery callers.
  */
-export { writeAiEnrichmentReport } from "./ai-enrichment.js";
+export {
+  analyzeAiEnrichmentAmbiguity,
+  buildAiEnrichmentInputArtifact,
+  orchestrateAiEnrichment,
+  writeAiEnrichmentReport,
+} from "./ai-enrichment.js";
 /**
  * Re-exports catalog inspection helpers for discovery callers.
  */

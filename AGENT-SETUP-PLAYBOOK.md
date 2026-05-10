@@ -6,6 +6,7 @@ Use it when you want an agent to:
 
 - inspect a workspace
 - explain what `agent-harness` detected
+- optionally review the bounded AI enrichment sidecar without confusing it with recommendation reranking
 - preview what would be wired into a host
 - separate safe preview steps from mutating install/apply steps
 - suggest manual follow-up for extensions, plugins, MCP servers, authentication, or host runtime setup
@@ -44,11 +45,21 @@ Use this to confirm:
 Use the workspace root so the detector can see the real repo manifests and dependencies.
 
 ```bash
-agent-harness discover demand-profile
-agent-harness discover catalog
-agent-harness discover select
+agent-harness discover full
 agent-harness discover stats
 agent-harness recommend report
+```
+
+If AI enrichment is configured and you want the bounded sidecar summary as part of the review, either run it explicitly:
+
+```bash
+agent-harness discover enrich
+```
+
+or include it in the wrapper flow:
+
+```bash
+agent-harness discover full --ai-enrich
 ```
 
 Inspect these files when they exist:
@@ -57,6 +68,8 @@ Inspect these files when they exist:
 - `discover/output/selection-report.json`
 - `discover/output/source-index.json`
 - `discover/output/source-utilization.json`
+- `discover/output/ai-enrichment-input.json`
+- `discover/output/ai-enrichment.json`
 - `state/recommendations.json`
 
 ### 3. Preview wire-in before any apply step
@@ -232,6 +245,7 @@ Goals:
 Required workflow:
 - Run `agent-harness setup doctor --host <host>`.
 - Run the workspace discovery/recommendation flow needed for inspection.
+- If AI enrichment is configured, decide whether to keep it manual (`discover enrich` / `--ai-enrich`) or let the configured automatic mode run.
 - Run `agent-harness wire <host> --preview` before any apply.
 - Inspect at least these files when they exist:
   - `discover/output/demand-profile.json`
@@ -301,9 +315,9 @@ A good agent response after the dry run should usually look like this:
 
 ```bash
 agent-harness setup doctor --host <host>
-agent-harness discover demand-profile
-agent-harness discover catalog
-agent-harness discover select
+agent-harness discover full
+agent-harness discover full --ai-enrich
+agent-harness discover enrich
 agent-harness discover stats
 agent-harness recommend report
 agent-harness recommend explain --host <host> --asset <asset-id>

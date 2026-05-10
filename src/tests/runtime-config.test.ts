@@ -9,10 +9,21 @@ void test("runtime config preserves existing defaults when new env vars are unse
   });
   const allowedOrigins = new Set(config.aiEnrichment.allowedOrigins);
 
+  assert.equal(config.aiEnrichment.mode, "manual");
   assert.equal(config.aiEnrichment.model, "gpt-4o-mini");
   assert.ok(allowedOrigins.has("https://api.openai.com"));
   assert.equal(config.aiEnrichment.requestTimeoutMs, 20_000);
   assert.equal(config.aiEnrichment.responseMaxBytes, 1_000_000);
+  assert.equal(config.aiEnrichment.maxSelectedAssets, 50);
+  assert.equal(config.aiEnrichment.maxEvidenceItems, 12);
+  assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 16);
+  assert.equal(config.aiEnrichment.redactFilePaths, false);
+  assert.equal(config.aiEnrichment.redactSourceIdentifiers, false);
+  assert.equal(config.aiEnrichment.retryMaxAttempts, 1);
+  assert.equal(config.aiEnrichment.retryBackoffMs, 1_000);
+  assert.equal(config.aiEnrichment.autoMinIntervalMs, 300_000);
+  assert.equal(config.aiEnrichment.requireSuccessInCi, false);
+  assert.equal(config.aiEnrichment.allowCacheInCi, true);
   assert.equal(config.http.timeoutMs, 10_000);
   assert.equal(config.http.maxResponseBytes, 1_000_000);
   assert.equal(config.github.fetchTimeoutMs, 10_000);
@@ -35,9 +46,20 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   const config = loadRuntimeConfig({
     HOME: "/home/tester",
     AGENT_HARNESS_AI_ENRICHMENT_URL: `${newEndpointOrigin}/v1/chat/completions`,
+    AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
     AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS: "https://proxy.example.com",
     AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS: "45000",
     AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES: "250000",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS: "24",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS: "6",
+    AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET: "8",
+    AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS: "true",
+    AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS: "true",
+    AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS: "3",
+    AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS: "2000",
+    AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS: "60000",
+    AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI: "true",
+    AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI: "false",
     AGENT_HARNESS_HTTP_TIMEOUT_MS: "11000",
     AGENT_HARNESS_HTTP_MAX_RESPONSE_BYTES: "1500000",
     AGENT_HARNESS_GITHUB_FETCH_TIMEOUT_MS: "12000",
@@ -65,8 +87,19 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
 
   const allowedOrigins = new Set(config.aiEnrichment.allowedOrigins);
 
+  assert.equal(config.aiEnrichment.mode, "after-select");
   assert.equal(config.aiEnrichment.requestTimeoutMs, 45_000);
   assert.equal(config.aiEnrichment.responseMaxBytes, 250_000);
+  assert.equal(config.aiEnrichment.maxSelectedAssets, 24);
+  assert.equal(config.aiEnrichment.maxEvidenceItems, 6);
+  assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 8);
+  assert.equal(config.aiEnrichment.redactFilePaths, true);
+  assert.equal(config.aiEnrichment.redactSourceIdentifiers, true);
+  assert.equal(config.aiEnrichment.retryMaxAttempts, 3);
+  assert.equal(config.aiEnrichment.retryBackoffMs, 2_000);
+  assert.equal(config.aiEnrichment.autoMinIntervalMs, 60_000);
+  assert.equal(config.aiEnrichment.requireSuccessInCi, true);
+  assert.equal(config.aiEnrichment.allowCacheInCi, false);
   assert.ok(allowedOrigins.has("https://api.openai.com"));
   assert.ok(allowedOrigins.has("https://proxy.example.com"));
   assert.ok(allowedOrigins.has(newEndpointOrigin));
@@ -125,5 +158,23 @@ void test("runtime config rejects invalid numeric and boolean env vars", () => {
           "http://insecure.example.com",
       }),
     /AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS/u,
+  );
+
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "automatic",
+      }),
+    /AGENT_HARNESS_AI_ENRICHMENT_MODE/u,
+  );
+
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS: "-1",
+      }),
+    /AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS/u,
   );
 });

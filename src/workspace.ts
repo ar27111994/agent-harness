@@ -5,6 +5,10 @@ import { fileURLToPath } from "node:url";
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import {
+  orchestrateAiEnrichment,
+  type AiEnrichmentOrchestrationResult,
+} from "./domains/discovery/ai-enrichment.js";
+import {
   listHostAdapters,
   resolveHostAdapter,
 } from "./host-adapters/registry.js";
@@ -28,6 +32,7 @@ export async function runWorkspace(
 ): Promise<number> {
   const [target = "help", ...rest] = args;
   const sessionIntent = getOptionValue(rest, "--intent") ?? "general";
+  const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
 
   if (target === "help") {
     printWorkspaceHelp();
@@ -78,7 +83,17 @@ export async function runWorkspace(
     workspaceRoot: workingDirectory,
     mode: "apply",
   });
-  return 0;
+
+  return handleAiEnrichmentResult(
+    await orchestrateAiEnrichment(projectRoot, {
+      trigger: "after-workspace",
+      explicitRequested: aiEnrichmentFlags.explicitRequested,
+      disableRequested: aiEnrichmentFlags.disableRequested,
+      force: aiEnrichmentFlags.force,
+      requireSuccess: aiEnrichmentFlags.requireSuccess,
+      suggestedCommand: `'agent-harness workspace ${target} --ai-enrich'`,
+    }),
+  );
 }
 
 function printWorkspaceHelp(): void {
@@ -92,7 +107,42 @@ function printWorkspaceHelp(): void {
 ${commands}
 
 Options:
-  --intent <general|frontend|backend|security|docs|testing>`);
+  --intent <general|frontend|backend|security|docs|testing>
+  --ai-enrich            Explicitly request enrichment after workspace wiring
+  --no-ai-enrich         Explicitly skip enrichment for this workspace run
+  --force                Ignore unchanged-input cache reuse and force a new provider call
+  --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
+}
+
+function parseAiEnrichmentFlags(args: readonly string[]): {
+  explicitRequested: boolean;
+  disableRequested: boolean;
+  force: boolean;
+  requireSuccess: boolean;
+} {
+  const explicitRequested = args.includes("--ai-enrich");
+  const disableRequested = args.includes("--no-ai-enrich");
+
+  if (explicitRequested && disableRequested) {
+    throw new Error("--ai-enrich and --no-ai-enrich cannot be used together.");
+  }
+
+  return {
+    explicitRequested,
+    disableRequested,
+    force: args.includes("--force"),
+    requireSuccess: args.includes("--require-ai-enrich"),
+  };
+}
+
+function handleAiEnrichmentResult(
+  result: AiEnrichmentOrchestrationResult,
+): number {
+  if (result.note) {
+    console.log(result.note);
+  }
+
+  return result.shouldFail ? 1 : 0;
 }
 
 function getPreferredHostCommand(adapterId: string): string {

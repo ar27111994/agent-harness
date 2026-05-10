@@ -1,4 +1,6 @@
 import type {
+  AiEnrichmentInput,
+  AiEnrichmentReport,
   AssetCatalogEntry,
   DemandProfile,
   GitHubRepoSnapshot,
@@ -306,6 +308,230 @@ export function assertSelectionReport(
   assertNumber(record.inputCount, `${context}.inputCount`);
   assertNumber(record.selectedCount, `${context}.selectedCount`);
   assertNumber(record.rejectedCount, `${context}.rejectedCount`);
+}
+
+/**
+ * Validates unknown data as AI enrichment input artifact.
+ */
+export function assertAiEnrichmentInput(
+  value: unknown,
+  context: string,
+): asserts value is AiEnrichmentInput {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertLiteral(
+    record.mode,
+    [
+      "off",
+      "manual",
+      "after-select",
+      "after-workspace",
+      "on-ambiguity",
+      "on-input-change",
+      "ci-only",
+    ],
+    `${context}.mode`,
+  );
+  assertLiteral(
+    record.trigger,
+    ["manual", "after-select", "after-workspace"],
+    `${context}.trigger`,
+  );
+  assertBoolean(record.explicit, `${context}.explicit`);
+  assertBoolean(record.interactive, `${context}.interactive`);
+  assertBoolean(record.ci, `${context}.ci`);
+  assertString(record.model, `${context}.model`);
+  assertMaybeString(record.providerOrigin, `${context}.providerOrigin`, false);
+  assertNumber(record.selectedAssetCount, `${context}.selectedAssetCount`);
+  assertNumber(
+    record.includedSelectedAssetCount,
+    `${context}.includedSelectedAssetCount`,
+  );
+  assertNumber(record.evidenceItemCount, `${context}.evidenceItemCount`);
+  assertNumber(
+    record.includedEvidenceItemCount,
+    `${context}.includedEvidenceItemCount`,
+  );
+
+  const omissions = assertRecord(record.omissions, `${context}.omissions`);
+  assertNumber(omissions.selectedAssets, `${context}.omissions.selectedAssets`);
+  assertNumber(omissions.evidenceItems, `${context}.omissions.evidenceItems`);
+  assertNumber(
+    omissions.capabilityValues,
+    `${context}.omissions.capabilityValues`,
+  );
+  assertBoolean(
+    omissions.sourceIdentifiersRedacted,
+    `${context}.omissions.sourceIdentifiersRedacted`,
+  );
+  assertBoolean(
+    omissions.filePathsRedacted,
+    `${context}.omissions.filePathsRedacted`,
+  );
+
+  const fingerprints = assertRecord(
+    record.fingerprints,
+    `${context}.fingerprints`,
+  );
+  assertMaybeString(
+    fingerprints.demandProfileSha256,
+    `${context}.fingerprints.demandProfileSha256`,
+    false,
+  );
+  assertMaybeString(
+    fingerprints.selectedCatalogSha256,
+    `${context}.fingerprints.selectedCatalogSha256`,
+    false,
+  );
+  assertString(
+    fingerprints.configSha256,
+    `${context}.fingerprints.configSha256`,
+  );
+  assertString(fingerprints.inputSha256, `${context}.fingerprints.inputSha256`);
+
+  if (record.demandSignals !== null) {
+    assertDemandSignalSet(record.demandSignals, `${context}.demandSignals`);
+  }
+
+  assertArray(record.demandEvidence, `${context}.demandEvidence`).forEach(
+    (entry, index) => {
+      const evidence = assertRecord(
+        entry,
+        `${context}.demandEvidence[${index}]`,
+      );
+      assertString(
+        evidence.fileName,
+        `${context}.demandEvidence[${index}].fileName`,
+      );
+      assertMaybeString(
+        evidence.path,
+        `${context}.demandEvidence[${index}].path`,
+        false,
+      );
+      if (evidence.evidenceStrength !== undefined) {
+        assertLiteral(
+          evidence.evidenceStrength,
+          DEMAND_EVIDENCE_STRENGTHS,
+          `${context}.demandEvidence[${index}].evidenceStrength`,
+        );
+      }
+      assertDemandSignalSet(
+        evidence.matchedSignals,
+        `${context}.demandEvidence[${index}].matchedSignals`,
+      );
+    },
+  );
+
+  assertArray(record.selectedAssets, `${context}.selectedAssets`).forEach(
+    (entry, index) => {
+      const asset = assertRecord(entry, `${context}.selectedAssets[${index}]`);
+      assertString(asset.id, `${context}.selectedAssets[${index}].id`);
+      assertString(
+        asset.displayName,
+        `${context}.selectedAssets[${index}].displayName`,
+      );
+      assertLiteral(
+        asset.assetKind,
+        ASSET_KINDS,
+        `${context}.selectedAssets[${index}].assetKind`,
+      );
+      assertHostTargetArray(
+        asset.hosts,
+        `${context}.selectedAssets[${index}].hosts`,
+      );
+      assertLiteral(
+        asset.authorityTier,
+        AUTHORITY_TIERS,
+        `${context}.selectedAssets[${index}].authorityTier`,
+      );
+      assertMaybeString(
+        asset.sourceId,
+        `${context}.selectedAssets[${index}].sourceId`,
+        false,
+      );
+      assertStringArray(
+        asset.capabilities,
+        `${context}.selectedAssets[${index}].capabilities`,
+      );
+    },
+  );
+}
+
+/**
+ * Validates unknown data as AI enrichment output/report artifact.
+ */
+export function assertAiEnrichmentReport(
+  value: unknown,
+  context: string,
+): asserts value is AiEnrichmentReport {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertBoolean(record.enabled, `${context}.enabled`);
+  assertLiteral(
+    record.mode,
+    [
+      "off",
+      "manual",
+      "after-select",
+      "after-workspace",
+      "on-ambiguity",
+      "on-input-change",
+      "ci-only",
+    ],
+    `${context}.mode`,
+  );
+  assertLiteral(
+    record.trigger,
+    ["manual", "after-select", "after-workspace"],
+    `${context}.trigger`,
+  );
+  assertBoolean(record.explicit, `${context}.explicit`);
+  assertBoolean(record.interactive, `${context}.interactive`);
+  assertBoolean(record.ci, `${context}.ci`);
+  assertMaybeString(record.providerOrigin, `${context}.providerOrigin`, false);
+  assertString(record.model, `${context}.model`);
+  assertLiteral(
+    record.status,
+    ["disabled", "skipped", "completed", "reused", "failed"],
+    `${context}.status`,
+  );
+  assertString(record.inputSha256, `${context}.inputSha256`);
+
+  const fingerprints = assertRecord(
+    record.fingerprints,
+    `${context}.fingerprints`,
+  );
+  assertMaybeString(
+    fingerprints.demandProfileSha256,
+    `${context}.fingerprints.demandProfileSha256`,
+    false,
+  );
+  assertMaybeString(
+    fingerprints.selectedCatalogSha256,
+    `${context}.fingerprints.selectedCatalogSha256`,
+    false,
+  );
+  assertString(
+    fingerprints.configSha256,
+    `${context}.fingerprints.configSha256`,
+  );
+
+  assertMaybeString(record.summary, `${context}.summary`, false);
+  assertMaybeStringArray(
+    record.recommendations,
+    `${context}.recommendations`,
+    false,
+  );
+  assertMaybeStringArray(record.warnings, `${context}.warnings`, false);
+  assertMaybeString(record.reason, `${context}.reason`, false);
+  assertMaybeString(record.error, `${context}.error`, false);
+  assertMaybeString(
+    record.reusedFromGeneratedAt,
+    `${context}.reusedFromGeneratedAt`,
+    false,
+  );
 }
 
 /**

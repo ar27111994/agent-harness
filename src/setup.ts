@@ -173,6 +173,8 @@ function buildLoginGuidanceByProvider(): Record<string, string[]> {
     ai: [
       "Optional AI enrichment uses an OpenAI-compatible chat completions endpoint.",
       "Set AGENT_HARNESS_AI_ENRICHMENT_URL, AGENT_HARNESS_AI_ENRICHMENT_API_KEY, and optionally AGENT_HARNESS_AI_ENRICHMENT_MODEL.",
+      "Use AGENT_HARNESS_AI_ENRICHMENT_MODE to choose manual, semi-automatic, or automatic enrichment behavior.",
+      "Manual commands include 'discover enrich' and wrapper flags such as '--ai-enrich' on discover/workspace flows.",
     ],
   };
 }

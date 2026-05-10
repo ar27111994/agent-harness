@@ -186,3 +186,117 @@ export interface GitHubRepoSnapshot {
     }>;
   };
 }
+
+/**
+ * Describes AI enrichment execution mode data exchanged by the lifecycle pipeline.
+ */
+export type AiEnrichmentMode =
+  | "off"
+  | "manual"
+  | "after-select"
+  | "after-workspace"
+  | "on-ambiguity"
+  | "on-input-change"
+  | "ci-only";
+
+/**
+ * Describes AI enrichment trigger data exchanged by the lifecycle pipeline.
+ */
+export type AiEnrichmentTrigger = "manual" | "after-select" | "after-workspace";
+
+/**
+ * Describes AI enrichment terminal status data exchanged by the lifecycle pipeline.
+ */
+export type AiEnrichmentStatus =
+  | "disabled"
+  | "skipped"
+  | "completed"
+  | "reused"
+  | "failed";
+
+/**
+ * Describes bounded demand-evidence data included in AI enrichment input artifacts.
+ */
+export interface AiEnrichmentInputEvidence {
+  fileName: string;
+  path?: string;
+  evidenceStrength?: DemandEvidenceStrength;
+  matchedSignals: DemandSignalSet;
+}
+
+/**
+ * Describes bounded selected-asset data included in AI enrichment input artifacts.
+ */
+export interface AiEnrichmentInputSelectedAsset {
+  id: string;
+  displayName: string;
+  assetKind: AssetKind;
+  hosts: HostTarget[];
+  authorityTier: AuthorityTier;
+  sourceId?: string;
+  capabilities: string[];
+}
+
+/**
+ * Describes AI enrichment input artifact data exchanged by the lifecycle pipeline.
+ */
+export interface AiEnrichmentInput {
+  schemaVersion: 1;
+  generatedAt: string;
+  mode: AiEnrichmentMode;
+  trigger: AiEnrichmentTrigger;
+  explicit: boolean;
+  interactive: boolean;
+  ci: boolean;
+  model: string;
+  providerOrigin?: string;
+  selectedAssetCount: number;
+  includedSelectedAssetCount: number;
+  evidenceItemCount: number;
+  includedEvidenceItemCount: number;
+  omissions: {
+    selectedAssets: number;
+    evidenceItems: number;
+    capabilityValues: number;
+    sourceIdentifiersRedacted: boolean;
+    filePathsRedacted: boolean;
+  };
+  fingerprints: {
+    demandProfileSha256: string | null;
+    selectedCatalogSha256: string | null;
+    configSha256: string;
+    inputSha256: string;
+  };
+  demandSignals: DemandSignalSet | null;
+  demandEvidence: AiEnrichmentInputEvidence[];
+  selectedAssets: AiEnrichmentInputSelectedAsset[];
+}
+
+/**
+ * Describes AI enrichment output/report artifact data exchanged by the lifecycle pipeline.
+ */
+export interface AiEnrichmentReport {
+  schemaVersion: 1;
+  generatedAt: string;
+  enabled: boolean;
+  mode: AiEnrichmentMode;
+  trigger: AiEnrichmentTrigger;
+  explicit: boolean;
+  interactive: boolean;
+  ci: boolean;
+  providerOrigin?: string;
+  model: string;
+  status: AiEnrichmentStatus;
+  inputSha256: string;
+  fingerprints: {
+    demandProfileSha256: string | null;
+    selectedCatalogSha256: string | null;
+    configSha256: string;
+  };
+  summary?: string;
+  recommendations?: string[];
+  warnings?: string[];
+  reason?: string;
+  error?: string;
+  reusedFromGeneratedAt?: string;
+}

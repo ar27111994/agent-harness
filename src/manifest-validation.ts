@@ -1,4 +1,6 @@
 export {
+  assertAiEnrichmentInput,
+  assertAiEnrichmentReport,
   assertAssetCatalogEntry,
   assertDemandProfile,
   assertGitHubRepoSnapshot,

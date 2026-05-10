@@ -103,6 +103,7 @@
     "discover:sources": "node ./dist/cli.js discover sources",
     "discover:catalog": "node ./dist/cli.js discover catalog",
     "discover:select": "node ./dist/cli.js discover select",
+    "discover:full": "node ./dist/cli.js discover full",
     "discover:stats": "node ./dist/cli.js discover stats",
     "discover:enrich": "node ./dist/cli.js discover enrich",
     "recommend:report": "node ./dist/cli.js recommend report",

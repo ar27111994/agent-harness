@@ -155,6 +155,7 @@ From the target workspace directory, run one of:
 agent-harness workspace vscode --intent frontend
 agent-harness workspace opencode --intent backend
 agent-harness workspace cursor --intent frontend
+agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent docs
 agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
@@ -171,7 +172,7 @@ npm run workspace:claude-code -- --intent backend
 npm run workspace:pi -- --intent docs
 ```
 
-Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup.
+Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
 
 ### Mutable state root
 
@@ -237,9 +238,10 @@ This scans the current workspace, ranks assets with the `zed` recommendation pol
 
 ```bash
 agent-harness workspace cursor --intent frontend
+agent-harness workspace cursor --intent frontend --ai-enrich
 ```
 
-Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific recommendation policy, project-local `.cursor` rules, prompt-pack command coverage, MCP references, and managed Cursor plugin-compatible assets.
+Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific recommendation policy, project-local `.cursor` rules, prompt-pack command coverage, MCP references, and managed Cursor plugin-compatible assets. Adding `--ai-enrich` writes the bounded enrichment sidecar after the deterministic workspace flow completes.
 
 ### Inspect why an asset was recommended
 
@@ -301,6 +303,7 @@ npm run discover:demand
 npm run discover:sources
 npm run discover:catalog
 npm run discover:select
+npm run discover:full
 npm run discover:stats
 npm run discover:enrich
 ```
@@ -311,9 +314,10 @@ Equivalent direct CLI examples:
 node ./dist/cli.js discover demand-profile
 node ./dist/cli.js discover sources
 node ./dist/cli.js discover catalog
-node ./dist/cli.js discover select
+node ./dist/cli.js discover select --ai-enrich
+node ./dist/cli.js discover full --ai-enrich
 node ./dist/cli.js discover stats
-node ./dist/cli.js discover enrich
+node ./dist/cli.js discover enrich --force
 ```
 
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
@@ -337,17 +341,32 @@ These signatures live under `src/domains/discovery/` alongside focused demand-pr
 
 ### AI-assisted enrichment
 
-AI-assisted enrichment is optional and disabled by default. When configured, it writes a bounded summary to `discover/output/ai-enrichment.json` using an OpenAI-compatible chat-completions endpoint. Loopback, private-network, and non-public origins are still rejected before any API key is sent. By default the runtime allows a built-in set of public provider origins, automatically allows the configured endpoint origin when it is valid `https`, and can be extended with `AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS` for compatible gateways or proxies.
+AI-assisted enrichment is optional and disabled by default. When configured, it writes a bounded request artifact to `discover/output/ai-enrichment-input.json` and an outcome artifact to `discover/output/ai-enrichment.json` using an OpenAI-compatible chat-completions endpoint. Loopback, private-network, and non-public origins are still rejected before any API key is sent. By default the runtime allows a built-in set of public provider origins, automatically allows the configured endpoint origin when it is valid `https`, and can be extended with `AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS` for compatible gateways or proxies.
 
 The same guarded endpoint configuration is also reused by `recommend ai-review` and `recommend report --ai-review`. Enrichment remains a sidecar summary; AI review is the bounded stage that can actually suppress or rerank recommendation entries after the deterministic report is built.
+
+Supported enrichment modes are:
+
+- `manual` (default): only run `discover enrich` or explicit `--ai-enrich` wrapper flags
+- `after-select`: automatically evaluate enrichment after selection completes
+- `after-workspace`: automatically evaluate enrichment after a workspace flow finishes
+- `on-ambiguity`: automatically run only when deterministic selection looks uncertain
+- `on-input-change`: automatically run only when the bounded enrichment input changed
+- `ci-only`: automatically evaluate enrichment only in CI/headless contexts
+- `off`: disable automatic enrichment entirely
+
+When enrichment runs, the outcome artifact uses explicit statuses such as `disabled`, `skipped`, `completed`, `reused`, and `failed`. Unchanged successful inputs reuse cached results unless you pass `--force`, and CI/headless flows can opt into fail-open or require-enrichment behavior.
 
 ```bash
 AGENT_HARNESS_AI_ENRICHMENT_URL=https://api.openai.com/v1/chat/completions
 AGENT_HARNESS_AI_ENRICHMENT_API_KEY=<token>
+AGENT_HARNESS_AI_ENRICHMENT_MODE=manual
 AGENT_HARNESS_AI_ENRICHMENT_MODEL=gpt-4o-mini
 # Optional comma-separated extra allowlist entries for compatible public gateways.
 AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS=https://gateway.example.com
 agent-harness discover enrich
+agent-harness discover full --ai-enrich
+agent-harness workspace cursor --intent frontend --ai-enrich
 ```
 
 Use `setup login --provider ai` for configuration guidance.
@@ -490,10 +509,13 @@ Workspace commands run discover, mirror, install, activate, and wire-in for the 
 agent-harness workspace vscode --intent frontend
 agent-harness workspace opencode --intent backend
 agent-harness workspace cursor --intent frontend
+agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent docs
 agent-harness workspace claude-code --intent backend
 agent-harness workspace pi --intent docs
 ```
+
+`workspace <host>` also accepts `--no-ai-enrich`, `--force`, and `--require-ai-enrich` for explicit control of the bounded enrichment sidecar.
 
 ### Setup
 
@@ -1042,14 +1064,32 @@ $env:GITHUB_TOKEN = $env:GITHUB_PERSONAL_ACCESS_TOKEN
 ```bash
 AGENT_HARNESS_AI_ENRICHMENT_URL=
 AGENT_HARNESS_AI_ENRICHMENT_API_KEY=
+AGENT_HARNESS_AI_ENRICHMENT_MODE=manual
 AGENT_HARNESS_AI_ENRICHMENT_MODEL=gpt-4o-mini
 # Optional comma-separated extra https origins for compatible public gateways.
 AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS=
 AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS=20000
 AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES=1000000
+AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS=50
+AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS=12
+AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET=16
+AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS=false
+AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS=false
+AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS=1
+AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS=1000
+AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS=300000
+AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI=false
+AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI=true
 ```
 
 These settings power both `discover enrich` and the bounded `recommend ai-review` / `recommend report --ai-review` flow. `AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS` extends the built-in public-provider allowlist. The configured endpoint origin is also auto-allowed when it is a valid public `https` origin, and DNS/public-IP checks still run before any request is sent.
+
+The enrichment-specific controls are grouped into four buckets:
+
+- **Mode/triggering**: `AGENT_HARNESS_AI_ENRICHMENT_MODE`
+- **Privacy/budget**: selected-asset, evidence, capability, and redaction caps
+- **Provider behavior**: timeout, response budget, retry attempts, and retry backoff
+- **CI/headless semantics**: cooldown, cache reuse in CI, and require-success behavior
 
 ### Shared network and host-command safeguards
 
@@ -1133,6 +1173,8 @@ The following directories and files are generated by the lifecycle and are ignor
 
 - `.agent-harness/`
 - `discover/output/`
+- `discover/output/ai-enrichment-input.json`
+- `discover/output/ai-enrichment.json`
 - `recommend/output/`
 - `discover/catalog.assets.jsonl`
 - `mirror/audit/`

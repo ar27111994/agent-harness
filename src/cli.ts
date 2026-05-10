@@ -194,8 +194,9 @@ function printHelp(): void {
   discover demand-profile   Scan the working directory and emit a demand profile
   discover sources          Summarize enabled discovery sources
   discover catalog          Build the unified asset catalog
-  discover select          Apply canonical selection policies
-  discover stats           Print catalog/source stats
+  discover select           Apply canonical selection policies
+  discover full             Run demand-profile, sources, catalog, and select in one pass
+  discover stats            Print catalog/source stats
   mirror locks             Generate mirror bundle locks
   mirror acquire           Acquire raw mirror artifacts and resolve bundle locks
   install bundle            Stage installed assets from bundle locks

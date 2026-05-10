@@ -27,8 +27,11 @@ import {
   enhanceTrustForEntry,
   mergeRemoteCatalogEntries,
 } from "./domains/discovery/catalog-utils.js";
+import {
+  orchestrateAiEnrichment,
+  type AiEnrichmentOrchestrationResult,
+} from "./domains/discovery/ai-enrichment.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
-import { writeAiEnrichmentReport } from "./domains/discovery/ai-enrichment.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -74,7 +77,7 @@ export async function runDiscover(
   workingDirectory: string,
   projectRoot: string,
 ): Promise<number> {
-  const [command = "help"] = args;
+  const [command = "help", ...rest] = args;
 
   switch (command) {
     case "demand-profile":
@@ -86,17 +89,52 @@ export async function runDiscover(
     case "catalog":
       await generateCatalog(projectRoot);
       return 0;
-    case "select":
+    case "select": {
+      const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       await generateSelectionOutputs(projectRoot);
-      return 0;
+      return handleAiEnrichmentResult(
+        await orchestrateAiEnrichment(projectRoot, {
+          trigger: "after-select",
+          explicitRequested: aiEnrichmentFlags.explicitRequested,
+          disableRequested: aiEnrichmentFlags.disableRequested,
+          force: aiEnrichmentFlags.force,
+          requireSuccess: aiEnrichmentFlags.requireSuccess,
+          suggestedCommand: "'agent-harness discover select --ai-enrich'",
+        }),
+      );
+    }
+    case "full": {
+      const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
+      await generateDemandProfile(workingDirectory, projectRoot);
+      await generateSourceIndex(projectRoot);
+      await generateCatalog(projectRoot);
+      await generateSelectionOutputs(projectRoot);
+      return handleAiEnrichmentResult(
+        await orchestrateAiEnrichment(projectRoot, {
+          trigger: "after-select",
+          explicitRequested: aiEnrichmentFlags.explicitRequested,
+          disableRequested: aiEnrichmentFlags.disableRequested,
+          force: aiEnrichmentFlags.force,
+          requireSuccess: aiEnrichmentFlags.requireSuccess,
+          suggestedCommand: "'agent-harness discover full --ai-enrich'",
+        }),
+      );
+    }
     case "enrich":
-      await writeAiEnrichmentReport(projectRoot);
-      return 0;
+      return handleAiEnrichmentResult(
+        await orchestrateAiEnrichment(projectRoot, {
+          trigger: "manual",
+          explicitRequested: true,
+          disableRequested: false,
+          force: rest.includes("--force"),
+          requireSuccess: rest.includes("--require-ai-enrich"),
+        }),
+      );
     case "stats":
       await printCatalogStats(projectRoot);
       return 0;
     case "inspect":
-      await inspectCatalog(projectRoot, args.slice(1));
+      await inspectCatalog(projectRoot, rest);
       return 0;
     case "help":
       printDiscoverHelp();
@@ -346,13 +384,51 @@ async function generateSelectionOutputs(projectRoot: string): Promise<void> {
   );
 }
 
+function parseAiEnrichmentFlags(args: readonly string[]): {
+  explicitRequested: boolean;
+  disableRequested: boolean;
+  force: boolean;
+  requireSuccess: boolean;
+} {
+  const explicitRequested = args.includes("--ai-enrich");
+  const disableRequested = args.includes("--no-ai-enrich");
+
+  if (explicitRequested && disableRequested) {
+    throw new Error("--ai-enrich and --no-ai-enrich cannot be used together.");
+  }
+
+  return {
+    explicitRequested,
+    disableRequested,
+    force: args.includes("--force"),
+    requireSuccess: args.includes("--require-ai-enrich"),
+  };
+}
+
+function handleAiEnrichmentResult(
+  result: AiEnrichmentOrchestrationResult,
+): number {
+  if (result.note) {
+    console.log(result.note);
+  }
+
+  return result.shouldFail ? 1 : 0;
+}
+
 function printDiscoverHelp(): void {
   console.log(`discover commands:
   demand-profile   Scan the working directory and write discover/output/demand-profile.json
   sources          Summarize enabled discovery sources into discover/output/source-index.json
   catalog          Harvest local sources into discover/catalog.assets.jsonl
   select           Apply canonical selection rules and write selected/rejected JSONL outputs
+  full             Run demand-profile, sources, catalog, and select in one pass
   stats            Print catalog summary counts grouped by source, kind, host, and authority
-  enrich           Optionally run AI-assisted enrichment when configured
-  inspect          Print catalog entries filtered by --source <id> or --id <assetId>`);
+  enrich           Run bounded AI-assisted enrichment against the selected catalog
+  inspect          Print catalog entries filtered by --source <id> or --id <assetId>
+
+AI enrichment options:
+  --ai-enrich            Explicitly request enrichment after select/full
+  --no-ai-enrich         Explicitly skip enrichment for this select/full run
+  --force                Ignore unchanged-input cache reuse and force a new provider call
+  --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
 }
