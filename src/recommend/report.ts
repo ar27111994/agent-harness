@@ -30,8 +30,10 @@ import type { RecommendationHost } from "./hosts.js";
  */
 export async function writeRecommendationReport(
   projectRoot: string,
+  policy?: RecommendationPolicy,
 ): Promise<RecommendationReport> {
-  const policy = await loadRecommendationPolicy(projectRoot);
+  const resolvedPolicy =
+    policy ?? (await loadRecommendationPolicy(projectRoot));
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
     assertDemandProfile,
@@ -43,7 +45,7 @@ export async function writeRecommendationReport(
   const report = buildRecommendationReport(
     selectedEntries,
     demandProfile,
-    policy,
+    resolvedPolicy,
   );
 
   await writeJsonFile(join(projectRoot, ...REPORT_FILE_PATH), report);

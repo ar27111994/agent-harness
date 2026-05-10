@@ -30,20 +30,27 @@ export async function runRecommend(
 
   switch (command) {
     case "report": {
-      const policy = await loadRecommendationPolicy(projectRoot);
-      const deterministicReport = await writeRecommendationReport(projectRoot);
-      const report = rest.includes("--ai-review")
-        ? (
-            await runRecommendationAiReview({
-              projectRoot,
-              policy,
-              report: deterministicReport,
-              host: getRequestedReviewHost(rest),
-              reviewLimit: getReviewLimit(rest),
-              apply: true,
-            })
-          ).report
-        : deterministicReport;
+      const shouldRunAiReview = rest.includes("--ai-review");
+      const policy = shouldRunAiReview
+        ? await loadRecommendationPolicy(projectRoot)
+        : undefined;
+      const deterministicReport = await writeRecommendationReport(
+        projectRoot,
+        policy,
+      );
+      const report =
+        shouldRunAiReview && policy
+          ? (
+              await runRecommendationAiReview({
+                projectRoot,
+                policy,
+                report: deterministicReport,
+                host: getRequestedReviewHost(rest),
+                reviewLimit: getReviewLimit(rest),
+                apply: true,
+              })
+            ).report
+          : deterministicReport;
       if (report !== deterministicReport) {
         await writeJsonFile(join(projectRoot, ...REPORT_FILE_PATH), report);
       }
@@ -70,7 +77,10 @@ export async function runRecommend(
     }
     case "ai-review": {
       const policy = await loadRecommendationPolicy(projectRoot);
-      const deterministicReport = await writeRecommendationReport(projectRoot);
+      const deterministicReport = await writeRecommendationReport(
+        projectRoot,
+        policy,
+      );
       const result = await runRecommendationAiReview({
         projectRoot,
         policy,

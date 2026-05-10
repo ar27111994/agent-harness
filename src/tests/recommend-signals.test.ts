@@ -98,6 +98,31 @@ void test("recommend signal weighting prefers strong evidence over repeated weak
   assert.ok(apifyMatch.weight > integrationMatch.weight);
 });
 
+void test("recommend demand context normalizes broader manifest prefixes", () => {
+  const profile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: ["gradle:com.example.android", "cocoapods:AFNetworking"],
+    },
+    evidence: [],
+  };
+
+  const demandContext = buildDemandContext(profile, buildPolicy());
+
+  assert.ok(demandContext.packageManifestEntries.has("com-example-android"));
+  assert.ok(demandContext.packageManifestEntries.has("afnetworking"));
+});
+
 function buildPolicy(): RecommendationPolicy {
   const hostPolicy: RecommendationHostPolicy = {
     recommendationLimit: 20,

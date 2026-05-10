@@ -30,6 +30,7 @@ import type {
   AssetKind,
   InstalledBundleManifest,
   InstalledPackageManifest,
+  ManagedTextFileSnapshot,
   NativeConfigOperation,
   WirePlanManifest,
   WirePreviewManifest,
@@ -528,10 +529,10 @@ async function readValidatedOpenCodeWirePlan(
 }
 
 function validateManagedTextFileSnapshots(
-  snapshots: Array<{ path: string; content: string | null }> | undefined,
+  snapshots: ManagedTextFileSnapshot[] | undefined,
   allowedPaths: string[],
   wirePlanPath: string,
-): Array<{ path: string; content: string | null }> | undefined {
+): ManagedTextFileSnapshot[] | undefined {
   if (snapshots === undefined) {
     return snapshots;
   }
@@ -572,8 +573,8 @@ function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
 
 async function captureManagedTextFileSnapshots(
   paths: string[],
-): Promise<Array<{ path: string; content: string | null }>> {
-  const snapshots: Array<{ path: string; content: string | null }> = [];
+): Promise<ManagedTextFileSnapshot[]> {
+  const snapshots: ManagedTextFileSnapshot[] = [];
 
   for (const filePath of paths) {
     snapshots.push({
@@ -587,7 +588,7 @@ async function captureManagedTextFileSnapshots(
 
 async function restoreManagedTextFileSnapshot(
   filePath: string,
-  snapshots: Array<{ path: string; content: string | null }> | undefined,
+  snapshots: ManagedTextFileSnapshot[] | undefined,
 ): Promise<void> {
   const snapshot = snapshots?.find(
     (entry) => toPosixPath(filePath) === entry.path,

@@ -1,3 +1,5 @@
+import { hasDesignSystemSignals } from "../domains/discovery/demand-helpers.js";
+import { extractPackageManifestEntry } from "../lib/package-manifest-entry.js";
 import type {
   AssetContextCost,
   AssetKind,
@@ -148,15 +150,7 @@ function registerBridgeDemandTerms(
     evidenceStrength: DemandEvidenceStrength,
   ) => void,
 ): void {
-  const hasDesignSignals =
-    demandProfile.signals.concerns.some((concern) =>
-      ["design-assets", "design-systems", "frontend"].includes(concern),
-    ) ||
-    demandProfile.signals.tooling.some((tooling) =>
-      ["detector:design-system", "design-system"].includes(tooling),
-    );
-
-  if (hasDesignSignals) {
+  if (hasDesignSystemSignals(demandProfile)) {
     registerTerm("tooling", "penpot", "strong");
   }
 }
@@ -192,14 +186,7 @@ function buildDemandKeywordSet(
     }
   }
 
-  if (
-    demandProfile.signals.concerns.some((concern) =>
-      ["design-assets", "design-systems", "frontend"].includes(concern),
-    ) ||
-    demandProfile.signals.tooling.some((tooling) =>
-      ["detector:design-system", "design-system"].includes(tooling),
-    )
-  ) {
+  if (hasDesignSystemSignals(demandProfile)) {
     keywords.add("penpot");
   }
 
@@ -207,14 +194,8 @@ function buildDemandKeywordSet(
 }
 
 function normalizePackageManifestEntry(value: string): string | null {
-  const match = value.match(
-    /^(?:cargo|gem|go|maven|npm|nuget|packagist|pub|pypi|swift):(.+)$/u,
-  );
-  if (!match) {
-    return null;
-  }
-
-  return normalizePhrase(match[1]);
+  const manifestEntry = extractPackageManifestEntry(value);
+  return manifestEntry ? normalizePhrase(manifestEntry) : null;
 }
 
 /**

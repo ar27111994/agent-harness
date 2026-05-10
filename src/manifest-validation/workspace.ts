@@ -153,9 +153,15 @@ function assertTextFileSnapshots(value: unknown, context: string): void {
     throw new Error(`${context} must be an array`);
   }
 
+  const seenPaths = new Set<string>();
+
   value.forEach((entry, index) => {
     const snapshot = assertRecord(entry, `${context}[${index}]`);
-    assertString(snapshot.path, `${context}[${index}].path`);
+    const path = assertString(snapshot.path, `${context}[${index}].path`);
+    if (seenPaths.has(path)) {
+      throw new Error(`${context}: duplicate path '${path}'`);
+    }
+    seenPaths.add(path);
     if (snapshot.content !== null) {
       assertString(snapshot.content, `${context}[${index}].content`);
     }

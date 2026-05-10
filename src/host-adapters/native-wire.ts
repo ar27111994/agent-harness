@@ -31,6 +31,7 @@ import type {
   AssetHostNativeConfigMap,
   AssetKind,
   CopilotWorkspaceProfileManifest,
+  ManagedTextFileSnapshot,
   NativeConfigOperation,
   WirePlanManifest,
   WirePreviewManifest,
@@ -833,7 +834,7 @@ function buildNativeWirePlan(options: {
   managedRoot: string;
   materializedAssets: MaterializedNativeAssets;
   nativeConfigOperations: NativeConfigOperation[];
-  textFileSnapshots: Array<{ path: string; content: string | null }>;
+  textFileSnapshots: ManagedTextFileSnapshot[];
 }): WirePlanManifest {
   return {
     schemaVersion: 1,
@@ -898,22 +899,37 @@ async function resetNativeHost(
       );
       return;
     case "zed":
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, ".rules"),
-        "agent-harness-zed",
+        previousWirePlan?.textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, ".rules"),
+            "agent-harness-zed",
+          ),
       );
       await removeManagedZedSettings(
         join(workspaceRoot, ".zed", "settings.json"),
       );
       return;
     case "claude-code":
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, "CLAUDE.md"),
-        "agent-harness-claude-code",
+        previousWirePlan?.textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, "CLAUDE.md"),
+            "agent-harness-claude-code",
+          ),
       );
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, ".claude", "CLAUDE.md"),
-        "agent-harness-claude-code",
+        previousWirePlan?.textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, ".claude", "CLAUDE.md"),
+            "agent-harness-claude-code",
+          ),
       );
       await removePath(
         join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
@@ -963,7 +979,7 @@ async function cleanupFailedNativeHostApply(
   workspaceRoot: string,
   managedRoot: string,
   hostActivationRoot: string,
-  textFileSnapshots: Array<{ path: string; content: string | null }>,
+  textFileSnapshots: ManagedTextFileSnapshot[],
 ): Promise<void> {
   await removePath(managedRoot);
   await removePath(join(hostActivationRoot, "wire-plan.json"));
@@ -978,22 +994,37 @@ async function cleanupFailedNativeHostApply(
       );
       return;
     case "zed":
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, ".rules"),
-        "agent-harness-zed",
+        textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, ".rules"),
+            "agent-harness-zed",
+          ),
       );
       await removeManagedZedSettings(
         join(workspaceRoot, ".zed", "settings.json"),
       );
       return;
     case "claude-code":
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, "CLAUDE.md"),
-        "agent-harness-claude-code",
+        textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, "CLAUDE.md"),
+            "agent-harness-claude-code",
+          ),
       );
-      await removeManagedSectionFile(
+      await restoreManagedTextFileSnapshot(
         join(workspaceRoot, ".claude", "CLAUDE.md"),
-        "agent-harness-claude-code",
+        textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, ".claude", "CLAUDE.md"),
+            "agent-harness-claude-code",
+          ),
       );
       await removePath(
         join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
@@ -1043,6 +1074,13 @@ function resolveManagedTextFileSnapshotPaths(
   workspaceRoot: string,
 ): string[] {
   switch (spec.host) {
+    case "zed":
+      return [join(workspaceRoot, ".rules")];
+    case "claude-code":
+      return [
+        join(workspaceRoot, "CLAUDE.md"),
+        join(workspaceRoot, ".claude", "CLAUDE.md"),
+      ];
     case "pi":
       return [
         join(workspaceRoot, "AGENTS.md"),
@@ -1055,8 +1093,8 @@ function resolveManagedTextFileSnapshotPaths(
 
 async function captureManagedTextFileSnapshots(
   paths: string[],
-): Promise<Array<{ path: string; content: string | null }>> {
-  const snapshots: Array<{ path: string; content: string | null }> = [];
+): Promise<ManagedTextFileSnapshot[]> {
+  const snapshots: ManagedTextFileSnapshot[] = [];
 
   for (const filePath of paths) {
     snapshots.push({
@@ -1070,7 +1108,7 @@ async function captureManagedTextFileSnapshots(
 
 async function restoreManagedTextFileSnapshot(
   filePath: string,
-  snapshots: Array<{ path: string; content: string | null }> | undefined,
+  snapshots: ManagedTextFileSnapshot[] | undefined,
   fallbackRestore: () => Promise<void>,
 ): Promise<void> {
   const snapshot = snapshots?.find(

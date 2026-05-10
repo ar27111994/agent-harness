@@ -430,6 +430,66 @@ void test("native adapters write host-specific project files and wire plans", as
   }
 });
 
+void test("native reset restores pre-existing managed text files byte-for-byte", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-hosts-"));
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+  const zedRulesContent = "# Existing Zed rules\n\nKeep this.\n";
+  const rootClaudeContent = "# Existing Claude\n\nKeep this.\n";
+  const nestedClaudeContent = "# Existing nested Claude\n\nKeep this too.\n";
+  const agentsContent = "# Existing agents\n\nKeep this.\n";
+  const systemContent = "# Existing system\n\nKeep this too.\n";
+
+  try {
+    await writeFile(join(workspaceRoot, ".rules"), zedRulesContent, "utf8");
+    await mkdir(join(workspaceRoot, ".claude"), { recursive: true });
+    await writeFile(
+      join(workspaceRoot, "CLAUDE.md"),
+      rootClaudeContent,
+      "utf8",
+    );
+    await writeFile(
+      join(workspaceRoot, ".claude", "CLAUDE.md"),
+      nestedClaudeContent,
+      "utf8",
+    );
+    await writeFile(join(workspaceRoot, "AGENTS.md"), agentsContent, "utf8");
+    await writeFile(join(workspaceRoot, "SYSTEM.md"), systemContent, "utf8");
+
+    for (const host of ["zed", "claude-code", "pi"] as const) {
+      const adapter = resolveHostAdapter(host);
+      assert.ok(adapter);
+      await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+      await adapter.wire({ projectRoot, workspaceRoot, mode: "reset" });
+    }
+
+    assert.equal(
+      await readFile(join(workspaceRoot, ".rules"), "utf8"),
+      zedRulesContent,
+    );
+    assert.equal(
+      await readFile(join(workspaceRoot, "CLAUDE.md"), "utf8"),
+      rootClaudeContent,
+    );
+    assert.equal(
+      await readFile(join(workspaceRoot, ".claude", "CLAUDE.md"), "utf8"),
+      nestedClaudeContent,
+    );
+    assert.equal(
+      await readFile(join(workspaceRoot, "AGENTS.md"), "utf8"),
+      agentsContent,
+    );
+    assert.equal(
+      await readFile(join(workspaceRoot, "SYSTEM.md"), "utf8"),
+      systemContent,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
 void test("OpenCode synthesizes structured native config payloads and removes them on reset", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-opencode-native-"),

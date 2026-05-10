@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import test from "node:test";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import test from "node:test";
 
 import {
   createDirectoryLink,
@@ -15,18 +15,23 @@ import {
 
 void test("ensureDirectory accepts an existing managed directory link", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
-  const targetDirectory = join(root, "target");
-  const linkedDirectory = join(root, "linked");
 
-  await ensureDirectory(targetDirectory);
-  await createDirectoryLink(linkedDirectory, targetDirectory);
-  await ensureDirectory(linkedDirectory);
+  try {
+    const targetDirectory = join(root, "target");
+    const linkedDirectory = join(root, "linked");
 
-  await writeTextFile(join(linkedDirectory, "proof.txt"), "ok");
-  assert.equal(
-    await readTextFileOrNull(join(targetDirectory, "proof.txt")),
-    "ok",
-  );
+    await ensureDirectory(targetDirectory);
+    await createDirectoryLink(linkedDirectory, targetDirectory);
+    await ensureDirectory(linkedDirectory);
+
+    await writeTextFile(join(linkedDirectory, "proof.txt"), "ok");
+    assert.equal(
+      await readTextFileOrNull(join(targetDirectory, "proof.txt")),
+      "ok",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 void test("removeManagedSection leaves unmanaged content untouched when marker is absent", () => {

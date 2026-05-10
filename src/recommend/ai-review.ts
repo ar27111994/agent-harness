@@ -156,12 +156,11 @@ export async function runRecommendationAiReview(options: {
     };
   }
 
-  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(options.projectRoot, "discover", "output", "catalog.selected.jsonl"),
-    assertAssetCatalogEntry,
-  );
-
   try {
+    const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
+      join(options.projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      assertAssetCatalogEntry,
+    );
     const url = await assertAllowedPublicHttpUrlWithDns(
       config.url,
       config.allowedOrigins,
@@ -360,7 +359,7 @@ function parseAiReviewResponse(response: unknown): unknown {
   try {
     return JSON.parse(content) as unknown;
   } catch {
-    return {};
+    throw new Error("AI review response contained invalid JSON content.");
   }
 }
 

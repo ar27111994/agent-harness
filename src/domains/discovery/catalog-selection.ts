@@ -1,4 +1,6 @@
 import { splitIntoKeywords } from "./catalog-utils.js";
+import { hasDesignSystemSignals, SPECIALIZED_GATES } from "./demand-helpers.js";
+import { stripPackageManifestEntryPrefix } from "../../lib/package-manifest-entry.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
@@ -18,12 +20,6 @@ interface DemandRelevanceTerms {
   highSignalPhrases: string[][];
   lowSignalTerms: Set<string>;
   demandKeywords: Set<string>;
-}
-
-interface SpecializedDemandGate {
-  id: string;
-  entryTermGroups: string[][];
-  demandTermGroups: string[][];
 }
 
 interface CatalogTermData {
@@ -75,45 +71,11 @@ const LOW_SIGNAL_TERMS = new Set([
   "yarn",
 ]);
 
-const PACKAGE_REGISTRY_PREFIX_RE =
-  /^(?:cargo|cocoapods|gem|go|gradle|maven|npm|nuget|packagist|pub|pypi|swift):/iu;
 const IGNORED_CONCERN_TERMS = new Set(["base", "detector"]);
 const LOW_SIGNAL_CONCERN_MATCH_THRESHOLD = 4;
 const HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD = 2;
 const COMMON_HIGH_SIGNAL_CATALOG_SHARE_THRESHOLD = 0.2;
 const MIN_CATALOG_SIZE_FOR_COMMON_HIGH_SIGNAL_FILTER = 200;
-const SPECIALIZED_DEMAND_GATES: SpecializedDemandGate[] = [
-  {
-    id: "firebase",
-    entryTermGroups: [["firebase"]],
-    demandTermGroups: [["firebase"]],
-  },
-  {
-    id: "power-platform",
-    entryTermGroups: [
-      ["dataverse"],
-      ["power", "platform"],
-      ["power", "apps"],
-      ["power", "bi"],
-    ],
-    demandTermGroups: [
-      ["dataverse"],
-      ["power", "platform"],
-      ["power", "apps"],
-      ["power", "bi"],
-    ],
-  },
-  {
-    id: "azure",
-    entryTermGroups: [["azure"]],
-    demandTermGroups: [["azure"]],
-  },
-  {
-    id: "kubernetes",
-    entryTermGroups: [["kubernetes"], ["helm"], ["k8s"]],
-    demandTermGroups: [["kubernetes"], ["helm"], ["k8s"]],
-  },
-];
 
 /**
  * Filters catalog entries to assets that overlap with workspace demand signals.
@@ -459,15 +421,7 @@ function addBridgeDemandTerms(
   exactHighSignalTerms: Set<string>,
   demandKeywords: Set<string>,
 ): void {
-  const hasDesignSignals =
-    demandProfile.signals.concerns.some((concern) =>
-      ["design-assets", "design-systems", "frontend"].includes(concern),
-    ) ||
-    demandProfile.signals.tooling.some((tooling) =>
-      ["detector:design-system", "design-system"].includes(tooling),
-    );
-
-  if (hasDesignSignals) {
+  if (hasDesignSystemSignals(demandProfile)) {
     exactHighSignalTerms.add("penpot");
     demandKeywords.add("penpot");
   }
@@ -477,7 +431,7 @@ function isRejectedBySpecializedDemandGate(
   entryTerms: Set<string>,
   demandTerms: DemandRelevanceTerms,
 ): boolean {
-  return SPECIALIZED_DEMAND_GATES.some(
+  return SPECIALIZED_GATES.some(
     (gate) =>
       matchesTermGroupSet(entryTerms, gate.entryTermGroups) &&
       !matchesTermGroupSet(demandTerms.demandKeywords, gate.demandTermGroups),
@@ -528,7 +482,7 @@ function buildCatalogTermData(
 }
 
 function stripPackageEvidencePrefix(value: string): string {
-  return value.replace(PACKAGE_REGISTRY_PREFIX_RE, "");
+  return stripPackageManifestEntryPrefix(value);
 }
 
 function buildEntryTermSet(entry: AssetCatalogEntry): Set<string> {

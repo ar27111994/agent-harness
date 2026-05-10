@@ -1,3 +1,4 @@
+import { SPECIALIZED_GATES } from "../domains/discovery/demand-helpers.js";
 import { GENERIC_CAPABILITY_TERMS } from "./constants.js";
 import {
   buildCoverageTags,
@@ -30,35 +31,6 @@ const WRAPPER_LIKE_TERMS = new Set([
   "yaml",
   "yml",
 ]);
-const SPECIALIZED_RECOMMENDATION_GATES = [
-  {
-    demandTerms: [["firebase"]],
-    entryTerms: [["firebase"]],
-  },
-  {
-    demandTerms: [["azure"]],
-    entryTerms: [["azure"]],
-  },
-  {
-    demandTerms: [["kubernetes"], ["helm"], ["k8s"]],
-    entryTerms: [["kubernetes"], ["helm"], ["k8s"]],
-  },
-  {
-    demandTerms: [
-      ["dataverse"],
-      ["power", "platform"],
-      ["power", "apps"],
-      ["power", "bi"],
-    ],
-    entryTerms: [
-      ["dataverse"],
-      ["power", "platform"],
-      ["power", "apps"],
-      ["power", "bi"],
-    ],
-  },
-] as const;
-
 interface MatchQuality {
   exactStackWeight: number;
   ecosystemWeight: number;
@@ -168,10 +140,6 @@ export function buildCandidateRecommendation(
     searchTerms,
     policy,
   );
-  const dependencySelfEchoPenalty = computeDependencySelfEchoPenalty(
-    entry,
-    demandContext,
-  );
 
   const breakdown: RecommendationScoreBreakdown = {
     authority: policy.scoring.authorityWeights[entry.source.authorityTier],
@@ -220,9 +188,7 @@ export function buildCandidateRecommendation(
         recommendationBasis,
         demandContext,
         policy,
-      ) +
-      hostDeprioritizationPenalty +
-      dependencySelfEchoPenalty,
+      ) + hostDeprioritizationPenalty,
     redundancyPenalty: 0,
     budgetPenalty: 0,
     total: 0,
@@ -247,7 +213,6 @@ export function buildCandidateRecommendation(
       matchQuality,
       availableLocally,
       recommendationBasis,
-      dependencySelfEchoPenalty,
     ),
     breakdown,
   };
@@ -470,12 +435,6 @@ function computeNegativePenalty(
     penalty += Math.max(2, policy.scoring.genericCapabilityPenalty);
   }
 
-  penalty += computeDesignSystemGenericMobilePenalty(
-    searchTerms,
-    demandContext,
-    matchQuality,
-  );
-
   if (recommendationBasis === "local-availability") {
     penalty += Math.max(
       policy.scoring.weakDemandPenalty,
@@ -506,24 +465,6 @@ function computeFreshnessScore(
   return 0;
 }
 
-function computeDependencySelfEchoPenalty(
-  entry: AssetCatalogEntry,
-  demandContext: DemandContext,
-): number {
-  if (
-    entry.source.sourceKind !== "package-registry" ||
-    !entry.install.manifestEntry
-  ) {
-    return 0;
-  }
-
-  return demandContext.packageManifestEntries.has(
-    normalizePhrase(entry.install.manifestEntry),
-  )
-    ? 28
-    : 0;
-}
-
 function isSuppressedBySpecializedDemandGate(
   entry: AssetCatalogEntry,
   rawKeywordTerms: Set<string>,
@@ -533,10 +474,13 @@ function isSuppressedBySpecializedDemandGate(
     return false;
   }
 
-  return SPECIALIZED_RECOMMENDATION_GATES.some(
+  return SPECIALIZED_GATES.some(
     (gate) =>
-      matchesTermGroupSet(rawKeywordTerms, gate.entryTerms) &&
-      !matchesTermGroupSetForDemandContext(demandContext, gate.demandTerms),
+      matchesTermGroupSet(rawKeywordTerms, gate.entryTermGroups) &&
+      !matchesTermGroupSetForDemandContext(
+        demandContext,
+        gate.demandTermGroups,
+      ),
   );
 }
 
@@ -544,7 +488,13 @@ function isSuppressedByDependencySelfEcho(
   entry: AssetCatalogEntry,
   demandContext: DemandContext,
 ): boolean {
-  return computeDependencySelfEchoPenalty(entry, demandContext) > 0;
+  return Boolean(
+    entry.source.sourceKind === "package-registry" &&
+    entry.install.manifestEntry &&
+    demandContext.packageManifestEntries.has(
+      normalizePhrase(entry.install.manifestEntry),
+    ),
+  );
 }
 
 function matchesTermGroupSet(
@@ -585,22 +535,6 @@ function buildRawKeywordTerms(values: string[]): Set<string> {
   return terms;
 }
 
-function computeDesignSystemGenericMobilePenalty(
-  searchTerms: Set<string>,
-  demandContext: DemandContext,
-  matchQuality: MatchQuality,
-): number {
-  if (!demandContext.demandKeywords.has("penpot")) {
-    return 0;
-  }
-
-  if (matchQuality.exactStackWeight > 0) {
-    return 0;
-  }
-
-  return isGenericMobileOnlyAsset(searchTerms) ? 40 : 0;
-}
-
 function isSuppressedForDesignSystemDemand(
   rawKeywordTerms: Set<string>,
   demandContext: DemandContext,
@@ -629,7 +563,6 @@ function buildBaseReasons(
   matchQuality: MatchQuality,
   availableLocally: boolean,
   recommendationBasis: RecommendationBasis,
-  dependencySelfEchoPenalty: number,
 ): string[] {
   const reasons = [
     `authority:${entry.source.authorityTier}`,
@@ -660,9 +593,6 @@ function buildBaseReasons(
 
   if (availableLocally) {
     reasons.push("availability:local");
-  }
-  if (dependencySelfEchoPenalty > 0) {
-    reasons.push("risk:self-echo");
   }
   reasons.push(`basis:${recommendationBasis}`);
 
