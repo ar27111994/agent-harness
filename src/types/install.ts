@@ -161,3 +161,18 @@ export interface InstallRefreshReport {
   refreshedMirrorState: boolean;
   hosts: InstallRefreshHostSummary[];
 }
+
+/**
+ * Describes persisted install refresh scheduling state.
+ */
+export interface InstallRefreshState {
+  schemaVersion: 1;
+  updatedAt: string;
+  policy: InstallRefreshPolicy;
+  intervalMs: number;
+  nextCheckAt: string;
+  lastAppliedAt?: string;
+  refreshedMirrorState: boolean;
+  staleCount: number;
+  applyEligibleCount: number;
+}

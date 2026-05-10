@@ -38,3 +38,12 @@ export const INSTALL_REFRESH_REPORT_OUTPUT_PATH = [
   "install",
   "refresh-report.json",
 ];
+
+/**
+ * Defines the install refresh scheduling state output path location used by persisted project state.
+ */
+export const INSTALL_REFRESH_STATE_OUTPUT_PATH = [
+  "state",
+  "install",
+  "refresh-state.json",
+];

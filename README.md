@@ -453,13 +453,14 @@ node ./dist/cli.js install native --host cursor
 node ./dist/cli.js install native --host cursor --operation verify
 node ./dist/cli.js install refresh --host copilot-vscode
 node ./dist/cli.js install refresh --host copilot-vscode --apply
+node ./dist/cli.js install refresh --host copilot-vscode --due-only
 npm run install:reconcile
 npm run install:reset
 ```
 
 `install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
-`install refresh` writes `state/install/refresh-report.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used.
+`install refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. When stale VS Code-family extension assets are applied through refresh, the native extension install step is executed too so host-native installs stay in sync with the refreshed bundle state.
 
 ### Activate
 
@@ -1183,6 +1184,7 @@ AGENT_HARNESS_GITHUB_FETCH_RETRIES=3
 ```bash
 AGENT_HARNESS_DEBUG=false
 AGENT_HARNESS_INSTALL_REFRESH_POLICY=manual
+AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS=21600000
 AGENT_HARNESS_REMOTE_BATCH_SIZE=15
 AGENT_HARNESS_MIRROR_BATCH_SIZE=120
 AGENT_HARNESS_INSTALL_BATCH_SIZE=250

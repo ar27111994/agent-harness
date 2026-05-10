@@ -19,6 +19,7 @@ void test("runtime config preserves existing defaults when new env vars are unse
   assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 16);
   assert.deepEqual(config.recommendation.limitOverrides, {});
   assert.equal(config.install.refreshPolicy, "manual");
+  assert.equal(config.install.refreshIntervalMs, 21_600_000);
   assert.equal(config.aiEnrichment.redactFilePaths, false);
   assert.equal(config.aiEnrichment.redactSourceIdentifiers, false);
   assert.equal(config.aiEnrichment.retryMaxAttempts, 1);
@@ -57,6 +58,7 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
     AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET: "8",
     AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT: "42",
     AGENT_HARNESS_INSTALL_REFRESH_POLICY: "apply-safe",
+    AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS: "3600000",
     AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS: "true",
     AGENT_HARNESS_AI_ENRICHMENT_REDACT_SOURCE_IDS: "true",
     AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS: "3",
@@ -113,6 +115,7 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   );
   assert.equal(config.aiEnrichment.autoMinIntervalMs, 60_000);
   assert.equal(config.install.refreshPolicy, "apply-safe");
+  assert.equal(config.install.refreshIntervalMs, 3_600_000);
   assert.equal(config.aiEnrichment.requireSuccessInCi, true);
   assert.equal(config.aiEnrichment.allowCacheInCi, false);
   assert.ok(allowedOrigins.has("https://api.openai.com"));
@@ -221,5 +224,14 @@ void test("runtime config rejects invalid numeric and boolean env vars", () => {
         AGENT_HARNESS_INSTALL_REFRESH_POLICY: "automatic",
       }),
     /AGENT_HARNESS_INSTALL_REFRESH_POLICY/u,
+  );
+
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        HOME: "/home/tester",
+        AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS: "0",
+      }),
+    /AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS/u,
   );
 });

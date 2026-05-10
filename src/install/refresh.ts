@@ -7,12 +7,24 @@ import {
   toPosixPath,
   writeJsonFile,
 } from "../files.js";
+import {
+  buildExtensionInstallActions,
+  executeExtensionInstallAction,
+  type NativeInstallResult,
+} from "../host-adapters/extension-installer.js";
+import { resolveHostAdapter } from "../host-adapters/registry.js";
 import { getOptionValue } from "../lib/cli-options.js";
+import {
+  assertNoPreflightErrors,
+  formatPreflightDiagnostics,
+  runNativeInstallPreflight,
+} from "../lib/preflight.js";
 import {
   assertAssetCatalogEntry,
   assertBundleLock,
   assertInstallGenerationManifest,
   assertInstallProgressState,
+  assertInstallRefreshState,
   assertInstalledPackageManifest,
   assertMirrorAcquireState,
   assertMirrorIndexEntry,
@@ -27,6 +39,7 @@ import type {
   InstallRefreshPolicy,
   InstallRefreshPolicyDecision,
   InstallRefreshReport,
+  InstallRefreshState,
   InstalledPackageManifest,
   MirrorAcquireState,
   MirrorIndexEntry,
@@ -39,6 +52,8 @@ import {
   INSTALL_GENERATIONS_ROOT,
   INSTALL_PROGRESS_STATE_OUTPUT_PATH,
   INSTALL_REFRESH_REPORT_OUTPUT_PATH,
+  INSTALL_REFRESH_STATE_OUTPUT_PATH,
+  NATIVE_INSTALL_STATE_OUTPUT_PATH,
 } from "./paths.js";
 import { INSTALL_HOSTS } from "./utils.js";
 
@@ -59,9 +74,23 @@ export async function manageInstallRefresh(
 ): Promise<void> {
   const requestedHost = parseInstallHost(getOptionValue(args, "--host"));
   const hosts = requestedHost ? [requestedHost] : [...INSTALL_HOSTS];
-  const refreshPolicy = getRuntimeConfig().install.refreshPolicy;
+  const installConfig = getRuntimeConfig().install;
+  const refreshPolicy = installConfig.refreshPolicy;
+  const refreshIntervalMs = installConfig.refreshIntervalMs;
   const applyRequested = args.includes("--apply");
+  const dueOnly = args.includes("--due-only");
   const refreshedMirrorState = !args.includes("--no-mirror-refresh");
+  const previousRefreshState = await loadInstallRefreshState(projectRoot);
+
+  if (
+    dueOnly &&
+    !isInstallRefreshDue(previousRefreshState, refreshPolicy, refreshIntervalMs)
+  ) {
+    console.log(
+      `Install refresh is not due until ${previousRefreshState?.nextCheckAt ?? "the configured interval elapses"}.`,
+    );
+    return;
+  }
 
   if (refreshedMirrorState) {
     await refreshMirrorState(projectRoot, workingDirectory);
@@ -76,33 +105,116 @@ export async function manageInstallRefresh(
   await writeJsonFile(join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH), report);
   printInstallRefreshReport(projectRoot, report, false);
 
-  if (!applyRequested) {
-    return;
-  }
-
   const bundleIdsToRefresh = [...new Set(
     report.hosts.flatMap((host) =>
       host.assets
-        .filter((asset) => asset.status === "stale" && asset.policyDecision === "apply")
+        .filter(
+          (asset) =>
+            asset.status === "stale" && asset.policyDecision === "apply",
+        )
         .flatMap((asset) => asset.bundleIds),
     ),
   )].sort((left, right) => left.localeCompare(right));
+  const nativeRefreshExtensionIds = collectNativeRefreshExtensionIds(report);
+  let applied = false;
 
-  if (bundleIdsToRefresh.length === 0) {
-    console.log("No stale install bundles were eligible for refresh apply.");
-    return;
+  if (applyRequested) {
+    if (
+      bundleIdsToRefresh.length === 0 &&
+      nativeRefreshExtensionIds.size === 0
+    ) {
+      console.log("No stale install bundles were eligible for refresh apply.");
+    } else {
+      await applyBundleRefreshes(projectRoot, bundleIdsToRefresh);
+      await applyNativeRefreshes(projectRoot, nativeRefreshExtensionIds);
+      applied = true;
+
+      report = await buildInstallRefreshReport(
+        projectRoot,
+        hosts,
+        refreshPolicy,
+        refreshedMirrorState,
+      );
+      await writeJsonFile(
+        join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH),
+        report,
+      );
+      printInstallRefreshReport(projectRoot, report, true);
+    }
   }
 
-  await applyBundleRefreshes(projectRoot, bundleIdsToRefresh);
-
-  report = await buildInstallRefreshReport(
-    projectRoot,
-    hosts,
-    refreshPolicy,
+  await writeInstallRefreshState(projectRoot, previousRefreshState, report, {
+    policy: refreshPolicy,
+    intervalMs: refreshIntervalMs,
     refreshedMirrorState,
+    applied,
+  });
+}
+
+async function loadInstallRefreshState(
+  projectRoot: string,
+): Promise<InstallRefreshState | null> {
+  return readJsonFileOrNull<InstallRefreshState>(
+    join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH),
+    assertInstallRefreshState,
   );
-  await writeJsonFile(join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH), report);
-  printInstallRefreshReport(projectRoot, report, true);
+}
+
+function isInstallRefreshDue(
+  previousState: InstallRefreshState | null,
+  refreshPolicy: InstallRefreshPolicy,
+  intervalMs: number,
+): boolean {
+  if (!previousState) {
+    return true;
+  }
+  if (
+    previousState.policy !== refreshPolicy ||
+    previousState.intervalMs !== intervalMs
+  ) {
+    return true;
+  }
+
+  const nextCheckAtMs = Date.parse(previousState.nextCheckAt);
+  if (!Number.isFinite(nextCheckAtMs)) {
+    return true;
+  }
+
+  return nextCheckAtMs <= Date.now();
+}
+
+async function writeInstallRefreshState(
+  projectRoot: string,
+  previousState: InstallRefreshState | null,
+  report: InstallRefreshReport,
+  options: {
+    policy: InstallRefreshPolicy;
+    intervalMs: number;
+    refreshedMirrorState: boolean;
+    applied: boolean;
+  },
+): Promise<void> {
+  const updatedAt = new Date().toISOString();
+  const staleCount = report.hosts.reduce((count, host) => count + host.staleCount, 0);
+  const applyEligibleCount = report.hosts.reduce(
+    (count, host) =>
+      count +
+      host.assets.filter((asset) => asset.policyDecision === "apply").length,
+    0,
+  );
+  await writeJsonFile(join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH), {
+    schemaVersion: 1,
+    updatedAt,
+    policy: options.policy,
+    intervalMs: options.intervalMs,
+    nextCheckAt: new Date(Date.now() + options.intervalMs).toISOString(),
+    lastAppliedAt: options.applied
+      ? updatedAt
+      : previousState?.lastAppliedAt,
+    refreshedMirrorState: options.refreshedMirrorState,
+    staleCount,
+    applyEligibleCount,
+  } satisfies InstallRefreshState);
 }
 
 function parseInstallHost(value: string | undefined): (typeof INSTALL_HOSTS)[number] | undefined {
@@ -369,6 +481,93 @@ function decideInstallRefreshPolicy(
     return "plan";
   }
   return "apply";
+}
+
+function collectNativeRefreshExtensionIds(
+  report: InstallRefreshReport,
+): Map<string, string[]> {
+  const extensionIdsByHost = new Map<string, Set<string>>();
+
+  for (const host of report.hosts) {
+    for (const asset of host.assets) {
+      if (
+        asset.status !== "stale" ||
+        asset.policyDecision !== "apply" ||
+        !asset.nativeInstall?.extensionId
+      ) {
+        continue;
+      }
+
+      const hostExtensionIds =
+        extensionIdsByHost.get(host.host) ?? new Set<string>();
+      hostExtensionIds.add(asset.nativeInstall.extensionId);
+      extensionIdsByHost.set(host.host, hostExtensionIds);
+    }
+  }
+
+  return new Map(
+    [...extensionIdsByHost.entries()].map(([host, extensionIds]) => [
+      host,
+      [...extensionIds].sort((left, right) => left.localeCompare(right)),
+    ]),
+  );
+}
+
+async function applyNativeRefreshes(
+  projectRoot: string,
+  extensionIdsByHost: Map<string, string[]>,
+): Promise<void> {
+  for (const [host, extensionIds] of extensionIdsByHost) {
+    if (extensionIds.length === 0) {
+      continue;
+    }
+
+    const adapter = resolveHostAdapter(host);
+    if (!adapter?.nativeInstall || !adapter.runtime?.executable) {
+      throw new Error(
+        `Install refresh cannot apply native updates for host '${host}' because no native install provider is configured.`,
+      );
+    }
+
+    const diagnostics = await runNativeInstallPreflight(adapter);
+    if (diagnostics.length > 0) {
+      console.log(formatPreflightDiagnostics(diagnostics));
+    }
+    assertNoPreflightErrors(diagnostics);
+
+    const actions = buildExtensionInstallActions({
+      executable: adapter.runtime.executable,
+      extensionIds,
+      host: adapter.id,
+    });
+    if (actions.length !== extensionIds.length) {
+      throw new Error(
+        `Install refresh cannot apply native updates for host '${host}' because one or more extension ids were invalid.`,
+      );
+    }
+
+    const results: NativeInstallResult[] = [];
+    for (const action of actions) {
+      const result = await executeExtensionInstallAction(action, "install");
+      results.push(result);
+      console.log(
+        `${result.success ? "ok" : "failed"}: ${result.message} (${result.extensionId})`,
+      );
+      if (!result.success) {
+        throw new Error(
+          `Native install refresh failed for ${result.extensionId} on ${adapter.displayName}.`,
+        );
+      }
+    }
+
+    await writeJsonFile(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH), {
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      host: adapter.id,
+      operation: "install",
+      results,
+    });
+  }
 }
 
 async function applyBundleRefreshes(

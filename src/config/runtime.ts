@@ -64,6 +64,7 @@ export interface RuntimeConfig {
   };
   install: {
     refreshPolicy: "manual" | "report-only" | "apply-safe";
+    refreshIntervalMs: number;
   };
   http: {
     timeoutMs: number;
@@ -242,6 +243,11 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         ["manual", "report-only", "apply-safe"],
         "manual",
         "AGENT_HARNESS_INSTALL_REFRESH_POLICY",
+      ),
+      refreshIntervalMs: parsePositiveInteger(
+        env.AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS,
+        21_600_000,
+        "AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS",
       ),
     },
     http: {

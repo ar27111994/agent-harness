@@ -2,6 +2,7 @@ import type {
   InstallGenerationManifest,
   InstallProgressState,
   InstallRefreshReport,
+  InstallRefreshState,
   InstalledBundleManifest,
   InstalledPackageManifest,
 } from "../types.js";
@@ -306,4 +307,32 @@ export function assertInstallRefreshReport(
       },
     );
   });
+}
+
+/**
+ * Validates unknown data as install refresh scheduling state.
+ */
+export function assertInstallRefreshState(
+  value: unknown,
+  context: string,
+): asserts value is InstallRefreshState {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  if (record.schemaVersion !== 1) {
+    throw new Error(`${context}.schemaVersion must be 1`);
+  }
+  assertString(record.updatedAt, `${context}.updatedAt`);
+  assertLiteral(
+    record.policy,
+    ["manual", "report-only", "apply-safe"],
+    `${context}.policy`,
+  );
+  assertNumber(record.intervalMs, `${context}.intervalMs`);
+  assertString(record.nextCheckAt, `${context}.nextCheckAt`);
+  if (record.lastAppliedAt !== undefined) {
+    assertString(record.lastAppliedAt, `${context}.lastAppliedAt`);
+  }
+  assertBoolean(record.refreshedMirrorState, `${context}.refreshedMirrorState`);
+  assertNumber(record.staleCount, `${context}.staleCount`);
+  assertNumber(record.applyEligibleCount, `${context}.applyEligibleCount`);
 }

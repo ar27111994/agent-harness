@@ -71,5 +71,6 @@ Native install options:
 Install refresh options:
   --host <copilot-vscode|opencode|shared>
   --apply     Apply eligible stale bundle refreshes after reporting
+  --due-only  Skip the run unless the persisted refresh interval says a check is due
   --no-mirror-refresh   Skip the explicit mirror refresh step and report from current local state only`);
 }

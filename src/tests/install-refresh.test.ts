@@ -4,16 +4,28 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
+import {
+  pathExists,
+  readJsonFile,
+  writeJsonFile,
+  writeJsonLinesFile,
+} from "../files.js";
 import { manageInstallRefresh } from "../install/refresh.js";
-import { INSTALL_REFRESH_REPORT_OUTPUT_PATH } from "../install/paths.js";
-import { assertInstallRefreshReport } from "../manifest-validation.js";
+import {
+  INSTALL_REFRESH_REPORT_OUTPUT_PATH,
+  INSTALL_REFRESH_STATE_OUTPUT_PATH,
+} from "../install/paths.js";
+import {
+  assertInstallRefreshReport,
+  assertInstallRefreshState,
+} from "../manifest-validation.js";
 import { sanitizeMirrorId } from "../mirror/paths.js";
 import type {
   AssetCatalogEntry,
   BundleLock,
   InstallGenerationManifest,
   InstallRefreshReport,
+  InstallRefreshState,
   InstalledPackageManifest,
   MirrorIndexEntry,
 } from "../types.js";
@@ -218,6 +230,10 @@ void test("install refresh reports stale assets when bundle locks move to a new 
       join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH),
       assertInstallRefreshReport,
     );
+    const refreshState = await readJsonFile<InstallRefreshState>(
+      join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH),
+      assertInstallRefreshState,
+    );
     const hostReport = report.hosts.find(
       (host) => host.host === "copilot-vscode",
     );
@@ -228,6 +244,48 @@ void test("install refresh reports stale assets when bundle locks move to a new 
     assert.equal(hostReport?.staleCount, 1);
     assert.equal(assetReport?.status, "stale");
     assert.equal(assetReport?.latestMirrorId, "sha256-new");
+    assert.equal(refreshState.policy, "manual");
+    assert.equal(refreshState.staleCount, 1);
+    assert.equal(refreshState.applyEligibleCount, 0);
+    assert.ok(
+      Date.parse(refreshState.nextCheckAt) > Date.parse(refreshState.updatedAt),
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("install refresh due-only skips runs before the next scheduled check", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-refresh-"),
+  );
+  const refreshStatePath = join(
+    projectRoot,
+    ...INSTALL_REFRESH_STATE_OUTPUT_PATH,
+  );
+  const reportPath = join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH);
+  const futureNextCheckAt = new Date(Date.now() + 60_000).toISOString();
+
+  try {
+    await writeJsonFile(refreshStatePath, {
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      policy: "manual",
+      intervalMs: 21_600_000,
+      nextCheckAt: futureNextCheckAt,
+      refreshedMirrorState: false,
+      staleCount: 0,
+      applyEligibleCount: 0,
+    } satisfies InstallRefreshState);
+
+    await manageInstallRefresh(projectRoot, projectRoot, ["--due-only"]);
+
+    assert.equal(await pathExists(reportPath), false);
+    const refreshState = await readJsonFile<InstallRefreshState>(
+      refreshStatePath,
+      assertInstallRefreshState,
+    );
+    assert.equal(refreshState.nextCheckAt, futureNextCheckAt);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
