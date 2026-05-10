@@ -69,6 +69,48 @@ void test("ai enrichment input artifact applies limits and redactions", () => {
   assert.equal(input.fingerprints.configSha256, "config-sha");
 });
 
+void test("ai enrichment validators accept nullable fingerprint hashes", () => {
+  const config = loadRuntimeConfig({
+    HOME: "/home/tester",
+    AGENT_HARNESS_AI_ENRICHMENT_MODE: "manual",
+  }).aiEnrichment;
+  const input = buildAiEnrichmentInputArtifact({
+    config,
+    demandProfile: buildDemandProfile(),
+    demandProfileHash: null,
+    selectedCatalogHash: null,
+    selectedEntries: [],
+    trigger: "after-workspace",
+    explicit: false,
+    interactive: false,
+    ci: false,
+    configHash: "config-sha",
+  });
+  const report = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    enabled: false,
+    mode: input.mode,
+    trigger: input.trigger,
+    explicit: input.explicit,
+    interactive: input.interactive,
+    ci: input.ci,
+    providerOrigin: input.providerOrigin,
+    model: input.model,
+    status: "skipped" as const,
+    inputSha256: input.fingerprints.inputSha256,
+    fingerprints: {
+      demandProfileSha256: null,
+      selectedCatalogSha256: null,
+      configSha256: input.fingerprints.configSha256,
+    },
+    reason: "AI enrichment was explicitly disabled for this run.",
+  };
+
+  assert.doesNotThrow(() => assertAiEnrichmentInput(input, "input"));
+  assert.doesNotThrow(() => assertAiEnrichmentReport(report, "report"));
+});
+
 void test("explicit ai enrichment writes a disabled artifact when config is missing", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
 

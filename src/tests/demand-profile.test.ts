@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import {
   getDemandEvidenceStrength,
   shouldInspectFile,
@@ -741,6 +742,87 @@ void test("demand profiles ignore planning templates and keep evidence strength 
       profile.evidence.find((entry) => entry.path === "package.json")
         ?.evidenceStrength,
       "strong",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("demand profiles prioritize root manifests before nested docs when scan budgets truncate", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-priority-"));
+  const previousMaxBytes = process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+
+  try {
+    process.env.AGENT_HARNESS_SCAN_MAX_BYTES = "4096";
+    clearRuntimeConfigForTests();
+
+    await writeFixtureFiles(root, [
+      {
+        path: "pubspec.yaml",
+        content:
+          "name: interact_note\ndependencies:\n  flutter:\n    sdk: flutter\n  firebase_core: ^3.0.0\ndev_dependencies:\n  flutter_test:\n    sdk: flutter\n",
+      },
+      {
+        path: "agent-docs/skills/doc-1/SKILL.md",
+        content: `${"# Skill\n"}${"docs \n".repeat(1500)}`,
+      },
+      {
+        path: "agent-docs/skills/doc-2/SKILL.md",
+        content: `${"# Skill\n"}${"research \n".repeat(1500)}`,
+      },
+    ]);
+
+    const profile = await buildDemandProfile(root);
+
+    assert.equal(profile.summary.scanTruncated, true);
+    assert.ok(profile.signals.languages.includes("dart"));
+    assert.ok(profile.signals.frameworks.includes("flutter"));
+    assert.ok(profile.signals.packageManagers.includes("pub"));
+    assert.ok(
+      profile.evidence.some((entry) => entry.path === "pubspec.yaml"),
+      "expected pubspec.yaml evidence to survive truncation",
+    );
+  } finally {
+    if (previousMaxBytes === undefined) {
+      delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+    } else {
+      process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+    }
+    clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("demand profiles ignore agent metadata directories by default", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-ignore-"));
+
+  try {
+    await writeFixtureFiles(root, [
+      {
+        path: "pubspec.yaml",
+        content:
+          "name: interact_note\ndependencies:\n  flutter:\n    sdk: flutter\n",
+      },
+      {
+        path: ".agent/skills/python-docs/SKILL.md",
+        content:
+          "# Python docs\nUse deepeval, pytest, and google-genai for AI research workflows.\n",
+      },
+      {
+        path: ".specify/extensions/python-docs/README.md",
+        content:
+          "Document deepeval, pytest, pyyaml, and google-genai for AI research workflows.\n",
+      },
+    ]);
+
+    const profile = await buildDemandProfile(root);
+
+    assert.ok(profile.signals.languages.includes("dart"));
+    assert.ok(profile.signals.frameworks.includes("flutter"));
+    assert.ok(!profile.signals.languages.includes("python"));
+    assert.ok(!profile.signals.tooling.includes("pypi:deepeval"));
+    assert.ok(
+      !profile.evidence.some((entry) => entry.path.startsWith(".agent/")),
     );
   } finally {
     await rm(root, { force: true, recursive: true });

@@ -22,6 +22,7 @@ const FILE_STAT_CONCURRENCY = 16;
  * Defines default ignored directory names shared by the lifecycle pipeline.
  */
 export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
+  ".agent",
   ".git",
   ".idea",
   ".next",
@@ -30,8 +31,10 @@ export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   ".agent-harness",
   ".claude",
   ".cursor",
+  ".dart_tool",
   ".opencode",
   ".pi",
+  ".specify",
   ".zed",
   "activate",
   "build",
@@ -620,6 +623,7 @@ async function collectFilesFromDirectory(
   const collectedFiles: string[] = [];
   const fileEntries: Array<{ entryPath: string; relativeEntryPath: string }> =
     [];
+  const directoryEntries: Array<{ entryPath: string }> = [];
 
   for (const entry of entries) {
     if (telemetry.truncated) {
@@ -645,21 +649,7 @@ async function collectFilesFromDirectory(
         continue;
       }
 
-      if (depth + 1 > budgetOptions.maxDepth) {
-        telemetry.truncationReason ??= "max-depth";
-        continue;
-      }
-
-      const nestedFiles = await collectFilesFromDirectory(
-        rootPath,
-        entryPath,
-        ignoredDirectoryNames,
-        ignorePatterns,
-        budgetOptions,
-        telemetry,
-        depth + 1,
-      );
-      collectedFiles.push(...nestedFiles);
+      directoryEntries.push({ entryPath });
       continue;
     }
 
@@ -711,6 +701,28 @@ async function collectFilesFromDirectory(
     }
 
     collectedFiles.push(fileStat.entryPath);
+  }
+
+  for (const directoryEntry of directoryEntries) {
+    if (telemetry.truncated) {
+      break;
+    }
+
+    if (depth + 1 > budgetOptions.maxDepth) {
+      telemetry.truncationReason ??= "max-depth";
+      continue;
+    }
+
+    const nestedFiles = await collectFilesFromDirectory(
+      rootPath,
+      directoryEntry.entryPath,
+      ignoredDirectoryNames,
+      ignorePatterns,
+      budgetOptions,
+      telemetry,
+      depth + 1,
+    );
+    collectedFiles.push(...nestedFiles);
   }
 
   return collectedFiles;

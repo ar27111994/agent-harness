@@ -31,6 +31,14 @@ import {
   SOURCE_KINDS,
 } from "./primitives.js";
 
+function assertNullableString(value: unknown, context: string): void {
+  if (value === undefined || value === null) {
+    return;
+  }
+
+  assertString(value, context);
+}
+
 const DEMAND_EVIDENCE_STRENGTHS = ["strong", "medium", "weak"] as const;
 const HOST_NATIVE_CONFIG_HOST_KEYS = [
   "opencode",
@@ -374,15 +382,13 @@ export function assertAiEnrichmentInput(
     record.fingerprints,
     `${context}.fingerprints`,
   );
-  assertMaybeString(
+  assertNullableString(
     fingerprints.demandProfileSha256,
     `${context}.fingerprints.demandProfileSha256`,
-    false,
   );
-  assertMaybeString(
+  assertNullableString(
     fingerprints.selectedCatalogSha256,
     `${context}.fingerprints.selectedCatalogSha256`,
-    false,
   );
   assertString(
     fingerprints.configSha256,
@@ -503,15 +509,13 @@ export function assertAiEnrichmentReport(
     record.fingerprints,
     `${context}.fingerprints`,
   );
-  assertMaybeString(
+  assertNullableString(
     fingerprints.demandProfileSha256,
     `${context}.fingerprints.demandProfileSha256`,
-    false,
   );
-  assertMaybeString(
+  assertNullableString(
     fingerprints.selectedCatalogSha256,
     `${context}.fingerprints.selectedCatalogSha256`,
-    false,
   );
   assertString(
     fingerprints.configSha256,

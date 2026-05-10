@@ -843,6 +843,9 @@ void test("native adapters synthesize structured host config surfaces and reset 
       workspaceRoot: sharedWorkspaceRoot,
       mode: "reset",
     });
+    await assert.rejects(stat(join(sharedWorkspaceRoot, ".zed")), {
+      code: "ENOENT",
+    });
 
     const claudeAdapter = resolveHostAdapter("claude-code");
     assert.ok(claudeAdapter);

@@ -1,5 +1,5 @@
-import { rename } from "node:fs/promises";
-import { join } from "node:path";
+import { readdir, rename } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 
 import {
   ensureDirectory,
@@ -910,6 +910,7 @@ async function resetNativeHost(
       );
       await removeManagedZedSettings(
         join(workspaceRoot, ".zed", "settings.json"),
+        workspaceRoot,
       );
       return;
     case "claude-code":
@@ -969,6 +970,27 @@ async function resetNativeHost(
       );
       await removeManagedPiSettings(
         join(workspaceRoot, ".pi", "settings.json"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "extensions"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "packages"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "skills"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "prompts"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi"),
+        workspaceRoot,
       );
       return;
   }
@@ -1005,6 +1027,7 @@ async function cleanupFailedNativeHostApply(
       );
       await removeManagedZedSettings(
         join(workspaceRoot, ".zed", "settings.json"),
+        workspaceRoot,
       );
       return;
     case "claude-code":
@@ -1064,6 +1087,27 @@ async function cleanupFailedNativeHostApply(
       );
       await removeManagedPiSettings(
         join(workspaceRoot, ".pi", "settings.json"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "extensions"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "packages"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "skills"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi", "prompts"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".pi"),
+        workspaceRoot,
       );
       return;
   }
@@ -1229,7 +1273,10 @@ function describeJsonValue(value: unknown): string {
   return value === null ? "null" : typeof value;
 }
 
-async function removeManagedZedSettings(filePath: string): Promise<void> {
+async function removeManagedZedSettings(
+  filePath: string,
+  workspaceRoot: string,
+): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings = asJsonObject(existingValue);
   if (!settings) {
@@ -1248,7 +1295,7 @@ async function removeManagedZedSettings(filePath: string): Promise<void> {
     delete settings.agent;
   }
 
-  await writeOrRemoveJsonFile(filePath, settings);
+  await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
 }
 
 async function upsertManagedPiSettings(filePath: string): Promise<void> {
@@ -1265,7 +1312,10 @@ async function upsertManagedPiSettings(filePath: string): Promise<void> {
   await writeOrRemoveJsonFile(filePath, settings);
 }
 
-async function removeManagedPiSettings(filePath: string): Promise<void> {
+async function removeManagedPiSettings(
+  filePath: string,
+  workspaceRoot: string,
+): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings = asJsonObject(existingValue);
   if (!settings) {
@@ -1278,19 +1328,54 @@ async function removeManagedPiSettings(filePath: string): Promise<void> {
   ]);
   delete settings.agentHarness;
 
-  await writeOrRemoveJsonFile(filePath, settings);
+  await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
 }
 
 async function writeOrRemoveJsonFile(
   filePath: string,
   value: JsonObject,
+  cleanupRoot?: string,
 ): Promise<void> {
   if (Object.keys(value).length === 0) {
     await removePath(filePath);
+    if (cleanupRoot) {
+      await removeEmptyParentDirectories(dirname(filePath), cleanupRoot);
+    }
     return;
   }
 
   await writeJsonFile(filePath, value);
+}
+
+async function removeEmptyParentDirectories(
+  startDirectory: string,
+  stopDirectory: string,
+): Promise<void> {
+  const boundary = resolve(stopDirectory);
+  let currentDirectory = resolve(startDirectory);
+
+  while (currentDirectory !== boundary) {
+    let entries: string[];
+    try {
+      entries = await readdir(currentDirectory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+
+    if (entries.length > 0) {
+      return;
+    }
+
+    await removePath(currentDirectory);
+    const parentDirectory = dirname(currentDirectory);
+    if (parentDirectory === currentDirectory) {
+      return;
+    }
+    currentDirectory = parentDirectory;
+  }
 }
 
 function buildManagedInstructionLines(options: {
