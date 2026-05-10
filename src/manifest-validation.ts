@@ -20,6 +20,8 @@ export {
   assertMirrorPolicy,
 } from "./manifest-validation/mirror.js";
 export {
+  assertRecommendationAiReviewArtifact,
+  assertRecommendationAiReviewInput,
   assertRecommendationHostPolicyOverride,
   assertRecommendationPolicy,
   assertRecommendationPolicyBase,

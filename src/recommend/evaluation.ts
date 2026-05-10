@@ -218,6 +218,30 @@ function evaluateExpectation(
     });
   }
 
+  for (const forbiddenAssetId of expectation.forbiddenAssetIds ?? []) {
+    const present = entries.some((entry) => entry.assetId === forbiddenAssetId);
+    checks.push({
+      name: `${expectation.host}-forbids-${forbiddenAssetId}`,
+      passed: !present,
+      details: present
+        ? `unexpectedly present in ${expectation.host}`
+        : "absent",
+    });
+  }
+
+  for (const forbiddenAssetId of expectation.forbiddenTopAssetIds ?? []) {
+    const present = entries
+      .slice(0, 10)
+      .some((entry) => entry.assetId === forbiddenAssetId);
+    checks.push({
+      name: `${expectation.host}-forbids-top-${forbiddenAssetId}`,
+      passed: !present,
+      details: present
+        ? `unexpectedly present in top 10 for ${expectation.host}`
+        : "absent from top 10",
+    });
+  }
+
   for (const requiredKind of expectation.requiredAssetKinds ?? []) {
     const actualCount = entries.filter(
       (entry) => entry.assetKind === requiredKind.assetKind,

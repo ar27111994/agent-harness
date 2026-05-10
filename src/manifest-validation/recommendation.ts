@@ -610,3 +610,203 @@ function assertRecommendationScoreBreakdown(
   assertNumber(record.budgetPenalty, `${context}.budgetPenalty`);
   assertNumber(record.total, `${context}.total`);
 }
+
+/**
+ * Validates unknown data as recommendation AI review input.
+ */
+export function assertRecommendationAiReviewInput(
+  value: unknown,
+  context: string,
+): void {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertNumber(record.policyVersion, `${context}.policyVersion`);
+  assertNumber(record.reviewLimit, `${context}.reviewLimit`);
+  if (record.demandSignals !== null) {
+    const demandSignals = assertRecord(
+      record.demandSignals,
+      `${context}.demandSignals`,
+    );
+    assertStringArray(
+      demandSignals.languages,
+      `${context}.demandSignals.languages`,
+    );
+    assertStringArray(
+      demandSignals.packageManagers,
+      `${context}.demandSignals.packageManagers`,
+    );
+    assertStringArray(
+      demandSignals.frameworks,
+      `${context}.demandSignals.frameworks`,
+    );
+    assertStringArray(
+      demandSignals.concerns,
+      `${context}.demandSignals.concerns`,
+    );
+    assertStringArray(
+      demandSignals.tooling,
+      `${context}.demandSignals.tooling`,
+    );
+  }
+  assertStringArray(record.reviewedHosts, `${context}.reviewedHosts`);
+  assertArray(record.hosts, `${context}.hosts`).forEach(
+    (hostEntry, hostIndex) => {
+      const hostRecord = assertRecord(
+        hostEntry,
+        `${context}.hosts[${hostIndex}]`,
+      );
+      assertHostTarget(hostRecord.host, `${context}.hosts[${hostIndex}].host`);
+      assertArray(
+        hostRecord.candidates,
+        `${context}.hosts[${hostIndex}].candidates`,
+      ).forEach((candidate, candidateIndex) => {
+        const candidateRecord = assertRecord(
+          candidate,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}]`,
+        );
+        assertString(
+          candidateRecord.assetId,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].assetId`,
+        );
+        assertHostTarget(
+          candidateRecord.host,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].host`,
+        );
+        assertNumber(
+          candidateRecord.rank,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].rank`,
+        );
+        assertNumber(
+          candidateRecord.score,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].score`,
+        );
+        assertString(
+          candidateRecord.sourceFamily,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].sourceFamily`,
+        );
+        assertBoolean(
+          candidateRecord.availableLocally,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].availableLocally`,
+        );
+        assertLiteral(
+          candidateRecord.recommendationBasis,
+          ["workspace-fit", "local-availability"],
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].recommendationBasis`,
+        );
+        assertStringArray(
+          candidateRecord.coverageTags,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].coverageTags`,
+        );
+        assertStringArray(
+          candidateRecord.taskModes,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].taskModes`,
+        );
+        assertStringArray(
+          candidateRecord.reasons,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].reasons`,
+        );
+        assertArray(
+          candidateRecord.matchedSignals,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].matchedSignals`,
+        );
+        assertRecommendationScoreBreakdown(
+          candidateRecord.scoreBreakdown,
+          `${context}.hosts[${hostIndex}].candidates[${candidateIndex}].scoreBreakdown`,
+        );
+      });
+    },
+  );
+}
+
+/**
+ * Validates unknown data as recommendation AI review artifact.
+ */
+export function assertRecommendationAiReviewArtifact(
+  value: unknown,
+  context: string,
+): void {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertBoolean(record.enabled, `${context}.enabled`);
+  assertLiteral(
+    record.status,
+    ["disabled", "completed", "failed"],
+    `${context}.status`,
+  );
+  assertMaybeString(record.provider, `${context}.provider`, false);
+  assertMaybeString(record.model, `${context}.model`, false);
+  assertStringArray(record.reviewedHosts, `${context}.reviewedHosts`);
+  assertArray(record.hostReviews, `${context}.hostReviews`).forEach(
+    (hostReview, hostIndex) => {
+      const hostRecord = assertRecord(
+        hostReview,
+        `${context}.hostReviews[${hostIndex}]`,
+      );
+      assertHostTarget(
+        hostRecord.host,
+        `${context}.hostReviews[${hostIndex}].host`,
+      );
+      assertStringArray(
+        hostRecord.acceptedAssetIds,
+        `${context}.hostReviews[${hostIndex}].acceptedAssetIds`,
+      );
+      assertStringArray(
+        hostRecord.suppressedAssetIds,
+        `${context}.hostReviews[${hostIndex}].suppressedAssetIds`,
+      );
+      assertArray(
+        hostRecord.questionable,
+        `${context}.hostReviews[${hostIndex}].questionable`,
+      ).forEach((entry, entryIndex) =>
+        assertRecommendationAiReviewNote(
+          entry,
+          `${context}.hostReviews[${hostIndex}].questionable[${entryIndex}]`,
+        ),
+      );
+      assertArray(
+        hostRecord.rerank,
+        `${context}.hostReviews[${hostIndex}].rerank`,
+      ).forEach((entry, entryIndex) => {
+        const rerank = assertRecord(
+          entry,
+          `${context}.hostReviews[${hostIndex}].rerank[${entryIndex}]`,
+        );
+        assertString(
+          rerank.assetId,
+          `${context}.hostReviews[${hostIndex}].rerank[${entryIndex}].assetId`,
+        );
+        assertNumber(
+          rerank.delta,
+          `${context}.hostReviews[${hostIndex}].rerank[${entryIndex}].delta`,
+        );
+        assertString(
+          rerank.reason,
+          `${context}.hostReviews[${hostIndex}].rerank[${entryIndex}].reason`,
+        );
+        assertLiteral(
+          rerank.confidence,
+          ["low", "medium", "high"],
+          `${context}.hostReviews[${hostIndex}].rerank[${entryIndex}].confidence`,
+        );
+      });
+    },
+  );
+  assertMaybeStringArray(record.warnings, `${context}.warnings`, false);
+  assertMaybeString(record.error, `${context}.error`, false);
+}
+
+function assertRecommendationAiReviewNote(
+  value: unknown,
+  context: string,
+): void {
+  const record = assertRecord(value, context);
+  assertString(record.assetId, `${context}.assetId`);
+  assertString(record.reason, `${context}.reason`);
+  assertLiteral(
+    record.confidence,
+    ["low", "medium", "high"],
+    `${context}.confidence`,
+  );
+}

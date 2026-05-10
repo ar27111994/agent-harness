@@ -27,6 +27,8 @@ export interface DemandContext {
   terms: DemandTermContext[];
   hasSignals: boolean;
   activeDomainGroups: Set<string>;
+  packageManifestEntries: Set<string>;
+  demandKeywords: Set<string>;
 }
 
 /**

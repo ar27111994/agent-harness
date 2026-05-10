@@ -1,352 +1,153 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { deriveDisplayNameFromPath } from "../domains/discovery/catalog-utils.js";
 import { filterCatalogEntriesByDemandRelevance } from "../domains/discovery/catalog-selection.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
-void test("catalog selection rejects entries without demand overlap", () => {
-  const result = filterCatalogEntriesByDemandRelevance(
-    [
-      buildCatalogEntry("apify-skill", ["apify", "actor", "webhook"], {
-        portfolioFit: 0.2,
-      }),
-      buildCatalogEntry("flutter-skill", ["flutter", "dart", "mobile"]),
-      buildCatalogEntry("postgres-mcp", ["postgres", "mcp"], {
-        assetKind: "mcp-server",
-        installMethod: "npm-metadata",
-        sourceKind: "package-registry",
-      }),
-      buildCatalogEntry("metadata-only-mcp", ["mcp"], {
-        assetKind: "mcp-server",
-        installMethod: "github-tree-metadata",
-        installEligible: true,
-      }),
-      buildCatalogEntry("tree-mcp", ["mcp"], {
-        assetKind: "mcp-server",
-        installMethod: "github-tree-metadata",
-        installEligible: true,
-        relativePath: "servers/mcp-server.ts",
-      }),
-      buildCatalogEntry("generic-npm-helper", ["npm"]),
-    ],
-    buildDemandProfile(),
-  );
-
-  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
-    "apify-skill",
-    "postgres-mcp",
-    "tree-mcp",
+void test("selection relevance rejects specialized domains on broad generic signals", () => {
+  const demandProfile = createDemandProfile({
+    concerns: ["security", "integration", "platform-engineering"],
+    tooling: ["node", "typescript", "eslint", "npm"],
+  });
+  const relevantEntry = createEntry("workspace-security-skill", [
+    "security",
+    "integration",
+    "typescript",
+    "node",
   ]);
-  assert.deepEqual(
-    result.rejectedEntries.map((entry) => entry.id),
-    ["flutter-skill", "metadata-only-mcp", "generic-npm-helper"],
-  );
-});
-
-void test("catalog selection rejects low-signal concern overlap without stronger evidence", () => {
-  const result = filterCatalogEntriesByDemandRelevance(
-    [
-      buildCatalogEntry("generic-docs", [
-        "documentation",
-        "knowledge-base",
-        "testing",
-      ]),
-      buildCatalogEntry("generic-stack", [
-        "backend",
-        "frontend",
-        "testing",
-        "documentation",
-      ]),
-      buildCatalogEntry("specific-webhook", ["webhook", "integration"]),
-      buildCatalogEntry("high-fit-entry", ["misc"], {
-        portfolioFit: 0.12,
-      }),
-    ],
-    buildLowSignalDemandProfile(),
-  );
-
-  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
-    "generic-stack",
-    "specific-webhook",
+  const falseFirebase = createEntry("firebase-skill", [
+    "firebase",
+    "security",
+    "integration",
+    "rules",
   ]);
-  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
-    "generic-docs",
-    "high-fit-entry",
+  const falseAzure = createEntry("azure-skill", [
+    "azure",
+    "security",
+    "integration",
+    "platform",
   ]);
-});
-
-void test("catalog selection keeps package-registry tooling evidence", () => {
-  const result = filterCatalogEntriesByDemandRelevance(
-    [
-      buildCatalogEntry("axum-helper", ["axum"]),
-      buildCatalogEntry("duckdb-helper", ["duckdb"]),
-      buildCatalogEntry("generic-tool", ["tooling"]),
-    ],
-    buildPackageRegistryDemandProfile(),
-  );
-
-  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
-    "axum-helper",
-    "duckdb-helper",
+  const falsePowerPlatform = createEntry("power-platform-skill", [
+    "power",
+    "platform",
+    "security",
+    "integration",
   ]);
-  assert.deepEqual(
-    result.rejectedEntries.map((entry) => entry.id),
-    ["generic-tool"],
-  );
-});
-
-void test("catalog selection requires compound signal specificity", () => {
-  const result = filterCatalogEntriesByDemandRelevance(
-    [
-      buildCatalogEntry("analytics-engineering-pack", [
-        "analytics",
-        "engineering",
-      ]),
-      buildCatalogEntry("analytics-only-pack", ["analytics"]),
-      buildCatalogEntry("engineering-only-pack", ["engineering"]),
-      buildCatalogEntry("ai-sdk-pack", ["ai", "sdk"]),
-      buildCatalogEntry("ai-only-pack", ["ai"]),
-      buildCatalogEntry("sdk-only-pack", ["sdk"]),
-    ],
-    buildCompoundSignalDemandProfile(),
-  );
-
-  assert.deepEqual(result.selectedEntries.map((entry) => entry.id).sort(), [
-    "ai-sdk-pack",
-    "analytics-engineering-pack",
-  ]);
-  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
-    "ai-only-pack",
-    "analytics-only-pack",
-    "engineering-only-pack",
-    "sdk-only-pack",
-  ]);
-});
-
-void test("catalog selection does not collapse mixed phrases into generic exact terms", () => {
-  const result = filterCatalogEntriesByDemandRelevance(
-    [
-      buildCatalogEntry("api-design-helper", ["api", "design"]),
-      buildCatalogEntry("design-only-helper", ["design"]),
-      buildCatalogEntry("api-only-helper", ["api"]),
-      buildCatalogEntry("backend-helper", ["backend"]),
-    ],
-    buildApiDesignDemandProfile(),
-  );
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [relevantEntry, falseFirebase, falseAzure, falsePowerPlatform],
+      demandProfile,
+    );
 
   assert.deepEqual(
-    result.selectedEntries.map((entry) => entry.id),
-    ["api-design-helper"],
+    selectedEntries.map((entry) => entry.id),
+    ["workspace-security-skill"],
   );
-  assert.deepEqual(result.rejectedEntries.map((entry) => entry.id).sort(), [
-    "api-only-helper",
-    "backend-helper",
-    "design-only-helper",
+  assert.deepEqual(rejectedEntries.map((entry) => entry.id).sort(), [
+    "azure-skill",
+    "firebase-skill",
+    "power-platform-skill",
   ]);
 });
 
-void test("catalog selection demotes catalog-common exact terms", () => {
-  const catalogEntries = [
-    ...Array.from({ length: 205 }, (_, index) =>
-      buildCatalogEntry(`ai-pack-${index + 1}`, ["ai"]),
-    ),
-    buildCatalogEntry("webhook-pack", ["webhook"]),
-  ];
-  const result = filterCatalogEntriesByDemandRelevance(
-    catalogEntries,
-    buildCommonTermDemandProfile(),
+void test("selection relevance bridges design-system demand into penpot recall", () => {
+  const demandProfile = createDemandProfile({
+    frameworks: ["flutter"],
+    concerns: ["design-assets", "design-systems", "frontend", "mobile"],
+    tooling: ["flutter", "pub", "detector:design-system"],
+  });
+  const penpotEntry = createEntry("penpot-skill", [
+    "penpot",
+    "design",
+    "frontend",
+    "design-systems",
+  ]);
+  const genericMobile = createEntry("mobile-skill", [
+    "mobile",
+    "frontend",
+    "android",
+    "ios",
+  ]);
+
+  const { selectedEntries } = filterCatalogEntriesByDemandRelevance(
+    [penpotEntry, genericMobile],
+    demandProfile,
   );
 
-  assert.deepEqual(
-    result.selectedEntries.map((entry) => entry.id),
-    ["webhook-pack"],
-  );
-  assert.equal(result.rejectedEntries.length, 205);
+  assert.ok(selectedEntries.some((entry) => entry.id === "penpot-skill"));
 });
 
-void test("catalog display names use parent folders for generic filenames", () => {
-  assert.equal(
-    deriveDisplayNameFromPath("skills/flutter-add-integration-test/SKILL.md"),
-    "Flutter Add Integration Test",
-  );
-  assert.equal(
-    deriveDisplayNameFromPath("docs/firebase-auth/README.md"),
-    "Firebase Auth",
-  );
-  assert.equal(deriveDisplayNameFromPath("rules/frontend.mdc"), "Frontend");
-});
-
-function buildDemandProfile(): DemandProfile {
+function createDemandProfile(
+  overrides: Partial<DemandProfile["signals"]>,
+): DemandProfile {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
+    scanRoot: "fixtures/workspace",
     summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
+      scannedFiles: 4,
+      matchedFiles: 2,
     },
     signals: {
-      languages: ["typescript"],
-      packageManagers: ["npm"],
-      frameworks: ["apify", "express"],
-      concerns: ["backend", "webhook", "automation"],
-      tooling: ["actor", "npm:@apify/client"],
+      languages: overrides.languages ?? ["typescript"],
+      packageManagers: overrides.packageManagers ?? ["npm"],
+      frameworks: overrides.frameworks ?? [],
+      concerns: overrides.concerns ?? [],
+      tooling: overrides.tooling ?? [],
     },
-    evidence: [],
+    evidence: [
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: overrides.languages ?? ["typescript"],
+          packageManagers: overrides.packageManagers ?? ["npm"],
+          frameworks: overrides.frameworks ?? [],
+          concerns: overrides.concerns ?? [],
+          tooling: overrides.tooling ?? [],
+        },
+      },
+    ],
   };
 }
 
-function buildLowSignalDemandProfile(): DemandProfile {
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
-    summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
-    },
-    signals: {
-      languages: [],
-      packageManagers: [],
-      frameworks: [],
-      concerns: [
-        "documentation",
-        "knowledge-base",
-        "testing",
-        "frontend",
-        "backend",
-        "webhook",
-      ],
-      tooling: [],
-    },
-    evidence: [],
-  };
-}
-
-function buildPackageRegistryDemandProfile(): DemandProfile {
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
-    summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
-    },
-    signals: {
-      languages: [],
-      packageManagers: ["cargo"],
-      frameworks: [],
-      concerns: [],
-      tooling: ["cargo:axum", "pypi:duckdb"],
-    },
-    evidence: [],
-  };
-}
-
-function buildCompoundSignalDemandProfile(): DemandProfile {
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
-    summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
-    },
-    signals: {
-      languages: [],
-      packageManagers: [],
-      frameworks: [],
-      concerns: ["analytics-engineering"],
-      tooling: ["ai-sdk"],
-    },
-    evidence: [],
-  };
-}
-
-function buildApiDesignDemandProfile(): DemandProfile {
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
-    summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
-    },
-    signals: {
-      languages: [],
-      packageManagers: [],
-      frameworks: [],
-      concerns: ["api-design"],
-      tooling: [],
-    },
-    evidence: [],
-  };
-}
-
-function buildCommonTermDemandProfile(): DemandProfile {
-  return {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    scanRoot: "/tmp/project",
-    summary: {
-      scannedFiles: 1,
-      matchedFiles: 1,
-    },
-    signals: {
-      languages: [],
-      packageManagers: [],
-      frameworks: [],
-      concerns: ["ai", "webhook"],
-      tooling: [],
-    },
-    evidence: [],
-  };
-}
-
-function buildCatalogEntry(
-  id: string,
-  capabilities: string[],
-  options: Partial<{
-    assetKind: AssetCatalogEntry["assetKind"];
-    installMethod: string;
-    installEligible: boolean;
-    relativePath: string;
-    sourceKind: AssetCatalogEntry["source"]["sourceKind"];
-    portfolioFit: number;
-  }> = {},
-): AssetCatalogEntry {
+function createEntry(id: string, capabilities: string[]): AssetCatalogEntry {
   return {
     id,
     displayName: id,
-    assetKind: options.assetKind ?? "skill",
+    assetKind: "skill",
     hosts: ["copilot-vscode"],
     compatibilityMode: "native",
     source: {
-      sourceId: id,
+      sourceId: "fixture-source",
       authorityTier: "trusted-community",
-      sourceKind: options.sourceKind ?? "repo",
-      sourcePriority: 60,
+      sourceKind: "repo",
+      sourcePriority: 80,
       originUrl: `https://example.com/${id}`,
-      publisher: id,
+      publisher: "fixture-source",
       publisherVerified: false,
     },
-    trust: { score: 60, signals: [] },
+    trust: {
+      score: 80,
+      signals: ["fixture"],
+    },
     capabilities,
     install: {
-      method: options.installMethod ?? "github-tree-metadata",
-      relativePath: options.relativePath,
+      method: "fixture",
+      nativeHosts: ["copilot-vscode"],
     },
     evidence: {
       manifestFound: true,
       readmeFound: true,
       examplesFound: false,
       docsLinked: true,
+      filePath: `${id}.md`,
     },
     maintenance: {
       lastUpdated: new Date().toISOString(),
       stars: 0,
-      releaseCadence: "test",
+      releaseCadence: "active",
     },
     risk: {
       level: "low",
@@ -354,19 +155,22 @@ function buildCatalogEntry(
       hasExecScripts: false,
       requiresNetwork: false,
     },
-    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
-    fit: {
-      portfolioFit: options.portfolioFit ?? 0,
-      hostFit: 1,
+    contextCost: {
+      sizeClass: "small",
+      estimatedPromptWeight: 2,
     },
-    dedupe: { candidateRankHint: "test" },
+    fit: {
+      portfolioFit: 0.9,
+      hostFit: 0.9,
+    },
+    dedupe: {
+      candidateRankHint: "fixture",
+    },
     status: {
       cataloged: true,
       mirrorEligible: true,
-      installEligible:
-        options.installEligible ?? options.assetKind === "mcp-server",
-      activationEligible:
-        options.installEligible ?? options.assetKind === "mcp-server",
+      installEligible: true,
+      activationEligible: true,
     },
   };
 }

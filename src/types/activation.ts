@@ -12,6 +12,14 @@ export interface NativeConfigOperation {
 }
 
 /**
+ * Describes exact pre-apply snapshots for managed text files that must round-trip cleanly on reset.
+ */
+export interface ManagedTextFileSnapshot {
+  path: string;
+  content: string | null;
+}
+
+/**
  * Describes activation manifest data exchanged by the lifecycle pipeline.
  */
 export interface ActivationManifest {
@@ -91,6 +99,7 @@ export interface WirePlanManifest {
   nativeInstallActions?: string[];
   hookFiles?: string[];
   nativeConfigOperations?: NativeConfigOperation[];
+  textFileSnapshots?: ManagedTextFileSnapshot[];
   notes: string[];
 }
 

@@ -139,7 +139,27 @@ export function assertWirePlanManifest(
       `${context}.nativeConfigOperations`,
     );
   }
+  if (record.textFileSnapshots !== undefined) {
+    assertTextFileSnapshots(
+      record.textFileSnapshots,
+      `${context}.textFileSnapshots`,
+    );
+  }
   assertStringArray(record.notes, `${context}.notes`);
+}
+
+function assertTextFileSnapshots(value: unknown, context: string): void {
+  if (!Array.isArray(value)) {
+    throw new Error(`${context} must be an array`);
+  }
+
+  value.forEach((entry, index) => {
+    const snapshot = assertRecord(entry, `${context}[${index}]`);
+    assertString(snapshot.path, `${context}[${index}].path`);
+    if (snapshot.content !== null) {
+      assertString(snapshot.content, `${context}[${index}].content`);
+    }
+  });
 }
 
 function assertNativeConfigOperations(value: unknown, context: string): void {

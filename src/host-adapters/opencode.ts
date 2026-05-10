@@ -78,6 +78,7 @@ export async function wireOpenCode(options: {
   const previousWirePlan = await readValidatedOpenCodeWirePlan(
     join(localContextRoot, "wire-plan.json"),
     localOverlayRoot,
+    [localAgentsPath],
   );
 
   const preview: WirePreviewManifest = {
@@ -114,7 +115,10 @@ export async function wireOpenCode(options: {
       host: "opencode",
       operations: previousWirePlan?.nativeConfigOperations,
     });
-    await removeManagedAgentsSection(localAgentsPath);
+    await restoreManagedTextFileSnapshot(
+      localAgentsPath,
+      previousWirePlan?.textFileSnapshots,
+    );
     await removeManagedLinks(previousWirePlan?.linkedPaths ?? []);
     await removePath(localContextRoot);
     return;
@@ -159,6 +163,9 @@ export async function wireOpenCode(options: {
   );
 
   const createdLinkPaths: string[] = [];
+  const textFileSnapshots = await captureManagedTextFileSnapshots([
+    localAgentsPath,
+  ]);
   let nativeConfigOperations: NativeConfigOperation[] = [];
   try {
     for (const linkedAsset of linkedAssets) {
@@ -189,6 +196,7 @@ export async function wireOpenCode(options: {
       linkedPaths: createdLinkPaths.map(toPosixPath),
       mcpServers: sharedMcpAssetIds,
       nativeConfigOperations,
+      textFileSnapshots,
       notes: [
         "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
         "Documented OpenCode-native asset buckets stay under .opencode/agents, .opencode/skills, .opencode/commands, and .opencode/plugins.",
@@ -205,7 +213,7 @@ export async function wireOpenCode(options: {
       host: "opencode",
       operations: nativeConfigOperations,
     });
-    await removeManagedAgentsSection(localAgentsPath);
+    await restoreManagedTextFileSnapshot(localAgentsPath, textFileSnapshots);
     await removeManagedLinksBestEffort(createdLinkPaths);
     await removePath(localContextRoot);
     throw error;
@@ -489,6 +497,7 @@ async function removeManagedLinksBestEffort(
 async function readValidatedOpenCodeWirePlan(
   wirePlanPath: string,
   managedRoot: string,
+  allowedTextFilePaths: string[],
 ): Promise<WirePlanManifest | null> {
   const wirePlan = await readJsonFileOrNull<unknown>(wirePlanPath);
   if (wirePlan === null) {
@@ -505,10 +514,50 @@ async function readValidatedOpenCodeWirePlan(
     }
   }
 
+  const textFileSnapshots = validateManagedTextFileSnapshots(
+    wirePlan.textFileSnapshots,
+    allowedTextFilePaths,
+    wirePlanPath,
+  );
+
   return {
     ...wirePlan,
     linkedPaths,
+    textFileSnapshots,
   };
+}
+
+function validateManagedTextFileSnapshots(
+  snapshots: Array<{ path: string; content: string | null }> | undefined,
+  allowedPaths: string[],
+  wirePlanPath: string,
+): Array<{ path: string; content: string | null }> | undefined {
+  if (snapshots === undefined) {
+    return snapshots;
+  }
+
+  const allowedSnapshotPaths = new Set(
+    allowedPaths.map((pathValue) => toPosixPath(pathValue)),
+  );
+  const seenPaths = new Set<string>();
+
+  for (const snapshot of snapshots) {
+    if (!allowedSnapshotPaths.has(snapshot.path)) {
+      throw new Error(
+        `Wire plan contains textFileSnapshots path outside the managed OpenCode restore set (${toPosixPath(wirePlanPath)}): ${snapshot.path}`,
+      );
+    }
+
+    if (seenPaths.has(snapshot.path)) {
+      throw new Error(
+        `Wire plan contains duplicate textFileSnapshots entry (${toPosixPath(wirePlanPath)}): ${snapshot.path}`,
+      );
+    }
+
+    seenPaths.add(snapshot.path);
+  }
+
+  return snapshots;
 }
 
 function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
@@ -519,6 +568,42 @@ function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
     relativePath === "" ||
     (!relativePath.startsWith("..") && !isAbsolute(relativePath))
   );
+}
+
+async function captureManagedTextFileSnapshots(
+  paths: string[],
+): Promise<Array<{ path: string; content: string | null }>> {
+  const snapshots: Array<{ path: string; content: string | null }> = [];
+
+  for (const filePath of paths) {
+    snapshots.push({
+      path: toPosixPath(filePath),
+      content: await readTextFileOrNull(filePath),
+    });
+  }
+
+  return snapshots;
+}
+
+async function restoreManagedTextFileSnapshot(
+  filePath: string,
+  snapshots: Array<{ path: string; content: string | null }> | undefined,
+): Promise<void> {
+  const snapshot = snapshots?.find(
+    (entry) => toPosixPath(filePath) === entry.path,
+  );
+
+  if (!snapshot) {
+    await removeManagedAgentsSection(filePath);
+    return;
+  }
+
+  if (snapshot.content === null) {
+    await removePath(filePath);
+    return;
+  }
+
+  await writeTextFile(filePath, snapshot.content);
 }
 
 function toLoggableErrorMessage(error: unknown): string {

@@ -56,6 +56,8 @@ export function buildDemandContext(
       terms: [],
       hasSignals: false,
       activeDomainGroups: new Set<string>(),
+      packageManifestEntries: new Set<string>(),
+      demandKeywords: new Set<string>(),
     };
   }
 
@@ -103,6 +105,8 @@ export function buildDemandContext(
     }
   }
 
+  registerBridgeDemandTerms(demandProfile, registerTerm);
+
   const terms = [...demandTermMap.values()].sort((left, right) =>
     left.key.localeCompare(right.key),
   );
@@ -111,6 +115,8 @@ export function buildDemandContext(
     terms,
     hasSignals: demandTermMap.size > 0,
     activeDomainGroups: buildActiveDomainGroups(terms, policy),
+    packageManifestEntries: buildPackageManifestEntrySet(demandProfile),
+    demandKeywords: buildDemandKeywordSet(demandProfile, policy),
   };
 }
 
@@ -132,6 +138,83 @@ export function shouldEnforceConcernTarget(
       (term.evidenceStrengthCounts.strong > 0 ||
         term.evidenceStrengthCounts.medium > 0),
   );
+}
+
+function registerBridgeDemandTerms(
+  demandProfile: DemandProfile,
+  registerTerm: (
+    signalType: RecommendationSignalType,
+    rawTerm: string,
+    evidenceStrength: DemandEvidenceStrength,
+  ) => void,
+): void {
+  const hasDesignSignals =
+    demandProfile.signals.concerns.some((concern) =>
+      ["design-assets", "design-systems", "frontend"].includes(concern),
+    ) ||
+    demandProfile.signals.tooling.some((tooling) =>
+      ["detector:design-system", "design-system"].includes(tooling),
+    );
+
+  if (hasDesignSignals) {
+    registerTerm("tooling", "penpot", "strong");
+  }
+}
+
+function buildPackageManifestEntrySet(
+  demandProfile: DemandProfile,
+): Set<string> {
+  return new Set(
+    demandProfile.signals.tooling
+      .map((tooling) => normalizePackageManifestEntry(tooling))
+      .filter((entry): entry is string => entry !== null),
+  );
+}
+
+function buildDemandKeywordSet(
+  demandProfile: DemandProfile,
+  policy: RecommendationPolicy,
+): Set<string> {
+  const keywords = new Set<string>();
+
+  for (const signalType of recommendationSignalTypes()) {
+    for (const rawTerm of demandProfile.signals[signalType]) {
+      keywords.add(normalizePhrase(rawTerm));
+      for (const token of rawTerm
+        .toLowerCase()
+        .split(/[^a-z0-9]+/u)
+        .filter((part) => part.length > 1)) {
+        keywords.add(normalizePhrase(token));
+      }
+      for (const matchTerm of buildSearchTerms([rawTerm], policy)) {
+        keywords.add(matchTerm);
+      }
+    }
+  }
+
+  if (
+    demandProfile.signals.concerns.some((concern) =>
+      ["design-assets", "design-systems", "frontend"].includes(concern),
+    ) ||
+    demandProfile.signals.tooling.some((tooling) =>
+      ["detector:design-system", "design-system"].includes(tooling),
+    )
+  ) {
+    keywords.add("penpot");
+  }
+
+  return keywords;
+}
+
+function normalizePackageManifestEntry(value: string): string | null {
+  const match = value.match(
+    /^(?:cargo|gem|go|maven|npm|nuget|packagist|pub|pypi|swift):(.+)$/u,
+  );
+  if (!match) {
+    return null;
+  }
+
+  return normalizePhrase(match[1]);
 }
 
 /**

@@ -206,6 +206,7 @@ function printHelp(): void {
   activate rollback         Point a host to a previous generation
   activate reset            Remove activation state
   recommend report          Recompute the recommendation report
+  recommend ai-review       Run bounded recommendation-native AI review
   recommend explain         Explain why an asset ranked for a host
   recommend evaluate        Run golden recommendation fixtures
   quarantine list           List, inspect, approve, or reject quarantined mirror artifacts

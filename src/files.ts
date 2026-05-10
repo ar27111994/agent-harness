@@ -7,6 +7,7 @@ import {
   readFile,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -106,7 +107,19 @@ export async function pathEntryExists(filePath: string): Promise<boolean> {
  * Ensures ensure directory exists or is ready for use.
  */
 export async function ensureDirectory(directoryPath: string): Promise<void> {
-  await mkdir(directoryPath, { recursive: true });
+  try {
+    await mkdir(directoryPath, { recursive: true });
+  } catch (error) {
+    const errorCode = (error as NodeJS.ErrnoException).code;
+    if (
+      (errorCode === "EEXIST" || errorCode === "EINVAL") &&
+      (await isUsableDirectoryPath(directoryPath))
+    ) {
+      return;
+    }
+
+    throw error;
+  }
 }
 
 /**
@@ -444,7 +457,28 @@ export function removeManagedSection(options: {
     `\n?${escapeRegExp(beginMarker)}[\\s\\S]*?${escapeRegExp(endMarker)}\n?`,
     "u",
   );
+
+  if (!sectionPattern.test(originalContent)) {
+    return originalContent;
+  }
+
   return originalContent.replace(sectionPattern, "\n").trimEnd() + "\n";
+}
+
+async function isUsableDirectoryPath(directoryPath: string): Promise<boolean> {
+  try {
+    const entry = await lstat(directoryPath);
+    if (entry.isDirectory()) {
+      return true;
+    }
+    if (!entry.isSymbolicLink()) {
+      return false;
+    }
+
+    return (await stat(directoryPath)).isDirectory();
+  } catch {
+    return false;
+  }
 }
 
 function escapeRegExp(value: string): string {

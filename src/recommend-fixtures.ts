@@ -31,6 +31,7 @@ interface FixtureAssetOptions {
   sourceKind?: SourceKind;
   sourcePriority?: number;
   trustScore?: number;
+  manifestEntry?: string;
 }
 
 interface FixtureDemandProfileOptions extends Partial<
@@ -56,6 +57,9 @@ export function buildRecommendationFixtures(): RecommendationEvaluationFixture[]
     buildLocalAvailabilitySeparationFixture(),
     buildSharedExecutableBiasFixture(),
     buildSharedSourceSaturationFixture(),
+    buildFalsePositiveSuppressionFixture(),
+    buildDependencySelfEchoFixture(),
+    buildDesignToolRecallFixture(),
   ];
 }
 
@@ -824,6 +828,197 @@ function buildSharedSourceSaturationFixture(): RecommendationEvaluationFixture {
   };
 }
 
+function buildFalsePositiveSuppressionFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "false-positive-suppression",
+    description:
+      "Broad security and platform signals should not leak unrelated Firebase, Power Platform, Azure, or Kubernetes assets into the top results.",
+    demandProfile: createDemandProfile({
+      frameworks: ["node-backend"],
+      concerns: [
+        "security",
+        "integration",
+        "platform-engineering",
+        "documentation",
+      ],
+      tooling: ["node", "typescript", "eslint", "npm"],
+    }),
+    catalogEntries: [
+      createAsset("workspace-security-instruction", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["security", "node", "typescript", "integration"],
+        sourceId: "devtools-foundry",
+        publisher: "devtools-foundry",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("workspace-docs-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["documentation", "typescript", "linting", "security"],
+        sourceId: "docs-foundry",
+        publisher: "docs-foundry",
+      }),
+      createAsset("workspace-node-agent", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["node", "backend", "integration", "testing"],
+        sourceId: "service-lab",
+        publisher: "service-lab",
+      }),
+      createAsset("false-firebase-security", {
+        assetKind: "instruction",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["firebase", "security", "rules", "integration"],
+        sourceId: "firebase-suite",
+        publisher: "firebase-suite",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("false-power-platform", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["power", "platform", "security", "integration"],
+        sourceId: "power-suite",
+        publisher: "power-suite",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("false-azure-security", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["azure", "security", "platform", "integration"],
+        sourceId: "azure-suite",
+        publisher: "azure-suite",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("false-kubernetes-platform", {
+        assetKind: "plugin",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["kubernetes", "platform", "security", "integration"],
+        sourceId: "kube-suite",
+        publisher: "kube-suite",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: [
+          "workspace-security-instruction",
+          "workspace-docs-skill",
+          "workspace-node-agent",
+        ],
+        forbiddenTopAssetIds: [
+          "false-firebase-security",
+          "false-power-platform",
+          "false-azure-security",
+          "false-kubernetes-platform",
+        ],
+        requiredConcerns: ["security", "documentation"],
+      },
+    ],
+  };
+}
+
+function buildDependencySelfEchoFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "dependency-self-echo",
+    description:
+      "Installed package evidence should not cause the same package-registry asset to echo back into top recommendations.",
+    demandProfile: createDemandProfile({
+      concerns: ["data", "integration"],
+      tooling: ["npm:@duckdb/node-api", "duckdb", "node", "typescript"],
+    }),
+    catalogEntries: [
+      createAsset("duckdb-domain-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["duckdb", "data", "analytics", "integration"],
+        sourceId: "data-lab",
+        publisher: "data-lab",
+      }),
+      createAsset("duckdb-mcp-server", {
+        assetKind: "mcp-server",
+        hosts: ["shared"],
+        capabilities: ["duckdb", "data", "integration", "mcp"],
+        sourceId: "shared-data-tools",
+        publisher: "shared-data-tools",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("duckdb-package-self-echo", {
+        assetKind: "plugin",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["duckdb", "node", "data", "package"],
+        sourceId: "npm-registry",
+        publisher: "npm-registry",
+        sourceKind: "package-registry",
+        compatibilityMode: "adaptable",
+        manifestEntry: "@duckdb/node-api",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["duckdb-domain-skill"],
+        forbiddenTopAssetIds: ["duckdb-package-self-echo"],
+      },
+    ],
+  };
+}
+
+function buildDesignToolRecallFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "design-tool-recall",
+    description:
+      "Design-system and design-asset evidence should surface design collaboration tools such as Penpot above generic mobile noise.",
+    demandProfile: createDemandProfile({
+      frameworks: ["flutter"],
+      concerns: ["design-assets", "design-systems", "frontend", "mobile"],
+      tooling: ["flutter", "pub", "detector:design-system"],
+    }),
+    catalogEntries: [
+      createAsset("penpot-design-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["penpot", "design", "design-systems", "frontend"],
+        sourceId: "design-tools",
+        publisher: "design-tools",
+      }),
+      createAsset("flutter-theme-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["flutter", "design-systems", "frontend", "mobile"],
+        sourceId: "flutter-foundry",
+        publisher: "flutter-foundry",
+      }),
+      createAsset("generic-mobile-mcp", {
+        assetKind: "mcp-server",
+        hosts: ["shared"],
+        capabilities: ["mobile", "frontend", "mcp", "automation"],
+        sourceId: "mobile-tools",
+        publisher: "mobile-tools",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("generic-mobile-agent", {
+        assetKind: "agent",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["mobile", "android", "ios", "frontend"],
+        sourceId: "mobile-tools",
+        publisher: "mobile-tools",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["penpot-design-skill", "flutter-theme-skill"],
+        forbiddenTopAssetIds: ["generic-mobile-agent"],
+        requiredConcerns: ["frontend", "mobile"],
+      },
+    ],
+  };
+}
+
 function createDemandProfile(
   overrides: FixtureDemandProfileOptions,
 ): DemandProfile {
@@ -898,6 +1093,7 @@ function createAsset(
     install: {
       method: "fixture",
       nativeHosts: options.hosts,
+      manifestEntry: options.manifestEntry,
     },
     evidence: {
       manifestFound: true,

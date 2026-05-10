@@ -590,6 +590,8 @@ function createEmptyDemandContext() {
     terms: [],
     hasSignals: false,
     activeDomainGroups: new Set<string>(),
+    packageManifestEntries: new Set<string>(),
+    demandKeywords: new Set<string>(),
   };
 }
 

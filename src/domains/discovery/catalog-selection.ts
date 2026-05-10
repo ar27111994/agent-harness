@@ -17,6 +17,13 @@ interface DemandRelevanceTerms {
   exactHighSignalTerms: Set<string>;
   highSignalPhrases: string[][];
   lowSignalTerms: Set<string>;
+  demandKeywords: Set<string>;
+}
+
+interface SpecializedDemandGate {
+  id: string;
+  entryTermGroups: string[][];
+  demandTermGroups: string[][];
 }
 
 interface CatalogTermData {
@@ -75,6 +82,38 @@ const LOW_SIGNAL_CONCERN_MATCH_THRESHOLD = 4;
 const HIGH_SIGNAL_PHRASE_MATCH_THRESHOLD = 2;
 const COMMON_HIGH_SIGNAL_CATALOG_SHARE_THRESHOLD = 0.2;
 const MIN_CATALOG_SIZE_FOR_COMMON_HIGH_SIGNAL_FILTER = 200;
+const SPECIALIZED_DEMAND_GATES: SpecializedDemandGate[] = [
+  {
+    id: "firebase",
+    entryTermGroups: [["firebase"]],
+    demandTermGroups: [["firebase"]],
+  },
+  {
+    id: "power-platform",
+    entryTermGroups: [
+      ["dataverse"],
+      ["power", "platform"],
+      ["power", "apps"],
+      ["power", "bi"],
+    ],
+    demandTermGroups: [
+      ["dataverse"],
+      ["power", "platform"],
+      ["power", "apps"],
+      ["power", "bi"],
+    ],
+  },
+  {
+    id: "azure",
+    entryTermGroups: [["azure"]],
+    demandTermGroups: [["azure"]],
+  },
+  {
+    id: "kubernetes",
+    entryTermGroups: [["kubernetes"], ["helm"], ["k8s"]],
+    demandTermGroups: [["kubernetes"], ["helm"], ["k8s"]],
+  },
+];
 
 /**
  * Filters catalog entries to assets that overlap with workspace demand signals.
@@ -248,12 +287,14 @@ function buildDemandTermSet(
       exactHighSignalTerms: new Set(),
       highSignalPhrases: [],
       lowSignalTerms: new Set(),
+      demandKeywords: new Set(),
     };
   }
 
   const exactHighSignalTerms = new Set<string>();
   const highSignalPhrases: string[][] = [];
   const lowSignalTerms = new Set<string>();
+  const demandKeywords = new Set<string>();
 
   for (const language of demandProfile.signals.languages) {
     addDemandSignal(
@@ -261,6 +302,7 @@ function buildDemandTermSet(
       exactHighSignalTerms,
       highSignalPhrases,
       lowSignalTerms,
+      demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
@@ -272,6 +314,7 @@ function buildDemandTermSet(
       exactHighSignalTerms,
       highSignalPhrases,
       lowSignalTerms,
+      demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
@@ -283,6 +326,7 @@ function buildDemandTermSet(
       exactHighSignalTerms,
       highSignalPhrases,
       lowSignalTerms,
+      demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
@@ -294,6 +338,7 @@ function buildDemandTermSet(
       exactHighSignalTerms,
       highSignalPhrases,
       lowSignalTerms,
+      demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
@@ -305,15 +350,19 @@ function buildDemandTermSet(
       exactHighSignalTerms,
       highSignalPhrases,
       lowSignalTerms,
+      demandKeywords,
       catalogTermDocumentFrequency,
       catalogEntryCount,
     );
   }
 
+  addBridgeDemandTerms(demandProfile, exactHighSignalTerms, demandKeywords);
+
   return {
     exactHighSignalTerms,
     highSignalPhrases,
     lowSignalTerms,
+    demandKeywords,
   };
 }
 
@@ -322,10 +371,14 @@ function addDemandSignal(
   exactHighSignalTerms: Set<string>,
   highSignalPhrases: string[][],
   lowSignalTerms: Set<string>,
+  demandKeywords: Set<string>,
   catalogTermDocumentFrequency: Map<string, number>,
   catalogEntryCount: number,
 ): void {
   const keywords = normalizeDemandSignalKeywords(value);
+  for (const keyword of keywords) {
+    demandKeywords.add(keyword);
+  }
   if (keywords.length === 0) {
     return;
   }
@@ -401,6 +454,43 @@ function normalizeDemandSignalKeywords(value: string): string[] {
   );
 }
 
+function addBridgeDemandTerms(
+  demandProfile: DemandProfile,
+  exactHighSignalTerms: Set<string>,
+  demandKeywords: Set<string>,
+): void {
+  const hasDesignSignals =
+    demandProfile.signals.concerns.some((concern) =>
+      ["design-assets", "design-systems", "frontend"].includes(concern),
+    ) ||
+    demandProfile.signals.tooling.some((tooling) =>
+      ["detector:design-system", "design-system"].includes(tooling),
+    );
+
+  if (hasDesignSignals) {
+    exactHighSignalTerms.add("penpot");
+    demandKeywords.add("penpot");
+  }
+}
+
+function isRejectedBySpecializedDemandGate(
+  entryTerms: Set<string>,
+  demandTerms: DemandRelevanceTerms,
+): boolean {
+  return SPECIALIZED_DEMAND_GATES.some(
+    (gate) =>
+      matchesTermGroupSet(entryTerms, gate.entryTermGroups) &&
+      !matchesTermGroupSet(demandTerms.demandKeywords, gate.demandTermGroups),
+  );
+}
+
+function matchesTermGroupSet(
+  terms: Set<string>,
+  termGroups: string[][],
+): boolean {
+  return termGroups.some((group) => group.every((term) => terms.has(term)));
+}
+
 function isCatalogCommonHighSignal(
   keyword: string,
   catalogTermDocumentFrequency: Map<string, number>,
@@ -459,6 +549,10 @@ function isEntryRelevantToDemand(
 ): boolean {
   if (isExecutableMcpServerEntry(entry)) {
     return true;
+  }
+
+  if (isRejectedBySpecializedDemandGate(entryTerms, demandTerms)) {
+    return false;
   }
 
   for (const demandTerm of demandTerms.exactHighSignalTerms) {

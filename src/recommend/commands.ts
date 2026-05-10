@@ -9,6 +9,7 @@ import { buildRecommendationEvaluationResult } from "./evaluation.js";
 import { getRecommendationHosts, isRecommendationHost } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
 import { writeRecommendationReport } from "./report.js";
+import { runRecommendationAiReview } from "./ai-review.js";
 import type { RecommendationHost } from "./hosts.js";
 import type {
   RecommendationEvaluationResult,
@@ -29,7 +30,23 @@ export async function runRecommend(
 
   switch (command) {
     case "report": {
-      const report = await writeRecommendationReport(projectRoot);
+      const policy = await loadRecommendationPolicy(projectRoot);
+      const deterministicReport = await writeRecommendationReport(projectRoot);
+      const report = rest.includes("--ai-review")
+        ? (
+            await runRecommendationAiReview({
+              projectRoot,
+              policy,
+              report: deterministicReport,
+              host: getRequestedReviewHost(rest),
+              reviewLimit: getReviewLimit(rest),
+              apply: true,
+            })
+          ).report
+        : deterministicReport;
+      if (report !== deterministicReport) {
+        await writeJsonFile(join(projectRoot, ...REPORT_FILE_PATH), report);
+      }
       const totalEntries = Object.values(report.topByHost).reduce(
         (total, entries) => total + entries.length,
         0,
@@ -37,6 +54,11 @@ export async function runRecommend(
       console.log(
         `Recommendation report written to ${join(projectRoot, ...REPORT_FILE_PATH)} (${totalEntries} ranked entries)`,
       );
+      if (rest.includes("--ai-review")) {
+        console.log(
+          `AI review artifacts written under ${join(projectRoot, "recommend", "output")}`,
+        );
+      }
       return 0;
     }
     case "explain":
@@ -45,6 +67,33 @@ export async function runRecommend(
     case "evaluate": {
       const exitCode = await evaluateRecommendationFixtures(projectRoot, rest);
       return exitCode;
+    }
+    case "ai-review": {
+      const policy = await loadRecommendationPolicy(projectRoot);
+      const deterministicReport = await writeRecommendationReport(projectRoot);
+      const result = await runRecommendationAiReview({
+        projectRoot,
+        policy,
+        report: deterministicReport,
+        host: getRequestedReviewHost(rest),
+        reviewLimit: getReviewLimit(rest),
+        apply: rest.includes("--apply"),
+      });
+      if (rest.includes("--apply")) {
+        await writeJsonFile(
+          join(projectRoot, ...REPORT_FILE_PATH),
+          result.report,
+        );
+      }
+      console.log(
+        `AI review artifact written to ${join(projectRoot, "recommend", "output", "ai-review.json")}`,
+      );
+      if (rest.includes("--apply")) {
+        console.log(
+          `Applied AI review adjustments to ${join(projectRoot, ...REPORT_FILE_PATH)}`,
+        );
+      }
+      return 0;
     }
     case "policy:print":
       await printRecommendationPolicy(projectRoot, rest);
@@ -212,6 +261,37 @@ async function printRecommendationPolicy(
   );
 }
 
+function getRequestedReviewHost(
+  args: string[],
+): RecommendationHost | undefined {
+  const requestedHostRaw = getOptionValue(args, "--host");
+  if (!requestedHostRaw) {
+    return undefined;
+  }
+
+  if (!isRecommendationHost(requestedHostRaw)) {
+    throw new Error(
+      `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHosts().join(", ")}`,
+    );
+  }
+
+  return requestedHostRaw;
+}
+
+function getReviewLimit(args: string[]): number | undefined {
+  const reviewLimitRaw = getOptionValue(args, "--review-limit");
+  if (!reviewLimitRaw) {
+    return undefined;
+  }
+
+  const reviewLimit = Number.parseInt(reviewLimitRaw, 10);
+  if (!Number.isFinite(reviewLimit) || reviewLimit <= 0) {
+    throw new Error(`Invalid --review-limit value: ${reviewLimitRaw}`);
+  }
+
+  return reviewLimit;
+}
+
 function formatMatchedSignals(matches: RecommendationSignalMatch[]): string {
   if (matches.length === 0) {
     return "none";
@@ -257,7 +337,14 @@ function formatScoreBreakdown(breakdown: RecommendationScoreBreakdown): string {
 function printRecommendHelp(): void {
   console.log(`recommend commands:
   report    Recompute the recommendation report using the external policy (default)
+  ai-review Run bounded recommendation-native AI review (--apply to rewrite report)
   explain   Explain why an asset ranked for a host
   evaluate  Run golden recommendation fixtures and print quality summary metrics (use --write to persist results)
-  policy:print  Print the merged effective policy (--host <host> to scope)`);
+  policy:print  Print the merged effective policy (--host <host> to scope)
+
+AI review options:
+  --host <host>
+  --review-limit <n>
+  --apply
+  --ai-review (for recommend report)`);
 }

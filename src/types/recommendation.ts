@@ -255,11 +255,105 @@ export interface RecommendationReport {
 }
 
 /**
+ * Describes one shortlisted candidate presented to the AI review stage.
+ */
+export interface RecommendationAiReviewCandidate {
+  assetId: string;
+  host: HostTarget;
+  rank: number;
+  score: number;
+  assetKind?: AssetKind;
+  sourceFamily: string;
+  availableLocally: boolean;
+  recommendationBasis: RecommendationBasis;
+  duplicateGroup?: string;
+  coverageTags: string[];
+  taskModes: string[];
+  matchedSignals: RecommendationSignalMatch[];
+  reasons: string[];
+  scoreBreakdown: RecommendationScoreBreakdown;
+}
+
+/**
+ * Describes one host shortlist presented to the AI review stage.
+ */
+export interface RecommendationAiReviewHostInput {
+  host: HostTarget;
+  candidates: RecommendationAiReviewCandidate[];
+}
+
+/**
+ * Describes bounded AI review input data exchanged by the lifecycle pipeline.
+ */
+export interface RecommendationAiReviewInput {
+  schemaVersion: number;
+  generatedAt: string;
+  policyVersion: number;
+  reviewLimit: number;
+  demandSignals: DemandSignalSet | null;
+  reviewedHosts: HostTarget[];
+  hosts: RecommendationAiReviewHostInput[];
+}
+
+/**
+ * Defines the supported AI review confidence values.
+ */
+export type RecommendationAiReviewConfidence = "low" | "medium" | "high";
+
+/**
+ * Describes one AI review note for a shortlisted asset.
+ */
+export interface RecommendationAiReviewNote {
+  assetId: string;
+  reason: string;
+  confidence: RecommendationAiReviewConfidence;
+}
+
+/**
+ * Describes one bounded rerank adjustment proposed by the AI review stage.
+ */
+export interface RecommendationAiReviewRerank {
+  assetId: string;
+  delta: number;
+  reason: string;
+  confidence: RecommendationAiReviewConfidence;
+}
+
+/**
+ * Describes one host's AI review decisions.
+ */
+export interface RecommendationAiReviewHostResult {
+  host: HostTarget;
+  acceptedAssetIds: string[];
+  questionable: RecommendationAiReviewNote[];
+  suppressedAssetIds: string[];
+  rerank: RecommendationAiReviewRerank[];
+}
+
+/**
+ * Describes persisted AI review artifact data exchanged by the lifecycle pipeline.
+ */
+export interface RecommendationAiReviewArtifact {
+  schemaVersion: number;
+  generatedAt: string;
+  enabled: boolean;
+  status: "disabled" | "completed" | "failed";
+  provider?: string;
+  model?: string;
+  reviewedHosts: HostTarget[];
+  hostReviews: RecommendationAiReviewHostResult[];
+  warnings?: string[];
+  error?: string;
+}
+
+/**
  * Describes recommendation evaluation expectation data exchanged by the lifecycle pipeline.
  */
 export interface RecommendationEvaluationExpectation {
   host: HostTarget;
   requiredAssetIds?: string[];
+  forbiddenAssetIds?: string[];
+  forbiddenTopAssetIds?: string[];
   requiredAssetKinds?: Array<{
     assetKind: AssetKind;
     minimum: number;
