@@ -53,15 +53,15 @@ export async function runInstall(
 }
 
 function printInstallHelp(): void {
-  console.log(`install commands:
-  bundle      Stage installed assets from mirror bundle locks
+  console.log(`stage commands (install is a supported alias):
+  bundle      Stage mirrored assets from mirror bundle locks
   native      Plan/verify/apply/remove host-native installs
-  refresh     Refresh mirrored install state and report/apply stale assets
-  reconcile   Recompute install progress from bundle install manifests
+  refresh     Refresh staged install state and report/apply stale assets
+  reconcile   Recompute staged install progress from bundle install manifests
   diff        Compare current vs previous or explicit install generations
-  explain     Explain where an installed asset is present and active
+  explain     Explain where a staged asset is present and active
   generations Manage generation list, pinning, and pruning
-  reset       Remove install state, packages, bundles, and generations
+  reset       Remove staged install state, packages, bundles, and generations
 
 Native install options:
   --host <vscode|opencode|cursor|zed|claude-code|pi>

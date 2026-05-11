@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { clearRuntimeConfig } from "../config/runtime.js";
 import {
+  pathExists,
   readJsonFileOrNull,
   readJsonLinesFile,
   writeJsonFile,
@@ -114,6 +115,14 @@ try {
       sessionIntent: "testing",
       bundleIds: adapter.defaultBundleIds,
     });
+
+    if (
+      !(await pathExists(
+        join(stateRoot, "discover", "output", "source-sync.json"),
+      ))
+    ) {
+      throw new Error(`[${host}] source-sync report missing after pipeline`);
+    }
 
     // Assert mirror acquire state consistency
     const acquireState = await readJsonFileOrNull<MirrorAcquireState>(

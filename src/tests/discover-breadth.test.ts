@@ -1,10 +1,15 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { writeJsonFile } from "../files.js";
+import { writeJsonFile, writeJsonLinesFile } from "../files.js";
+import {
+  CATALOG_OUTPUT_PATH,
+  SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
+  SOURCE_SYNC_STATE_OUTPUT_PATH,
+} from "../domains/discovery/output-paths.js";
 import { runDiscover } from "../discover.js";
 
 void test("discover breadth runs the full breadth workflow and prints guidance", async () => {
@@ -123,6 +128,163 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
+
+void test("discover catalog handles large indexed source populations without overflowing the stack", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discover-catalog-"),
+  );
+  const workspaceRoot = join(tempRoot, "workspace");
+  const stateRoot = join(tempRoot, "state");
+  const indexedEntryCount = 120_000;
+
+  try {
+    await mkdir(workspaceRoot, { recursive: true });
+    await mkdir(stateRoot, { recursive: true });
+    await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+      schemaVersion: 1,
+      sources: [
+        {
+          id: "huge-indexed-source",
+          name: "huge-indexed-source",
+          kind: "registry",
+          authorityTier: "official-compatible",
+          publisher: { name: "fixture", verified: true },
+          hosts: ["copilot-vscode"],
+          assetKinds: ["skill"],
+          discoveryMode: "catalog",
+          priority: 100,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com/registry" },
+          rules: {
+            officialPreferred: true,
+            allowMirror: true,
+            allowInstall: true,
+          },
+        },
+      ],
+    });
+    await writeJsonFile(join(stateRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    await writeJsonFile(join(stateRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      sources: [
+        {
+          sourceId: "huge-indexed-source",
+          coverageMode: "indexed",
+          status: "complete",
+          indexedEntryCount,
+          lastSyncedAt: new Date().toISOString(),
+          cursors: [],
+        },
+      ],
+    });
+    await writeJsonLinesFile(
+      join(stateRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      Array.from({ length: indexedEntryCount }, (_, index) =>
+        createIndexedCatalogEntry(index),
+      ),
+    );
+
+    assert.equal(await runDiscover(["catalog"], workspaceRoot, stateRoot), 0);
+
+    const catalogEntries = await readCatalogEntryIds(
+      join(stateRoot, ...CATALOG_OUTPUT_PATH),
+    );
+    assert.equal(catalogEntries.length, indexedEntryCount);
+    assert.equal(catalogEntries[0], "huge-indexed-source/asset-0");
+    assert.ok(
+      catalogEntries.includes(
+        `huge-indexed-source/asset-${indexedEntryCount - 1}`,
+      ),
+    );
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+async function readCatalogEntryIds(filePath: string): Promise<string[]> {
+  const content = await readFile(filePath, "utf8");
+  return content
+    .trim()
+    .split("\n")
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as { id: string })
+    .map((entry) => entry.id);
+}
+
+function createIndexedCatalogEntry(index: number): Record<string, unknown> {
+  return {
+    id: `huge-indexed-source/asset-${index}`,
+    displayName: `asset-${index}`,
+    assetKind: "skill",
+    hosts: ["copilot-vscode"],
+    compatibilityMode: "native",
+    source: {
+      sourceId: "huge-indexed-source",
+      sourceKind: "registry",
+      authorityTier: "official-compatible",
+      sourcePriority: 100,
+      originUrl: `https://example.com/registry/asset-${index}`,
+      publisher: "fixture",
+      publisherVerified: true,
+    },
+    trust: {
+      score: 100,
+      signals: ["fixture"],
+    },
+    capabilities: ["typescript", "testing", `asset-${index}`],
+    install: {
+      method: "registry",
+      nativeHosts: ["copilot-vscode"],
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+    },
+    maintenance: {
+      lastUpdated: "2026-05-11T00:00:00.000Z",
+      stars: 0,
+      releaseCadence: "active",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: {
+      sizeClass: "small",
+      estimatedPromptWeight: 1,
+    },
+    fit: {
+      portfolioFit: 0.9,
+      hostFit: 0.9,
+    },
+    dedupe: {
+      candidateRankHint: "fixture",
+    },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
+  };
+}
 
 async function writeText(filePath: string, content: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });

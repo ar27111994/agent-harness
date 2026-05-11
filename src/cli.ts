@@ -22,6 +22,7 @@ const HELP_DEFAULT_DOMAINS = new Set([
   "activate",
   "discover",
   "install",
+  "stage",
   "mirror",
   "quarantine",
   "rebuild",
@@ -58,6 +59,7 @@ async function main(): Promise<number> {
     case "mirror":
       return runMirror(args, workingDirectory, projectRoot);
     case "install":
+    case "stage":
       return runInstall(args, workingDirectory, projectRoot);
     case "activate":
       return runActivate(args, workingDirectory, projectRoot);
@@ -114,6 +116,7 @@ function runHelpCommand(
     case "mirror":
       return runMirror(["help"], workingDirectory, "");
     case "install":
+    case "stage":
       return runInstall(["help"], workingDirectory, "");
     case "activate":
       return runActivate(["help"], workingDirectory, "");
@@ -201,11 +204,12 @@ function printHelp(): void {
   discover stats            Print catalog/source stats
   mirror locks             Generate mirror bundle locks
   mirror acquire           Acquire raw mirror artifacts and resolve bundle locks
-  install bundle            Stage installed assets from bundle locks
-  install native            Plan/verify/apply/remove host-native installs
-  install refresh           Refresh mirrored install state and report/apply stale assets
-  install reconcile         Recompute install progress and generations
-  install reset             Remove install state
+  stage bundle              Stage mirrored assets from bundle locks
+  stage native              Plan/verify/apply/remove host-native installs
+  stage refresh             Refresh staged install state and report/apply stale assets
+  stage reconcile           Recompute staged install progress and generations
+  stage reset               Remove staged install state
+  install <...>             Alias for stage <...>
   activate host             Materialize active host views from installed bundles
   activate rollback         Point a host to a previous generation
   activate reset            Remove activation state

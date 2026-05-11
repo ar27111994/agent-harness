@@ -46,10 +46,10 @@ It is built around one generic command surface and a host-adapter model. The lif
 1. Scans a target workspace to infer demand signals.
 2. Loads configured and generated discovery sources.
 3. Harvests candidate agent assets from local sources, source packs, documentation sources, package registries, and marketplace references.
-4. Mirrors selected assets into reproducible local artifacts.
-5. Installs mirrored assets into lifecycle-host package stores.
-6. Executes explicit host-native install/verify/remove operations where an adapter supports them.
-7. Recomputes ranked recommendations from selected catalog entries.
+4. Recomputes ranked recommendations from selected catalog entries.
+5. Mirrors the bounded selected asset set into reproducible local artifacts.
+6. Stages mirrored bundle assets into lifecycle-host package stores.
+7. Executes explicit host-native install/verify/remove operations where an adapter supports them.
 8. Activates ranked assets into host runtime views.
 9. Wires the activated assets into a target workspace through a selected host adapter.
 
@@ -59,15 +59,17 @@ The goal is to make high-quality reusable agent context portable across tools wi
 
 The project intentionally separates these stages:
 
-| Stage       | Purpose                                                                                              | Typical output                                      |
-| ----------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `discover`  | Build demand profiles, source indexes, catalogs, selections, and source-utilization reports.         | `discover/output/`, `discover/catalog.assets.jsonl` |
-| `mirror`    | Build mirror plans, bundle locks, raw artifact caches, quarantine data, and audit records.           | `mirror/`                                           |
-| `install`   | Stage mirrored packages, reconcile generations, and explicitly run supported host-native installers. | `install/`, `state/install/`                        |
-| `recommend` | Rank assets per recommendation host using policy, demand signals, trust, cost, diversity, and caps.  | `state/recommendations.json`                        |
-| `activate`  | Materialize active runtime views for lifecycle hosts from installed packages and recommendations.    | `activate/`                                         |
-| `wire`      | Preview by default, or explicitly apply/reset host-specific workspace integration.                   | host-specific files plus wire plans                 |
-| `workspace` | Run the end-to-end lifecycle for a selected host and then apply wire-in.                             | full pipeline output                                |
+| Stage       | Purpose                                                                                                 | Typical output                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `discover`  | Build demand profiles, source indexes, catalogs, selections, and source-utilization reports.            | `discover/output/`, `discover/catalog.assets.jsonl` |
+| `recommend` | Rank assets per recommendation host using policy, demand signals, trust, cost, diversity, and caps.     | `state/recommendations.json`                        |
+| `mirror`    | Build mirror plans, bundle locks, raw artifact caches, quarantine data, and audit records.              | `mirror/`                                           |
+| `stage`     | Stage mirrored bundle assets, reconcile generations, and explicitly run supported host-native installs. | `install/`, `state/install/`                        |
+| `activate`  | Materialize active runtime views for lifecycle hosts from staged packages and recommendations.          | `activate/`                                         |
+| `wire`      | Preview by default, or explicitly apply/reset host-specific workspace integration.                      | host-specific files plus wire plans                 |
+| `workspace` | Run the end-to-end lifecycle for a selected host and then apply wire-in.                                | full pipeline output                                |
+
+`stage` is the clearer mental model for this phase: the harness stages a bounded mirrored bundle subset into its managed lifecycle store. The CLI still accepts `install` as an alias because host-native install/verify/remove operations also live in that command group.
 
 Two host concepts are important:
 
@@ -457,7 +459,7 @@ agent-harness quarantine reject --asset <asset-id> --reason "unsafe prompt or ex
 
 Mirror acquisition routes high-risk or prompt-injection-like community assets into quarantine. Install and activation skip quarantined assets until an explicit review approves them as `approved-with-warning`.
 
-### Install
+### Stage / install
 
 ```bash
 npm run install:bundle
@@ -467,16 +469,16 @@ node ./dist/cli.js install native --host vscode --operation install --apply
 node ./dist/cli.js install native --host vscode --operation remove --apply
 node ./dist/cli.js install native --host cursor
 node ./dist/cli.js install native --host cursor --operation verify
-node ./dist/cli.js install refresh --host copilot-vscode
-node ./dist/cli.js install refresh --host copilot-vscode --apply
-node ./dist/cli.js install refresh --host copilot-vscode --due-only
+node ./dist/cli.js stage refresh --host copilot-vscode
+node ./dist/cli.js stage refresh --host copilot-vscode --apply
+node ./dist/cli.js stage refresh --host copilot-vscode --due-only
 npm run install:reconcile
 npm run install:reset
 ```
 
-`install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
+`stage` is the preferred lifecycle term here: the harness stages a bounded mirrored bundle subset into its managed store, while `install native` remains the explicit host-facing install boundary. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
-`install refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. When stale VS Code-family extension assets are applied through refresh, the native extension install step is executed too so host-native installs stay in sync with the refreshed bundle state.
+`stage refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. When stale VS Code-family extension assets are applied through refresh, the native extension install step is executed too so host-native installs stay in sync with the refreshed bundle state. `install refresh` remains a supported alias.
 
 For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md).
 
@@ -548,7 +550,7 @@ npm run wire:pi
 
 ### Workspace
 
-Workspace commands run discover, mirror, install, activate, and wire-in for the selected adapter:
+Workspace commands run discover, recommend, mirror, stage, activate, and wire-in for the selected adapter:
 
 ```bash
 agent-harness workspace vscode --intent frontend
@@ -579,7 +581,7 @@ npm run rebuild:clean
 npm run rebuild:full
 ```
 
-`rebuild:full` runs the clean, discovery, mirror, install, reconcile, recommendation, and activation flow from repository state.
+`rebuild:full` runs the clean, discovery, recommendation, mirror, stage/reconcile, and activation flow from repository state.
 
 ## Host wire-in details
 

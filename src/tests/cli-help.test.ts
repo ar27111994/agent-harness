@@ -71,6 +71,26 @@ void test("subcommand --help exits without preparing state", async () => {
     );
 
     assert.match(directGroupHelpStdout, /discover commands:/u);
+
+    const { stdout: stageHelpStdout } = await execFileAsync(
+      process.execPath,
+      [cliPath, "--no-dotenv", "--state-root", stateRoot, "help", "stage"],
+      {
+        cwd: workspaceRoot,
+        env: process.env,
+        timeout: 30_000,
+        windowsHide: true,
+      },
+    );
+
+    assert.match(
+      stageHelpStdout,
+      /stage commands \(install is a supported alias\):/u,
+    );
+    assert.match(
+      stageHelpStdout,
+      /bundle\s+Stage mirrored assets from mirror bundle locks/u,
+    );
     assert.equal(existsSync(stateRoot), false);
   } finally {
     await rm(tempRoot, { force: true, recursive: true });

@@ -229,51 +229,56 @@ async function generateCatalog(projectRoot: string): Promise<{
 
   for (const source of nonRepoSources) {
     if (indexedSourceIds.has(source.id)) {
-      catalogEntries.push(
-        ...(indexedCatalogEntriesBySourceId.get(source.id) ?? []),
+      appendCatalogEntries(
+        catalogEntries,
+        indexedCatalogEntriesBySourceId.get(source.id) ?? [],
       );
       continue;
     }
 
     switch (source.kind) {
       case "local-manifest":
-        catalogEntries.push(
-          ...(await harvestLocalManifestSource(
+        appendCatalogEntries(
+          catalogEntries,
+          await harvestLocalManifestSource(
             source,
             demandProfile,
             selectionRegistry,
             projectRoot,
-          )),
+          ),
         );
         break;
       case "local-directory":
-        catalogEntries.push(
-          ...(await harvestLocalDirectorySource(
+        appendCatalogEntries(
+          catalogEntries,
+          await harvestLocalDirectorySource(
             source,
             demandProfile,
             selectionRegistry,
             projectRoot,
-          )),
+          ),
         );
         break;
       case "package-registry":
-        catalogEntries.push(
-          ...(await harvestPackageRegistrySource(
+        appendCatalogEntries(
+          catalogEntries,
+          await harvestPackageRegistrySource(
             source,
             demandProfile,
             selectionRegistry,
-          )),
+          ),
         );
         break;
       case "docs":
       case "marketplace":
       case "registry":
-        catalogEntries.push(
-          ...(await harvestReferenceSource(
+        appendCatalogEntries(
+          catalogEntries,
+          await harvestReferenceSource(
             source,
             demandProfile,
             selectionRegistry,
-          )),
+          ),
         );
         break;
       default:
@@ -289,13 +294,14 @@ async function generateCatalog(projectRoot: string): Promise<{
 
   for (const source of repoSlice) {
     if (isGitHubRepoSource(source)) {
-      harvestedRepoEntries.push(
-        ...(await harvestGitHubRepoSource(
+      appendCatalogEntries(
+        harvestedRepoEntries,
+        await harvestGitHubRepoSource(
           source,
           demandProfile,
           selectionRegistry,
           projectRoot,
-        )),
+        ),
       );
     }
   }
@@ -311,14 +317,15 @@ async function generateCatalog(projectRoot: string): Promise<{
     mergedRemoteCatalogEntries,
   );
 
-  catalogEntries.push(...mergedRemoteCatalogEntries);
+  appendCatalogEntries(catalogEntries, mergedRemoteCatalogEntries);
 
-  catalogEntries.push(
-    ...(await harvestOfficialSkillIndexes(
+  appendCatalogEntries(
+    catalogEntries,
+    await harvestOfficialSkillIndexes(
       projectRoot,
       demandProfile,
       selectionRegistry,
-    )),
+    ),
   );
 
   const sortedEntries = [
@@ -353,6 +360,15 @@ async function generateCatalog(projectRoot: string): Promise<{
     enabledSources,
     sourceSyncState,
   };
+}
+
+function appendCatalogEntries(
+  target: AssetCatalogEntry[],
+  entries: readonly AssetCatalogEntry[],
+): void {
+  for (const entry of entries) {
+    target.push(entry);
+  }
 }
 
 async function generateSelectionOutputs(projectRoot: string): Promise<{
@@ -496,8 +512,9 @@ async function runDiscoveryBreadth(
     workingDirectory,
     projectRoot,
   );
-  const sourceIndex = await generateSourceIndex(projectRoot);
+  await generateSourceIndex(projectRoot);
   await syncIndexedSources(projectRoot);
+  const sourceIndex = await generateSourceIndex(projectRoot);
   const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);
   const { selectionReport } = await generateSelectionOutputs(projectRoot);
 
