@@ -100,6 +100,7 @@ interface SourceSyncContext {
   entriesById: Map<string, AssetCatalogEntry>;
   entriesDirty: boolean;
   previousState: SourceSyncSourceState | undefined;
+  observedEntryIds: Set<string>;
 }
 
 interface IndexedReferenceOptions {
@@ -156,10 +157,21 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       entriesById,
       entriesDirty: false,
       previousState,
+      observedEntryIds: new Set<string>(),
     };
 
     try {
       const synchronizedState = await synchronizeIndexedSource(source, context);
+      if (
+        synchronizedState?.coverageMode === "indexed" &&
+        synchronizedState.status === "complete"
+      ) {
+        pruneMissingIndexedEntriesForSource(context, source.id);
+        synchronizedState.indexedEntryCount = countEntriesForSource(
+          context.entriesById,
+          source.id,
+        );
+      }
       sourceStates.push(
         synchronizedState ??
           classifyNonIndexedSource(
@@ -215,6 +227,7 @@ function upsertIndexedCatalogEntry(
   context: SourceSyncContext,
   entry: AssetCatalogEntry,
 ): void {
+  context.observedEntryIds.add(entry.id);
   const existingEntry = context.entriesById.get(entry.id);
   if (
     existingEntry !== undefined &&
@@ -225,6 +238,21 @@ function upsertIndexedCatalogEntry(
 
   context.entriesById.set(entry.id, entry);
   context.entriesDirty = true;
+}
+
+function pruneMissingIndexedEntriesForSource(
+  context: SourceSyncContext,
+  sourceId: string,
+): void {
+  for (const [entryId, entry] of context.entriesById.entries()) {
+    if (
+      entry.source.sourceId === sourceId &&
+      !context.observedEntryIds.has(entryId)
+    ) {
+      context.entriesById.delete(entryId);
+      context.entriesDirty = true;
+    }
+  }
 }
 
 /**
@@ -437,11 +465,11 @@ async function syncVsCodeMarketplaceSource(
   let status: SourceSyncStatus = "complete";
 
   for (const query of queries) {
-    const queryState = previousQueryState.get(query) ?? {
+    const queryState = restoreFiniteCursorState(previousQueryState.get(query), {
       cursorId: query,
       nextToken: "1",
       completed: false,
-    };
+    });
     let nextPage = parsePositiveIntegerToken(queryState.nextToken, 1);
     let completed = queryState.completed;
 
@@ -583,11 +611,14 @@ async function syncSitemapSource(
     leafSitemapUrls.length > 0 ? "complete" : "failed";
 
   for (const sitemapUrl of leafSitemapUrls) {
-    const previousCursor = previousStateByCursor.get(sitemapUrl) ?? {
-      cursorId: sitemapUrl,
-      nextToken: "0",
-      completed: false,
-    };
+    const previousCursor = restoreFiniteCursorState(
+      previousStateByCursor.get(sitemapUrl),
+      {
+        cursorId: sitemapUrl,
+        nextToken: "0",
+        completed: false,
+      },
+    );
     let nextOffset = parseNonNegativeIntegerToken(previousCursor.nextToken, 0);
     let completed = previousCursor.completed;
 
@@ -715,11 +746,14 @@ async function syncHtmlListSource(
     rootUrlExclusions?: Set<string>;
   },
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
-    cursorId: "page",
-    nextToken: "1",
-    completed: false,
-  };
+  const previousCursor = restoreFiniteCursorState(
+    getPreviousCursorStates(context.previousState)[0],
+    {
+      cursorId: "page",
+      nextToken: "1",
+      completed: false,
+    },
+  );
   const allowedOrigins = getAllowedOrigins(
     pageUrlTemplate.replace("{page}", "1"),
     source.endpoints.baseUrl,
@@ -842,11 +876,14 @@ async function syncMcpRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
-    cursorId: "cursor",
-    nextToken: undefined,
-    completed: false,
-  };
+  const previousCursor = restoreFiniteCursorState(
+    getPreviousCursorStates(context.previousState)[0],
+    {
+      cursorId: "cursor",
+      nextToken: undefined,
+      completed: false,
+    },
+  );
   const apiUrl =
     source.endpoints.apiUrl ??
     "https://registry.modelcontextprotocol.io/v0/servers";
@@ -977,11 +1014,14 @@ async function syncCargoRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
-    cursorId: "page",
-    nextToken: "1",
-    completed: false,
-  };
+  const previousCursor = restoreFiniteCursorState(
+    getPreviousCursorStates(context.previousState)[0],
+    {
+      cursorId: "page",
+      nextToken: "1",
+      completed: false,
+    },
+  );
   let pageNumber = parsePositiveIntegerToken(previousCursor.nextToken, 1);
   let completed = previousCursor.completed;
 
@@ -1128,11 +1168,14 @@ async function syncMavenRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
-    cursorId: "start",
-    nextToken: "0",
-    completed: false,
-  };
+  const previousCursor = restoreFiniteCursorState(
+    getPreviousCursorStates(context.previousState)[0],
+    {
+      cursorId: "start",
+      nextToken: "0",
+      completed: false,
+    },
+  );
   let start = parseNonNegativeIntegerToken(previousCursor.nextToken, 0);
   let completed = previousCursor.completed;
 
@@ -1209,11 +1252,14 @@ async function syncNuGetRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
-    cursorId: "skip",
-    nextToken: "0",
-    completed: false,
-  };
+  const previousCursor = restoreFiniteCursorState(
+    getPreviousCursorStates(context.previousState)[0],
+    {
+      cursorId: "skip",
+      nextToken: "0",
+      completed: false,
+    },
+  );
   const searchQueryServiceUrl = await resolveNuGetSearchQueryServiceUrl(source);
   const allowedOrigins = getAllowedOrigins(
     searchQueryServiceUrl,
@@ -1641,6 +1687,21 @@ function getPreviousCursorStates(
         completed: query.completed,
       }))
     : [];
+}
+
+function restoreFiniteCursorState(
+  previousCursor: SourceSyncCursorState | undefined,
+  initialCursor: SourceSyncCursorState,
+): SourceSyncCursorState {
+  if (!previousCursor || previousCursor.completed) {
+    return { ...initialCursor };
+  }
+
+  return {
+    cursorId: initialCursor.cursorId,
+    nextToken: previousCursor.nextToken ?? initialCursor.nextToken,
+    completed: false,
+  };
 }
 
 function parsePositiveIntegerToken(

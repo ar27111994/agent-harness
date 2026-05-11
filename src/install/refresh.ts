@@ -323,7 +323,7 @@ async function buildInstallRefreshHostSummary(
   );
   const bundleAssetsByAssetId = new Map<
     string,
-    { mirrorId: string; bundleIds: string[] }
+    { mirrorIds: string[]; bundleIds: string[] }
   >();
   for (const bundleLock of bundleLocks) {
     if (!bundleLock) {
@@ -335,10 +335,12 @@ async function buildInstallRefreshHostSummary(
         existing.bundleIds = [...new Set([...existing.bundleIds, bundleLock.bundleId])].sort(
           (left, right) => left.localeCompare(right),
         );
-        existing.mirrorId = asset.mirrorId;
+        existing.mirrorIds = [...new Set([...existing.mirrorIds, asset.mirrorId])].sort(
+          (left, right) => left.localeCompare(right),
+        );
       } else {
         bundleAssetsByAssetId.set(asset.assetId, {
-          mirrorId: asset.mirrorId,
+          mirrorIds: [asset.mirrorId],
           bundleIds: [bundleLock.bundleId],
         });
       }
@@ -390,13 +392,18 @@ async function buildInstallRefreshAssetStatus(
   host: (typeof INSTALL_HOSTS)[number],
   manifest: InstalledPackageManifest,
   pinnedGeneration: boolean,
-  bundleAssetsByAssetId: Map<string, { mirrorId: string; bundleIds: string[] }>,
+  bundleAssetsByAssetId: Map<string, { mirrorIds: string[]; bundleIds: string[] }>,
   mirrorIndexById: Map<string, MirrorIndexEntry>,
   refreshPolicy: InstallRefreshPolicy,
 ): Promise<InstallRefreshAssetStatus> {
   const latestBundleAsset = bundleAssetsByAssetId.get(manifest.assetId);
-  const latestMirrorEntry = latestBundleAsset
-    ? mirrorIndexById.get(latestBundleAsset.mirrorId)
+  const hasMirrorConflict = (latestBundleAsset?.mirrorIds.length ?? 0) > 1;
+  const latestMirrorId =
+    latestBundleAsset?.mirrorIds.length === 1
+      ? latestBundleAsset.mirrorIds[0]
+      : undefined;
+  const latestMirrorEntry = latestMirrorId
+    ? mirrorIndexById.get(latestMirrorId)
     : undefined;
   const latestCatalogEntry = latestMirrorEntry
     ? await readJsonFileOrNull<AssetCatalogEntry>(
@@ -420,9 +427,12 @@ async function buildInstallRefreshAssetStatus(
   } else if (!latestBundleAsset) {
     status = "blocked";
     reason = "Asset is no longer present in the current bundle lock set.";
-  } else if (latestBundleAsset.mirrorId !== manifest.mirrorId) {
+  } else if (hasMirrorConflict) {
+    status = "blocked";
+    reason = `Asset is referenced by conflicting bundle lock mirrors: ${latestBundleAsset.mirrorIds.join(", ")}.`;
+  } else if (latestMirrorId !== manifest.mirrorId) {
     status = "stale";
-    reason = `Installed mirror ${manifest.mirrorId} differs from latest mirror ${latestBundleAsset.mirrorId}.`;
+    reason = `Installed mirror ${manifest.mirrorId} differs from latest mirror ${latestMirrorId}.`;
   } else {
     status = "current";
     reason = "Installed mirror matches the latest bundle lock mirror.";
@@ -438,7 +448,7 @@ async function buildInstallRefreshAssetStatus(
     pinned: pinnedGeneration,
     reason,
     installedMirrorId: manifest.mirrorId,
-    latestMirrorId: latestBundleAsset?.mirrorId,
+    latestMirrorId,
     installedFingerprint: manifest.upstream,
     latestFingerprint:
       latestMirrorEntry && latestCatalogEntry

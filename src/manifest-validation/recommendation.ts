@@ -38,11 +38,15 @@ export function assertRecommendationReport(
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.generatedAt, `${context}.generatedAt`);
   assertNumber(record.policyVersion, `${context}.policyVersion`);
-  assertLiteral(
-    record.sessionIntent,
-    [...SESSION_INTENTS],
-    `${context}.sessionIntent`,
-  );
+  if (Object.prototype.hasOwnProperty.call(record, "sessionIntent")) {
+    assertLiteral(
+      record.sessionIntent,
+      [...SESSION_INTENTS],
+      `${context}.sessionIntent`,
+    );
+  } else {
+    record.sessionIntent = "general";
+  }
   const topByHost = assertRecord(record.topByHost, `${context}.topByHost`);
 
   for (const expectedHost of HOST_TARGETS) {

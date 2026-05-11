@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { readJsonFile, writeJsonFile } from "../files.js";
+import { readJsonFile, readJsonLinesFile, writeJsonFile } from "../files.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 
 type SourceSyncReport = {
@@ -542,6 +542,60 @@ void test("source sync keeps html-backed sources partial when a later page fetch
     assert.equal(piPackages?.coverageMode, "indexed");
     assert.equal(piPackages?.status, "partial");
     assert.match(piPackages?.reason ?? "", /page=2/u);
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("source sync reruns completed finite sources and evicts removed entries", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-"),
+  );
+  let syncRunCount = 0;
+  const cleanupFetch = installFetchMock({
+    "https://pi.dev/packages": () => {
+      syncRunCount += 1;
+      return htmlResponse(
+        syncRunCount === 1
+          ? ['<a href="/packages/%40acme/old-pack">Old Pack</a>']
+          : ['<a href="/packages/%40acme/new-pack">New Pack</a>'],
+      );
+    },
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pi-packages",
+        "registry",
+        {
+          baseUrl: "https://pi.dev/packages",
+        },
+        ["pi"],
+        ["skill", "agent"],
+        "official-compatible",
+        {
+          name: "Pi",
+          verified: true,
+        },
+      ),
+    ]);
+
+    await syncIndexedSources(projectRoot);
+    const firstEntries = await readJsonLinesFile<{ id: string }>(
+      join(projectRoot, "state", "discover", "source-sync.entries.jsonl"),
+    );
+
+    await syncIndexedSources(projectRoot);
+    const secondEntries = await readJsonLinesFile<{ id: string }>(
+      join(projectRoot, "state", "discover", "source-sync.entries.jsonl"),
+    );
+
+    assert.equal(syncRunCount, 2);
+    assert.equal(firstEntries.length, 1);
+    assert.equal(secondEntries.length, 1);
+    assert.notEqual(secondEntries[0]?.id, firstEntries[0]?.id);
   } finally {
     cleanupFetch();
     await rm(projectRoot, { force: true, recursive: true });

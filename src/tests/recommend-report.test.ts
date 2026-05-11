@@ -5,6 +5,7 @@ import {
   clearRuntimeConfigForTests,
   loadRuntimeConfig,
 } from "../config/runtime.js";
+import { assertRecommendationReport } from "../manifest-validation.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
 import { buildRecommendationReport } from "../recommend/report.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
@@ -41,6 +42,23 @@ void test("recommendation reports apply validated session intent to ranking", as
     backendReport.topByHost["copilot-vscode"][0]?.assetId,
     "backend-skill",
   );
+});
+
+void test("recommendation report validation defaults missing session intent to general", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const report = buildRecommendationReport(
+    [createEntry("frontend-skill", ["frontend", "ui", "react"])],
+    demandProfile,
+    policy,
+    "frontend",
+  ) as unknown as Record<string, unknown>;
+
+  delete report.sessionIntent;
+  assertRecommendationReport(report, "report");
+
+  assert.equal(report.sessionIntent, "general");
 });
 
 void test("recommendation reports rank entries for expanded session intent families", async () => {

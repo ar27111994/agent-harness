@@ -1,0 +1,134 @@
+# Recommendation Policy Playbook
+
+Use this playbook when the selected candidate pool already looks reasonable, but the final recommendations still feel wrong.
+
+This is the right guide when:
+
+- `selectedCount` is healthy, but the top recommendations are noisy
+- relevant assets are already in `catalog.selected.jsonl` yet rank too low
+- you want to inspect or edit host policy intentionally instead of guessing
+- you want another AI agent to justify policy changes with evidence
+
+## Do not start here unless breadth is already healthy
+
+Before editing policy, verify:
+
+- `discover/output/demand-profile.json` looks correct
+- `discover/output/source-utilization.json` is not obviously starved
+- `discover/output/selection-report.json` is not obviously too narrow
+
+If those are still the problem, use `DISCOVERY-BREADTH-PLAYBOOK.md` first.
+
+## What to inspect first
+
+```bash
+agent-harness recommend report --intent <intent>
+agent-harness recommend explain --host <host> --asset <asset-id>
+agent-harness recommend policy:print --host <host>
+```
+
+Inspect:
+
+- `state/recommendations.json`
+- the explain output for one clearly relevant asset
+- the explain output for one clearly noisy asset
+- the effective printed host policy
+
+## Where policy lives
+
+Policy is loaded from the active state root.
+
+Key files:
+
+- `discover/recommendation-policy/base.json`
+- `discover/recommendation-policy/hosts/shared.json`
+- `discover/recommendation-policy/hosts/copilot-vscode.json`
+- `discover/recommendation-policy/hosts/opencode.json`
+- `discover/recommendation-policy/hosts/cursor.json`
+- `discover/recommendation-policy/hosts/zed.json`
+- `discover/recommendation-policy/hosts/claude-code.json`
+- `discover/recommendation-policy/hosts/pi.json`
+
+In installed/package usage these usually live under `.agent-harness/`.
+
+## Manual workflow
+
+### Step 1. Prove the problem is ranking, not recall
+
+```bash
+agent-harness discover full
+agent-harness discover stats
+agent-harness recommend report --intent <intent>
+```
+
+If the right assets are already present in `discover/output/catalog.selected.jsonl`, move on to policy inspection.
+
+### Step 2. Inspect the effective policy
+
+```bash
+agent-harness recommend policy:print --host <host>
+```
+
+This shows the merged effective policy, which is the thing you should reason about before editing files blindly.
+
+### Step 3. Explain both a good asset and a bad one
+
+```bash
+agent-harness recommend explain --host <host> --asset <relevant-asset-id>
+agent-harness recommend explain --host <host> --asset <noisy-asset-id>
+```
+
+### Step 4. Edit the active state-root policy files if needed
+
+Typical policy edits belong in:
+
+- `discover/recommendation-policy/base.json` for shared scoring behavior
+- `discover/recommendation-policy/hosts/<host>.json` for host-specific caps or preference shifts
+
+Then rerun:
+
+```bash
+agent-harness recommend report --intent <intent>
+agent-harness recommend explain --host <host> --asset <asset-id>
+```
+
+## Agent-prompted workflow
+
+```text
+You are using agent-harness to diagnose recommendation quality and justify any recommendation-policy changes.
+
+Workspace root: <workspace-path>
+Host: <vscode|cursor|opencode|zed|claude-code|pi>
+Intent(s): <optional intent list>
+
+Goals:
+1. Prove whether the problem is recall or ranking.
+2. Inspect the merged effective recommendation policy.
+3. Justify policy edits with explain output, not vibes.
+4. Suggest the smallest policy change that fixes the observed problem.
+
+Required workflow:
+- Run the deterministic discovery/recommendation flow first.
+- Confirm whether the right assets already exist in the selected catalog.
+- Run `agent-harness recommend policy:print --host <host>`.
+- Run `agent-harness recommend explain --host <host> --asset <relevant-asset-id>` and the same for at least one noisy asset.
+- Inspect these files when they exist, relative to the active state root:
+  - `discover/output/selection-report.json`
+  - `discover/output/catalog.selected.jsonl`
+  - `state/recommendations.json`
+  - `discover/recommendation-policy/base.json`
+  - `discover/recommendation-policy/hosts/<host>.json`
+- Do not recommend broader source/pool changes unless you can show the selected set is actually missing relevant candidates.
+
+When ready, give me:
+- whether the bottleneck is ranking or recall
+- the exact policy area that looks wrong
+- the smallest justified policy edit
+- the exact commands you ran
+```
+
+## Rule of thumb
+
+- Right assets missing from selected set -> not a policy problem yet
+- Right assets present but buried -> policy/ranking problem
+- Need narrative context only -> use `AI-ENRICHMENT-PLAYBOOK.md`

@@ -123,6 +123,16 @@ void test("recommend demand context normalizes broader manifest prefixes", () =>
   assert.ok(demandContext.packageManifestEntries.has("afnetworking"));
 });
 
+void test("recommend demand context keeps session intent signals without a demand profile", () => {
+  const demandContext = buildDemandContext(null, buildPolicy(), "devops");
+
+  assert.equal(demandContext.hasSignals, true);
+  assert.ok(
+    demandContext.terms.some((term) => term.canonicalTerm === "devops"),
+  );
+  assert.ok(demandContext.demandKeywords.has("kubernetes"));
+});
+
 function buildPolicy(): RecommendationPolicy {
   const hostPolicy: RecommendationHostPolicy = {
     recommendationLimit: 20,

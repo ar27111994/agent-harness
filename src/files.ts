@@ -293,14 +293,17 @@ export async function readJsonLinesFile<T>(
   }
 
   const values: T[] = [];
-  const fileStream = createReadStream(filePath, { encoding: "utf8" });
-  const lineReader = createInterface({
-    input: fileStream,
-    crlfDelay: Infinity,
-  });
+  let fileStream: ReturnType<typeof createReadStream> | undefined;
+  let lineReader: ReturnType<typeof createInterface> | undefined;
   let lineNumber = 0;
 
   try {
+    fileStream = createReadStream(filePath, { encoding: "utf8" });
+    lineReader = createInterface({
+      input: fileStream,
+      crlfDelay: Infinity,
+    });
+
     for await (const rawLine of lineReader) {
       lineNumber += 1;
       const line = rawLine.trim();
@@ -326,9 +329,14 @@ export async function readJsonLinesFile<T>(
 
       values.push(parsedLine as T);
     }
+  } catch (error) {
+    if (isFileNotFoundError(error)) {
+      return [];
+    }
+    throw error;
   } finally {
-    lineReader.close();
-    fileStream.destroy();
+    lineReader?.close();
+    fileStream?.destroy();
   }
 
   return values;
@@ -345,26 +353,31 @@ export async function writeJsonLinesFile(
   const tempPath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const chunkSizeBytes = 1_000_000;
   let chunk = "";
+  let chunkByteLength = 0;
 
   try {
     await writeFile(tempPath, "", "utf8");
 
     for (const value of values) {
       const line = `${JSON.stringify(value)}\n`;
+      const lineByteLength = Buffer.byteLength(line);
       if (
         chunk.length > 0 &&
-        Buffer.byteLength(chunk) + Buffer.byteLength(line) > chunkSizeBytes
+        chunkByteLength + lineByteLength > chunkSizeBytes
       ) {
         await appendFile(tempPath, chunk, "utf8");
         chunk = "";
+        chunkByteLength = 0;
       }
       chunk += line;
+      chunkByteLength += lineByteLength;
     }
 
     if (chunk.length > 0) {
       await appendFile(tempPath, chunk, "utf8");
     }
 
+    await rm(filePath, { force: true });
     await rename(tempPath, filePath);
   } catch (error) {
     await rm(tempPath, { force: true });
@@ -534,6 +547,15 @@ function getErrorMessage(error: unknown): string {
   }
 
   return String(error);
+}
+
+function isFileNotFoundError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }
 
 /**

@@ -87,6 +87,10 @@ const TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS = new Set([
   "workflow",
   "prompt-pack",
 ]);
+const TRUSTED_LOCAL_SOURCE_KINDS = new Set([
+  "local-directory",
+  "local-manifest",
+]);
 
 /**
  * Filters catalog entries to assets that overlap with workspace demand signals.
@@ -315,6 +319,9 @@ function buildDemandTermSet(
     );
   }
 
+  // Concerns intentionally stay out of stackAnchorTerms: addDemandSignal still
+  // boosts demand matching for them, but only stack/bridge identifiers gathered
+  // here and via addBridgeDemandTerms should influence trusted-local rejection.
   for (const concern of demandProfile.signals.concerns) {
     addDemandSignal(
       concern,
@@ -613,11 +620,7 @@ function isRejectedByTrustedLocalWeakStackAlignment(
   entryTerms: Set<string>,
   demandTerms: DemandRelevanceTerms,
 ): boolean {
-  if (
-    entry.source.authorityTier !== "trusted-local" ||
-    !["local-directory", "local-manifest"].includes(entry.source.sourceKind) ||
-    !TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS.has(entry.assetKind)
-  ) {
+  if (!isTrustedLocalGuidanceEntry(entry)) {
     return false;
   }
 
@@ -643,27 +646,24 @@ function isRejectedByTrustedLocalGenericOverlap(
   demandTerms: DemandRelevanceTerms,
 ): boolean {
   if (
-    entry.source.authorityTier !== "trusted-local" ||
-    !["local-directory", "local-manifest"].includes(entry.source.sourceKind) ||
-    !TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS.has(entry.assetKind) ||
+    !isTrustedLocalGuidanceEntry(entry) ||
     demandTerms.stackAnchorTerms.size === 0 ||
     intersects(entryTerms, demandTerms.stackAnchorTerms)
   ) {
     return false;
   }
 
-  for (const phrase of demandTerms.highSignalPhrases) {
-    if (
-      phrase.every((term) => demandTerms.stackAnchorTerms.has(term)) &&
-      phrase.some((term) => entryTerms.has(term))
-    ) {
-      return false;
-    }
-  }
-
   return (
     countOverlap(entryTerms, demandTerms.lowSignalTerms) >=
     TRUSTED_LOCAL_GENERIC_OVERLAP_REJECTION_THRESHOLD
+  );
+}
+
+function isTrustedLocalGuidanceEntry(entry: AssetCatalogEntry): boolean {
+  return (
+    entry.source.authorityTier === "trusted-local" &&
+    TRUSTED_LOCAL_SOURCE_KINDS.has(entry.source.sourceKind) &&
+    TRUSTED_LOCAL_GUIDANCE_ASSET_KINDS.has(entry.assetKind)
   );
 }
 

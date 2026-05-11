@@ -187,6 +187,20 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   const sourceSyncState = await loadSourceSyncState(projectRoot);
   const indexedSourceIds = getIndexedSourceIds(sourceSyncState);
   const indexedCatalogEntries = await loadIndexedCatalogEntries(projectRoot);
+  const indexedCatalogEntriesBySourceId = new Map<
+    string,
+    AssetCatalogEntry[]
+  >();
+  for (const entry of indexedCatalogEntries) {
+    const sourceEntries = indexedCatalogEntriesBySourceId.get(
+      entry.source.sourceId,
+    );
+    if (sourceEntries) {
+      sourceEntries.push(entry);
+    } else {
+      indexedCatalogEntriesBySourceId.set(entry.source.sourceId, [entry]);
+    }
+  }
   const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
   const repoBatchSize = getRuntimeConfig().batches.remoteHarvest;
   const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
@@ -203,9 +217,7 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   for (const source of nonRepoSources) {
     if (indexedSourceIds.has(source.id)) {
       catalogEntries.push(
-        ...indexedCatalogEntries.filter(
-          (entry) => entry.source.sourceId === source.id,
-        ),
+        ...(indexedCatalogEntriesBySourceId.get(source.id) ?? []),
       );
       continue;
     }

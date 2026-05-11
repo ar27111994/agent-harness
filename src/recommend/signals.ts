@@ -59,16 +59,6 @@ export function buildDemandContext(
   policy: RecommendationPolicy,
   sessionIntent: SessionIntent = "general",
 ): DemandContext {
-  if (!demandProfile) {
-    return {
-      terms: [],
-      hasSignals: false,
-      activeDomainGroups: new Set<string>(),
-      packageManifestEntries: new Set<string>(),
-      demandKeywords: new Set<string>(),
-    };
-  }
-
   const demandTermMap = new Map<string, DemandTermContext>();
 
   const registerTerm = (
@@ -101,19 +91,21 @@ export function buildDemandContext(
     });
   };
 
-  for (const evidence of demandProfile.evidence) {
-    for (const signalType of recommendationSignalTypes()) {
-      for (const rawTerm of evidence.matchedSignals[signalType]) {
-        registerTerm(
-          signalType,
-          rawTerm,
-          evidence.evidenceStrength ?? "medium",
-        );
+  if (demandProfile) {
+    for (const evidence of demandProfile.evidence) {
+      for (const signalType of recommendationSignalTypes()) {
+        for (const rawTerm of evidence.matchedSignals[signalType]) {
+          registerTerm(
+            signalType,
+            rawTerm,
+            evidence.evidenceStrength ?? "medium",
+          );
+        }
       }
     }
-  }
 
-  registerBridgeDemandTerms(demandProfile, registerTerm);
+    registerBridgeDemandTerms(demandProfile, registerTerm);
+  }
   registerSessionIntentTerms(sessionIntent, registerTerm);
 
   const terms = [...demandTermMap.values()].sort((left, right) =>
@@ -124,7 +116,9 @@ export function buildDemandContext(
     terms,
     hasSignals: demandTermMap.size > 0,
     activeDomainGroups: buildActiveDomainGroups(terms, policy),
-    packageManifestEntries: buildPackageManifestEntrySet(demandProfile),
+    packageManifestEntries: demandProfile
+      ? buildPackageManifestEntrySet(demandProfile)
+      : new Set<string>(),
     demandKeywords: buildDemandKeywordSet(demandProfile, policy, sessionIntent),
   };
 }
@@ -186,29 +180,31 @@ function registerSessionIntentTerms(
 }
 
 function buildDemandKeywordSet(
-  demandProfile: DemandProfile,
+  demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
   sessionIntent: SessionIntent,
 ): Set<string> {
   const keywords = new Set<string>();
 
-  for (const signalType of recommendationSignalTypes()) {
-    for (const rawTerm of demandProfile.signals[signalType]) {
-      keywords.add(normalizePhrase(rawTerm));
-      for (const token of rawTerm
-        .toLowerCase()
-        .split(/[^a-z0-9]+/u)
-        .filter((part) => part.length > 1)) {
-        keywords.add(normalizePhrase(token));
-      }
-      for (const matchTerm of buildSearchTerms([rawTerm], policy)) {
-        keywords.add(matchTerm);
+  if (demandProfile) {
+    for (const signalType of recommendationSignalTypes()) {
+      for (const rawTerm of demandProfile.signals[signalType]) {
+        keywords.add(normalizePhrase(rawTerm));
+        for (const token of rawTerm
+          .toLowerCase()
+          .split(/[^a-z0-9]+/u)
+          .filter((part) => part.length > 1)) {
+          keywords.add(normalizePhrase(token));
+        }
+        for (const matchTerm of buildSearchTerms([rawTerm], policy)) {
+          keywords.add(matchTerm);
+        }
       }
     }
-  }
 
-  if (hasDesignSystemSignals(demandProfile)) {
-    keywords.add("penpot");
+    if (hasDesignSystemSignals(demandProfile)) {
+      keywords.add("penpot");
+    }
   }
 
   for (const keyword of getSessionIntentKeywords(sessionIntent)) {

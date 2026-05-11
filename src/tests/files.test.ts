@@ -88,3 +88,19 @@ void test("writeJsonLinesFile writes large jsonl sets without losing records", a
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("writeJsonLinesFile replaces an existing destination file", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+
+  try {
+    const filePath = join(root, "state.jsonl");
+
+    await writeJsonLinesFile(filePath, [{ id: "first" }]);
+    await writeJsonLinesFile(filePath, [{ id: "second" }]);
+
+    const roundTripped = await readJsonLinesFile<{ id: string }>(filePath);
+    assert.deepEqual(roundTripped, [{ id: "second" }]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

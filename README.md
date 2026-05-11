@@ -21,6 +21,10 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Quick start](#quick-start)
 - [Usage examples](#usage-examples)
 - [Agent setup playbook](./AGENT-SETUP-PLAYBOOK.md)
+- [Discovery breadth playbook](./DISCOVERY-BREADTH-PLAYBOOK.md)
+- [AI enrichment playbook](./AI-ENRICHMENT-PLAYBOOK.md)
+- [Asset update playbook](./ASSET-UPDATE-PLAYBOOK.md)
+- [Recommendation policy playbook](./RECOMMENDATION-POLICY-PLAYBOOK.md)
 - [Command reference](#command-reference)
 - [Host wire-in details](#host-wire-in-details)
 - [Discovery and recommendations](#discovery-and-recommendations)
@@ -76,7 +80,7 @@ Some adapters intentionally reuse another lifecycle host while keeping their own
 
 ## Supported hosts
 
-`agent-harness` currently supports six adapter targets.
+`agent-harness` currently registers six host adapters in `src/host-adapters/registry.ts`.
 
 | CLI target                  | Aliases                | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                           |
 | --------------------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
@@ -219,6 +223,8 @@ Short version:
 - separate staged/wired assets from native installs and manual runtime follow-up
 - only run mutating install/apply commands after the dry run looks correct
 
+If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy.
+
 ### Apply and reset one host
 
 ```bash
@@ -343,6 +349,8 @@ The discovery configuration is assembled from multiple checked-in inputs on purp
 
 `discover sources` now records those assembled configuration inputs in `discover/output/source-index.json` so the effective discovery universe is inspectable instead of implicit.
 
+If you want the widest practical candidate pool before judging recommendation quality, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md). It covers both manual setup and AI-agent-operated setup, including which active state-root files to widen when the checked-in source universe is still too narrow.
+
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
 
 ```bash
@@ -392,7 +400,7 @@ agent-harness discover full --ai-enrich
 agent-harness workspace cursor --intent frontend --ai-enrich
 ```
 
-Use `setup login --provider ai` for configuration guidance.
+Use `setup login --provider ai` for configuration guidance. For scenario-based operator guidance, see [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md).
 
 ### Recommend
 
@@ -421,6 +429,8 @@ Print the merged effective policy for a host:
 ```bash
 node ./dist/cli.js recommend policy:print --host shared
 ```
+
+If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md).
 
 ### Mirror
 
@@ -463,6 +473,8 @@ npm run install:reset
 `install native` plans by default. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
 `install refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. When stale VS Code-family extension assets are applied through refresh, the native extension install step is executed too so host-native installs stay in sync with the refreshed bundle state.
+
+For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md).
 
 ### Activate
 
@@ -570,6 +582,8 @@ npm run rebuild:full
 All host-specific behavior lives behind `src/host-adapters/`. Generic orchestration lives in `src/workspace.ts`, `src/wire.ts`, `src/pipeline.ts`, `src/install.ts`, `src/activate.ts`, and related lifecycle modules.
 
 For the checked-in host-surface classification backing the current README wording, see [`HOST-SURFACE-AUDIT.md`](./HOST-SURFACE-AUDIT.md).
+
+Unless noted otherwise, lifecycle file paths shown in this section are relative to the configured state root. In repository-local development that is the repository root; in packaged CLI usage the default state root is workspace-local `.agent-harness/`.
 
 Preview, apply, and reset semantics are consistent across adapters:
 
@@ -950,7 +964,7 @@ Demand profiling uses scan budgets and detector packs for a broad range of repos
 - mobile projects
 - ML model artifacts
 
-Generated outputs include:
+Generated outputs include these state-root-relative paths:
 
 - `discover/output/demand-profile.json`
 - `discover/output/source-index.json`
@@ -1218,7 +1232,14 @@ Most users should leave these unset:
 
 ## Generated and managed files
 
-The following directories and files are generated by the lifecycle and are ignored by git. In packaged CLI usage these paths live under the configured state root, which defaults to workspace-local `.agent-harness/`:
+The lifecycle writes two kinds of generated output:
+
+1. **State-root lifecycle state** such as discovery, mirror, install, activation, and recommendation artifacts
+2. **Workspace-local host files** such as `.cursor/`, `.zed/`, `AGENTS.md`, or `.github/copilot-instructions.md` when a wire/apply flow targets that host
+
+Unless you override it, packaged CLI usage writes lifecycle state under the configured state root, which defaults to workspace-local `.agent-harness/`. Repository-local development in this repo still uses the repository root as the default state root.
+
+State-root lifecycle outputs include:
 
 - `.agent-harness/`
 - `discover/output/`
@@ -1234,6 +1255,9 @@ The following directories and files are generated by the lifecycle and are ignor
 - `install/`
 - `activate/`
 - `state/`
+
+Workspace-local host outputs can include:
+
 - `.opencode/`
 - `.cursor/`
 - `.zed/`
@@ -1253,54 +1277,73 @@ Local environment files are ignored except `.env.example`:
 
 ## Repository structure
 
+Representative layout (generated lifecycle state such as `state/`, `install/`, `activate/`, and `discover/output/` is omitted here because it is created at runtime):
+
 ```text
 agent-harness/
 ├── .github/
+│   ├── ISSUE_TEMPLATE/
 │   └── workflows/
 ├── discover/
 │   ├── recommendation-policy/
 │   ├── schema/
+│   ├── seeds/
 │   ├── source-packs/
-│   ├── output/
-│   ├── sources.json
-│   └── selections.json
+│   ├── official-skills-indexes.json
+│   ├── official-upstreams.json
+│   ├── pipeline.json
+│   ├── selections.json
+│   └── sources.json
 ├── mirror/
-│   ├── audit/
-│   ├── bundles/
-│   ├── quarantine/
-│   ├── raw/
 │   ├── schema/
 │   └── policy.json
+├── scripts/
+│   └── prepare-husky.cjs
 ├── src/
 │   ├── config/
 │   ├── domains/
 │   │   ├── discovery/
 │   │   └── wire/
 │   ├── host-adapters/
+│   │   ├── extension-installer.ts
+│   │   ├── native-config.ts
 │   │   ├── native-wire.ts
 │   │   ├── opencode.ts
 │   │   ├── registry.ts
+│   │   ├── types.ts
 │   │   ├── vscode-settings.ts
 │   │   └── vscode.ts
 │   ├── install/
 │   ├── lib/
 │   ├── manifest-validation/
+│   ├── mirror/
+│   ├── recommend/
 │   ├── tests/
 │   ├── types/
 │   ├── activate.ts
 │   ├── cli.ts
 │   ├── discover.ts
 │   ├── install.ts
+│   ├── manifest-validation.ts
 │   ├── mirror.ts
 │   ├── pipeline.ts
+│   ├── quarantine.ts
+│   ├── recommend-fixtures.ts
 │   ├── recommend.ts
 │   ├── setup.ts
 │   ├── wire.ts
 │   └── workspace.ts
-├── .npmignore
+├── AGENT-SETUP-PLAYBOOK.md
+├── AI-ENRICHMENT-PLAYBOOK.md
+├── ASSET-UPDATE-PLAYBOOK.md
 ├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── DISCOVERY-BREADTH-PLAYBOOK.md
+├── HOST-SURFACE-AUDIT.md
 ├── IMPLEMENTATION-PLAN.md
+├── RECOMMENDATION-POLICY-PLAYBOOK.md
 ├── Roadmap.md
+├── SECURITY.md
 ├── package.json
 └── tsconfig.json
 ```
@@ -1391,7 +1434,7 @@ agent-harness discover stats
 agent-harness recommend report
 ```
 
-Use this dry-run decision tree before changing policy or applying installs:
+Use this dry-run decision tree before changing policy or applying installs. The artifact paths below are relative to the active state root:
 
 1. **Check demand detection first.** Inspect `discover/output/demand-profile.json`.
    - If the workspace stack is missing there, fix detection scope first.
@@ -1456,6 +1499,10 @@ No. VS Code extension assets can produce metadata and install guidance, but the 
 
 Usually no. First confirm that demand detection found the real workspace technologies, then inspect whether relevant assets already exist in the selected set. If they do, the problem is more likely ranking, host policy, or source weighting than selection breadth. Increase selection count only when the current selection genuinely omits relevant candidates.
 
+### How do I give recommendations the widest possible asset pool?
+
+Run the discovery flow from the real workspace root, include `discover sources` and `discover sync`, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun discovery. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+
 ### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
 
 They can reuse compatible install and activation package layouts while keeping independent recommendation policies and native project-local wire behavior.
@@ -1490,6 +1537,10 @@ Known boundaries:
 
 - `CHANGELOG.md` - release notes
 - `AGENT-SETUP-PLAYBOOK.md` - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- `DISCOVERY-BREADTH-PLAYBOOK.md` - how to maximize the practical candidate pool before judging recommendation quality
+- `AI-ENRICHMENT-PLAYBOOK.md` - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
+- `ASSET-UPDATE-PLAYBOOK.md` - report-only, due-only, and apply-safe refresh/update workflows for installed assets
+- `RECOMMENDATION-POLICY-PLAYBOOK.md` - how to inspect and tweak ranking policy only after recall looks healthy
 - `HOST-SURFACE-AUDIT.md` - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
 - `SECURITY.md` - vulnerability reporting and supported-version policy
 - `Roadmap.md` - gap analysis and long-range direction

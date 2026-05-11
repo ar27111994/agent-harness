@@ -23,9 +23,13 @@ Use this playbook when:
 - you want an agent to guide setup without immediately mutating your workspace or global host config
 - you want a clean separation between staged/wired assets and native/manual installation steps
 
+If your first question is "how do I give recommendations the widest sensible candidate pool?", start with [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) and then return to this playbook for dry-run setup/apply decisions.
+
 ## Dry-run workflow
 
 Run this sequence from the target workspace root.
+
+Unless you override it with `--state-root` or `AGENT_HARNESS_STATE_ROOT`, packaged CLI usage writes lifecycle artifacts under workspace-local `.agent-harness/`. Repository-local development in this repo still writes them at the repository root. The paths below are shown relative to the active state root.
 
 ### 1. Check host readiness
 
@@ -72,6 +76,8 @@ Inspect these files when they exist:
 - `discover/output/ai-enrichment.json`
 - `state/recommendations.json`
 
+If you are using the installed package defaults, these are typically under `.agent-harness/` (for example `.agent-harness/discover/output/demand-profile.json`).
+
 ### 3. Preview wire-in before any apply step
 
 ```bash
@@ -82,6 +88,8 @@ Typical preview outputs:
 
 - `activate/<host>/wire-preview-<host>.json`
 - `activate/copilot-vscode/wire-preview-vscode.json` for VS Code / GitHub Copilot
+
+In installed/package usage, prefix those with the active state root (for example `.agent-harness/activate/cursor/wire-preview-cursor.json`).
 
 Use the preview to answer:
 
@@ -113,7 +121,7 @@ Mutating native install or remove actions require `--apply`.
 
 ## Decision tree: when recommendations look wrong
 
-Use this before increasing selection breadth or changing policy.
+Use this before increasing selection breadth or changing policy. The artifact paths below are relative to the active state root.
 
 ### Step 1: Check demand detection first
 
@@ -247,7 +255,7 @@ Required workflow:
 - Run the workspace discovery/recommendation flow needed for inspection.
 - If AI enrichment is configured, decide whether to keep it manual (`discover enrich` / `--ai-enrich`) or let the configured automatic mode run.
 - Run `agent-harness wire <host> --preview` before any apply.
-- Inspect at least these files when they exist:
+- Inspect at least these files when they exist (relative to the active state root):
   - `discover/output/demand-profile.json`
   - `discover/output/selection-report.json`
   - `state/recommendations.json`
@@ -310,6 +318,13 @@ A good agent response after the dry run should usually look like this:
 - **Missing relevant assets entirely** -> investigate detection, source coverage, or selection.
 - **Relevant assets exist but lose to noisy ones** -> investigate ranking, policy, and source weighting.
 - **Assets are recommended but not active in the host** -> inspect wire previews, native install planning, and runtime prerequisites.
+
+## Related playbooks
+
+- [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) - maximize the candidate pool before ranking/setup decisions
+- [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md) - choose between enrichment modes and bounded AI review
+- [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md) - refresh stale installed assets safely
+- [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md) - tune ranking only after recall looks healthy
 
 ## Related commands
 

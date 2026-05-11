@@ -59,55 +59,13 @@ export function assertInstalledPackageManifest(
   assertBoolean(record.activationEligible, `${context}.activationEligible`);
   assertBoolean(record.activeByDefault, `${context}.activeByDefault`);
   if (record.upstream !== undefined) {
-    const upstreamRecord = assertRecord(record.upstream, `${context}.upstream`);
-    assertString(upstreamRecord.mirrorId, `${context}.upstream.mirrorId`);
-    assertString(upstreamRecord.mirroredAt, `${context}.upstream.mirroredAt`);
-    assertString(upstreamRecord.sourceId, `${context}.upstream.sourceId`);
-    assertString(
-      upstreamRecord.sourceOriginUrl,
-      `${context}.upstream.sourceOriginUrl`,
-    );
-    assertString(
-      upstreamRecord.sourceLastUpdated,
-      `${context}.upstream.sourceLastUpdated`,
-    );
-    const upstreamFingerprint = assertRecord(
-      upstreamRecord.upstream,
-      `${context}.upstream.upstream`,
-    );
-    assertLiteral(
-      upstreamFingerprint.type,
-      ["repo", "package", "marketplace", "docs", "local"],
-      `${context}.upstream.upstream.type`,
-    );
-    assertString(upstreamFingerprint.url, `${context}.upstream.upstream.url`);
-    if (upstreamFingerprint.ref !== undefined) {
-      assertString(upstreamFingerprint.ref, `${context}.upstream.upstream.ref`);
-    }
-    if (upstreamFingerprint.commit !== undefined) {
-      assertString(
-        upstreamFingerprint.commit,
-        `${context}.upstream.upstream.commit`,
-      );
-    }
-    if (upstreamFingerprint.version !== undefined) {
-      assertString(
-        upstreamFingerprint.version,
-        `${context}.upstream.upstream.version`,
-      );
-    }
+    assertInstalledUpstreamFingerprint(record.upstream, `${context}.upstream`);
   }
   if (record.nativeInstall !== undefined) {
-    const nativeInstallRecord = assertRecord(
+    assertInstalledNativeInstallFingerprint(
       record.nativeInstall,
       `${context}.nativeInstall`,
     );
-    if (nativeInstallRecord.extensionId !== undefined) {
-      assertString(
-        nativeInstallRecord.extensionId,
-        `${context}.nativeInstall.extensionId`,
-      );
-    }
   }
 }
 
@@ -304,9 +262,83 @@ export function assertInstallRefreshReport(
             `${context}.hosts[${index}].assets[${assetIndex}].latestMirrorId`,
           );
         }
+        if (assetRecord.installedFingerprint !== undefined) {
+          assertInstalledUpstreamFingerprint(
+            assetRecord.installedFingerprint,
+            `${context}.hosts[${index}].assets[${assetIndex}].installedFingerprint`,
+          );
+        }
+        if (assetRecord.latestFingerprint !== undefined) {
+          assertInstalledUpstreamFingerprint(
+            assetRecord.latestFingerprint,
+            `${context}.hosts[${index}].assets[${assetIndex}].latestFingerprint`,
+          );
+        }
+        if (assetRecord.nativeInstall !== undefined) {
+          assertInstalledNativeInstallFingerprint(
+            assetRecord.nativeInstall,
+            `${context}.hosts[${index}].assets[${assetIndex}].nativeInstall`,
+            true,
+          );
+        }
       },
     );
   });
+}
+
+/**
+ * Validates unknown data as install refresh scheduling state.
+ */
+function assertInstalledUpstreamFingerprint(
+  value: unknown,
+  context: string,
+): void {
+  const upstreamRecord = assertRecord(value, context);
+  assertString(upstreamRecord.mirrorId, `${context}.mirrorId`);
+  assertString(upstreamRecord.mirroredAt, `${context}.mirroredAt`);
+  assertString(upstreamRecord.sourceId, `${context}.sourceId`);
+  assertString(upstreamRecord.sourceOriginUrl, `${context}.sourceOriginUrl`);
+  assertString(
+    upstreamRecord.sourceLastUpdated,
+    `${context}.sourceLastUpdated`,
+  );
+  const upstreamFingerprint = assertRecord(
+    upstreamRecord.upstream,
+    `${context}.upstream`,
+  );
+  assertLiteral(
+    upstreamFingerprint.type,
+    ["repo", "package", "marketplace", "docs", "local"],
+    `${context}.upstream.type`,
+  );
+  assertString(upstreamFingerprint.url, `${context}.upstream.url`);
+  if (upstreamFingerprint.ref !== undefined) {
+    assertString(upstreamFingerprint.ref, `${context}.upstream.ref`);
+  }
+  if (upstreamFingerprint.commit !== undefined) {
+    assertString(upstreamFingerprint.commit, `${context}.upstream.commit`);
+  }
+  if (upstreamFingerprint.version !== undefined) {
+    assertString(upstreamFingerprint.version, `${context}.upstream.version`);
+  }
+}
+
+function assertInstalledNativeInstallFingerprint(
+  value: unknown,
+  context: string,
+  allowOperation = false,
+): void {
+  const nativeInstallRecord = assertRecord(value, context);
+  if (nativeInstallRecord.extensionId !== undefined) {
+    assertString(nativeInstallRecord.extensionId, `${context}.extensionId`);
+  }
+  if (allowOperation && nativeInstallRecord.operation !== undefined) {
+    assertLiteral(
+      nativeInstallRecord.operation,
+      ["install"],
+      `${context}.operation`,
+    );
+  }
 }
 
 /**
