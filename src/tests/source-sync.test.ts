@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { readJsonFile, readJsonLinesFile, writeJsonFile } from "../files.js";
+import {
+  readJsonFile,
+  readJsonLinesFile,
+  writeJsonFile,
+  writeJsonLinesFile,
+} from "../files.js";
+import { SOURCE_SYNC_ENTRIES_OUTPUT_PATH } from "../domains/discovery/output-paths.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 
 type SourceSyncReport = {
@@ -211,6 +217,66 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
     assert.equal(
       report.sources.some((source) => source.coverageMode === "sampled"),
       false,
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("source sync keeps prior indexed entries when a complete run observes zero ids", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://cursor.com/sitemap-marketplace.xml": xmlResponse([
+      "<urlset></urlset>",
+    ]),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "cursor-marketplace",
+        "marketplace",
+        {
+          baseUrl: "https://cursor.com/marketplace",
+          sitemapUrl: "https://cursor.com/sitemap-marketplace.xml",
+        },
+        ["cursor"],
+        ["plugin"],
+        "official-marketplace",
+        {
+          name: "Cursor",
+          verified: true,
+        },
+      ),
+    ]);
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [
+        buildIndexedEntry(
+          "cursor-marketplace",
+          "cursor-marketplace/acme-existing",
+        ),
+      ],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+    const entries = await readJsonLinesFile<{ id: string }>(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+    );
+
+    assert.equal(report.sources[0]?.sourceId, "cursor-marketplace");
+    assert.equal(report.sources[0]?.status, "complete");
+    assert.equal(report.sources[0]?.indexedEntryCount, 1);
+    assert.deepEqual(
+      entries.map((entry) => entry.id),
+      ["cursor-marketplace/acme-existing"],
     );
   } finally {
     cleanupFetch();
@@ -655,6 +721,71 @@ function buildSource(
       officialPreferred: true,
       allowMirror: true,
       allowInstall: true,
+    },
+  };
+}
+
+function buildIndexedEntry(
+  sourceId: string,
+  entryId: string,
+): Record<string, unknown> {
+  return {
+    id: entryId,
+    displayName: entryId,
+    assetKind: "plugin",
+    hosts: ["cursor"],
+    compatibilityMode: "native",
+    source: {
+      sourceId,
+      sourceKind: "marketplace",
+      authorityTier: "official-marketplace",
+      sourcePriority: 80,
+      originUrl: `https://cursor.com/marketplace/${entryId}`,
+      publisher: "Cursor",
+      publisherVerified: true,
+    },
+    trust: {
+      score: 100,
+      signals: ["official-marketplace"],
+    },
+    capabilities: ["cursor", "plugin"],
+    install: {
+      method: "marketplace",
+      nativeHosts: ["cursor"],
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+    },
+    maintenance: {
+      lastUpdated: "2026-05-11T00:00:00.000Z",
+      stars: 0,
+      releaseCadence: "active",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: {
+      sizeClass: "small",
+      estimatedPromptWeight: 1,
+    },
+    fit: {
+      portfolioFit: 0.9,
+      hostFit: 0.9,
+    },
+    dedupe: {
+      candidateRankHint: "fixture",
+    },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
     },
   };
 }

@@ -49,7 +49,7 @@ Use this to confirm:
 Use the workspace root so the detector can see the real repo manifests and dependencies.
 
 ```bash
-agent-harness discover full
+agent-harness discover breadth
 agent-harness discover stats
 agent-harness recommend report
 ```
@@ -65,6 +65,8 @@ or include it in the wrapper flow:
 ```bash
 agent-harness discover full --ai-enrich
 ```
+
+`discover breadth` is the canonical one-shot command when you want the widest practical candidate pool and a quick diagnosis before ranking/install decisions.
 
 Inspect these files when they exist:
 
@@ -330,7 +332,7 @@ A good agent response after the dry run should usually look like this:
 
 ```bash
 agent-harness setup doctor --host <host>
-agent-harness discover full
+agent-harness discover breadth
 agent-harness discover full --ai-enrich
 agent-harness discover enrich
 agent-harness discover stats

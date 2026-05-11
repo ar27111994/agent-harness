@@ -287,7 +287,7 @@ export function assertInstallRefreshReport(
 }
 
 /**
- * Validates unknown data as install refresh scheduling state.
+ * Validates unknown data as an installed upstream fingerprint.
  */
 function assertInstalledUpstreamFingerprint(
   value: unknown,

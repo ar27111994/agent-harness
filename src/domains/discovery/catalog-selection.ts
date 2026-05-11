@@ -624,11 +624,16 @@ function isRejectedByTrustedLocalWeakStackAlignment(
     return false;
   }
 
+  if (
+    demandTerms.primaryStackAnchorTerms.size === 0 &&
+    demandTerms.stackAnchorTerms.size === 0
+  ) {
+    return false;
+  }
+
   const hasStrongAnchors =
     demandTerms.primaryStackAnchorTerms.size > 0 ||
-    demandTerms.stackAnchorTerms.size >=
-      TRUSTED_LOCAL_STRONG_ANCHOR_MIN_COUNT ||
-    demandTerms.highSignalPhrases.length > 0;
+    demandTerms.stackAnchorTerms.size >= TRUSTED_LOCAL_STRONG_ANCHOR_MIN_COUNT;
   if (!hasStrongAnchors) {
     return false;
   }

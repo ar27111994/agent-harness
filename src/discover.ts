@@ -39,6 +39,7 @@ import {
   loadIndexedCatalogEntries,
   loadSourceSyncState,
   syncIndexedSources,
+  type SourceSyncState,
 } from "./domains/discovery/source-sync.js";
 import {
   harvestLocalDirectorySource,
@@ -73,6 +74,8 @@ import type {
   SelectionDuplicateDecision,
   SelectionRegistry,
   SelectionReport,
+  SourceDefinition,
+  SourceIndex,
 } from "./types.js";
 
 /**
@@ -130,6 +133,11 @@ export async function runDiscover(
         }),
       );
     }
+    case "breadth":
+    case "recall":
+    case "candidate-pool":
+      await runDiscoveryBreadth(workingDirectory, projectRoot);
+      return 0;
     case "enrich":
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
@@ -158,12 +166,13 @@ export async function runDiscover(
 async function generateDemandProfile(
   scanRoot: string,
   projectRoot: string,
-): Promise<void> {
+): Promise<DemandProfile> {
   const demandProfile = await buildDemandProfile(scanRoot);
   const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH);
   await writeJsonFile(outputPath, demandProfile);
 
   console.log(`Demand profile written to ${toPosixPath(outputPath)}`);
+  return demandProfile;
 }
 
 /**
@@ -171,7 +180,11 @@ async function generateDemandProfile(
  */
 export { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 
-async function generateCatalog(projectRoot: string): Promise<void> {
+async function generateCatalog(projectRoot: string): Promise<{
+  catalogEntries: AssetCatalogEntry[];
+  enabledSources: SourceDefinition[];
+  sourceSyncState: SourceSyncState;
+}> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
@@ -334,9 +347,19 @@ async function generateCatalog(projectRoot: string): Promise<void> {
   console.log(
     `Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} entries)`,
   );
+
+  return {
+    catalogEntries: sortedEntries,
+    enabledSources,
+    sourceSyncState,
+  };
 }
 
-async function generateSelectionOutputs(projectRoot: string): Promise<void> {
+async function generateSelectionOutputs(projectRoot: string): Promise<{
+  selectionReport: SelectionReport;
+  selectedEntries: AssetCatalogEntry[];
+  rejectedEntries: AssetCatalogEntry[];
+}> {
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
     assertSelectionRegistry,
@@ -419,6 +442,12 @@ async function generateSelectionOutputs(projectRoot: string): Promise<void> {
   console.log(
     `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
   );
+
+  return {
+    selectionReport,
+    selectedEntries: sortedSelectedEntries,
+    rejectedEntries: sortedRejectedEntries,
+  };
 }
 
 function parseAiEnrichmentFlags(args: readonly string[]): {
@@ -459,6 +488,170 @@ function handleAiEnrichmentResult(
   return result.shouldFail ? 1 : 0;
 }
 
+async function runDiscoveryBreadth(
+  workingDirectory: string,
+  projectRoot: string,
+): Promise<void> {
+  const demandProfile = await generateDemandProfile(
+    workingDirectory,
+    projectRoot,
+  );
+  const sourceIndex = await generateSourceIndex(projectRoot);
+  await syncIndexedSources(projectRoot);
+  const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);
+  const { selectionReport } = await generateSelectionOutputs(projectRoot);
+
+  printDiscoveryBreadthSummary({
+    demandProfile,
+    sourceIndex,
+    enabledSources,
+    catalogEntries,
+    selectionReport,
+  });
+}
+
+function printDiscoveryBreadthSummary(input: {
+  demandProfile: DemandProfile;
+  sourceIndex: SourceIndex;
+  enabledSources: SourceDefinition[];
+  catalogEntries: AssetCatalogEntry[];
+  selectionReport: SelectionReport;
+}): void {
+  const demandSignalCount = countDemandSignals(input.demandProfile);
+  const indexedSourceCount = input.sourceIndex.enabledSources.filter(
+    (source) => source.coverageMode === "indexed",
+  ).length;
+  const operationalSourceCount = countOperationalSources(input.catalogEntries);
+  const assessment = assessDiscoveryBreadth({
+    demandProfile: input.demandProfile,
+    catalogEntries: input.catalogEntries,
+    operationalSourceCount,
+    selectionReport: input.selectionReport,
+    sourceCount: input.enabledSources.length,
+  });
+
+  console.log("Discovery breadth complete.");
+  console.log(`Assessment: ${assessment.kind}`);
+  console.log(`Reason: ${assessment.reason}`);
+  console.log(
+    `Signals: ${demandSignalCount} across ${input.demandProfile.evidence.length} evidence file(s)`,
+  );
+  console.log(
+    `Sources: ${input.sourceIndex.sourceCount} enabled (${indexedSourceCount} indexed, ${operationalSourceCount} operational)`,
+  );
+  console.log(
+    `Selection: ${input.catalogEntries.length} catalog entries -> ${input.selectionReport.selectedCount} selected / ${input.selectionReport.rejectedCount} rejected`,
+  );
+  console.log("Next steps:");
+  for (const nextStep of assessment.nextSteps) {
+    console.log(`- ${nextStep}`);
+  }
+}
+
+function countDemandSignals(demandProfile: DemandProfile): number {
+  return new Set([
+    ...demandProfile.signals.languages,
+    ...demandProfile.signals.packageManagers,
+    ...demandProfile.signals.frameworks,
+    ...demandProfile.signals.concerns,
+    ...demandProfile.signals.tooling,
+  ]).size;
+}
+
+function countOperationalSources(catalogEntries: AssetCatalogEntry[]): number {
+  const operationalSourceIds = new Set<string>();
+
+  for (const entry of catalogEntries) {
+    if (
+      entry.evidence.manifestFound ||
+      entry.status.mirrorEligible ||
+      entry.status.installEligible ||
+      entry.status.activationEligible
+    ) {
+      operationalSourceIds.add(entry.source.sourceId);
+    }
+  }
+
+  return operationalSourceIds.size;
+}
+
+function assessDiscoveryBreadth(input: {
+  demandProfile: DemandProfile;
+  sourceCount: number;
+  operationalSourceCount: number;
+  catalogEntries: AssetCatalogEntry[];
+  selectionReport: SelectionReport;
+}): {
+  kind:
+    | "detection-limited"
+    | "source-coverage-limited"
+    | "selection-limited"
+    | "ranking-ready";
+  reason: string;
+  nextSteps: string[];
+} {
+  const demandSignalCount = countDemandSignals(input.demandProfile);
+
+  if (input.demandProfile.evidence.length === 0 || demandSignalCount === 0) {
+    return {
+      kind: "detection-limited",
+      reason:
+        "The demand profile is too sparse to trust candidate-pool breadth yet.",
+      nextSteps: [
+        "Confirm you are running from the real workspace root.",
+        "Inspect discover/output/demand-profile.json and verify real manifests are visible.",
+        "Check .gitignore, .ignore, and .agent-harnessignore for accidentally hidden manifests.",
+      ],
+    };
+  }
+
+  if (
+    input.sourceCount === 0 ||
+    input.catalogEntries.length === 0 ||
+    input.operationalSourceCount === 0
+  ) {
+    return {
+      kind: "source-coverage-limited",
+      reason:
+        "The active discovery universe is not producing a broad operational catalog yet.",
+      nextSteps: [
+        "Inspect discover/output/source-index.json and discover/output/source-utilization.json.",
+        "If the checked-in source universe is still too narrow, widen the active state-root discovery inputs: discover/sources.json, discover/source-packs/*.json, discover/official-skills-indexes.json, and discover/official-upstreams.json.",
+        "Rerun 'agent-harness discover breadth' after changing the active state-root discovery inputs.",
+      ],
+    };
+  }
+
+  if (
+    input.selectionReport.selectedCount === 0 ||
+    (input.catalogEntries.length >= 25 &&
+      input.selectionReport.selectedCount <=
+        Math.max(3, Math.floor(input.catalogEntries.length * 0.05)))
+  ) {
+    return {
+      kind: "selection-limited",
+      reason:
+        "Discovery is producing candidates, but the selected set is still narrow enough that selection filtering may be the bottleneck.",
+      nextSteps: [
+        "Inspect discover/output/selection-report.json plus catalog.selected.jsonl and catalog.rejected.jsonl.",
+        "Only change recommendation policy after confirming the right assets are missing from the selected set.",
+        "If the selected set already contains the right assets, the next step is ranking rather than more breadth.",
+      ],
+    };
+  }
+
+  return {
+    kind: "ranking-ready",
+    reason:
+      "The candidate pool looks broad enough to judge recommendation quality instead of recall first.",
+    nextSteps: [
+      "Run 'agent-harness recommend report' next.",
+      "If the final ordering still feels wrong, inspect 'agent-harness recommend explain --host <host> --asset <asset-id>' and 'agent-harness recommend policy:print --host <host>'.",
+      "Use the recommendation policy playbook only after confirming that breadth/selection are not the bottleneck.",
+    ],
+  };
+}
+
 function printDiscoverHelp(): void {
   console.log(`discover commands:
   demand-profile   Scan the working directory and write discover/output/demand-profile.json
@@ -467,6 +660,9 @@ function printDiscoverHelp(): void {
   catalog          Harvest local sources into discover/catalog.assets.jsonl
   select           Apply canonical selection rules and write selected/rejected JSONL outputs
   full             Run demand-profile, sources, sync, catalog, and select in one pass
+  breadth          Run the widest practical discovery pass and print candidate-pool guidance
+  recall           Alias for discover breadth
+  candidate-pool   Alias for discover breadth
   stats            Print catalog summary counts grouped by source, kind, host, and authority
   enrich           Run bounded AI-assisted enrichment against the selected catalog
   inspect          Print catalog entries filtered by --source <id> or --id <assetId>

@@ -30,7 +30,9 @@ interface OfficialUpstreamsConfig {
 /**
  * Generates source index artifacts for the lifecycle pipeline.
  */
-export async function generateSourceIndex(projectRoot: string): Promise<void> {
+export async function generateSourceIndex(
+  projectRoot: string,
+): Promise<SourceIndex> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
@@ -79,6 +81,7 @@ export async function generateSourceIndex(projectRoot: string): Promise<void> {
   await writeJsonFile(outputPath, sourceIndex);
 
   console.log(`Source index written to ${toPosixPath(outputPath)}`);
+  return sourceIndex;
 }
 
 async function buildDiscoveryConfigurationInputs(

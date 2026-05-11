@@ -163,5 +163,15 @@ export function assertMirrorAcquireState(
       assertString(entryValue, `${context}.lastBatchSkippedReasons.${key}`);
     });
   }
+  if (record.sessionMode !== undefined) {
+    assertLiteral(
+      record.sessionMode,
+      ["acquire", "refresh"],
+      `${context}.sessionMode`,
+    );
+  }
+  if (record.processedCount !== undefined) {
+    assertNumber(record.processedCount, `${context}.processedCount`);
+  }
   assertBoolean(record.terminal, `${context}.terminal`);
 }

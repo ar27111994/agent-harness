@@ -164,7 +164,8 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       const synchronizedState = await synchronizeIndexedSource(source, context);
       if (
         synchronizedState?.coverageMode === "indexed" &&
-        synchronizedState.status === "complete"
+        synchronizedState.status === "complete" &&
+        context.observedEntryIds.size > 0
       ) {
         pruneMissingIndexedEntriesForSource(context, source.id);
         synchronizedState.indexedEntryCount = countEntriesForSource(
@@ -231,13 +232,40 @@ function upsertIndexedCatalogEntry(
   const existingEntry = context.entriesById.get(entry.id);
   if (
     existingEntry !== undefined &&
-    JSON.stringify(existingEntry) === JSON.stringify(entry)
+    areIndexedCatalogEntriesEqual(existingEntry, entry)
   ) {
     return;
   }
 
   context.entriesById.set(entry.id, entry);
   context.entriesDirty = true;
+}
+
+function areIndexedCatalogEntriesEqual(
+  left: AssetCatalogEntry,
+  right: AssetCatalogEntry,
+): boolean {
+  return stableStringify(left) === stableStringify(right);
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortJsonValue(value));
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sortJsonValue(entry));
+  }
+
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+      .map(([key, entryValue]) => [key, sortJsonValue(entryValue)]),
+  );
 }
 
 function pruneMissingIndexedEntriesForSource(

@@ -55,6 +55,8 @@ void test("recommendation report validation defaults missing session intent to g
     "frontend",
   ) as unknown as Record<string, unknown>;
 
+  // assertRecommendationReport mutates the report to apply backward-compatible
+  // defaults like sessionIntent="general" for older persisted artifacts.
   delete report.sessionIntent;
   assertRecommendationReport(report, "report");
 

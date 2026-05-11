@@ -13,13 +13,16 @@ This is the right guide when:
 
 Today this is possible, but before this playbook it was **not obvious enough**.
 
-The widest practical pool comes from doing these things explicitly:
+The widest practical pool now has one first-class command: `agent-harness discover breadth`.
+
+That command already does the right discovery pass for recall-first diagnosis:
 
 1. run from the **real workspace root**
 2. make sure manifests are not hidden by `.gitignore`, `.ignore`, or `.agent-harnessignore`
-3. run the full discovery sequence, including `discover sources` and `discover sync`
-4. inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json`
-5. if the built-in registry is still too narrow for your case, widen the **active state-root discovery config** before rerunning discovery
+3. run the full breadth-oriented discovery sequence, including `discover sources` and `discover sync`
+4. print whether the bottleneck currently looks like demand detection, source coverage, selection filtering, or ranking
+5. inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json`
+6. if the built-in registry is still too narrow for your case, widen the **active state-root discovery config** before rerunning `discover breadth`
 
 ## What actually controls breadth
 
@@ -96,21 +99,22 @@ Do not widen policy yet if the workspace stack itself is missing.
 
 ### Step 2. Materialize the widest checked-in discovery universe
 
+Start with the first-class breadth command:
+
 ```bash
-agent-harness discover sources
-agent-harness discover sync
-agent-harness discover catalog
-agent-harness discover select
+agent-harness discover breadth
 agent-harness discover stats
 agent-harness recommend report --intent <intent>
 ```
 
-If you want the one-shot wrapper first, use:
+If you want to see the exact underlying sequence, `discover breadth` is effectively the recall-first wrapper around:
 
 ```bash
-agent-harness discover full
-agent-harness discover stats
-agent-harness recommend report --intent <intent>
+agent-harness discover demand-profile
+agent-harness discover sources
+agent-harness discover sync
+agent-harness discover catalog
+agent-harness discover select
 ```
 
 Then inspect:
@@ -143,10 +147,7 @@ Edit the active state-root discovery inputs, then rerun discovery:
 Then rerun:
 
 ```bash
-agent-harness discover sources
-agent-harness discover sync
-agent-harness discover catalog
-agent-harness discover select
+agent-harness discover breadth
 agent-harness discover stats
 agent-harness recommend report --intent <intent>
 ```
@@ -170,11 +171,7 @@ Goals:
 
 Required workflow:
 - Run `agent-harness setup doctor --host <host>`.
-- Run `agent-harness discover demand-profile`.
-- Run `agent-harness discover sources`.
-- Run `agent-harness discover sync`.
-- Run `agent-harness discover catalog`.
-- Run `agent-harness discover select`.
+- Run `agent-harness discover breadth`.
 - Run `agent-harness discover stats`.
 - Run `agent-harness recommend report --intent <intent>` when an intent is provided.
 - Inspect these files when they exist, relative to the active state root:
@@ -195,7 +192,7 @@ Required workflow:
 When ready, give me:
 - a short diagnosis
 - whether the bottleneck is detection, source coverage, selection, or ranking
-- the exact commands you ran
+- the exact commands you ran (including `agent-harness discover breadth`)
 - the exact state-root files I should edit next if the discovery universe still needs widening
 ```
 

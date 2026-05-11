@@ -313,6 +313,7 @@ node ./dist/cli.js discover sync
 npm run discover:catalog
 npm run discover:select
 npm run discover:full
+node ./dist/cli.js discover breadth
 npm run discover:stats
 npm run discover:enrich
 ```
@@ -326,6 +327,9 @@ node ./dist/cli.js discover sync
 node ./dist/cli.js discover catalog
 node ./dist/cli.js discover select --ai-enrich
 node ./dist/cli.js discover full --ai-enrich
+node ./dist/cli.js discover breadth
+node ./dist/cli.js discover recall
+node ./dist/cli.js discover candidate-pool
 node ./dist/cli.js discover stats
 node ./dist/cli.js discover enrich --force
 ```
@@ -349,7 +353,7 @@ The discovery configuration is assembled from multiple checked-in inputs on purp
 
 `discover sources` now records those assembled configuration inputs in `discover/output/source-index.json` so the effective discovery universe is inspectable instead of implicit.
 
-If you want the widest practical candidate pool before judging recommendation quality, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md). It covers both manual setup and AI-agent-operated setup, including which active state-root files to widen when the checked-in source universe is still too narrow.
+If you want the widest practical candidate pool before judging recommendation quality, start with `agent-harness discover breadth`. That first-class command runs the full breadth-oriented discovery pass and prints whether the bottleneck currently looks like demand detection, source coverage, selection filtering, or ranking. For the step-by-step workflow and agent-operated version, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
 
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
 
@@ -1501,7 +1505,7 @@ Usually no. First confirm that demand detection found the real workspace technol
 
 ### How do I give recommendations the widest possible asset pool?
 
-Run the discovery flow from the real workspace root, include `discover sources` and `discover sync`, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun discovery. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+Run `agent-harness discover breadth` from the real workspace root first, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun `agent-harness discover breadth`. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
 
 ### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
 

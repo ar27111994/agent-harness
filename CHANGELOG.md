@@ -8,15 +8,15 @@ All notable changes to this project will be documented in this file.
 
 - source-sync now reruns finite indexed sources from the beginning on completed passes, evicts entries that disappeared upstream after a fresh complete sync, and keeps append-only cursors resumable for feed-style registries
 - install refresh now blocks ambiguous multi-bundle mirror conflicts instead of silently picking the last seen mirror id, and refresh report validation now checks nested fingerprint/native-install payloads
-- guarded HTTP body timeouts now cancel active readers before surfacing timeout failures, and demand-context session intent signals still apply when no demand profile is available
+- guarded HTTP body timeouts now cancel active readers before surfacing timeout failures, demand-context session intent signals still apply when no demand profile is available, and `discover breadth` now provides a first-class recall-first discovery command for widening the candidate pool before ranking
 
 ### Fixed
 
-- JSONL state reads now tolerate ENOENT races during streaming and JSONL writes replace existing destinations reliably on Windows while avoiding repeated chunk byte-length rescans
-- discovery catalog generation now buckets indexed entries by source once, trusted-local demand gating removes unreachable phrase-bypass logic, and source-utilization fallback coverage matches source kind defaults
+- JSONL state reads now tolerate ENOENT races during streaming, rethrow non-ENOENT stream failures correctly, and JSONL writes replace existing destinations reliably on Windows while avoiding repeated chunk byte-length rescans
+- discovery catalog generation now buckets indexed entries by source once, trusted-local demand gating no longer lets concern-only phrases reject trusted-local guidance, source-sync avoids pruning indexed entries after transient zero-observation complete runs, and source-utilization fallback coverage matches source kind defaults
 - README and `AGENT-SETUP-PLAYBOOK.md` now consistently mark lifecycle artifact paths as state-root-relative and distinguish state-root lifecycle output from workspace-local host files
 - added scenario-specific playbooks for discovery breadth, AI enrichment, asset refresh/update, and recommendation policy tuning so both manual setup and agent-operated setup can follow the same verified workflows
-- `.env.example` reorders flagged runtime keys, and install refresh due-only coverage now asserts the persisted schedule state is left untouched when a run is skipped
+- `.env.example` keeps install refresh policy comments adjacent to the policy key, recommendation-report coverage now documents validator defaulting side effects, and install refresh due-only coverage asserts the persisted schedule state is left untouched when a run is skipped
 
 ## [1.0.3] - 2026-05-10
 

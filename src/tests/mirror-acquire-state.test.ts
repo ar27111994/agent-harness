@@ -1652,6 +1652,54 @@ void test("acquireMirrorArtifacts continues past skipped first slice and mirrors
   }
 });
 
+void test("acquireMirrorArtifacts tracks full refresh progress across refresh batches", async () => {
+  const entries = [
+    buildAsset("mirror-a"),
+    buildAsset("mirror-b"),
+    buildAsset("mirror-c"),
+  ];
+  const projectRoot = await createAcquireFixture(entries);
+  const materializeArtifact = createMaterializer([]);
+
+  try {
+    await writeJsonLinesFile(mirrorIndexPath(projectRoot), [
+      createMirrorIndexEntry("mirror-a"),
+      createMirrorIndexEntry("mirror-b"),
+      createMirrorIndexEntry("mirror-c"),
+    ]);
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--refresh", "--batch-size", "2"],
+      { materializeArtifact },
+    );
+
+    const firstState = await readAcquireStateFixture(projectRoot);
+    assert.equal(firstState.sessionMode, "refresh");
+    assert.equal(firstState.processedCount, 2);
+    assert.equal(firstState.terminal, false);
+    assert.equal(firstState.remainingCount, 1);
+    assert.equal(assertMirrorAcquireCheckpoint(firstState, "fixture"), false);
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--refresh", "--batch-size", "2"],
+      { materializeArtifact },
+    );
+
+    const secondState = await readAcquireStateFixture(projectRoot);
+    assert.equal(secondState.sessionMode, "refresh");
+    assert.equal(secondState.processedCount, 3);
+    assert.equal(secondState.terminal, true);
+    assert.equal(secondState.remainingCount, 0);
+    assert.equal(assertMirrorAcquireCheckpoint(secondState, "fixture"), true);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("acquireMirrorArtifacts records partial skip and mirror results from one batch", async () => {
   const entries = [buildAsset("mirror-a"), buildAsset("skip-b")];
   const projectRoot = await createAcquireFixture(entries);

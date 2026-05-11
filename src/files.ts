@@ -288,10 +288,6 @@ export async function readJsonLinesFile<T>(
   filePath: string,
   validator?: JsonValidator<T>,
 ): Promise<T[]> {
-  if (!(await pathExists(filePath))) {
-    return [];
-  }
-
   const values: T[] = [];
   let fileStream: ReturnType<typeof createReadStream> | undefined;
   let lineReader: ReturnType<typeof createInterface> | undefined;

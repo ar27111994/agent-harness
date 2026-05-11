@@ -20,6 +20,28 @@ export function assertMirrorAcquireCheckpoint(
     );
   }
 
+  if (state.sessionMode === "refresh") {
+    const processedCount = state.processedCount ?? 0;
+    if (processedCount + state.remainingCount !== state.totalEligibleCount) {
+      throw new Error(
+        `${context} mirror refresh state is inconsistent: processed(${processedCount}) + remaining(${state.remainingCount}) != total(${state.totalEligibleCount})`,
+      );
+    }
+
+    if (!state.terminal) {
+      return false;
+    }
+
+    if (state.remainingCount > 0) {
+      throw new Error(
+        `${context} mirror refresh stalled after batch: ${processedCount}/${state.totalEligibleCount} processed, ${state.lastBatchSkippedCount} skipped in last batch, ${state.remainingCount} remaining. ` +
+          `Review state/mirror/acquire-state.json (last batch: ${state.lastBatchAssetIds.length} asset(s)) or adjust mirror policy.${buildSkippedReasonSummary(state)}`,
+      );
+    }
+
+    return true;
+  }
+
   if (
     state.mirroredCount + state.skippedCount + state.remainingCount !==
     state.totalEligibleCount

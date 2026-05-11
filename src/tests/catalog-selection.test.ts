@@ -119,6 +119,36 @@ void test("selection relevance rejects unrelated trusted-local guidance when mea
   );
 });
 
+void test("selection relevance ignores concern-only phrases when trusted-local stack anchors are absent", () => {
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: [],
+    concerns: ["docs", "research", "testing"],
+    tooling: [],
+  });
+  const localSkill = createEntry(
+    "docs-research-skill",
+    ["docs", "research", "testing", "analysis"],
+    {
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+    },
+  );
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance([localSkill], demandProfile);
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["docs-research-skill"],
+  );
+  assert.deepEqual(
+    rejectedEntries.map((entry) => entry.id),
+    [],
+  );
+});
+
 void test("selection relevance ignores windows path noise for trusted-local stack alignment", () => {
   const demandProfile = interactnoteFullDemandProfile;
   const localSkill = createEntry(

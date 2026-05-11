@@ -197,6 +197,7 @@ function printHelp(): void {
   discover catalog          Build the unified asset catalog
   discover select           Apply canonical selection policies
   discover full             Run demand-profile, sources, sync, catalog, and select in one pass
+  discover breadth          Run the widest practical discovery pass and print candidate-pool guidance
   discover stats            Print catalog/source stats
   mirror locks             Generate mirror bundle locks
   mirror acquire           Acquire raw mirror artifacts and resolve bundle locks

@@ -155,5 +155,7 @@ export interface MirrorAcquireState {
   lastBatchMirroredCount: number;
   lastBatchSkippedCount: number;
   lastBatchSkippedReasons?: Record<string, string>;
+  sessionMode?: "acquire" | "refresh";
+  processedCount?: number;
   terminal: boolean;
 }

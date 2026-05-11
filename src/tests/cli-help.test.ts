@@ -41,6 +41,9 @@ void test("subcommand --help exits without preparing state", async () => {
     );
 
     assert.match(stdout, /discover commands:/u);
+    assert.match(stdout, /breadth\s+Run the widest practical discovery pass/u);
+    assert.match(stdout, /recall\s+Alias for discover breadth/u);
+    assert.match(stdout, /candidate-pool\s+Alias for discover breadth/u);
     assert.doesNotMatch(stdout, /Demand profile written/u);
 
     const { stdout: leadingHelpStdout } = await execFileAsync(

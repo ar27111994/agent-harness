@@ -104,3 +104,19 @@ void test("writeJsonLinesFile replaces an existing destination file", async () =
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("readJsonLinesFile rethrows non-ENOENT stream errors", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+
+  try {
+    const filePath = join(root, "directory-as-jsonl");
+    await ensureDirectory(filePath);
+
+    await assert.rejects(readJsonLinesFile(filePath), (error: unknown) => {
+      assert.ok(error instanceof Error);
+      return /EISDIR|EPERM|EACCES/u.test(error.message);
+    });
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -27,6 +27,7 @@ import {
 } from "../lib/safe-paths.js";
 import {
   assertAssetCatalogEntry,
+  assertMirrorAcquireState,
   assertMirrorIndexEntry,
   assertMirrorPolicy,
 } from "../manifest-validation.js";
@@ -138,6 +139,10 @@ export async function acquireMirrorArtifacts(
     getOptionValue(args, "--batch-size") ??
       getRuntimeConfig().batches.mirrorAcquire,
   );
+  const previousAcquireState = await readJsonFileOrNull<MirrorAcquireState>(
+    join(projectRoot, ...MIRROR_ACQUIRE_STATE_OUTPUT_PATH),
+    assertMirrorAcquireState,
+  );
   const batchSize =
     Number.isFinite(rawBatchSize) &&
     Number.isInteger(rawBatchSize) &&
@@ -162,19 +167,28 @@ export async function acquireMirrorArtifacts(
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
-  const unresolvedEntries = mirrorEligibleEntries.filter((entry) => {
-    const shouldRefreshEntry =
-      refreshRequested || refreshAssetIds.has(entry.id);
+  const fullRefreshRequested = refreshRequested && refreshAssetIds.size === 0;
+  const refreshProcessedCount = fullRefreshRequested
+    ? restoreRefreshProcessedCount(
+        previousAcquireState,
+        mirrorEligibleEntries.length,
+      )
+    : 0;
+  const unresolvedEntries = fullRefreshRequested
+    ? mirrorEligibleEntries.slice(refreshProcessedCount)
+    : mirrorEligibleEntries.filter((entry) => {
+        const shouldRefreshEntry =
+          refreshRequested || refreshAssetIds.has(entry.id);
 
-    if (shouldRefreshEntry) {
-      return true;
-    }
+        if (shouldRefreshEntry) {
+          return true;
+        }
 
-    return (
-      !existingMirrorIdsByAssetId.has(entry.id) &&
-      !scopedSkippedAssetIds.has(entry.id)
-    );
-  });
+        return (
+          !existingMirrorIdsByAssetId.has(entry.id) &&
+          !scopedSkippedAssetIds.has(entry.id)
+        );
+      });
   const entriesToAcquire = unresolvedEntries.slice(0, batchSize);
   const newMirrorIndexEntries: MirrorIndexEntry[] = [];
   const skippedAssetIds: string[] = [];
@@ -309,11 +323,23 @@ export async function acquireMirrorArtifacts(
     mirroredAssetIds.has(entry.id),
   ).length;
   const totalSkippedCount = effectiveSkippedAssetIds.size;
-  const actualRemainingCount = Math.max(
-    0,
-    mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount,
-  );
-  const isTerminal = actualRemainingCount <= 0;
+  const processedCount = fullRefreshRequested
+    ? Math.min(
+        mirrorEligibleEntries.length,
+        refreshProcessedCount + entriesToAcquire.length,
+      )
+    : undefined;
+  const actualRemainingCount =
+    processedCount !== undefined
+      ? Math.max(0, mirrorEligibleEntries.length - processedCount)
+      : Math.max(
+          0,
+          mirrorEligibleEntries.length - totalMirroredCount - totalSkippedCount,
+        );
+  const isTerminal =
+    processedCount !== undefined
+      ? processedCount >= mirrorEligibleEntries.length
+      : actualRemainingCount <= 0;
 
   await writeMirrorAcquireState(projectRoot, {
     schemaVersion: 1,
@@ -329,8 +355,23 @@ export async function acquireMirrorArtifacts(
     lastBatchMirroredCount: newMirrorIndexEntries.length,
     lastBatchSkippedCount: skippedAssetIds.length,
     lastBatchSkippedReasons: buildSortedReasonRecord(skippedAssetReasons),
+    sessionMode: fullRefreshRequested ? "refresh" : "acquire",
+    processedCount,
     terminal: isTerminal,
   });
+
+  if (processedCount !== undefined) {
+    if (isTerminal) {
+      console.log(
+        `Mirror refresh complete: revisited ${processedCount}/${mirrorEligibleEntries.length} eligible assets under ${toPosixPath(join(projectRoot, "mirror"))}`,
+      );
+    } else {
+      console.log(
+        `Mirror refresh batch: ${processedCount}/${mirrorEligibleEntries.length} processed (${newMirrorIndexEntries.length} mirrored, ${skippedAssetIds.length} skipped this batch, ${actualRemainingCount} remaining)`,
+      );
+    }
+    return;
+  }
 
   if (isTerminal && totalMirroredCount === mirrorEligibleEntries.length) {
     console.log(
@@ -345,6 +386,29 @@ export async function acquireMirrorArtifacts(
       `Mirror acquire batch: ${newMirrorIndexEntries.length} mirrored, ${skippedAssetIds.length} skipped this batch (${totalMirroredCount}/${mirrorEligibleEntries.length} mirrored, ${totalSkippedCount} skipped total, ${actualRemainingCount} remaining)`,
     );
   }
+}
+
+function restoreRefreshProcessedCount(
+  previousAcquireState: MirrorAcquireState | null,
+  totalEligibleCount: number,
+): number {
+  if (
+    previousAcquireState?.sessionMode !== "refresh" ||
+    previousAcquireState.terminal ||
+    previousAcquireState.totalEligibleCount !== totalEligibleCount
+  ) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.min(
+      totalEligibleCount,
+      Number.isFinite(previousAcquireState.processedCount)
+        ? (previousAcquireState.processedCount ?? 0)
+        : 0,
+    ),
+  );
 }
 
 async function materializeMirrorArtifact(
