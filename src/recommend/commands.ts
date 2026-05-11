@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { readJsonFile, writeJsonFile } from "../files.js";
-import { getOptionValue } from "../lib/cli-options.js";
+import { getOptionValue, getSingleOptionValue } from "../lib/cli-options.js";
 import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
@@ -36,7 +36,7 @@ export async function runRecommend(
     case "report": {
       const shouldRunAiReview = rest.includes("--ai-review");
       const sessionIntent = parseSessionIntent(
-        getOptionValue(rest, "--intent"),
+        getSingleOptionValue(rest, "--intent"),
       );
       const policy = shouldRunAiReview
         ? await loadRecommendationPolicy(projectRoot)
@@ -85,7 +85,7 @@ export async function runRecommend(
     case "ai-review": {
       const policy = await loadRecommendationPolicy(projectRoot);
       const sessionIntent = parseSessionIntent(
-        getOptionValue(rest, "--intent"),
+        getSingleOptionValue(rest, "--intent"),
       );
       const deterministicReport = await writeRecommendationReport(projectRoot, {
         policy,
@@ -363,7 +363,7 @@ function printRecommendHelp(): void {
   policy:print  Print the merged effective policy (--host <host> to scope)
 
 Recommendation options:
-  --intent <${SESSION_INTENT_CHOICES}>
+  --intent <${SESSION_INTENT_CHOICES}>   Exactly one intent per run
 
 AI review options:
   --host <host>

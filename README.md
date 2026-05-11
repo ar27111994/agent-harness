@@ -180,7 +180,7 @@ npm run workspace:pi -- --intent product
 
 Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
 
-Supported canonical intents are `general`, `frontend`, `backend`, `mobile`, `devops`, `security`, `docs`, `testing`, `research`, `data`, `design`, `product`, and `marketing`. Common aliases are normalized automatically, for example `documentation` → `docs`, `ci-cd` / `infra` → `devops`, `branding` → `design`, and `ba` / `planning` / `product-research` → `product`.
+Supported canonical intents are `general`, `frontend`, `backend`, `mobile`, `devops`, `security`, `docs`, `testing`, `research`, `data`, `design`, `product`, and `marketing`. Common aliases are normalized automatically, for example `documentation` → `docs`, `ci-cd` / `infra` → `devops`, `branding` → `design`, and `ba` / `planning` / `product-research` → `product`. `--intent` is a single-value option: pass exactly one primary intent per run, not a comma-separated or repeated list. If you want to compare multiple task shapes, rerun the command once per intent.
 
 ### Mutable state root
 
@@ -513,7 +513,7 @@ You can also activate one lifecycle host using another recommendation policy:
 node ./dist/cli.js activate host --host copilot-vscode --recommendation-host cursor
 ```
 
-`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape.
+`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape. Only one `--intent` value is allowed per command.
 
 ### Wire
 

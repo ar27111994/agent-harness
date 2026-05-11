@@ -19,11 +19,13 @@ Use this playbook when:
 
 - recommendations look noisy or surprising
 - you want help choosing a host (`vscode`, `cursor`, `opencode`, `zed`, `claude-code`, `pi`)
-- you want setup help for one or more intents such as `frontend`, `backend`, or `docs`
+- you want setup help for a primary intent such as `frontend`, `backend`, or `docs`
 - you want an agent to guide setup without immediately mutating your workspace or global host config
 - you want a clean separation between staged/wired assets and native/manual installation steps
 
 If your first question is "how do I give recommendations the widest sensible candidate pool?", start with [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) and then return to this playbook for dry-run setup/apply decisions.
+
+`--intent` is a single-value option throughout the CLI. Pick one primary intent per run; if you want to compare `frontend` vs `docs` vs `product`, rerun the command once per intent instead of passing a list.
 
 ## Dry-run workflow
 
@@ -240,7 +242,7 @@ You are setting up agent assets for this workspace with agent-harness.
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent(s): <optional intent list such as frontend, backend, docs>
+Intent: <optional primary intent such as frontend, backend, or docs>
 
 Use agent-harness as the source of truth and do a dry run first.
 
@@ -285,7 +287,7 @@ When ready, give me:
 
 ```text
 Proceed with the approved agent-harness setup plan for this workspace.
-Use the same workspace root, host, and intents we already reviewed.
+Use the same workspace root, host, and primary intent we already reviewed.
 
 Rules:
 - Apply wire changes only after confirming the preview still matches.

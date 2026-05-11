@@ -99,7 +99,7 @@ You are using agent-harness to diagnose recommendation quality and justify any r
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent(s): <optional intent list>
+Intent: <optional primary intent>
 
 Goals:
 1. Prove whether the problem is recall or ranking.

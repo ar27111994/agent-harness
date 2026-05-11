@@ -161,7 +161,7 @@ You are using agent-harness to maximize the practical candidate asset pool for t
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent(s): <optional intent list>
+Intent: <optional primary intent>
 
 Goals:
 1. Verify that demand detection sees the real workspace.
@@ -173,7 +173,7 @@ Required workflow:
 - Run `agent-harness setup doctor --host <host>`.
 - Run `agent-harness discover breadth`.
 - Run `agent-harness discover stats`.
-- Run `agent-harness recommend report --intent <intent>` when an intent is provided.
+- Run `agent-harness recommend report --intent <intent>` when a primary intent is provided.
 - Inspect these files when they exist, relative to the active state root:
   - `discover/output/demand-profile.json`
   - `discover/output/source-index.json`

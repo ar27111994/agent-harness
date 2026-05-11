@@ -21,6 +21,27 @@ export function getOptionValue(
 }
 
 /**
+ * Returns the single value provided for a non-repeatable CLI option, rejecting
+ * duplicate occurrences instead of silently choosing one.
+ */
+export function getSingleOptionValue(
+  args: readonly string[],
+  optionName: string,
+): string | undefined {
+  const values = getOptionValues(args, optionName);
+
+  if (values.length === 0) {
+    return undefined;
+  }
+
+  if (values.length > 1) {
+    throw new Error(`Option '${optionName}' may only be provided once.`);
+  }
+
+  return values[0];
+}
+
+/**
  * Returns every value provided for a repeatable CLI option, rejecting valueless
  * occurrences instead of accidentally consuming the next flag as data.
  */

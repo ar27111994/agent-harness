@@ -3,7 +3,7 @@
 import { fileURLToPath } from "node:url";
 
 import { resolveProjectRoot } from "./files.js";
-import { getOptionValue } from "./lib/cli-options.js";
+import { getSingleOptionValue } from "./lib/cli-options.js";
 import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
@@ -35,7 +35,9 @@ export async function runWorkspace(
   projectRoot: string,
 ): Promise<number> {
   const [target = "help", ...rest] = args;
-  const sessionIntent = parseSessionIntent(getOptionValue(rest, "--intent"));
+  const sessionIntent = parseSessionIntent(
+    getSingleOptionValue(rest, "--intent"),
+  );
   const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
 
   if (target === "help") {
@@ -110,7 +112,7 @@ function printWorkspaceHelp(): void {
 ${commands}
 
 Options:
-  --intent <${SESSION_INTENT_CHOICES}>
+  --intent <${SESSION_INTENT_CHOICES}>   Exactly one intent per run
   --ai-enrich            Explicitly request enrichment after workspace wiring
   --no-ai-enrich         Explicitly skip enrichment for this workspace run
   --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
