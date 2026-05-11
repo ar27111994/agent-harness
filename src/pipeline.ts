@@ -47,6 +47,7 @@ export async function runWorkspacePipeline(options: {
   await runDiscover(["demand-profile"], workspaceRoot, projectRoot);
   await runDiscover(["sources"], workspaceRoot, projectRoot);
   await runDiscover(["sync"], workspaceRoot, projectRoot);
+  await runDiscover(["sources"], workspaceRoot, projectRoot);
   await runDiscover(["catalog"], workspaceRoot, projectRoot);
   await runDiscover(["select"], workspaceRoot, projectRoot);
   await runRecommend(

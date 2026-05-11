@@ -512,7 +512,6 @@ async function runDiscoveryBreadth(
     workingDirectory,
     projectRoot,
   );
-  await generateSourceIndex(projectRoot);
   await syncIndexedSources(projectRoot);
   const sourceIndex = await generateSourceIndex(projectRoot);
   const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);

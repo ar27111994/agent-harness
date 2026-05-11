@@ -107,6 +107,14 @@ try {
       throw new Error(`Unknown workspace smoke host: ${host}`);
     }
 
+    const sourceSyncReportPath = join(
+      stateRoot,
+      "discover",
+      "output",
+      "source-sync.json",
+    );
+    await removePath(sourceSyncReportPath);
+
     await runWorkspacePipeline({
       projectRoot: stateRoot,
       workspaceRoot,
@@ -116,11 +124,7 @@ try {
       bundleIds: adapter.defaultBundleIds,
     });
 
-    if (
-      !(await pathExists(
-        join(stateRoot, "discover", "output", "source-sync.json"),
-      ))
-    ) {
+    if (!(await pathExists(sourceSyncReportPath))) {
       throw new Error(`[${host}] source-sync report missing after pipeline`);
     }
 

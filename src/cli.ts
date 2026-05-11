@@ -208,9 +208,12 @@ function printHelp(): void {
   stage native              Plan/verify/apply/remove host-native installs
   stage refresh             Refresh staged install state and report/apply stale assets
   stage reconcile           Recompute staged install progress and generations
+  stage diff                Compare current vs previous or explicit staged generations
+  stage explain             Explain where a staged asset is present and active
+  stage generations         Manage staged generation list, pinning, and pruning
   stage reset               Remove staged install state
   install <...>             Alias for stage <...>
-  activate host             Materialize active host views from installed bundles
+  activate host             Materialize active host views from staged bundles
   activate rollback         Point a host to a previous generation
   activate reset            Remove activation state
   recommend report          Recompute the recommendation report

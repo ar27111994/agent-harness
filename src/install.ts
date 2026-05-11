@@ -68,7 +68,7 @@ Native install options:
   --operation <plan|install|verify|remove>
   --apply     Required for mutating install/remove operations
 
-Install refresh options:
+Stage refresh options:
   --host <copilot-vscode|opencode|shared>
   --apply     Apply eligible stale bundle refreshes after reporting
   --due-only  Skip the run unless the persisted refresh interval says a check is due
