@@ -11,6 +11,7 @@ import type {
   RecommendationPolicy,
   RecommendationScoreBreakdown,
 } from "../types.js";
+import type { CandidateRecommendationBase } from "./model.js";
 import type { RecommendationHost } from "./hosts.js";
 import type {
   CandidateRecommendation,
@@ -23,16 +24,16 @@ import type {
  */
 export function buildTopRecommendationsForHost(
   host: RecommendationHost,
-  entries: AssetCatalogEntry[],
+  candidateBases: CandidateRecommendationBase[],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): RecommendationEntry[] {
-  const scoredCandidates = entries
-    .filter((entry) => isEntryCompatibleWithRecommendationHost(entry, host))
-    .filter((entry) => entry.compatibilityMode !== "incompatible")
-    .map((entry) => {
+  const scoredCandidates = candidateBases
+    .filter((base) => isEntryCompatibleWithRecommendationHost(base.entry, host))
+    .filter((base) => base.entry.compatibilityMode !== "incompatible")
+    .map((base) => {
       const candidate = buildCandidateRecommendation(
-        entry,
+        base,
         host,
         demandContext,
         policy,

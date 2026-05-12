@@ -19,6 +19,18 @@ import type {
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
 
+function writeWorkspaceProgress(message: string): void {
+  process.stdout.write(`${message}\n`);
+}
+
+function logWorkspacePhase(
+  step: number,
+  total: number,
+  description: string,
+): void {
+  writeWorkspaceProgress(`[workspace] ${step}/${total} ${description}...`);
+}
+
 /**
  * Runs discover, recommendation, mirror, stage/install, activation, and shared
  * activation phases for a workspace before the selected adapter performs final
@@ -30,6 +42,7 @@ export async function runWorkspacePipeline(options: {
   targetHost: "copilot-vscode" | "opencode";
   recommendationHost: HostTarget;
   sessionIntent: SessionIntent;
+  sessionIntents?: readonly SessionIntent[];
   bundleIds: string[];
 }): Promise<void> {
   const {
@@ -38,25 +51,41 @@ export async function runWorkspacePipeline(options: {
     targetHost,
     recommendationHost,
     sessionIntent,
+    sessionIntents,
     bundleIds,
   } = options;
+  const resolvedIntents: readonly SessionIntent[] =
+    sessionIntents && sessionIntents.length > 1
+      ? sessionIntents
+      : [sessionIntent];
+  const primaryIntent = resolvedIntents[0] ?? sessionIntent;
   const config = getRuntimeConfig();
   const mirrorBatchSize = String(config.batches.mirrorAcquire);
   const installBatchSize = String(config.batches.installBundle);
 
+  logWorkspacePhase(1, 11, "Scanning workspace demand");
   await runDiscover(["demand-profile"], workspaceRoot, projectRoot);
+  logWorkspacePhase(2, 11, "Refreshing source index");
   await runDiscover(["sources"], workspaceRoot, projectRoot);
+  logWorkspacePhase(3, 11, "Syncing indexed sources");
   await runDiscover(["sync"], workspaceRoot, projectRoot);
+  logWorkspacePhase(4, 11, "Refreshing source index after sync");
   await runDiscover(["sources"], workspaceRoot, projectRoot);
+  logWorkspacePhase(5, 11, "Building discovery catalog");
   await runDiscover(["catalog"], workspaceRoot, projectRoot);
+  logWorkspacePhase(6, 11, "Applying selection rules");
   await runDiscover(["select"], workspaceRoot, projectRoot);
+  logWorkspacePhase(7, 11, "Ranking recommendations");
   await runRecommend(
-    ["report", "--intent", sessionIntent],
+    ["report", ...resolvedIntents.flatMap((i) => ["--intent", i])],
     workspaceRoot,
     projectRoot,
   );
+  logWorkspacePhase(8, 11, "Planning mirror work");
   await runMirror(["plan"], workspaceRoot, projectRoot);
+  logWorkspacePhase(9, 11, "Preparing mirror locks");
   await runMirror(["locks"], workspaceRoot, projectRoot);
+  logWorkspacePhase(10, 11, "Acquiring and staging assets");
   await acquireAllMirrorBatches(projectRoot, workspaceRoot, mirrorBatchSize);
   await installBundleBatches(
     projectRoot,
@@ -65,6 +94,7 @@ export async function runWorkspacePipeline(options: {
     installBatchSize,
   );
   await runInstall(["reconcile"], workspaceRoot, projectRoot);
+  logWorkspacePhase(11, 11, "Activating host views");
   await runActivate(
     [
       "host",
@@ -73,13 +103,13 @@ export async function runWorkspacePipeline(options: {
       "--recommendation-host",
       recommendationHost,
       "--intent",
-      sessionIntent,
+      primaryIntent,
     ],
     workspaceRoot,
     projectRoot,
   );
   await runActivate(
-    ["host", "--host", "shared", "--intent", sessionIntent],
+    ["host", "--host", "shared", "--intent", primaryIntent],
     workspaceRoot,
     projectRoot,
   );
@@ -97,6 +127,9 @@ async function acquireAllMirrorBatches(
   const maxBatches = 200;
 
   for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
+    writeWorkspaceProgress(
+      `[workspace] mirror batch ${batchIndex + 1}/${maxBatches} acquiring artifacts...`,
+    );
     await runMirror(
       ["acquire", "--batch-size", batchSize],
       workspaceRoot,
@@ -129,11 +162,15 @@ async function installBundleBatches(
   const maxBatchesPerBundle = 200;
 
   for (const bundleId of bundleIds) {
+    writeWorkspaceProgress(`[workspace] staging bundle '${bundleId}'...`);
     for (
       let batchIndex = 0;
       batchIndex < maxBatchesPerBundle;
       batchIndex += 1
     ) {
+      writeWorkspaceProgress(
+        `[workspace] install batch ${batchIndex + 1}/${maxBatchesPerBundle} for bundle '${bundleId}'...`,
+      );
       await runInstall(
         ["bundle", "--bundle", bundleId, "--batch-size", batchSize],
         workspaceRoot,

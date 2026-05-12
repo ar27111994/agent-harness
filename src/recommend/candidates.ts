@@ -18,7 +18,12 @@ import type {
   RecommendationSignalMatch,
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
-import type { CandidateRecommendation, DemandContext } from "./model.js";
+import type {
+  CandidateRecommendation,
+  CandidateRecommendationBase,
+  DemandContext,
+  PolicySearchContext,
+} from "./model.js";
 
 const WRAPPER_LIKE_TERMS = new Set([
   "config",
@@ -39,6 +44,38 @@ interface MatchQuality {
 }
 
 /**
+ * Precomputes all policy-derived Set lookups so they are built once per host
+ * run rather than once per candidate, eliminating the O(n × policy) hot path.
+ */
+export function buildPolicySearchContext(
+  policy: RecommendationPolicy,
+): PolicySearchContext {
+  const genericToolingTerms = buildGenericToolingTerms(policy);
+  const wrapperLikeTerms = buildSearchTerms([...WRAPPER_LIKE_TERMS], policy);
+  const concernTermSets = new Map<string, Set<string>>();
+  const taskModeTermSets = new Map<string, Set<string>>();
+  const domainGroupTermSets = new Map<string, Set<string>>();
+
+  for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
+    concernTermSets.set(concern, buildSearchTerms(keywords, policy));
+  }
+  for (const [mode, keywords] of Object.entries(policy.taskModeKeywordMap)) {
+    taskModeTermSets.set(mode, buildSearchTerms(keywords, policy));
+  }
+  for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
+    domainGroupTermSets.set(group, buildSearchTerms(keywords, policy));
+  }
+
+  return {
+    genericToolingTerms,
+    wrapperLikeTerms,
+    concernTermSets,
+    taskModeTermSets,
+    domainGroupTermSets,
+  };
+}
+
+/**
  * Provides compute entry preselection score for the lifecycle pipeline.
  */
 export function computeEntryPreselectionScore(
@@ -55,20 +92,21 @@ export function computeEntryPreselectionScore(
 }
 
 /**
- * Builds candidate recommendation from the provided inputs.
+ * Precomputes host-independent recommendation analysis for one catalog entry so
+ * large report builds do not repeat the same demand/search work for every host.
  */
-export function buildCandidateRecommendation(
+export function buildCandidateRecommendationBase(
   entry: AssetCatalogEntry,
-  host: RecommendationHost,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
-): CandidateRecommendation | null {
+  policyContext?: PolicySearchContext,
+): CandidateRecommendationBase | null {
+  const resolvedPolicyContext =
+    policyContext ?? buildPolicySearchContext(policy);
   const capabilitySearchTerms = buildSearchTerms(
     [entry.id, entry.displayName, ...entry.capabilities],
     policy,
   );
-  const genericToolingTerms = buildGenericToolingTerms(policy);
-  const wrapperLikeTerms = buildSearchTerms([...WRAPPER_LIKE_TERMS], policy);
   const rawKeywordTerms = buildRawKeywordTerms([
     entry.id,
     entry.displayName,
@@ -89,9 +127,6 @@ export function buildCandidateRecommendation(
     policy,
   );
 
-  if (isSuppressedForHost(entry, host, searchTerms, policy)) {
-    return null;
-  }
   if (
     isSuppressedBySpecializedDemandGate(entry, rawKeywordTerms, demandContext)
   ) {
@@ -112,20 +147,24 @@ export function buildCandidateRecommendation(
   const matchQuality = analyzeMatchQuality(
     matchedSignals,
     capabilitySearchTerms,
-    wrapperLikeTerms,
-    genericToolingTerms,
+    resolvedPolicyContext.wrapperLikeTerms,
+    resolvedPolicyContext.genericToolingTerms,
   );
   const availableLocally = isLocallyAvailable(entry);
   const recommendationBasis = determineRecommendationBasis(
     availableLocally,
     matchQuality,
   );
-  const coverageTags = buildCoverageTags(searchTerms, matchedSignals, policy);
+  const coverageTags = buildCoverageTags(
+    searchTerms,
+    matchedSignals,
+    resolvedPolicyContext.concernTermSets,
+  );
   const taskModes = buildTaskModes(
     searchTerms,
     coverageTags,
     matchedSignals,
-    policy,
+    resolvedPolicyContext.taskModeTermSets,
     entry.contextCost,
   );
   const duplicateGroup = buildDuplicateGroup(
@@ -133,12 +172,6 @@ export function buildCandidateRecommendation(
     matchedSignals,
     coverageTags,
     entry.dedupe.duplicateGroup,
-  );
-  const hostDeprioritizationPenalty = computeHostDeprioritizationPenalty(
-    entry,
-    host,
-    searchTerms,
-    policy,
   );
 
   const breakdown: RecommendationScoreBreakdown = {
@@ -158,13 +191,7 @@ export function buildCandidateRecommendation(
       matchedSignals.reduce((total, match) => total + match.weight, 0) +
         computeDemandExactnessBonus(matchQuality),
     ),
-    hostPreference: computeHostPreference(
-      entry,
-      host,
-      coverageTags,
-      demandContext,
-      policy,
-    ),
+    hostPreference: 0,
     coverage: 0,
     diversity: 0,
     freshness: computeFreshnessScore(entry, policy),
@@ -178,17 +205,17 @@ export function buildCandidateRecommendation(
       (entry.risk.requiresNetwork
         ? policy.scoring.riskFlagPenalties.requiresNetwork
         : 0),
-    negativePenalty:
-      computeNegativePenalty(
-        entry,
-        searchTerms,
-        matchedSignals,
-        matchQuality,
-        availableLocally,
-        recommendationBasis,
-        demandContext,
-        policy,
-      ) + hostDeprioritizationPenalty,
+    negativePenalty: computeNegativePenalty(
+      entry,
+      searchTerms,
+      matchedSignals,
+      matchQuality,
+      availableLocally,
+      recommendationBasis,
+      demandContext,
+      policy,
+      resolvedPolicyContext,
+    ),
     redundancyPenalty: 0,
     budgetPenalty: 0,
     total: 0,
@@ -197,7 +224,6 @@ export function buildCandidateRecommendation(
 
   return {
     entry,
-    host,
     sourceFamily: deriveSourceFamily(entry),
     availableLocally,
     recommendationBasis,
@@ -214,6 +240,63 @@ export function buildCandidateRecommendation(
       availableLocally,
       recommendationBasis,
     ),
+    searchTerms,
+    breakdown,
+  };
+}
+
+/**
+ * Builds candidate recommendation from precomputed entry analysis plus one host
+ * specific scoring/suppression pass.
+ */
+export function buildCandidateRecommendation(
+  base: CandidateRecommendationBase,
+  host: RecommendationHost,
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): CandidateRecommendation | null {
+  if (isSuppressedForHost(base.entry, host, base.searchTerms, policy)) {
+    return null;
+  }
+
+  const hostDeprioritizationPenalty = computeHostDeprioritizationPenalty(
+    base.entry,
+    host,
+    base.searchTerms,
+    policy,
+  );
+  const hostPreference = computeHostPreference(
+    base.entry,
+    host,
+    base.coverageTags,
+    demandContext,
+    policy,
+  );
+  const breakdown: RecommendationScoreBreakdown = {
+    ...base.breakdown,
+    hostPreference,
+    negativePenalty:
+      base.breakdown.negativePenalty + hostDeprioritizationPenalty,
+    total: 0,
+  };
+  breakdown.total = calculateBreakdownTotal(breakdown);
+
+  return {
+    entry: base.entry,
+    host,
+    sourceFamily: base.sourceFamily,
+    availableLocally: base.availableLocally,
+    recommendationBasis: base.recommendationBasis,
+    coverageTags: [...base.coverageTags],
+    taskModes: [...base.taskModes],
+    matchedSignals: base.matchedSignals.map((match) => ({
+      ...match,
+      ...(match.evidenceStrengthCounts
+        ? { evidenceStrengthCounts: { ...match.evidenceStrengthCounts } }
+        : {}),
+    })),
+    duplicateGroup: base.duplicateGroup,
+    reasons: [...base.reasons],
     breakdown,
   };
 }
@@ -412,6 +495,7 @@ function computeNegativePenalty(
   recommendationBasis: RecommendationBasis,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  policyContext: PolicySearchContext,
 ): number {
   let penalty = 0;
 
@@ -423,7 +507,12 @@ function computeNegativePenalty(
     penalty += policy.scoring.weakDemandPenalty;
   }
 
-  penalty += computeOutOfDomainPenalty(searchTerms, demandContext, policy);
+  penalty += computeOutOfDomainPenalty(
+    searchTerms,
+    demandContext,
+    policyContext.domainGroupTermSets,
+    policy.scoring.outOfDomainGroupPenalty,
+  );
 
   const specificTerms = [...searchTerms].filter(
     (term) => !GENERIC_CAPABILITY_TERMS.has(term) && term.length > 2,

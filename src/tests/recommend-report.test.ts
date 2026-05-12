@@ -63,6 +63,48 @@ void test("recommendation report validation defaults missing session intent to g
   assert.equal(report.sessionIntent, "general");
 });
 
+void test("recommendation reports support multiple intents and merge them additively", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const entries = [
+    createEntry("frontend-skill", ["frontend", "ui", "react"]),
+    createEntry("backend-skill", ["backend", "api", "service"]),
+    createEntry("docs-skill", ["documentation", "guide", "readme"]),
+  ];
+
+  const multiReport = buildRecommendationReport(
+    entries,
+    demandProfile,
+    policy,
+    ["backend", "docs"],
+  );
+
+  assert.equal(multiReport.sessionIntent, "backend");
+  assert.deepEqual(multiReport.sessionIntents, ["backend", "docs"]);
+  // Both backend and docs skills should appear in results since intents are merged
+  const copilotEntries = multiReport.topByHost["copilot-vscode"];
+  const ids = copilotEntries.map((e) => e.assetId);
+  assert.ok(
+    ids.includes("backend-skill") || ids.includes("docs-skill"),
+    `expected backend or docs skill in results but got: ${ids.join(", ")}`,
+  );
+});
+
+void test("recommendation reports with one intent omit sessionIntents from output", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const entries = [createEntry("backend-skill", ["backend", "api"])];
+
+  const report = buildRecommendationReport(entries, demandProfile, policy, [
+    "backend",
+  ]);
+
+  assert.equal(report.sessionIntent, "backend");
+  assert.equal(report.sessionIntents, undefined);
+});
+
 void test("recommendation reports rank entries for expanded session intent families", async () => {
   clearRuntimeConfigForTests();
   const policy = await loadRecommendationPolicy(process.cwd());
@@ -108,6 +150,34 @@ void test("recommendation reports rank entries for expanded session intent famil
     "mobile-skill",
   );
 });
+
+void test(
+  "recommendation reports handle large candidate sets without stalling",
+  { timeout: 15_000 },
+  async () => {
+    clearRuntimeConfigForTests();
+    const policy = await loadRecommendationPolicy(process.cwd());
+    const demandProfile = createDemandProfile();
+    const entries = Array.from({ length: 2_000 }, (_, index) =>
+      createEntry(
+        `fixture-skill-${index}`,
+        index % 2 === 0
+          ? ["backend", "api", `service-${index}`]
+          : ["docs", "guide", `reference-${index}`],
+      ),
+    );
+
+    const report = buildRecommendationReport(entries, demandProfile, policy, [
+      "backend",
+      "docs",
+    ]);
+
+    assert.equal(report.sessionIntent, "backend");
+    assert.deepEqual(report.sessionIntents, ["backend", "docs"]);
+    assert.ok(report.topByHost["copilot-vscode"].length > 0);
+    assert.ok(report.topByHost["shared"].length > 0);
+  },
+);
 
 void test("recommendation reports expose env-sourced recommendation limits", async () => {
   clearRuntimeConfigForTests();

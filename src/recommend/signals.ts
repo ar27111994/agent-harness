@@ -53,12 +53,18 @@ export function collectMatchedSignals(
 
 /**
  * Builds demand context from the provided inputs.
+ * Accepts one or more session intents; multiple intents are merged additively.
  */
 export function buildDemandContext(
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
-  sessionIntent: SessionIntent = "general",
+  sessionIntents: SessionIntent | readonly SessionIntent[] = "general",
 ): DemandContext {
+  const resolvedIntents: readonly SessionIntent[] = Array.isArray(
+    sessionIntents,
+  )
+    ? (sessionIntents as readonly SessionIntent[])
+    : [sessionIntents as SessionIntent];
   const demandTermMap = new Map<string, DemandTermContext>();
 
   const registerTerm = (
@@ -106,7 +112,9 @@ export function buildDemandContext(
 
     registerBridgeDemandTerms(demandProfile, registerTerm);
   }
-  registerSessionIntentTerms(sessionIntent, registerTerm);
+  for (const intent of resolvedIntents) {
+    registerSessionIntentTerms(intent, registerTerm);
+  }
 
   const terms = [...demandTermMap.values()].sort((left, right) =>
     left.key.localeCompare(right.key),
@@ -119,7 +127,11 @@ export function buildDemandContext(
     packageManifestEntries: demandProfile
       ? buildPackageManifestEntrySet(demandProfile)
       : new Set<string>(),
-    demandKeywords: buildDemandKeywordSet(demandProfile, policy, sessionIntent),
+    demandKeywords: buildDemandKeywordSet(
+      demandProfile,
+      policy,
+      resolvedIntents,
+    ),
   };
 }
 
@@ -182,7 +194,7 @@ function registerSessionIntentTerms(
 function buildDemandKeywordSet(
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
-  sessionIntent: SessionIntent,
+  sessionIntents: readonly SessionIntent[],
 ): Set<string> {
   const keywords = new Set<string>();
 
@@ -207,8 +219,10 @@ function buildDemandKeywordSet(
     }
   }
 
-  for (const keyword of getSessionIntentKeywords(sessionIntent)) {
-    keywords.add(keyword);
+  for (const intent of sessionIntents) {
+    for (const keyword of getSessionIntentKeywords(intent)) {
+      keywords.add(keyword);
+    }
   }
 
   return keywords;
@@ -272,15 +286,19 @@ function buildActiveDomainGroups(
 /**
  * Provides compute out of domain penalty for the lifecycle pipeline.
  */
+/**
+ * Computes out-of-domain penalty for an entry.
+ * Accepts precomputed domainGroupTermSets to avoid rebuilding per-candidate.
+ */
 export function computeOutOfDomainPenalty(
   searchTerms: Set<string>,
   demandContext: DemandContext,
-  policy: RecommendationPolicy,
+  domainGroupTermSets: Map<string, Set<string>>,
+  outOfDomainGroupPenalty: number,
 ): number {
   let penalty = 0;
 
-  for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
-    const groupTerms = buildSearchTerms(keywords, policy);
+  for (const [group, groupTerms] of domainGroupTermSets) {
     if (!intersects(searchTerms, groupTerms)) {
       continue;
     }
@@ -288,7 +306,7 @@ export function computeOutOfDomainPenalty(
       continue;
     }
 
-    penalty += policy.scoring.outOfDomainGroupPenalty;
+    penalty += outOfDomainGroupPenalty;
   }
 
   return penalty;
@@ -296,16 +314,17 @@ export function computeOutOfDomainPenalty(
 
 /**
  * Builds coverage tags from the provided inputs.
+ * Accepts precomputed concernTermSets to avoid rebuilding per-candidate.
  */
 export function buildCoverageTags(
   searchTerms: Set<string>,
   matchedSignals: RecommendationSignalMatch[],
-  policy: RecommendationPolicy,
+  concernTermSets: Map<string, Set<string>>,
 ): string[] {
   const tags = new Set<string>();
 
-  for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
-    if (intersects(searchTerms, buildSearchTerms(keywords, policy))) {
+  for (const [concern, terms] of concernTermSets) {
+    if (intersects(searchTerms, terms)) {
       tags.add(concern);
     }
   }
@@ -321,18 +340,19 @@ export function buildCoverageTags(
 
 /**
  * Builds task modes from the provided inputs.
+ * Accepts precomputed taskModeTermSets to avoid rebuilding per-candidate.
  */
 export function buildTaskModes(
   searchTerms: Set<string>,
   coverageTags: string[],
   matchedSignals: RecommendationSignalMatch[],
-  policy: RecommendationPolicy,
+  taskModeTermSets: Map<string, Set<string>>,
   contextCost: AssetContextCost,
 ): string[] {
   const modes = new Set<string>();
 
-  for (const [mode, keywords] of Object.entries(policy.taskModeKeywordMap)) {
-    if (intersects(searchTerms, buildSearchTerms(keywords, policy))) {
+  for (const [mode, terms] of taskModeTermSets) {
+    if (intersects(searchTerms, terms)) {
       modes.add(mode);
     }
   }

@@ -13,6 +13,10 @@ import { REPORT_FILE_PATH } from "./constants.js";
 import { getRecommendationHosts } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
 import { buildDemandContext } from "./signals.js";
+import {
+  buildCandidateRecommendationBase,
+  buildPolicySearchContext,
+} from "./candidates.js";
 import { buildTopRecommendationsForHost } from "./selection.js";
 import { buildHostSummary, buildSuggestedBundle } from "./summary.js";
 import type {
@@ -24,6 +28,7 @@ import type {
   RecommendationReport,
   SessionIntent,
 } from "../types.js";
+import type { CandidateRecommendationBase } from "./model.js";
 import type { RecommendationHost } from "./hosts.js";
 
 /**
@@ -34,6 +39,7 @@ export async function writeRecommendationReport(
   options: {
     policy?: RecommendationPolicy;
     sessionIntent?: SessionIntent;
+    sessionIntents?: readonly SessionIntent[];
   } = {},
 ): Promise<RecommendationReport> {
   const resolvedPolicy =
@@ -46,11 +52,14 @@ export async function writeRecommendationReport(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
     assertAssetCatalogEntry,
   );
+  const resolvedIntents: readonly SessionIntent[] =
+    options.sessionIntents ??
+    (options.sessionIntent ? [options.sessionIntent] : ["general"]);
   const report = buildRecommendationReport(
     selectedEntries,
     demandProfile,
     resolvedPolicy,
-    options.sessionIntent ?? "general",
+    resolvedIntents,
   );
 
   await writeJsonFile(join(projectRoot, ...REPORT_FILE_PATH), report);
@@ -60,23 +69,51 @@ export async function writeRecommendationReport(
 
 /**
  * Builds recommendation report from the provided inputs.
+ * Accepts one or more session intents; multiple intents are merged additively
+ * through the demand context so the ranking reflects the combined task shape.
+ * The first intent is recorded as the primary intent in the report output for
+ * backward compatibility. A sessionIntents array is included only when more
+ * than one intent was requested.
  */
 export function buildRecommendationReport(
   entries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,
   policy: RecommendationPolicy,
-  sessionIntent: SessionIntent = "general",
+  sessionIntents: SessionIntent | readonly SessionIntent[] = "general",
 ): RecommendationReport {
+  const resolvedIntents: readonly SessionIntent[] = Array.isArray(
+    sessionIntents,
+  )
+    ? (sessionIntents as readonly SessionIntent[])
+    : [sessionIntents as SessionIntent];
+  const primaryIntent: SessionIntent = resolvedIntents[0] ?? "general";
   const demandContext = buildDemandContext(
     demandProfile,
     policy,
-    sessionIntent,
+    resolvedIntents,
   );
   const recommendationHosts = getRecommendationHosts();
+  const policyContext = buildPolicySearchContext(policy);
+  const candidateBases = entries
+    .filter((entry) => entry.compatibilityMode !== "incompatible")
+    .map((entry) =>
+      buildCandidateRecommendationBase(
+        entry,
+        demandContext,
+        policy,
+        policyContext,
+      ),
+    )
+    .filter((base): base is CandidateRecommendationBase => base !== null);
   const topByHost = Object.fromEntries(
     recommendationHosts.map((host) => [
       host,
-      buildTopRecommendationsForHost(host, entries, demandContext, policy),
+      buildTopRecommendationsForHost(
+        host,
+        candidateBases,
+        demandContext,
+        policy,
+      ),
     ]),
   ) as Record<RecommendationHost, RecommendationEntry[]>;
   const hostSummaries = Object.fromEntries(
@@ -93,7 +130,10 @@ export function buildRecommendationReport(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     policyVersion: policy.schemaVersion,
-    sessionIntent,
+    sessionIntent: primaryIntent,
+    ...(resolvedIntents.length > 1
+      ? { sessionIntents: [...resolvedIntents] }
+      : {}),
     topByHost,
     hostSummaries,
     suggestedBundles,

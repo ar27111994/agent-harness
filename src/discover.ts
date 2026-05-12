@@ -90,19 +90,29 @@ export async function runDiscover(
 
   switch (command) {
     case "demand-profile":
+      logDiscoverPhase(
+        "discover demand-profile",
+        1,
+        1,
+        "Scanning workspace demand",
+      );
       await generateDemandProfile(workingDirectory, projectRoot);
       return 0;
     case "sources":
+      logDiscoverPhase("discover sources", 1, 1, "Refreshing source index");
       await generateSourceIndex(projectRoot);
       return 0;
     case "catalog":
+      logDiscoverPhase("discover catalog", 1, 1, "Building discovery catalog");
       await generateCatalog(projectRoot);
       return 0;
     case "sync":
+      logDiscoverPhase("discover sync", 1, 1, "Syncing indexed sources");
       await syncIndexedSources(projectRoot);
       return 0;
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
+      logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
       await generateSelectionOutputs(projectRoot);
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
@@ -117,10 +127,15 @@ export async function runDiscover(
     }
     case "full": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
+      logDiscoverPhase("discover full", 1, 5, "Scanning workspace demand");
       await generateDemandProfile(workingDirectory, projectRoot);
+      logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
       await generateSourceIndex(projectRoot);
+      logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
       await syncIndexedSources(projectRoot);
+      logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
+      logDiscoverPhase("discover full", 5, 5, "Applying selection rules");
       await generateSelectionOutputs(projectRoot);
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
@@ -504,17 +519,31 @@ function handleAiEnrichmentResult(
   return result.shouldFail ? 1 : 0;
 }
 
+function logDiscoverPhase(
+  commandLabel: string,
+  step: number,
+  total: number,
+  description: string,
+): void {
+  console.log(`[${commandLabel}] ${step}/${total} ${description}...`);
+}
+
 async function runDiscoveryBreadth(
   workingDirectory: string,
   projectRoot: string,
 ): Promise<void> {
+  logDiscoverPhase("discover breadth", 1, 5, "Scanning workspace demand");
   const demandProfile = await generateDemandProfile(
     workingDirectory,
     projectRoot,
   );
+  logDiscoverPhase("discover breadth", 2, 5, "Syncing indexed sources");
   await syncIndexedSources(projectRoot);
+  logDiscoverPhase("discover breadth", 3, 5, "Refreshing source index");
   const sourceIndex = await generateSourceIndex(projectRoot);
+  logDiscoverPhase("discover breadth", 4, 5, "Building discovery catalog");
   const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);
+  logDiscoverPhase("discover breadth", 5, 5, "Applying selection rules");
   const { selectionReport } = await generateSelectionOutputs(projectRoot);
 
   printDiscoveryBreadthSummary({

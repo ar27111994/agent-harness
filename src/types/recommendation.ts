@@ -257,7 +257,10 @@ export interface RecommendationReport {
   schemaVersion: number;
   generatedAt: string;
   policyVersion: number;
+  /** Primary intent; always present for backward compatibility. */
   sessionIntent: SessionIntent;
+  /** Full intent list when more than one intent was requested. */
+  sessionIntents?: SessionIntent[];
   topByHost: Record<string, RecommendationEntry[]>;
   hostSummaries: Record<string, RecommendationHostSummary>;
   suggestedBundles: RecommendationSuggestedBundle[];

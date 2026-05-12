@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { readJsonFile, writeJsonFile } from "../files.js";
-import { getOptionValue } from "../lib/cli-options.js";
+import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
@@ -20,6 +20,7 @@ import type {
   RecommendationReport,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
+  SessionIntent,
 } from "../types.js";
 
 /**
@@ -35,15 +36,16 @@ export async function runRecommend(
   switch (command) {
     case "report": {
       const shouldRunAiReview = rest.includes("--ai-review");
-      const sessionIntent = parseSessionIntent(
-        getOptionValue(rest, "--intent"),
-      );
+      const sessionIntents = parseSessionIntents(rest);
       const policy = shouldRunAiReview
         ? await loadRecommendationPolicy(projectRoot)
         : undefined;
+      console.log(
+        `Building recommendation report for intents: ${sessionIntents.join(", ")}`,
+      );
       const deterministicReport = await writeRecommendationReport(projectRoot, {
         policy,
-        sessionIntent,
+        sessionIntents,
       });
       const report =
         shouldRunAiReview && policy
@@ -84,12 +86,13 @@ export async function runRecommend(
     }
     case "ai-review": {
       const policy = await loadRecommendationPolicy(projectRoot);
-      const sessionIntent = parseSessionIntent(
-        getOptionValue(rest, "--intent"),
+      const sessionIntents = parseSessionIntents(rest);
+      console.log(
+        `Building recommendation report for intents: ${sessionIntents.join(", ")}`,
       );
       const deterministicReport = await writeRecommendationReport(projectRoot, {
         policy,
-        sessionIntent,
+        sessionIntents,
       });
       const result = await runRecommendationAiReview({
         projectRoot,
@@ -298,6 +301,15 @@ function getRequestedReviewHost(
   return requestedHostRaw;
 }
 
+function parseSessionIntents(args: string[]): readonly SessionIntent[] {
+  const rawValues = getOptionValues(args, "--intent");
+  if (rawValues.length === 0) {
+    return ["general"];
+  }
+
+  return rawValues.map((v) => parseSessionIntent(v));
+}
+
 function getReviewLimit(args: string[]): number | undefined {
   const reviewLimitRaw = getOptionValue(args, "--review-limit");
   if (!reviewLimitRaw) {
@@ -363,7 +375,7 @@ function printRecommendHelp(): void {
   policy:print  Print the merged effective policy (--host <host> to scope)
 
 Recommendation options:
-  --intent <${SESSION_INTENT_CHOICES}>
+  --intent <${SESSION_INTENT_CHOICES}>   Repeatable; multiple intents are merged additively
 
 AI review options:
   --host <host>

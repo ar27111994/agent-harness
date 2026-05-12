@@ -13,7 +13,7 @@ import {
   writeJsonFile,
 } from "./files.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
-import { getOptionValue } from "./lib/cli-options.js";
+import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
 import {
   parseSessionIntent,
   recommendationMatchesSessionIntent,
@@ -90,7 +90,10 @@ async function activateHosts(
   projectRoot: string,
   args: string[] = [],
 ): Promise<void> {
-  const sessionIntent = parseSessionIntent(getOptionValue(args, "--intent"));
+  const intentRawValues = getOptionValues(args, "--intent");
+  const sessionIntent = parseSessionIntent(
+    intentRawValues.length > 0 ? intentRawValues[0] : undefined,
+  );
   const requestedRecommendationHost = parseHostTargetOption(
     getOptionalOptionValue(args, "--recommendation-host"),
     "--recommendation-host",
@@ -431,7 +434,7 @@ function printActivateHelp(): void {
 Options:
   --host <copilot-vscode|opencode|shared>
   --recommendation-host <host-policy-id>
-  --intent <${SESSION_INTENT_CHOICES}>`);
+  --intent <${SESSION_INTENT_CHOICES}>   Repeatable; first intent is used for activation context`);
 }
 
 function getDefaultBundleIdsForHost(host: ActivationHost): string[] {

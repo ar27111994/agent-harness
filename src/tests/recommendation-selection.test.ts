@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import {
+  buildCandidateRecommendationBase,
+  buildPolicySearchContext,
+} from "../recommend/candidates.js";
 import { buildTopRecommendationsForHost } from "../recommend/selection.js";
 import { buildDemandContext } from "../recommend/signals.js";
 import { buildSuggestedBundle } from "../recommend/summary.js";
 import { isPublisherVerifiedForAuthorityTier } from "../source-metadata.js";
+import type {
+  CandidateRecommendationBase,
+  DemandContext,
+} from "../recommend/model.js";
 import type {
   AssetCatalogEntry,
   DemandProfile,
@@ -25,7 +33,7 @@ void test("recommendation preselection preserves minimum counts above one", () =
     ),
   ];
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     entries,
     createEmptyDemandContext(),
@@ -55,7 +63,7 @@ void test("recommendation fallback keeps source-family and duplicate caps", () =
     buildCatalogEntry("other-a", "skill", 80, { sourceId: "other-a" }),
   ];
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     entries,
     createEmptyDemandContext(),
@@ -126,7 +134,7 @@ void test("exact stack matches outrank generic concern overlap", () => {
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("generic-backend", "skill", 95, {
@@ -169,7 +177,7 @@ void test("wrapper-like assets do not claim exact-stack fit from generic aliases
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("scenario-wrapper", "skill", 80, {
@@ -206,7 +214,7 @@ void test("path tokens do not block exact-stack fit", () => {
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("apify-helper", "skill", 80, {
@@ -249,7 +257,7 @@ void test("canonicalized concern targets still enforce coverage goals", () => {
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("other-skill", "skill", 100, {
@@ -294,7 +302,7 @@ void test("local availability is surfaced separately from workspace fit", () => 
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("local-generic-toolkit", "skill", 100, {
@@ -374,7 +382,7 @@ void test("weak-only concern demand does not force coverage-gap fill", () => {
     policy,
   );
 
-  const recommendations = buildTopRecommendationsForHost(
+  const recommendations = buildRecommendationsForTest(
     "copilot-vscode",
     [
       buildCatalogEntry("generic-backend", "skill", 95, {
@@ -393,6 +401,32 @@ void test("weak-only concern demand does not force coverage-gap fill", () => {
   assert.equal(recommendations[0]?.assetId, "apify-exact");
   assert.ok(!recommendations[0]?.reasons.includes("coverage-gap-fill"));
 });
+
+function buildRecommendationsForTest(
+  host: "copilot-vscode",
+  entries: AssetCatalogEntry[],
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): RecommendationEntry[] {
+  const policyContext = buildPolicySearchContext(policy);
+  const candidateBases = entries
+    .map((entry) =>
+      buildCandidateRecommendationBase(
+        entry,
+        demandContext,
+        policy,
+        policyContext,
+      ),
+    )
+    .filter((base): base is CandidateRecommendationBase => base !== null);
+
+  return buildTopRecommendationsForHost(
+    host,
+    candidateBases,
+    demandContext,
+    policy,
+  );
+}
 
 function buildPolicy(
   overrides: Partial<RecommendationPolicy["hosts"]["copilot-vscode"]> = {},

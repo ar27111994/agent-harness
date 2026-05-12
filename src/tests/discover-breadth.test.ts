@@ -33,71 +33,13 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
   };
 
   try {
-    await mkdir(workspaceRoot, { recursive: true });
-    await mkdir(stateRoot, { recursive: true });
-    await mkdir(homeRoot, { recursive: true });
-    await mkdir(appDataRoot, { recursive: true });
-    await mkdir(xdgConfigRoot, { recursive: true });
-    await writeText(
-      join(workspaceRoot, "package.json"),
-      JSON.stringify(
-        {
-          name: "workspace",
-          private: true,
-          dependencies: {
-            react: "^19.0.0",
-            typescript: "^5.0.0",
-          },
-        },
-        null,
-        2,
-      ),
-    );
-    await writeText(
-      join(workspaceRoot, "README.md"),
-      "React frontend workspace with testing and UI concerns.\n",
-    );
-    await writeText(join(localSourceRoot, "AGENTS.md"), "Project guidance\n");
-    await writeText(
-      join(localSourceRoot, "skills", "react-helper", "SKILL.md"),
-      "---\nname: react-helper\ndescription: React helper\n---\n# React helper\n",
-    );
-
-    await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
-      schemaVersion: 1,
-      sources: [
-        {
-          id: "local-workspace-guidance",
-          name: "local-workspace-guidance",
-          kind: "local-directory",
-          authorityTier: "trusted-local",
-          publisher: { name: "local", verified: true },
-          hosts: ["copilot-vscode"],
-          assetKinds: ["skill", "instruction", "prompt-pack", "agent"],
-          discoveryMode: "catalog",
-          priority: 100,
-          enabled: true,
-          endpoints: { path: localSourceRoot },
-          rules: {
-            officialPreferred: true,
-            allowMirror: true,
-            allowInstall: true,
-          },
-        },
-      ],
-    });
-    await writeJsonFile(join(stateRoot, "discover", "selections.json"), {
-      schemaVersion: 1,
-      selectionPolicies: {
-        officialBeatsPopularity: true,
-        starsAreTieBreakerOnly: true,
-        preferNativeOverAdaptable: true,
-        preferLowerRiskWhenEquivalent: true,
-        preferLowerContextCostWhenEquivalent: true,
-        communityDefaultPolicy: "catalog-only-unless-promoted",
-      },
-      rankingOrder: [],
-      duplicateGroups: [],
+    await prepareDiscoveryFixture({
+      workspaceRoot,
+      stateRoot,
+      localSourceRoot,
+      homeRoot,
+      appDataRoot,
+      xdgConfigRoot,
     });
 
     process.env.AGENT_HARNESS_HOME = homeRoot;
@@ -115,9 +57,81 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
     assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
 
     const stdout = stdoutChunks.join("");
+    assert.match(
+      stdout,
+      /\[discover breadth\] 1\/5 Scanning workspace demand\.\.\./u,
+    );
+    assert.match(
+      stdout,
+      /\[discover breadth\] 4\/5 Building discovery catalog\.\.\./u,
+    );
     assert.match(stdout, /Discovery breadth complete\./u);
     assert.match(stdout, /Assessment: /u);
     assert.match(stdout, /Next steps:/u);
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    process.env.AGENT_HARNESS_HOME = previousEnv.AGENT_HARNESS_HOME;
+    process.env.APPDATA = previousEnv.APPDATA;
+    process.env.HOME = previousEnv.HOME;
+    process.env.USERPROFILE = previousEnv.USERPROFILE;
+    process.env.XDG_CONFIG_HOME = previousEnv.XDG_CONFIG_HOME;
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("discover full prints visible phase progress before finishing", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discover-full-"),
+  );
+  const workspaceRoot = join(tempRoot, "workspace");
+  const stateRoot = join(tempRoot, "state");
+  const localSourceRoot = join(tempRoot, "local-source");
+  const homeRoot = join(tempRoot, "home");
+  const appDataRoot = join(tempRoot, "appdata");
+  const xdgConfigRoot = join(tempRoot, "xdg");
+  const stdoutChunks: string[] = [];
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    HOME: process.env.HOME,
+    USERPROFILE: process.env.USERPROFILE,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+
+  try {
+    await prepareDiscoveryFixture({
+      workspaceRoot,
+      stateRoot,
+      localSourceRoot,
+      homeRoot,
+      appDataRoot,
+      xdgConfigRoot,
+    });
+
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      stdoutChunks.push(
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"),
+      );
+      return true;
+    }) as typeof process.stdout.write;
+
+    assert.equal(await runDiscover(["full"], workspaceRoot, stateRoot), 0);
+
+    const stdout = stdoutChunks.join("");
+    assert.match(
+      stdout,
+      /\[discover full\] 1\/5 Scanning workspace demand\.\.\./u,
+    );
+    assert.match(
+      stdout,
+      /\[discover full\] 3\/5 Syncing indexed sources\.\.\./u,
+    );
+    assert.match(
+      stdout,
+      /\[discover full\] 5\/5 Applying selection rules\.\.\./u,
+    );
+    assert.match(stdout, /Selection outputs written to /u);
   } finally {
     process.stdout.write = originalStdoutWrite;
     process.env.AGENT_HARNESS_HOME = previousEnv.AGENT_HARNESS_HOME;
@@ -213,6 +227,91 @@ void test("discover catalog handles large indexed source populations without ove
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
+
+async function prepareDiscoveryFixture(input: {
+  workspaceRoot: string;
+  stateRoot: string;
+  localSourceRoot: string;
+  homeRoot: string;
+  appDataRoot: string;
+  xdgConfigRoot: string;
+}): Promise<void> {
+  await mkdir(input.workspaceRoot, { recursive: true });
+  await mkdir(input.stateRoot, { recursive: true });
+  await mkdir(input.homeRoot, { recursive: true });
+  await mkdir(input.appDataRoot, { recursive: true });
+  await mkdir(input.xdgConfigRoot, { recursive: true });
+  await writeText(
+    join(input.workspaceRoot, "package.json"),
+    JSON.stringify(
+      {
+        name: "workspace",
+        private: true,
+        dependencies: {
+          react: "^19.0.0",
+          typescript: "^5.0.0",
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  await writeText(
+    join(input.workspaceRoot, "README.md"),
+    "React frontend workspace with testing and UI concerns.\n",
+  );
+  await writeText(
+    join(input.localSourceRoot, "AGENTS.md"),
+    "Project guidance\n",
+  );
+  await writeText(
+    join(input.localSourceRoot, "skills", "react-helper", "SKILL.md"),
+    "---\nname: react-helper\ndescription: React helper\n---\n# React helper\n",
+  );
+
+  await writeJsonFile(join(input.stateRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      {
+        id: "local-workspace-guidance",
+        name: "local-workspace-guidance",
+        kind: "local-directory",
+        authorityTier: "trusted-local",
+        publisher: { name: "local", verified: true },
+        hosts: ["copilot-vscode"],
+        assetKinds: ["skill", "instruction", "prompt-pack", "agent"],
+        discoveryMode: "catalog",
+        priority: 100,
+        enabled: true,
+        endpoints: { path: input.localSourceRoot },
+        rules: {
+          officialPreferred: true,
+          allowMirror: true,
+          allowInstall: true,
+        },
+      },
+    ],
+  });
+  await writeJsonFile(join(input.stateRoot, "discover", "selections.json"), {
+    schemaVersion: 1,
+    selectionPolicies: {
+      officialBeatsPopularity: true,
+      starsAreTieBreakerOnly: true,
+      preferNativeOverAdaptable: true,
+      preferLowerRiskWhenEquivalent: true,
+      preferLowerContextCostWhenEquivalent: true,
+      communityDefaultPolicy: "catalog-only-unless-promoted",
+    },
+    rankingOrder: [],
+    duplicateGroups: [],
+  });
+
+  process.env.AGENT_HARNESS_HOME = input.homeRoot;
+  process.env.APPDATA = input.appDataRoot;
+  process.env.HOME = input.homeRoot;
+  process.env.USERPROFILE = input.homeRoot;
+  process.env.XDG_CONFIG_HOME = input.xdgConfigRoot;
+}
 
 async function readCatalogEntryIds(filePath: string): Promise<string[]> {
   const content = await readFile(filePath, "utf8");

@@ -4,7 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-No unreleased changes yet.
+### Added
+
+- `--intent` now accepts repeated values to combine multiple session intents additively in a single run (e.g. `--intent backend --intent docs`); the first intent is recorded as the primary for backward compatibility; single-intent runs are unaffected
+
+### Fixed
+
+- `recommend report` no longer hangs on large selected candidate sets; policy-derived search term Sets (`concernKeywordMap`, `taskModeKeywordMap`, `domainKeywordGroups`) are now precomputed once per host run via `buildPolicySearchContext(...)` instead of once per candidate per host, reducing time from ~7 minutes to under 5 seconds on a 5.5k-entry selected pool
 
 ## [1.0.3] - 2026-05-11
 

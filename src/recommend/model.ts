@@ -49,7 +49,37 @@ export interface CandidateRecommendation {
 }
 
 /**
- * Describes dynamic score data exchanged by the lifecycle pipeline.
+ * Describes host-independent recommendation analysis shared across all host
+ * ranking passes for one report build.
+ */
+export interface CandidateRecommendationBase {
+  entry: AssetCatalogEntry;
+  sourceFamily: string;
+  availableLocally: boolean;
+  recommendationBasis: RecommendationBasis;
+  coverageTags: string[];
+  taskModes: string[];
+  matchedSignals: RecommendationSignalMatch[];
+  duplicateGroup?: string;
+  reasons: string[];
+  searchTerms: Set<string>;
+  breakdown: RecommendationScoreBreakdown;
+}
+
+/**
+ * Describes precomputed policy search sets shared across all candidates for one
+ * recommendation host run, avoiding per-candidate policy-map rebuilds.
+ */
+export interface PolicySearchContext {
+  genericToolingTerms: Set<string>;
+  wrapperLikeTerms: Set<string>;
+  concernTermSets: Map<string, Set<string>>;
+  taskModeTermSets: Map<string, Set<string>>;
+  domainGroupTermSets: Map<string, Set<string>>;
+}
+
+/**
+ * Describes one candidate's dynamic score after host-selection adjustments.
  */
 export interface DynamicScore {
   total: number;
