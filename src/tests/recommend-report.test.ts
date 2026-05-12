@@ -82,12 +82,39 @@ void test("recommendation reports support multiple intents and merge them additi
 
   assert.equal(multiReport.sessionIntent, "backend");
   assert.deepEqual(multiReport.sessionIntents, ["backend", "docs"]);
-  // Both backend and docs skills should appear in results since intents are merged
   const copilotEntries = multiReport.topByHost["copilot-vscode"];
   const ids = copilotEntries.map((e) => e.assetId);
   assert.ok(
-    ids.includes("backend-skill") || ids.includes("docs-skill"),
-    `expected backend or docs skill in results but got: ${ids.join(", ")}`,
+    ids.includes("backend-skill"),
+    `expected backend-skill in results but got: ${ids.join(", ")}`,
+  );
+  assert.ok(
+    ids.includes("docs-skill"),
+    `expected docs-skill in results but got: ${ids.join(", ")}`,
+  );
+});
+
+void test("recommendation report validation rejects malformed sessionIntents", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const report = buildRecommendationReport(
+    [createEntry("backend-skill", ["backend", "api"])],
+    demandProfile,
+    policy,
+    ["backend", "docs"],
+  ) as unknown as Record<string, unknown>;
+
+  report.sessionIntents = ["docs", "backend"];
+  assert.throws(
+    () => assertRecommendationReport(report, "report"),
+    /must match sessionIntent/u,
+  );
+
+  report.sessionIntents = ["backend"];
+  assert.throws(
+    () => assertRecommendationReport(report, "report"),
+    /must contain at least two intents/u,
   );
 });
 

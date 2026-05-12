@@ -58,7 +58,7 @@ export async function runWorkspacePipeline(options: {
     sessionIntents && sessionIntents.length > 1
       ? sessionIntents
       : [sessionIntent];
-  const primaryIntent = resolvedIntents[0] ?? sessionIntent;
+  const primaryIntent = resolvedIntents[0];
   const config = getRuntimeConfig();
   const mirrorBatchSize = String(config.batches.mirrorAcquire);
   const installBatchSize = String(config.batches.installBundle);
@@ -128,7 +128,7 @@ async function acquireAllMirrorBatches(
 
   for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
     writeWorkspaceProgress(
-      `[workspace] mirror batch ${batchIndex + 1}/${maxBatches} acquiring artifacts...`,
+      `[workspace] mirror batch ${batchIndex + 1} acquiring artifacts...`,
     );
     await runMirror(
       ["acquire", "--batch-size", batchSize],
@@ -169,7 +169,7 @@ async function installBundleBatches(
       batchIndex += 1
     ) {
       writeWorkspaceProgress(
-        `[workspace] install batch ${batchIndex + 1}/${maxBatchesPerBundle} for bundle '${bundleId}'...`,
+        `[workspace] install batch ${batchIndex + 1} for bundle '${bundleId}'...`,
       );
       await runInstall(
         ["bundle", "--bundle", bundleId, "--batch-size", batchSize],

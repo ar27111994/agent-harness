@@ -84,8 +84,8 @@ export function buildRecommendationReport(
   const resolvedIntents: readonly SessionIntent[] = Array.isArray(
     sessionIntents,
   )
-    ? (sessionIntents as readonly SessionIntent[])
-    : [sessionIntents as SessionIntent];
+    ? sessionIntents
+    : [sessionIntents];
   const primaryIntent: SessionIntent = resolvedIntents[0] ?? "general";
   const demandContext = buildDemandContext(
     demandProfile,

@@ -284,9 +284,6 @@ function buildActiveDomainGroups(
 }
 
 /**
- * Provides compute out of domain penalty for the lifecycle pipeline.
- */
-/**
  * Computes out-of-domain penalty for an entry.
  * Accepts precomputed domainGroupTermSets to avoid rebuilding per-candidate.
  */
