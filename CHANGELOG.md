@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- `recommend report` no longer hangs on large selected candidate sets; policy-derived search term Sets (`concernKeywordMap`, `taskModeKeywordMap`, `domainKeywordGroups`) are now precomputed once per host run via `buildPolicySearchContext(...)` instead of once per candidate per host, reducing time from ~7 minutes to under 5 seconds on a 5.5k-entry selected pool
+- `recommend report` no longer hangs on large selected candidate sets; policy-derived search term sets (`concernKeywordMap`, `taskModeKeywordMap`, `domainKeywordGroups`) are now precomputed once per report build via `buildPolicySearchContext(...)` instead of once per candidate per host, reducing time from ~7 minutes to under 5 seconds on a 5.5k-entry selected pool
 
 ## [1.0.3] - 2026-05-11
 

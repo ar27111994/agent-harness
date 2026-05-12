@@ -90,10 +90,10 @@ async function activateHosts(
   projectRoot: string,
   args: string[] = [],
 ): Promise<void> {
-  const intentRawValues = getOptionValues(args, "--intent");
-  const sessionIntent = parseSessionIntent(
-    intentRawValues.length > 0 ? intentRawValues[0] : undefined,
+  const sessionIntents = getOptionValues(args, "--intent").map((value) =>
+    parseSessionIntent(value),
   );
+  const sessionIntent = sessionIntents[0] ?? parseSessionIntent(undefined);
   const requestedRecommendationHost = parseHostTargetOption(
     getOptionalOptionValue(args, "--recommendation-host"),
     "--recommendation-host",

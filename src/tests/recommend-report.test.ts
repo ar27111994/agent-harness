@@ -132,6 +132,19 @@ void test("recommendation reports with one intent omit sessionIntents from outpu
   assert.equal(report.sessionIntents, undefined);
 });
 
+void test("recommendation reports normalize empty intent arrays to general", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const entries = [createEntry("backend-skill", ["backend", "api"])];
+
+  const report = buildRecommendationReport(entries, demandProfile, policy, []);
+
+  assert.equal(report.sessionIntent, "general");
+  assert.equal(report.sessionIntents, undefined);
+  assert.ok(report.topByHost["copilot-vscode"].length > 0);
+});
+
 void test("recommendation reports rank entries for expanded session intent families", async () => {
   clearRuntimeConfigForTests();
   const policy = await loadRecommendationPolicy(process.cwd());

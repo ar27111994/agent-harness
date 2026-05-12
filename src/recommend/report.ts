@@ -52,9 +52,9 @@ export async function writeRecommendationReport(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
     assertAssetCatalogEntry,
   );
-  const resolvedIntents: readonly SessionIntent[] =
-    options.sessionIntents ??
-    (options.sessionIntent ? [options.sessionIntent] : ["general"]);
+  const resolvedIntents = resolveSessionIntents(
+    options.sessionIntents ?? options.sessionIntent,
+  );
   const report = buildRecommendationReport(
     selectedEntries,
     demandProfile,
@@ -81,12 +81,8 @@ export function buildRecommendationReport(
   policy: RecommendationPolicy,
   sessionIntents: SessionIntent | readonly SessionIntent[] = "general",
 ): RecommendationReport {
-  const resolvedIntents: readonly SessionIntent[] = Array.isArray(
-    sessionIntents,
-  )
-    ? sessionIntents
-    : [sessionIntents];
-  const primaryIntent: SessionIntent = resolvedIntents[0] ?? "general";
+  const resolvedIntents = resolveSessionIntents(sessionIntents);
+  const primaryIntent: SessionIntent = resolvedIntents[0];
   const demandContext = buildDemandContext(
     demandProfile,
     policy,
@@ -138,4 +134,18 @@ export function buildRecommendationReport(
     hostSummaries,
     suggestedBundles,
   };
+}
+
+function resolveSessionIntents(
+  sessionIntents?: SessionIntent | readonly SessionIntent[],
+): readonly SessionIntent[] {
+  if (sessionIntents === undefined) {
+    return ["general"];
+  }
+
+  if (typeof sessionIntents === "string") {
+    return [sessionIntents];
+  }
+
+  return sessionIntents.length > 0 ? sessionIntents : ["general"];
 }

@@ -42,11 +42,6 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
       xdgConfigRoot,
     });
 
-    process.env.AGENT_HARNESS_HOME = homeRoot;
-    process.env.APPDATA = appDataRoot;
-    process.env.HOME = homeRoot;
-    process.env.USERPROFILE = homeRoot;
-    process.env.XDG_CONFIG_HOME = xdgConfigRoot;
     process.stdout.write = ((chunk: string | Uint8Array) => {
       stdoutChunks.push(
         typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"),
