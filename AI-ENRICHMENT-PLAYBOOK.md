@@ -139,7 +139,7 @@ You are using agent-harness to configure and review the optional AI-assisted sta
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent(s): <optional intent list>
+Intent: <optional primary intent>
 
 Goals:
 1. Keep deterministic discovery/recommendation as the baseline.

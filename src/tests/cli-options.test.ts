@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
+import {
+  getOptionValue,
+  getOptionValues,
+  getSingleOptionValue,
+} from "../lib/cli-options.js";
 import { getWireMode } from "../wire.js";
 
 void test("CLI option parsing rejects missing values and flag tokens", () => {
@@ -34,6 +38,22 @@ void test("repeatable CLI option parsing collects multi-intent values", () => {
     ["backend", "docs"],
   );
   assert.deepEqual(getOptionValues([], "--intent"), []);
+});
+
+void test("single-value CLI option parsing rejects duplicates", () => {
+  assert.equal(
+    getSingleOptionValue(["--intent", "frontend"], "--intent"),
+    "frontend",
+  );
+  assert.equal(getSingleOptionValue([], "--intent"), undefined);
+  assert.throws(
+    () =>
+      getSingleOptionValue(
+        ["--intent", "frontend", "--intent", "backend"],
+        "--intent",
+      ),
+    /Option '--intent' may only be provided once\./u,
+  );
 });
 
 void test("repeatable CLI option parsing rejects valueless entries", () => {

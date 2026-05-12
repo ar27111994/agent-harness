@@ -128,7 +128,7 @@ function printWorkspaceHelp(): void {
 ${commands}
 
 Options:
-  --intent <${SESSION_INTENT_CHOICES}>
+  --intent <${SESSION_INTENT_CHOICES}>   Repeatable; multiple intents are merged additively
   --ai-enrich            Explicitly request enrichment after workspace wiring
   --no-ai-enrich         Explicitly skip enrichment for this workspace run
   --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
