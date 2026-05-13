@@ -12,6 +12,7 @@ import {
 
 const GITHUB_API_URL = "https://api.github.com";
 const API_VERSION = "2022-11-28";
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 export function getOptionValue(flagName, argv = process.argv) {
   const index = argv.indexOf(flagName);
@@ -72,17 +73,36 @@ async function githubRequest({
   endpoint,
   body,
   tolerate404 = false,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
 }) {
-  const response = await fetch(`${GITHUB_API_URL}${endpoint}`, {
-    method,
-    headers: {
-      Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "X-GitHub-Api-Version": API_VERSION,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+
+  let response;
+  try {
+    response = await fetch(`${GITHUB_API_URL}${endpoint}`, {
+      method,
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": API_VERSION,
+      },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: timeoutSignal,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "TimeoutError" || error.name === "AbortError")
+    ) {
+      throw new Error(
+        `GitHub API ${method} ${endpoint} timed out after ${timeoutMs}ms.`,
+        { cause: error },
+      );
+    }
+
+    throw error;
+  }
 
   if (tolerate404 && response.status === 404) {
     return null;

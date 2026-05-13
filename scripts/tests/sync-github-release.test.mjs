@@ -12,6 +12,12 @@ const STABLE_CONTEXT = {
   version: "1.0.6",
 };
 
+const PRERELEASE_CONTEXT = {
+  tag: "v1.0.6-rc.1",
+  targetCommitish: "abc123",
+  version: "1.0.6-rc.1",
+};
+
 test("buildReleasePayload marks stable created releases as latest", () => {
   const payload = buildReleasePayload(STABLE_CONTEXT, "notes");
 
@@ -26,6 +32,22 @@ test("buildReleasePayload omits make_latest for update payloads", () => {
 
   assert.equal("make_latest" in payload, false);
   assert.equal(payload.prerelease, false);
+});
+
+test("buildReleasePayload marks prerelease created releases as not latest", () => {
+  const payload = buildReleasePayload(PRERELEASE_CONTEXT, "notes");
+
+  assert.equal(payload.make_latest, "false");
+  assert.equal(payload.prerelease, true);
+});
+
+test("buildReleasePayload omits make_latest for prerelease update payloads", () => {
+  const payload = buildReleasePayload(PRERELEASE_CONTEXT, "notes", {
+    includeMakeLatest: false,
+  });
+
+  assert.equal("make_latest" in payload, false);
+  assert.equal(payload.prerelease, true);
 });
 
 test("getOptionValue returns the following token when a flag has a value", () => {
