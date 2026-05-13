@@ -17,6 +17,7 @@ No unreleased changes yet.
 
 - removed stale single-intent wording that still implied repeated `--intent` flags were unsupported after the `1.0.4` multi-intent implementation landed
 - prepared release metadata for `v1.0.5` by synchronizing the package version and lockfile version headers
+- added a version-synchronization validation check so CI fails when `package.json` and `package-lock.json` drift out of sync
 
 ## [1.0.4] - 2026-05-12
 

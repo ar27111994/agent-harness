@@ -175,7 +175,7 @@ Required workflow:
 - Run `agent-harness setup doctor --host <host>`.
 - Run `agent-harness discover breadth`.
 - Run `agent-harness discover stats`.
-- Run `agent-harness recommend report --intent <intent>` when one or more intents are provided (repeat `--intent` to combine them additively when needed).
+- Run `agent-harness recommend report` when you want the default general-intent ranking, or `agent-harness recommend report --intent <intent>` when one or more intents are provided (repeat `--intent` to combine them additively when needed).
 - Inspect these files when they exist, relative to the active state root:
   - `discover/output/demand-profile.json`
   - `discover/output/source-index.json`
