@@ -13,13 +13,18 @@ import {
 const GITHUB_API_URL = "https://api.github.com";
 const API_VERSION = "2022-11-28";
 
-function getOptionValue(flagName) {
-  const index = process.argv.indexOf(flagName);
+export function getOptionValue(flagName, argv = process.argv) {
+  const index = argv.indexOf(flagName);
   if (index === -1) {
     return undefined;
   }
 
-  return process.argv[index + 1];
+  const value = argv[index + 1];
+  if (value === undefined || value.startsWith("-")) {
+    throw new Error(`Flag ${flagName} requires a value.`);
+  }
+
+  return value;
 }
 
 function getRequiredEnvironmentValue(name) {
@@ -115,22 +120,26 @@ async function generateReleaseNotes(context) {
   });
 }
 
-function buildReleasePayload(context, combinedNotes) {
-  return {
+export function buildReleasePayload(context, combinedNotes, options = {}) {
+  const payload = {
     tag_name: context.tag,
     target_commitish: context.targetCommitish,
     name: context.tag,
     body: combinedNotes,
     draft: false,
     prerelease: isPreRelease(context.version),
-    make_latest: isPreRelease(context.version) ? "false" : "true",
   };
+
+  if (options.includeMakeLatest ?? true) {
+    payload.make_latest = isPreRelease(context.version) ? "false" : "true";
+  }
+
+  return payload;
 }
 
-async function syncGitHubRelease() {
+export async function syncGitHubRelease() {
   const context = resolveReleaseContext();
   const body = await generateReleaseNotes(context);
-  const payload = buildReleasePayload(context, body);
   const existingRelease = await githubRequest({
     token: context.token,
     method: "GET",
@@ -143,7 +152,7 @@ async function syncGitHubRelease() {
       token: context.token,
       method: "PATCH",
       endpoint: `/repos/${context.repo}/releases/${existingRelease.id}`,
-      body: payload,
+      body: buildReleasePayload(context, body, { includeMakeLatest: false }),
     });
     console.log(
       `Updated GitHub release ${context.tag} for ${context.packageName}.`,
@@ -155,7 +164,7 @@ async function syncGitHubRelease() {
     token: context.token,
     method: "POST",
     endpoint: `/repos/${context.repo}/releases`,
-    body: payload,
+    body: buildReleasePayload(context, body),
   });
   console.log(
     `Created GitHub release ${context.tag} for ${context.packageName}.`,

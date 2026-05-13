@@ -10,6 +10,7 @@ import {
 
 void test("recommendation host helpers normalize VS Code to the user-facing vscode name", () => {
   assert.equal(resolveRecommendationHost("vscode"), "copilot-vscode");
+  assert.equal(resolveRecommendationHost(" VSCode "), "copilot-vscode");
   assert.equal(resolveRecommendationHost("copilot-vscode"), "copilot-vscode");
   assert.equal(formatRecommendationHostForDisplay("copilot-vscode"), "vscode");
   assert.ok(getRecommendationHostChoices().includes("vscode"));

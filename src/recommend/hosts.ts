@@ -60,21 +60,24 @@ export function getRecommendationHostChoices(): string[] {
 export function resolveRecommendationHost(
   value: string,
 ): RecommendationHost | undefined {
-  if (isRecommendationHost(value)) {
-    return value;
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (isRecommendationHost(normalizedValue)) {
+    return normalizedValue;
   }
 
   for (const adapter of listHostAdapters()) {
     if (
-      adapter.id === value ||
-      adapter.aliases.includes(value) ||
-      formatRecommendationHostForDisplay(adapter.recommendationHost) === value
+      adapter.id === normalizedValue ||
+      adapter.aliases.includes(normalizedValue) ||
+      formatRecommendationHostForDisplay(adapter.recommendationHost) ===
+        normalizedValue
     ) {
       return adapter.recommendationHost;
     }
   }
 
-  return value ===
+  return normalizedValue ===
     formatRecommendationHostForDisplay(SHARED_RECOMMENDATION_HOST)
     ? SHARED_RECOMMENDATION_HOST
     : undefined;
