@@ -85,6 +85,7 @@ async function githubRequest({
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
+        "User-Agent": "agent-harness",
         "X-GitHub-Api-Version": API_VERSION,
       },
       body: body === undefined ? undefined : JSON.stringify(body),
