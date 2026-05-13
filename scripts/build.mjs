@@ -37,7 +37,7 @@ export function buildProject(options = {}) {
     process.exitCode = result.status ?? 1;
   }
 
-  return result.status ?? 0;
+  return result.status ?? 1;
 }
 
 const isDirectExecution =

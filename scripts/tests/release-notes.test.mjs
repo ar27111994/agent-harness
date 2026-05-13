@@ -59,6 +59,33 @@ test("buildCombinedReleaseNotes blends curated and generated notes", () => {
   );
 });
 
+test("buildCombinedReleaseNotes returns only manual notes when generated notes are empty", () => {
+  const notes = buildCombinedReleaseNotes({
+    manualNotes: "## Changed\n\n- curated summary",
+    generatedNotes: "  \n\t  ",
+  });
+
+  assert.equal(notes, "## Changed\n\n- curated summary");
+});
+
+test("buildCombinedReleaseNotes returns only generated notes when manual notes are empty", () => {
+  const notes = buildCombinedReleaseNotes({
+    manualNotes: " \n\t ",
+    generatedNotes: "## What's Changed\n\n- auto generated context",
+  });
+
+  assert.equal(notes, "## What's Changed\n\n- auto generated context");
+});
+
+test("buildCombinedReleaseNotes returns an empty string when both note sources are empty", () => {
+  const notes = buildCombinedReleaseNotes({
+    manualNotes: " \n\t ",
+    generatedNotes: "  \n\t  ",
+  });
+
+  assert.equal(notes, "");
+});
+
 test("normalizeVersionFromTag and isPreRelease follow release-tag semantics", () => {
   assert.equal(normalizeVersionFromTag("v1.0.6"), "1.0.6");
   assert.equal(normalizeVersionFromTag("1.0.6"), "1.0.6");

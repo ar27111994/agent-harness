@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const VERSION_HEADING_PATTERN = /^## \[([^\]]+)\] - .*$/gmu;
+const VERSION_HEADING_PATTERN = /^## \[([^\]]+)\] - .*$/mu;
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
@@ -28,7 +28,6 @@ export function extractReleaseNotesFromChangelog(changelogText, version) {
 
   const sectionStart = headingMatch.index + headingMatch[0].length;
   const remainder = changelogText.slice(sectionStart);
-  VERSION_HEADING_PATTERN.lastIndex = 0;
   const nextHeadingMatch = VERSION_HEADING_PATTERN.exec(remainder);
   const sectionEnd =
     nextHeadingMatch === null
