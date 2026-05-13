@@ -87,6 +87,8 @@ agent-harness recommend report --intent <intent>
 agent-harness recommend ai-review --host <host> --apply
 ```
 
+For VS Code on `recommend ai-review`, use `--host vscode`.
+
 Or use the one-shot form:
 
 ```bash
@@ -139,7 +141,7 @@ You are using agent-harness to configure and review the optional AI-assisted sta
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent: <optional primary intent>
+Intent: <optional one-or-more intents>
 
 Goals:
 1. Keep deterministic discovery/recommendation as the baseline.

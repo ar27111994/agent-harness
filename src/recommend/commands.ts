@@ -10,7 +10,12 @@ import { assertRecommendationReport } from "../manifest-validation.js";
 import { buildRecommendationFixtures } from "../recommend-fixtures.js";
 import { EVALUATION_FILE_PATH, REPORT_FILE_PATH } from "./constants.js";
 import { buildRecommendationEvaluationResult } from "./evaluation.js";
-import { getRecommendationHosts, isRecommendationHost } from "./hosts.js";
+import {
+  formatRecommendationHostForDisplay,
+  getRecommendationHostChoices,
+  getRecommendationHosts,
+  resolveRecommendationHost,
+} from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
 import { writeRecommendationReport } from "./report.js";
 import { runRecommendationAiReview } from "./ai-review.js";
@@ -148,12 +153,12 @@ async function explainRecommendation(
 
   let requestedHost: RecommendationHost | undefined;
   if (requestedHostRaw !== undefined) {
-    if (!isRecommendationHost(requestedHostRaw)) {
+    requestedHost = resolveRecommendationHost(requestedHostRaw);
+    if (!requestedHost) {
       throw new Error(
-        `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHosts().join(", ")}`,
+        `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHostChoices().join(", ")}`,
       );
     }
-    requestedHost = requestedHostRaw;
   }
 
   const hosts = requestedHost ? [requestedHost] : getRecommendationHosts();
@@ -167,7 +172,7 @@ async function explainRecommendation(
       continue;
     }
 
-    lines.push(`Host: ${host}`);
+    lines.push(`Host: ${formatRecommendationHostForDisplay(host)}`);
     lines.push(`  rank: ${entry.rank}`);
     lines.push(`  score: ${entry.score}`);
     lines.push(`  asset kind: ${entry.assetKind ?? "unknown"}`);
@@ -260,9 +265,10 @@ async function printRecommendationPolicy(
     return;
   }
 
-  if (!isRecommendationHost(requestedHost)) {
+  const resolvedHost = resolveRecommendationHost(requestedHost);
+  if (!resolvedHost) {
     throw new Error(
-      `recommend policy:print requires --host to be one of: ${getRecommendationHosts().join(", ")}`,
+      `recommend policy:print requires --host to be one of: ${getRecommendationHostChoices().join(", ")}`,
     );
   }
 
@@ -270,9 +276,9 @@ async function printRecommendationPolicy(
     JSON.stringify(
       {
         schemaVersion: policy.schemaVersion,
-        host: requestedHost,
+        host: formatRecommendationHostForDisplay(resolvedHost),
         scoring: policy.scoring,
-        hostPolicy: policy.hosts[requestedHost],
+        hostPolicy: policy.hosts[resolvedHost],
         concernKeywordMap: policy.concernKeywordMap,
         taskModeKeywordMap: policy.taskModeKeywordMap,
         domainKeywordGroups: policy.domainKeywordGroups,
@@ -292,13 +298,14 @@ function getRequestedReviewHost(
     return undefined;
   }
 
-  if (!isRecommendationHost(requestedHostRaw)) {
+  const requestedHost = resolveRecommendationHost(requestedHostRaw);
+  if (!requestedHost) {
     throw new Error(
-      `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHosts().join(", ")}`,
+      `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHostChoices().join(", ")}`,
     );
   }
 
-  return requestedHostRaw;
+  return requestedHost;
 }
 
 function parseSessionIntents(args: string[]): readonly SessionIntent[] {
@@ -378,7 +385,7 @@ Recommendation options:
   --intent <${SESSION_INTENT_CHOICES}>   Repeatable; multiple intents are merged additively
 
 AI review options:
-  --host <host>
+  --host <${getRecommendationHostChoices().join("|")}>
   --review-limit <n>
   --apply
   --ai-review (for recommend report)`);

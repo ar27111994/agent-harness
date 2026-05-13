@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 No unreleased changes yet.
 
+## [1.0.6] - 2026-05-13
+
+### Added
+
+- automated GitHub Release synchronization on release tags so the workflow now creates or updates the GitHub Release page, blends curated changelog notes with GitHub-generated notes, and stays rerun-safe
+- extracted non-trivial release/build/version-check logic into readable `scripts/` modules with direct script-level regression tests
+
+### Fixed
+
+- updated the remaining stale multi-intent prompt wording in `AI-ENRICHMENT-PLAYBOOK.md` and `RECOMMENDATION-POLICY-PLAYBOOK.md`
+- standardized the user-facing VS Code host name to `vscode` across recommend/policy command surfaces while still mapping it to the internal `copilot-vscode` recommendation host where needed
+
 ## [1.0.5] - 2026-05-13
 
 ### Changed

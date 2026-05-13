@@ -84,14 +84,14 @@ Some adapters intentionally reuse another lifecycle host while keeping their own
 
 `agent-harness` currently registers six host adapters in `src/host-adapters/registry.ts`.
 
-| CLI target                  | Aliases                | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                           |
-| --------------------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-| `vscode` / `copilot-vscode` | `copilot`              | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                    |
-| `opencode`                  | `open-code`            | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                  |
-| `cursor`                    | -                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
-| `zed`                       | -                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
-| `claude-code`               | `claude`, `claudecode` | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands            |
-| `pi`                        | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings |
+| CLI target    | Aliases                | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                           |
+| ------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| `vscode`      | `copilot`              | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                    |
+| `opencode`    | `open-code`            | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                  |
+| `cursor`      | -                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
+| `zed`         | -                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
+| `claude-code` | `claude`, `claudecode` | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands            |
+| `pi`          | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings |
 
 Use `setup hosts` to print the registered adapters from the local build:
 
@@ -273,7 +273,7 @@ Use this to inspect scoring reasons, matched demand signals, coverage tags, and 
 ### Run bounded AI review for a host
 
 ```bash
-node ./dist/cli.js recommend ai-review --host copilot-vscode --apply
+node ./dist/cli.js recommend ai-review --host vscode --apply
 ```
 
 This writes bounded AI-review input/output artifacts under `recommend/output/` and, with `--apply`, folds validated suppressions and reranks back into the recommendation report.
@@ -436,7 +436,7 @@ Omitting the recommendation subcommand defaults to `report`.
 Explain a specific recommendation:
 
 ```bash
-node ./dist/cli.js recommend explain --host copilot-vscode --asset <asset-id>
+node ./dist/cli.js recommend explain --host vscode --asset <asset-id>
 ```
 
 Print the merged effective policy for a host:

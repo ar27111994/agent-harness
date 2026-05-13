@@ -27,6 +27,8 @@ agent-harness recommend explain --host <host> --asset <asset-id>
 agent-harness recommend policy:print --host <host>
 ```
 
+For VS Code on these user-facing recommend commands, use `--host vscode`. The internal policy file still lives at `discover/recommendation-policy/hosts/copilot-vscode.json`.
+
 Inspect:
 
 - `state/recommendations.json`
@@ -69,6 +71,8 @@ If the right assets are already present in `discover/output/catalog.selected.jso
 agent-harness recommend policy:print --host <host>
 ```
 
+For VS Code, prefer `agent-harness recommend policy:print --host vscode`.
+
 This shows the merged effective policy, which is the thing you should reason about before editing files blindly.
 
 ### Step 3. Explain both a good asset and a bad one
@@ -99,7 +103,7 @@ You are using agent-harness to diagnose recommendation quality and justify any r
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent: <optional primary intent>
+Intent: <optional one-or-more intents>
 
 Goals:
 1. Prove whether the problem is recall or ranking.
