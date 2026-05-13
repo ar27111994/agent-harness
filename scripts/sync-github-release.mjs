@@ -1,4 +1,6 @@
+import { resolve } from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 import { readJsonFile } from "./check-version-sync.mjs";
 import {
@@ -35,13 +37,13 @@ function resolveReleaseContext() {
   const tag =
     getOptionValue("--tag") ?? getRequiredEnvironmentValue("GITHUB_REF_NAME");
   const token =
-    process.env.GITHUB_TOKEN ??
-    process.env.GH_TOKEN ??
+    process.env.GITHUB_TOKEN ||
+    process.env.GH_TOKEN ||
     getRequiredEnvironmentValue("GITHUB_TOKEN");
   const targetCommitish =
     getOptionValue("--target") ?? process.env.GITHUB_SHA ?? undefined;
   const version = normalizeVersionFromTag(tag);
-  const packageDocument = readJsonFile("package.json");
+  const packageDocument = readJsonFile(resolve(process.cwd(), "package.json"));
 
   if (packageDocument.version !== version) {
     throw new Error(
@@ -160,7 +162,13 @@ async function syncGitHubRelease() {
   );
 }
 
-syncGitHubRelease().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+const isDirectExecution =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectExecution) {
+  syncGitHubRelease().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}
