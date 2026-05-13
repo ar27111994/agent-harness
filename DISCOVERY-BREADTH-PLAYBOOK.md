@@ -107,6 +107,8 @@ agent-harness discover stats
 agent-harness recommend report --intent <intent>
 ```
 
+If you are not diagnosing breadth and just want the normal end-to-end path for a host, use `agent-harness workspace <host>` instead. `discover breadth` is the recall-first diagnostic command, not the host wiring entrypoint.
+
 If you want to see the exact underlying sequence, `discover breadth` is effectively the recall-first wrapper around:
 
 ```bash
@@ -161,7 +163,7 @@ You are using agent-harness to maximize the practical candidate asset pool for t
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent: <optional primary intent>
+Intent: <optional one-or-more intents>
 
 Goals:
 1. Verify that demand detection sees the real workspace.
@@ -173,7 +175,7 @@ Required workflow:
 - Run `agent-harness setup doctor --host <host>`.
 - Run `agent-harness discover breadth`.
 - Run `agent-harness discover stats`.
-- Run `agent-harness recommend report --intent <intent>` when a primary intent is provided.
+- Run `agent-harness recommend report --intent <intent>` when one or more intents are provided (repeat `--intent` to combine them additively when needed).
 - Inspect these files when they exist, relative to the active state root:
   - `discover/output/demand-profile.json`
   - `discover/output/source-index.json`

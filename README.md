@@ -178,9 +178,9 @@ npm run workspace:claude-code -- --intent research
 npm run workspace:pi -- --intent product
 ```
 
-Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
+Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. For a new user, this is the straightforward default path: it runs the broad discovery/recommendation pipeline, stages and activates assets, and then performs the selected host's final wire-in. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
 
-Supported canonical intents are `general`, `frontend`, `backend`, `mobile`, `devops`, `security`, `docs`, `testing`, `research`, `data`, `design`, `product`, and `marketing`. Common aliases are normalized automatically, for example `documentation` → `docs`, `ci-cd` / `infra` → `devops`, `branding` → `design`, and `ba` / `planning` / `product-research` → `product`. `--intent` is a single-value option: pass exactly one primary intent per run, not a comma-separated or repeated list. If you want to compare multiple task shapes, rerun the command once per intent.
+Supported canonical intents are `general`, `frontend`, `backend`, `mobile`, `devops`, `security`, `docs`, `testing`, `research`, `data`, `design`, `product`, and `marketing`. Common aliases are normalized automatically, for example `documentation` → `docs`, `ci-cd` / `infra` → `devops`, `branding` → `design`, and `ba` / `planning` / `product-research` → `product`. `--intent` accepts repeated values for additive multi-intent runs, for example `--intent frontend --intent docs`. The first provided intent remains the primary intent for backward-compatible activation/manifests. If you want to compare isolated task shapes instead of combining them, rerun the command once per intent.
 
 ### Mutable state root
 
@@ -227,9 +227,10 @@ Available playbooks:
 
 Short version:
 
-- run `agent-harness setup doctor --host <host>` first
-- inspect workspace evidence such as `discover/output/demand-profile.json`, `discover/output/selection-report.json`, and `state/recommendations.json`
-- run `agent-harness wire <host> --preview` before any apply
+- new user default: run `agent-harness workspace <host>` for the full end-to-end host flow
+- run `agent-harness setup doctor --host <host>` first when you want a dry-run/operator-guided setup review
+- use `agent-harness discover breadth` first when your main question is candidate-pool breadth rather than end-to-end setup
+- run `agent-harness wire <host> --preview` only when lifecycle outputs already exist and you want to inspect/apply host-specific wire behavior
 - separate staged/wired assets from native installs and manual runtime follow-up
 - only run mutating install/apply commands after the dry run looks correct
 
@@ -513,7 +514,7 @@ You can also activate one lifecycle host using another recommendation policy:
 node ./dist/cli.js activate host --host copilot-vscode --recommendation-host cursor
 ```
 
-`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and is written into recommendation reports and workspace manifests so downstream activation stays aligned with the requested task shape. Only one `--intent` value is allowed per command.
+`--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and can be passed repeatedly. Activation uses the first provided intent as its primary activation context so downstream views stay deterministic even when recommendation/workspace flows were built from multiple intents.
 
 ### Wire
 
@@ -1495,7 +1496,7 @@ OpenCode uses managed directory links. On Windows, directory links are created a
 
 ### Why does the CLI use `agent-harness workspace <host>`?
 
-The CLI keeps one adapter-driven command surface so host selection stays explicit while lifecycle behavior remains consistent across supported hosts.
+The CLI keeps one adapter-driven command surface so host selection stays explicit while lifecycle behavior remains consistent across supported hosts. For a new user, `workspace <host>` is also the default end-to-end command: it already runs broad discovery, recommendation, staging, activation, and final host wire-in in one flow.
 
 ### Why are there VS Code and OpenCode-specific files in `src/host-adapters/`?
 
@@ -1515,7 +1516,7 @@ Usually no. First confirm that demand detection found the real workspace technol
 
 ### How do I give recommendations the widest possible asset pool?
 
-Run `agent-harness discover breadth` from the real workspace root first, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun `agent-harness discover breadth`. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+Run `agent-harness discover breadth` from the real workspace root first, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun `agent-harness discover breadth`. Use this recall-first path when you are diagnosing breadth specifically; for a normal new-user end-to-end setup, use `agent-harness workspace <host>` instead. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
 
 ### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
 

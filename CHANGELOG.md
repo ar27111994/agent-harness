@@ -6,6 +6,18 @@ All notable changes to this project will be documented in this file.
 
 No unreleased changes yet.
 
+## [1.0.5] - 2026-05-13
+
+### Changed
+
+- aligned README and playbook guidance with the shipped multi-intent behavior so repeated `--intent` flags are documented as additive recommendation/workspace inputs while the first intent remains the primary activation/manifests context
+- clarified that `agent-harness workspace <host>` is the straightforward default end-to-end path for new users, while `discover breadth` remains the recall-first diagnostic flow and `wire <host>` remains the lifecycle-output wiring command
+
+### Fixed
+
+- removed stale single-intent wording that still implied repeated `--intent` flags were unsupported after the `1.0.4` multi-intent implementation landed
+- prepared release metadata for `v1.0.5` by synchronizing the package version and lockfile version headers
+
 ## [1.0.4] - 2026-05-12
 
 ### Added

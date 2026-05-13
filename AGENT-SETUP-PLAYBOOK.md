@@ -25,7 +25,9 @@ Use this playbook when:
 
 If your first question is "how do I give recommendations the widest sensible candidate pool?", start with [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) and then return to this playbook for dry-run setup/apply decisions.
 
-`--intent` is a single-value option throughout the CLI. Pick one primary intent per run; if you want to compare `frontend` vs `docs` vs `product`, rerun the command once per intent instead of passing a list.
+For a new user who just wants the straightforward end-to-end path, `agent-harness workspace <host>` is the default command surface. Use this playbook when you want to inspect or preview that flow before mutating anything.
+
+`--intent` accepts repeated values throughout the main recommendation/workspace flows. Use repeated flags when you intentionally want an additive multi-intent run (for example `--intent frontend --intent docs`). The first provided intent remains the primary intent for backward-compatible activation/manifests. If you want to compare `frontend` vs `docs` vs `product` as separate runs instead of combining them, rerun the command once per intent.
 
 ## Dry-run workflow
 
@@ -242,7 +244,7 @@ You are setting up agent assets for this workspace with agent-harness.
 
 Workspace root: <workspace-path>
 Host: <vscode|cursor|opencode|zed|claude-code|pi>
-Intent: <optional primary intent such as frontend, backend, or docs>
+Intent: <optional one-or-more intents such as frontend, backend, docs>
 
 Use agent-harness as the source of truth and do a dry run first.
 
@@ -287,7 +289,7 @@ When ready, give me:
 
 ```text
 Proceed with the approved agent-harness setup plan for this workspace.
-Use the same workspace root, host, and primary intent we already reviewed.
+Use the same workspace root, host, and intent set we already reviewed.
 
 Rules:
 - Apply wire changes only after confirming the preview still matches.
