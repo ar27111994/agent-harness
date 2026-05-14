@@ -94,10 +94,18 @@ export interface RecommendationPolicyPresetRefs {
 /**
  * Describes recommendation host policy data exchanged by the lifecycle pipeline.
  */
+export type RecommendationLimitOverrideMode = "preserve" | "scale";
+
+/**
+ * Describes recommendation host policy data exchanged by the lifecycle pipeline.
+ */
 export interface RecommendationHostPolicy {
   recommendationLimit: number;
   activationBudget: number;
   suggestedBundleId: string;
+  recommendationLimitOverrideMode?: RecommendationLimitOverrideMode;
+  recommendationLimitScaleFactor?: number;
+  recommendationLimitScaledFields?: string[];
   fallbackSkillCount?: number;
   maxPerSourceFamily: number;
   maxPerDuplicateGroup: number;
@@ -125,6 +133,20 @@ export interface RecommendationPolicyBase {
   taskModeKeywordMap: Record<string, string[]>;
   domainKeywordGroups: Record<string, string[]>;
   synonyms: Record<string, string[]>;
+}
+
+/**
+ * Describes user-owned recommendation policy base overrides.
+ */
+export interface RecommendationPolicyBaseOverride {
+  schemaVersion: number;
+  scoring?: RecommendationScoringPolicy;
+  hostDefaults?: Partial<RecommendationHostPolicy>;
+  presets?: RecommendationPolicyPresets;
+  concernKeywordMap?: Record<string, string[]>;
+  taskModeKeywordMap?: Record<string, string[]>;
+  domainKeywordGroups?: Record<string, string[]>;
+  synonyms?: Record<string, string[]>;
 }
 
 /**
@@ -227,6 +249,11 @@ export interface RecommendationHostSummary {
   recommendationLimit: number;
   recommendationLimitSource: RecommendationPolicyValueSource;
   recommendationLimitEnvVar?: string;
+  recommendationLimitOverrideMode: RecommendationLimitOverrideMode;
+  recommendationLimitOverrideModeSource: RecommendationPolicyValueSource;
+  recommendationLimitOverrideModeEnvVar?: string;
+  recommendationLimitScaleFactor?: number;
+  recommendationLimitScaledFields?: string[];
   activationBudget: number;
   selectedCount: number;
   totalEstimatedPromptWeight: number;

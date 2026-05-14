@@ -18,6 +18,7 @@ void test("runtime config preserves existing defaults when new env vars are unse
   assert.equal(config.aiEnrichment.maxEvidenceItems, 12);
   assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 16);
   assert.deepEqual(config.recommendation.limitOverrides, {});
+  assert.deepEqual(config.recommendation.limitOverrideModes, {});
   assert.equal(config.install.refreshPolicy, "manual");
   assert.equal(config.install.refreshIntervalMs, 21_600_000);
   assert.equal(config.aiEnrichment.redactFilePaths, false);
@@ -57,6 +58,7 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
     AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS: "6",
     AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET: "8",
     AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT: "42",
+    AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE: "scale",
     AGENT_HARNESS_INSTALL_REFRESH_POLICY: "apply-safe",
     AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS: "3600000",
     AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS: "true",
@@ -112,6 +114,14 @@ void test("runtime config accepts custom runtime knobs and enrichment origins", 
   assert.equal(
     config.recommendation.limitOverrides["copilot-vscode"]?.envVar,
     "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+  );
+  assert.equal(
+    config.recommendation.limitOverrideModes["copilot-vscode"]?.value,
+    "scale",
+  );
+  assert.equal(
+    config.recommendation.limitOverrideModes["copilot-vscode"]?.envVar,
+    "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
   );
   assert.equal(config.aiEnrichment.autoMinIntervalMs, 60_000);
   assert.equal(config.install.refreshPolicy, "apply-safe");
@@ -224,6 +234,15 @@ void test("runtime config rejects invalid numeric and boolean env vars", () => {
         AGENT_HARNESS_INSTALL_REFRESH_POLICY: "automatic",
       }),
     /AGENT_HARNESS_INSTALL_REFRESH_POLICY/u,
+  );
+
+  assert.throws(
+    () =>
+      loadRuntimeConfig({
+        HOME: "/home/tester",
+        AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE: "auto",
+      }),
+    /AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE/u,
   );
 
   assert.throws(

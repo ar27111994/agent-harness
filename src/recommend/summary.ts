@@ -17,14 +17,25 @@ export function buildHostSummary(
   entries: RecommendationEntry[],
   policy: RecommendationPolicy,
 ): RecommendationHostSummary {
-  const limitOverride = getRuntimeConfig().recommendation.limitOverrides[host];
+  const recommendationRuntime = getRuntimeConfig().recommendation;
+  const limitOverride = recommendationRuntime.limitOverrides[host];
+  const modeOverride = recommendationRuntime.limitOverrideModes[host];
+  const hostPolicy = policy.hosts[host];
 
   return {
     host,
-    recommendationLimit: policy.hosts[host].recommendationLimit,
+    recommendationLimit: hostPolicy.recommendationLimit,
     recommendationLimitSource: limitOverride ? "env" : "policy",
     recommendationLimitEnvVar: limitOverride?.envVar,
-    activationBudget: policy.hosts[host].activationBudget,
+    recommendationLimitOverrideMode:
+      hostPolicy.recommendationLimitOverrideMode ?? "preserve",
+    recommendationLimitOverrideModeSource: modeOverride ? "env" : "policy",
+    recommendationLimitOverrideModeEnvVar: modeOverride?.envVar,
+    recommendationLimitScaleFactor:
+      hostPolicy.recommendationLimitScaleFactor ?? undefined,
+    recommendationLimitScaledFields:
+      hostPolicy.recommendationLimitScaledFields ?? undefined,
+    activationBudget: hostPolicy.activationBudget,
     selectedCount: entries.length,
     totalEstimatedPromptWeight: entries.reduce(
       (total, entry) => total + entry.estimatedPromptWeight,

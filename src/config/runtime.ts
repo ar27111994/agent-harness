@@ -1,7 +1,10 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import type { AiEnrichmentMode } from "../types.js";
+import type {
+  AiEnrichmentMode,
+  RecommendationLimitOverrideMode,
+} from "../types.js";
 
 const RECOMMENDATION_LIMIT_OVERRIDE_ENV_BY_HOST = {
   shared: "AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT",
@@ -11,6 +14,16 @@ const RECOMMENDATION_LIMIT_OVERRIDE_ENV_BY_HOST = {
   zed: "AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT",
   "claude-code": "AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT",
   pi: "AGENT_HARNESS_PI_RECOMMENDATION_LIMIT",
+} as const;
+
+const RECOMMENDATION_LIMIT_OVERRIDE_MODE_ENV_BY_HOST = {
+  shared: "AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT_MODE",
+  "copilot-vscode": "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
+  opencode: "AGENT_HARNESS_OPENCODE_RECOMMENDATION_LIMIT_MODE",
+  cursor: "AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT_MODE",
+  zed: "AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT_MODE",
+  "claude-code": "AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT_MODE",
+  pi: "AGENT_HARNESS_PI_RECOMMENDATION_LIMIT_MODE",
 } as const;
 
 const DEFAULT_AI_ENRICHMENT_MODEL = "gpt-4o-mini";
@@ -61,6 +74,10 @@ export interface RuntimeConfig {
   };
   recommendation: {
     limitOverrides: Record<string, { value: number; envVar: string }>;
+    limitOverrideModes: Record<
+      string,
+      { value: RecommendationLimitOverrideMode; envVar: string }
+    >;
   };
   install: {
     refreshPolicy: "manual" | "report-only" | "apply-safe";
@@ -236,6 +253,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     },
     recommendation: {
       limitOverrides: buildRecommendationLimitOverrides(env),
+      limitOverrideModes: buildRecommendationLimitOverrideModes(env),
     },
     install: {
       refreshPolicy: parseLiteral(
@@ -468,6 +486,36 @@ function buildRecommendationLimitOverrides(
 
         return [
           [host, { value: parsePositiveInteger(rawValue, 1, envVar), envVar }],
+        ];
+      },
+    ),
+  );
+}
+
+function buildRecommendationLimitOverrideModes(
+  env: NodeJS.ProcessEnv,
+): Record<string, { value: RecommendationLimitOverrideMode; envVar: string }> {
+  return Object.fromEntries(
+    Object.entries(RECOMMENDATION_LIMIT_OVERRIDE_MODE_ENV_BY_HOST).flatMap(
+      ([host, envVar]) => {
+        const rawValue = nonEmptyString(env[envVar]);
+        if (!rawValue) {
+          return [];
+        }
+
+        return [
+          [
+            host,
+            {
+              value: parseLiteral<RecommendationLimitOverrideMode>(
+                rawValue,
+                ["preserve", "scale"],
+                "preserve",
+                envVar,
+              ),
+              envVar,
+            },
+          ],
         ];
       },
     ),

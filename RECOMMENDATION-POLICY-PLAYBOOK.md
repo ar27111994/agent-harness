@@ -38,9 +38,9 @@ Inspect:
 
 ## Where policy lives
 
-Policy is loaded from the active state root.
+Policy is loaded from the active state root with a durable override layer.
 
-Key files:
+Package/default files:
 
 - `discover/recommendation-policy/base.json`
 - `discover/recommendation-policy/hosts/shared.json`
@@ -50,6 +50,23 @@ Key files:
 - `discover/recommendation-policy/hosts/zed.json`
 - `discover/recommendation-policy/hosts/claude-code.json`
 - `discover/recommendation-policy/hosts/pi.json`
+
+User-owned override files:
+
+- `discover/recommendation-policy/overrides/base.json`
+- `discover/recommendation-policy/overrides/hosts/shared.json`
+- `discover/recommendation-policy/overrides/hosts/copilot-vscode.json`
+- `discover/recommendation-policy/overrides/hosts/opencode.json`
+- `discover/recommendation-policy/overrides/hosts/cursor.json`
+- `discover/recommendation-policy/overrides/hosts/zed.json`
+- `discover/recommendation-policy/overrides/hosts/claude-code.json`
+- `discover/recommendation-policy/overrides/hosts/pi.json`
+
+Precedence is:
+
+1. checked-in/package defaults
+2. user-owned override files
+3. runtime env overrides
 
 In installed/package usage these usually live under `.agent-harness/`.
 
@@ -82,12 +99,14 @@ agent-harness recommend explain --host <host> --asset <relevant-asset-id>
 agent-harness recommend explain --host <host> --asset <noisy-asset-id>
 ```
 
-### Step 4. Edit the active state-root policy files if needed
+### Step 4. Edit the user-owned override files if needed
 
-Typical policy edits belong in:
+Treat `discover/recommendation-policy/base.json` and `discover/recommendation-policy/hosts/*.json` as defaults. Put durable customizations in the override layer instead:
 
-- `discover/recommendation-policy/base.json` for shared scoring behavior
-- `discover/recommendation-policy/hosts/<host>.json` for host-specific caps or preference shifts
+- `discover/recommendation-policy/overrides/base.json` for shared scoring/keyword-map/preset overrides
+- `discover/recommendation-policy/overrides/hosts/<host>.json` for host-specific caps, priorities, or override-mode settings
+
+When you use a recommendation-limit env override, the default mode is still `preserve`, which changes only `recommendationLimit`. To explicitly scale related caps and minimums as well, set `recommendationLimitOverrideMode` to `scale` in the host override file or set the matching `AGENT_HARNESS_<HOST>_RECOMMENDATION_LIMIT_MODE=scale` env var.
 
 Then rerun:
 
@@ -122,6 +141,8 @@ Required workflow:
   - `state/recommendations.json`
   - `discover/recommendation-policy/base.json`
   - `discover/recommendation-policy/hosts/<host>.json`
+  - `discover/recommendation-policy/overrides/base.json`
+  - `discover/recommendation-policy/overrides/hosts/<host>.json`
 - Do not recommend broader source/pool changes unless you can show the selected set is actually missing relevant candidates.
 
 When ready, give me:

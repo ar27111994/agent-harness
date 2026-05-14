@@ -29,6 +29,7 @@ export {
   assertRecommendationHostPolicyOverride,
   assertRecommendationPolicy,
   assertRecommendationPolicyBase,
+  assertRecommendationPolicyBaseOverride,
   assertRecommendationReport,
 } from "./manifest-validation/recommendation.js";
 export {

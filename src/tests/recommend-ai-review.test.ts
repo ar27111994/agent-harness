@@ -144,6 +144,8 @@ function createSummary(host: string): RecommendationHostSummary {
     host,
     recommendationLimit: 10,
     recommendationLimitSource: "policy",
+    recommendationLimitOverrideMode: "preserve",
+    recommendationLimitOverrideModeSource: "policy",
     activationBudget: 20,
     selectedCount: 0,
     totalEstimatedPromptWeight: 0,

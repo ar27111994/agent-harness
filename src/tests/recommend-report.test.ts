@@ -245,12 +245,88 @@ void test("recommendation reports expose env-sourced recommendation limits", asy
       report.hostSummaries["copilot-vscode"].recommendationLimitEnvVar,
       "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
     );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"].recommendationLimitOverrideMode,
+      "preserve",
+    );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"]
+        .recommendationLimitOverrideModeSource,
+      "policy",
+    );
   } finally {
     if (previousEnvValue === undefined) {
       delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
     } else {
       process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
         previousEnvValue;
+    }
+    clearRuntimeConfigForTests();
+  }
+});
+
+void test("recommendation reports expose explicit scale-mode metadata", async () => {
+  clearRuntimeConfigForTests();
+  const previousLimitEnvValue =
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+  const previousModeEnvValue =
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+  process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
+  process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE = "scale";
+
+  try {
+    loadRuntimeConfig(process.env);
+    const policy = await loadRecommendationPolicy(process.cwd());
+    const report = buildRecommendationReport(
+      [createEntry("frontend-skill", ["frontend", "ui", "react"])],
+      createDemandProfile(),
+      policy,
+      "frontend",
+    );
+
+    assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 120);
+    assert.equal(policy.hosts["copilot-vscode"].maxPerAssetKind.skill, 36);
+    assert.equal(
+      policy.hosts["copilot-vscode"].targetAssetKinds.find(
+        (entry) => entry.assetKind === "skill",
+      )?.minimum,
+      12,
+    );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"].recommendationLimitOverrideMode,
+      "scale",
+    );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"]
+        .recommendationLimitOverrideModeSource,
+      "env",
+    );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"]
+        .recommendationLimitOverrideModeEnvVar,
+      "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
+    );
+    assert.equal(
+      report.hostSummaries["copilot-vscode"].recommendationLimitScaleFactor,
+      0.5,
+    );
+    assert.ok(
+      report.hostSummaries[
+        "copilot-vscode"
+      ].recommendationLimitScaledFields?.includes("maxPerAssetKind.skill"),
+    );
+  } finally {
+    if (previousLimitEnvValue === undefined) {
+      delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    } else {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
+        previousLimitEnvValue;
+    }
+    if (previousModeEnvValue === undefined) {
+      delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    } else {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+        previousModeEnvValue;
     }
     clearRuntimeConfigForTests();
   }

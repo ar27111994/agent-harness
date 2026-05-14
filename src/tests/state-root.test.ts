@@ -18,7 +18,7 @@ const REQUIRED_ASSET_FILES = [
 const REQUIRED_ASSET_DIRECTORIES = [
   join("discover", "source-packs"),
   join("discover", "schema"),
-  join("discover", "recommendation-policy"),
+  join("discover", "recommendation-policy", "hosts"),
   join("discover", "seeds"),
   join("mirror", "schema"),
 ];
@@ -82,6 +82,74 @@ void test("prepareStateRoot syncs package assets into mutable state root", async
         { directoryPath },
       );
     }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("prepareStateRoot preserves user-owned recommendation policy overrides", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-state-root-"));
+  const packageRoot = join(root, "package");
+  const stateRoot = join(root, "state");
+  const userOverridePath = join(
+    stateRoot,
+    "discover",
+    "recommendation-policy",
+    "overrides",
+    "hosts",
+    "copilot-vscode.json",
+  );
+
+  try {
+    for (const filePath of REQUIRED_ASSET_FILES) {
+      await writeAssetFile(packageRoot, filePath, { filePath });
+    }
+    for (const directoryPath of REQUIRED_ASSET_DIRECTORIES) {
+      await writeAssetFile(packageRoot, join(directoryPath, "fixture.json"), {
+        directoryPath,
+      });
+    }
+
+    await prepareStateRoot({ packageRoot, stateRoot, usesPackageRoot: false });
+    await writeAssetFile(
+      stateRoot,
+      join(
+        "discover",
+        "recommendation-policy",
+        "overrides",
+        "hosts",
+        "copilot-vscode.json",
+      ),
+      {
+        kind: "user-override",
+      },
+    );
+
+    await writeAssetFile(
+      packageRoot,
+      join("discover", "recommendation-policy", "hosts", "fixture.json"),
+      { refreshed: true },
+    );
+    await prepareStateRoot({ packageRoot, stateRoot, usesPackageRoot: false });
+
+    assert.deepEqual(JSON.parse(await readFile(userOverridePath, "utf8")), {
+      kind: "user-override",
+    });
+    assert.deepEqual(
+      JSON.parse(
+        await readFile(
+          join(
+            stateRoot,
+            "discover",
+            "recommendation-policy",
+            "hosts",
+            "fixture.json",
+          ),
+          "utf8",
+        ),
+      ),
+      { refreshed: true },
+    );
   } finally {
     await rm(root, { force: true, recursive: true });
   }

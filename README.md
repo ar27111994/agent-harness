@@ -1033,10 +1033,17 @@ Recommendation policy is split across smaller JSON files:
 - `discover/recommendation-policy/hosts/zed.json`
 - `discover/recommendation-policy/hosts/claude-code.json`
 - `discover/recommendation-policy/hosts/pi.json`
+- `discover/recommendation-policy/overrides/base.json`
+- `discover/recommendation-policy/overrides/hosts/<host>.json`
 - `discover/schema/recommendation-policy-base.schema.json`
+- `discover/schema/recommendation-policy-base-override.schema.json`
 - `discover/schema/recommendation-host-policy-override.schema.json`
 
-`base.json` holds global scoring, keyword maps, optional host defaults, and reusable presets. Each host file holds host-specific overrides. At runtime the loader composes these files into the effective recommendation policy.
+`base.json` holds global scoring, keyword maps, optional host defaults, and reusable presets. Each host file holds host-specific defaults. Put durable workspace/user customization in `discover/recommendation-policy/overrides/` rather than editing package-owned defaults. At runtime the loader composes recommendation policy in this order:
+
+1. checked-in/package defaults
+2. user-owned override files
+3. runtime env overrides
 
 `discover select` first applies workspace-demand relevance filtering, then canonical duplicate selection. Entries with no language, framework, concern, tooling, or executable MCP overlap are rejected before recommendation so unrelated source packs do not dominate real-world reports.
 
@@ -1185,15 +1192,22 @@ AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT=8
 
 ```bash
 AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT=12
+AGENT_HARNESS_SHARED_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT=240
+AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_OPENCODE_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_OPENCODE_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT=240
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_ZED_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_CLAUDE_CODE_RECOMMENDATION_LIMIT_MODE=preserve
 AGENT_HARNESS_PI_RECOMMENDATION_LIMIT=80
+AGENT_HARNESS_PI_RECOMMENDATION_LIMIT_MODE=preserve
 ```
 
-These env vars override the checked-in host policy recommendation caps at runtime. Generated recommendation reports record whether the effective limit came from policy or an env override.
+These env vars override the checked-in host policy recommendation caps at runtime. `*_RECOMMENDATION_LIMIT_MODE=preserve` keeps the current default behavior and changes only the total `recommendationLimit`. Set the mode to `scale` when you explicitly want `maxPerAssetKind`, target minimums, and related host-selection caps to scale with the overridden limit. Generated recommendation reports record whether the effective limit and mode came from policy or env overrides.
 
 ### Mirror safety limits
 

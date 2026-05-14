@@ -24,6 +24,24 @@ export const POLICY_HOST_DIRECTORY_PATH = [
   "hosts",
 ] as const;
 /**
+ * Defines the user-owned policy base override path location used by persisted project state.
+ */
+export const POLICY_OVERRIDE_BASE_FILE_PATH = [
+  "discover",
+  "recommendation-policy",
+  "overrides",
+  "base.json",
+] as const;
+/**
+ * Defines the user-owned policy host override directory path location used by persisted project state.
+ */
+export const POLICY_OVERRIDE_HOST_DIRECTORY_PATH = [
+  "discover",
+  "recommendation-policy",
+  "overrides",
+  "hosts",
+] as const;
+/**
  * Defines the report file path location used by persisted project state.
  */
 export const REPORT_FILE_PATH = ["state", "recommendations.json"] as const;

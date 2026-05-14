@@ -7,19 +7,24 @@ import {
   assertRecommendationHostPolicyOverride,
   assertRecommendationPolicy,
   assertRecommendationPolicyBase,
+  assertRecommendationPolicyBaseOverride,
 } from "../manifest-validation.js";
 import {
   LEGACY_POLICY_FILE_PATH,
   POLICY_BASE_FILE_PATH,
   POLICY_HOST_DIRECTORY_PATH,
+  POLICY_OVERRIDE_BASE_FILE_PATH,
+  POLICY_OVERRIDE_HOST_DIRECTORY_PATH,
 } from "./constants.js";
 import { getRecommendationHosts } from "./hosts.js";
 import type {
   AssetKind,
   RecommendationHostPolicy,
   RecommendationHostPolicyOverride,
+  RecommendationLimitOverrideMode,
   RecommendationPolicy,
   RecommendationPolicyBase,
+  RecommendationPolicyBaseOverride,
   RecommendationPolicyPresetRefs,
   RecommendationPolicyPresets,
   RecommendationTargetAssetKindPreference,
@@ -46,27 +51,94 @@ export async function loadRecommendationPolicy(
 
   assertRecommendationPolicyBase(basePolicy, basePolicyPath);
 
+  const baseOverridePath = join(projectRoot, ...POLICY_OVERRIDE_BASE_FILE_PATH);
+  const baseOverride =
+    await readJsonFileOrNull<RecommendationPolicyBaseOverride>(
+      baseOverridePath,
+    );
+  if (baseOverride) {
+    assertRecommendationPolicyBaseOverride(baseOverride, baseOverridePath);
+    if (baseOverride.schemaVersion !== basePolicy.schemaVersion) {
+      throw new Error(
+        `Recommendation policy schema mismatch for user base override: expected ${basePolicy.schemaVersion}, received ${baseOverride.schemaVersion}`,
+      );
+    }
+  }
+
   const recommendationHosts = getRecommendationHosts();
+  const defaultHostOverrides = await loadRecommendationHostOverrides(
+    projectRoot,
+    POLICY_HOST_DIRECTORY_PATH,
+    recommendationHosts,
+    basePolicy.schemaVersion,
+    true,
+  );
+  const userHostOverrides = await loadRecommendationHostOverrides(
+    projectRoot,
+    POLICY_OVERRIDE_HOST_DIRECTORY_PATH,
+    recommendationHosts,
+    basePolicy.schemaVersion,
+    false,
+  );
+
+  const mergedBasePolicy = mergeRecommendationPolicyBase(
+    basePolicy,
+    baseOverride ?? undefined,
+  );
+  const mergedHostOverrides = Object.fromEntries(
+    recommendationHosts.map((host) => [
+      host,
+      mergeRecommendationHostPolicyOverride(
+        defaultHostOverrides[host] ??
+          buildDefaultRecommendationHostPolicyOverride(
+            host,
+            basePolicy.schemaVersion,
+          ),
+        userHostOverrides[host],
+      ),
+    ]),
+  ) as Record<RecommendationHost, RecommendationHostPolicyOverride>;
+
+  const policy = applyRecommendationRuntimeOverrides(
+    buildRecommendationPolicyFromSplitFiles(
+      mergedBasePolicy,
+      mergedHostOverrides,
+      recommendationHosts,
+    ),
+  );
+
+  assertRecommendationPolicy(policy, "recommendation-policy");
+  return policy;
+}
+
+async function loadRecommendationHostOverrides(
+  projectRoot: string,
+  directoryPath: readonly string[],
+  recommendationHosts: readonly RecommendationHost[],
+  schemaVersion: number,
+  buildDefaultsWhenMissing: boolean,
+): Promise<
+  Partial<Record<RecommendationHost, RecommendationHostPolicyOverride>>
+> {
   const hostOverrides = await Promise.all(
     recommendationHosts.map(async (host) => {
-      const overridePath = join(
-        projectRoot,
-        ...POLICY_HOST_DIRECTORY_PATH,
-        `${host}.json`,
-      );
+      const overridePath = join(projectRoot, ...directoryPath, `${host}.json`);
       const override = (await pathExists(overridePath))
         ? await readJsonFile<RecommendationHostPolicyOverride>(
             overridePath,
             assertRecommendationHostPolicyOverride,
           )
-        : buildDefaultRecommendationHostPolicyOverride(
-            host,
-            basePolicy.schemaVersion,
-          );
+        : buildDefaultsWhenMissing
+          ? buildDefaultRecommendationHostPolicyOverride(host, schemaVersion)
+          : undefined;
 
-      if (override.schemaVersion !== basePolicy.schemaVersion) {
+      if (!override) {
+        return [host, undefined] as const;
+      }
+
+      if (override.schemaVersion !== schemaVersion) {
         throw new Error(
-          `Recommendation policy schema mismatch for ${host}: expected ${basePolicy.schemaVersion}, received ${override.schemaVersion}`,
+          `Recommendation policy schema mismatch for ${host}: expected ${schemaVersion}, received ${override.schemaVersion}`,
         );
       }
 
@@ -80,40 +152,294 @@ export async function loadRecommendationPolicy(
     }),
   );
 
-  const policy = applyRecommendationRuntimeOverrides(
-    buildRecommendationPolicyFromSplitFiles(
-      basePolicy,
-      Object.fromEntries(hostOverrides) as Record<
-        RecommendationHost,
-        RecommendationHostPolicyOverride
-      >,
-      recommendationHosts,
+  return Object.fromEntries(hostOverrides) as Partial<
+    Record<RecommendationHost, RecommendationHostPolicyOverride>
+  >;
+}
+
+function mergeRecommendationPolicyBase(
+  basePolicy: RecommendationPolicyBase,
+  overridePolicy: RecommendationPolicyBaseOverride | undefined,
+): RecommendationPolicyBase {
+  if (!overridePolicy) {
+    return basePolicy;
+  }
+
+  return {
+    schemaVersion: basePolicy.schemaVersion,
+    scoring: overridePolicy.scoring ?? basePolicy.scoring,
+    hostDefaults: mergeRecommendationHostPolicy(
+      basePolicy.hostDefaults ?? {},
+      overridePolicy.hostDefaults ?? {},
     ),
+    presets: mergeRecommendationPolicyPresets(
+      basePolicy.presets,
+      overridePolicy.presets,
+    ),
+    concernKeywordMap: mergeKeywordMapRecords(
+      basePolicy.concernKeywordMap,
+      overridePolicy.concernKeywordMap,
+    ),
+    taskModeKeywordMap: mergeKeywordMapRecords(
+      basePolicy.taskModeKeywordMap,
+      overridePolicy.taskModeKeywordMap,
+    ),
+    domainKeywordGroups: mergeKeywordMapRecords(
+      basePolicy.domainKeywordGroups,
+      overridePolicy.domainKeywordGroups,
+    ),
+    synonyms: mergeKeywordMapRecords(
+      basePolicy.synonyms,
+      overridePolicy.synonyms,
+    ),
+  };
+}
+
+function mergeRecommendationPolicyPresets(
+  basePresets: RecommendationPolicyPresets | undefined,
+  overridePresets: RecommendationPolicyPresets | undefined,
+): RecommendationPolicyPresets | undefined {
+  if (!basePresets && !overridePresets) {
+    return undefined;
+  }
+
+  return {
+    targetAssetKinds: {
+      ...(basePresets?.targetAssetKinds ?? {}),
+      ...(overridePresets?.targetAssetKinds ?? {}),
+    },
+    targetConcerns: {
+      ...(basePresets?.targetConcerns ?? {}),
+      ...(overridePresets?.targetConcerns ?? {}),
+    },
+  };
+}
+
+function mergeKeywordMapRecords(
+  baseRecord: Record<string, string[]>,
+  overrideRecord: Record<string, string[]> | undefined,
+): Record<string, string[]> {
+  return {
+    ...baseRecord,
+    ...(overrideRecord ?? {}),
+  };
+}
+
+function mergeRecommendationHostPolicyOverride(
+  baseOverride: RecommendationHostPolicyOverride,
+  userOverride: RecommendationHostPolicyOverride | undefined,
+): RecommendationHostPolicyOverride {
+  if (!userOverride) {
+    return baseOverride;
+  }
+
+  return {
+    schemaVersion: baseOverride.schemaVersion,
+    host: baseOverride.host,
+    presetRefs: mergeRecommendationPolicyPresetRefs(
+      baseOverride.presetRefs,
+      userOverride.presetRefs,
+    ),
+    policy: mergeRecommendationHostPolicy(
+      baseOverride.policy,
+      userOverride.policy,
+    ),
+  };
+}
+
+function mergeRecommendationPolicyPresetRefs(
+  basePresetRefs: RecommendationPolicyPresetRefs | undefined,
+  userPresetRefs: RecommendationPolicyPresetRefs | undefined,
+): RecommendationPolicyPresetRefs | undefined {
+  const targetAssetKinds = mergeOptionalUniqueStrings(
+    basePresetRefs?.targetAssetKinds,
+    userPresetRefs?.targetAssetKinds,
+  );
+  const targetConcerns = mergeOptionalUniqueStrings(
+    basePresetRefs?.targetConcerns,
+    userPresetRefs?.targetConcerns,
   );
 
-  assertRecommendationPolicy(policy, "recommendation-policy");
-  return policy;
+  if (!targetAssetKinds && !targetConcerns) {
+    return undefined;
+  }
+
+  return {
+    targetAssetKinds,
+    targetConcerns,
+  };
 }
 
 function applyRecommendationRuntimeOverrides(
   policy: RecommendationPolicy,
 ): RecommendationPolicy {
-  const limitOverrides = getRuntimeConfig().recommendation.limitOverrides;
+  const recommendationRuntime = getRuntimeConfig().recommendation;
 
   return {
     ...policy,
     hosts: Object.fromEntries(
-      Object.entries(policy.hosts).map(([host, hostPolicy]) => {
-        const override = limitOverrides[host];
-        return [
-          host,
-          override
-            ? { ...hostPolicy, recommendationLimit: override.value }
-            : hostPolicy,
-        ];
-      }),
+      Object.entries(policy.hosts).map(([host, hostPolicy]) => [
+        host,
+        applyRecommendationHostRuntimeOverrides(
+          hostPolicy,
+          recommendationRuntime.limitOverrides[host],
+          recommendationRuntime.limitOverrideModes[host],
+        ),
+      ]),
     ) as RecommendationPolicy["hosts"],
   };
+}
+
+function applyRecommendationHostRuntimeOverrides(
+  hostPolicy: RecommendationHostPolicy,
+  limitOverride: { value: number; envVar: string } | undefined,
+  modeOverride:
+    | { value: RecommendationLimitOverrideMode; envVar: string }
+    | undefined,
+): RecommendationHostPolicy {
+  const overrideMode =
+    modeOverride?.value ??
+    hostPolicy.recommendationLimitOverrideMode ??
+    "preserve";
+  const normalizedPolicy: RecommendationHostPolicy = {
+    ...hostPolicy,
+    recommendationLimitOverrideMode: overrideMode,
+    recommendationLimitScaleFactor: undefined,
+    recommendationLimitScaledFields: undefined,
+  };
+
+  if (!limitOverride) {
+    return normalizedPolicy;
+  }
+
+  if (overrideMode !== "scale") {
+    return {
+      ...normalizedPolicy,
+      recommendationLimit: limitOverride.value,
+    };
+  }
+
+  return scaleRecommendationHostPolicy(normalizedPolicy, limitOverride.value);
+}
+
+function scaleRecommendationHostPolicy(
+  hostPolicy: RecommendationHostPolicy,
+  nextRecommendationLimit: number,
+): RecommendationHostPolicy {
+  const previousRecommendationLimit = Math.max(
+    1,
+    hostPolicy.recommendationLimit,
+  );
+  const scaleFactor = nextRecommendationLimit / previousRecommendationLimit;
+  const scaledFields: string[] = [];
+
+  const fallbackSkillCount = scaleOptionalPolicyCount(
+    hostPolicy.fallbackSkillCount,
+    scaleFactor,
+    "fallbackSkillCount",
+    scaledFields,
+  );
+  const maxPerSourceFamily = scalePolicyCount(
+    hostPolicy.maxPerSourceFamily,
+    scaleFactor,
+    "maxPerSourceFamily",
+    scaledFields,
+  );
+  const maxPerDuplicateGroup = scalePolicyCount(
+    hostPolicy.maxPerDuplicateGroup,
+    scaleFactor,
+    "maxPerDuplicateGroup",
+    scaledFields,
+  );
+  const sourceSaturationFreeCount = scaleOptionalPolicyCount(
+    hostPolicy.sourceSaturationFreeCount,
+    scaleFactor,
+    "sourceSaturationFreeCount",
+    scaledFields,
+    true,
+  );
+  const maxPerAssetKind = Object.fromEntries(
+    Object.entries(hostPolicy.maxPerAssetKind).map(([assetKind, value]) => {
+      const scaledValue = scalePolicyCount(
+        value,
+        scaleFactor,
+        `maxPerAssetKind.${assetKind}`,
+        scaledFields,
+      );
+      return [assetKind, scaledValue];
+    }),
+  ) as RecommendationHostPolicy["maxPerAssetKind"];
+  const targetAssetKinds = hostPolicy.targetAssetKinds.map((entry) => ({
+    ...entry,
+    minimum: scalePolicyCount(
+      entry.minimum,
+      scaleFactor,
+      `targetAssetKinds.${entry.assetKind}.minimum`,
+      scaledFields,
+    ),
+  }));
+  const targetConcerns = hostPolicy.targetConcerns.map((entry) => ({
+    ...entry,
+    minimum: scalePolicyCount(
+      entry.minimum,
+      scaleFactor,
+      `targetConcerns.${entry.concern}.minimum`,
+      scaledFields,
+    ),
+  }));
+
+  return {
+    ...hostPolicy,
+    recommendationLimit: nextRecommendationLimit,
+    recommendationLimitOverrideMode: "scale",
+    recommendationLimitScaleFactor: scaleFactor,
+    recommendationLimitScaledFields: [...new Set(scaledFields)].sort(),
+    fallbackSkillCount,
+    maxPerSourceFamily,
+    maxPerDuplicateGroup,
+    sourceSaturationFreeCount,
+    maxPerAssetKind,
+    targetAssetKinds,
+    targetConcerns,
+  };
+}
+
+function scaleOptionalPolicyCount(
+  value: number | undefined,
+  scaleFactor: number,
+  fieldName: string,
+  scaledFields: string[],
+  allowZero = false,
+): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return scalePolicyCount(
+    value,
+    scaleFactor,
+    fieldName,
+    scaledFields,
+    allowZero,
+  );
+}
+
+function scalePolicyCount(
+  value: number,
+  scaleFactor: number,
+  fieldName: string,
+  scaledFields: string[],
+  allowZero = false,
+): number {
+  const scaledValue = allowZero
+    ? Math.max(0, Math.round(value * scaleFactor))
+    : Math.max(1, Math.round(value * scaleFactor));
+
+  if (scaledValue !== value) {
+    scaledFields.push(fieldName);
+  }
+
+  return scaledValue;
 }
 
 function buildDefaultRecommendationHostPolicyOverride(
@@ -131,6 +457,7 @@ function buildDefaultRecommendationHostPolicyOverride(
       recommendationLimit: 12,
       activationBudget: 2_500,
       suggestedBundleId: adapter?.defaultBundleIds[0] ?? `${host}-bundle`,
+      recommendationLimitOverrideMode: "preserve",
       fallbackSkillCount: 4,
       maxPerSourceFamily: 4,
       maxPerDuplicateGroup: 2,
@@ -212,6 +539,9 @@ function mergeRecommendationHostPolicy(
     ),
     deprioritizedCapabilityTerms: mergeOptionalUniqueStrings(
       ...layers.map((layer) => layer.deprioritizedCapabilityTerms),
+    ),
+    recommendationLimitScaledFields: mergeOptionalUniqueStrings(
+      ...layers.map((layer) => layer.recommendationLimitScaledFields),
     ),
   } as RecommendationHostPolicy;
 }

@@ -162,6 +162,16 @@
         "suggestedBundleId": {
           "type": "string"
         },
+        "recommendationLimitOverrideMode": {
+          "type": "string",
+          "enum": ["preserve", "scale"]
+        },
+        "recommendationLimitScaleFactor": {
+          "type": "number"
+        },
+        "recommendationLimitScaledFields": {
+          "$ref": "#/$defs/stringArray"
+        },
         "fallbackSkillCount": {
           "type": "number"
         },
