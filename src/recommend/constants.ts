@@ -88,6 +88,10 @@ export const MIN_BUDGET_PENALTY = 1;
  */
 export const COVERAGE_OVERLAP_CAP = 2;
 /**
+ * Defines the preselection weight assigned to each coverage tag match.
+ */
+export const COVERAGE_TAG_PRESELECTION_WEIGHT = 4;
+/**
  * Defines the duplicate-group overlap multiplier used in redundancy scoring.
  */
 export const DUPLICATE_GROUP_OVERLAP_MULTIPLIER = 2;

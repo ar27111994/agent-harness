@@ -1,6 +1,7 @@
 import { isHostCompatibleWithRecommendationHost } from "../host-adapters/registry.js";
 import {
   COVERAGE_OVERLAP_CAP,
+  COVERAGE_TAG_PRESELECTION_WEIGHT,
   DUPLICATE_GROUP_OVERLAP_MULTIPLIER,
   HIGH_COST_BUDGET_DIVISOR,
   HIGH_COST_PENALTY_DIVISOR,
@@ -209,7 +210,7 @@ function computeCandidatePreselectionScore(
   return (
     computeEntryPreselectionScore(candidate.entry) +
     candidate.breakdown.total +
-    candidate.coverageTags.length * 4 +
+    candidate.coverageTags.length * COVERAGE_TAG_PRESELECTION_WEIGHT +
     candidate.matchedSignals.reduce((total, match) => total + match.weight, 0)
   );
 }

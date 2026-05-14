@@ -13,6 +13,7 @@ const cliOutputFiles = [
   "src/domains/discovery/source-index.ts",
   "src/install.ts",
   "src/install/*.ts",
+  "src/lib/cli-output.ts",
   "src/mirror.ts",
   "src/mirror/*.ts",
   "src/quarantine.ts",
@@ -28,6 +29,11 @@ const cliOutputFiles = [
   "src/tests/policy-coverage.ts",
   "src/tests/scan-benchmark.ts",
   "src/tests/workspace-smoke.ts",
+];
+
+const magicThresholdFiles = [
+  "src/config/runtime.ts",
+  "src/recommend/selection.ts",
 ];
 
 export default defineConfig(
@@ -86,6 +92,25 @@ export default defineConfig(
     files: cliOutputFiles,
     rules: {
       "no-console": ["error", { allow: ["log", "warn", "error"] }],
+    },
+  },
+  {
+    files: magicThresholdFiles,
+    rules: {
+      "no-magic-numbers": [
+        "error",
+        {
+          detectObjects: false,
+          enforceConst: true,
+          ignore: [-1, 0, 1],
+          ignoreArrayIndexes: true,
+          ignoreClassFieldInitialValues: true,
+          ignoreDefaultValues: true,
+          ignoreEnums: true,
+          ignoreReadonlyClassProperties: true,
+          ignoreTypeIndexes: true,
+        },
+      ],
     },
   },
   prettierConfig,
