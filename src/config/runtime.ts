@@ -27,6 +27,10 @@ const RECOMMENDATION_LIMIT_OVERRIDE_MODE_ENV_BY_HOST = {
 } as const;
 
 const DEFAULT_AI_ENRICHMENT_MODEL = "gpt-4o-mini";
+const RECOMMENDATION_LIMIT_OVERRIDE_MODES = [
+  "preserve",
+  "scale",
+] as const satisfies readonly RecommendationLimitOverrideMode[];
 const AI_ENRICHMENT_MODES = [
   "off",
   "manual",
@@ -47,6 +51,70 @@ const DEFAULT_AI_ENRICHMENT_ALLOWED_ORIGINS = [
   "https://api.fireworks.ai",
   "https://api.together.xyz",
 ] as const;
+const AI_ENRICHMENT_DEFAULTS = {
+  requestTimeoutMs: 20_000,
+  responseMaxBytes: 1_000_000,
+  maxSelectedAssets: 50,
+  maxEvidenceItems: 12,
+  maxCapabilitiesPerAsset: 16,
+  retryMaxAttempts: 1,
+  retryBackoffMs: 1_000,
+  autoMinIntervalMs: 300_000,
+} as const;
+const INSTALL_DEFAULTS = {
+  refreshPolicy: "manual",
+  refreshIntervalMs: 21_600_000,
+} as const;
+const HTTP_DEFAULTS = {
+  timeoutMs: 10_000,
+  maxResponseBytes: 1_000_000,
+} as const;
+const GITHUB_DEFAULTS = {
+  apiVersion: "2022-11-28",
+  fetchMaxAttempts: 3,
+  fetchTimeoutMs: 10_000,
+  jsonMaxBytes: 2_000_000,
+} as const;
+const REGISTRY_DEFAULTS = {
+  fetchTimeoutMs: 5_000,
+  metadataMaxBytes: 2_000_000,
+  searchMaxBytes: 500_000,
+  npmSearchResultLimit: 12,
+} as const;
+const DISCOVERY_DEFAULTS = {
+  referenceSourceMaxBytes: 600_000,
+  genericReferenceMaxItems: 8,
+  vscodeMarketplaceMaxQueries: 4,
+  vscodeMarketplaceMaxItemsPerQuery: 6,
+  vscodeMarketplaceSyncPageSize: 50,
+  sourceSyncMaxPagesPerRun: 10,
+  npmMcpSearchQueryLimit: 8,
+} as const;
+const OFFICIAL_INDEX_DEFAULTS = {
+  pageMaxBytes: 1_000_000,
+  contentMaxBytes: 1_000_000,
+} as const;
+const HOST_COMMAND_DEFAULTS = {
+  nativeTimeoutMs: 30_000,
+  nativeMaxBufferBytes: 2_000_000,
+  preflightTimeoutMs: 10_000,
+} as const;
+const MIRROR_LIMIT_DEFAULTS = {
+  maxOfficialIndexPackageFiles: 1_000,
+  maxOfficialIndexFileSizeBytes: 1_000_000,
+  maxOfficialIndexPackageTotalBytes: 20_000_000,
+  maxGitHubMirrorFileSizeBytes: 1_000_000,
+} as const;
+const BATCH_DEFAULTS = {
+  remoteHarvest: 15,
+  mirrorAcquire: 120,
+  installBundle: 250,
+} as const;
+const SCAN_DEFAULTS = {
+  maxDepth: 14,
+  maxFiles: 20_000,
+  maxBytes: 50_000_000,
+} as const;
 
 /**
  * Describes runtime config data exchanged by the lifecycle pipeline.
@@ -183,12 +251,12 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
       allowedOrigins: buildAiEnrichmentAllowedOrigins(env, aiEnrichmentUrl),
       requestTimeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS,
-        20_000,
+        AI_ENRICHMENT_DEFAULTS.requestTimeoutMs,
         "AGENT_HARNESS_AI_ENRICHMENT_TIMEOUT_MS",
       ),
       responseMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES,
-        1_000_000,
+        AI_ENRICHMENT_DEFAULTS.responseMaxBytes,
         "AGENT_HARNESS_AI_ENRICHMENT_MAX_RESPONSE_BYTES",
       ),
       maxSelectedAssets: parsePositiveIntegerAlias(
@@ -197,7 +265,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_SELECTED_ASSETS",
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_SELECTED_ASSETS",
         ],
-        50,
+        AI_ENRICHMENT_DEFAULTS.maxSelectedAssets,
       ),
       maxEvidenceItems: parsePositiveIntegerAlias(
         env,
@@ -205,7 +273,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_EVIDENCE_ITEMS",
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_EVIDENCE_ITEMS",
         ],
-        12,
+        AI_ENRICHMENT_DEFAULTS.maxEvidenceItems,
       ),
       maxCapabilitiesPerAsset: parsePositiveIntegerAlias(
         env,
@@ -213,7 +281,7 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_INPUT_CAPABILITIES_PER_ASSET",
           "AGENT_HARNESS_AI_ENRICHMENT_MAX_CAPABILITIES_PER_ASSET",
         ],
-        16,
+        AI_ENRICHMENT_DEFAULTS.maxCapabilitiesPerAsset,
       ),
       redactFilePaths: parseBooleanFlag(
         env.AGENT_HARNESS_AI_ENRICHMENT_REDACT_FILE_PATHS,
@@ -227,17 +295,17 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
       ),
       retryMaxAttempts: parsePositiveInteger(
         env.AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS,
-        1,
+        AI_ENRICHMENT_DEFAULTS.retryMaxAttempts,
         "AGENT_HARNESS_AI_ENRICHMENT_RETRY_MAX_ATTEMPTS",
       ),
       retryBackoffMs: parseNonNegativeInteger(
         env.AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS,
-        1_000,
+        AI_ENRICHMENT_DEFAULTS.retryBackoffMs,
         "AGENT_HARNESS_AI_ENRICHMENT_RETRY_BACKOFF_MS",
       ),
       autoMinIntervalMs: parseNonNegativeInteger(
         env.AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS,
-        300_000,
+        AI_ENRICHMENT_DEFAULTS.autoMinIntervalMs,
         "AGENT_HARNESS_AI_ENRICHMENT_AUTO_MIN_INTERVAL_MS",
       ),
       requireSuccessInCi: parseBooleanFlag(
@@ -259,153 +327,154 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
       refreshPolicy: parseLiteral(
         env.AGENT_HARNESS_INSTALL_REFRESH_POLICY,
         ["manual", "report-only", "apply-safe"],
-        "manual",
+        INSTALL_DEFAULTS.refreshPolicy,
         "AGENT_HARNESS_INSTALL_REFRESH_POLICY",
       ),
       refreshIntervalMs: parsePositiveInteger(
         env.AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS,
-        21_600_000,
+        INSTALL_DEFAULTS.refreshIntervalMs,
         "AGENT_HARNESS_INSTALL_REFRESH_INTERVAL_MS",
       ),
     },
     http: {
       timeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_HTTP_TIMEOUT_MS,
-        10_000,
+        HTTP_DEFAULTS.timeoutMs,
         "AGENT_HARNESS_HTTP_TIMEOUT_MS",
       ),
       maxResponseBytes: parsePositiveInteger(
         env.AGENT_HARNESS_HTTP_MAX_RESPONSE_BYTES,
-        1_000_000,
+        HTTP_DEFAULTS.maxResponseBytes,
         "AGENT_HARNESS_HTTP_MAX_RESPONSE_BYTES",
       ),
     },
     github: {
       token: githubToken || undefined,
-      apiVersion: nonEmptyString(env.GITHUB_API_VERSION) ?? "2022-11-28",
+      apiVersion:
+        nonEmptyString(env.GITHUB_API_VERSION) ?? GITHUB_DEFAULTS.apiVersion,
       fetchMaxAttempts: parsePositiveInteger(
         env.AGENT_HARNESS_GITHUB_FETCH_RETRIES,
-        3,
+        GITHUB_DEFAULTS.fetchMaxAttempts,
         "AGENT_HARNESS_GITHUB_FETCH_RETRIES",
       ),
       fetchTimeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_GITHUB_FETCH_TIMEOUT_MS,
-        10_000,
+        GITHUB_DEFAULTS.fetchTimeoutMs,
         "AGENT_HARNESS_GITHUB_FETCH_TIMEOUT_MS",
       ),
       jsonMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_GITHUB_JSON_MAX_BYTES,
-        2_000_000,
+        GITHUB_DEFAULTS.jsonMaxBytes,
         "AGENT_HARNESS_GITHUB_JSON_MAX_BYTES",
       ),
     },
     registries: {
       fetchTimeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_REGISTRY_FETCH_TIMEOUT_MS,
-        5_000,
+        REGISTRY_DEFAULTS.fetchTimeoutMs,
         "AGENT_HARNESS_REGISTRY_FETCH_TIMEOUT_MS",
       ),
       metadataMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_REGISTRY_METADATA_MAX_BYTES,
-        2_000_000,
+        REGISTRY_DEFAULTS.metadataMaxBytes,
         "AGENT_HARNESS_REGISTRY_METADATA_MAX_BYTES",
       ),
       searchMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_REGISTRY_SEARCH_MAX_BYTES,
-        500_000,
+        REGISTRY_DEFAULTS.searchMaxBytes,
         "AGENT_HARNESS_REGISTRY_SEARCH_MAX_BYTES",
       ),
       npmSearchResultLimit: parsePositiveInteger(
         env.AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT,
-        12,
+        REGISTRY_DEFAULTS.npmSearchResultLimit,
         "AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT",
       ),
     },
     discovery: {
       referenceSourceMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_REFERENCE_SOURCE_MAX_BYTES,
-        600_000,
+        DISCOVERY_DEFAULTS.referenceSourceMaxBytes,
         "AGENT_HARNESS_REFERENCE_SOURCE_MAX_BYTES",
       ),
       genericReferenceMaxItems: parsePositiveInteger(
         env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS,
-        8,
+        DISCOVERY_DEFAULTS.genericReferenceMaxItems,
         "AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS",
       ),
       vscodeMarketplaceMaxQueries: parsePositiveInteger(
         env.AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES,
-        4,
+        DISCOVERY_DEFAULTS.vscodeMarketplaceMaxQueries,
         "AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES",
       ),
       vscodeMarketplaceMaxItemsPerQuery: parsePositiveInteger(
         env.AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY,
-        6,
+        DISCOVERY_DEFAULTS.vscodeMarketplaceMaxItemsPerQuery,
         "AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY",
       ),
       vscodeMarketplaceSyncPageSize: parsePositiveInteger(
         env.AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE,
-        50,
+        DISCOVERY_DEFAULTS.vscodeMarketplaceSyncPageSize,
         "AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE",
       ),
       sourceSyncMaxPagesPerRun: parsePositiveInteger(
         env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN,
-        10,
+        DISCOVERY_DEFAULTS.sourceSyncMaxPagesPerRun,
         "AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN",
       ),
       npmMcpSearchQueryLimit: parsePositiveInteger(
         env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT,
-        8,
+        DISCOVERY_DEFAULTS.npmMcpSearchQueryLimit,
         "AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT",
       ),
     },
     officialIndex: {
       pageMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES,
-        1_000_000,
+        OFFICIAL_INDEX_DEFAULTS.pageMaxBytes,
         "AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES",
       ),
       contentMaxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES,
-        1_000_000,
+        OFFICIAL_INDEX_DEFAULTS.contentMaxBytes,
         "AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES",
       ),
     },
     hostCommands: {
       nativeTimeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_NATIVE_COMMAND_TIMEOUT_MS,
-        30_000,
+        HOST_COMMAND_DEFAULTS.nativeTimeoutMs,
         "AGENT_HARNESS_NATIVE_COMMAND_TIMEOUT_MS",
       ),
       nativeMaxBufferBytes: parsePositiveInteger(
         env.AGENT_HARNESS_NATIVE_COMMAND_MAX_BUFFER_BYTES,
-        2_000_000,
+        HOST_COMMAND_DEFAULTS.nativeMaxBufferBytes,
         "AGENT_HARNESS_NATIVE_COMMAND_MAX_BUFFER_BYTES",
       ),
       preflightTimeoutMs: parsePositiveInteger(
         env.AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS,
-        10_000,
+        HOST_COMMAND_DEFAULTS.preflightTimeoutMs,
         "AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS",
       ),
     },
     mirrorLimits: {
       maxOfficialIndexPackageFiles: parsePositiveInteger(
         env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES,
-        1_000,
+        MIRROR_LIMIT_DEFAULTS.maxOfficialIndexPackageFiles,
         "AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES",
       ),
       maxOfficialIndexFileSizeBytes: parsePositiveInteger(
         env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES,
-        1_000_000,
+        MIRROR_LIMIT_DEFAULTS.maxOfficialIndexFileSizeBytes,
         "AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES",
       ),
       maxOfficialIndexPackageTotalBytes: parsePositiveInteger(
         env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES,
-        20_000_000,
+        MIRROR_LIMIT_DEFAULTS.maxOfficialIndexPackageTotalBytes,
         "AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_TOTAL_BYTES",
       ),
       maxGitHubMirrorFileSizeBytes: parsePositiveInteger(
         env.AGENT_HARNESS_MAX_GITHUB_MIRROR_FILE_SIZE_BYTES,
-        1_000_000,
+        MIRROR_LIMIT_DEFAULTS.maxGitHubMirrorFileSizeBytes,
         "AGENT_HARNESS_MAX_GITHUB_MIRROR_FILE_SIZE_BYTES",
       ),
     },
@@ -419,17 +488,17 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     batches: {
       remoteHarvest: parsePositiveInteger(
         env.AGENT_HARNESS_REMOTE_BATCH_SIZE,
-        15,
+        BATCH_DEFAULTS.remoteHarvest,
         "AGENT_HARNESS_REMOTE_BATCH_SIZE",
       ),
       mirrorAcquire: parsePositiveInteger(
         env.AGENT_HARNESS_MIRROR_BATCH_SIZE,
-        120,
+        BATCH_DEFAULTS.mirrorAcquire,
         "AGENT_HARNESS_MIRROR_BATCH_SIZE",
       ),
       installBundle: parsePositiveInteger(
         env.AGENT_HARNESS_INSTALL_BATCH_SIZE,
-        250,
+        BATCH_DEFAULTS.installBundle,
         "AGENT_HARNESS_INSTALL_BATCH_SIZE",
       ),
     },
@@ -442,17 +511,17 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
     scan: {
       maxDepth: parsePositiveInteger(
         env.AGENT_HARNESS_SCAN_MAX_DEPTH,
-        14,
+        SCAN_DEFAULTS.maxDepth,
         "AGENT_HARNESS_SCAN_MAX_DEPTH",
       ),
       maxFiles: parsePositiveInteger(
         env.AGENT_HARNESS_SCAN_MAX_FILES,
-        20000,
+        SCAN_DEFAULTS.maxFiles,
         "AGENT_HARNESS_SCAN_MAX_FILES",
       ),
       maxBytes: parsePositiveInteger(
         env.AGENT_HARNESS_SCAN_MAX_BYTES,
-        50_000_000,
+        SCAN_DEFAULTS.maxBytes,
         "AGENT_HARNESS_SCAN_MAX_BYTES",
       ),
     },
@@ -509,7 +578,7 @@ function buildRecommendationLimitOverrideModes(
             {
               value: parseLiteral<RecommendationLimitOverrideMode>(
                 rawValue,
-                ["preserve", "scale"],
+                RECOMMENDATION_LIMIT_OVERRIDE_MODES,
                 "preserve",
                 envVar,
               ),

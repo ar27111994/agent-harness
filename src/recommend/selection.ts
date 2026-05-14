@@ -1,5 +1,14 @@
 import { isHostCompatibleWithRecommendationHost } from "../host-adapters/registry.js";
 import {
+  COVERAGE_OVERLAP_CAP,
+  DUPLICATE_GROUP_OVERLAP_MULTIPLIER,
+  HIGH_COST_BUDGET_DIVISOR,
+  HIGH_COST_PENALTY_DIVISOR,
+  HOST_PRESELECTION_LIMIT_MULTIPLIER,
+  HOST_PRESELECTION_MIN_LIMIT,
+  MIN_BUDGET_PENALTY,
+} from "./constants.js";
+import {
   buildCandidateRecommendation,
   computeEntryPreselectionScore,
 } from "./candidates.js";
@@ -209,7 +218,10 @@ function getHostPreselectionLimit(
   host: RecommendationHost,
   policy: RecommendationPolicy,
 ): number {
-  return Math.max(250, policy.hosts[host].recommendationLimit * 3);
+  return Math.max(
+    HOST_PRESELECTION_MIN_LIMIT,
+    policy.hosts[host].recommendationLimit * HOST_PRESELECTION_LIMIT_MULTIPLIER,
+  );
 }
 
 /**
@@ -340,10 +352,13 @@ function scoreCandidateAgainstSelection(
   );
   const budgetPenalty =
     candidate.entry.contextCost.estimatedPromptWeight >
-    hostPolicy.activationBudget / 3
+    hostPolicy.activationBudget / HIGH_COST_BUDGET_DIVISOR
       ? Math.max(
-          1,
-          Math.round(candidate.entry.contextCost.estimatedPromptWeight / 2),
+          MIN_BUDGET_PENALTY,
+          Math.round(
+            candidate.entry.contextCost.estimatedPromptWeight /
+              HIGH_COST_PENALTY_DIVISOR,
+          ),
         )
       : 0;
 
@@ -404,7 +419,8 @@ function computeRedundancyPenalty(
   const sameSourceFamilyCount =
     selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0;
   const duplicateGroupOverlap = candidate.duplicateGroup
-    ? (selectionState.duplicateGroupCounts[candidate.duplicateGroup] ?? 0) * 2
+    ? (selectionState.duplicateGroupCounts[candidate.duplicateGroup] ?? 0) *
+      DUPLICATE_GROUP_OVERLAP_MULTIPLIER
     : 0;
   const coverageOverlap = computeIndexedCoverageOverlap(
     candidate,
@@ -428,7 +444,10 @@ function computeIndexedCoverageOverlap(
   let overlapCount = 0;
 
   for (const tag of candidate.coverageTags) {
-    overlapCount += Math.min(2, selectionState.coverageTagCounts[tag] ?? 0);
+    overlapCount += Math.min(
+      COVERAGE_OVERLAP_CAP,
+      selectionState.coverageTagCounts[tag] ?? 0,
+    );
   }
 
   return overlapCount;
