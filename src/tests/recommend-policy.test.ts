@@ -62,57 +62,59 @@ void test("recommendation policy merges user-owned base and host overrides", asy
 });
 
 void test("recommend policy:print shows the effective policy with user overrides", async (t) => {
-  await withPolicyWorkspace(async (projectRoot) => {
-    await writePolicyFile(
-      projectRoot,
-      join("overrides", "hosts", "copilot-vscode.json"),
-      {
-        schemaVersion: 1,
-        host: "copilot-vscode",
-        policy: {
-          recommendationLimit: 28,
-          recommendationLimitOverrideMode: "scale",
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      await writePolicyFile(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        {
+          schemaVersion: 1,
+          host: "copilot-vscode",
+          policy: {
+            recommendationLimit: 28,
+            recommendationLimitOverrideMode: "scale",
+          },
         },
-      },
-    );
+      );
 
-    const output: string[] = [];
-    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
-      output.push(args.map((value) => String(value)).join(" "));
+      const output: string[] = [];
+      t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+        output.push(args.map((value) => String(value)).join(" "));
+      });
+
+      const exitCode = await runRecommend(
+        ["policy:print", "--host", "vscode", "--compact"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(exitCode, 0);
+      const printedPolicy = JSON.parse(output.join("\n")) as {
+        hostPolicy: {
+          recommendationLimit: number;
+          recommendationLimitOverrideMode: string;
+        };
+        runtimeOverrides: {
+          recommendationLimitOverrideMode: string;
+          recommendationLimitOverrideModeSource: string;
+          scalingApplied: boolean;
+        };
+      };
+      assert.equal(printedPolicy.hostPolicy.recommendationLimit, 28);
+      assert.equal(
+        printedPolicy.hostPolicy.recommendationLimitOverrideMode,
+        "scale",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideMode,
+        "scale",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideModeSource,
+        "policy",
+      );
+      assert.equal(printedPolicy.runtimeOverrides.scalingApplied, false);
     });
-
-    const exitCode = await runRecommend(
-      ["policy:print", "--host", "vscode", "--compact"],
-      projectRoot,
-      projectRoot,
-    );
-
-    assert.equal(exitCode, 0);
-    const printedPolicy = JSON.parse(output.join("\n")) as {
-      hostPolicy: {
-        recommendationLimit: number;
-        recommendationLimitOverrideMode: string;
-      };
-      runtimeOverrides: {
-        recommendationLimitOverrideMode: string;
-        recommendationLimitOverrideModeSource: string;
-        scalingApplied: boolean;
-      };
-    };
-    assert.equal(printedPolicy.hostPolicy.recommendationLimit, 28);
-    assert.equal(
-      printedPolicy.hostPolicy.recommendationLimitOverrideMode,
-      "scale",
-    );
-    assert.equal(
-      printedPolicy.runtimeOverrides.recommendationLimitOverrideMode,
-      "scale",
-    );
-    assert.equal(
-      printedPolicy.runtimeOverrides.recommendationLimitOverrideModeSource,
-      "policy",
-    );
-    assert.equal(printedPolicy.runtimeOverrides.scalingApplied, false);
   });
 });
 
