@@ -297,7 +297,7 @@ Status labels:
 
 ## 12. Test suite and validation harness
 
-**Status:** Implemented / Partial
+**Status:** Partial
 
 ### Test harness current state
 

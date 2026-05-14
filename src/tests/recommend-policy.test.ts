@@ -207,22 +207,22 @@ void test("recommend policy:print preserves explicit zero values in scale mode",
     process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
       "scale";
 
-    await writePolicyFile(
-      projectRoot,
-      join("overrides", "hosts", "copilot-vscode.json"),
-      {
-        schemaVersion: 1,
-        host: "copilot-vscode",
-        policy: {
-          maxPerAssetKind: {
-            skill: 0,
-          },
-        },
-      },
-    );
-
     try {
       clearRuntimeConfigForTests();
+
+      await writePolicyFile(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        {
+          schemaVersion: 1,
+          host: "copilot-vscode",
+          policy: {
+            maxPerAssetKind: {
+              skill: 0,
+            },
+          },
+        },
+      );
 
       const output: string[] = [];
       t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
