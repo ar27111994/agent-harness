@@ -1393,7 +1393,7 @@ npm run test:coverage
 npm run test:self-hosting
 ```
 
-Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. The current gate targets shipped runtime modules rather than generated types, test harnesses, or thin top-level command shims, and it fails CI if statements/lines drop below 71%, branches below 75%, or functions below 74%.
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI if statements/lines drop below 71%, branches below 75%, or functions below 74%.
 
 For release or adapter changes, also run:
 
