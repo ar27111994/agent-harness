@@ -119,16 +119,11 @@ void test("recommend policy:print shows the effective policy with user overrides
 });
 
 void test("recommend policy:print exposes explicit scale-mode runtime metadata", async (t) => {
-  await withPolicyWorkspace(async (projectRoot) => {
-    const previousLimitEnvValue =
-      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
-    const previousModeEnvValue =
-      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
-    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
-    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
-      "scale";
-
-    try {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+        "scale";
       clearRuntimeConfigForTests();
 
       const output: string[] = [];
@@ -178,36 +173,16 @@ void test("recommend policy:print exposes explicit scale-mode runtime metadata",
           "maxPerAssetKind.skill",
         ),
       );
-    } finally {
-      if (previousLimitEnvValue === undefined) {
-        delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
-      } else {
-        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
-          previousLimitEnvValue;
-      }
-      if (previousModeEnvValue === undefined) {
-        delete process.env
-          .AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
-      } else {
-        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
-          previousModeEnvValue;
-      }
-      clearRuntimeConfigForTests();
-    }
+    });
   });
 });
 
 void test("recommend policy:print preserves explicit zero values in scale mode", async (t) => {
-  await withPolicyWorkspace(async (projectRoot) => {
-    const previousLimitEnvValue =
-      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
-    const previousModeEnvValue =
-      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
-    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
-    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
-      "scale";
-
-    try {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+        "scale";
       clearRuntimeConfigForTests();
 
       await writePolicyFile(
@@ -253,22 +228,7 @@ void test("recommend policy:print preserves explicit zero values in scale mode",
         ),
         false,
       );
-    } finally {
-      if (previousLimitEnvValue === undefined) {
-        delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
-      } else {
-        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
-          previousLimitEnvValue;
-      }
-      if (previousModeEnvValue === undefined) {
-        delete process.env
-          .AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
-      } else {
-        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
-          previousModeEnvValue;
-      }
-      clearRuntimeConfigForTests();
-    }
+    });
   });
 });
 
