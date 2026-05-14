@@ -17,6 +17,7 @@ import {
   resolveHostAdapter,
 } from "./host-adapters/registry.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
@@ -118,21 +119,25 @@ export async function runWorkspace(
 }
 
 function printWorkspaceHelp(): void {
-  const commands = listHostAdapters()
-    .map(
-      (adapter) =>
-        `  ${getPreferredHostCommand(adapter.id).padEnd(12)} Run the full pipeline and wire ${adapter.displayName}`,
-    )
-    .join("\n");
-  console.log(`workspace commands:
-${commands}
-
-Options:
-  --intent <${SESSION_INTENT_CHOICES}>   Repeatable; multiple intents are merged additively
-  --ai-enrich            Explicitly request enrichment after workspace wiring
-  --no-ai-enrich         Explicitly skip enrichment for this workspace run
-  --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
-  --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
+  printCommandHelp({
+    heading: "workspace commands:",
+    entries: listHostAdapters().map((adapter) => ({
+      command: getPreferredHostCommand(adapter.id),
+      description: `Run the full pipeline and wire ${adapter.displayName}`,
+    })),
+    sections: [
+      {
+        title: "Options:",
+        lines: [
+          `--intent <${SESSION_INTENT_CHOICES}> Repeatable; multiple intents are merged additively`,
+          "--ai-enrich         Explicitly request enrichment after workspace wiring",
+          "--no-ai-enrich      Explicitly skip enrichment for this workspace run",
+          "--force             Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs",
+          "--require-ai-enrich Fail the command when enrichment does not complete or reuse successfully",
+        ],
+      },
+    ],
+  });
 }
 
 function parseAiEnrichmentFlags(args: readonly string[]): {

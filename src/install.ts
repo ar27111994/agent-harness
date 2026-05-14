@@ -7,6 +7,7 @@ import {
 import { manageNativeInstall } from "./install/native.js";
 import { manageInstallRefresh } from "./install/refresh.js";
 import { reconcileInstallState, resetInstallState } from "./install/state.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 
 /**
  * Dispatches the install CLI command group.
@@ -53,24 +54,64 @@ export async function runInstall(
 }
 
 function printInstallHelp(): void {
-  console.log(`stage commands (install is a supported alias):
-  bundle      Stage mirrored assets from mirror bundle locks
-  native      Plan/verify/apply/remove host-native installs
-  refresh     Refresh staged install state and report/apply stale assets
-  reconcile   Recompute staged install progress from bundle install manifests
-  diff        Compare current vs previous or explicit install generations
-  explain     Explain where a staged asset is present and active
-  generations Manage generation list, pinning, and pruning
-  reset       Remove staged install state, packages, bundles, and generations
-
-Native install options:
-  --host <vscode|opencode|cursor|zed|claude-code|pi>
-  --operation <plan|install|verify|remove>
-  --apply     Required for mutating install/remove operations
-
-Stage refresh options:
-  --host <copilot-vscode|opencode|shared>
-  --apply     Apply eligible stale bundle refreshes after reporting
-  --due-only  Skip the run unless the persisted refresh interval says a check is due
-  --no-mirror-refresh   Skip the explicit mirror refresh step and report from current local state only`);
+  printCommandHelp({
+    heading: "stage commands (install is a supported alias):",
+    entries: [
+      {
+        command: "bundle",
+        description: "Stage mirrored assets from mirror bundle locks",
+      },
+      {
+        command: "native",
+        description: "Plan/verify/apply/remove host-native installs",
+      },
+      {
+        command: "refresh",
+        description:
+          "Refresh staged install state and report/apply stale assets",
+      },
+      {
+        command: "reconcile",
+        description:
+          "Recompute staged install progress from bundle install manifests",
+      },
+      {
+        command: "diff",
+        description:
+          "Compare current vs previous or explicit install generations",
+      },
+      {
+        command: "explain",
+        description: "Explain where a staged asset is present and active",
+      },
+      {
+        command: "generations",
+        description: "Manage generation list, pinning, and pruning",
+      },
+      {
+        command: "reset",
+        description:
+          "Remove staged install state, packages, bundles, and generations",
+      },
+    ],
+    sections: [
+      {
+        title: "Native install options:",
+        lines: [
+          "--host <vscode|opencode|cursor|zed|claude-code|pi>",
+          "--operation <plan|install|verify|remove>",
+          "--apply     Required for mutating install/remove operations",
+        ],
+      },
+      {
+        title: "Stage refresh options:",
+        lines: [
+          "--host <copilot-vscode|opencode|shared>",
+          "--apply             Apply eligible stale bundle refreshes after reporting",
+          "--due-only          Skip the run unless the persisted refresh interval says a check is due",
+          "--no-mirror-refresh Skip the explicit mirror refresh step and report from current local state only",
+        ],
+      },
+    ],
+  });
 }

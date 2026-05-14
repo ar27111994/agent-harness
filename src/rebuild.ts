@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import { runMirror } from "./mirror.js";
 import { assertMirrorAcquireState } from "./manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "./mirror/acquire-state.js";
@@ -150,7 +151,19 @@ async function discoverBundleIds(projectRoot: string): Promise<string[]> {
 }
 
 function printRebuildHelp(): void {
-  console.log(`rebuild commands:
-  clean   Remove install, activate, and transient state for a clean rebuild
-  full    Perform clean + discover + select + mirror + reconcile + activate`);
+  printCommandHelp({
+    heading: "rebuild commands:",
+    entries: [
+      {
+        command: "clean",
+        description:
+          "Remove install, activate, and transient state for a clean rebuild",
+      },
+      {
+        command: "full",
+        description:
+          "Perform clean + discover + select + mirror + reconcile + activate",
+      },
+    ],
+  });
 }

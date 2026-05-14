@@ -4,6 +4,7 @@ import {
   type HostAdapter,
 } from "./host-adapters/registry.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import {
   formatPreflightDiagnostics,
@@ -220,12 +221,28 @@ function printSetupHelp(): void {
   const providerNames = getLoginProviderNames(
     buildLoginGuidanceByProvider(),
   ).join("|");
-  console.log(`setup commands:
-  doctor        Check config, host readiness, capabilities, and guided setup notes
-  hosts         List registered host adapters
-  login         Print provider-specific login/OAuth guidance
-
-Options:
-  --host <${hostNames}>
-  --provider <${providerNames}>`);
+  printCommandHelp({
+    heading: "setup commands:",
+    entries: [
+      {
+        command: "doctor",
+        description:
+          "Check config, host readiness, capabilities, and guided setup notes",
+      },
+      {
+        command: "hosts",
+        description: "List registered host adapters",
+      },
+      {
+        command: "login",
+        description: "Print provider-specific login/OAuth guidance",
+      },
+    ],
+    sections: [
+      {
+        title: "Options:",
+        lines: [`--host <${hostNames}>`, `--provider <${providerNames}>`],
+      },
+    ],
+  });
 }

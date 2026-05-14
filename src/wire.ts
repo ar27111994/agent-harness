@@ -8,6 +8,7 @@ import {
   resolveHostAdapter,
 } from "./host-adapters/registry.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
@@ -96,19 +97,19 @@ export function getWireMode(args: string[]): "preview" | "apply" | "reset" {
 }
 
 function printWireHelp(): void {
-  const commands = listHostAdapters()
-    .map(
-      (adapter) =>
-        `  ${getPreferredHostCommand(adapter.id).padEnd(12)} Preview/apply/reset ${adapter.displayName}`,
-    )
-    .join("\n");
-  console.log(`wire commands:
-${commands}
-
-Options:
-  --preview (default)
-  --apply
-  --reset`);
+  printCommandHelp({
+    heading: "wire commands:",
+    entries: listHostAdapters().map((adapter) => ({
+      command: getPreferredHostCommand(adapter.id),
+      description: `Preview/apply/reset ${adapter.displayName}`,
+    })),
+    sections: [
+      {
+        title: "Options:",
+        lines: ["--preview (default)", "--apply", "--reset"],
+      },
+    ],
+  });
 }
 
 function getPreferredHostCommand(adapterId: string): string {

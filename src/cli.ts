@@ -8,6 +8,7 @@ import { runDiscover } from "./discover.js";
 import { resolveProjectRoot } from "./files.js";
 import { clearGitHubState } from "./github.js";
 import { runInstall } from "./install.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import { runMirror } from "./mirror.js";
 import { runRecommend } from "./recommend.js";
 import { runQuarantine } from "./quarantine.js";
@@ -193,57 +194,216 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
 }
 
 function printHelp(): void {
-  console.log(`agent-harness commands:
-  discover demand-profile   Scan the working directory and emit a demand profile
-  discover sources          Summarize enabled discovery sources
-  discover sync             Persist indexed discovery results for supported high-volume sources
-  discover catalog          Build the unified asset catalog
-  discover select           Apply canonical selection policies
-  discover full             Run demand-profile, sources, sync, catalog, and select in one pass
-  discover breadth          Run the widest practical discovery pass and print candidate-pool guidance
-  discover stats            Print catalog/source stats
-  mirror locks             Generate mirror bundle locks
-  mirror acquire           Acquire raw mirror artifacts and resolve bundle locks
-  stage bundle              Stage mirrored assets from bundle locks
-  stage native              Plan/verify/apply/remove host-native installs
-  stage refresh             Refresh staged install state and report/apply stale assets
-  stage reconcile           Recompute staged install progress and generations
-  stage diff                Compare current vs previous or explicit staged generations
-  stage explain             Explain where a staged asset is present and active
-  stage generations         Manage staged generation list, pinning, and pruning
-  stage reset               Remove staged install state
-  install <...>             Alias for stage <...>
-  activate host             Materialize active host views from staged bundles
-  activate rollback         Point a host to a previous generation
-  activate reset            Remove activation state
-  recommend report          Recompute the recommendation report
-  recommend ai-review       Run bounded recommendation-native AI review
-  recommend explain         Explain why an asset ranked for a host
-  recommend evaluate        Run golden recommendation fixtures
-  quarantine list           List, inspect, approve, or reject quarantined mirror artifacts
-  rebuild clean             Remove install/activate transient state for a clean rebuild
-  rebuild full              Clean and regenerate discover/mirror/install/activate state
-  workspace vscode          Run the full pipeline for a VS Code / Copilot workspace
-  workspace opencode        Run the full pipeline for an OpenCode workspace
-  workspace cursor          Run the Copilot-compatible pipeline and wire Cursor project files
-  workspace zed             Run the OpenCode-compatible pipeline and wire Zed project files
-  workspace claude-code     Run the OpenCode-compatible pipeline and wire Claude Code project files
-  workspace pi              Run the OpenCode-compatible pipeline and wire Pi project files
-  wire vscode               Preview/apply/reset VS Code user-scoped wire-in
-  wire opencode             Preview/apply/reset OpenCode project-local wire-in
-  wire cursor               Preview/apply/reset Cursor project-local wire-in
-  wire zed                  Preview/apply/reset Zed project-local wire-in
-  wire claude-code          Preview/apply/reset Claude Code project-local wire-in
-  wire pi                   Preview/apply/reset Pi project-local wire-in
-  setup doctor              Check config, host readiness, and guided setup notes
-  doctor                    Alias for setup doctor
-  setup hosts               List registered host adapters
-  setup login               Print provider-specific login/OAuth guidance
-  mirror plan               Build a mirror readiness plan from current outputs
-
-Global options:
-  --state-root <path>       Write mutable lifecycle state under this path
-  --no-dotenv               Do not load .env from the current working directory`);
+  printCommandHelp({
+    heading: "agent-harness commands:",
+    entries: [
+      {
+        command: "discover demand-profile",
+        description: "Scan the working directory and emit a demand profile",
+      },
+      {
+        command: "discover sources",
+        description: "Summarize enabled discovery sources",
+      },
+      {
+        command: "discover sync",
+        description:
+          "Persist indexed discovery results for supported high-volume sources",
+      },
+      {
+        command: "discover catalog",
+        description: "Build the unified asset catalog",
+      },
+      {
+        command: "discover select",
+        description: "Apply canonical selection policies",
+      },
+      {
+        command: "discover full",
+        description:
+          "Run demand-profile, sources, sync, catalog, and select in one pass",
+      },
+      {
+        command: "discover breadth",
+        description:
+          "Run the widest practical discovery pass and print candidate-pool guidance",
+      },
+      {
+        command: "discover stats",
+        description: "Print catalog/source stats",
+      },
+      {
+        command: "mirror locks",
+        description: "Generate mirror bundle locks",
+      },
+      {
+        command: "mirror acquire",
+        description: "Acquire raw mirror artifacts and resolve bundle locks",
+      },
+      {
+        command: "stage bundle",
+        description: "Stage mirrored assets from bundle locks",
+      },
+      {
+        command: "stage native",
+        description: "Plan/verify/apply/remove host-native installs",
+      },
+      {
+        command: "stage refresh",
+        description:
+          "Refresh staged install state and report/apply stale assets",
+      },
+      {
+        command: "stage reconcile",
+        description: "Recompute staged install progress and generations",
+      },
+      {
+        command: "stage diff",
+        description:
+          "Compare current vs previous or explicit staged generations",
+      },
+      {
+        command: "stage explain",
+        description: "Explain where a staged asset is present and active",
+      },
+      {
+        command: "stage generations",
+        description: "Manage staged generation list, pinning, and pruning",
+      },
+      {
+        command: "stage reset",
+        description: "Remove staged install state",
+      },
+      {
+        command: "install <...>",
+        description: "Alias for stage <...>",
+      },
+      {
+        command: "activate host",
+        description: "Materialize active host views from staged bundles",
+      },
+      {
+        command: "activate rollback",
+        description: "Point a host to a previous generation",
+      },
+      {
+        command: "activate reset",
+        description: "Remove activation state",
+      },
+      {
+        command: "recommend report",
+        description: "Recompute the recommendation report",
+      },
+      {
+        command: "recommend ai-review",
+        description: "Run bounded recommendation-native AI review",
+      },
+      {
+        command: "recommend explain",
+        description: "Explain why an asset ranked for a host",
+      },
+      {
+        command: "recommend evaluate",
+        description: "Run golden recommendation fixtures",
+      },
+      {
+        command: "quarantine list",
+        description:
+          "List, inspect, approve, or reject quarantined mirror artifacts",
+      },
+      {
+        command: "rebuild clean",
+        description:
+          "Remove install/activate transient state for a clean rebuild",
+      },
+      {
+        command: "rebuild full",
+        description:
+          "Clean and regenerate discover/mirror/install/activate state",
+      },
+      {
+        command: "workspace vscode",
+        description: "Run the full pipeline for a VS Code / Copilot workspace",
+      },
+      {
+        command: "workspace opencode",
+        description: "Run the full pipeline for an OpenCode workspace",
+      },
+      {
+        command: "workspace cursor",
+        description:
+          "Run the Copilot-compatible pipeline and wire Cursor project files",
+      },
+      {
+        command: "workspace zed",
+        description:
+          "Run the OpenCode-compatible pipeline and wire Zed project files",
+      },
+      {
+        command: "workspace claude-code",
+        description:
+          "Run the OpenCode-compatible pipeline and wire Claude Code project files",
+      },
+      {
+        command: "workspace pi",
+        description:
+          "Run the OpenCode-compatible pipeline and wire Pi project files",
+      },
+      {
+        command: "wire vscode",
+        description: "Preview/apply/reset VS Code user-scoped wire-in",
+      },
+      {
+        command: "wire opencode",
+        description: "Preview/apply/reset OpenCode project-local wire-in",
+      },
+      {
+        command: "wire cursor",
+        description: "Preview/apply/reset Cursor project-local wire-in",
+      },
+      {
+        command: "wire zed",
+        description: "Preview/apply/reset Zed project-local wire-in",
+      },
+      {
+        command: "wire claude-code",
+        description: "Preview/apply/reset Claude Code project-local wire-in",
+      },
+      {
+        command: "wire pi",
+        description: "Preview/apply/reset Pi project-local wire-in",
+      },
+      {
+        command: "setup doctor",
+        description: "Check config, host readiness, and guided setup notes",
+      },
+      {
+        command: "doctor",
+        description: "Alias for setup doctor",
+      },
+      {
+        command: "setup hosts",
+        description: "List registered host adapters",
+      },
+      {
+        command: "setup login",
+        description: "Print provider-specific login/OAuth guidance",
+      },
+      {
+        command: "mirror plan",
+        description: "Build a mirror readiness plan from current outputs",
+      },
+    ],
+    sections: [
+      {
+        title: "Global options:",
+        lines: [
+          "--state-root <path> Write mutable lifecycle state under this path",
+          "--no-dotenv         Do not load .env from the current working directory",
+        ],
+      },
+    ],
+  });
 }
 
 main()

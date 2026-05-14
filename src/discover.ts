@@ -5,6 +5,7 @@ import {
   inspectCatalog,
   printCatalogStats,
 } from "./domains/discovery/catalog-inspection.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 
 import {
   readJsonFile,
@@ -698,23 +699,77 @@ function assessDiscoveryBreadth(input: {
 }
 
 function printDiscoverHelp(): void {
-  console.log(`discover commands:
-  demand-profile   Scan the working directory and write discover/output/demand-profile.json
-  sources          Summarize enabled discovery sources into discover/output/source-index.json
-  sync             Persist indexed discovery results for supported high-volume sources
-  catalog          Harvest local sources into discover/catalog.assets.jsonl
-  select           Apply canonical selection rules and write selected/rejected JSONL outputs
-  full             Run demand-profile, sources, sync, catalog, and select in one pass
-  breadth          Run the widest practical discovery pass and print candidate-pool guidance
-  recall           Alias for discover breadth
-  candidate-pool   Alias for discover breadth
-  stats            Print catalog summary counts grouped by source, kind, host, and authority
-  enrich           Run bounded AI-assisted enrichment against the selected catalog
-  inspect          Print catalog entries filtered by --source <id> or --id <assetId>
-
-AI enrichment options:
-  --ai-enrich            Explicitly request enrichment after select/full
-  --no-ai-enrich         Explicitly skip enrichment for this select/full run
-  --force                Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs
-  --require-ai-enrich    Fail the command when enrichment does not complete or reuse successfully`);
+  printCommandHelp({
+    heading: "discover commands:",
+    entries: [
+      {
+        command: "demand-profile",
+        description:
+          "Scan the working directory and write discover/output/demand-profile.json",
+      },
+      {
+        command: "sources",
+        description:
+          "Summarize enabled discovery sources into discover/output/source-index.json",
+      },
+      {
+        command: "sync",
+        description:
+          "Persist indexed discovery results for supported high-volume sources",
+      },
+      {
+        command: "catalog",
+        description: "Harvest local sources into discover/catalog.assets.jsonl",
+      },
+      {
+        command: "select",
+        description:
+          "Apply canonical selection rules and write selected/rejected JSONL outputs",
+      },
+      {
+        command: "full",
+        description:
+          "Run demand-profile, sources, sync, catalog, and select in one pass",
+      },
+      {
+        command: "breadth",
+        description:
+          "Run the widest practical discovery pass and print candidate-pool guidance",
+      },
+      {
+        command: "recall",
+        description: "Alias for discover breadth",
+      },
+      {
+        command: "candidate-pool",
+        description: "Alias for discover breadth",
+      },
+      {
+        command: "stats",
+        description:
+          "Print catalog summary counts grouped by source, kind, host, and authority",
+      },
+      {
+        command: "enrich",
+        description:
+          "Run bounded AI-assisted enrichment against the selected catalog",
+      },
+      {
+        command: "inspect",
+        description:
+          "Print catalog entries filtered by --source <id> or --id <assetId>",
+      },
+    ],
+    sections: [
+      {
+        title: "AI enrichment options:",
+        lines: [
+          "--ai-enrich         Explicitly request enrichment after select/full",
+          "--no-ai-enrich      Explicitly skip enrichment for this select/full run",
+          "--force             Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs",
+          "--require-ai-enrich Fail the command when enrichment does not complete or reuse successfully",
+        ],
+      },
+    ],
+  });
 }

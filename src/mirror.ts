@@ -2,6 +2,7 @@ import { acquireMirrorArtifacts } from "./mirror/acquire.js";
 import { generateBundleLocks } from "./mirror/bundles.js";
 import { diffMirrorIndex, explainMirrorArtifact } from "./mirror/inspect.js";
 import { generateMirrorPlan } from "./mirror/plan.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 
 /**
  * Re-exports safe mirror path resolution for tests and mirror callers.
@@ -51,10 +52,34 @@ export async function runMirror(
 }
 
 function printMirrorHelp(): void {
-  console.log(`mirror commands:
-  plan    Summarize mirror readiness into mirror/audit/mirror-plan.json
-  locks   Generate initial bundle lock files from selected catalog entries
-  acquire Acquire raw mirror artifacts, write mirror index, and resolve bundle locks
-  diff    Compare current mirror index to the previous mirror index snapshot
-  explain Explain a mirrored artifact by --asset <assetId> or --mirror <mirrorId>`);
+  printCommandHelp({
+    heading: "mirror commands:",
+    entries: [
+      {
+        command: "plan",
+        description:
+          "Summarize mirror readiness into mirror/audit/mirror-plan.json",
+      },
+      {
+        command: "locks",
+        description:
+          "Generate initial bundle lock files from selected catalog entries",
+      },
+      {
+        command: "acquire",
+        description:
+          "Acquire raw mirror artifacts, write mirror index, and resolve bundle locks",
+      },
+      {
+        command: "diff",
+        description:
+          "Compare current mirror index to the previous mirror index snapshot",
+      },
+      {
+        command: "explain",
+        description:
+          "Explain a mirrored artifact by --asset <assetId> or --mirror <mirrorId>",
+      },
+    ],
+  });
 }

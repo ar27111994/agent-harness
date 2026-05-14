@@ -13,6 +13,7 @@ import {
   writeJsonFile,
 } from "./files.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
 import {
   parseSessionIntent,
@@ -424,17 +425,42 @@ function filterBundleIdsForHost(
 }
 
 function printActivateHelp(): void {
-  console.log(`activate commands:
-  host      Materialize active host views from installed bundles
-  diff      Compare current host activation to the previous activation view
-  explain   Explain whether an asset is active for a host
-  rollback  Point a host to a previous install generation
-  reset     Remove activation outputs
-
-Options:
-  --host <copilot-vscode|opencode|shared>
-  --recommendation-host <host-policy-id>
-  --intent <${SESSION_INTENT_CHOICES}>   Repeatable; first intent is used for activation context`);
+  printCommandHelp({
+    heading: "activate commands:",
+    entries: [
+      {
+        command: "host",
+        description: "Materialize active host views from installed bundles",
+      },
+      {
+        command: "diff",
+        description:
+          "Compare current host activation to the previous activation view",
+      },
+      {
+        command: "explain",
+        description: "Explain whether an asset is active for a host",
+      },
+      {
+        command: "rollback",
+        description: "Point a host to a previous install generation",
+      },
+      {
+        command: "reset",
+        description: "Remove activation outputs",
+      },
+    ],
+    sections: [
+      {
+        title: "Options:",
+        lines: [
+          "--host <copilot-vscode|opencode|shared>",
+          "--recommendation-host <host-policy-id>",
+          `--intent <${SESSION_INTENT_CHOICES}> Repeatable; first intent is used for activation context`,
+        ],
+      },
+    ],
+  });
 }
 
 function getDefaultBundleIdsForHost(host: ActivationHost): string[] {

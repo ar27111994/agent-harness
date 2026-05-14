@@ -7,6 +7,7 @@ import {
   toPosixPath,
   writeJsonLinesFile,
 } from "./files.js";
+import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue } from "./lib/cli-options.js";
 import { sanitizeMirrorId } from "./lib/safe-paths.js";
 import {
@@ -184,14 +185,36 @@ async function readMirrorIndex(
 }
 
 function printQuarantineHelp(): void {
-  console.log(`quarantine commands:
-  list                         List quarantined mirror artifacts
-  inspect --asset <assetId>     Show quarantined artifact metadata and content preview
-  approve --asset <assetId>     Mark a quarantined artifact approved-with-warning
-  reject --asset <assetId>      Record a rejection decision while keeping quarantine status
-
-Options:
-  --asset <assetId>
-  --mirror <mirrorId>
-  --reason <review reason>`);
+  printCommandHelp({
+    heading: "quarantine commands:",
+    entries: [
+      {
+        command: "list",
+        description: "List quarantined mirror artifacts",
+      },
+      {
+        command: "inspect --asset <assetId>",
+        description: "Show quarantined artifact metadata and content preview",
+      },
+      {
+        command: "approve --asset <assetId>",
+        description: "Mark a quarantined artifact approved-with-warning",
+      },
+      {
+        command: "reject --asset <assetId>",
+        description:
+          "Record a rejection decision while keeping quarantine status",
+      },
+    ],
+    sections: [
+      {
+        title: "Options:",
+        lines: [
+          "--asset <assetId>",
+          "--mirror <mirrorId>",
+          "--reason <review reason>",
+        ],
+      },
+    ],
+  });
 }
