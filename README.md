@@ -1389,9 +1389,11 @@ Before pushing changes, run at least:
 ```bash
 npm run validate
 npm run build
-npm test
+npm run test:coverage
 npm run test:self-hosting
 ```
+
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. The current gate targets shipped runtime modules rather than generated types, test harnesses, or thin top-level command shims, and it fails CI if statements/lines drop below 71%, branches below 75%, or functions below 74%.
 
 For release or adapter changes, also run:
 
@@ -1411,7 +1413,7 @@ For release readiness, run:
 npm run validate:release
 ```
 
-The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit/integration tests, the dedicated self-hosting suite, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, coverage-gated unit/integration tests, the dedicated self-hosting suite, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. It also publishes a coverage summary into the GitHub Actions step summary for each run. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
 
 For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](./LOGGING-STRATEGY.md).
 

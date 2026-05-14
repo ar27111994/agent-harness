@@ -1,0 +1,23 @@
+{
+  "reporter": ["text-summary", "lcov", "json-summary"],
+  "check-coverage": true,
+  "statements": 71,
+  "branches": 75,
+  "functions": 74,
+  "lines": 71,
+  "exclude": [
+    "dist/tests/**",
+    "dist/types/**",
+    "dist/cli.js",
+    "dist/activate.js",
+    "dist/discover.js",
+    "dist/install.js",
+    "dist/mirror.js",
+    "dist/quarantine.js",
+    "dist/rebuild.js",
+    "dist/recommend.js",
+    "dist/setup.js",
+    "dist/wire.js",
+    "dist/workspace.js"
+  ]
+}
