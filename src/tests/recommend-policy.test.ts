@@ -14,46 +14,50 @@ const repositoryRoot = dirname(
 );
 
 void test("recommendation policy loads package defaults by default", async () => {
-  await withPolicyWorkspace(async (projectRoot) => {
-    const policy = await loadRecommendationPolicy(projectRoot);
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      const policy = await loadRecommendationPolicy(projectRoot);
 
-    assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 240);
-    assert.equal(
-      policy.hosts["copilot-vscode"].recommendationLimitOverrideMode,
-      "preserve",
-    );
-    assert.equal(policy.hosts["copilot-vscode"].maxPerAssetKind.skill, 72);
+      assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 240);
+      assert.equal(
+        policy.hosts["copilot-vscode"].recommendationLimitOverrideMode,
+        "preserve",
+      );
+      assert.equal(policy.hosts["copilot-vscode"].maxPerAssetKind.skill, 72);
+    });
   });
 });
 
 void test("recommendation policy merges user-owned base and host overrides", async () => {
-  await withPolicyWorkspace(async (projectRoot) => {
-    await writePolicyFile(projectRoot, join("overrides", "base.json"), {
-      schemaVersion: 1,
-      concernKeywordMap: {
-        custom: ["user-owned-policy"],
-      },
-    });
-    await writePolicyFile(
-      projectRoot,
-      join("overrides", "hosts", "copilot-vscode.json"),
-      {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      await writePolicyFile(projectRoot, join("overrides", "base.json"), {
         schemaVersion: 1,
-        host: "copilot-vscode",
-        policy: {
-          recommendationLimit: 32,
-          maxPerAssetKind: {
-            skill: 9,
+        concernKeywordMap: {
+          custom: ["user-owned-policy"],
+        },
+      });
+      await writePolicyFile(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        {
+          schemaVersion: 1,
+          host: "copilot-vscode",
+          policy: {
+            recommendationLimit: 32,
+            maxPerAssetKind: {
+              skill: 9,
+            },
           },
         },
-      },
-    );
+      );
 
-    const policy = await loadRecommendationPolicy(projectRoot);
+      const policy = await loadRecommendationPolicy(projectRoot);
 
-    assert.equal(policy.concernKeywordMap.custom?.[0], "user-owned-policy");
-    assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 32);
-    assert.equal(policy.hosts["copilot-vscode"].maxPerAssetKind.skill, 9);
+      assert.equal(policy.concernKeywordMap.custom?.[0], "user-owned-policy");
+      assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 32);
+      assert.equal(policy.hosts["copilot-vscode"].maxPerAssetKind.skill, 9);
+    });
   });
 });
 
@@ -265,6 +269,37 @@ void test("recommend policy:print preserves explicit zero values in scale mode",
     }
   });
 });
+
+async function withClearedRecommendationLimitEnv(
+  callback: () => Promise<void>,
+): Promise<void> {
+  const previousLimitEnvValue =
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+  const previousModeEnvValue =
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+
+  delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+  delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+  clearRuntimeConfigForTests();
+
+  try {
+    await callback();
+  } finally {
+    if (previousLimitEnvValue === undefined) {
+      delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    } else {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
+        previousLimitEnvValue;
+    }
+    if (previousModeEnvValue === undefined) {
+      delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    } else {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+        previousModeEnvValue;
+    }
+    clearRuntimeConfigForTests();
+  }
+}
 
 async function withPolicyWorkspace(
   callback: (projectRoot: string) => Promise<void>,

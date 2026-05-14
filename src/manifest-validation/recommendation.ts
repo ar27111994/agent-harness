@@ -227,16 +227,34 @@ export function assertRecommendationReport(
       `${context}.hostSummaries.${host}.recommendationLimitEnvVar`,
       false,
     );
-    assertLiteral(
-      summaryRecord.recommendationLimitOverrideMode,
-      ["preserve", "scale"],
-      `${context}.hostSummaries.${host}.recommendationLimitOverrideMode`,
-    );
-    assertLiteral(
-      summaryRecord.recommendationLimitOverrideModeSource,
-      ["policy", "env"],
-      `${context}.hostSummaries.${host}.recommendationLimitOverrideModeSource`,
-    );
+    if (
+      Object.prototype.hasOwnProperty.call(
+        summaryRecord,
+        "recommendationLimitOverrideMode",
+      )
+    ) {
+      assertLiteral(
+        summaryRecord.recommendationLimitOverrideMode,
+        ["preserve", "scale"],
+        `${context}.hostSummaries.${host}.recommendationLimitOverrideMode`,
+      );
+    } else {
+      summaryRecord.recommendationLimitOverrideMode = "preserve";
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(
+        summaryRecord,
+        "recommendationLimitOverrideModeSource",
+      )
+    ) {
+      assertLiteral(
+        summaryRecord.recommendationLimitOverrideModeSource,
+        ["policy", "env"],
+        `${context}.hostSummaries.${host}.recommendationLimitOverrideModeSource`,
+      );
+    } else {
+      summaryRecord.recommendationLimitOverrideModeSource = "policy";
+    }
     assertMaybeString(
       summaryRecord.recommendationLimitOverrideModeEnvVar,
       `${context}.hostSummaries.${host}.recommendationLimitOverrideModeEnvVar`,

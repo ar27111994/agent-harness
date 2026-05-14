@@ -92,7 +92,7 @@ export interface RecommendationPolicyPresetRefs {
 }
 
 /**
- * Describes recommendation host policy data exchanged by the lifecycle pipeline.
+ * Describes recommendation-limit override mode data exchanged by the lifecycle pipeline.
  */
 export type RecommendationLimitOverrideMode = "preserve" | "scale";
 
