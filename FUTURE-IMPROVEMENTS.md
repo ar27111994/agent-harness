@@ -12,9 +12,17 @@ The project already implements the full supply-chain flow:
 
 The suggestions below are refinements, enhancements, and operational improvements that can make the system more complete, more explainable, and more production-ready.
 
+Status labels:
+
+- **Implemented** - the original gap is largely closed and only follow-on polish remains
+- **Partial** - meaningful infrastructure exists, but the area is still incomplete
+- **Future** - still genuinely forward-looking work
+
 ---
 
 ## 1. Universal official-upstream resolution
+
+**Status:** Partial
 
 ### Official-upstream resolution current state
 
@@ -37,6 +45,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 ---
 
 ## 2. Richer host profile/workspace overlays
+
+**Status:** Partial
 
 ### Overlay planning current state
 
@@ -70,6 +80,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 3. Dedicated quarantine review workflow
 
+**Status:** Partial
+
 ### Quarantine workflow current state
 
 - Mirror routes risky assets and prompt-injection-like community content into `mirror/quarantine`.
@@ -92,6 +104,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 ---
 
 ## 4. Stronger community trust scoring
+
+**Status:** Partial
 
 ### Community trust scoring current state
 
@@ -117,6 +131,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 5. Better source classification and evidence-weighted parsing
 
+**Status:** Partial
+
 ### Source classification current state
 
 - Classification still relies partly on path-based heuristics.
@@ -139,11 +155,14 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 6. Better remote harvesting resilience
 
+**Status:** Partial
+
 ### Remote harvesting current state
 
 - GitHub PAT support exists.
 - Rate-limit fallback to cache exists.
 - Remote discovery is checkpointed.
+- GitHub fetches now have retry/backoff, persisted source-health state, degraded summaries, and cache-backed fallback behavior covered by targeted regression tests.
 
 ### Remote harvesting value
 
@@ -152,21 +171,22 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Remote harvesting next steps
 
-- Add retry/backoff with jitter.
-- Add source health reporting.
-- Add per-source fetch failure counters.
-- Add degraded-mode runs that skip unhealthy sources cleanly.
 - Add fallback metadata paths for sources that fail REST API fetches.
 - Add periodic refresh TTLs for cached remote snapshots.
+- Expand degraded-mode behavior beyond GitHub-backed sources where it is justified.
+- Add operator-facing summaries that make unhealthy-source triage easier during large sync runs.
 
 ---
 
 ## 7. Bundle explainability and reasoning reports
 
+**Status:** Partial
+
 ### Bundle explainability current state
 
 - Selection reports and recommendation reports exist.
 - Overlay plans exist.
+- Explain commands already exist for recommendation, install, activation, and mirror inspection paths.
 
 ### Bundle explainability value
 
@@ -184,10 +204,13 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 8. Better generation management
 
+**Status:** Partial
+
 ### Generation management current state
 
 - Deterministic install generations exist.
 - Rollback exists.
+- Generation listing, diffing, pinning, and pruning commands already exist.
 
 ### Generation management value
 
@@ -195,15 +218,20 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Generation management next steps
 
-- Add generation pruning policies.
-- Add generation pinning / blessed generation support.
-- Add generation diff command.
 - Add rollback summary reports.
 - Add generation validation and integrity checks.
+- Add richer policy-driven pruning/blessing workflows beyond the existing command surface.
 
 ---
 
 ## 9. Full diff/report commands across phases
+
+**Status:** Partial
+
+### Diff and report commands current state
+
+- `mirror diff`, `install diff`, and `activate diff` already exist.
+- The remaining gap is mainly around `discover diff`, richer recommendation deltas, and higher-level cross-phase change summaries.
 
 ### Diff and report commands value
 
@@ -223,10 +251,12 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 10. Better package-registry harvesting
 
+**Status:** Partial
+
 ### Package-registry harvesting current state
 
 - Package registry sources exist in the source registry.
-- Discovery is still GitHub-heavy.
+- Discovery is still GitHub-heavy overall, but direct npm/PyPI metadata and search harvesting already exist for important source families.
 
 ### Package-registry harvesting value
 
@@ -243,6 +273,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 ---
 
 ## 11. Stronger activation planning
+
+**Status:** Partial
 
 ### Activation planning current state
 
@@ -265,9 +297,12 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 12. Test suite and validation harness
 
+**Status:** Implemented / Partial
+
 ### Test harness current state
 
-- The system is buildable and operational, but does not yet have a formal automated test suite.
+- The repo now has a broad automated test suite, coverage reporting, explicit coverage thresholds, smoke checks, recommendation fixture evaluation, detection quality reporting, and a dedicated self-hosting integration suite.
+- Remaining work is mostly about raising thresholds further, expanding targeted regression depth, and adding more performance-focused or visualization-oriented validation layers.
 
 ### Test harness value
 
@@ -275,16 +310,16 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Test harness next steps
 
-- Unit tests for selection rules.
-- Unit tests for trust scoring.
-- Unit tests for official index resolution.
-- Integration tests for discover → mirror → install → activate.
-- Golden tests for lockfile and overlay outputs.
-- Validation harness for representative source families.
+- Raise coverage thresholds over time instead of letting the initial baselines stagnate.
+- Add more focused trust-scoring and source-health regressions.
+- Expand golden coverage for lockfile and overlay outputs where snapshots stay stable.
+- Add more performance-sensitive and large-input validation for expensive lifecycle phases.
 
 ---
 
 ## 13. Performance optimization
+
+**Status:** Partial
 
 ### Performance optimization value
 
@@ -302,6 +337,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 ---
 
 ## 14. Promotion workflow for community assets
+
+**Status:** Partial
 
 ### Promotion workflow current state
 
@@ -323,6 +360,8 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 15. Visual reports and dashboards
 
+**Status:** Future
+
 ### Visual reporting value
 
 - Large agent ecosystems are easier to manage with visual summaries.
@@ -340,9 +379,12 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ## 16. Better operating docs
 
+**Status:** Partial
+
 ### Operating docs current state
 
 - README and implementation plan exist.
+- Dedicated playbooks now exist for agent setup, discovery breadth, demand detection, source coverage, AI enrichment, asset updates, recommendation policy tuning, and logging strategy.
 
 ### Operating docs value
 
@@ -350,13 +392,12 @@ The suggestions below are refinements, enhancements, and operational improvement
 
 ### Operating docs next steps
 
-- “Fresh setup” guide.
-- “Safe rebuild” guide.
 - “Promote official source” guide.
 - “Quarantine review” guide.
 - “Rollback generation” guide.
 - “How Copilot overlays are chosen” guide.
 - “How project-local native host wiring works” guide covering Cursor, Zed, Claude Code, and Pi.
+- A concise contributor guide for reading coverage reports and self-hosting outputs.
 
 ---
 
