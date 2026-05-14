@@ -22,6 +22,8 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Usage examples](#usage-examples)
 - [Agent setup playbook](./AGENT-SETUP-PLAYBOOK.md)
 - [Discovery breadth playbook](./DISCOVERY-BREADTH-PLAYBOOK.md)
+- [Demand detection playbook](./DEMAND-DETECTION-PLAYBOOK.md)
+- [Source coverage playbook](./SOURCE-COVERAGE-PLAYBOOK.md)
 - [AI enrichment playbook](./AI-ENRICHMENT-PLAYBOOK.md)
 - [Asset update playbook](./ASSET-UPDATE-PLAYBOOK.md)
 - [Recommendation policy playbook](./RECOMMENDATION-POLICY-PLAYBOOK.md)
@@ -221,6 +223,8 @@ Available playbooks:
 
 - [`AGENT-SETUP-PLAYBOOK.md`](./AGENT-SETUP-PLAYBOOK.md) - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
 - [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) - maximize the practical candidate pool before judging recommendation quality
+- [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) - debug false negatives, false positives, and weak evidence in `discover/output/demand-profile.json`
+- [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) - widen discovery sources cleanly when the workspace is understood but the source universe is too narrow
 - [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md) - choose enrichment modes, bounded AI review, and operator workflows
 - [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md) - refresh staged assets safely with report-only, due-only, and apply-safe flows
 - [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md) - inspect and tune ranking only after recall looks healthy
@@ -234,7 +238,7 @@ Short version:
 - separate staged/wired assets from native installs and manual runtime follow-up
 - only run mutating install/apply commands after the dry run looks correct
 
-If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy.
+If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy. If breadth looks wrong because stack detection is weak, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md); if the stack looks right but the discovery universe is still too small, continue with [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md).
 
 ### Apply and reset one host
 

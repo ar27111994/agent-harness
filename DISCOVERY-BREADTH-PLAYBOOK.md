@@ -43,6 +43,8 @@ Common failures:
 - manifests filtered by `.gitignore`, `.ignore`, or `.agent-harnessignore`
 - weak evidence for a real stack that is mostly implicit
 
+If the demand profile is the bottleneck, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md).
+
 ### 2. Discovery source coverage
 
 The candidate universe is assembled from the active state root, not just from one hardcoded file.
@@ -65,6 +67,8 @@ If you are using the installed package defaults, these usually live under `.agen
 - `.agent-harness/discover/source-packs/*.json`
 - `.agent-harness/discover/official-skills-indexes.json`
 - `.agent-harness/discover/official-upstreams.json`
+
+If source coverage is the bottleneck, continue with [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md).
 
 ### 3. Selection filtering
 
@@ -202,6 +206,8 @@ When ready, give me:
 
 Do **not** start here when the real issue is clearly one of these:
 
-- you already have a healthy selected set, but the top recommendations are noisy -> use `RECOMMENDATION-POLICY-PLAYBOOK.md`
-- you want the optional bounded AI sidecar or AI reranking flow -> use `AI-ENRICHMENT-PLAYBOOK.md`
-- your installed assets are stale and need refresh/apply flow -> use `ASSET-UPDATE-PLAYBOOK.md`
+- the demand profile itself is wrong or too weak -> use [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md)
+- the stack looks right, but the source universe is too narrow or too noisy -> use [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md)
+- you already have a healthy selected set, but the top recommendations are noisy -> use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md)
+- you want the optional bounded AI sidecar or AI reranking flow -> use [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md)
+- your installed assets are stale and need refresh/apply flow -> use [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md)
