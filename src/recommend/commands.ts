@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { getRuntimeConfig } from "../config/runtime.js";
 import { readJsonFile, writeJsonFile } from "../files.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
@@ -272,13 +273,34 @@ async function printRecommendationPolicy(
     );
   }
 
+  const recommendationRuntime = getRuntimeConfig().recommendation;
+  const limitOverride = recommendationRuntime.limitOverrides[resolvedHost];
+  const modeOverride = recommendationRuntime.limitOverrideModes[resolvedHost];
+  const hostPolicy = policy.hosts[resolvedHost];
+
   console.log(
     JSON.stringify(
       {
         schemaVersion: policy.schemaVersion,
         host: formatRecommendationHostForDisplay(resolvedHost),
         scoring: policy.scoring,
-        hostPolicy: policy.hosts[resolvedHost],
+        hostPolicy,
+        runtimeOverrides: {
+          recommendationLimitSource: limitOverride ? "env" : "policy",
+          recommendationLimitEnvVar: limitOverride?.envVar,
+          recommendationLimitOverrideMode:
+            hostPolicy.recommendationLimitOverrideMode ?? "preserve",
+          recommendationLimitOverrideModeSource: modeOverride
+            ? "env"
+            : "policy",
+          recommendationLimitOverrideModeEnvVar: modeOverride?.envVar,
+          scalingApplied:
+            (hostPolicy.recommendationLimitScaledFields?.length ?? 0) > 0,
+          recommendationLimitScaleFactor:
+            hostPolicy.recommendationLimitScaleFactor,
+          recommendationLimitScaledFields:
+            hostPolicy.recommendationLimitScaledFields,
+        },
         concernKeywordMap: policy.concernKeywordMap,
         taskModeKeywordMap: policy.taskModeKeywordMap,
         domainKeywordGroups: policy.domainKeywordGroups,

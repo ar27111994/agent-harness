@@ -5,6 +5,10 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
+import {
+  clearRuntimeConfigForTests,
+  loadRuntimeConfig,
+} from "../config/runtime.js";
 import { runRecommend } from "../recommend/commands.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
 
@@ -88,12 +92,106 @@ void test("recommend policy:print shows the effective policy with user overrides
         recommendationLimit: number;
         recommendationLimitOverrideMode: string;
       };
+      runtimeOverrides: {
+        recommendationLimitOverrideMode: string;
+        recommendationLimitOverrideModeSource: string;
+        scalingApplied: boolean;
+      };
     };
     assert.equal(printedPolicy.hostPolicy.recommendationLimit, 28);
     assert.equal(
       printedPolicy.hostPolicy.recommendationLimitOverrideMode,
       "scale",
     );
+    assert.equal(
+      printedPolicy.runtimeOverrides.recommendationLimitOverrideMode,
+      "scale",
+    );
+    assert.equal(
+      printedPolicy.runtimeOverrides.recommendationLimitOverrideModeSource,
+      "policy",
+    );
+    assert.equal(printedPolicy.runtimeOverrides.scalingApplied, false);
+  });
+});
+
+void test("recommend policy:print exposes explicit scale-mode runtime metadata", async (t) => {
+  await withPolicyWorkspace(async (projectRoot) => {
+    const previousLimitEnvValue =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    const previousModeEnvValue =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+      "scale";
+
+    try {
+      clearRuntimeConfigForTests();
+      loadRuntimeConfig(process.env);
+
+      const output: string[] = [];
+      t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+        output.push(args.map((value) => String(value)).join(" "));
+      });
+
+      const exitCode = await runRecommend(
+        ["policy:print", "--host", "vscode", "--compact"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(exitCode, 0);
+      const printedPolicy = JSON.parse(output.join("\n")) as {
+        hostPolicy: {
+          recommendationLimit: number;
+          maxPerAssetKind: {
+            skill: number;
+          };
+        };
+        runtimeOverrides: {
+          recommendationLimitSource: string;
+          recommendationLimitOverrideModeSource: string;
+          scalingApplied: boolean;
+          recommendationLimitScaleFactor: number;
+          recommendationLimitScaledFields: string[];
+        };
+      };
+      assert.equal(printedPolicy.hostPolicy.recommendationLimit, 120);
+      assert.equal(printedPolicy.hostPolicy.maxPerAssetKind.skill, 36);
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitSource,
+        "env",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideModeSource,
+        "env",
+      );
+      assert.equal(printedPolicy.runtimeOverrides.scalingApplied, true);
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitScaleFactor,
+        0.5,
+      );
+      assert.ok(
+        printedPolicy.runtimeOverrides.recommendationLimitScaledFields.includes(
+          "maxPerAssetKind.skill",
+        ),
+      );
+    } finally {
+      if (previousLimitEnvValue === undefined) {
+        delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+      } else {
+        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
+          previousLimitEnvValue;
+      }
+      if (previousModeEnvValue === undefined) {
+        delete process.env
+          .AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+      } else {
+        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+          previousModeEnvValue;
+      }
+      clearRuntimeConfigForTests();
+    }
   });
 });
 

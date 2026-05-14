@@ -1207,7 +1207,7 @@ AGENT_HARNESS_PI_RECOMMENDATION_LIMIT=80
 AGENT_HARNESS_PI_RECOMMENDATION_LIMIT_MODE=preserve
 ```
 
-These env vars override the checked-in host policy recommendation caps at runtime. `*_RECOMMENDATION_LIMIT_MODE=preserve` keeps the current default behavior and changes only the total `recommendationLimit`. Set the mode to `scale` when you explicitly want `maxPerAssetKind`, target minimums, and related host-selection caps to scale with the overridden limit. Generated recommendation reports record whether the effective limit and mode came from policy or env overrides.
+These env vars override the checked-in host policy recommendation caps at runtime. `*_RECOMMENDATION_LIMIT_MODE=preserve` keeps the current default behavior and changes only the total `recommendationLimit`. Set the mode to `scale` when you explicitly want `maxPerAssetKind`, target minimums, and related host-selection caps to scale with the overridden limit. Generated recommendation reports and `recommend policy:print --host <host>` both record whether the effective limit and mode came from policy or env overrides.
 
 ### Mirror safety limits
 

@@ -90,7 +90,7 @@ agent-harness recommend policy:print --host <host>
 
 For VS Code, prefer `agent-harness recommend policy:print --host vscode`.
 
-This shows the merged effective policy, which is the thing you should reason about before editing files blindly.
+This shows the merged effective policy plus the resolved runtime override metadata (policy vs env, preserve vs scale, and whether scaling actually applied), which is the thing you should reason about before editing files blindly.
 
 ### Step 3. Explain both a good asset and a bad one
 
