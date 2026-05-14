@@ -6,6 +6,27 @@ All notable changes to this project will be documented in this file.
 
 No unreleased changes yet.
 
+## [1.0.7] - 2026-05-14
+
+### Added
+
+- durable user-owned recommendation policy overrides for both the shared base policy and per-host policy layers, so package defaults can be extended safely without losing local operator intent
+- explicit recommendation-limit override modes that distinguish `preserve` from `scale`, shared runtime/recommendation constants, and clearer effective-policy metadata in `recommend policy:print`
+- a reusable built-CLI test harness, dedicated self-hosting integration suite, GitHub resilience regression coverage, and enforced coverage reporting with CI-published summaries
+- demand-detection, source-coverage, and logging-strategy playbooks to document the new operational quality gates and tuning workflow
+
+### Changed
+
+- CLI help rendering now flows through shared output helpers instead of repeated ad hoc printers, keeping subcommand help output consistent without preparing state as a side effect
+- lint guardrails now enforce tighter console usage and magic-number discipline in the policy/runtime hot paths, and the quality workflow now runs coverage-gated unit/integration tests before publishing a summarized coverage report
+- `FUTURE-IMPROVEMENTS.md` now reflects the current implementation state so shipped capabilities are marked as implemented or partial instead of being left as stale future work
+
+### Fixed
+
+- GitHub remote harvesting now preserves cache-backed degraded operation under rate limits, serializes source-health cache repairs, and has regression coverage for malformed persisted state
+- recommendation selection/reporting now uses extracted shared thresholds and weights instead of repeated literals, reducing configuration drift across runtime and ranking code
+- release preparation for `v1.0.7` now keeps `package.json` and `package-lock.json` synchronized at the published version header
+
 ## [1.0.6] - 2026-05-13
 
 ### Added
