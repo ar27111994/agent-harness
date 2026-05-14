@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { repositoryRoot, runBuiltCli } from "./built-cli-harness.js";
+import {
+  createIsolatedCliEnvironment,
+  repositoryRoot,
+  runBuiltCli,
+} from "./built-cli-harness.js";
 
 const SELF_HOSTING_TIMEOUT_MS = 300_000;
 
@@ -28,54 +32,54 @@ interface SelfHostingRecommendationReport {
 
 void test("agent-harness can analyze itself as a workspace target", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-self-host-"));
-  const stateRoot = join(tempRoot, "state");
+  const { env, stateRoot } = await createIsolatedCliEnvironment(tempRoot);
 
   try {
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["discover", "demand-profile"],
     });
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["discover", "sources"],
     });
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["discover", "catalog"],
     });
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["discover", "select"],
     });
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["discover", "stats"],
     });
     await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["recommend", "report"],
     });
     const { stdout: policyStdout } = await runBuiltCli({
       cwd: repositoryRoot,
-      env: process.env,
+      env,
       stateRoot,
       timeout: SELF_HOSTING_TIMEOUT_MS,
       args: ["recommend", "policy:print", "--host", "vscode"],

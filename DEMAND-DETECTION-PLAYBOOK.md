@@ -143,6 +143,7 @@ Good fixture candidates live alongside or near:
 Run:
 
 ```bash
+npm run build
 agent-harness discover demand-profile
 node --test dist/tests/demand-profile.test.js dist/tests/detectors.test.js dist/tests/technology-signatures.test.js
 ```

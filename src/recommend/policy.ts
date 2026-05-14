@@ -431,6 +431,10 @@ function scalePolicyCount(
   scaledFields: string[],
   allowZero = false,
 ): number {
+  if (value === 0) {
+    return 0;
+  }
+
   const scaledValue = allowZero
     ? Math.max(0, Math.round(value * scaleFactor))
     : Math.max(1, Math.round(value * scaleFactor));

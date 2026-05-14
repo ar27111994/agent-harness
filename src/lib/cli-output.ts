@@ -22,9 +22,9 @@ export function formatCommandHelp(options: {
   entries: readonly CommandHelpEntry[];
   sections?: readonly CommandHelpSection[];
 }): string {
-  const commandWidth = Math.max(
-    ...options.entries.map((entry) => entry.command.length),
-  );
+  const commandWidth = options.entries.length
+    ? Math.max(...options.entries.map((entry) => entry.command.length))
+    : 0;
   const lines = [options.heading];
 
   for (const entry of options.entries) {

@@ -148,8 +148,86 @@ void test("prepareStateRoot preserves user-owned recommendation policy overrides
           "utf8",
         ),
       ),
-      { refreshed: true },
+      {
+        directoryPath: join("discover", "recommendation-policy", "hosts"),
+      },
     );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("prepareStateRoot seeds recommendation policy defaults only once", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-state-root-"));
+  const packageRoot = join(root, "package");
+  const stateRoot = join(root, "state");
+  const stateBasePolicyPath = join(
+    stateRoot,
+    "discover",
+    "recommendation-policy",
+    "base.json",
+  );
+  const stateHostPolicyPath = join(
+    stateRoot,
+    "discover",
+    "recommendation-policy",
+    "hosts",
+    "fixture.json",
+  );
+
+  try {
+    for (const filePath of REQUIRED_ASSET_FILES) {
+      await writeAssetFile(packageRoot, filePath, { filePath });
+    }
+    for (const directoryPath of REQUIRED_ASSET_DIRECTORIES) {
+      await writeAssetFile(packageRoot, join(directoryPath, "fixture.json"), {
+        directoryPath,
+      });
+    }
+    await writeAssetFile(
+      packageRoot,
+      join("discover", "recommendation-policy", "base.json"),
+      { source: "package-initial" },
+    );
+    await writeAssetFile(
+      packageRoot,
+      join("discover", "recommendation-policy", "hosts", "fixture.json"),
+      { source: "package-initial" },
+    );
+
+    await prepareStateRoot({ packageRoot, stateRoot, usesPackageRoot: false });
+
+    await writeAssetFile(
+      stateRoot,
+      join("discover", "recommendation-policy", "base.json"),
+      {
+        source: "state-user-edited",
+      },
+    );
+    await writeAssetFile(
+      stateRoot,
+      join("discover", "recommendation-policy", "hosts", "fixture.json"),
+      { source: "state-user-edited" },
+    );
+
+    await writeAssetFile(
+      packageRoot,
+      join("discover", "recommendation-policy", "base.json"),
+      { source: "package-updated" },
+    );
+    await writeAssetFile(
+      packageRoot,
+      join("discover", "recommendation-policy", "hosts", "fixture.json"),
+      { source: "package-updated" },
+    );
+    await prepareStateRoot({ packageRoot, stateRoot, usesPackageRoot: false });
+
+    assert.deepEqual(JSON.parse(await readFile(stateBasePolicyPath, "utf8")), {
+      source: "state-user-edited",
+    });
+    assert.deepEqual(JSON.parse(await readFile(stateHostPolicyPath, "utf8")), {
+      source: "state-user-edited",
+    });
   } finally {
     await rm(root, { force: true, recursive: true });
   }

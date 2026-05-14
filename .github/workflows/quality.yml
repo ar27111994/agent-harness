@@ -47,8 +47,28 @@ jobs:
         run: npm run test:coverage
 
       - name: Publish coverage summary
+        shell: bash
         run: |
-          node -e "const fs=require('node:fs'); const summary=JSON.parse(fs.readFileSync('coverage/coverage-summary.json','utf8')).total; const lines=['## Coverage summary','', '| Metric | Covered | Total | Pct |', '| --- | ---: | ---: | ---: |', `| Statements | ${summary.statements.covered} | ${summary.statements.total} | ${summary.statements.pct}% |`, `| Branches | ${summary.branches.covered} | ${summary.branches.total} | ${summary.branches.pct}% |`, `| Functions | ${summary.functions.covered} | ${summary.functions.total} | ${summary.functions.pct}% |`, `| Lines | ${summary.lines.covered} | ${summary.lines.total} | ${summary.lines.pct}% |`]; fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');"
+          node <<'EOF'
+          const fs = require('node:fs');
+          const summary = JSON.parse(
+            fs.readFileSync('coverage/coverage-summary.json', 'utf8'),
+          ).total;
+          const lines = [
+            '## Coverage summary',
+            '',
+            '| Metric | Covered | Total | Pct |',
+            '| --- | ---: | ---: | ---: |',
+            `| Statements | ${summary.statements.covered} | ${summary.statements.total} | ${summary.statements.pct}% |`,
+            `| Branches | ${summary.branches.covered} | ${summary.branches.total} | ${summary.branches.pct}% |`,
+            `| Functions | ${summary.functions.covered} | ${summary.functions.total} | ${summary.functions.pct}% |`,
+            `| Lines | ${summary.lines.covered} | ${summary.lines.total} | ${summary.lines.pct}% |`,
+          ];
+          fs.appendFileSync(
+            process.env.GITHUB_STEP_SUMMARY,
+            `${lines.join('\n')}\n`,
+          );
+          EOF
 
       - name: Run self-hosting integration suite
         run: npm run test:self-hosting

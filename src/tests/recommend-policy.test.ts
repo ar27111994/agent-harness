@@ -5,10 +5,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import {
-  clearRuntimeConfigForTests,
-  loadRuntimeConfig,
-} from "../config/runtime.js";
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { runRecommend } from "../recommend/commands.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
 
@@ -127,7 +124,6 @@ void test("recommend policy:print exposes explicit scale-mode runtime metadata",
 
     try {
       clearRuntimeConfigForTests();
-      loadRuntimeConfig(process.env);
 
       const output: string[] = [];
       t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
@@ -175,6 +171,81 @@ void test("recommend policy:print exposes explicit scale-mode runtime metadata",
         printedPolicy.runtimeOverrides.recommendationLimitScaledFields.includes(
           "maxPerAssetKind.skill",
         ),
+      );
+    } finally {
+      if (previousLimitEnvValue === undefined) {
+        delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+      } else {
+        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT =
+          previousLimitEnvValue;
+      }
+      if (previousModeEnvValue === undefined) {
+        delete process.env
+          .AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+      } else {
+        process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+          previousModeEnvValue;
+      }
+      clearRuntimeConfigForTests();
+    }
+  });
+});
+
+void test("recommend policy:print preserves explicit zero values in scale mode", async (t) => {
+  await withPolicyWorkspace(async (projectRoot) => {
+    const previousLimitEnvValue =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    const previousModeEnvValue =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "120";
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+      "scale";
+
+    await writePolicyFile(
+      projectRoot,
+      join("overrides", "hosts", "copilot-vscode.json"),
+      {
+        schemaVersion: 1,
+        host: "copilot-vscode",
+        policy: {
+          maxPerAssetKind: {
+            skill: 0,
+          },
+        },
+      },
+    );
+
+    try {
+      clearRuntimeConfigForTests();
+
+      const output: string[] = [];
+      t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+        output.push(args.map((value) => String(value)).join(" "));
+      });
+
+      const exitCode = await runRecommend(
+        ["policy:print", "--host", "vscode", "--compact"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(exitCode, 0);
+      const printedPolicy = JSON.parse(output.join("\n")) as {
+        hostPolicy: {
+          maxPerAssetKind: {
+            skill: number;
+          };
+        };
+        runtimeOverrides: {
+          recommendationLimitScaledFields: string[];
+        };
+      };
+      assert.equal(printedPolicy.hostPolicy.maxPerAssetKind.skill, 0);
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitScaledFields.includes(
+          "maxPerAssetKind.skill",
+        ),
+        false,
       );
     } finally {
       if (previousLimitEnvValue === undefined) {

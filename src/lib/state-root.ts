@@ -31,6 +31,11 @@ const STATE_ASSET_PATHS = [
   ["mirror", "schema"],
 ] as const;
 
+const SEEDED_ONCE_STATE_ASSET_PATHS = new Set([
+  "discover/recommendation-policy/base.json",
+  "discover/recommendation-policy/hosts",
+]);
+
 /**
  * Describes state root resolution options data exchanged by the lifecycle pipeline.
  */
@@ -98,6 +103,14 @@ export async function prepareStateRoot(
     }
 
     const destinationPath = resolve(preparedRoot.stateRoot, ...pathSegments);
+    const managedAssetPath = pathSegments.join("/");
+    if (SEEDED_ONCE_STATE_ASSET_PATHS.has(managedAssetPath)) {
+      if (!(await pathExists(destinationPath))) {
+        await copyPath(sourcePath, destinationPath);
+      }
+      continue;
+    }
+
     if (pathSegments.at(-1)?.includes(".")) {
       await copyPath(sourcePath, destinationPath);
       continue;
