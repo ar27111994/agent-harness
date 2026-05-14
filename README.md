@@ -26,6 +26,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Source coverage playbook](./SOURCE-COVERAGE-PLAYBOOK.md)
 - [AI enrichment playbook](./AI-ENRICHMENT-PLAYBOOK.md)
 - [Asset update playbook](./ASSET-UPDATE-PLAYBOOK.md)
+- [Logging strategy](./LOGGING-STRATEGY.md)
 - [Recommendation policy playbook](./RECOMMENDATION-POLICY-PLAYBOOK.md)
 - [Command reference](#command-reference)
 - [Host wire-in details](#host-wire-in-details)
@@ -1411,6 +1412,8 @@ npm run validate:release
 
 The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, tests, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
 
+For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](./LOGGING-STRATEGY.md).
+
 ## Troubleshooting
 
 ### `agent-harness` command is not found
@@ -1573,6 +1576,7 @@ Known boundaries:
 - `DISCOVERY-BREADTH-PLAYBOOK.md` - how to maximize the practical candidate pool before judging recommendation quality
 - `AI-ENRICHMENT-PLAYBOOK.md` - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
 - `ASSET-UPDATE-PLAYBOOK.md` - report-only, due-only, and apply-safe refresh/update workflows for installed assets
+- `LOGGING-STRATEGY.md` - current decision and guardrails for CLI output/logging vs a full logging library
 - `RECOMMENDATION-POLICY-PLAYBOOK.md` - how to inspect and tweak ranking policy only after recall looks healthy
 - `HOST-SURFACE-AUDIT.md` - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
 - `SECURITY.md` - vulnerability reporting and supported-version policy
