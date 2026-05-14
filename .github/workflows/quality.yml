@@ -46,6 +46,9 @@ jobs:
       - name: Run unit and integration tests
         run: npm test
 
+      - name: Run self-hosting integration suite
+        run: npm run test:self-hosting
+
       - name: Run scan benchmark budget
         run: npm run benchmark:scan
 

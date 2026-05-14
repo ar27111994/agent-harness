@@ -1390,6 +1390,7 @@ Before pushing changes, run at least:
 npm run validate
 npm run build
 npm test
+npm run test:self-hosting
 ```
 
 For release or adapter changes, also run:
@@ -1410,7 +1411,7 @@ For release readiness, run:
 npm run validate:release
 ```
 
-The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, tests, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, unit/integration tests, the dedicated self-hosting suite, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
 
 For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](./LOGGING-STRATEGY.md).
 
