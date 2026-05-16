@@ -729,14 +729,10 @@ function extractPoetryDependencyName(
     return null;
   }
 
-  return isPlainPackageName(dependencyName) ? dependencyName : null;
+  return dependencyName;
 }
 
-function isPoetryTableReference(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-
+function isPoetryTableReference(value: string): boolean {
   const trimmedValue = value.trim();
   return (
     /^\{[^}]*\b(?:path|git|url|file)\s*=/iu.test(trimmedValue) ||
@@ -777,11 +773,7 @@ function isPlainRequirementLine(line: string): boolean {
   );
 }
 
-function isPythonDirectReference(value: string | undefined): boolean {
-  if (!value) {
-    return false;
-  }
-
+function isPythonDirectReference(value: string): boolean {
   return /\s+@\s+(?:[\\/]|\.\.?[\\/]|[a-z]:[\\/]|file:|path:|git\+|hg\+|ssh:\/\/|git:\/\/|https?:\/\/)/iu.test(
     value,
   );

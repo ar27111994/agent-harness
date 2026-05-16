@@ -527,6 +527,7 @@ void test("demand signals extract mobile framework and manifest edge signals", a
   try {
     const packagePath = join(root, "package.json");
     const invalidPackagePath = join(root, "invalid-package.json");
+    const sparsePackagePath = join(root, "sparse-package.json");
     const pubspecPath = join(root, "pubspec.yaml");
     const csprojPath = join(root, "maui", "MobileApp.csproj");
     const xamarinPath = join(root, "xamarin", "LegacyApp.csproj");
@@ -545,6 +546,15 @@ void test("demand signals extract mobile framework and manifest edge signals", a
       }),
     );
     await writeText(invalidPackagePath, "{not-json");
+    await writeText(
+      sparsePackagePath,
+      JSON.stringify({
+        name: "sparse-node-tool",
+        author: "Acme Labs",
+        optionalDependencies: { playwright: "^1.0.0" },
+        peerDependencies: { express: "^4.0.0" },
+      }),
+    );
     await writeText(
       pubspecPath,
       [
@@ -591,6 +601,10 @@ void test("demand signals extract mobile framework and manifest edge signals", a
       "package.json",
       invalidPackagePath,
     );
+    const sparsePackageSignals = await collectDemandSignalsForFile(
+      "package.json",
+      sparsePackagePath,
+    );
     const pubspecSignals = await collectDemandSignalsForFile(
       "pubspec.yaml",
       pubspecPath,
@@ -616,6 +630,8 @@ void test("demand signals extract mobile framework and manifest edge signals", a
     assert.ok(packageSignals.tooling.includes("node"));
     assert.ok(packageSignals.languages.includes("typescript"));
     assert.deepEqual(invalidPackageSignals.tooling, []);
+    assert.ok(sparsePackageSignals.tooling.includes("npm:playwright"));
+    assert.ok(sparsePackageSignals.tooling.includes("npm:express"));
 
     assert.ok(pubspecSignals.languages.includes("dart"));
     assert.ok(pubspecSignals.frameworks.includes("flutter"));
