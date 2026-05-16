@@ -12,6 +12,7 @@ void test("recommendation host helpers normalize VS Code to the user-facing vsco
   assert.equal(resolveRecommendationHost("vscode"), "copilot-vscode");
   assert.equal(resolveRecommendationHost(" VSCode "), "copilot-vscode");
   assert.equal(resolveRecommendationHost("copilot-vscode"), "copilot-vscode");
+  assert.equal(resolveRecommendationHost("copilot"), "copilot-vscode");
   assert.equal(formatRecommendationHostForDisplay("copilot-vscode"), "vscode");
   assert.ok(getRecommendationHostChoices().includes("vscode"));
   assert.ok(!getRecommendationHostChoices().includes("copilot-vscode"));
@@ -38,4 +39,11 @@ void test("recommend policy:print accepts vscode as the VS Code host name", asyn
   };
   assert.equal(printedPolicy.host, "vscode");
   assert.ok(printedPolicy.hostPolicy);
+});
+
+void test("recommendation host helpers preserve shared and reject unknown hosts", () => {
+  assert.equal(resolveRecommendationHost("shared"), "shared");
+  assert.equal(resolveRecommendationHost(" SHARED "), "shared");
+  assert.equal(formatRecommendationHostForDisplay("shared"), "shared");
+  assert.equal(resolveRecommendationHost("unknown-host"), undefined);
 });

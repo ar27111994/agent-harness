@@ -1126,3 +1126,31 @@ async function pathLooksReadable(filePath: string): Promise<boolean> {
     .then((content) => content !== null)
     .catch(() => false);
 }
+
+/**
+ * Exposes pure and narrowly-scoped mirror acquire internals for focused tests.
+ */
+export const mirrorAcquireInternals = {
+  restoreRefreshProcessedCount,
+  materializeMirrorArtifact,
+  materializeGitHubTreeArtifact,
+  materializeOfficialIndexPackage,
+  buildOfficialIndexRepoUrlCandidates,
+  isGitHubHttpsRepositoryUrl,
+  isGitHubHttpsUrl,
+  findOfficialIndexSkillRoot,
+  fetchVerifiedGitHubFileContent,
+  fetchGitHubBranchCommitSha,
+  parseGitHubBlobEntry,
+  buildMirrorFileManifest,
+  buildGitHubHeaders,
+  buildUpstreamMetadata,
+  determineMirrorStatus,
+  normalizePromptInjectionText,
+  createGitBlobSha,
+  isGitBlobSha,
+  buildSortedReasonRecord,
+  mergeMirrorIndexEntries,
+  buildGitHubCachePath,
+  pathLooksReadable,
+};

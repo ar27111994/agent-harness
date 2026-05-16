@@ -4,14 +4,72 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { writeJsonFile } from "../files.js";
 import {
+  buildGitHubRawFileUrl,
   clearGitHubState,
+  fetchGitHubRepoSnapshot,
   fetchGitHubRepoSnapshotByRepoUrl,
+  isGitHubRepoSource,
+  parseGitHubRepoCoordinates,
 } from "../github.js";
 import type { GitHubRepoSnapshot } from "../types.js";
 
 const RATE_LIMIT_WINDOW_SECONDS = 120;
+
+void test("github helpers parse supported repository urls", () => {
+  assert.deepEqual(
+    parseGitHubRepoCoordinates("https://github.com/octocat/hello-world.git"),
+    {
+      owner: "octocat",
+      repo: "hello-world",
+    },
+  );
+  assert.deepEqual(
+    parseGitHubRepoCoordinates("git@github.com:octocat/hello-world.git"),
+    {
+      owner: "octocat",
+      repo: "hello-world",
+    },
+  );
+  assert.deepEqual(
+    parseGitHubRepoCoordinates("ssh://git@github.com/octocat/hello-world"),
+    {
+      owner: "octocat",
+      repo: "hello-world",
+    },
+  );
+  assert.equal(
+    parseGitHubRepoCoordinates("https://gitlab.com/octocat/hello-world"),
+    null,
+  );
+  assert.equal(
+    isGitHubRepoSource({
+      id: "fixture",
+      kind: "repo",
+      endpoints: { repo: "https://github.com/octocat/hello-world" },
+    } as never),
+    true,
+  );
+  assert.equal(
+    isGitHubRepoSource({
+      id: "fixture",
+      kind: "package-registry",
+      endpoints: { repo: "https://github.com/octocat/hello-world" },
+    } as never),
+    false,
+  );
+  assert.equal(
+    buildGitHubRawFileUrl({
+      owner: "octocat",
+      repo: "hello-world",
+      branch: "main",
+      filePath: "README.md",
+    }),
+    "https://raw.githubusercontent.com/octocat/hello-world/main/README.md",
+  );
+});
 
 function createSnapshot(options: {
   owner: string;
@@ -269,3 +327,124 @@ void test("github source health recovers from malformed state and serializes con
     true,
   );
 });
+
+void test("github fetch stores successful snapshots and retries transient failures", async (context) => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-success-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousRetryEnv = process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES;
+  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES = "2";
+  clearRuntimeConfigForTests();
+
+  let attempt = 0;
+  globalThis.fetch = async (input) => {
+    attempt += 1;
+    const url = String(input);
+    if (attempt === 1) {
+      return new Response("busy", {
+        status: 500,
+        statusText: "Server Error",
+        headers: { "retry-after": "0" },
+      });
+    }
+    if (url.endsWith("/repos/octocat/hello-world")) {
+      return new Response(
+        JSON.stringify({
+          name: "hello-world",
+          full_name: "octocat/hello-world",
+          description: "fixture",
+          default_branch: "main",
+          updated_at: "2026-05-14T00:00:00.000Z",
+          pushed_at: "2026-05-14T00:00:00.000Z",
+          stargazers_count: 7,
+          language: "TypeScript",
+          topics: ["fixture"],
+          archived: false,
+          html_url: "https://github.com/octocat/hello-world",
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.includes("/git/trees/main?recursive=1")) {
+      return new Response(
+        JSON.stringify({
+          sha: "tree-sha",
+          truncated: false,
+          tree: [
+            { path: "README.md", type: "blob", size: 42, sha: "readme-sha" },
+          ],
+        }),
+        { status: 200 },
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 42,
+        html_url: "https://github.com/octocat/hello-world#readme",
+        download_url:
+          "https://raw.githubusercontent.com/octocat/hello-world/main/README.md",
+      }),
+      { status: 200 },
+    );
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    restoreEnv("AGENT_HARNESS_GITHUB_FETCH_RETRIES", previousRetryEnv);
+    clearRuntimeConfigForTests();
+    clearGitHubState();
+    await rm(tempRoot, { force: true, recursive: true });
+  });
+
+  const snapshot = await fetchGitHubRepoSnapshot(
+    {
+      id: "fixture-source",
+      kind: "repo",
+      endpoints: { repo: "https://github.com/octocat/hello-world" },
+    } as never,
+    tempRoot,
+  );
+
+  assert.equal(snapshot?.repoSummary.fullName, "octocat/hello-world");
+  assert.equal(snapshot?.tree.entries[0]?.path, "README.md");
+  assert.ok(attempt >= 4);
+});
+
+void test("github fetch returns null for 404 repositories and invalid urls", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-github-404-"));
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async () => new Response("missing", { status: 404 });
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    clearGitHubState();
+    await rm(tempRoot, { force: true, recursive: true });
+  });
+
+  const invalid = await fetchGitHubRepoSnapshotByRepoUrl({
+    repoUrl: "https://gitlab.com/octocat/hello-world",
+    projectRoot: tempRoot,
+    sourceId: "fixture-source",
+  });
+  const missing = await fetchGitHubRepoSnapshotByRepoUrl({
+    repoUrl: "https://github.com/octocat/missing",
+    projectRoot: tempRoot,
+    sourceId: "fixture-source",
+  });
+
+  assert.equal(invalid, null);
+  assert.equal(missing, null);
+});
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}

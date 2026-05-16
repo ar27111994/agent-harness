@@ -60,6 +60,7 @@ export function buildRecommendationFixtures(): RecommendationEvaluationFixture[]
     buildFalsePositiveSuppressionFixture(),
     buildDependencySelfEchoFixture(),
     buildDesignToolRecallFixture(),
+    buildNativeHostPolicyFixture(),
   ];
 }
 
@@ -1019,7 +1020,233 @@ function buildDesignToolRecallFixture(): RecommendationEvaluationFixture {
   };
 }
 
-function createDemandProfile(
+function buildNativeHostPolicyFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "native-host-policy-coverage",
+    description:
+      "Native host policies should surface host-native assets, keep budgets valid, and prove Cursor, Zed, Claude Code, and Pi defaults with fixture coverage.",
+    demandProfile: createDemandProfile({
+      languages: ["typescript"],
+      packageManagers: ["pnpm"],
+      frameworks: ["nextjs", "node-backend"],
+      concerns: [
+        "frontend",
+        "backend",
+        "integration",
+        "testing",
+        "documentation",
+        "mcp",
+      ],
+      tooling: ["typescript", "node", "playwright", "mcp"],
+    }),
+    catalogEntries: [
+      createAsset("cursor-rule-instruction", {
+        assetKind: "instruction",
+        hosts: ["cursor"],
+        capabilities: ["cursor", "rule", "frontend", "typescript"],
+        sourceId: "cursor-official-rules",
+        publisher: "cursor",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("cursor-plugin-agent", {
+        assetKind: "agent",
+        hosts: ["cursor"],
+        capabilities: ["cursor", "plugin", "agent", "backend"],
+        sourceId: "cursor-official-plugins",
+        publisher: "cursor",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("cursor-command-prompt-pack", {
+        assetKind: "prompt-pack",
+        hosts: ["cursor"],
+        capabilities: ["cursor", "command", "workflow", "testing"],
+        sourceId: "cursor-official-prompts",
+        publisher: "cursor",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("cursor-extension-reference", {
+        assetKind: "extension",
+        hosts: ["cursor"],
+        capabilities: ["cursor", "extension", "typescript", "frontend"],
+        sourceId: "cursor-marketplace",
+        publisher: "cursor-marketplace",
+        authorityTier: "official-marketplace",
+        estimatedPromptWeight: 1,
+      }),
+      createAsset("zed-project-rules-instruction", {
+        assetKind: "instruction",
+        hosts: ["zed"],
+        capabilities: ["zed", "rules", "frontend", "typescript"],
+        sourceId: "zed-official-rules",
+        publisher: "zed",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("zed-mcp-context-server", {
+        assetKind: "mcp-server",
+        hosts: ["zed"],
+        capabilities: ["zed", "mcp", "integration", "backend"],
+        sourceId: "zed-official-mcp",
+        publisher: "zed",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("zed-reference-pack", {
+        assetKind: "reference-pack",
+        hosts: ["zed"],
+        capabilities: ["zed", "reference", "documentation", "frontend"],
+        sourceId: "zed-reference-docs",
+        publisher: "zed-docs",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("claude-memory-instruction", {
+        assetKind: "instruction",
+        hosts: ["claude-code"],
+        capabilities: ["claude", "memory", "backend", "typescript"],
+        sourceId: "claude-official-memory",
+        publisher: "anthropic",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("claude-subagent-agent", {
+        assetKind: "agent",
+        hosts: ["claude-code"],
+        capabilities: ["claude", "subagent", "agent", "testing"],
+        sourceId: "claude-official-agents",
+        publisher: "anthropic",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("claude-command-workflow", {
+        assetKind: "workflow",
+        hosts: ["claude-code"],
+        capabilities: ["claude", "command", "workflow", "integration"],
+        sourceId: "claude-official-commands",
+        publisher: "anthropic",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("claude-hook-reference", {
+        assetKind: "hook",
+        hosts: ["claude-code"],
+        capabilities: ["claude", "hook", "testing", "automation"],
+        sourceId: "claude-official-hooks",
+        publisher: "anthropic",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("pi-system-context-instruction", {
+        assetKind: "instruction",
+        hosts: ["pi"],
+        capabilities: ["pi", "system", "backend", "typescript"],
+        sourceId: "pi-official-context",
+        publisher: "pi",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("pi-skill", {
+        assetKind: "skill",
+        hosts: ["pi"],
+        capabilities: ["pi", "skill", "testing", "typescript"],
+        sourceId: "pi-official-skills",
+        publisher: "pi",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("pi-prompt-pack", {
+        assetKind: "prompt-pack",
+        hosts: ["pi"],
+        capabilities: ["pi", "prompt", "workflow", "documentation"],
+        sourceId: "pi-official-prompts",
+        publisher: "pi",
+        authorityTier: "official-compatible",
+      }),
+      createAsset("pi-mcp-extension-noise", {
+        assetKind: "mcp-server",
+        hosts: ["pi"],
+        capabilities: ["pi", "mcp", "extension", "generic"],
+        sourceId: "pi-reference-noise",
+        publisher: "pi-reference-noise",
+        authorityTier: "trusted-community",
+        portfolioFit: 0.2,
+        hostFit: 0.2,
+        estimatedPromptWeight: 5,
+      }),
+    ],
+    expectations: [
+      {
+        host: "cursor",
+        requiredAssetIds: [
+          "cursor-rule-instruction",
+          "cursor-plugin-agent",
+          "cursor-command-prompt-pack",
+        ],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "agent", minimum: 1 },
+          { assetKind: "prompt-pack", minimum: 1 },
+          { assetKind: "extension", minimum: 1 },
+        ],
+        maxPerSourceFamily: 3,
+        requiredConcerns: ["frontend", "backend", "testing"],
+      },
+      {
+        host: "zed",
+        requiredAssetIds: [
+          "zed-project-rules-instruction",
+          "zed-mcp-context-server",
+          "zed-reference-pack",
+        ],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "mcp-server", minimum: 1 },
+          { assetKind: "reference-pack", minimum: 1 },
+        ],
+        maxPerSourceFamily: 2,
+        requiredConcerns: ["frontend", "integration", "documentation"],
+      },
+      {
+        host: "claude-code",
+        requiredAssetIds: [
+          "claude-memory-instruction",
+          "claude-subagent-agent",
+          "claude-command-workflow",
+          "claude-hook-reference",
+        ],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "agent", minimum: 1 },
+          { assetKind: "workflow", minimum: 1 },
+          { assetKind: "hook", minimum: 1 },
+        ],
+        maxPerSourceFamily: 4,
+        requiredConcerns: ["backend", "testing", "integration"],
+      },
+      {
+        host: "pi",
+        requiredAssetIds: [
+          "pi-system-context-instruction",
+          "pi-skill",
+          "pi-prompt-pack",
+        ],
+        requiredAssetKinds: [
+          { assetKind: "instruction", minimum: 1 },
+          { assetKind: "skill", minimum: 1 },
+          { assetKind: "prompt-pack", minimum: 1 },
+        ],
+        requiredConcerns: ["backend", "testing", "documentation"],
+        rankedAbove: [
+          {
+            higherAssetId: "pi-skill",
+            lowerAssetId: "pi-mcp-extension-noise",
+          },
+          {
+            higherAssetId: "pi-prompt-pack",
+            lowerAssetId: "pi-mcp-extension-noise",
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * Builds a normalized demand profile fixture with sensible defaults for omitted signal families.
+ */
+export function createDemandProfile(
   overrides: FixtureDemandProfileOptions,
 ): DemandProfile {
   return {

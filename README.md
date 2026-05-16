@@ -225,6 +225,7 @@ Available playbooks:
 - [`AGENT-SETUP-PLAYBOOK.md`](./AGENT-SETUP-PLAYBOOK.md) - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
 - [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) - maximize the practical candidate pool before judging recommendation quality
 - [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) - debug false negatives, false positives, and weak evidence in `discover/output/demand-profile.json`
+- [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) - audited project-type matrix for stack/vertical detection coverage
 - [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) - widen discovery sources cleanly when the workspace is understood but the source universe is too narrow
 - [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md) - choose enrichment modes, bounded AI review, and operator workflows
 - [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md) - refresh staged assets safely with report-only, due-only, and apply-safe flows
@@ -240,6 +241,19 @@ Short version:
 - only run mutating install/apply commands after the dry run looks correct
 
 If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy. If breadth looks wrong because stack detection is weak, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md); if the stack looks right but the discovery universe is still too small, continue with [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md).
+
+### Default workspace diagnostic ladder
+
+When `agent-harness workspace <host>` gives surprising output, diagnose in this order instead of jumping straight to bigger limits or host-policy edits:
+
+1. **Did the workspace command complete?** If not, inspect preflight/runtime/install/wire logs and host readiness with `agent-harness setup doctor --host <host>`.
+2. **Is `discover/output/demand-profile.json` wrong or weak?** If yes, use [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) and the matrix in [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md).
+3. **Is source utilization or selected-candidate breadth starved?** Inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json`, then use [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) / [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+4. **Are relevant assets selected but buried?** Inspect `state/recommendations.json`, `recommend policy:print --host <host>`, and `recommend explain --host <host> --asset <asset-id>`, then use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md).
+5. **Is the problem host-specific?** Validate the host policy with recommendation fixtures before changing defaults.
+6. **Is narrative judgment needed after deterministic output is sane?** Use bounded AI review/enrichment as an audit layer, not as a replacement for detection/source/ranking fixes.
+
+Every detection, source, or policy change should cite fixture output, explain output, a selected-catalog miss, a source-utilization miss, or a demand-profile false negative/positive. Avoid changes based only on vibes.
 
 ### Apply and reset one host
 
@@ -1214,6 +1228,34 @@ AGENT_HARNESS_PI_RECOMMENDATION_LIMIT_MODE=preserve
 
 These env vars override the checked-in host policy recommendation caps at runtime. `*_RECOMMENDATION_LIMIT_MODE=preserve` keeps the current default behavior and changes only the total `recommendationLimit`. Set the mode to `scale` when you explicitly want `maxPerAssetKind`, target minimums, and related host-selection caps to scale with the overridden limit. Generated recommendation reports and `recommend policy:print --host <host>` both record whether the effective limit and mode came from policy or env overrides.
 
+Use the modes intentionally:
+
+- **Lean/default mode**: keep the checked-in defaults for normal first runs, small/medium repos, demos, and low-noise recommendations.
+- **Broader report mode**: increase `AGENT_HARNESS_<HOST>_RECOMMENDATION_LIMIT` and leave mode as `preserve` when you only want a longer ranked report without changing diversity pressure or target minimums.
+- **Deep audit mode**: pair a larger limit with `AGENT_HARNESS_<HOST>_RECOMMENDATION_LIMIT_MODE=scale` for large monorepos, broad polyglot workspaces, or exploratory audits where caps/minimums should grow with the report.
+
+Example broader report mode:
+
+```bash
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT=260
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT_MODE=preserve
+```
+
+Example deep audit mode:
+
+```bash
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT=320
+AGENT_HARNESS_CURSOR_RECOMMENDATION_LIMIT_MODE=scale
+```
+
+Do **not** raise limits first when `demand-profile.json` is wrong, source coverage is starved, or relevant assets are already selected but buried. Fix detection, source coverage, or ranking instead. `shared` should stay conservative unless you are explicitly auditing shared MCP coverage; `pi` intentionally deprioritizes MCP/extension-like assets, so scaling should not be used just to bypass that policy intent. VS Code and Cursor usually benefit most from broader surfaces, while Zed, Claude Code, OpenCode, and Pi should be checked with `recommend explain` and host-specific fixtures.
+
+Verify effective settings with:
+
+```bash
+agent-harness recommend policy:print --host <host>
+```
+
 ### Mirror safety limits
 
 ```bash
@@ -1389,11 +1431,11 @@ Before pushing changes, run at least:
 ```bash
 npm run validate
 npm run build
-npm run test:coverage
+npm run validate:coverage
 npm run test:self-hosting
 ```
 
-Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI if statements/lines drop below 71%, branches below 75%, or functions below 74%.
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI if statements/lines drop below 75%, branches below 76%, or functions below 76%. Track the remaining path to 100% covered runtime logic in [`COVERAGE-100-ROADMAP.md`](./COVERAGE-100-ROADMAP.md).
 
 For release or adapter changes, also run:
 

@@ -293,7 +293,10 @@ async function findExecutableOnPath(
     for (const extension of extensions) {
       const candidate = join(pathEntry, `${executableName}${extension}`);
       try {
-        await access(candidate, constants.X_OK);
+        await access(
+          candidate,
+          process.platform === "win32" ? constants.F_OK : constants.X_OK,
+        );
         return candidate;
       } catch {
         continue;

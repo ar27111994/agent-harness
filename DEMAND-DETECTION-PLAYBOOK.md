@@ -11,6 +11,8 @@ This is the right guide when:
 
 If the real problem is that the source universe itself is too small, use [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) instead.
 
+Use [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) as the audited project-type matrix when you need to check whether a popular stack, vertical, platform, language, or framework is already covered.
+
 ## The short answer
 
 Start by proving whether the failure is a **false negative**, a **false positive**, or simply **weak evidence**:
@@ -23,7 +25,8 @@ Start by proving whether the failure is a **false negative**, a **false positive
    - `src/domains/discovery/demand-signals.ts`
    - `src/domains/discovery/detector-signatures.ts`
    - `src/domains/discovery/technology-signatures.ts`
-5. validate with the focused detection suites before touching ranking or policy
+5. update the coverage matrix if the supported/audited project-type list changes
+6. validate with the focused detection suites before touching ranking or policy
 
 Do **not** widen recommendation policy first. Detection problems should be fixed at the detection layer.
 
@@ -136,7 +139,10 @@ Prefer fixture-driven coverage over one-off repo-specific exceptions.
 Good fixture candidates live alongside or near:
 
 - `src/tests/detection-fixtures.ts`
+- `src/tests/technology-signatures.test.ts`
 - `src/tests/fixtures/`
+
+If the fix expands project-type support, update [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) so future contributors can see the audited coverage and validation path.
 
 ### Step 2. Inspect the current detection result
 
@@ -220,10 +226,12 @@ Required workflow:
   - `src/domains/discovery/technology-signatures.ts`
 - Prefer data/signature changes before orchestration changes.
 - Add or update representative tests/fixtures.
+- Update `DEMAND-DETECTION-COVERAGE.md` when the audited support matrix changes.
 - Validate with:
   - `npm run build`
   - `npm test`
   - `npm run quality:detection`
+  - `npm run quality:policy` if new terms are emitted
 
 When ready, give me:
 - the diagnosis type (false negative / false positive / weak evidence)

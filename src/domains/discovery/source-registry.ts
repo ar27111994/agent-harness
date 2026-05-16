@@ -310,6 +310,7 @@ function normalizeRepoIdentity(repo: string | undefined): string | undefined {
     try {
       const parsedUrl = new URL(normalizedRepo);
       return `${parsedUrl.hostname}/${urlPath}`
+        .replace(/\/+/gu, "/")
         .replace(/^\/+|\/+$/gu, "")
         .toLowerCase();
     } catch {

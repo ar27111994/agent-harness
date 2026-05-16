@@ -108,6 +108,14 @@ Treat `discover/recommendation-policy/base.json` and `discover/recommendation-po
 
 When you use a recommendation-limit env override, the default mode is still `preserve`, which changes only `recommendationLimit`. To explicitly scale related caps and minimums as well, set `recommendationLimitOverrideMode` to `scale` in the host override file or set the matching `AGENT_HARNESS_<HOST>_RECOMMENDATION_LIMIT_MODE=scale` env var.
 
+Use limit changes by scenario:
+
+- **Lean/default mode**: no override. Best for normal first runs and low-noise recommendations.
+- **Broader report mode**: larger `recommendationLimit` with `preserve`. Best when diagnostics need more ranked candidates but existing caps/minimums should stay fixed.
+- **Deep audit mode**: larger `recommendationLimit` with `scale`. Best for large monorepos, broad polyglot workspaces, or exploration where related host caps/minimums should grow with the report.
+
+Do not increase limits when demand detection is wrong, source coverage is starved, or relevant assets are already selected but buried. Fix the actual bottleneck first. Treat `shared` and `pi` conservatively: `shared` is MCP-focused, and `pi` intentionally deprioritizes MCP/extension-like assets.
+
 Then rerun:
 
 ```bash
@@ -146,9 +154,10 @@ Required workflow:
 - Do not recommend broader source/pool changes unless you can show the selected set is actually missing relevant candidates.
 
 When ready, give me:
-- whether the bottleneck is ranking or recall
+- whether the bottleneck is detection, source breadth, selection, ranking, host policy, or wiring
 - the exact policy area that looks wrong
 - the smallest justified policy edit
+- whether any limit override should use default, preserve, or scale mode
 - the exact commands you ran
 ```
 

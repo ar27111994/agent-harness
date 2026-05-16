@@ -806,3 +806,15 @@ function toLoggableErrorMessage(error: unknown): string {
 
   return String(error);
 }
+
+/**
+ * Exposes pure VS Code wire helpers for focused behavioral coverage.
+ */
+export const vscodeWireInternals = {
+  inferPluginFileName,
+  isManagedCodeGenerationEntry,
+  stripManagedCodeGenerationInstructions,
+  stripManagedVsCodeLocationEntries,
+  toLoggableErrorMessage,
+  upsertManagedCodeGenerationInstructions,
+};

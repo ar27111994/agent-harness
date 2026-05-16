@@ -10,6 +10,7 @@ import {
   readJsonLinesFile,
   writeJsonFile,
   writeJsonLinesFile,
+  writeTextFile,
 } from "../files.js";
 import {
   assertMirrorAcquireState,
@@ -334,6 +335,76 @@ void test("mirror acquire checkpoint rejects inconsistent state arithmetic", () 
   assert.throws(
     () => assertMirrorAcquireCheckpoint(state, "workspace pipeline"),
     /workspace pipeline mirror acquire state is inconsistent/,
+  );
+});
+
+void test("mirror acquire checkpoint rejects skipped-count mismatches and stalled acquire batches", () => {
+  assert.throws(
+    () =>
+      assertMirrorAcquireCheckpoint(
+        createAcquireState({
+          skippedCount: 2,
+          skippedAssetIds: ["skip-a"],
+        }),
+        "workspace pipeline",
+      ),
+    /skippedAssetIds\(1\) != skippedCount\(2\)/u,
+  );
+
+  assert.throws(
+    () =>
+      assertMirrorAcquireCheckpoint(
+        createAcquireState({
+          totalEligibleCount: 4,
+          mirroredCount: 2,
+          skippedCount: 1,
+          skippedAssetIds: ["skip-a"],
+          remainingCount: 1,
+          lastBatchAssetIds: ["asset-d"],
+          lastBatchSkippedCount: 1,
+          terminal: true,
+          skippedAssetReasons: undefined,
+        }),
+        "fixture",
+      ),
+    /fixture mirror acquire stalled after batch: 2\/4 mirrored, 1 skipped in last batch, 1 remaining\./u,
+  );
+});
+
+void test("mirror acquire checkpoint rejects inconsistent and empty-summary refresh checkpoints", () => {
+  assert.throws(
+    () =>
+      assertMirrorAcquireCheckpoint(
+        createAcquireState({
+          totalEligibleCount: 5,
+          remainingCount: 2,
+          skippedCount: 1,
+          skippedAssetIds: ["skip-a"],
+          sessionMode: "refresh",
+          processedCount: 1,
+        }),
+        "fixture",
+      ),
+    /fixture mirror refresh state is inconsistent: processed\(1\) \+ remaining\(2\) != total\(5\)/u,
+  );
+
+  assert.throws(
+    () =>
+      assertMirrorAcquireCheckpoint(
+        createAcquireState({
+          totalEligibleCount: 3,
+          remainingCount: 1,
+          skippedCount: 0,
+          skippedAssetIds: [],
+          lastBatchAssetIds: ["asset-c"],
+          sessionMode: "refresh",
+          processedCount: 2,
+          terminal: true,
+          skippedAssetReasons: {},
+        }),
+        "fixture",
+      ),
+    /fixture mirror refresh stalled after batch: 2\/3 processed, 0 skipped in last batch, 1 remaining\./u,
   );
 });
 
@@ -1763,6 +1834,101 @@ void test("acquireMirrorArtifacts writes terminal complete state for full succes
       ["mirror-a", "mirror-b"],
     );
     assert.equal(assertMirrorAcquireCheckpoint(state, "fixture"), true);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("mirror acquire checkpoint reports stalled refresh batches with summarized skip reasons", () => {
+  const refreshState = createAcquireState({
+    totalEligibleCount: 4,
+    mirroredCount: 0,
+    skippedCount: 3,
+    skippedAssetIds: ["asset-a", "asset-b", "asset-c"],
+    skippedAssetReasons: {
+      "asset-a": "materialize-failed",
+      "asset-b": "materialize-failed",
+      "asset-c": "official-index-package-too-large",
+    },
+    remainingCount: 1,
+    lastBatchAssetIds: ["asset-d"],
+    lastBatchSkippedCount: 1,
+    terminal: true,
+    sessionMode: "refresh",
+    processedCount: 3,
+  });
+
+  assert.throws(
+    () => assertMirrorAcquireCheckpoint(refreshState, "fixture"),
+    /fixture mirror refresh stalled after batch: 3\/4 processed, 1 skipped in last batch, 1 remaining.*Top skip reasons: materialize-failed \(2\), official-index-package-too-large \(1\)\./u,
+  );
+});
+
+void test("acquireMirrorArtifacts falls back to scoped GitHub cache content when present", async () => {
+  const projectRoot = await createAcquireFixture([]);
+  const entry: AssetCatalogEntry = {
+    ...buildAsset("cached-github-entry"),
+    source: {
+      sourceId: "github-awesome-copilot",
+      authorityTier: "official-first-party",
+      sourceKind: "repo",
+      sourcePriority: 100,
+      originUrl:
+        "https://github.com/github/awesome-copilot/blob/main/README.md",
+      publisher: "GitHub",
+      publisherVerified: true,
+    },
+    install: {
+      method: "local-file",
+      nativeHosts: ["copilot-vscode"],
+      manifestEntry: "cached-github-entry",
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      lineCount: 1,
+      filePath: undefined,
+      rootPath: "/fixture",
+    },
+  };
+  const cachePath = join(
+    projectRoot,
+    "state",
+    "remote-cache",
+    "github",
+    "github__awesome-copilot.json",
+  );
+
+  try {
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry],
+    );
+    await writeJsonLinesFile(mirrorIndexPath(projectRoot), []);
+    await writeTextFile(cachePath, "cached fixture\n");
+
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [
+      "--batch-size",
+      "10",
+    ]);
+
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+    const mirroredContent = await readFile(
+      join(
+        projectRoot,
+        "mirror",
+        "raw",
+        mirrorIndex[0]?.mirrorId ?? "",
+        "content.txt",
+      ),
+      "utf8",
+    );
+
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(mirrorIndex[0]?.assetId, "cached-github-entry");
+    assert.equal(mirroredContent, "cached fixture\n");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

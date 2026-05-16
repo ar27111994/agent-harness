@@ -483,3 +483,18 @@ function extractBundleId(bundlePath: string): string {
       ?.replace(/\.lock\.json$/u, "") ?? bundlePath
   );
 }
+
+/**
+ * Exposes narrow install bundle internals for focused manifest and batching tests.
+ */
+export const installBundleInternals = {
+  mergeInstalledPackages,
+  verifyMirrorFileManifest,
+  assertMirrorFileManifest,
+  serializeMirrorManifestFileHashInput,
+  assertNoUnexpectedMirrorFiles,
+  debugInstallBundleSkip,
+  buildInstallIdentity,
+  getPendingAssets,
+  extractBundleId,
+};

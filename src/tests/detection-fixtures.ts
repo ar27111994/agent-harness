@@ -210,4 +210,33 @@ export const ROADMAP_DETECTION_FIXTURES: DetectionFixture[] = [
     filePath: "content-marketing/cms/sitemap.xml",
     expectedConcerns: ["seo", "content-creation", "content-marketing", "cms"],
   },
+  {
+    archetype: "monorepo-build-system",
+    fileName: "nx.json",
+    filePath: "monorepo/nx.json",
+    expectedConcerns: ["monorepo", "build-orchestration"],
+  },
+  {
+    archetype: "serverless-edge-platform",
+    fileName: "wrangler.toml",
+    filePath: "apps/web/workers/wrangler.toml",
+    expectedConcerns: ["serverless", "edge", "cloud", "infrastructure"],
+  },
+  {
+    archetype: "commerce-cms-platform",
+    fileName: "shopify.app.toml",
+    filePath: "commerce/shopify/shopify.app.toml",
+    expectedConcerns: ["commerce", "cms", "content-creation"],
+  },
+  {
+    archetype: "infra-platform-manifest",
+    fileName: "Chart.yaml",
+    filePath: "platform/helm/service/Chart.yaml",
+    expectedConcerns: [
+      "devops",
+      "ci-cd",
+      "infrastructure",
+      "platform-engineering",
+    ],
+  },
 ];

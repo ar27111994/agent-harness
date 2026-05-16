@@ -380,6 +380,101 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
     ],
   },
   {
+    id: "monorepo-build",
+    fileNames: [
+      "nx.json",
+      "turbo.json",
+      "pnpm-workspace.yaml",
+      "rush.json",
+      "lage.config.js",
+      "WORKSPACE",
+      "WORKSPACE.bazel",
+      "MODULE.bazel",
+    ],
+    filePathPattern:
+      /(^|[/\\])(?:apps|packages|workspaces|monorepo|bazel)([/\\]|$)/iu,
+    signals: {
+      concerns: ["monorepo", "build-orchestration"],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /^nx\.json$/iu,
+        signals: { tooling: ["nx"] },
+      },
+      {
+        fileNamePattern: /^turbo\.json$/iu,
+        signals: { tooling: ["turborepo"] },
+      },
+      {
+        fileNamePattern: /^pnpm-workspace\.yaml$/iu,
+        signals: { packageManagers: ["pnpm"], tooling: ["pnpm-workspace"] },
+      },
+      {
+        fileNamePattern: /^(?:WORKSPACE|WORKSPACE\.bazel|MODULE\.bazel)$/iu,
+        signals: { tooling: ["bazel"] },
+      },
+    ],
+  },
+  {
+    id: "serverless-edge",
+    fileNames: [
+      "wrangler.toml",
+      "vercel.json",
+      "netlify.toml",
+      "serverless.yml",
+      "serverless.yaml",
+      "sst.config.ts",
+      "sst.config.js",
+      "firebase.json",
+      "samconfig.toml",
+      "deno.json",
+    ],
+    filePathPattern:
+      /(^|[/\\])(?:functions|lambda|edge|workers|cloudflare|netlify|vercel)([/\\]|$)/iu,
+    signals: {
+      concerns: ["serverless", "edge", "cloud", "infrastructure"],
+    },
+    conditionalSignals: [
+      {
+        fileNamePattern: /^wrangler\.toml$/iu,
+        signals: { tooling: ["cloudflare"] },
+      },
+      {
+        fileNamePattern: /^vercel\.json$/iu,
+        signals: { tooling: ["vercel"] },
+      },
+      {
+        fileNamePattern: /^netlify\.toml$/iu,
+        signals: { tooling: ["netlify"] },
+      },
+      {
+        fileNamePattern: /^serverless\.ya?ml$/iu,
+        signals: { tooling: ["lambda"] },
+      },
+    ],
+  },
+  {
+    id: "commerce-cms-platform",
+    fileNames: [
+      "shopify.app.toml",
+      "shopify.theme.toml",
+      "strapi.config.js",
+      "payload.config.ts",
+      "directus.config.ts",
+    ],
+    filePathPattern:
+      /(^|[/\\])(?:shopify|commerce|ecommerce|magento|woocommerce|strapi|payload|directus|contentful)([/\\]|$)/iu,
+    signals: {
+      concerns: ["commerce", "cms", "content-creation"],
+    },
+    conditionalSignals: [
+      {
+        filePathPattern: /(^|[/\\])shopify([/\\]|$)/iu,
+        signals: { tooling: ["shopify"] },
+      },
+    ],
+  },
+  {
     id: "security-rules",
     extensions: [".sarif", ".yara", ".yar", ".rego"],
     fileNames: [

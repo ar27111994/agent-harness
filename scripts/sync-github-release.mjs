@@ -28,7 +28,7 @@ export function getOptionValue(flagName, argv = process.argv) {
   return value;
 }
 
-function getRequiredEnvironmentValue(name) {
+export function getRequiredEnvironmentValue(name) {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required environment variable ${name}.`);
@@ -36,7 +36,7 @@ function getRequiredEnvironmentValue(name) {
   return value;
 }
 
-function resolveReleaseContext() {
+export function resolveReleaseContext() {
   const repo =
     getOptionValue("--repo") ??
     getRequiredEnvironmentValue("GITHUB_REPOSITORY");
@@ -67,7 +67,7 @@ function resolveReleaseContext() {
   };
 }
 
-async function githubRequest({
+export async function githubRequest({
   token,
   method,
   endpoint,
@@ -123,7 +123,7 @@ async function githubRequest({
   return response.json();
 }
 
-async function generateReleaseNotes(context) {
+export async function generateReleaseNotes(context) {
   const generated = await githubRequest({
     token: context.token,
     method: "POST",

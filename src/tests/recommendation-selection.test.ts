@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildCandidateRecommendation,
   buildCandidateRecommendationBase,
   buildPolicySearchContext,
+  computeEntryPreselectionScore,
 } from "../recommend/candidates.js";
 import { buildTopRecommendationsForHost } from "../recommend/selection.js";
 import { buildDemandContext } from "../recommend/signals.js";
@@ -402,6 +404,344 @@ void test("weak-only concern demand does not force coverage-gap fill", () => {
   assert.ok(!recommendations[0]?.reasons.includes("coverage-gap-fill"));
 });
 
+void test("specialized gates suppress non-mcp assets without matching demand", () => {
+  const policy = buildPolicy();
+  const demandContext = createEmptyDemandContext();
+  const policyContext = buildPolicySearchContext(policy);
+
+  const firebaseSkill = buildCandidateRecommendationBase(
+    buildCatalogEntry("firebase-helper", "skill", 80, {
+      capabilities: ["skill", "firebase"],
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+  const firebaseServer = buildCandidateRecommendationBase(
+    buildCatalogEntry("firebase-mcp", "mcp-server", 80, {
+      capabilities: ["mcp-server", "firebase"],
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+
+  assert.equal(firebaseSkill, null);
+  assert.notEqual(firebaseServer, null);
+});
+
+void test("design-system demand suppresses generic mobile-only assets", () => {
+  const policy = buildPolicy();
+  const demandContext = {
+    ...createEmptyDemandContext(),
+    demandKeywords: new Set(["penpot"]),
+  };
+
+  const base = buildCandidateRecommendationBase(
+    buildCatalogEntry("mobile-only", "skill", 50, {
+      capabilities: ["skill", "mobile", "android"],
+    }),
+    demandContext,
+    policy,
+    buildPolicySearchContext(policy),
+  );
+
+  assert.equal(base, null);
+});
+
+void test("dependency self-echo and host suppression remove low-value candidates", () => {
+  const policy = buildPolicy({
+    suppressedAssetIdPatterns: ["suppressed"],
+    suppressedCapabilityTerms: ["forbidden-term"],
+  });
+  const demandContext = {
+    ...createEmptyDemandContext(),
+    packageManifestEntries: new Set(["npm-echo-package"]),
+  };
+  const policyContext = buildPolicySearchContext(policy);
+
+  const selfEchoBase = buildCandidateRecommendationBase(
+    buildCatalogEntry("echo-package", "skill", 50, {
+      capabilities: ["skill", "backend"],
+      sourceKind: "package-registry",
+      manifestEntry: "npm:echo-package",
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+  const suppressedBase = buildCandidateRecommendationBase(
+    buildCatalogEntry("suppressed-skill", "skill", 50, {
+      capabilities: ["skill", "forbidden-term"],
+    }),
+    createEmptyDemandContext(),
+    policy,
+    policyContext,
+  );
+
+  assert.equal(selfEchoBase, null);
+  assert.notEqual(suppressedBase, null);
+  assert.equal(
+    buildCandidateRecommendation(
+      suppressedBase as CandidateRecommendationBase,
+      "copilot-vscode",
+      createEmptyDemandContext(),
+      policy,
+    ),
+    null,
+  );
+});
+
+void test("host deprioritization penalties and stale metadata affect recommendation totals", () => {
+  const policy = buildPolicy({
+    deprioritizedPenalty: 9,
+    deprioritizedAssetIdPatterns: ["slow"],
+  });
+  const demandContext = createEmptyDemandContext();
+  const policyContext = buildPolicySearchContext(policy);
+  const base = buildCandidateRecommendationBase(
+    buildCatalogEntry("slow-legacy-tool", "skill", 60, {
+      capabilities: ["skill", "typescript", "backend"],
+      publisher: "",
+      sourceId: "slow-legacy-tool",
+      sourceKind: "local-directory",
+      authorityTier: "trusted-local",
+      lastUpdated: "2000-01-01T00:00:00.000Z",
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+
+  assert.notEqual(base, null);
+  assert.equal(base?.sourceFamily, "slow-legacy-tool");
+  assert.equal(base?.recommendationBasis, "local-availability");
+  assert.ok((base?.breakdown.freshness ?? 0) < 0);
+
+  const candidate = buildCandidateRecommendation(
+    base as CandidateRecommendationBase,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+
+  assert.notEqual(candidate, null);
+  assert.equal(
+    candidate?.breakdown.negativePenalty,
+    (base?.breakdown.negativePenalty ?? 0) + 9,
+  );
+  assert.ok((candidate?.breakdown.total ?? 0) < (base?.breakdown.total ?? 0));
+});
+
+void test("selection enforces duplicate-group caps across different source families", () => {
+  const policy = buildPolicy({
+    recommendationLimit: 2,
+    maxPerSourceFamily: 5,
+    maxPerDuplicateGroup: 1,
+  });
+
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [
+      buildCatalogEntry("duplicate-a", "skill", 100, {
+        sourceId: "family-a",
+        duplicateGroup: "backend-group",
+      }),
+      buildCatalogEntry("duplicate-b", "skill", 99, {
+        sourceId: "family-b",
+        duplicateGroup: "backend-group",
+      }),
+      buildCatalogEntry("unique-c", "skill", 80, {
+        sourceId: "family-c",
+      }),
+    ],
+    createEmptyDemandContext(),
+    policy,
+  );
+
+  assert.equal(
+    recommendations.filter((entry) => entry.duplicateGroup === "backend-group")
+      .length,
+    1,
+  );
+});
+
+void test("selection prefers lower prompt weight and then stable ids on score ties", () => {
+  const policy = buildPolicy({ recommendationLimit: 2, activationBudget: 6 });
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [
+      buildCatalogEntry("z-heavy", "skill", 90, {
+        capabilities: ["skill", "backend", "apify"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+        installRelativePath: "heavy.md",
+      }),
+      buildCatalogEntry("a-light", "skill", 90, {
+        capabilities: ["skill", "backend", "apify"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+      }),
+      buildCatalogEntry("m-light", "skill", 90, {
+        capabilities: ["skill", "backend", "apify"],
+        fit: { portfolioFit: 0.55, hostFit: 1 },
+      }),
+    ].map((entry) =>
+      entry.id === "z-heavy"
+        ? {
+            ...entry,
+            contextCost: { sizeClass: "large", estimatedPromptWeight: 9 },
+          }
+        : {
+            ...entry,
+            contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+          },
+    ),
+    buildDemandContext(
+      createDemandProfile([
+        {
+          path: "package.json",
+          fileName: "package.json",
+          evidenceStrength: "strong",
+          matchedSignals: {
+            languages: [],
+            packageManagers: ["npm"],
+            frameworks: ["apify"],
+            concerns: ["backend"],
+            tooling: ["npm:apify"],
+          },
+        },
+      ]),
+      policy,
+    ),
+    policy,
+  );
+
+  assert.deepEqual(
+    recommendations.map((entry) => entry.assetId),
+    ["a-light", "m-light"],
+  );
+});
+
+void test("candidate base creation can build its own policy context and preserves signal evidence snapshots", () => {
+  const policy = buildPolicy();
+  policy.concernKeywordMap = { backend: ["backend"] };
+
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: ["npm"],
+          frameworks: ["apify"],
+          concerns: ["backend"],
+          tooling: ["npm:apify"],
+        },
+      },
+    ]),
+    policy,
+  );
+
+  const base = buildCandidateRecommendationBase(
+    buildCatalogEntry("apify-helper", "skill", 80, {
+      capabilities: ["skill", "apify", "backend", "npm:apify"],
+      fit: { portfolioFit: 0.55, hostFit: 1 },
+    }),
+    demandContext,
+    policy,
+  );
+
+  assert.notEqual(base, null);
+  assert.ok((base?.matchedSignals.length ?? 0) > 0);
+  const evidenceCounts = base?.matchedSignals[0]?.evidenceStrengthCounts;
+  assert.ok(evidenceCounts);
+  if (!evidenceCounts) {
+    throw new Error("expected evidence counts");
+  }
+  const originalStrongCount = evidenceCounts.strong;
+  const candidate = buildCandidateRecommendation(
+    base as CandidateRecommendationBase,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+  const candidateEvidenceCounts =
+    candidate?.matchedSignals[0]?.evidenceStrengthCounts;
+  assert.ok(candidateEvidenceCounts);
+  if (!candidateEvidenceCounts) {
+    throw new Error("expected candidate evidence counts");
+  }
+  candidateEvidenceCounts.strong = 999;
+  assert.equal(
+    base?.matchedSignals[0]?.evidenceStrengthCounts?.strong,
+    originalStrongCount,
+  );
+});
+
+void test("preselection scoring penalizes medium and high risk entries differently", () => {
+  const mediumRisk = buildCatalogEntry("medium-risk", "skill", 60, {
+    fit: { portfolioFit: 0.5, hostFit: 0.5 },
+  });
+  mediumRisk.risk.level = "medium";
+
+  const highRisk = buildCatalogEntry("high-risk", "skill", 60, {
+    fit: { portfolioFit: 0.5, hostFit: 0.5 },
+  });
+  highRisk.risk.level = "high";
+
+  assert.ok(
+    computeEntryPreselectionScore(mediumRisk) >
+      computeEntryPreselectionScore(highRisk),
+  );
+});
+
+void test("zero minimum coverage targets still allow recommendation ranking to proceed", () => {
+  const zeroMinimumPolicy = buildPolicy({
+    recommendationLimit: 1,
+    targetAssetKinds: [{ assetKind: "skill", minimum: 0, weight: 500 }],
+  });
+
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [buildCatalogEntry("skill-entry", "skill", 10)],
+    createEmptyDemandContext(),
+    zeroMinimumPolicy,
+  );
+
+  assert.equal(recommendations[0]?.assetId, "skill-entry");
+});
+
+void test("candidate freshness handles invalid and mid-age timestamps", () => {
+  const policy = buildPolicy();
+  policy.scoring.freshness.unknownPenalty = 7;
+  policy.scoring.freshness.recentBoost = 2;
+  policy.scoring.freshness.stalePenalty = 3;
+  policy.scoring.freshness.recentDays = 30;
+  policy.scoring.freshness.staleDays = 365;
+  const policyContext = buildPolicySearchContext(policy);
+
+  const invalidDateBase = buildCandidateRecommendationBase(
+    buildCatalogEntry("invalid-date", "skill", 50, {
+      lastUpdated: "not-a-date",
+    }),
+    createEmptyDemandContext(),
+    policy,
+    policyContext,
+  );
+  const midAgeBase = buildCandidateRecommendationBase(
+    buildCatalogEntry("mid-age", "skill", 50, {
+      lastUpdated: "2025-12-31T00:00:00.000Z",
+    }),
+    createEmptyDemandContext(),
+    policy,
+    policyContext,
+  );
+
+  assert.equal(invalidDateBase?.breakdown.freshness, -7);
+  assert.equal(midAgeBase?.breakdown.freshness, 0);
+});
+
 function buildRecommendationsForTest(
   host: "copilot-vscode",
   entries: AssetCatalogEntry[],
@@ -513,6 +853,9 @@ function buildCatalogEntry(
     evidenceFilePath?: string;
     fit?: { portfolioFit: number; hostFit: number };
     installRelativePath?: string;
+    lastUpdated?: string;
+    manifestEntry?: string;
+    publisher?: string;
     sourceId?: string;
     sourceKind?: AssetCatalogEntry["source"]["sourceKind"];
   } = {},
@@ -532,7 +875,7 @@ function buildCatalogEntry(
       sourceKind: options.sourceKind ?? "repo",
       sourcePriority,
       originUrl: `https://example.com/${id}`,
-      publisher: sourceId,
+      publisher: options.publisher ?? sourceId,
       publisherVerified: isPublisherVerifiedForAuthorityTier(authorityTier),
     },
     trust: {
@@ -543,6 +886,7 @@ function buildCatalogEntry(
     install: {
       method: "local-file",
       relativePath: options.installRelativePath,
+      manifestEntry: options.manifestEntry,
     },
     evidence: {
       manifestFound: true,
@@ -552,7 +896,7 @@ function buildCatalogEntry(
       filePath: options.evidenceFilePath,
     },
     maintenance: {
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: options.lastUpdated ?? new Date().toISOString(),
       stars: 0,
       releaseCadence: "test",
     },

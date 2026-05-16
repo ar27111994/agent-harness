@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   createDirectoryLink,
   ensureDirectory,
+  pathExists,
   readJsonLinesFile,
   readTextFileOrNull,
   removeManagedSection,
@@ -100,6 +101,24 @@ void test("writeJsonLinesFile replaces an existing destination file", async () =
 
     const roundTripped = await readJsonLinesFile<{ id: string }>(filePath);
     assert.deepEqual(roundTripped, [{ id: "second" }]);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("writeJsonLinesFile removes temporary file when serialization fails", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+
+  try {
+    const filePath = join(root, "state.jsonl");
+
+    await assert.rejects(
+      writeJsonLinesFile(filePath, [{ id: 1n } as never]),
+      /serialize a BigInt/u,
+    );
+
+    assert.equal(await pathExists(filePath), false);
+    assert.equal(await pathExists(`${filePath}.next`), false);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

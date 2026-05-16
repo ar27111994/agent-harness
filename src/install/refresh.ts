@@ -623,6 +623,19 @@ function printInstallRefreshReport(
 }
 
 /**
+ * Exposes narrow install refresh internals for focused scheduling and apply tests.
+ */
+export const installRefreshInternals = {
+  isInstallRefreshDue,
+  parseInstallHost,
+  refreshMirrorState,
+  decideInstallRefreshPolicy,
+  collectNativeRefreshExtensionIds,
+  applyNativeRefreshes,
+  applyBundleRefreshes,
+};
+
+/**
  * Exposes the supported install refresh policy values for CLI/config validation.
  */
 export const installRefreshPolicies = [...INSTALL_REFRESH_POLICIES];

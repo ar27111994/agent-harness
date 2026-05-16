@@ -896,6 +896,157 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
     signals: { concerns: ["frontend"], tooling: ["frontend-tooling"] },
   },
   {
+    id: "monorepo-build-systems",
+    packages: {
+      npm: ["nx", "turbo", "@microsoft/rush", "lage", "@bazel/bazelisk"],
+    },
+    packagePrefixes: { npm: ["@nx/", "@nrwl/"] },
+    textMarkers: ["turborepo", "pnpm-workspace", "yarn workspaces"],
+    signals: {
+      concerns: ["monorepo", "build-orchestration"],
+      tooling: ["nx", "turborepo", "rush", "bazel"],
+    },
+  },
+  {
+    id: "serverless-edge-platforms",
+    packages: {
+      npm: [
+        "wrangler",
+        "@cloudflare/workers-types",
+        "vercel",
+        "netlify-cli",
+        "sst",
+        "serverless",
+        "firebase-functions",
+      ],
+      pypi: [
+        "azure-functions",
+        "google-cloud-functions",
+        "functions-framework",
+      ],
+    },
+    packagePrefixes: { npm: ["@vercel/", "@netlify/", "@cloudflare/"] },
+    textMarkers: [
+      "cloudflare workers",
+      "vercel edge",
+      "netlify functions",
+      "aws lambda",
+      "deno deploy",
+      "cloud run",
+    ],
+    signals: {
+      concerns: ["serverless", "edge", "cloud", "infrastructure"],
+      tooling: ["cloudflare", "vercel", "netlify", "lambda"],
+    },
+  },
+  {
+    id: "cross-platform-mobile",
+    packages: {
+      npm: [
+        "react-native",
+        "expo",
+        "ionic",
+        "@capacitor/core",
+        "@react-native-community/cli",
+      ],
+      maven: [
+        "org.jetbrains.kotlin.multiplatform:org.jetbrains.kotlin.multiplatform.gradle.plugin",
+      ],
+    },
+    packagePrefixes: {
+      npm: ["@react-native/", "@expo/", "@ionic/", "@capacitor/"],
+    },
+    textMarkers: ["react native", "swiftui", "kotlin multiplatform"],
+    signals: {
+      concerns: ["mobile", "frontend"],
+      tooling: ["react-native", "expo", "ionic", "capacitor", "swiftui"],
+    },
+  },
+  {
+    id: "agentic-ai-frameworks",
+    packages: {
+      npm: ["ai", "mastra", "langgraph", "@genkit-ai/core"],
+      pypi: [
+        "langgraph",
+        "crewai",
+        "pyautogen",
+        "semantic-kernel",
+        "haystack-ai",
+        "dspy-ai",
+        "genkit",
+      ],
+    },
+    packagePrefixes: { npm: ["@ai-sdk/", "@mastra/"], pypi: ["llama-index"] },
+    textMarkers: ["ai agent", "agentic workflow", "vercel ai sdk"],
+    signals: {
+      concerns: ["ai", "ai-agent", "rag", "model-serving"],
+      tooling: ["ai-sdk", "langgraph", "crewai", "semantic-kernel"],
+    },
+  },
+  {
+    id: "commerce-cms-platforms",
+    packages: {
+      npm: [
+        "@shopify/shopify-api",
+        "@shopify/hydrogen",
+        "@strapi/strapi",
+        "payload",
+        "directus",
+        "@sanity/client",
+        "contentful",
+      ],
+      packagist: [
+        "magento/product-community-edition",
+        "automattic/woocommerce",
+      ],
+    },
+    packagePrefixes: { npm: ["@shopify/", "@strapi/", "@payloadcms/"] },
+    textMarkers: ["shopify", "magento", "adobe commerce", "woocommerce"],
+    signals: {
+      concerns: ["commerce", "cms", "content-creation"],
+      tooling: ["shopify", "strapi", "payload-cms", "directus", "contentful"],
+    },
+  },
+  {
+    id: "workflow-orchestration",
+    packages: {
+      npm: ["@temporalio/client", "@temporalio/worker", "kafkajs"],
+      pypi: [
+        "airbyte",
+        "meltano",
+        "dagster",
+        "prefect",
+        "temporalio",
+        "apache-flink",
+      ],
+    },
+    packagePrefixes: { pypi: ["dbt-"] },
+    textMarkers: ["workflow orchestration", "airbyte", "meltano", "temporal"],
+    signals: {
+      concerns: [
+        "data-engineering",
+        "orchestration",
+        "workflow-orchestration",
+        "streaming",
+      ],
+      tooling: ["airbyte", "meltano", "dagster", "prefect", "temporal"],
+    },
+  },
+  {
+    id: "desktop-apps",
+    packages: {
+      npm: ["electron", "@tauri-apps/api"],
+      go: ["github.com/wailsapp/wails/v2"],
+      nuget: ["Avalonia", "Avalonia.Controls", "Microsoft.Maui.Controls"],
+    },
+    packagePrefixes: { npm: ["@electron/", "@tauri-apps/"] },
+    textMarkers: ["desktop app", "tauri", "wails", "avalonia", "qt"],
+    signals: {
+      concerns: ["desktop", "frontend"],
+      tooling: ["electron", "tauri", "wails", "avalonia", "qt"],
+    },
+  },
+  {
     id: "java-backend",
     packages: {
       maven: [

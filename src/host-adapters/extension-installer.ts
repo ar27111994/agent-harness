@@ -308,3 +308,13 @@ function formatCommandToken(value: string): string {
 function quoteFormattedCommand(value: string): string {
   return `"${value.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
 }
+
+/**
+ * Exposes pure extension-installer helpers for focused behavioral coverage.
+ */
+export const extensionInstallerInternals = {
+  buildExecutableCandidates,
+  formatCommand,
+  shouldRunCandidateThroughShell,
+  toNativeCommandResult,
+};

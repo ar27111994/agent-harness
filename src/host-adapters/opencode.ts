@@ -614,3 +614,13 @@ function toLoggableErrorMessage(error: unknown): string {
 
   return String(error);
 }
+
+/**
+ * Exposes focused OpenCode wire helpers for behavioral coverage.
+ */
+export const openCodeWireInternals = {
+  materializeOpenCodeLinkedAsset,
+  validateManagedTextFileSnapshots,
+  restoreManagedTextFileSnapshot,
+  toLoggableErrorMessage,
+};

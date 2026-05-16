@@ -839,6 +839,41 @@ void test("demand profiles ignore agent metadata directories by default", async 
   }
 });
 
+void test("demand profile skips non-signal evidence and sorts matched evidence paths", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-demand-profile-sort-"),
+  );
+
+  try {
+    await writeFixtureFiles(root, [
+      {
+        path: "z-app/package.json",
+        content: JSON.stringify({
+          dependencies: { typescript: "^5.0.0" },
+          packageManager: "pnpm@9.0.0",
+        }),
+      },
+      { path: "a-app/requirements.txt", content: "fastapi==0.110.0\n" },
+      { path: "docs/notes.md", content: "\n" },
+      { path: "gradle/settings.gradle", content: "\n" },
+      { path: "ignored/asset.bin", content: "\n" },
+    ]);
+
+    const profile = await buildDemandProfile(root);
+
+    assert.equal(profile.summary.scannedFiles, 5);
+    assert.deepEqual(
+      profile.evidence.map((entry) => entry.path),
+      ["a-app/requirements.txt", "docs/notes.md", "z-app/package.json"],
+    );
+    assert.ok(profile.signals.packageManagers.includes("pnpm"));
+    assert.ok(profile.signals.tooling.includes("pypi:fastapi"));
+    assert.ok(profile.signals.tooling.includes("typescript"));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 async function writeFixtureFiles(
   root: string,
   files: Array<{ path: string; content: string }>,

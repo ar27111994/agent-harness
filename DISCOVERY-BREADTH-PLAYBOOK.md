@@ -43,7 +43,7 @@ Common failures:
 - manifests filtered by `.gitignore`, `.ignore`, or `.agent-harnessignore`
 - weak evidence for a real stack that is mostly implicit
 
-If the demand profile is the bottleneck, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md).
+If the demand profile is the bottleneck, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) and check the audited coverage matrix in [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md).
 
 ### 2. Discovery source coverage
 
@@ -141,6 +141,8 @@ Use this rule of thumb:
 - **Catalog is broad but selected set is small** -> selection is the bottleneck
 - **Selected set is healthy but recommendations still miss obvious tools** -> ranking/policy is the bottleneck, not breadth
 
+Do not increase recommendation limits just because output feels narrow. Use default host limits for normal first runs, `preserve` mode only when you need a longer ranked report, and `scale` mode only for deep audits of large/polyglot workspaces where related caps and minimums should grow too. Confirm the effective mode with `agent-harness recommend policy:print --host <host>`.
+
 ### Step 4. Widen the discovery universe if the checked-in sources are still not enough
 
 Edit the active state-root discovery inputs, then rerun discovery:
@@ -194,6 +196,7 @@ Required workflow:
   - `discover/official-skills-indexes.json`
   - `discover/official-upstreams.json`
 - Do not recommend policy changes until you have shown whether the bottleneck is source coverage or ranking.
+- If a limit override is suggested, state whether it should be no override, `preserve`, or `scale`, and justify it with artifacts.
 
 When ready, give me:
 - a short diagnosis

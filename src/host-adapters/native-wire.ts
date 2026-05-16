@@ -1762,3 +1762,18 @@ function mergeStringArraysPreservingOrder(
 
   return mergedValues;
 }
+
+/**
+ * Exposes focused native wire helpers for behavioral coverage.
+ */
+export const nativeWireInternals = {
+  cleanupFailedNativeHostApply,
+  describeJsonValue,
+  mergeJsonObjects,
+  mergeStringArraysPreservingOrder,
+  nativeHostSpecs: NATIVE_HOST_SPECS,
+  removeEmptyParentDirectories,
+  removeManagedStringArrayEntries,
+  toLoggableErrorMessage,
+  validateManagedTextFileSnapshots,
+};

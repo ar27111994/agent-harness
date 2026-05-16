@@ -1120,6 +1120,38 @@ function asJsonObject(value: unknown): Record<string, unknown> | null {
 }
 
 /**
+ * Narrow internal surface for deterministic helper coverage.
+ *
+ * These helpers stay module-local implementation details for production flows,
+ * but are exported so tests can exercise parser/sanitizer branches without
+ * having to tunnel every case through the network orchestration path.
+ */
+export const aiEnrichmentInternals = {
+  buildDemandProfileFingerprint,
+  buildAiEnrichmentMessages,
+  buildCachedAiEnrichmentArtifact,
+  buildMissingAiEnrichmentConfigMessage,
+  buildAiEnrichmentSuggestion,
+  evaluateAutomaticPolicySkip,
+  extractAiEnrichmentMessageContent,
+  extractProviderOrigin,
+  fetchAiEnrichmentResponse,
+  hasAiEnrichmentConfig,
+  isCiEnvironment,
+  isInteractiveTerminal,
+  normalizeConfiguredUrl,
+  parseAiEnrichmentContent,
+  parseAiEnrichmentResponse,
+  sanitizeAiEnrichmentContent,
+  sanitizeStringList,
+  sanitizeSummary,
+  shouldAutomaticallyRunAiEnrichment,
+  sleep,
+  asJsonObject,
+  asUnknownArray,
+};
+
+/**
  * Preserves the original low-level explicit enrichment entrypoint for programmatic callers.
  */
 export async function writeAiEnrichmentReport(

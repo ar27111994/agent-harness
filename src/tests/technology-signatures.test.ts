@@ -176,6 +176,39 @@ void test("technology signatures avoid over-classifying common technical package
   assert.ok(!signals.concerns.includes("data-mining"));
 });
 
+void test("technology signatures detect modern workspace platforms", () => {
+  const signals = createEmptySignalSet();
+
+  applyTechnologySignatures(signals, {
+    dependencyNames: [
+      "nx",
+      "wrangler",
+      "react-native",
+      "expo",
+      "mastra",
+      "@shopify/shopify-api",
+      "@temporalio/client",
+      "electron",
+    ],
+    ecosystem: "npm",
+    text: "cloudflare workers vercel edge ai agent workflow orchestration desktop app",
+  });
+
+  assert.ok(signals.concerns.includes("monorepo"));
+  assert.ok(signals.concerns.includes("build-orchestration"));
+  assert.ok(signals.concerns.includes("serverless"));
+  assert.ok(signals.concerns.includes("edge"));
+  assert.ok(signals.concerns.includes("mobile"));
+  assert.ok(signals.concerns.includes("ai-agent"));
+  assert.ok(signals.concerns.includes("commerce"));
+  assert.ok(signals.concerns.includes("workflow-orchestration"));
+  assert.ok(signals.concerns.includes("desktop"));
+  assert.ok(signals.tooling.includes("cloudflare"));
+  assert.ok(signals.tooling.includes("react-native"));
+  assert.ok(signals.tooling.includes("shopify"));
+  assert.ok(signals.tooling.includes("temporal"));
+});
+
 void test("technology signatures detect MLOps, creative, security, and content stacks", () => {
   const signals = createEmptySignalSet();
 

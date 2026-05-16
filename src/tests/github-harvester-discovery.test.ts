@@ -1,0 +1,256 @@
+import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import test from "node:test";
+
+import { harvestGitHubRepoSource } from "../domains/discovery/github-harvester.js";
+import type { SelectionRegistry, SourceDefinition } from "../types.js";
+
+void test("github harvester classifies repository artifacts and carries repository trust evidence", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-harvester-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://api.github.com/repos/acme/toolbox") {
+      return jsonResponse({
+        name: "toolbox",
+        full_name: "acme/toolbox",
+        description: "Repository with installable agent assets",
+        default_branch: "main",
+        updated_at: "2026-05-15T00:00:00.000Z",
+        pushed_at: "2026-05-15T00:00:00.000Z",
+        stargazers_count: 321,
+        language: "TypeScript",
+        topics: ["agent", "tooling"],
+        archived: false,
+        html_url: "https://github.com/acme/toolbox",
+      });
+    }
+
+    if (
+      url ===
+      "https://api.github.com/repos/acme/toolbox/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          { path: "skills/repo-guide/SKILL.md", type: "blob", sha: "1" },
+          { path: "agents/security.md", type: "blob", sha: "2" },
+          { path: "docs/reference.md", type: "blob", sha: "3" },
+          {
+            path: "plugins/acme/.cursor-plugin/plugin.json",
+            type: "blob",
+            sha: "4",
+          },
+          { path: "hooks/audit.js", type: "blob", sha: "5" },
+          { path: "mcp-server/index.ts", type: "blob", sha: "6" },
+          { path: "SECURITY.md", type: "blob", sha: "7" },
+          { path: "LICENSE", type: "blob", sha: "8" },
+          { path: ".github/workflows/ci.yml", type: "blob", sha: "9" },
+          { path: "tests/repo-guide.test.ts", type: "blob", sha: "10" },
+        ],
+      });
+    }
+
+    if (url === "https://api.github.com/repos/acme/toolbox/readme") {
+      return jsonResponse({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 120,
+        html_url: "https://github.com/acme/toolbox/blob/main/README.md",
+        download_url:
+          "https://raw.githubusercontent.com/acme/toolbox/main/README.md",
+      });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const entries = await harvestGitHubRepoSource(
+    buildSource(),
+    null,
+    buildSelectionRegistry(),
+    projectRoot,
+  );
+  const byPath = new Map(
+    entries.map((entry) => [entry.install.relativePath, entry]),
+  );
+
+  assert.equal(byPath.get("skills/repo-guide/SKILL.md")?.assetKind, "skill");
+  assert.equal(byPath.get("agents/security.md")?.assetKind, "agent");
+  assert.equal(byPath.get("docs/reference.md")?.assetKind, "reference-pack");
+  assert.equal(
+    byPath.get("plugins/acme/.cursor-plugin/plugin.json")?.assetKind,
+    "plugin",
+  );
+  assert.equal(byPath.get("hooks/audit.js")?.assetKind, "hook");
+  assert.equal(byPath.get("mcp-server/index.ts")?.assetKind, "mcp-server");
+  assert.deepEqual(byPath.get("mcp-server/index.ts")?.hosts, ["shared"]);
+  assert.equal(byPath.get("hooks/audit.js")?.risk.level, "medium");
+  assert.equal(
+    byPath.get("plugins/acme/.cursor-plugin/plugin.json")?.risk.hasExecScripts,
+    true,
+  );
+  assert.ok(
+    byPath
+      .get("skills/repo-guide/SKILL.md")
+      ?.trust.signals.includes("security-policy-present"),
+  );
+  assert.ok(
+    byPath
+      .get("skills/repo-guide/SKILL.md")
+      ?.trust.signals.includes("license-present"),
+  );
+  assert.ok(
+    byPath
+      .get("skills/repo-guide/SKILL.md")
+      ?.trust.signals.includes("ci-workflows-present"),
+  );
+  assert.ok(
+    byPath
+      .get("skills/repo-guide/SKILL.md")
+      ?.trust.signals.includes("tests-present"),
+  );
+});
+
+void test("github harvester skips truncated repository trees", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-harvester-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://api.github.com/repos/acme/toolbox") {
+      return jsonResponse({
+        name: "toolbox",
+        full_name: "acme/toolbox",
+        description: null,
+        default_branch: "main",
+        updated_at: "2026-05-15T00:00:00.000Z",
+        pushed_at: "2026-05-15T00:00:00.000Z",
+        stargazers_count: 0,
+        language: null,
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/acme/toolbox",
+      });
+    }
+
+    if (
+      url ===
+      "https://api.github.com/repos/acme/toolbox/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({ sha: "tree-sha", truncated: true, tree: [] });
+    }
+
+    if (url === "https://api.github.com/repos/acme/toolbox/readme") {
+      return new Response(null, { status: 404 });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const entries = await harvestGitHubRepoSource(
+    buildSource(),
+    null,
+    buildSelectionRegistry(),
+    projectRoot,
+  );
+
+  assert.deepEqual(entries, []);
+});
+
+function buildSource(): SourceDefinition {
+  return {
+    id: "github-source",
+    name: "github-source",
+    kind: "repo",
+    authorityTier: "trusted-community",
+    publisher: { name: "acme", verified: false, owner: "acme" },
+    hosts: ["cursor"],
+    assetKinds: [
+      "skill",
+      "agent",
+      "instruction",
+      "workflow",
+      "plugin",
+      "hook",
+      "mcp-server",
+      "reference-pack",
+    ],
+    discoveryMode: "catalog",
+    priority: 80,
+    enabled: true,
+    endpoints: { repo: "https://github.com/acme/toolbox" },
+    rules: {
+      officialPreferred: true,
+      allowMirror: true,
+      allowInstall: true,
+    },
+  };
+}
+
+function buildSelectionRegistry(): SelectionRegistry {
+  return {
+    schemaVersion: 1,
+    selectionPolicies: {
+      officialBeatsPopularity: true,
+      starsAreTieBreakerOnly: true,
+      preferNativeOverAdaptable: true,
+      preferLowerRiskWhenEquivalent: true,
+      preferLowerContextCostWhenEquivalent: true,
+      communityDefaultPolicy: "catalog-only-unless-promoted",
+    },
+    rankingOrder: [],
+    duplicateGroups: [],
+  };
+}
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
+}

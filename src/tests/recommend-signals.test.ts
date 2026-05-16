@@ -133,6 +133,170 @@ void test("recommend demand context keeps session intent signals without a deman
   assert.ok(demandContext.demandKeywords.has("kubernetes"));
 });
 
+void test("recommend signal helpers canonicalize search terms and add inferred task modes", async () => {
+  const {
+    buildCoverageTags,
+    buildDuplicateGroup,
+    buildSearchTerms,
+    buildTaskModes,
+    computeOutOfDomainPenalty,
+    shouldEnforceConcernTarget,
+  } = await import("../recommend/signals.js");
+
+  const policy = buildPolicy();
+  policy.concernKeywordMap = {
+    backend: ["api", "service"],
+    integration: ["workflow"],
+    docs: ["guide"],
+  };
+  policy.taskModeKeywordMap = {
+    automation: ["workflow"],
+    research: ["guide"],
+  };
+  policy.domainKeywordGroups = {
+    mobile: ["android"],
+    backend: ["api"],
+  };
+  policy.synonyms = {
+    backend: ["api-services"],
+  };
+
+  const demandContext = buildDemandContext(
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      scanRoot: "C:/fixture",
+      summary: { scannedFiles: 1, matchedFiles: 1 },
+      signals: {
+        languages: [],
+        packageManagers: [],
+        frameworks: [],
+        concerns: ["backend"],
+        tooling: [],
+      },
+      evidence: [
+        {
+          path: "README.md",
+          fileName: "README.md",
+          evidenceStrength: "medium",
+          matchedSignals: {
+            languages: [],
+            packageManagers: [],
+            frameworks: [],
+            concerns: ["backend"],
+            tooling: [],
+          },
+        },
+      ],
+    },
+    policy,
+    ["backend", "docs"],
+  );
+
+  const searchTerms = buildSearchTerms(
+    ["API services", "Workflow guide", "mobile/android"],
+    policy,
+  );
+  const matchedSignals = collectMatchedSignals(
+    searchTerms,
+    demandContext,
+    policy,
+  );
+  const concernTermSets = new Map(
+    Object.entries(policy.concernKeywordMap).map(([key, values]) => [
+      key,
+      buildSearchTerms(values, policy),
+    ]),
+  );
+  const taskModeTermSets = new Map(
+    Object.entries(policy.taskModeKeywordMap).map(([key, values]) => [
+      key,
+      buildSearchTerms(values, policy),
+    ]),
+  );
+  const domainGroupTermSets = new Map(
+    Object.entries(policy.domainKeywordGroups).map(([key, values]) => [
+      key,
+      buildSearchTerms(values, policy),
+    ]),
+  );
+
+  const coverageTags = buildCoverageTags(
+    searchTerms,
+    matchedSignals,
+    concernTermSets,
+  );
+  const taskModes = buildTaskModes(
+    searchTerms,
+    coverageTags,
+    matchedSignals,
+    taskModeTermSets,
+    { sizeClass: "small", estimatedPromptWeight: 2 },
+  );
+
+  assert.ok(searchTerms.has("backend"));
+  assert.ok(searchTerms.has("workflow"));
+  assert.deepEqual(coverageTags, ["backend", "docs", "integration"]);
+  assert.deepEqual(taskModes, [
+    "automation",
+    "broad",
+    "focused",
+    "implementation",
+    "research",
+  ]);
+  assert.equal(
+    buildDuplicateGroup("skill", matchedSignals, coverageTags),
+    "skill:backend",
+  );
+  assert.equal(
+    buildDuplicateGroup("skill", [], coverageTags, "existing-group"),
+    "existing-group",
+  );
+  assert.equal(
+    computeOutOfDomainPenalty(
+      searchTerms,
+      demandContext,
+      domainGroupTermSets,
+      7,
+    ),
+    14,
+  );
+  assert.equal(
+    shouldEnforceConcernTarget("api-services", demandContext, policy),
+    true,
+  );
+});
+
+void test("recommend signal weighting preserves zero-weight evidence buckets", () => {
+  const matches = collectMatchedSignals(
+    new Set(["placeholder"]),
+    {
+      terms: [
+        {
+          key: "concerns:placeholder",
+          canonicalTerm: "placeholder",
+          signalType: "concerns",
+          evidenceCount: 0,
+          evidenceStrengthCounts: {
+            strong: 0,
+            medium: 0,
+            weak: 0,
+          },
+          matchTerms: new Set(["placeholder"]),
+        },
+      ],
+      hasSignals: true,
+      activeDomainGroups: new Set<string>(),
+      packageManifestEntries: new Set<string>(),
+      demandKeywords: new Set(["placeholder"]),
+    },
+    buildPolicy(),
+  );
+
+  assert.equal(matches[0]?.weightedEvidenceCount, 0);
+  assert.equal(matches[0]?.weight, 1);
+});
+
 function buildPolicy(): RecommendationPolicy {
   const hostPolicy: RecommendationHostPolicy = {
     recommendationLimit: 20,

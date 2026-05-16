@@ -68,12 +68,6 @@ export async function manageNativeInstall(
     return;
   }
 
-  const diagnostics = await runNativeInstallPreflight(adapter);
-  if (diagnostics.length > 0) {
-    console.log(formatPreflightDiagnostics(diagnostics));
-  }
-  assertNoPreflightErrors(diagnostics);
-
   if ((operation === "install" || operation === "remove") && !apply) {
     console.log(
       `Native ${operation} is mutating. Re-run with --apply to execute it.`,
@@ -81,6 +75,12 @@ export async function manageNativeInstall(
     printNativeInstallPlan(adapter, actions);
     return;
   }
+
+  const diagnostics = await runNativeInstallPreflight(adapter);
+  if (diagnostics.length > 0) {
+    console.log(formatPreflightDiagnostics(diagnostics));
+  }
+  assertNoPreflightErrors(diagnostics);
 
   const results: NativeInstallResult[] = [];
   for (const action of actions) {
@@ -183,3 +183,11 @@ function parseNativeInstallOperation(value: string): NativeInstallCliOperation {
     `Invalid native install operation '${value}'. Must be one of: plan, install, verify, remove.`,
   );
 }
+
+/**
+ * Exposes narrow native install internals for focused asset collection tests.
+ */
+export const installNativeInternals = {
+  collectNativeInstallAssets,
+  parseNativeInstallOperation,
+};

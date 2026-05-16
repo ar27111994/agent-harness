@@ -737,3 +737,21 @@ function getErrorMessage(error: unknown): string {
 
   return String(error);
 }
+
+/**
+ * Exposes narrow GitHub internals for focused behavioral coverage.
+ */
+export const githubInternals = {
+  assertGitHubSourceHealthState,
+  fetchGitHubJson,
+  fetchGitHubJsonOptional,
+  parseGitHubJsonResponse,
+  fetchGitHubResponse,
+  captureRateLimit,
+  isRateLimited,
+  updateGitHubSourceHealth,
+  readGitHubRepoSnapshotCache,
+  waitForRetry,
+  buildRateLimitMessage,
+  getErrorMessage,
+};

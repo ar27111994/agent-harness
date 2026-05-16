@@ -1850,3 +1850,58 @@ function stringifyUnknown(value: unknown): string | undefined {
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+/**
+ * Narrow helper exports for deterministic source-sync coverage.
+ *
+ * These helpers are intentionally pure and production-safe; exporting them lets
+ * tests cover structural equality and cursor restoration behavior without
+ * overfitting large end-to-end fixtures for every branch.
+ */
+export const sourceSyncInternals = {
+  areIndexedCatalogEntriesEqual,
+  stableStringify,
+  sortJsonValue,
+  classifyNonIndexedSource,
+  resolveNuGetSearchQueryServiceUrl,
+  syncSitemapPackageRegistrySource,
+  syncHtmlPackageRegistrySource,
+  syncMcpRegistrySource,
+  syncNpmRegistrySource,
+  syncCargoRegistrySource,
+  syncGoRegistrySource,
+  syncMavenRegistrySource,
+  syncNuGetRegistrySource,
+  buildMcpRegistryCatalogEntry,
+  isLatestMcpRegistryEntry,
+  getMcpRegistryUpdatedAt,
+  buildMcpRegistryOriginUrl,
+  extractMcpRegistryRemoteTypes,
+  fetchRequiredText,
+  fetchRequiredJson,
+  resolveSitemapLeafUrls,
+  parseSitemapIndex,
+  parseUrlSet,
+  toSameOriginUrl,
+  stripUrlQueryAndHash,
+  isAllowedOriginUrl,
+  dedupeUrls,
+  getAllowedOrigins,
+  getAllowedOrigin,
+  getPreviousCursorStates,
+  restoreFiniteCursorState,
+  parsePositiveIntegerToken,
+  parseNonNegativeIntegerToken,
+  countEntriesForSource,
+  buildDisplayNameFromUrl,
+  buildManifestEntryFromUrl,
+  decodePathSegments,
+  extractPypiPackageNameFromUrl,
+  extractSwiftPackageNameFromUrl,
+  normalizeStringArray,
+  asRecord,
+  getString,
+  getNumber,
+  stringifyUnknown,
+  getErrorMessage,
+};

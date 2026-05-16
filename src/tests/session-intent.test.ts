@@ -29,12 +29,22 @@ void test("session intents expose the expanded supported taxonomy", () => {
 });
 
 void test("session intent parsing accepts common aliases for expanded workflows", () => {
+  assert.equal(parseSessionIntent(undefined), "general");
+  assert.equal(parseSessionIntent("   "), "general");
   assert.equal(parseSessionIntent("documentation"), "docs");
   assert.equal(parseSessionIntent("ci-cd"), "devops");
   assert.equal(parseSessionIntent("branding"), "design");
   assert.equal(parseSessionIntent("ba"), "product");
   assert.equal(parseSessionIntent("planning"), "product");
   assert.equal(parseSessionIntent("product-research"), "product");
+  assert.throws(
+    () => parseSessionIntent("definitely-not-valid", "--session-intent"),
+    /Invalid --session-intent value 'definitely-not-valid'/u,
+  );
+  assert.throws(
+    () => parseSessionIntent("still-not-valid", "--intent"),
+    /Invalid --intent value 'still-not-valid'/u,
+  );
 });
 
 void test("session intents inject domain-specific concern, keyword, and task-mode hints", () => {
@@ -87,10 +97,26 @@ void test("session intent recommendation matching works for new intent families"
   );
   assert.equal(
     recommendationMatchesSessionIntent({
+      intent: "research",
+      coverageTags: [],
+      taskModes: ["analysis"],
+    }),
+    true,
+  );
+  assert.equal(
+    recommendationMatchesSessionIntent({
       intent: "marketing",
       coverageTags: ["content-marketing"],
       taskModes: ["marketing"],
     }),
     true,
+  );
+  assert.equal(
+    recommendationMatchesSessionIntent({
+      intent: "backend",
+      coverageTags: ["frontend"],
+      taskModes: ["focused"],
+    }),
+    false,
   );
 });

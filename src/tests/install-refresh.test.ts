@@ -5,15 +5,19 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  createContentHash,
   pathExists,
   readJsonFile,
   writeJsonFile,
   writeJsonLinesFile,
+  writeTextFile,
 } from "../files.js";
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { manageInstallRefresh } from "../install/refresh.js";
 import {
   INSTALL_REFRESH_REPORT_OUTPUT_PATH,
   INSTALL_REFRESH_STATE_OUTPUT_PATH,
+  NATIVE_INSTALL_STATE_OUTPUT_PATH,
 } from "../install/paths.js";
 import {
   assertInstallRefreshReport,
@@ -26,6 +30,7 @@ import type {
   InstallGenerationManifest,
   InstallRefreshReport,
   InstallRefreshState,
+  InstalledBundleManifest,
   InstalledPackageManifest,
   MirrorIndexEntry,
 } from "../types.js";
@@ -419,4 +424,535 @@ void test("install refresh due-only skips runs before the next scheduled check",
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
+});
+
+async function writeMirrorArtifact(
+  projectRoot: string,
+  mirrorId: string,
+  entry: AssetCatalogEntry,
+): Promise<string> {
+  const rawRoot = join(
+    projectRoot,
+    "mirror",
+    "raw",
+    sanitizeMirrorId(mirrorId),
+  );
+  const files = [
+    {
+      relativePath: "content.txt",
+      content: `fixture:${entry.id}\n`,
+    },
+    {
+      relativePath: "asset.json",
+      content: `${JSON.stringify(entry, null, 2)}\n`,
+    },
+  ].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  const manifestFiles = files.map((file) => ({
+    relativePath: file.relativePath,
+    sha256: createContentHash(file.content),
+    sizeBytes: Buffer.byteLength(file.content),
+  }));
+  const aggregateHash = createContentHash(
+    manifestFiles
+      .map((file) =>
+        [file.relativePath, file.sha256, String(file.sizeBytes), ""].join("\0"),
+      )
+      .join("\n"),
+  );
+
+  for (const file of files) {
+    await writeTextFile(join(rawRoot, file.relativePath), file.content);
+  }
+  await writeJsonFile(join(rawRoot, "manifest.json"), {
+    schemaVersion: 1,
+    aggregateHash,
+    files: manifestFiles,
+  });
+
+  return aggregateHash;
+}
+
+async function createFakeCodeCli(tempRoot: string): Promise<{
+  binDir: string;
+  statePath: string;
+}> {
+  const binDir = join(tempRoot, "fake-code-bin");
+  const statePath = join(tempRoot, "fake-code-state.json");
+  await writeTextFile(
+    join(binDir, "fake-code.mjs"),
+    [
+      'import { existsSync, readFileSync, writeFileSync } from "node:fs";',
+      "const statePath = process.env.AGENT_HARNESS_FAKE_CODE_STATE;",
+      "const args = process.argv.slice(2);",
+      "const readState = () =>",
+      "  statePath && existsSync(statePath)",
+      '    ? JSON.parse(readFileSync(statePath, "utf8"))',
+      "    : [];",
+      "const writeState = (ids) => {",
+      '  if (statePath) writeFileSync(statePath, JSON.stringify(ids), "utf8");',
+      "};",
+      "let installed = readState();",
+      'if (args[0] === "--version") { console.log("1.0.0"); process.exit(0); }',
+      'if (args[0] === "--list-extensions") {',
+      '  if (installed.length > 0) console.log(installed.map((id) => `${id}@1.0.0`).join("\\n"));',
+      "  process.exit(0);",
+      "}",
+      'if (args[0] === "--install-extension") {',
+      "  const extensionId = args[1];",
+      "  installed = [...new Set([...installed, extensionId])].sort();",
+      "  writeState(installed);",
+      "  console.log(`installed ${extensionId}`);",
+      "  process.exit(0);",
+      "}",
+      'console.error(`unsupported args: ${args.join(" ")}`);',
+      "process.exit(1);",
+      "",
+    ].join("\n"),
+  );
+  await writeTextFile(
+    join(binDir, "code.cmd"),
+    `@echo off\r\n"${process.execPath}" "%~dp0fake-code.mjs" %*\r\n`,
+  );
+
+  return { binDir, statePath };
+}
+
+void test("install refresh honors report-only and pinned policies", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-refresh-"),
+  );
+  const originalPolicy = process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;
+  const installManifestPath = join(
+    projectRoot,
+    "install",
+    "copilot-vscode",
+    "packages",
+    "flutter-skill",
+    "install-manifest.json",
+  );
+
+  try {
+    process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY = "report-only";
+    clearRuntimeConfigForTests();
+
+    await writeJsonFile(installManifestPath, {
+      schemaVersion: 1,
+      assetId: "flutter-skill",
+      mirrorId: "sha256-old",
+      host: "copilot-vscode",
+      installedAt: new Date().toISOString(),
+      projectionType: "native-skill",
+      assetKind: "skill",
+      sourceAuthorityTier: "trusted-community",
+      contextCost: {
+        sizeClass: "small",
+        estimatedPromptWeight: 2,
+      },
+      portfolioFit: 0.9,
+      filesRoot: join(
+        projectRoot,
+        "install",
+        "copilot-vscode",
+        "packages",
+        "flutter-skill",
+        "files",
+      ),
+      bundleMembership: ["copilot-core"],
+      activationEligible: true,
+      activeByDefault: false,
+      upstream: {
+        mirrorId: "sha256-old",
+        mirroredAt: new Date(0).toISOString(),
+        sourceId: "fixture-source",
+        sourceOriginUrl: "https://example.com/flutter-skill",
+        sourceLastUpdated: new Date(0).toISOString(),
+        upstream: { type: "docs", url: "https://example.com/flutter-skill" },
+      },
+    } satisfies InstalledPackageManifest);
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "install",
+        "generations",
+        "copilot-vscode",
+        "current.json",
+      ),
+      {
+        schemaVersion: 1,
+        generationId: "current-gen",
+        host: "copilot-vscode",
+        generatedAt: new Date().toISOString(),
+        bundleIds: ["copilot-core"],
+        packageManifestPaths: [installManifestPath],
+        pinned: true,
+      } satisfies InstallGenerationManifest,
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date().toISOString(),
+        host: "copilot-vscode",
+        assets: [
+          {
+            assetId: "flutter-skill",
+            mirrorId: "sha256-new",
+            projectionType: "native-skill",
+            activationEligible: true,
+          },
+        ],
+      } satisfies BundleLock,
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      {
+        mirrorId: "sha256-new",
+        assetId: "flutter-skill",
+        upstream: { type: "docs", url: "https://example.com/flutter-skill" },
+        source: {
+          authorityTier: "trusted-community",
+          publisher: "fixture",
+          publisherVerified: false,
+        },
+        mirroredAt: new Date().toISOString(),
+        contentHash: "hash-new",
+        projectionCandidates: [
+          { host: "copilot-vscode", projectionType: "native-skill" },
+        ],
+        status: "approved",
+      } satisfies MirrorIndexEntry,
+    ]);
+
+    await manageInstallRefresh(projectRoot, projectRoot, [
+      "--host",
+      "copilot-vscode",
+      "--no-mirror-refresh",
+    ]);
+
+    const pinnedReport = await readJsonFile<InstallRefreshReport>(
+      join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH),
+      assertInstallRefreshReport,
+    );
+    const pinnedAsset = pinnedReport.hosts[0]?.assets[0];
+    assert.equal(pinnedAsset?.status, "pinned");
+    assert.equal(pinnedAsset?.policyDecision, "ignore");
+
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "install",
+        "generations",
+        "copilot-vscode",
+        "current.json",
+      ),
+      {
+        schemaVersion: 1,
+        generationId: "current-gen",
+        host: "copilot-vscode",
+        generatedAt: new Date().toISOString(),
+        bundleIds: ["copilot-core"],
+        packageManifestPaths: [installManifestPath],
+      } satisfies InstallGenerationManifest,
+    );
+
+    await manageInstallRefresh(projectRoot, projectRoot, [
+      "--host",
+      "copilot-vscode",
+      "--no-mirror-refresh",
+    ]);
+
+    const reportOnlyReport = await readJsonFile<InstallRefreshReport>(
+      join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH),
+      assertInstallRefreshReport,
+    );
+    const reportOnlyAsset = reportOnlyReport.hosts[0]?.assets[0];
+    assert.equal(reportOnlyAsset?.status, "stale");
+    assert.equal(reportOnlyAsset?.policyDecision, "plan");
+  } finally {
+    if (originalPolicy === undefined) {
+      delete process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;
+    } else {
+      process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY = originalPolicy;
+    }
+    clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("install refresh apply-safe reapplies stale bundles and native installs", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-refresh-"),
+  );
+  const originalPolicy = process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;
+  const originalPath = process.env.PATH;
+  const originalStatePath = process.env.AGENT_HARNESS_FAKE_CODE_STATE;
+  const installManifestPath = join(
+    projectRoot,
+    "install",
+    "copilot-vscode",
+    "packages",
+    "flutter-skill",
+    "install-manifest.json",
+  );
+  const bundleManifestPath = join(
+    projectRoot,
+    "install",
+    "copilot-vscode",
+    "bundles",
+    "copilot-core.install.json",
+  );
+
+  try {
+    process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY = "apply-safe";
+    clearRuntimeConfigForTests();
+    const { binDir, statePath } = await createFakeCodeCli(projectRoot);
+    process.env.PATH = `${binDir}${process.platform === "win32" ? ";" : ":"}${originalPath ?? ""}`;
+    process.env.AGENT_HARNESS_FAKE_CODE_STATE = statePath;
+
+    const latestAsset: AssetCatalogEntry = {
+      id: "flutter-skill",
+      displayName: "Flutter Skill",
+      assetKind: "extension",
+      hosts: ["copilot-vscode"],
+      compatibilityMode: "native",
+      source: {
+        sourceId: "fixture-source",
+        authorityTier: "trusted-community",
+        sourceKind: "marketplace",
+        sourcePriority: 90,
+        originUrl: "https://example.com/flutter-skill",
+        publisher: "fixture",
+        publisherVerified: false,
+      },
+      trust: {
+        score: 80,
+        signals: ["fixture"],
+      },
+      capabilities: ["flutter"],
+      install: {
+        method: "vscode-extension",
+        nativeHosts: ["copilot-vscode"],
+        manifestEntry: "pub.flutter-skill",
+      },
+      evidence: {
+        manifestFound: true,
+        readmeFound: true,
+        examplesFound: false,
+        docsLinked: true,
+        filePath: "README.md",
+      },
+      maintenance: {
+        lastUpdated: new Date().toISOString(),
+        stars: 0,
+        releaseCadence: "active",
+      },
+      risk: {
+        level: "low",
+        hasHooks: false,
+        hasExecScripts: false,
+        requiresNetwork: false,
+      },
+      contextCost: {
+        sizeClass: "small",
+        estimatedPromptWeight: 2,
+      },
+      fit: {
+        portfolioFit: 0.9,
+        hostFit: 0.9,
+      },
+      dedupe: {
+        candidateRankHint: "fixture",
+      },
+      status: {
+        cataloged: true,
+        mirrorEligible: true,
+        installEligible: true,
+        activationEligible: true,
+      },
+    };
+    const latestMirrorId = "sha256-new";
+    const latestHash = await writeMirrorArtifact(
+      projectRoot,
+      latestMirrorId,
+      latestAsset,
+    );
+
+    await writeJsonFile(installManifestPath, {
+      schemaVersion: 1,
+      assetId: "flutter-skill",
+      mirrorId: "sha256-old",
+      host: "copilot-vscode",
+      installedAt: new Date().toISOString(),
+      projectionType: "native-extension",
+      assetKind: "extension",
+      sourceAuthorityTier: "trusted-community",
+      contextCost: {
+        sizeClass: "small",
+        estimatedPromptWeight: 2,
+      },
+      portfolioFit: 0.9,
+      filesRoot: join(
+        projectRoot,
+        "install",
+        "copilot-vscode",
+        "packages",
+        "flutter-skill",
+        "files",
+      ),
+      bundleMembership: ["copilot-core"],
+      activationEligible: true,
+      activeByDefault: false,
+      upstream: {
+        mirrorId: "sha256-old",
+        mirroredAt: new Date(0).toISOString(),
+        sourceId: "fixture-source",
+        sourceOriginUrl: "https://example.com/flutter-skill",
+        sourceLastUpdated: new Date(0).toISOString(),
+        upstream: {
+          type: "marketplace",
+          url: "https://example.com/flutter-skill",
+          version: "1.0.0",
+        },
+      },
+      nativeInstall: {
+        extensionId: "pub.flutter-skill",
+      },
+    } satisfies InstalledPackageManifest);
+    await writeJsonFile(bundleManifestPath, {
+      schemaVersion: 1,
+      bundleId: "copilot-core",
+      host: "copilot-vscode",
+      installedAt: new Date().toISOString(),
+      packages: [
+        {
+          assetId: "flutter-skill",
+          mirrorId: "sha256-old",
+          manifestPath: installManifestPath.replace(/\\/gu, "/"),
+        },
+      ],
+    } satisfies InstalledBundleManifest);
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "install",
+        "generations",
+        "copilot-vscode",
+        "current.json",
+      ),
+      {
+        schemaVersion: 1,
+        generationId: "current-gen",
+        host: "copilot-vscode",
+        generatedAt: new Date().toISOString(),
+        bundleIds: ["copilot-core"],
+        packageManifestPaths: [installManifestPath],
+      } satisfies InstallGenerationManifest,
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date().toISOString(),
+        host: "copilot-vscode",
+        assets: [
+          {
+            assetId: "flutter-skill",
+            mirrorId: latestMirrorId,
+            projectionType: "native-extension",
+            activationEligible: true,
+          },
+        ],
+      } satisfies BundleLock,
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      {
+        mirrorId: latestMirrorId,
+        assetId: "flutter-skill",
+        upstream: {
+          type: "marketplace",
+          url: "https://example.com/flutter-skill",
+          version: "1.1.0",
+        },
+        source: {
+          authorityTier: "trusted-community",
+          publisher: "fixture",
+          publisherVerified: false,
+        },
+        mirroredAt: new Date().toISOString(),
+        contentHash: latestHash,
+        projectionCandidates: [
+          { host: "copilot-vscode", projectionType: "native-extension" },
+        ],
+        status: "approved",
+      } satisfies MirrorIndexEntry,
+    ]);
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [latestAsset],
+    );
+
+    await manageInstallRefresh(projectRoot, projectRoot, [
+      "--host",
+      "copilot-vscode",
+      "--apply",
+      "--no-mirror-refresh",
+    ]);
+
+    const report = await readJsonFile<InstallRefreshReport>(
+      join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH),
+      assertInstallRefreshReport,
+    );
+    const refreshState = await readJsonFile<InstallRefreshState>(
+      join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH),
+      assertInstallRefreshState,
+    );
+    const nativeInstallState = await readJsonFile<{
+      operation: string;
+      results: Array<{ success: boolean; installed: boolean }>;
+    }>(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH));
+    const updatedBundleManifest =
+      await readJsonFile<InstalledBundleManifest>(bundleManifestPath);
+    const updatedManifest = await readJsonFile<InstalledPackageManifest>(
+      updatedBundleManifest.packages[0]?.manifestPath ?? installManifestPath,
+    );
+
+    assert.equal(report.hosts[0]?.staleCount, 0);
+    assert.equal(report.hosts[0]?.currentCount, 1);
+    assert.equal(updatedBundleManifest.packages[0]?.mirrorId, latestMirrorId);
+    assert.equal(updatedManifest.mirrorId, latestMirrorId);
+    assert.equal(
+      updatedManifest.nativeInstall?.extensionId,
+      "pub.flutter-skill",
+    );
+    assert.equal(refreshState.policy, "apply-safe");
+    assert.match(refreshState.lastAppliedAt ?? "", /^\d{4}-\d{2}-\d{2}T/u);
+    assert.equal(nativeInstallState.operation, "install");
+    assert.equal(nativeInstallState.results[0]?.success, true);
+    assert.equal(nativeInstallState.results[0]?.installed, true);
+  } finally {
+    if (originalPolicy === undefined) {
+      delete process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;
+    } else {
+      process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY = originalPolicy;
+    }
+    if (originalStatePath === undefined) {
+      delete process.env.AGENT_HARNESS_FAKE_CODE_STATE;
+    } else {
+      process.env.AGENT_HARNESS_FAKE_CODE_STATE = originalStatePath;
+    }
+    process.env.PATH = originalPath;
+    clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("install refresh rejects unsupported host filters", async () => {
+  await assert.rejects(
+    manageInstallRefresh(process.cwd(), process.cwd(), [
+      "--host",
+      "not-a-host",
+    ]),
+    /Invalid --host value 'not-a-host'/u,
+  );
 });

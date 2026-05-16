@@ -1,10 +1,16 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { assertRecommendationReport } from "../manifest-validation.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
-import { buildRecommendationReport } from "../recommend/report.js";
+import {
+  buildRecommendationReport,
+  writeRecommendationReport,
+} from "../recommend/report.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
 void test("recommendation reports apply validated session intent to ranking", async () => {
@@ -170,6 +176,20 @@ void test("recommendation reports normalize empty intent arrays to general", asy
   assert.equal(report.sessionIntent, "general");
   assert.equal(report.sessionIntents, undefined);
   assert.ok(report.topByHost["copilot-vscode"].length > 0);
+});
+
+void test("recommendation reports default omitted intents to general", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+
+  const report = buildRecommendationReport(
+    [createEntry("backend-skill", ["backend", "api"])],
+    createDemandProfile(),
+    policy,
+  );
+
+  assert.equal(report.sessionIntent, "general");
+  assert.equal(report.sessionIntents, undefined);
 });
 
 void test("recommendation reports rank entries for expanded session intent families", async () => {
@@ -363,6 +383,125 @@ void test("recommendation reports expose explicit scale-mode metadata", async ()
         previousModeEnvValue;
     }
     clearRuntimeConfigForTests();
+  }
+});
+
+void test("writeRecommendationReport loads policy when omitted and tolerates missing demand profile", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-report-policy-load-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    await mkdir(join(projectRoot, "discover", "recommendation-policy"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(projectRoot, "discover", "recommendation-policy", "base.json"),
+      await (
+        await import("node:fs/promises")
+      ).readFile(
+        join(process.cwd(), "discover", "recommendation-policy", "base.json"),
+        "utf8",
+      ),
+      "utf8",
+    );
+    await writeFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      `${JSON.stringify(createEntry("backend-skill", ["backend", "api"]))}\n`,
+      "utf8",
+    );
+
+    const report = await writeRecommendationReport(projectRoot);
+
+    assert.equal(report.sessionIntent, "general");
+    assert.equal(report.sessionIntents, undefined);
+    assert.ok(report.topByHost["copilot-vscode"].length > 0);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("writeRecommendationReport defaults omitted session intents to general", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-report-defaults-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      `${JSON.stringify(createDemandProfile(), null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      `${JSON.stringify(createEntry("backend-skill", ["backend", "api"]))}\n`,
+      "utf8",
+    );
+
+    const report = await writeRecommendationReport(projectRoot, {
+      policy: await loadRecommendationPolicy(process.cwd()),
+    });
+
+    assert.equal(report.sessionIntent, "general");
+    assert.equal(report.sessionIntents, undefined);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("writeRecommendationReport persists built report from selected catalog artifacts", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-report-write-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      `${JSON.stringify(createDemandProfile(), null, 2)}\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      `${[
+        createEntry("backend-skill", ["backend", "api"]),
+        {
+          ...createEntry("incompatible-skill", ["backend"]),
+          compatibilityMode: "incompatible",
+        },
+      ]
+        .map((entry) => JSON.stringify(entry))
+        .join("\n")}\n`,
+      "utf8",
+    );
+
+    const report = await writeRecommendationReport(projectRoot, {
+      policy: await loadRecommendationPolicy(process.cwd()),
+      sessionIntents: ["backend", "docs"],
+    });
+
+    assert.equal(report.sessionIntent, "backend");
+    assert.deepEqual(report.sessionIntents, ["backend", "docs"]);
+    assert.ok(
+      report.topByHost["copilot-vscode"].every(
+        (entry) => entry.assetId !== "incompatible-skill",
+      ),
+    );
+
+    const persisted = JSON.parse(
+      await (
+        await import("node:fs/promises")
+      ).readFile(join(projectRoot, "state", "recommendations.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assertRecommendationReport(persisted, "report");
+    assert.equal(persisted.sessionIntent, "backend");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
   }
 });
 

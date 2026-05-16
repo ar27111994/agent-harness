@@ -49,6 +49,16 @@ export interface FetchWithGuardsOptions {
 }
 
 const DEFAULT_FETCH = globalThis.fetch;
+type HttpsRequest = typeof request;
+let httpsRequest: HttpsRequest = request;
+
+function setHttpsRequestForTests(nextRequest: HttpsRequest): () => void {
+  const previousRequest = httpsRequest;
+  httpsRequest = nextRequest;
+  return () => {
+    httpsRequest = previousRequest;
+  };
+}
 
 /**
  * Performs an HTTP(S) fetch with a timeout. Origin allowlists are enforced by
@@ -401,7 +411,7 @@ async function requestWithPinnedAddress(
   const pinnedLookup = createPinnedLookup(address);
 
   return new Promise((resolve, reject) => {
-    const requestMessage = request(
+    const requestMessage = httpsRequest(
       parsedUrl,
       {
         headers,
@@ -742,3 +752,17 @@ function concatenateChunks(
 
   return output;
 }
+
+/**
+ * Exposes narrow HTTP internals for focused behavioral coverage.
+ */
+export const httpInternals = {
+  fetchWithPinnedResolution,
+  requestWithPinnedAddress,
+  serializeRequestBody,
+  buildResponseHeaders,
+  isPrivateIpv4Address,
+  isPrivateIpv6Address,
+  withBodyReadTimeout,
+  setHttpsRequestForTests,
+};

@@ -271,3 +271,14 @@ function stripInlineComment(rawValue: string): string {
   const commentIndex = rawValue.search(/\s#/u);
   return commentIndex === -1 ? rawValue : rawValue.slice(0, commentIndex);
 }
+
+/**
+ * Exposes narrow dotenv parsing internals for focused behavioral coverage.
+ */
+export const envFileInternals = {
+  collectDotEnvLogicalLines,
+  parseDotEnvLine,
+  parseDotEnvValue,
+  parseQuotedDotEnvValue,
+  decodeDoubleQuotedEscape,
+};

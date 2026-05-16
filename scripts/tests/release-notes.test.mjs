@@ -1,11 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import {
   buildCombinedReleaseNotes,
   extractReleaseNotesFromChangelog,
   isPreRelease,
   normalizeVersionFromTag,
+  readManualReleaseNotes,
 } from "../release-notes.mjs";
 
 const SAMPLE_CHANGELOG = `# Changelog
@@ -44,6 +48,27 @@ test("extractReleaseNotesFromChangelog throws when the version is missing", () =
   assert.throws(
     () => extractReleaseNotesFromChangelog(SAMPLE_CHANGELOG, "9.9.9"),
     /Could not find CHANGELOG entry for version 9\.9\.9/u,
+  );
+});
+
+test("extractReleaseNotesFromChangelog throws when the version section is empty", () => {
+  assert.throws(
+    () =>
+      extractReleaseNotesFromChangelog(
+        "# Changelog\n\n## [1.0.7] - 2026-05-15\n\n## [1.0.6] - 2026-05-14\n\n- previous",
+        "1.0.7",
+      ),
+    /CHANGELOG entry for version 1\.0\.7 is empty/u,
+  );
+});
+
+test("readManualReleaseNotes reads the requested changelog section", async () => {
+  const cwd = await mkdtemp(join(tmpdir(), "release-notes-"));
+  await writeFile(join(cwd, "CHANGELOG.md"), SAMPLE_CHANGELOG, "utf8");
+
+  assert.equal(
+    readManualReleaseNotes(cwd, "1.0.5"),
+    "### Changed\n\n- previous release notes",
   );
 });
 

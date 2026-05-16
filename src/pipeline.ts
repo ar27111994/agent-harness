@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
-import { getRuntimeConfig } from "./config/runtime.js";
-import { readJsonFileOrNull } from "./files.js";
+import { getRuntimeConfig, type RuntimeConfig } from "./config/runtime.js";
+import { readJsonFileOrNull, type JsonValidator } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
 import { assertMirrorAcquireState } from "./manifest-validation/mirror.js";
@@ -27,8 +27,66 @@ function logWorkspacePhase(
   step: number,
   total: number,
   description: string,
+  progressWriter: (message: string) => void,
 ): void {
-  writeWorkspaceProgress(`[workspace] ${step}/${total} ${description}...`);
+  progressWriter(`[workspace] ${step}/${total} ${description}...`);
+}
+
+/**
+ * Defines injectable workspace pipeline dependencies for deterministic tests.
+ */
+export interface WorkspacePipelineDependencies {
+  getRuntimeConfig(): RuntimeConfig;
+  readJsonFileOrNull<T>(
+    path: string,
+    validator?: JsonValidator<T>,
+  ): Promise<T | null>;
+  runDiscover(
+    args: string[],
+    workspaceRoot: string,
+    projectRoot: string,
+  ): Promise<unknown>;
+  runRecommend(
+    args: string[],
+    workspaceRoot: string,
+    projectRoot: string,
+  ): Promise<unknown>;
+  runMirror(
+    args: string[],
+    workspaceRoot: string,
+    projectRoot: string,
+  ): Promise<unknown>;
+  runInstall(
+    args: string[],
+    workspaceRoot: string,
+    projectRoot: string,
+  ): Promise<unknown>;
+  runActivate(
+    args: string[],
+    workspaceRoot: string,
+    projectRoot: string,
+  ): Promise<unknown>;
+  writeWorkspaceProgress(message: string): void;
+}
+
+const DEFAULT_WORKSPACE_PIPELINE_DEPENDENCIES: WorkspacePipelineDependencies = {
+  getRuntimeConfig,
+  readJsonFileOrNull,
+  runDiscover,
+  runRecommend,
+  runMirror,
+  runInstall,
+  runActivate,
+  writeWorkspaceProgress,
+};
+
+function resolveWorkspacePipelineDependencies(
+  overrides: Partial<WorkspacePipelineDependencies> = {},
+): WorkspacePipelineDependencies {
+  return {
+    ...DEFAULT_WORKSPACE_PIPELINE_DEPENDENCIES,
+    ...overrides,
+  };
 }
 
 /**
@@ -36,15 +94,18 @@ function logWorkspacePhase(
  * activation phases for a workspace before the selected adapter performs final
  * wire-in.
  */
-export async function runWorkspacePipeline(options: {
-  projectRoot: string;
-  workspaceRoot: string;
-  targetHost: "copilot-vscode" | "opencode";
-  recommendationHost: HostTarget;
-  sessionIntent: SessionIntent;
-  sessionIntents?: readonly SessionIntent[];
-  bundleIds: string[];
-}): Promise<void> {
+export async function runWorkspacePipeline(
+  options: {
+    projectRoot: string;
+    workspaceRoot: string;
+    targetHost: "copilot-vscode" | "opencode";
+    recommendationHost: HostTarget;
+    sessionIntent: SessionIntent;
+    sessionIntents?: readonly SessionIntent[];
+    bundleIds: string[];
+  },
+  dependencyOverrides: Partial<WorkspacePipelineDependencies> = {},
+): Promise<void> {
   const {
     projectRoot,
     workspaceRoot,
@@ -54,48 +115,115 @@ export async function runWorkspacePipeline(options: {
     sessionIntents,
     bundleIds,
   } = options;
+  const dependencies =
+    resolveWorkspacePipelineDependencies(dependencyOverrides);
   const resolvedIntents: readonly SessionIntent[] =
     sessionIntents && sessionIntents.length > 1
       ? sessionIntents
       : [sessionIntent];
   const primaryIntent = resolvedIntents[0];
-  const config = getRuntimeConfig();
+  const config = dependencies.getRuntimeConfig();
   const mirrorBatchSize = String(config.batches.mirrorAcquire);
   const installBatchSize = String(config.batches.installBundle);
 
-  logWorkspacePhase(1, 11, "Scanning workspace demand");
-  await runDiscover(["demand-profile"], workspaceRoot, projectRoot);
-  logWorkspacePhase(2, 11, "Refreshing source index");
-  await runDiscover(["sources"], workspaceRoot, projectRoot);
-  logWorkspacePhase(3, 11, "Syncing indexed sources");
-  await runDiscover(["sync"], workspaceRoot, projectRoot);
-  logWorkspacePhase(4, 11, "Refreshing source index after sync");
-  await runDiscover(["sources"], workspaceRoot, projectRoot);
-  logWorkspacePhase(5, 11, "Building discovery catalog");
-  await runDiscover(["catalog"], workspaceRoot, projectRoot);
-  logWorkspacePhase(6, 11, "Applying selection rules");
-  await runDiscover(["select"], workspaceRoot, projectRoot);
-  logWorkspacePhase(7, 11, "Ranking recommendations");
-  await runRecommend(
-    ["report", ...resolvedIntents.flatMap((i) => ["--intent", i])],
+  logWorkspacePhase(
+    1,
+    11,
+    "Scanning workspace demand",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(
+    ["demand-profile"],
     workspaceRoot,
     projectRoot,
   );
-  logWorkspacePhase(8, 11, "Planning mirror work");
-  await runMirror(["plan"], workspaceRoot, projectRoot);
-  logWorkspacePhase(9, 11, "Preparing mirror locks");
-  await runMirror(["locks"], workspaceRoot, projectRoot);
-  logWorkspacePhase(10, 11, "Acquiring and staging assets");
-  await acquireAllMirrorBatches(projectRoot, workspaceRoot, mirrorBatchSize);
+  logWorkspacePhase(
+    2,
+    11,
+    "Refreshing source index",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(["sources"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    3,
+    11,
+    "Syncing indexed sources",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(["sync"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    4,
+    11,
+    "Refreshing source index after sync",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(["sources"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    5,
+    11,
+    "Building discovery catalog",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(["catalog"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    6,
+    11,
+    "Applying selection rules",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runDiscover(["select"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    7,
+    11,
+    "Ranking recommendations",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runRecommend(
+    ["report", ...resolvedIntents.flatMap((intent) => ["--intent", intent])],
+    workspaceRoot,
+    projectRoot,
+  );
+  logWorkspacePhase(
+    8,
+    11,
+    "Planning mirror work",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runMirror(["plan"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    9,
+    11,
+    "Preparing mirror locks",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runMirror(["locks"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    10,
+    11,
+    "Acquiring and staging assets",
+    dependencies.writeWorkspaceProgress,
+  );
+  await acquireAllMirrorBatches(
+    projectRoot,
+    workspaceRoot,
+    mirrorBatchSize,
+    dependencies,
+  );
   await installBundleBatches(
     projectRoot,
     workspaceRoot,
     bundleIds,
     installBatchSize,
+    dependencies,
   );
-  await runInstall(["reconcile"], workspaceRoot, projectRoot);
-  logWorkspacePhase(11, 11, "Activating host views");
-  await runActivate(
+  await dependencies.runInstall(["reconcile"], workspaceRoot, projectRoot);
+  logWorkspacePhase(
+    11,
+    11,
+    "Activating host views",
+    dependencies.writeWorkspaceProgress,
+  );
+  await dependencies.runActivate(
     [
       "host",
       "--host",
@@ -108,7 +236,7 @@ export async function runWorkspacePipeline(options: {
     workspaceRoot,
     projectRoot,
   );
-  await runActivate(
+  await dependencies.runActivate(
     ["host", "--host", "shared", "--intent", primaryIntent],
     workspaceRoot,
     projectRoot,
@@ -119,25 +247,31 @@ export async function runWorkspacePipeline(options: {
  * Repeatedly acquires mirror artifacts until the checkpoint reports completion
  * or the safety batch limit is reached.
  */
-async function acquireAllMirrorBatches(
+export async function acquireAllMirrorBatches(
   projectRoot: string,
   workspaceRoot: string,
   batchSize: string,
+  dependencyOverrides: Partial<WorkspacePipelineDependencies> = {},
 ): Promise<void> {
+  const dependencies =
+    resolveWorkspacePipelineDependencies(dependencyOverrides);
   const maxBatches = 200;
 
   for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
-    writeWorkspaceProgress(
+    dependencies.writeWorkspaceProgress(
       `[workspace] mirror batch ${batchIndex + 1} acquiring artifacts...`,
     );
-    await runMirror(
+    await dependencies.runMirror(
       ["acquire", "--batch-size", batchSize],
       workspaceRoot,
       projectRoot,
     );
-    const state = await readJsonFileOrNull<MirrorAcquireState>(
+    const state = await dependencies.readJsonFileOrNull<MirrorAcquireState>(
       join(projectRoot, ...MIRROR_ACQUIRE_STATE_PATH),
-      assertMirrorAcquireState,
+      (value) => {
+        assertMirrorAcquireState(value, "workspace pipeline");
+        return value as MirrorAcquireState;
+      },
     );
     if (assertMirrorAcquireCheckpoint(state, "workspace pipeline")) {
       return;
@@ -153,32 +287,38 @@ async function acquireAllMirrorBatches(
  * Installs every requested bundle in batches until each bundle is fully staged
  * or the safety batch limit is reached.
  */
-async function installBundleBatches(
+export async function installBundleBatches(
   projectRoot: string,
   workspaceRoot: string,
   bundleIds: string[],
   batchSize: string,
+  dependencyOverrides: Partial<WorkspacePipelineDependencies> = {},
 ): Promise<void> {
+  const dependencies =
+    resolveWorkspacePipelineDependencies(dependencyOverrides);
   const maxBatchesPerBundle = 200;
 
   for (const bundleId of bundleIds) {
-    writeWorkspaceProgress(`[workspace] staging bundle '${bundleId}'...`);
+    dependencies.writeWorkspaceProgress(
+      `[workspace] staging bundle '${bundleId}'...`,
+    );
     for (
       let batchIndex = 0;
       batchIndex < maxBatchesPerBundle;
       batchIndex += 1
     ) {
-      writeWorkspaceProgress(
+      dependencies.writeWorkspaceProgress(
         `[workspace] install batch ${batchIndex + 1} for bundle '${bundleId}'...`,
       );
-      await runInstall(
+      await dependencies.runInstall(
         ["bundle", "--bundle", bundleId, "--batch-size", batchSize],
         workspaceRoot,
         projectRoot,
       );
-      const progressState = await readJsonFileOrNull<InstallProgressState>(
-        join(projectRoot, ...INSTALL_PROGRESS_STATE_PATH),
-      );
+      const progressState =
+        await dependencies.readJsonFileOrNull<InstallProgressState>(
+          join(projectRoot, ...INSTALL_PROGRESS_STATE_PATH),
+        );
       if (!progressState) {
         throw new Error(
           `install bundle did not produce progress state for bundle '${bundleId}'`,

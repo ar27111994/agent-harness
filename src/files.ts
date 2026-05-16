@@ -116,15 +116,9 @@ export async function ensureDirectory(directoryPath: string): Promise<void> {
   try {
     await mkdir(directoryPath, { recursive: true });
   } catch (error) {
-    const errorCode = (error as NodeJS.ErrnoException).code;
-    if (
-      (errorCode === "EEXIST" || errorCode === "EINVAL") &&
-      (await isUsableDirectoryPath(directoryPath))
-    ) {
-      return;
+    if (!(await shouldIgnoreEnsureDirectoryError(directoryPath, error))) {
+      throw error;
     }
-
-    throw error;
   }
 }
 
@@ -517,6 +511,17 @@ export function removeManagedSection(options: {
   return originalContent.replace(sectionPattern, "\n").trimEnd() + "\n";
 }
 
+async function shouldIgnoreEnsureDirectoryError(
+  directoryPath: string,
+  error: unknown,
+): Promise<boolean> {
+  const errorCode = (error as NodeJS.ErrnoException).code;
+  return (
+    (errorCode === "EEXIST" || errorCode === "EINVAL") &&
+    (await isUsableDirectoryPath(directoryPath))
+  );
+}
+
 async function isUsableDirectoryPath(directoryPath: string): Promise<boolean> {
   try {
     const entry = await lstat(directoryPath);
@@ -684,10 +689,6 @@ async function collectFilesFromDirectory(
   const directoryEntries: Array<{ entryPath: string }> = [];
 
   for (const entry of entries) {
-    if (telemetry.truncated) {
-      break;
-    }
-
     const entryPath = `${directoryPath}${sep}${entry.name}`;
     const relativeEntryPath = toRelativePosixPath(rootPath, entryPath);
 
@@ -722,27 +723,18 @@ async function collectFilesFromDirectory(
     }
   }
 
-  const fileStats = await mapWithConcurrency(
-    fileEntries,
-    FILE_STAT_CONCURRENCY,
-    async (fileEntry) => {
-      if (telemetry.truncated) {
-        return null;
-      }
-
-      const stats = await lstat(fileEntry.entryPath).catch(() => null);
-      return stats?.isFile() ? { ...fileEntry, size: stats.size } : null;
-    },
-  );
+  const fileStats = (
+    await mapWithConcurrency(
+      fileEntries,
+      FILE_STAT_CONCURRENCY,
+      async (fileEntry) => {
+        const stats = await lstat(fileEntry.entryPath).catch(() => null);
+        return stats?.isFile() ? { ...fileEntry, size: stats.size } : null;
+      },
+    )
+  ).flatMap((fileStat) => (fileStat ? [fileStat] : []));
 
   for (const fileStat of fileStats) {
-    if (telemetry.truncated) {
-      break;
-    }
-    if (fileStat === null) {
-      continue;
-    }
-
     telemetry.visitedFiles += 1;
     telemetry.visitedBytes += fileStat.size;
 
@@ -960,3 +952,14 @@ function globPatternToRegExp(pattern: string): RegExp {
 
   return new RegExp(`${expression}$`, "u");
 }
+
+/**
+ * Exposes narrow file-module internals for focused behavioral coverage.
+ */
+export const filesInternals = {
+  shouldIgnoreEnsureDirectoryError,
+  isUsableDirectoryPath,
+  getErrorMessage,
+  collectFilesFromDirectory,
+  globPatternToRegExp,
+};

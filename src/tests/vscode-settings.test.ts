@@ -53,3 +53,22 @@ void test("VS Code settings patch creates parent directories and preserves JSONC
     await rm(root, { force: true, recursive: true });
   }
 });
+
+void test("VS Code settings reader rejects malformed JSONC and ignores non-object payloads", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-"));
+  const settingsPath = join(root, "Code", "User", "settings.json");
+
+  try {
+    await mkdir(join(root, "Code", "User"), { recursive: true });
+    await writeFile(settingsPath, "{ invalid jsonc\n", "utf8");
+    await assert.rejects(
+      readVsCodeSettings(settingsPath),
+      /contains JSONC parse errors/u,
+    );
+
+    await writeFile(settingsPath, '["not","an","object"]\n', "utf8");
+    assert.deepEqual(await readVsCodeSettings(settingsPath), {});
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});

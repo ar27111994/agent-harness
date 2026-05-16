@@ -1,0 +1,272 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import {
+  assertAllowedHttpUrl,
+  assertPublicInternetResolution,
+  createPinnedLookup,
+  fetchBytesWithGuards,
+  fetchJsonWithGuards,
+  fetchWithTimeout,
+  httpInternals,
+  readResponseBytesWithLimit,
+} from "../lib/http.js";
+
+void test("fetchWithTimeout propagates an already-aborted caller signal", async () => {
+  const originalFetch = globalThis.fetch;
+  const controller = new AbortController();
+  controller.abort("already-aborted");
+  let observedSignal: AbortSignal | undefined;
+
+  globalThis.fetch = async (_url, init) => {
+    observedSignal = init?.signal ?? undefined;
+    return new Response("ok", { status: 200 });
+  };
+
+  try {
+    const response = await fetchWithTimeout(
+      "https://example.com",
+      { signal: controller.signal },
+      50,
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(observedSignal?.aborted, true);
+    assert.equal(observedSignal?.reason, "already-aborted");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test("guarded fetch test mocks serialize request bodies and parse json responses", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  const observed: Array<{
+    method: string | undefined;
+    contentLength: string | null;
+    bodyText: string;
+  }> = [];
+  let callCount = 0;
+
+  globalThis.fetch = async (_url, init) => {
+    const rawBody = init?.body;
+    let bodyText = "";
+    if (typeof rawBody === "string") {
+      bodyText = rawBody;
+    } else if (rawBody instanceof ArrayBuffer) {
+      bodyText = Buffer.from(rawBody).toString("utf8");
+    }
+
+    observed.push({
+      method: init?.method,
+      contentLength: new Headers(init?.headers).get("content-length"),
+      bodyText,
+    });
+    callCount += 1;
+
+    if (callCount === 1) {
+      return new Response(JSON.stringify({ ok: true, bodyText }), {
+        status: 200,
+        headers: { "content-length": "26" },
+      });
+    }
+
+    if (callCount === 2) {
+      return new Response("not-json", { status: 200 });
+    }
+
+    return new Response("server-error", { status: 500 });
+  };
+
+  try {
+    const jsonResult = await fetchJsonWithGuards("https://example.com/api", {
+      allowedOrigins: ["https://example.com"],
+      body: new URLSearchParams({ alpha: "1", beta: "2" }),
+      resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
+      timeoutMs: 250,
+    });
+    const invalidJsonResult = await fetchJsonWithGuards(
+      "https://example.com/api",
+      {
+        allowedOrigins: ["https://example.com"],
+        body: new Uint8Array(Buffer.from("bytes")),
+        resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
+      },
+    );
+    const nonOkResult = await fetchBytesWithGuards("https://example.com/api", {
+      allowedOrigins: ["https://example.com"],
+      body: Buffer.from("body"),
+      resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
+    });
+
+    assert.deepEqual(jsonResult, { ok: true, bodyText: "alpha=1&beta=2" });
+    assert.equal(invalidJsonResult, null);
+    assert.equal(nonOkResult, null);
+    assert.deepEqual(observed, [
+      {
+        method: "POST",
+        contentLength: String(Buffer.byteLength("alpha=1&beta=2")),
+        bodyText: "alpha=1&beta=2",
+      },
+      {
+        method: "POST",
+        contentLength: String(Buffer.byteLength("bytes")),
+        bodyText: "bytes",
+      },
+      {
+        method: "POST",
+        contentLength: String(Buffer.byteLength("body")),
+        bodyText: "body",
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+  }
+});
+
+void test("guarded fetch mocks respect explicit methods and array-buffer request bodies", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  const bodyBuffer = new TextEncoder().encode("array-buffer-body");
+  let observedMethod: string | undefined;
+  let observedBody: string | undefined;
+  let observedContentLength: string | null = null;
+
+  globalThis.fetch = async (_url, init) => {
+    observedMethod = init?.method;
+    observedContentLength = new Headers(init?.headers).get("content-length");
+    observedBody = Buffer.from(init?.body as ArrayBuffer).toString("utf8");
+    return new Response("done", { status: 200 });
+  };
+
+  try {
+    const bytes = await fetchBytesWithGuards("https://example.com/upload", {
+      allowedOrigins: ["https://example.com"],
+      body: bodyBuffer.buffer,
+      method: "PUT",
+      resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
+      timeoutMs: 250,
+    });
+
+    assert.deepEqual(bytes, Buffer.from("done"));
+    assert.equal(observedMethod, "PUT");
+    assert.equal(observedBody, "array-buffer-body");
+    assert.equal(
+      observedContentLength,
+      String(Buffer.byteLength("array-buffer-body")),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    restoreEnv("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+  }
+});
+
+void test("http guards reject invalid origins resolution failures and missing callbacks", async () => {
+  assert.equal(
+    assertAllowedHttpUrl("https://Example.com/path", ["https://example.com"])
+      .origin,
+    "https://example.com",
+  );
+  assert.throws(
+    () =>
+      assertAllowedHttpUrl("http://example.com/path", ["https://example.com"]),
+    /Only https URLs can be fetched/u,
+  );
+
+  await assert.rejects(
+    assertPublicInternetResolution(
+      new URL("https://example.com/path"),
+      async () => [],
+    ),
+    /did not resolve/u,
+  );
+  await assert.rejects(
+    assertPublicInternetResolution(
+      new URL("https://example.com/path"),
+      async () => [{ address: "10.0.0.5", family: 4 }],
+    ),
+    /non-public/u,
+  );
+  await assert.doesNotReject(
+    assertPublicInternetResolution(
+      new URL("https://example.com/path"),
+      async () => [{ address: "1.1.1.1", family: 4 }],
+    ),
+  );
+
+  const pinnedLookup = createPinnedLookup({ address: "1.1.1.1", family: 4 });
+  assert.throws(
+    () =>
+      (pinnedLookup as (...args: unknown[]) => void)("example.com", {
+        all: false,
+        hints: 0,
+      }),
+    /DNS lookup callback is required/u,
+  );
+});
+
+void test("response readers enforce content-length and streamed byte limits", async () => {
+  await assert.rejects(
+    readResponseBytesWithLimit(
+      new Response("abc", { headers: { "content-length": "10" } }),
+      3,
+      100,
+    ),
+    /Response body exceeds the configured limit \(10 > 3 bytes\)/u,
+  );
+
+  const nullBodyResponse = new Response(null, { status: 204 });
+  assert.deepEqual(
+    await readResponseBytesWithLimit(nullBodyResponse, 3, 100),
+    Buffer.alloc(0),
+  );
+
+  const streamingResponse = new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2]));
+        controller.enqueue(new Uint8Array([3, 4]));
+      },
+    }),
+  );
+  await assert.rejects(
+    readResponseBytesWithLimit(streamingResponse, 3, 100),
+    /Response body exceeds the configured limit \(4 > 3 bytes\)/u,
+  );
+});
+
+void test("guarded byte fetch returns null for validation failures", async () => {
+  assert.equal(
+    await fetchBytesWithGuards("https://example.com/private", {
+      allowedOrigins: ["https://example.com"],
+      resolveHostname: async () => [{ address: "127.0.0.1", family: 4 }],
+    }),
+    null,
+  );
+});
+
+void test("http internals classify mapped ipv6 private ranges", () => {
+  assert.equal(
+    httpInternals.isPrivateIpv6Address("::ffff:0:203.0.113.10"),
+    true,
+  );
+  assert.equal(httpInternals.isPrivateIpv6Address("::ffff:10.0.0.1"), true);
+  assert.equal(httpInternals.isPrivateIpv6Address("2001:db8::1"), true);
+  assert.equal(
+    httpInternals.isPrivateIpv6Address("2001:4860:4860::8888"),
+    false,
+  );
+});
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+
+  process.env[name] = value;
+}

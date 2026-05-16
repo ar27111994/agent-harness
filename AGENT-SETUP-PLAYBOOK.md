@@ -182,7 +182,18 @@ Check:
 
 A bad outcome can come from correct recommendations plus incomplete runtime setup.
 
-### Step 5: Increase selection count only as a last resort
+### Step 5: Escalate to the right focused playbook
+
+Use this handoff ladder before changing defaults:
+
+- wrong or weak `discover/output/demand-profile.json` -> [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md)
+- missing project-type support -> [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md)
+- starved source universe -> [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md)
+- broad recall diagnosis -> [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md)
+- relevant assets selected but buried -> [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md)
+- host-specific recommendation behavior unproven -> add/inspect host-specific recommendation fixtures before changing defaults
+
+### Step 6: Increase selection count only as a last resort
 
 Do this only when:
 
@@ -285,7 +296,57 @@ When ready, give me:
 - any manual steps for extensions, plugins, MCP servers, auth, or host settings
 ```
 
-### Prompt 2: approved execution follow-up
+### Prompt 2: default workspace quality diagnosis
+
+```text
+You are diagnosing the quality of a default agent-harness workspace run.
+
+Workspace root: <workspace-path>
+Host: <vscode|cursor|opencode|zed|claude-code|pi>
+Intent: <optional one-or-more intents>
+State root: <state-root, or say unknown and discover it>
+
+Goal:
+- Diagnose whether surprising output from `agent-harness workspace <host>` comes from detection, source breadth, selection, ranking, host policy, wiring, or manual/native install expectations.
+- Recommend the smallest evidence-backed fix.
+
+Required workflow:
+- Run or inspect the equivalent of `agent-harness workspace <host>`.
+- Run `agent-harness setup doctor --host <host>` if host readiness is uncertain.
+- Inspect these artifacts when they exist, relative to the active state root:
+  - `discover/output/demand-profile.json`
+  - `discover/output/source-index.json`
+  - `discover/output/source-utilization.json`
+  - `discover/output/selection-report.json`
+  - `discover/output/catalog.selected.jsonl`
+  - `state/recommendations.json`
+  - `activate/<host>/wire-preview-<host>.json`
+  - `activate/<host>/wire-plan.json`
+- Run `agent-harness recommend policy:print --host <host>`.
+- Use `agent-harness recommend explain --host <host> --asset <asset-id>` for at least one clearly relevant asset and one noisy/surprising asset when ranking is in question.
+- Classify the issue as exactly one or more of:
+  - detection
+  - source breadth
+  - selection filtering
+  - ranking/policy
+  - host policy
+  - wiring
+  - native/manual install follow-up
+- Do not suggest increasing limits, changing weights, adding broad terms, or editing source definitions without artifact evidence.
+- If a recommendation-limit override is justified, say whether it should use default, `preserve`, or `scale` mode and why.
+- Validate any fix with the smallest relevant command, and include validation output.
+
+When ready, give me:
+- diagnosis summary
+- exact commands run
+- exact artifacts inspected
+- evidence for the diagnosis
+- smallest justified fix
+- validation result
+- follow-up risks, if any
+```
+
+### Prompt 3: approved execution follow-up
 
 ```text
 Proceed with the approved agent-harness setup plan for this workspace.
@@ -328,6 +389,8 @@ A good agent response after the dry run should usually look like this:
 ## Related playbooks
 
 - [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) - maximize the candidate pool before ranking/setup decisions
+- [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) - fix false negatives, false positives, and weak stack evidence
+- [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) - audited stack/vertical/platform coverage matrix
 - [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md) - choose between enrichment modes and bounded AI review
 - [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md) - refresh stale installed assets safely
 - [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md) - tune ranking only after recall looks healthy

@@ -310,3 +310,14 @@ function normalizeGitHubRepositoryUrl(url: string | null): string | null {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
+
+/**
+ * Exposes narrow official-index internals for focused behavioral coverage.
+ */
+export const officialIndexInternals = {
+  buildKeyPoints,
+  extractGitHubUrl,
+  extractOfficialIndexPageSummary,
+  extractSectionContent,
+  normalizeGitHubRepositoryUrl,
+};

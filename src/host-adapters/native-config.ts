@@ -482,3 +482,10 @@ function asJsonObject(value: unknown): JsonObject | null {
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+/**
+ * Exposes pure native-config helpers for focused behavioral coverage.
+ */
+export const nativeConfigInternals = {
+  resolveWorkspacePath,
+};
