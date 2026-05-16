@@ -80,6 +80,14 @@ void test("source sync helper exports restore legacy cursors and token parsing b
   assert.deepEqual(sourceSyncInternals.getPreviousCursorStates(legacyCursors), [
     { cursorId: "testing", nextToken: "4", completed: true },
   ]);
+  assert.deepEqual(
+    sourceSyncInternals.getPreviousCursorStates({
+      ...currentCursors,
+      cursors: undefined,
+      queries: "not-an-array",
+    } as unknown as SourceSyncSourceState & { queries: string }),
+    [],
+  );
 
   assert.deepEqual(
     sourceSyncInternals.restoreFiniteCursorState(undefined, {
@@ -98,6 +106,13 @@ void test("source sync helper exports restore legacy cursors and token parsing b
   );
   assert.deepEqual(
     sourceSyncInternals.restoreFiniteCursorState(
+      { cursorId: "react", completed: false },
+      { cursorId: "react", nextToken: "1", completed: false },
+    ),
+    { cursorId: "react", nextToken: "1", completed: false },
+  );
+  assert.deepEqual(
+    sourceSyncInternals.restoreFiniteCursorState(
       { cursorId: "react", nextToken: "7", completed: true },
       { cursorId: "react", nextToken: "1", completed: false },
     ),
@@ -106,9 +121,14 @@ void test("source sync helper exports restore legacy cursors and token parsing b
 
   assert.equal(sourceSyncInternals.parsePositiveIntegerToken("5", 1), 5);
   assert.equal(sourceSyncInternals.parsePositiveIntegerToken("0", 1), 1);
+  assert.equal(sourceSyncInternals.parsePositiveIntegerToken("x", 2), 2);
   assert.equal(sourceSyncInternals.parsePositiveIntegerToken(undefined, 2), 2);
   assert.equal(sourceSyncInternals.parseNonNegativeIntegerToken("0", 1), 0);
   assert.equal(sourceSyncInternals.parseNonNegativeIntegerToken("-1", 1), 1);
+  assert.equal(
+    sourceSyncInternals.parseNonNegativeIntegerToken(undefined, 3),
+    3,
+  );
 
   assert.equal(sourceSyncInternals.stringifyUnknown("text"), "text");
   assert.equal(sourceSyncInternals.stringifyUnknown(42), "42");
@@ -264,6 +284,11 @@ void test("source sync helper exports cover registry sync edge branches", async 
         ]);
       case "https://rubygems.org/gems?page=1":
         return textResponse('<a href="/gems//">Broken</a>');
+      case "https://registry.modelcontextprotocol.io/v0/servers":
+        return jsonResponse({
+          servers: "not-an-array",
+          metadata: { nextCursor: "later" },
+        });
       case "https://registry.modelcontextprotocol.io/v0/servers?cursor=next-page":
         return jsonResponse({
           servers: [
@@ -289,6 +314,8 @@ void test("source sync helper exports cover registry sync edge branches", async 
           ],
           metadata: {},
         });
+      case "https://replicate.npmjs.com/_changes?since=0&limit=50":
+        return jsonResponse({ last_seq: "done", results: "not-an-array" });
       case "https://replicate.npmjs.com/_changes?since=7&limit=50":
         return jsonResponse({
           last_seq: { unsupported: true },
@@ -395,6 +422,40 @@ void test("source sync helper exports cover registry sync edge branches", async 
     assert.equal(mcpResult.cursors[0]?.completed, true);
     assert.equal(mcpContext.entriesById.size, 1);
 
+    await withEnv(
+      { AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1" },
+      async () => {
+        const sparseMcpContext = buildSourceSyncContext();
+        const sparseMcpResult = await sourceSyncInternals.syncMcpRegistrySource(
+          buildSourceDefinition("mcp-registry", "registry", {
+            baseUrl: "https://registry.modelcontextprotocol.io/",
+            apiUrl: "https://registry.modelcontextprotocol.io/v0/servers",
+          }),
+          sparseMcpContext,
+        );
+        assert.equal(sparseMcpResult.status, "partial");
+        assert.equal(sparseMcpResult.cursors[0]?.nextToken, "later");
+        assert.equal(sparseMcpContext.entriesById.size, 0);
+      },
+    );
+
+    const emptyNpmContext = buildSourceSyncContext({
+      sourceId: "npm-registry",
+      coverageMode: "indexed",
+      status: "partial",
+      indexedEntryCount: 0,
+      cursors: [{ cursorId: "changes", completed: false }],
+    });
+    const emptyNpmResult = await sourceSyncInternals.syncNpmRegistrySource(
+      buildSourceDefinition("npm-registry", "package-registry", {
+        baseUrl: "https://www.npmjs.com",
+      }),
+      emptyNpmContext,
+    );
+    assert.equal(emptyNpmResult.status, "partial");
+    assert.equal(emptyNpmResult.cursors[0]?.nextToken, "done");
+    assert.equal(emptyNpmContext.entriesById.size, 0);
+
     const npmContext = buildSourceSyncContext({
       sourceId: "npm-registry",
       coverageMode: "indexed",
@@ -494,6 +555,8 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
         });
       case "https://api.nuget.org/v3/missing.json":
         return jsonResponse({ resources: [] });
+      case "https://api.nuget.org/v3/malformed.json":
+        return jsonResponse({ resources: "not-an-array" });
       case "https://example.com/root.xml":
         return xmlResponse([
           "<sitemapindex>",
@@ -503,6 +566,12 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
         ]);
       case "https://example.com/plain.xml":
         return xmlResponse(["<urlset></urlset>"]);
+      case "https://example.com/root-no-leaves.xml":
+        return xmlResponse([
+          "<sitemapindex>",
+          "<sitemap><loc>https://example.com/not-index.xml</loc></sitemap>",
+          "</sitemapindex>",
+        ]);
       case "https://example.com/text-ok":
         return textResponse("hello");
       case "https://example.com/json-ok":
@@ -542,6 +611,15 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
         sourceSyncInternals.resolveNuGetSearchQueryServiceUrl(
           buildSourceDefinition("nuget-registry", "package-registry", {
             serviceIndexUrl: "https://api.nuget.org/v3/missing.json",
+          }),
+        ),
+      /SearchQueryService endpoint/u,
+    );
+    await assert.rejects(
+      () =>
+        sourceSyncInternals.resolveNuGetSearchQueryServiceUrl(
+          buildSourceDefinition("nuget-registry", "package-registry", {
+            serviceIndexUrl: "https://api.nuget.org/v3/malformed.json",
           }),
         ),
       /SearchQueryService endpoint/u,
@@ -609,6 +687,28 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
       ),
       ["https://example.com/leaf.xml"],
     );
+    assert.deepEqual(
+      await sourceSyncInternals.resolveSitemapLeafUrls(
+        "https://example.com/root.xml",
+        ["https://example.com"],
+        (url: URL) => url.pathname.endsWith("missing.xml"),
+      ),
+      [],
+    );
+    const noLeafSitemapResult =
+      await sourceSyncInternals.syncSitemapPackageRegistrySource(
+        buildSourceDefinition("pypi-registry", "package-registry", {
+          baseUrl: "https://pypi.org",
+          sitemapUrl: "https://example.com/root-no-leaves.xml",
+        }),
+        buildSourceSyncContext(),
+        {
+          rootSitemapUrl: "https://example.com/root-no-leaves.xml",
+          leafSitemapPredicate: (url: URL) => url.pathname.endsWith("leaf.xml"),
+          packageNameFromUrl: sourceSyncInternals.extractPypiPackageNameFromUrl,
+        },
+      );
+    assert.equal(noLeafSitemapResult.status, "failed");
 
     assert.equal(
       sourceSyncInternals.isLatestMcpRegistryEntry({
@@ -647,6 +747,14 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
         "https://fallback.test/server",
       ),
       "https://fallback.test/server",
+    );
+    assert.equal(
+      sourceSyncInternals.buildMcpRegistryOriginUrl(
+        "notaurl",
+        "io.acme/agent",
+        undefined,
+      ),
+      "io.acme/agent",
     );
     assert.deepEqual(
       sourceSyncInternals.extractMcpRegistryRemoteTypes({

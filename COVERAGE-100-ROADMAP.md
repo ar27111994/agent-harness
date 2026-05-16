@@ -6,11 +6,11 @@ Issue: [#207](https://github.com/ar27111994/agent-harness/issues/207)
 
 `npm run test:coverage` now exercises the release recommendation fixtures and the focused coverage-hardening suites added during the #207 pass. The latest verified local Windows run reports:
 
-- statements: `99.51%` (`37242/37424`)
-- branches: `95.84%` (`6364/6640`)
-- functions: `100%` (`1103/1103`)
-- lines: `99.51%` (`37242/37424`)
-- tests: `607/607` passing
+- statements: `99.61%` (`37296/37441`)
+- branches: `96.96%` (`6488/6691`)
+- functions: `100%` (`1105/1105`)
+- lines: `99.61%` (`37296/37441`)
+- tests: `617/617` passing
 
 The `.c8rc.json` gate currently remains at statements `75`, branches `76`, functions `76`, and lines `75` because #207 is not complete until the intended covered runtime surface reaches a clean 100%. The gap ledger is now small enough to drive the rest of the work directly from uncovered line/branch/function IDs, but the policy is unchanged: do not reach 100% by excluding broad runtime surfaces.
 
@@ -27,12 +27,12 @@ For the normal coverage gate, `npm run validate:coverage` builds, runs coverage,
 
 The generated file is written to `coverage/coverage-gaps.md` and is intentionally ignored with the rest of the coverage output. It lists every file with uncovered lines, uncovered function names, and uncovered branch ids from `coverage/lcov.info`.
 
-Latest remaining high-value focus areas from the 99.51% / 95.84% branch run are:
+Latest remaining high-value focus areas from the 99.61% / 96.96% branch run are:
 
-- discovery ranking/detection residuals: `catalog-selection.ts`, `local-harvesters.ts`, `reference-harvesters.ts`, `official-index-harvester.ts`, and `source-sync.ts`; `demand-signals.ts` is now closed for lines/functions and has only one residual branch
+- discovery ranking/detection residuals: `ai-enrichment.ts`, `catalog-selection.ts`, `github-harvester.ts`, `local-harvesters.ts`, `official-index-harvester.ts`, `package-registry-harvester.ts`, `reference-source-harvester.ts`, and `source-sync.ts`; `reference-harvesters.ts`, `source-registry.ts`, and `demand-signals.ts` no longer appear in the gap report
 - host/install/mirror edge branches: `native-wire.ts`, `opencode.ts`, `vscode.ts`, `install/bundle.ts`, `install/refresh.ts`, and `mirror/acquire.ts`
 - recommendation residuals: `recommend/ai-review.ts`, `recommend/commands.ts`, `recommend/policy.ts`, and `recommend/selection.ts`
-- branch-only utility gaps: `files.ts`, `github.ts`, `official-index.ts`, `lib/http.ts`, `lib/preflight.ts`, and `lib/asset-prerequisites.ts`
+- branch-only utility gaps: `files.ts`, `lib/http.ts`, `lib/preflight.ts`, and `lib/asset-prerequisites.ts`
 
 ## Gap classification
 

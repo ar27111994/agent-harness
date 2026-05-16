@@ -328,10 +328,7 @@ function extractReferenceLinks(
   baseUrl: string,
 ): Array<{ href: string; text: string }> {
   const links: Array<{ href: string; text: string }> = [];
-  const allowedOrigin = getAllowedOrigin(baseUrl);
-  if (!allowedOrigin) {
-    return links;
-  }
+  const allowedOrigin = new URL(baseUrl).origin;
 
   for (const match of content.matchAll(
     /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gisu,

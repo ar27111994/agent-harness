@@ -257,6 +257,30 @@ void test("source registry rejects malformed source pack shapes and required fie
       join(projectRoot, "discover", "source-packs", "broken.json"),
       {
         schemaVersion: 1,
+        entries: [{ id: " ", repo: "https://github.com/acme/broken" }],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /id must not be empty/u,
+    );
+
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [{ id: "broken", repo: "/" }],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /repo must include a repository path/u,
+    );
+
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
         entries: [
           {
             id: "broken",

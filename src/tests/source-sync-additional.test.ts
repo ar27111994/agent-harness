@@ -151,6 +151,150 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
   }
 });
 
+void test("source sync indexes default registry endpoints with sparse successful responses", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-defaults-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://cursor.com/sitemap-marketplace.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://cursor.com/marketplace/agent-helper</loc></url>",
+      "</urlset>",
+    ]),
+    "https://zed.dev/extensions": new Response(
+      '<a href="/extensions/zed-industries/rust">Rust</a>',
+      { status: 200 },
+    ),
+    "https://pi.dev/packages": new Response(
+      '<a href="/packages/agent-helper">Agent Helper</a>',
+      { status: 200 },
+    ),
+    "https://skills.sh/sitemap.xml": xmlResponse([
+      "<sitemapindex>",
+      "<sitemap><loc>https://skills.sh/sitemap-skills.xml</loc></sitemap>",
+      "</sitemapindex>",
+    ]),
+    "https://skills.sh/sitemap-skills.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://skills.sh/acme/agent-helper</loc></url>",
+      "</urlset>",
+    ]),
+    "https://pypi.org/sitemap.xml": xmlResponse([
+      "<sitemapindex>",
+      "<sitemap><loc>https://pypi.org/ab.sitemap.xml</loc></sitemap>",
+      "</sitemapindex>",
+    ]),
+    "https://pypi.org/ab.sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://pypi.org/project/agent-helper/</loc></url>",
+      "</urlset>",
+    ]),
+    "https://swiftpackageindex.com/sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://swiftpackageindex.com/apple/swift-argument-parser</loc></url>",
+      "</urlset>",
+    ]),
+    "https://clawhub.ai/plugins?sort=downloads": new Response(
+      '<a href="/plugins/agent-helper">Agent Helper</a><a href="/plugins/publish">Publish</a>',
+      { status: 200 },
+    ),
+    "https://registry.modelcontextprotocol.io/v0/servers": new Response(
+      JSON.stringify({
+        servers: [
+          {
+            server: {
+              name: "acme/server",
+              title: "Acme Server",
+              description: "MCP registry fixture",
+            },
+            _meta: {
+              "io.modelcontextprotocol.registry/official": {
+                isLatest: true,
+                publishedAt: "2026-05-14T00:00:00.000Z",
+              },
+            },
+          },
+        ],
+        metadata: {},
+      }),
+      { status: 200 },
+    ),
+    "https://replicate.npmjs.com/_changes?since=0&limit=50": new Response(
+      JSON.stringify({ results: [], last_seq: 7 }),
+      { status: 200 },
+    ),
+    "https://crates.io/api/v1/crates?page=1&per_page=50": new Response(
+      JSON.stringify({ crates: [] }),
+      { status: 200 },
+    ),
+    "https://search.maven.org/solrsearch/select?q=*%3A*&rows=50&start=0&wt=json":
+      new Response(JSON.stringify({ response: { docs: [], numFound: 0 } }), {
+        status: 200,
+      }),
+    "https://api.nuget.org/v3/index.json": new Response(
+      JSON.stringify({
+        resources: [
+          {
+            "@type": "SearchQueryService/3.5.0",
+            "@id": "https://azuresearch-usnc.nuget.org/query",
+          },
+        ],
+      }),
+      { status: 200 },
+    ),
+    "https://azuresearch-usnc.nuget.org/query?q=&skip=0&take=50&prerelease=true&semVerLevel=2.0.0":
+      new Response(JSON.stringify({ data: [], totalHits: 0 }), { status: 200 }),
+    "https://packagist.org/packages/list.json": new Response(
+      JSON.stringify({ packageNames: ["acme/package"] }),
+      { status: 200 },
+    ),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource("cursor-marketplace", "registry", {}),
+      buildSource("zed-extension-registry", "registry", {}),
+      buildSource("pi-packages", "registry", {}),
+      buildSource("skills-sh", "registry", {}),
+      buildSource("pypi-registry", "registry", {}),
+      buildSource("swift-package-index", "registry", {}),
+      buildSource("clawhub", "registry", {}),
+      buildSource("mcp-registry", "registry", {}),
+      buildSource("npm-registry", "registry", {}),
+      buildSource("cargo-registry", "registry", {}),
+      buildSource("maven-registry", "registry", {}),
+      buildSource("nuget-registry", "registry", {}),
+      buildSource("packagist-registry", "registry", {}),
+    ]);
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+    const byId = new Map(
+      report.sources.map((source) => [source.sourceId, source]),
+    );
+
+    assert.equal(byId.get("cursor-marketplace")?.status, "complete");
+    assert.equal(byId.get("zed-extension-registry")?.status, "complete");
+    assert.equal(byId.get("pi-packages")?.status, "complete");
+    assert.equal(byId.get("skills-sh")?.status, "complete");
+    assert.equal(byId.get("pypi-registry")?.status, "complete");
+    assert.equal(byId.get("swift-package-index")?.status, "complete");
+    assert.equal(byId.get("clawhub")?.status, "partial");
+    assert.equal(byId.get("mcp-registry")?.status, "complete");
+    assert.equal(byId.get("npm-registry")?.status, "partial");
+    assert.equal(byId.get("cargo-registry")?.status, "complete");
+    assert.equal(byId.get("maven-registry")?.status, "complete");
+    assert.equal(byId.get("nuget-registry")?.status, "complete");
+    assert.equal(byId.get("packagist-registry")?.status, "complete");
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 async function writeTestSourceRegistry(
   projectRoot: string,
   sources: unknown[],

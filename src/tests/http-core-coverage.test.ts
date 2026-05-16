@@ -262,6 +262,50 @@ void test("http internals classify mapped ipv6 private ranges", () => {
   );
 });
 
+void test("http guards cover branch-only address and lookup variants", async () => {
+  assert.equal(
+    await fetchBytesWithGuards("https://example.com/no-origin"),
+    null,
+  );
+
+  await assert.doesNotReject(
+    assertPublicInternetResolution(new URL("https://8.8.8.8/path")),
+  );
+  await assert.doesNotReject(
+    assertPublicInternetResolution(
+      new URL("https://[2001:4860:4860::8888]/path"),
+    ),
+  );
+
+  const pinnedLookup = createPinnedLookup({ address: "1.1.1.1", family: 4 });
+  const singleResult = await new Promise<{ address: string; family: number }>(
+    (resolve, reject) => {
+      (pinnedLookup as (...args: unknown[]) => void)(
+        "example.com",
+        (error: Error | null, address: string, family: number) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve({ address, family });
+        },
+      );
+    },
+  );
+  assert.deepEqual(singleResult, { address: "1.1.1.1", family: 4 });
+
+  for (const address of [
+    "100.64.0.1",
+    "192.0.0.8",
+    "192.88.99.1",
+    "198.18.0.1",
+    "198.51.100.10",
+    "203.0.113.10",
+  ]) {
+    assert.equal(httpInternals.isPrivateIpv4Address(address), true, address);
+  }
+});
+
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
     delete process.env[name];

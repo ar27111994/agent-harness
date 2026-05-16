@@ -169,8 +169,11 @@ function assertSourcePackShape(
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertArray(record.entries, `${context}.entries`).forEach((entry, index) => {
     const entryRecord = assertRecord(entry, `${context}.entries[${index}]`);
-    assertString(entryRecord.id, `${context}.entries[${index}].id`);
-    assertString(entryRecord.repo, `${context}.entries[${index}].repo`);
+    assertNonEmptyString(entryRecord.id, `${context}.entries[${index}].id`);
+    assertRepositoryString(
+      entryRecord.repo,
+      `${context}.entries[${index}].repo`,
+    );
     assertOptionalEnum(
       entryRecord.authorityTier,
       AUTHORITY_TIERS,
@@ -240,6 +243,28 @@ function assertString(value: unknown, context: string): string {
   return value;
 }
 
+function assertNonEmptyString(value: unknown, context: string): string {
+  const stringValue = assertString(value, context);
+  if (stringValue.trim().length === 0) {
+    throw new Error(`${context} must not be empty`);
+  }
+
+  return stringValue;
+}
+
+function assertRepositoryString(value: unknown, context: string): string {
+  const stringValue = assertNonEmptyString(value, context);
+  const hasPathSegment = stringValue
+    .replace(/^\/+|\/+$/gu, "")
+    .split(/[\\/]/u)
+    .some((segment) => segment.trim().length > 0);
+  if (!hasPathSegment) {
+    throw new Error(`${context} must include a repository path`);
+  }
+
+  return stringValue;
+}
+
 function assertNumber(value: unknown, context: string): number {
   if (typeof value !== "number") {
     throw new Error(`${context} must be a number`);
@@ -307,15 +332,11 @@ function normalizeRepoIdentity(repo: string | undefined): string | undefined {
 
   const urlPath = extractUrlPath(normalizedRepo);
   if (urlPath) {
-    try {
-      const parsedUrl = new URL(normalizedRepo);
-      return `${parsedUrl.hostname}/${urlPath}`
-        .replace(/\/+/gu, "/")
-        .replace(/^\/+|\/+$/gu, "")
-        .toLowerCase();
-    } catch {
-      return urlPath.replace(/^\/+|\/+$/gu, "").toLowerCase();
-    }
+    const parsedUrl = new URL(normalizedRepo);
+    return `${parsedUrl.hostname}/${urlPath}`
+      .replace(/\/+/gu, "/")
+      .replace(/^\/+|\/+$/gu, "")
+      .toLowerCase();
   }
 
   return normalizedRepo.replace(/^\/+|\/+$/gu, "").toLowerCase();
@@ -349,8 +370,7 @@ function lastPathSegment(value: string): string {
     .split(/[\\/]/u)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
-  const lastSegment = segments.at(-1);
-  return lastSegment ?? value;
+  return segments[segments.length - 1]!;
 }
 
 function humanizeSlug(value: string): string {

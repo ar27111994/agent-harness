@@ -11,6 +11,7 @@ import {
   clearGitHubState,
   fetchGitHubRepoSnapshot,
   fetchGitHubRepoSnapshotByRepoUrl,
+  githubInternals,
   isGitHubRepoSource,
   parseGitHubRepoCoordinates,
 } from "../github.js";
@@ -438,6 +439,136 @@ void test("github fetch returns null for 404 repositories and invalid urls", asy
 
   assert.equal(invalid, null);
   assert.equal(missing, null);
+});
+
+void test("github fetch normalizes omitted repository topics and tree entries", async (context) => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-sparse-success-"),
+  );
+  const originalFetch = globalThis.fetch;
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.endsWith("/repos/octocat/sparse")) {
+      return new Response(
+        JSON.stringify({
+          name: "sparse",
+          full_name: "octocat/sparse",
+          description: null,
+          default_branch: "main",
+          updated_at: "2026-05-14T00:00:00.000Z",
+          pushed_at: "2026-05-14T00:00:00.000Z",
+          stargazers_count: 3,
+          language: null,
+          archived: false,
+          html_url: "https://github.com/octocat/sparse",
+        }),
+        { status: 200 },
+      );
+    }
+    if (url.includes("/git/trees/main?recursive=1")) {
+      return new Response(
+        JSON.stringify({
+          sha: "tree-sha",
+          truncated: false,
+        }),
+        { status: 200 },
+      );
+    }
+    return new Response("missing", { status: 404 });
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    clearGitHubState();
+    await rm(tempRoot, { force: true, recursive: true });
+  });
+
+  const snapshot = await fetchGitHubRepoSnapshotByRepoUrl({
+    repoUrl: "https://github.com/octocat/sparse",
+    projectRoot: tempRoot,
+    sourceId: "fixture-source",
+  });
+
+  assert.deepEqual(snapshot?.repoSummary.topics, []);
+  assert.deepEqual(snapshot?.tree.entries, []);
+  assert.equal(snapshot?.readme, null);
+});
+
+void test("github source health preserves omitted optional failure fields and defaults new flags", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-health-merge-"),
+  );
+  const key = "fixture-source:octocat/sparse";
+
+  try {
+    await githubInternals.updateGitHubSourceHealth(tempRoot, key, {
+      sourceId: "fixture-source",
+      owner: "octocat",
+      repo: "sparse",
+      lastAttemptAt: "2026-05-14T00:00:00.000Z",
+      lastFailureAt: "2026-05-14T00:00:00.000Z",
+      consecutiveFailures: 2,
+      degradedMode: true,
+      degradedReason: "rate-limited-cache-fallback",
+      usedCacheLastAttempt: true,
+      lastError: "rate limited",
+    });
+    await githubInternals.updateGitHubSourceHealth(tempRoot, key, {
+      sourceId: "fixture-source",
+      owner: "octocat",
+      repo: "sparse",
+      lastAttemptAt: "2026-05-14T01:00:00.000Z",
+    });
+
+    const state = JSON.parse(
+      await readFile(
+        join(tempRoot, "state", "remote-cache", "github", "source-health.json"),
+        "utf8",
+      ),
+    ) as {
+      entries?: Record<string, Record<string, unknown>>;
+    };
+    const entry = state.entries?.[key];
+
+    assert.equal(entry?.lastAttemptAt, "2026-05-14T01:00:00.000Z");
+    assert.equal(entry?.lastFailureAt, "2026-05-14T00:00:00.000Z");
+    assert.equal(entry?.degradedMode, true);
+    assert.equal(entry?.degradedReason, "rate-limited-cache-fallback");
+    assert.equal(entry?.lastError, "rate limited");
+    assert.equal(entry?.usedCacheLastAttempt, false);
+
+    await githubInternals.updateGitHubSourceHealth(
+      tempRoot,
+      "fixture-source:github/docs",
+      {
+        sourceId: "fixture-source",
+        owner: "github",
+        repo: "docs",
+        lastAttemptAt: "2026-05-14T02:00:00.000Z",
+      },
+    );
+    const nextState = JSON.parse(
+      await readFile(
+        join(tempRoot, "state", "remote-cache", "github", "source-health.json"),
+        "utf8",
+      ),
+    ) as {
+      entries?: Record<string, Record<string, unknown>>;
+    };
+
+    assert.equal(
+      nextState.entries?.["fixture-source:github/docs"]?.degradedMode,
+      false,
+    );
+    assert.equal(
+      nextState.entries?.["fixture-source:github/docs"]?.usedCacheLastAttempt,
+      false,
+    );
+  } finally {
+    clearGitHubState();
+    await rm(tempRoot, { force: true, recursive: true });
+  }
 });
 
 function restoreEnv(name: string, value: string | undefined): void {
