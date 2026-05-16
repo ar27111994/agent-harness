@@ -59,6 +59,7 @@ void test("local Claude Code config harvesting recognizes native components", as
       join(root, "skills", "repo-guide", "SKILL.md"),
       "---\nname: repo-guide\ndescription: Repository guide\n---\n# Guide\n",
     );
+    await writeText(join(root, "workflows", "deploy.yaml"), "name: deploy\n");
     await writeText(
       join(root, "hooks", "audit.json"),
       '{"PreToolUse":[{"hooks":[{"type":"command","command":"echo ok"}]}]}',
@@ -71,6 +72,8 @@ void test("local Claude Code config harvesting recognizes native components", as
       join(root, "plugins", "team", ".claude-plugin", "plugin.json"),
       '{"name":"team"}',
     );
+    await writeText(join(root, "plugins", "team", "README.md"), "# Team\n");
+    await writeText(join(root, "notes.txt"), "ignore me\n");
 
     const entries = await harvestLocalDirectorySource(
       buildLocalSource("local-claude-code-config", root, [
@@ -89,12 +92,15 @@ void test("local Claude Code config harvesting recognizes native components", as
     assert.equal(kindByPath.get("commands/review.md"), "prompt-pack");
     assert.equal(kindByPath.get("agents/reviewer.md"), "agent");
     assert.equal(kindByPath.get("skills/repo-guide/SKILL.md"), "skill");
+    assert.equal(kindByPath.get("workflows/deploy.yaml"), "workflow");
     assert.equal(kindByPath.get("hooks/audit.json"), "hook");
     assert.equal(kindByPath.get(".mcp.json"), "mcp-server");
     assert.equal(
       kindByPath.get("plugins/team/.claude-plugin/plugin.json"),
       "plugin",
     );
+    assert.equal(kindByPath.get("plugins/team/README.md"), "reference-pack");
+    assert.equal(kindByPath.has("notes.txt"), false);
   } finally {
     await rm(root, { force: true, recursive: true });
   }
@@ -115,6 +121,10 @@ void test("local Cursor config harvesting recognizes native components", async (
     await writeText(
       join(root, "hooks.json"),
       '{"version":1,"hooks":{"preToolUse":[{"command":"echo ok"}]}}',
+    );
+    await writeText(
+      join(root, "plugins", "team", "hooks", "deploy.json"),
+      '{"hooks":{"preToolUse":[{"command":"echo ok"}]}}',
     );
     await writeText(
       join(root, "mcp.json"),
@@ -148,6 +158,7 @@ void test("local Cursor config harvesting recognizes native components", async (
     assert.equal(kindByPath.get("agents/security.md"), "agent");
     assert.equal(kindByPath.get("skills/api-designer/SKILL.md"), "skill");
     assert.equal(kindByPath.get("hooks.json"), "hook");
+    assert.equal(kindByPath.get("plugins/team/hooks/deploy.json"), "hook");
     assert.equal(kindByPath.get("mcp.json"), "mcp-server");
     assert.equal(
       kindByPath.get("plugins/team/.cursor-plugin/plugin.json"),
@@ -156,6 +167,33 @@ void test("local Cursor config harvesting recognizes native components", async (
     assert.equal(
       kindByPath.get(".cursor-plugin/marketplace.json"),
       "reference-pack",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("local directory source defaults missing endpoint paths to project root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-local-root-"));
+
+  try {
+    await writeText(join(root, "docs", "guide.md"), "# Guide\n");
+
+    const entries = await harvestLocalDirectorySource(
+      {
+        ...buildLocalSource("local-opencode-context", join(root, "unused"), [
+          "opencode",
+        ]),
+        endpoints: {},
+      },
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+
+    assert.deepEqual(
+      entries.map((entry) => entry.install.relativePath),
+      ["docs/guide.md"],
     );
   } finally {
     await rm(root, { force: true, recursive: true });
