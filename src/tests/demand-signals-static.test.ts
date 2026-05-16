@@ -519,6 +519,204 @@ void test("demand signals extract requirements.txt signals from various naming p
   }
 });
 
+void test("demand signals extract mobile framework and manifest edge signals", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-demand-mobile-edge-"),
+  );
+
+  try {
+    const packagePath = join(root, "package.json");
+    const invalidPackagePath = join(root, "invalid-package.json");
+    const pubspecPath = join(root, "pubspec.yaml");
+    const csprojPath = join(root, "maui", "MobileApp.csproj");
+    const xamarinPath = join(root, "xamarin", "LegacyApp.csproj");
+    const gradlePath = join(root, "android", "build.gradle");
+    const missingActorPath = join(root, ".actor", "actor.json");
+
+    await writeText(
+      packagePath,
+      JSON.stringify({
+        name: "mobile-test-app",
+        description: "React Native testing harness",
+        packageManager: "pnpm@9.0.0",
+        engines: { node: ">=20" },
+        author: { name: "Acme" },
+        dependencies: { typescript: "^5.0.0", react: "^18.0.0" },
+      }),
+    );
+    await writeText(invalidPackagePath, "{not-json");
+    await writeText(
+      pubspecPath,
+      [
+        "name: flutter_app",
+        "dependencies:",
+        "  flutter:",
+        "    sdk: flutter",
+        "  http: ^1.0.0",
+        "dev_dependencies:",
+        "  flutter_test:",
+        "    sdk: flutter",
+      ].join("\n"),
+    );
+    await writeText(
+      csprojPath,
+      [
+        "<Project>",
+        "<PropertyGroup>",
+        "<TargetFrameworks>net8.0-ios;net8.0-android</TargetFrameworks>",
+        "<UseMaui>true</UseMaui>",
+        "</PropertyGroup>",
+        "</Project>",
+      ].join(""),
+    );
+    await writeText(
+      xamarinPath,
+      '<Project><ItemGroup><PackageReference Include="Xamarin.Forms" Version="5.0.0" /></ItemGroup></Project>',
+    );
+    await writeText(
+      gradlePath,
+      [
+        "plugins {",
+        "  id 'org.jetbrains.kotlin.android'",
+        "  id 'com.android.library'",
+        "}",
+      ].join("\n"),
+    );
+
+    const packageSignals = await collectDemandSignalsForFile(
+      "package.json",
+      packagePath,
+    );
+    const invalidPackageSignals = await collectDemandSignalsForFile(
+      "package.json",
+      invalidPackagePath,
+    );
+    const pubspecSignals = await collectDemandSignalsForFile(
+      "pubspec.yaml",
+      pubspecPath,
+    );
+    const mauiSignals = await collectDemandSignalsForFile(
+      "MobileApp.csproj",
+      csprojPath,
+    );
+    const xamarinSignals = await collectDemandSignalsForFile(
+      "LegacyApp.csproj",
+      xamarinPath,
+    );
+    const gradleSignals = await collectDemandSignalsForFile(
+      "build.gradle",
+      gradlePath,
+    );
+    const missingActorSignals = await collectDemandSignalsForFile(
+      "actor.json",
+      missingActorPath,
+    );
+
+    assert.ok(packageSignals.packageManagers.includes("pnpm"));
+    assert.ok(packageSignals.tooling.includes("node"));
+    assert.ok(packageSignals.languages.includes("typescript"));
+    assert.deepEqual(invalidPackageSignals.tooling, []);
+
+    assert.ok(pubspecSignals.languages.includes("dart"));
+    assert.ok(pubspecSignals.frameworks.includes("flutter"));
+    assert.ok(pubspecSignals.tooling.includes("pub:http"));
+    assert.ok(pubspecSignals.tooling.includes("pub:flutter_test"));
+
+    assert.ok(mauiSignals.concerns.includes("ios"));
+    assert.ok(mauiSignals.concerns.includes("android"));
+    assert.ok(mauiSignals.frameworks.includes("maui"));
+    assert.ok(mauiSignals.tooling.includes("dotnet-maui"));
+
+    assert.ok(xamarinSignals.frameworks.includes("xamarin"));
+    assert.ok(xamarinSignals.tooling.includes("xamarin"));
+
+    assert.ok(gradleSignals.languages.includes("kotlin"));
+    assert.ok(gradleSignals.tooling.includes("android-gradle"));
+    assert.ok(missingActorSignals.concerns.includes("actor-development"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("demand signals tolerate sparse manifests and alternate source markers", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-sparse-"));
+
+  try {
+    const phpPath = join(root, "index.php");
+    const rubyPath = join(root, "lib", "worker.rb");
+    const missingPyprojectPath = join(root, "pyproject.toml");
+    const missingPubspecPath = join(root, "pubspec.yaml");
+    const minimalActorPath = join(root, ".actor", "actor.json");
+    const gradleKtsPath = join(root, "build.gradle.kts");
+    const gradleGroovyPath = join(root, "build.gradle");
+    const gradlePluginPath = join(root, "android", "build.gradle");
+    const emptyComposerPath = join(root, "composer.json");
+
+    await writeText(phpPath, "<?php echo 'hello';");
+    await writeText(rubyPath, "puts 'hello'");
+    await writeText(minimalActorPath, "{}");
+    await writeText(gradleKtsPath, 'plugins { kotlin("android") }');
+    await writeText(gradleGroovyPath, "plugins { kotlin('android') }");
+    await writeText(
+      gradlePluginPath,
+      "plugins { id 'org.jetbrains.kotlin.android' }",
+    );
+    await writeText(emptyComposerPath, "{}");
+
+    const phpSignals = await collectDemandSignalsForFile("index.php", phpPath);
+    const rubySignals = await collectDemandSignalsForFile(
+      "worker.rb",
+      rubyPath,
+    );
+    const missingPyprojectSignals = await collectDemandSignalsForFile(
+      "pyproject.toml",
+      missingPyprojectPath,
+    );
+    const missingPubspecSignals = await collectDemandSignalsForFile(
+      "pubspec.yaml",
+      missingPubspecPath,
+    );
+    const minimalActorSignals = await collectDemandSignalsForFile(
+      "actor.json",
+      minimalActorPath,
+    );
+    const gradleKtsSignals = await collectDemandSignalsForFile(
+      "build.gradle.kts",
+      gradleKtsPath,
+    );
+    const gradleGroovySignals = await collectDemandSignalsForFile(
+      "build.gradle",
+      gradleGroovyPath,
+    );
+    const gradlePluginSignals = await collectDemandSignalsForFile(
+      "build.gradle",
+      gradlePluginPath,
+    );
+    const composerSignals = await collectDemandSignalsForFile(
+      "composer.json",
+      emptyComposerPath,
+    );
+
+    assert.ok(phpSignals.languages.includes("php"));
+    assert.ok(rubySignals.languages.includes("ruby"));
+
+    assert.deepEqual(missingPyprojectSignals.tooling, []);
+    assert.deepEqual(missingPubspecSignals.tooling, []);
+
+    assert.ok(minimalActorSignals.concerns.includes("actor-development"));
+    assert.ok(minimalActorSignals.tooling.includes("actor-runtime"));
+
+    assert.ok(gradleKtsSignals.languages.includes("kotlin"));
+    assert.ok(gradleGroovySignals.languages.includes("kotlin"));
+    assert.ok(gradlePluginSignals.languages.includes("kotlin"));
+    assert.ok(gradlePluginSignals.tooling.includes("android-gradle"));
+
+    assert.deepEqual(composerSignals.tooling, []);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 async function writeText(filePath: string, content: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");

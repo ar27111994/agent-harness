@@ -212,6 +212,87 @@ void test("official index harvester ignores missing configs and unavailable fetc
   );
 });
 
+void test("official index harvester skips malformed rows and resolves fallback repo sources without publisher metadata", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-official-index-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async () =>
+    new Response(
+      [
+        "**[   ](https://officialskills.sh/community/skills/blank-name)** - Malformed row should be skipped.",
+        "**[Useful Skill](https://officialskills.sh/community/skills/useful-skill)** - Useful community workflow guidance.",
+      ].join("\n"),
+      {
+        status: 200,
+        headers: { "content-type": "text/plain; charset=utf-8" },
+      },
+    );
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(
+    join(projectRoot, "discover", "official-skills-indexes.json"),
+    {
+      schemaVersion: 1,
+      indexes: [
+        {
+          id: "official-index",
+          kind: "markdown",
+          url: "https://raw.githubusercontent.com/acme/official/main/index.md",
+        },
+      ],
+    },
+  );
+  await writeJsonFile(join(projectRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      buildSourceWithoutPublisher(
+        "gitlab-community-skill",
+        "https://gitlab.com/community/useful-skill",
+        "trusted-community",
+      ),
+      buildSourceWithoutPublisher(
+        "community-useful-skill",
+        "https://github.com/community/useful-skill",
+        "trusted-community",
+      ),
+    ],
+  });
+
+  const entries = await harvestOfficialSkillIndexes(
+    projectRoot,
+    null,
+    buildSelectionRegistry(),
+  );
+  const byId = new Map(entries.map((entry) => [entry.id, entry]));
+
+  assert.deepEqual([...byId.keys()].sort(), [
+    "community-useful-skill:useful-skill",
+    "official-index:community:useful-skill",
+  ]);
+  assert.equal(byId.get("official-index:community:blank-name"), undefined);
+  assert.equal(
+    byId.get("community-useful-skill:useful-skill")?.source.publisher,
+    "community",
+  );
+  assert.equal(
+    byId.get("community-useful-skill:useful-skill")?.source.publisherVerified,
+    false,
+  );
+});
+
 function buildSelectionRegistry(): SelectionRegistry {
   return {
     schemaVersion: 1,
@@ -271,4 +352,14 @@ function buildSource(
       allowInstall: true,
     },
   };
+}
+
+function buildSourceWithoutPublisher(
+  id: string,
+  repo: string,
+  authorityTier: SourceDefinition["authorityTier"],
+): SourceDefinition {
+  const source = buildSource(id, repo, authorityTier);
+  delete source.publisher;
+  return source;
 }

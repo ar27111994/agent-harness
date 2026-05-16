@@ -6,11 +6,11 @@ Issue: [#207](https://github.com/ar27111994/agent-harness/issues/207)
 
 `npm run test:coverage` now exercises the release recommendation fixtures and the focused coverage-hardening suites added during the #207 pass. The latest verified local Windows run reports:
 
-- statements: `99.34%` (`37186/37432`)
-- branches: `95.20%` (`6290/6607`)
+- statements: `99.48%` (`37239/37432`)
+- branches: `95.75%` (`6359/6641`)
 - functions: `100%` (`1103/1103`)
-- lines: `99.34%` (`37186/37432`)
-- tests: `595/595` passing
+- lines: `99.48%` (`37239/37432`)
+- tests: `603/603` passing
 
 The `.c8rc.json` gate currently remains at statements `75`, branches `76`, functions `76`, and lines `75` because #207 is not complete until the intended covered runtime surface reaches a clean 100%. The gap ledger is now small enough to drive the rest of the work directly from uncovered line/branch/function IDs, but the policy is unchanged: do not reach 100% by excluding broad runtime surfaces.
 
@@ -27,9 +27,9 @@ For the normal coverage gate, `npm run validate:coverage` builds, runs coverage,
 
 The generated file is written to `coverage/coverage-gaps.md` and is intentionally ignored with the rest of the coverage output. It lists every file with uncovered lines, uncovered function names, and uncovered branch ids from `coverage/lcov.info`.
 
-Latest remaining high-value focus areas from the 99.34% / 95.20% branch run are:
+Latest remaining high-value focus areas from the 99.48% / 95.75% branch run are:
 
-- discovery ranking/detection residuals: `catalog-selection.ts`, `demand-signals.ts`, `local-harvesters.ts`, `reference-harvesters.ts`, `official-index-harvester.ts`, and `source-sync.ts`
+- discovery ranking/detection residuals: `catalog-selection.ts`, `local-harvesters.ts`, `reference-harvesters.ts`, `official-index-harvester.ts`, and `source-sync.ts`; `demand-signals.ts` is now down to defensive optional-input branches
 - host/install/mirror edge branches: `native-wire.ts`, `opencode.ts`, `vscode.ts`, `install/bundle.ts`, `install/refresh.ts`, and `mirror/acquire.ts`
 - recommendation residuals: `recommend/ai-review.ts`, `recommend/commands.ts`, `recommend/policy.ts`, and `recommend/selection.ts`
 - branch-only utility gaps: `files.ts`, `github.ts`, `official-index.ts`, `lib/http.ts`, `lib/preflight.ts`, and `lib/asset-prerequisites.ts`

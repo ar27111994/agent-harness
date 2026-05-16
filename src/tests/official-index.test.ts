@@ -253,6 +253,40 @@ void test("official index repository url helper rejects non-github links and emp
   assert.equal(content, null);
 });
 
+void test("official index content falls back to meta description when the summary section has no paragraph", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async () =>
+    new Response(
+      [
+        "<html><head>",
+        "<title>No Paragraph Skill - Agent Skills | officialskills.sh</title>",
+        '<meta name="description" content="Description becomes the core concept." />',
+        "</head><body>",
+        "<section><h2>What This Skill Does</h2><ul><li>No paragraph here.</li></ul></section>",
+        "</body></html>",
+      ].join(""),
+      { status: 200 },
+    );
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreFetchMockFlag(previousFetchMockFlag);
+  });
+
+  const content = await fetchOfficialIndexPageContent(
+    "https://officialskills.sh/example/skills/no-paragraph",
+  );
+
+  assert.match(
+    content ?? "",
+    /## Core Concept\nDescription becomes the core concept\./u,
+  );
+  assert.doesNotMatch(content ?? "", /No paragraph here/u);
+});
+
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
     delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;

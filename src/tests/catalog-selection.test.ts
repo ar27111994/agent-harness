@@ -274,6 +274,106 @@ void test("selection relevance rejects generic trusted-local skills for a real F
   ]);
 });
 
+void test("selection relevance ignores detector-only demand noise", () => {
+  const entries = [
+    createEntry("general-docs", ["documentation", "workflow"]),
+    createEntry("general-testing", ["testing", "workflow"]),
+  ];
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: [],
+    concerns: ["detector:base"],
+    tooling: [],
+  });
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(entries, demandProfile);
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["general-docs", "general-testing"],
+  );
+  assert.deepEqual(rejectedEntries, []);
+});
+
+void test("selection relevance treats mixed generic and uncommon stack names as phrases", () => {
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: ["react native"],
+    concerns: [],
+    tooling: [],
+  });
+  const reactNativeEntry = createEntry("react-native-mobile", [
+    "react",
+    "native",
+    "mobile",
+  ]);
+  const reactOnlyEntry = createEntry("react-web", ["react", "frontend"]);
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [reactNativeEntry, reactOnlyEntry],
+      demandProfile,
+    );
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["react-native-mobile"],
+  );
+  assert.deepEqual(
+    rejectedEntries.map((entry) => entry.id),
+    ["react-web"],
+  );
+});
+
+void test("selection relevance treats catalog-wide terms as low signal", () => {
+  const entries = Array.from({ length: 210 }, (_, index) =>
+    createEntry(`popular-sveltekit-${index}`, ["sveltekit", "generic"]),
+  );
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: ["sveltekit"],
+    concerns: [],
+    tooling: [],
+  });
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(entries, demandProfile);
+
+  assert.deepEqual(selectedEntries, []);
+  assert.equal(rejectedEntries.length, entries.length);
+});
+
+void test("selection relevance rejects trusted-local generic overlap without stack alignment", () => {
+  const demandProfile = createDemandProfile({
+    languages: ["dart"],
+    packageManagers: ["pub"],
+    frameworks: ["flutter"],
+    concerns: ["frontend", "mobile", "testing", "integration"],
+    tooling: [],
+  });
+  const genericLocalSkill = createEntry(
+    "generic-mobile-testing",
+    ["frontend", "mobile", "testing", "integration"],
+    {
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+    },
+  );
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance([genericLocalSkill], demandProfile);
+
+  assert.deepEqual(selectedEntries, []);
+  assert.deepEqual(
+    rejectedEntries.map((entry) => entry.id),
+    ["generic-mobile-testing"],
+  );
+});
+
 function createDemandProfile(
   overrides: Partial<DemandProfile["signals"]>,
 ): DemandProfile {
