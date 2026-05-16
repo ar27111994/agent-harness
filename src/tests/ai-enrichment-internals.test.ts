@@ -263,6 +263,15 @@ void test("ai enrichment helper exports reject malformed provider responses and 
     }) ?? "",
     /discover select --ai-enrich/u,
   );
+  assert.match(
+    aiEnrichmentInternals.buildAiEnrichmentSuggestion({
+      mode: "manual",
+      hasConfig: true,
+      interactive: true,
+      selectedAssetCount: 1,
+    }) ?? "",
+    /this command with --ai-enrich/u,
+  );
 
   assert.equal(
     aiEnrichmentInternals.isCiEnvironment({} as NodeJS.ProcessEnv),
@@ -439,6 +448,19 @@ void test("ai enrichment helper exports cover ambiguity and policy helper branch
   );
   assert.equal(cached?.status, "reused");
   assert.equal(
+    aiEnrichmentInternals.buildCachedAiEnrichmentArtifact(
+      {
+        ...cachedContext,
+        previousArtifact: {
+          ...cachedContext.previousArtifact!,
+          status: "reused",
+        } as never,
+      },
+      true,
+    )?.status,
+    "reused",
+  );
+  assert.equal(
     aiEnrichmentInternals.buildCachedAiEnrichmentArtifact(cachedContext, false),
     null,
   );
@@ -467,6 +489,18 @@ void test("ai enrichment helper exports cover ambiguity and policy helper branch
   assert.match(cooldownSkip?.reason ?? "", /cooldown window/u);
   assert.deepEqual(cooldownSkip?.warnings, [
     "Automatic mode cooldown: 60000ms",
+  ]);
+
+  const ciCooldownWithoutCache =
+    aiEnrichmentInternals.evaluateAutomaticPolicySkip(
+      "after-select",
+      { ...config, allowCacheInCi: false },
+      cooldownContext,
+      true,
+    );
+  assert.deepEqual(ciCooldownWithoutCache?.warnings, [
+    "Automatic mode cooldown: 60000ms",
+    "CI cache reuse is disabled for this run.",
   ]);
 
   const noSkipContext: Parameters<

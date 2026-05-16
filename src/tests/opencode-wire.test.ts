@@ -228,6 +228,70 @@ void test("OpenCode wire reset rejects wire plans that escape the managed root",
   }
 });
 
+void test("OpenCode apply and reset tolerate prior wire plans with omitted optional state", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    const localContextRoot = join(
+      fixture.workspaceRoot,
+      ".opencode",
+      "context",
+      "project-intelligence",
+      "agent-harness",
+    );
+    await writeJsonFile(join(localContextRoot, "wire-plan.json"), {
+      schemaVersion: 1,
+      host: "opencode-project",
+      generatedAt: new Date().toISOString(),
+      workspaceRoot: fixture.workspaceRoot,
+      runtimeRoot: join(fixture.workspaceRoot, ".opencode"),
+      textFileSnapshots: [],
+      notes: [],
+    } satisfies WirePlanManifest);
+    await writeTextFile(
+      join(fixture.workspaceRoot, "AGENTS.md"),
+      [
+        "<!-- agent-harness:begin -->",
+        "stale managed section",
+        "<!-- agent-harness:end -->",
+        "",
+      ].join("\n"),
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+
+    assert.match(
+      (await readTextFileOrNull(join(fixture.workspaceRoot, "AGENTS.md"))) ??
+        "",
+      /No active OpenCode assets were found at wire time/u,
+    );
+
+    await writeJsonFile(join(localContextRoot, "wire-plan.json"), {
+      schemaVersion: 1,
+      host: "opencode-project",
+      generatedAt: new Date().toISOString(),
+      workspaceRoot: fixture.workspaceRoot,
+      runtimeRoot: join(fixture.workspaceRoot, ".opencode"),
+      textFileSnapshots: [],
+      notes: [],
+    } satisfies WirePlanManifest);
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "reset",
+    });
+
+    assert.equal(await pathExists(localContextRoot), false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("OpenCode wire rolls back managed links and AGENTS changes when a target link already exists", async () => {
   const fixture = await createOpenCodeFixture();
 
@@ -335,6 +399,90 @@ void test("OpenCode wire skips file-linked assets whose activation content is mi
           `${sanitizeAssetId("opencode.instruction")}.md`,
         ),
       ),
+      false,
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+void test("OpenCode wire skips missing bundles, inactive packages, and duplicate package entries", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+
+    const activationManifestPath = join(
+      fixture.projectRoot,
+      "activate",
+      "opencode",
+      "activation-manifest.json",
+    );
+    const activationManifest = await readJsonFile<ActivationManifest>(
+      activationManifestPath,
+    );
+    await writeJsonFile(activationManifestPath, {
+      ...activationManifest,
+      activeBundles: ["missing-bundle", ...activationManifest.activeBundles],
+    } satisfies ActivationManifest);
+
+    const bundleManifestPath = join(
+      fixture.projectRoot,
+      "install",
+      "opencode",
+      "bundles",
+      "opencode-global.install.json",
+    );
+    const bundleManifest =
+      await readJsonFile<InstalledBundleManifest>(bundleManifestPath);
+    await writeJsonFile(bundleManifestPath, {
+      ...bundleManifest,
+      packages: [
+        ...bundleManifest.packages,
+        {
+          assetId: "inactive.asset",
+          mirrorId: "inactive-mirror",
+          manifestPath: join(
+            fixture.projectRoot,
+            "install",
+            "opencode",
+            "packages",
+            "inactive.install.json",
+          ),
+        },
+        bundleManifest.packages[0]!,
+      ],
+    } satisfies InstalledBundleManifest);
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+
+    const localContextRoot = join(
+      fixture.workspaceRoot,
+      ".opencode",
+      "context",
+      "project-intelligence",
+      "agent-harness",
+    );
+    const wirePlan = await readJsonFile<WirePlanManifest>(
+      join(localContextRoot, "wire-plan.json"),
+    );
+    const linkedPaths = wirePlan.linkedPaths ?? [];
+    assert.equal(
+      linkedPaths.filter((linkedPath) =>
+        linkedPath.includes(sanitizeAssetId("opencode.instruction")),
+      ).length,
+      1,
+    );
+    assert.equal(
+      linkedPaths.some((linkedPath) => linkedPath.includes("inactive")),
       false,
     );
   } finally {

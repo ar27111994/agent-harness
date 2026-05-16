@@ -1393,11 +1393,7 @@ async function removeEmptyParentDirectories(
       throw error;
     }
 
-    const parentDirectory = dirname(currentDirectory);
-    if (parentDirectory === currentDirectory) {
-      return;
-    }
-    currentDirectory = parentDirectory;
+    currentDirectory = dirname(currentDirectory);
   }
 }
 

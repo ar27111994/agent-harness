@@ -4,22 +4,22 @@ Issue: [#207](https://github.com/ar27111994/agent-harness/issues/207)
 
 ## Current status
 
-`npm run test:coverage` now exercises the release recommendation fixtures and the focused coverage-hardening suites added during the #207 pass. The latest verified local Windows run reports:
+`npm run test:coverage && npm run coverage:gaps` now exercises the release recommendation fixtures and the focused coverage-hardening suites added during the #207 pass. The latest verified local Windows run reports:
 
-- statements: `99.70%` (`37297/37407`)
-- branches: `98.32%` (`6628/6741`)
+- statements: `99.91%` (`37387/37420`)
+- branches: `99.51%` (`6747/6780`)
 - functions: `100%` (`1105/1105`)
-- lines: `99.70%` (`37297/37407`)
-- tests: `642/642` passing
+- lines: `99.91%` (`37387/37420`)
+- tests: `667/667` passing
 
-The generated gap ledger is down to `25` files with `110` uncovered lines and `113` uncovered branch edges. The `.c8rc.json` gate currently remains at statements `75`, branches `76`, functions `76`, and lines `75` because #207 is not complete until the intended covered runtime surface has a clearly justified target and branch coverage is no longer the limiting metric. The policy is unchanged: do not reach a target by excluding broad runtime surfaces.
+The generated gap ledger is down to `14` files with `33` uncovered branch edges and no uncovered functions. The `.c8rc.json` gate is now ratcheted to `99.5` for statements, branches, functions, and lines because the first staged target is backed by real coverage rather than broad exclusions. The policy is unchanged: do not reach a target by excluding broad runtime surfaces.
 
 ## Target recommendation
 
 Use staged coverage targets rather than jumping straight from the current floor to mandatory 100% on every metric:
 
-1. **Next ratchet: `>=99.5%` across statements, branches, functions, and lines.** This is the best near-term quality gate because statements/lines/functions already support it, and branch coverage needs a focused but realistic residual pass.
-2. **Follow-up ratchet: `>=99.9%` across all four metrics once the remaining branch ledger is mostly platform/I/O edge behavior.** This keeps pressure on real reliability gaps without rewarding brittle tests.
+1. **Completed ratchet: `>=99.5%` across statements, branches, functions, and lines.** The first staged gate is now covered by the latest local run and encoded in `.c8rc.json`.
+2. **Next ratchet: `>=99.9%` across all four metrics once the remaining branch ledger is mostly platform/I/O edge behavior.** This keeps pressure on real reliability gaps without rewarding brittle tests.
 3. **Final state: `100%` only after `coverage/coverage-gaps.md` is empty for the intended covered runtime surface or every remaining non-runtime dispatch/generated gap has a narrow documented exclusion.** Do not set 100% thresholds while branch gaps still require impossible-state tests.
 
 `>99%` is now too low to be a meaningful next checkpoint because statements and lines already exceed it and branch coverage is close enough that `>=99.5%` is the sharper target. `100%` remains the long-term cleanup objective, not the next safe threshold move.
@@ -37,12 +37,12 @@ For the normal coverage gate, `npm run validate:coverage` builds, runs coverage,
 
 The generated file is written to `coverage/coverage-gaps.md` and is intentionally ignored with the rest of the coverage output. It lists every file with uncovered lines, uncovered function names, and uncovered branch ids from `coverage/lcov.info`.
 
-Latest remaining high-value focus areas from the 99.70% / 98.32% branch run are:
+Latest remaining high-value focus areas from the 99.91% / 99.51% branch run are:
 
-- host/install/mirror line-and-branch residuals: `native-wire.ts`, `opencode.ts`, `vscode.ts`, `install/refresh.ts`, `install/bundle.ts`, and `mirror/acquire.ts`
-- recommendation residuals: `recommend/policy.ts`, `recommend/commands.ts`, `recommend/ai-review.ts`, `recommend/evaluation.ts`, and `recommend/selection.ts`
-- discovery branch-only and small line residuals: `github-harvester.ts`, `local-harvesters.ts`, `package-registry-harvester.ts`, `technology-signatures.ts`, `ai-enrichment.ts`, `catalog-selection.ts`, `official-index-harvester.ts`, `reference-source-harvester.ts`, and `source-sync.ts`
-- utility branch-only gaps: `files.ts`, `lib/preflight.ts`, `lib/asset-prerequisites.ts`, and `lib/http.ts`
+- host/install/mirror line-and-branch residuals: `native-wire.ts`, `opencode.ts`, `install/refresh.ts`, and `mirror/acquire.ts`
+- recommendation residuals: `recommend/commands.ts` and `recommend/ai-review.ts`
+- discovery branch-only and small line residuals: `github-harvester.ts`, `local-harvesters.ts`, `technology-signatures.ts`, `ai-enrichment.ts`, `catalog-selection.ts`, `official-index-harvester.ts`, and `source-sync.ts`
+- utility branch-only gaps: `files.ts` and `lib/preflight.ts`
 
 ## Gap classification
 
@@ -52,7 +52,7 @@ Latest remaining high-value focus areas from the 99.70% / 98.32% branch run are:
 | P0       | Recommendation command and policy residuals   | `src/recommend/policy.ts`, `src/recommend/commands.ts`, `src/recommend/ai-review.ts`, `src/recommend/evaluation.ts`, `src/recommend/selection.ts`                                                                                                                                                                                                                                                                                             | Add command-level and policy-scenario tests for existing observable behavior; keep selection simplifications source-driven rather than relaxed fallback hacks.                       |
 | P1       | Discovery harvester/classifier residuals      | `src/domains/discovery/ai-enrichment.ts`, `src/domains/discovery/catalog-selection.ts`, `src/domains/discovery/github-harvester.ts`, `src/domains/discovery/local-harvesters.ts`, `src/domains/discovery/official-index-harvester.ts`, `src/domains/discovery/package-registry-harvester.ts`, `src/domains/discovery/reference-source-harvester.ts`, `src/domains/discovery/source-sync.ts`, `src/domains/discovery/technology-signatures.ts` | Add deterministic fake-fetch and manifest fixtures for sparse, malformed, fallback, and no-result cases; remove branches that only defend against already-normalized internal state. |
 | P1       | Utility branch-only residuals                 | `src/files.ts`, `src/lib/preflight.ts`, `src/lib/asset-prerequisites.ts`, `src/lib/http.ts`                                                                                                                                                                                                                                                                                                                                                   | Add table-driven tests for platform/path variants, optional diagnostics, and guarded-network failure shapes.                                                                         |
-| P2       | Final 99.9% / 100% cleanup                    | Whatever remains after the `>=99.5%` ratchet                                                                                                                                                                                                                                                                                                                                                                                                  | Classify every remaining edge as reachable behavior, dead code, testability refactor, or narrow generated/dispatch-only exclusion before changing thresholds.                        |
+| P2       | Final 99.9% / 100% cleanup                    | Whatever remains after the `>=99.9%` ratchet                                                                                                                                                                                                                                                                                                                                                                                                  | Classify every remaining edge as reachable behavior, dead code, testability refactor, or narrow generated/dispatch-only exclusion before changing thresholds.                        |
 
 ## Exclusion policy
 
@@ -72,6 +72,7 @@ Do not add runtime module exclusions to make the percentage green. If a file app
 
 - `npm run coverage:gaps` reports no uncovered lines, functions, or branches for the intended covered runtime surface.
 - Any newly excluded file is documented above with a concrete reason and is dispatch-only/generated rather than runtime logic.
+- `.c8rc.json` thresholds stay at or above the verified staged floor, with the next planned ratchet to `99.9` only after branch coverage supports it.
 - `.c8rc.json` thresholds are raised to `100` for statements, branches, functions, and lines only after the report is clean.
 - `npm run test:coverage` passes locally on Windows and in CI.
 - `npm run validate:release` passes after the threshold change.

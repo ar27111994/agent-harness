@@ -129,12 +129,7 @@ export async function installBundles(
     );
 
     for (const asset of assetsToInstall) {
-      const mirrorEntry = mirrorIndexById.get(asset.mirrorId);
-      if (!mirrorEntry) {
-        throw new Error(
-          `Installable asset is missing mirror index entry: ${asset.mirrorId}`,
-        );
-      }
+      const mirrorEntry = mirrorIndexById.get(asset.mirrorId)!;
       const catalogEntry = selectedEntryById.get(asset.assetId);
       if (!catalogEntry) {
         debugInstallBundleSkip(
@@ -476,12 +471,8 @@ function getPendingAssets(
 }
 
 function extractBundleId(bundlePath: string): string {
-  return (
-    bundlePath
-      .split(/[/\\]/u)
-      .at(-1)
-      ?.replace(/\.lock\.json$/u, "") ?? bundlePath
-  );
+  const pathParts = bundlePath.split(/[/\\]/u);
+  return pathParts[pathParts.length - 1]!.replace(/\.lock\.json$/u, "");
 }
 
 /**

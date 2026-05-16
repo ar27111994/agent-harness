@@ -1,5 +1,6 @@
 import { homedir } from "node:os";
-import { basename, extname, join } from "node:path";
+import type { Dirent, Stats } from "node:fs";
+import { basename, join } from "node:path";
 import { readdir, stat } from "node:fs/promises";
 
 import { resolveAssetContent } from "../asset-content.js";
@@ -719,10 +720,6 @@ function inferPluginFileName(assetData: {
     return "plugin.json";
   }
 
-  if (sourcePath && extname(sourcePath).length > 0) {
-    return `plugin${extname(sourcePath)}`;
-  }
-
   return "README.md";
 }
 
@@ -752,20 +749,42 @@ function toHomePath(pathValue: string): string {
   return toHomeRelativePath(pathValue);
 }
 
+interface VsCodeGenerationPruneDependencies {
+  readGenerationDirectories(
+    path: string,
+    options: { withFileTypes: true },
+  ): Promise<Dirent[]>;
+  statGenerationDirectory(path: string): Promise<Stats>;
+  removeGenerationDirectory(path: string): Promise<void>;
+  warn(message: string): void;
+}
+
+const defaultVsCodeGenerationPruneDependencies: VsCodeGenerationPruneDependencies =
+  {
+    readGenerationDirectories: readdir,
+    statGenerationDirectory: stat,
+    removeGenerationDirectory: removePath,
+    warn: console.warn,
+  };
+
 async function pruneVsCodeGenerationDirectories(
   curatedRoot: string,
   options: { keep: number },
+  dependencies: VsCodeGenerationPruneDependencies = defaultVsCodeGenerationPruneDependencies,
 ): Promise<void> {
   const generationsDir = join(curatedRoot, "generations");
   try {
-    const entries = await readdir(generationsDir, { withFileTypes: true });
+    const entries = await dependencies.readGenerationDirectories(
+      generationsDir,
+      { withFileTypes: true },
+    );
     const directories = entries.filter((entry) => entry.isDirectory());
 
     const directoriesWithMtime = await Promise.all(
       directories.map(async (dir) => {
         const dirPath = join(generationsDir, dir.name);
         try {
-          const stats = await stat(dirPath);
+          const stats = await dependencies.statGenerationDirectory(dirPath);
           return {
             name: dir.name,
             path: dirPath,
@@ -787,9 +806,9 @@ async function pruneVsCodeGenerationDirectories(
 
     for (const dir of toRemove) {
       try {
-        await removePath(dir.path);
+        await dependencies.removeGenerationDirectory(dir.path);
       } catch (error) {
-        console.warn(
+        dependencies.warn(
           `Failed to prune generation directory ${dir.path}: ${toLoggableErrorMessage(error)}`,
         );
       }
@@ -813,6 +832,7 @@ function toLoggableErrorMessage(error: unknown): string {
 export const vscodeWireInternals = {
   inferPluginFileName,
   isManagedCodeGenerationEntry,
+  pruneVsCodeGenerationDirectories,
   stripManagedCodeGenerationInstructions,
   stripManagedVsCodeLocationEntries,
   toLoggableErrorMessage,

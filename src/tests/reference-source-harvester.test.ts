@@ -202,6 +202,36 @@ void test("reference source harvester returns harvested docs items and falls bac
   assert.match(repoEntries[0]?.capabilities.join(" ") ?? "", /testing/u);
 });
 
+void test("reference source harvester falls back to metadata when raw content is unavailable", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async () => new Response(null, { status: 404 });
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+  });
+
+  const entries = await harvestReferenceSource(
+    buildSource("unavailable-docs", "docs", {
+      docsUrl: "https://example.com/unavailable",
+    }),
+    null,
+    buildSelectionRegistry(),
+  );
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]?.source.originUrl, "https://example.com/unavailable");
+  assert.equal(entries[0]?.compatibilityMode, "reference-only");
+  assert.equal(entries[0]?.install.method, "docs-reference");
+});
+
 function buildSelectionRegistry(): SelectionRegistry {
   return {
     schemaVersion: 1,

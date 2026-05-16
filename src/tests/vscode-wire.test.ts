@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import type { Dirent, Stats } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -107,10 +108,13 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
     agent: "agent.alpha",
     skill: "skill.alpha",
     hook: "hook.alpha",
+    hookMarkdown: "hook.markdown",
     pluginScript: "plugin.script",
     pluginJson: "plugin.json",
     pluginReadme: "plugin.readme",
     extension: "fixture.extension",
+    extensionMetadataOnly: "fixture.extension-metadata-only",
+    extensionNoMarketplace: "extension-no-marketplace",
   } as const;
 
   await writeJsonFile(join(activationRoot, "workspace-profile-manifest.json"), {
@@ -128,8 +132,12 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
       assetIds.pluginJson,
       assetIds.pluginReadme,
     ],
-    selectedExtensionIds: [assetIds.extension],
-    selectedHookIds: [assetIds.hook],
+    selectedExtensionIds: [
+      assetIds.extension,
+      assetIds.extensionMetadataOnly,
+      assetIds.extensionNoMarketplace,
+    ],
+    selectedHookIds: [assetIds.hook, assetIds.hookMarkdown],
     selectedSkillIds: [assetIds.skill],
     activationBudget: 16,
   } satisfies CopilotWorkspaceProfileManifest);
@@ -164,6 +172,13 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
       content: '{"hook":"alpha"}\n',
     }),
     writeActivationAsset(activationRoot, {
+      asset: buildAsset(assetIds.hookMarkdown, "hook", {
+        displayName: "Hook Markdown",
+        filePath: "hooks/markdown.md",
+      }),
+      content: "# Hook Markdown\n",
+    }),
+    writeActivationAsset(activationRoot, {
       asset: buildAsset(assetIds.pluginScript, "plugin", {
         displayName: "Plugin Script",
         filePath: "plugins/alpha.ts",
@@ -188,6 +203,18 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
         manifestEntry: "fixture.publisher-extension",
       }),
       content: "# Extension\n",
+    }),
+    writeActivationAsset(activationRoot, {
+      asset: buildAsset(assetIds.extensionMetadataOnly, "extension", {
+        displayName: "Fixture Extension Metadata Only",
+      }),
+      content: "# Extension Metadata Only\n",
+    }),
+    writeActivationAsset(activationRoot, {
+      asset: buildAsset(assetIds.extensionNoMarketplace, "extension", {
+        displayName: "Fixture Extension Without Marketplace Id",
+      }),
+      content: "# Extension Without Marketplace Id\n",
     }),
   ]);
 
@@ -270,6 +297,16 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
     await readTextFileOrNull(
       join(
         currentRoot,
+        "hooks",
+        `${sanitizeAssetId(assetIds.hookMarkdown)}.md`,
+      ),
+    ),
+    "# Hook Markdown\n",
+  );
+  assert.equal(
+    await readTextFileOrNull(
+      join(
+        currentRoot,
         "plugins",
         sanitizeAssetId(assetIds.pluginScript),
         "alpha.ts",
@@ -322,10 +359,37 @@ void test("VS Code wire apply/reset materializes curated assets, patches setting
   assert.equal(extensionMetadata.assetId, assetIds.extension);
   assert.equal(typeof extensionMetadata.nativeInstall, "object");
 
+  const metadataOnlyExtension = await readJsonFile<Record<string, unknown>>(
+    join(
+      currentRoot,
+      "extensions",
+      `${sanitizeAssetId(assetIds.extensionMetadataOnly)}.json`,
+    ),
+  );
+  assert.equal(
+    metadataOnlyExtension.extensionId,
+    assetIds.extensionMetadataOnly,
+  );
+  assert.equal(metadataOnlyExtension.assetId, assetIds.extensionMetadataOnly);
+  assert.equal(typeof metadataOnlyExtension.nativeInstall, "object");
+
+  const noMarketplaceExtension = await readJsonFile<Record<string, unknown>>(
+    join(
+      currentRoot,
+      "extensions",
+      `${sanitizeAssetId(assetIds.extensionNoMarketplace)}.json`,
+    ),
+  );
+  assert.equal(noMarketplaceExtension.extensionId, undefined);
+  assert.equal(noMarketplaceExtension.nativeInstall, undefined);
+
   const wirePlan = await readJsonFile<WirePlanManifest>(
     join(curatedRoot, "wire-plan.json"),
   );
-  assert.deepEqual(wirePlan.extensionIds, ["fixture.publisher-extension"]);
+  assert.deepEqual(wirePlan.extensionIds, [
+    "fixture.publisher-extension",
+    "fixture.extension-metadata-only",
+  ]);
   assert.deepEqual(wirePlan.mcpServers, ["shared.mcp.server"]);
   assert.ok(
     wirePlan.nativeInstallActions?.some((action) =>
@@ -949,6 +1013,16 @@ void test("VS Code wire internals strip managed settings and infer fallback plug
     ),
     { "~/keep": true },
   );
+  assert.deepEqual(
+    vscodeWireInternals.stripManagedVsCodeLocationEntries(
+      {
+        relative: true,
+        "/managed": true,
+      },
+      "/",
+    ),
+    { relative: true },
+  );
 
   assert.equal(vscodeWireInternals.isManagedCodeGenerationEntry(null), false);
   assert.equal(
@@ -983,3 +1057,84 @@ void test("VS Code wire internals strip managed settings and infer fallback plug
   );
   assert.equal(vscodeWireInternals.toLoggableErrorMessage("plain"), "plain");
 });
+
+void test("VS Code generation pruning tolerates temp-state filesystem races", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-prune-"));
+  const curatedRoot = join(root, "curated");
+  const warnings = new Array<string>();
+
+  try {
+    await vscodeWireInternals.pruneVsCodeGenerationDirectories(
+      curatedRoot,
+      { keep: 1 },
+      {
+        readGenerationDirectories: async () => {
+          throw new Error("generations unavailable");
+        },
+        statGenerationDirectory: async () => {
+          throw new Error("stat should not run");
+        },
+        removeGenerationDirectory: async () => {
+          throw new Error("remove should not run");
+        },
+        warn: (message) => {
+          warnings[warnings.length] = message;
+        },
+      },
+    );
+    assert.equal(warnings.length, 0);
+
+    await vscodeWireInternals.pruneVsCodeGenerationDirectories(
+      curatedRoot,
+      { keep: 0 },
+      {
+        readGenerationDirectories: async () => [directoryEntry("vanished")],
+        statGenerationDirectory: async () => {
+          throw new Error("vanished before stat");
+        },
+        removeGenerationDirectory: async () => {
+          throw new Error("remove should not run");
+        },
+        warn: (message) => {
+          warnings[warnings.length] = message;
+        },
+      },
+    );
+    assert.equal(warnings.length, 0);
+
+    await vscodeWireInternals.pruneVsCodeGenerationDirectories(
+      curatedRoot,
+      { keep: 0 },
+      {
+        readGenerationDirectories: async () => [
+          directoryEntry("newer"),
+          directoryEntry("older"),
+        ],
+        statGenerationDirectory: async (directoryPath) =>
+          ({
+            mtime: directoryPath.endsWith("newer")
+              ? new Date("2026-01-02T00:00:00.000Z")
+              : new Date("2026-01-01T00:00:00.000Z"),
+          }) as Stats,
+        removeGenerationDirectory: async () => {
+          throw new Error("locked directory");
+        },
+        warn: (message) => {
+          warnings[warnings.length] = message;
+        },
+      },
+    );
+    assert.equal(warnings.length, 2);
+    assert.match(warnings[0] ?? "", /newer/u);
+    assert.match(warnings[0] ?? "", /locked directory/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+function directoryEntry(name: string): Dirent {
+  return {
+    name,
+    isDirectory: () => true,
+  } as Dirent;
+}

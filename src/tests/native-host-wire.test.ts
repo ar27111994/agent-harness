@@ -1079,6 +1079,111 @@ void test("native wire internals clean failed applies and validate helper edge c
     false,
   );
 
+  const managedOnlySection = (markerId: string) =>
+    [
+      `<!-- ${markerId}:begin -->`,
+      "managed",
+      `<!-- ${markerId}:end -->`,
+      "",
+    ].join("\n");
+
+  const zedManagedRoot = join(workspaceRoot, ".zed", "agent-harness");
+  const zedActivationRoot = join(root, "project", "activate", "zed");
+  await writeTextFile(join(zedManagedRoot, "wire-plan.json"), "{}\n");
+  await writeTextFile(join(zedActivationRoot, "wire-plan.json"), "{}\n");
+  await writeTextFile(
+    join(workspaceRoot, ".rules"),
+    managedOnlySection("agent-harness-zed"),
+  );
+  await nativeWireInternals.cleanupFailedNativeHostApply(
+    nativeWireInternals.nativeHostSpecs.zed,
+    workspaceRoot,
+    zedManagedRoot,
+    zedActivationRoot,
+    [],
+  );
+  assert.equal(await readTextFileOrNull(join(workspaceRoot, ".rules")), null);
+
+  const claudeFallbackManagedRoot = join(
+    workspaceRoot,
+    ".claude-fallback",
+    "agent-harness",
+  );
+  const claudeFallbackActivationRoot = join(
+    root,
+    "project",
+    "activate",
+    "claude-code-fallback",
+  );
+  await writeTextFile(
+    join(claudeFallbackManagedRoot, "wire-plan.json"),
+    "{}\n",
+  );
+  await writeTextFile(
+    join(claudeFallbackActivationRoot, "wire-plan.json"),
+    "{}\n",
+  );
+  await writeTextFile(
+    join(workspaceRoot, "CLAUDE.md"),
+    managedOnlySection("agent-harness-claude-code"),
+  );
+  await writeTextFile(
+    join(workspaceRoot, ".claude", "CLAUDE.md"),
+    managedOnlySection("agent-harness-claude-code"),
+  );
+  await nativeWireInternals.cleanupFailedNativeHostApply(
+    nativeWireInternals.nativeHostSpecs["claude-code"],
+    workspaceRoot,
+    claudeFallbackManagedRoot,
+    claudeFallbackActivationRoot,
+    [],
+  );
+  assert.equal(
+    await readTextFileOrNull(join(workspaceRoot, "CLAUDE.md")),
+    null,
+  );
+  assert.equal(
+    await readTextFileOrNull(join(workspaceRoot, ".claude", "CLAUDE.md")),
+    null,
+  );
+
+  const piFallbackManagedRoot = join(
+    workspaceRoot,
+    ".pi-fallback",
+    "agent-harness",
+  );
+  const piFallbackActivationRoot = join(
+    root,
+    "project",
+    "activate",
+    "pi-fallback",
+  );
+  await writeTextFile(join(piFallbackManagedRoot, "wire-plan.json"), "{}\n");
+  await writeTextFile(join(piFallbackActivationRoot, "wire-plan.json"), "{}\n");
+  await writeTextFile(
+    join(workspaceRoot, "AGENTS.md"),
+    managedOnlySection("agent-harness-pi"),
+  );
+  await writeTextFile(
+    join(workspaceRoot, "SYSTEM.md"),
+    managedOnlySection("agent-harness-pi"),
+  );
+  await nativeWireInternals.cleanupFailedNativeHostApply(
+    nativeWireInternals.nativeHostSpecs.pi,
+    workspaceRoot,
+    piFallbackManagedRoot,
+    piFallbackActivationRoot,
+    [],
+  );
+  assert.equal(
+    await readTextFileOrNull(join(workspaceRoot, "AGENTS.md")),
+    null,
+  );
+  assert.equal(
+    await readTextFileOrNull(join(workspaceRoot, "SYSTEM.md")),
+    null,
+  );
+
   const claudeManagedRoot = join(workspaceRoot, ".claude", "agent-harness");
   const claudeActivationRoot = join(root, "project", "activate", "claude-code");
   await writeTextFile(join(claudeManagedRoot, "wire-plan.json"), "{}\n");
@@ -1209,6 +1314,7 @@ void test("native wire internals clean failed applies and validate helper edge c
 
   assert.equal(nativeWireInternals.describeJsonValue([]), "array");
   assert.equal(nativeWireInternals.describeJsonValue(null), "null");
+  assert.equal(nativeWireInternals.describeJsonValue({}), "object");
   assert.equal(nativeWireInternals.toLoggableErrorMessage("plain"), "plain");
   assert.deepEqual(
     nativeWireInternals.mergeJsonObjects(
@@ -1239,5 +1345,15 @@ void test("native wire internals clean failed applies and validate helper edge c
       workspaceRoot,
     ),
     /within cleanup boundary/u,
+  );
+
+  const fileInsteadOfDirectory = join(workspaceRoot, "not-a-directory.txt");
+  await writeTextFile(fileInsteadOfDirectory, "content");
+  await assert.rejects(
+    nativeWireInternals.removeEmptyParentDirectories(
+      fileInsteadOfDirectory,
+      workspaceRoot,
+    ),
+    /ENOTDIR|not a directory/u,
   );
 });

@@ -301,6 +301,100 @@ void test("recommend policy:print can emit the full merged policy", async (t) =>
   });
 });
 
+void test("recommend policy:print reports host runtime override metadata", async (t) => {
+  await withRecommendationWorkspace(async (projectRoot) => {
+    const previousLimit =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    const previousMode =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "7";
+    process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+      "scale";
+    clearRuntimeConfigForTests();
+
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    try {
+      const exitCode = await runRecommend(
+        ["policy:print", "--host", "vscode"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(exitCode, 0);
+      const printedPolicy = JSON.parse(output.join("\n")) as {
+        runtimeOverrides: {
+          recommendationLimitSource: string;
+          recommendationLimitEnvVar: string;
+          recommendationLimitOverrideMode: string;
+          recommendationLimitOverrideModeSource: string;
+          recommendationLimitOverrideModeEnvVar: string;
+          scalingApplied: boolean;
+          recommendationLimitScaleFactor?: number;
+          recommendationLimitScaledFields?: string[];
+        };
+      };
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitSource,
+        "env",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitEnvVar,
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideMode,
+        "scale",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideModeSource,
+        "env",
+      );
+      assert.equal(
+        printedPolicy.runtimeOverrides.recommendationLimitOverrideModeEnvVar,
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
+      );
+      assert.equal(printedPolicy.runtimeOverrides.scalingApplied, true);
+      assert.equal(
+        typeof printedPolicy.runtimeOverrides.recommendationLimitScaleFactor,
+        "number",
+      );
+      assert.ok(
+        printedPolicy.runtimeOverrides.recommendationLimitScaledFields?.includes(
+          "fallbackSkillCount",
+        ),
+      );
+    } finally {
+      restoreEnv(
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+        previousLimit,
+      );
+      restoreEnv(
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
+        previousMode,
+      );
+      clearRuntimeConfigForTests();
+    }
+  });
+});
+
+void test("recommend policy:print rejects invalid host values", async () => {
+  await withRecommendationWorkspace(async (projectRoot) => {
+    await assert.rejects(
+      () =>
+        runRecommend(
+          ["policy:print", "--host", "not-a-host"],
+          projectRoot,
+          projectRoot,
+        ),
+      /recommend policy:print requires --host/u,
+    );
+  });
+});
+
 void test("recommend report supports merged intents and disabled ai review", async () => {
   await withDisabledAiReviewEnv(async () => {
     await withRecommendationWorkspace(async (projectRoot) => {

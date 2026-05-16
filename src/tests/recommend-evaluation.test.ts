@@ -431,6 +431,41 @@ void test("recommend evaluation reports missing bundles and absent ranks for unk
   );
 });
 
+void test("recommend evaluation treats omitted optional expectations as empty checks", () => {
+  const evaluation = buildRecommendationEvaluationResult(
+    [
+      {
+        schemaVersion: 1,
+        id: "optional-defaults",
+        description: "optional expectation arrays should default to empty",
+        catalogEntries: [buildCatalogEntry("apify-exact")],
+        demandProfile: createDemandProfile(),
+        expectations: [
+          {
+            host: "custom-host" as never,
+            maxPerSourceFamily: 0,
+          },
+        ],
+      },
+    ],
+    buildPolicy(),
+  );
+
+  const checks = evaluation.fixtures[0]?.checks ?? [];
+  assert.deepEqual(
+    checks.map((check) => check.name),
+    ["custom-host-bundle-budget", "custom-host-source-diversity"],
+  );
+  assert.deepEqual(
+    checks.map((check) => check.details),
+    ["missing bundle", "largest source family count 0, expected <= 0"],
+  );
+  assert.deepEqual(
+    checks.map((check) => check.passed),
+    [false, true],
+  );
+});
+
 function createFixtureResult(
   overrides: Partial<RecommendationEvaluationFixtureResult> &
     Pick<

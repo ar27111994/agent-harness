@@ -1122,6 +1122,30 @@ void test("ai review treats missing message payloads as empty reviews", async (c
   );
 });
 
+void test("ai review input tolerates reports missing a requested host bucket", () => {
+  const report = createRecommendationReport();
+  delete (
+    report.topByHost as Record<string, RecommendationEntry[] | undefined>
+  )["copilot-vscode"];
+
+  const input = buildRecommendationAiReviewInput(
+    report,
+    createDemandProfile(),
+    {
+      host: "copilot-vscode",
+      reviewLimit: 2,
+    },
+  );
+
+  assert.deepEqual(input.demandSignals?.frameworks, ["apify"]);
+  assert.deepEqual(input.hosts, [
+    {
+      host: "copilot-vscode",
+      candidates: [],
+    },
+  ]);
+});
+
 function createRecommendationReport(): RecommendationReport {
   return {
     schemaVersion: 1,
@@ -1368,6 +1392,58 @@ function createCatalogEntries(): AssetCatalogEntry[] {
     },
   ];
 }
+
+void test("ai review treats null model payloads as empty completed reviews", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ai-review-string-failure-"),
+  );
+  const previousUrl = process.env.AGENT_HARNESS_AI_ENRICHMENT_URL;
+  const previousKey = process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY;
+  const previousOrigins =
+    process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const originalFetch = globalThis.fetch;
+
+  process.env.AGENT_HARNESS_AI_ENRICHMENT_URL = "https://example.com/ai-review";
+  process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
+  process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
+    "https://example.com";
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  clearRuntimeConfigForTests();
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    restoreEnv("AGENT_HARNESS_AI_ENRICHMENT_URL", previousUrl);
+    restoreEnv("AGENT_HARNESS_AI_ENRICHMENT_API_KEY", previousKey);
+    restoreEnv("AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS", previousOrigins);
+    restoreEnv("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+    clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  });
+
+  const report = createRecommendationReport();
+  await seedAiReviewProject(projectRoot, {
+    report,
+    demandProfile: createDemandProfile(),
+    catalogEntries: createCatalogEntries(),
+  });
+  const policy = await loadRecommendationPolicy(process.cwd());
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({ choices: [{ message: { content: "null" } }] }),
+      { status: 200 },
+    );
+  const completed = await runRecommendationAiReview({
+    projectRoot,
+    policy,
+    report,
+    host: "copilot-vscode",
+    apply: false,
+  });
+  assert.equal(completed.artifact.status, "completed");
+  assert.deepEqual(completed.artifact.hostReviews[0]?.acceptedAssetIds, []);
+});
 
 async function seedAiReviewProject(
   projectRoot: string,

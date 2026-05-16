@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import type { ClientRequest, IncomingMessage } from "node:http";
+import { Readable } from "node:stream";
 import test from "node:test";
 
 import {
@@ -303,6 +305,47 @@ void test("http guards cover branch-only address and lookup variants", async () 
     "203.0.113.10",
   ]) {
     assert.equal(httpInternals.isPrivateIpv4Address(address), true, address);
+  }
+});
+
+void test("pinned http requests preserve sparse status and multi-value headers", async () => {
+  const fakeRequest = ((...args: unknown[]) => {
+    const callback = args[args.length - 1] as
+      | ((response: IncomingMessage) => void)
+      | undefined;
+    const responseMessage = Readable.from([Buffer.from("pinned-ok")]);
+    Object.assign(responseMessage, {
+      headers: {
+        "set-cookie": ["a=1", "b=2"],
+        "x-fixture": "yes",
+        "x-undefined": undefined,
+      },
+      statusCode: undefined,
+      statusMessage: undefined,
+    });
+    callback?.(responseMessage as IncomingMessage);
+    return {
+      on: () => undefined,
+      write: () => undefined,
+      end: () => undefined,
+    } as unknown as ClientRequest;
+  }) as Parameters<typeof httpInternals.setHttpsRequestForTests>[0];
+  const restoreRequest = httpInternals.setHttpsRequestForTests(fakeRequest);
+
+  try {
+    const response = await httpInternals.requestWithPinnedAddress(
+      new URL("https://example.com/path"),
+      { address: "1.1.1.1", family: 4 },
+      {},
+      new AbortController().signal,
+    );
+
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("x-fixture"), "yes");
+    assert.equal(response.headers.get("set-cookie"), "a=1, b=2");
+    assert.equal(await response.text(), "pinned-ok");
+  } finally {
+    restoreRequest();
   }
 });
 

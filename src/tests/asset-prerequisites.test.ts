@@ -221,6 +221,50 @@ void test("activated asset prerequisite collection reads activation state", asyn
   }
 });
 
+void test("host-login prerequisites warn for matching or unspecified host contexts", () => {
+  const baseAsset = buildAssetWithPrerequisites();
+  const matchingDiagnostics = buildPrerequisiteDiagnostics(
+    {
+      ...baseAsset,
+      install: {
+        ...baseAsset.install,
+        prerequisites: [
+          {
+            id: "host-login:copilot-vscode",
+            kind: "host-login",
+            required: true,
+            host: "copilot-vscode",
+            description: "Sign in to VS Code.",
+          },
+          {
+            id: "host-login:any",
+            kind: "host-login",
+            required: false,
+            description: "Sign in to the active host if needed.",
+          },
+        ],
+      },
+    },
+    { adapter: resolveHostAdapter("vscode") ?? undefined },
+  );
+
+  assert.deepEqual(
+    matchingDiagnostics.map((diagnostic) => diagnostic.severity),
+    ["warning", "info"],
+  );
+  assert.match(
+    matchingDiagnostics[0]?.message ?? "",
+    /signed-in copilot-vscode/u,
+  );
+  assert.match(matchingDiagnostics[1]?.message ?? "", /signed-in host/u);
+
+  const noPrerequisiteDiagnostics = buildPrerequisiteDiagnostics({
+    ...baseAsset,
+    install: { ...baseAsset.install, prerequisites: undefined },
+  });
+  assert.deepEqual(noPrerequisiteDiagnostics, []);
+});
+
 function buildAssetWithPrerequisites(): AssetCatalogEntry {
   return {
     id: "github.copilot-auth-helper",

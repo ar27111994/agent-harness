@@ -592,6 +592,95 @@ void test("recommend policy:print preserves explicit zero values in scale mode",
   });
 });
 
+void test("recommendation policy resolves user-owned asset-kind presets", async () => {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withEmptyPolicyWorkspace(async (projectRoot) => {
+      await writeMinimalBasePolicy(projectRoot);
+      await writePolicyJson(projectRoot, join("overrides", "base.json"), {
+        schemaVersion: 1,
+        presets: {
+          targetAssetKinds: {
+            "tooling-defaults": [{ assetKind: "skill", minimum: 2, weight: 9 }],
+          },
+        },
+      });
+      await writePolicyJson(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        minimalHostOverride({
+          presetRefs: {
+            targetAssetKinds: ["tooling-defaults"],
+          },
+        }),
+      );
+
+      const policy = await loadRecommendationPolicy(projectRoot);
+
+      assert.deepEqual(policy.hosts["copilot-vscode"].targetAssetKinds, [
+        { assetKind: "skill", minimum: 2, weight: 9 },
+      ]);
+      assert.deepEqual(policy.hosts["copilot-vscode"].targetConcerns, []);
+    });
+  });
+});
+
+void test("recommendation policy keeps base presets when user override omits them", async () => {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withEmptyPolicyWorkspace(async (projectRoot) => {
+      await writePolicyJson(projectRoot, "base.json", {
+        schemaVersion: 1,
+        scoring: (await loadRecommendationPolicy(repositoryRoot)).scoring,
+        presets: {
+          targetAssetKinds: {
+            existing: [{ assetKind: "instruction", minimum: 1, weight: 3 }],
+          },
+          targetConcerns: {
+            existing: [{ concern: "testing", minimum: 1, weight: 4 }],
+          },
+        },
+        concernKeywordMap: {},
+        taskModeKeywordMap: {},
+        domainKeywordGroups: {},
+        synonyms: {},
+      });
+      await writePolicyJson(projectRoot, join("overrides", "base.json"), {
+        schemaVersion: 1,
+        concernKeywordMap: {
+          custom: ["custom-keyword"],
+        },
+      });
+
+      const policy = await loadRecommendationPolicy(projectRoot);
+
+      assert.deepEqual(policy.concernKeywordMap.custom, ["custom-keyword"]);
+      assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 12);
+    });
+  });
+});
+
+void test("recommendation policy merges host overrides without preset refs", async () => {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withEmptyPolicyWorkspace(async (projectRoot) => {
+      await writeMinimalBasePolicy(projectRoot);
+      await writePolicyJson(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        minimalHostOverride({
+          policy: {
+            recommendationLimit: 7,
+          },
+        }),
+      );
+
+      const policy = await loadRecommendationPolicy(projectRoot);
+
+      assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 7);
+      assert.deepEqual(policy.hosts["copilot-vscode"].targetAssetKinds, []);
+      assert.deepEqual(policy.hosts["copilot-vscode"].targetConcerns, []);
+    });
+  });
+});
+
 async function withClearedRecommendationLimitEnv(
   callback: () => Promise<void>,
 ): Promise<void> {

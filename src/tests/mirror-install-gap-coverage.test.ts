@@ -40,6 +40,7 @@ import {
 } from "../mirror/acquire.js";
 import { generateBundleLocks } from "../mirror/bundles.js";
 import { sanitizeMirrorId } from "../mirror/paths.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type {
   AssetCatalogEntry,
   BundleLock,
@@ -427,6 +428,15 @@ void test("install bundle edge paths reject malformed manifests and skip missing
     join(tmpdir(), "agent-harness-gap-install-bundle-edge-"),
   );
   const asset = buildAsset("missing-raw");
+  const extensionAsset = buildAsset("fixture.extension", {
+    assetKind: "extension",
+    install: {
+      method: "vscode-extension",
+      nativeHosts: ["copilot-vscode"],
+      manifestEntry: "fixture.publisher-extension",
+    },
+  });
+  const skillAsset = buildAsset("fixture.skill");
   const stderr: string[] = [];
   const originalDebug = process.env.AGENT_HARNESS_DEBUG;
 
@@ -503,9 +513,19 @@ void test("install bundle edge paths reject malformed manifests and skip missing
       stderr.push(String(chunk));
       return true;
     });
+    const extensionAggregateHash = await writeMirrorArtifact(
+      projectRoot,
+      "sha256-extension",
+      extensionAsset,
+    );
+    const skillAggregateHash = await writeMirrorArtifact(
+      projectRoot,
+      "sha256-skill",
+      skillAsset,
+    );
     await writeJsonLinesFile(
       join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-      [asset],
+      [asset, extensionAsset, skillAsset],
     );
     await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
       {
@@ -519,6 +539,38 @@ void test("install bundle edge paths reject malformed manifests and skip missing
         },
         mirroredAt: new Date().toISOString(),
         contentHash: "sha256-missing-raw-hash",
+        projectionCandidates: [
+          { host: "copilot-vscode", projectionType: "native-skill" },
+        ],
+        status: "approved",
+      } satisfies MirrorIndexEntry,
+      {
+        mirrorId: "sha256-extension",
+        assetId: extensionAsset.id,
+        upstream: { type: "docs", url: "https://example.com/extension" },
+        source: {
+          authorityTier: extensionAsset.source.authorityTier,
+          publisher: extensionAsset.source.publisher,
+          publisherVerified: extensionAsset.source.publisherVerified,
+        },
+        mirroredAt: new Date().toISOString(),
+        contentHash: extensionAggregateHash,
+        projectionCandidates: [
+          { host: "copilot-vscode", projectionType: "native-extension" },
+        ],
+        status: "approved",
+      } satisfies MirrorIndexEntry,
+      {
+        mirrorId: "sha256-skill",
+        assetId: skillAsset.id,
+        upstream: { type: "docs", url: "https://example.com/skill" },
+        source: {
+          authorityTier: skillAsset.source.authorityTier,
+          publisher: skillAsset.source.publisher,
+          publisherVerified: skillAsset.source.publisherVerified,
+        },
+        mirroredAt: new Date().toISOString(),
+        contentHash: skillAggregateHash,
         projectionCandidates: [
           { host: "copilot-vscode", projectionType: "native-skill" },
         ],
@@ -539,12 +591,48 @@ void test("install bundle edge paths reject malformed manifests and skip missing
             projectionType: "native-skill",
             activationEligible: true,
           },
+          {
+            assetId: extensionAsset.id,
+            mirrorId: "sha256-extension",
+            projectionType: "native-extension",
+            activationEligible: true,
+          },
+          {
+            assetId: skillAsset.id,
+            mirrorId: "sha256-skill",
+            projectionType: "native-skill",
+            activationEligible: true,
+          },
         ],
       } satisfies BundleLock,
     );
 
     await installBundles(projectRoot, ["--bundle", "copilot-core"]);
     assert.match(stderr.join(""), /mirror source material missing/u);
+    const extensionManifest = await readJsonFile<InstalledPackageManifest>(
+      join(
+        projectRoot,
+        "install",
+        "copilot-vscode",
+        "packages",
+        sanitizeAssetId(extensionAsset.id),
+        "install-manifest.json",
+      ),
+    );
+    assert.deepEqual(extensionManifest.nativeInstall, {
+      extensionId: "fixture.publisher-extension",
+    });
+    const skillManifest = await readJsonFile<InstalledPackageManifest>(
+      join(
+        projectRoot,
+        "install",
+        "copilot-vscode",
+        "packages",
+        sanitizeAssetId(skillAsset.id),
+        "install-manifest.json",
+      ),
+    );
+    assert.equal(skillManifest.nativeInstall, undefined);
     assert.deepEqual(
       installBundleInternals
         .mergeInstalledPackages(
@@ -785,6 +873,11 @@ void test("install generations list, explain, and prune edge branches", async (t
       "copilot-vscode",
       "--keep",
       "not-a-number",
+    ]);
+    await manageInstallGenerations(projectRoot, [
+      "prune",
+      "--host",
+      "copilot-vscode",
     ]);
     assert.ok(
       output.some((line) =>
@@ -1941,6 +2034,328 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = originalFetchMocks;
+    }
+    clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("mirror acquire defaults invalid batch sizes and records default skip reasons", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-gap-acquire-skip-"),
+  );
+
+  try {
+    await writeJsonFile(join(projectRoot, "mirror", "policy.json"), {
+      ...buildPolicy(),
+      bundleTemplates: [],
+    });
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [buildAsset("skip-default")],
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), []);
+
+    await acquireMirrorArtifacts(projectRoot, projectRoot, [], {
+      materializeArtifact: async () => ({ artifact: null }),
+    });
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--refresh", "--batch-size", "NaN"],
+      {
+        materializeArtifact: async () => ({ artifact: null }),
+      },
+    );
+
+    const state = await readJsonFile<MirrorAcquireState>(
+      join(projectRoot, "state", "mirror", "acquire-state.json"),
+    );
+    assert.equal(state.batchSize, 120);
+    assert.equal(
+      state.skippedAssetReasons?.["skip-default"],
+      "materialize-failed",
+    );
+    assert.equal(state.terminal, true);
+    assert.equal(
+      mirrorAcquireInternals.restoreRefreshProcessedCount(
+        {
+          ...state,
+          sessionMode: "refresh",
+          totalEligibleCount: 3,
+          processedCount: Number.POSITIVE_INFINITY,
+        },
+        3,
+      ),
+      0,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("official index package materialization handles caps, content fallback, and raw misses", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-gap-official-index-"),
+  );
+  const originalFetchMocks = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const originalMaxFiles =
+    process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES;
+  const originalMaxFileSize =
+    process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES;
+
+  const officialEntry = (
+    id: string,
+    slug: string,
+    repo: string,
+  ): AssetCatalogEntry =>
+    buildAsset(id, {
+      source: {
+        sourceId: `official-index:fixture:${slug}`,
+        authorityTier: "official-first-party",
+        sourceKind: "docs",
+        sourcePriority: 100,
+        originUrl: `https://officialskills.sh/${slug}`,
+        publisher: "Fixture",
+        publisherVerified: true,
+      },
+      install: {
+        method: "official-index-entry",
+        nativeHosts: ["copilot-vscode"],
+        manifestEntry: slug,
+      },
+      evidence: {
+        manifestFound: true,
+        readmeFound: true,
+        examplesFound: false,
+        docsLinked: true,
+        filePath: "SKILL.md",
+        rootPath: `https://github.com/fixture/${repo}`,
+      },
+    });
+
+  try {
+    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES = "1";
+    clearRuntimeConfigForTests();
+
+    t.mock.method(
+      globalThis,
+      "fetch",
+      async (input: string | URL | Request) => {
+        const url = String(input instanceof Request ? input.url : input);
+        if (url.includes("officialskills.sh/nullraw")) {
+          return new Response("missing", { status: 404 });
+        }
+        if (url.includes("officialskills.sh")) {
+          const slug = url.split("/").at(-1) ?? "fixture";
+          return new Response(
+            `<html><title>${slug}</title><a href="https://github.com/fixture/${slug}repo">GitHub</a><h2>What This Skill Does</h2><p>${slug} fallback summary.</p></html>`,
+            { status: 200, headers: { "content-type": "text/html" } },
+          );
+        }
+        if (url.includes("raw.githubusercontent.com")) {
+          if (url.includes("nullraw")) {
+            return new Response("missing", { status: 404 });
+          }
+          return new Response("# Skill\n", {
+            status: 200,
+            headers: { "content-type": "text/plain" },
+          });
+        }
+        if (url.includes("api.github.com")) {
+          const repoMatch = /\/repos\/fixture\/([^/?]+)/u.exec(url);
+          const repo = repoMatch?.[1] ?? "unknown";
+          if (url.includes("/git/trees/")) {
+            const slug = repo.replace(/repo$/u, "").replace(/-skills$/u, "");
+            if (repo.includes("bigfile")) {
+              return new Response(
+                JSON.stringify({
+                  sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  truncated: false,
+                  tree: [
+                    {
+                      path: `skills/${slug}/SKILL.md`,
+                      type: "blob",
+                      size: 2,
+                      sha: "cccccccccccccccccccccccccccccccccccccccc",
+                    },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { "content-type": "application/json" },
+                },
+              );
+            }
+            if (repo.includes("fallback")) {
+              return new Response(
+                JSON.stringify({
+                  sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  truncated: false,
+                  tree: [
+                    {
+                      path: "other/README.md",
+                      type: "blob",
+                      size: 1,
+                      sha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    },
+                  ],
+                }),
+                {
+                  status: 200,
+                  headers: { "content-type": "application/json" },
+                },
+              );
+            }
+            return new Response(
+              JSON.stringify({
+                sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                truncated: false,
+                tree: [
+                  {
+                    path: `skills/${slug}/SKILL.md`,
+                    type: "blob",
+                    size: null,
+                    sha: "cccccccccccccccccccccccccccccccccccccccc",
+                  },
+                  {
+                    path: `skills/${slug}/extra.md`,
+                    type: "blob",
+                    size: 1,
+                    sha: "dddddddddddddddddddddddddddddddddddddddd",
+                  },
+                ],
+              }),
+              { status: 200, headers: { "content-type": "application/json" } },
+            );
+          }
+          if (url.includes("/commits/")) {
+            return new Response(
+              JSON.stringify({
+                sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+          return new Response(
+            JSON.stringify({
+              name: repo,
+              full_name: `fixture/${repo}`,
+              description: null,
+              default_branch: "main",
+              updated_at: null,
+              pushed_at: null,
+              stargazers_count: 0,
+              language: null,
+              topics: [],
+              archived: false,
+              html_url: `https://github.com/fixture/${repo}`,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response("missing", { status: 404 });
+      },
+    );
+
+    const capFallback =
+      await mirrorAcquireInternals.materializeOfficialIndexPackage(
+        officialEntry("cap-entry", "cap", "caprepo"),
+        projectRoot,
+      );
+    assert.match(capFallback.artifact?.content.toString("utf8") ?? "", /cap/u);
+
+    process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES = "10";
+    clearRuntimeConfigForTests();
+    const fallback =
+      await mirrorAcquireInternals.materializeOfficialIndexPackage(
+        officialEntry("fallback-entry", "fallback", "fallbackrepo"),
+        projectRoot,
+      );
+    assert.match(
+      fallback.artifact?.content.toString("utf8") ?? "",
+      /No concise summary/u,
+    );
+
+    const previousMaxFileSize =
+      process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES;
+    process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES = "1";
+    clearRuntimeConfigForTests();
+    const bigFile =
+      await mirrorAcquireInternals.materializeOfficialIndexPackage(
+        officialEntry("bigfile-entry", "bigfile", "bigfilerepo"),
+        projectRoot,
+      );
+    assert.match(
+      bigFile.artifact?.content.toString("utf8") ?? "",
+      /No concise summary/u,
+    );
+    if (previousMaxFileSize === undefined) {
+      delete process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES;
+    } else {
+      process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES =
+        previousMaxFileSize;
+    }
+    clearRuntimeConfigForTests();
+
+    const nullRaw =
+      await mirrorAcquireInternals.materializeOfficialIndexPackage(
+        officialEntry("nullraw-entry", "nullraw", "nullrawrepo"),
+        projectRoot,
+      );
+    assert.deepEqual(nullRaw, { artifact: null, skipReason: undefined });
+
+    assert.equal(
+      mirrorAcquireInternals.parseGitHubBlobEntry(
+        buildAsset("empty-ref", {
+          source: {
+            sourceId: "github-awesome-copilot",
+            authorityTier: "official-first-party",
+            sourceKind: "repo",
+            sourcePriority: 100,
+            originUrl:
+              "https://github.com/octo/example/blob//agents/example.agent.md",
+            publisher: "Octo",
+            publisherVerified: true,
+          },
+          install: {
+            method: "github-tree-metadata",
+            nativeHosts: ["copilot-vscode"],
+            manifestEntry: "not-a-sha",
+          },
+          evidence: {
+            manifestFound: true,
+            readmeFound: true,
+            examplesFound: false,
+            docsLinked: true,
+            filePath: "agents/example.agent.md",
+            rootPath: "https://github.com/octo/example",
+          },
+        }),
+      ),
+      null,
+    );
+  } finally {
+    if (originalFetchMocks === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = originalFetchMocks;
+    }
+    if (originalMaxFiles === undefined) {
+      delete process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES;
+    } else {
+      process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES =
+        originalMaxFiles;
+    }
+    if (originalMaxFileSize === undefined) {
+      delete process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES;
+    } else {
+      process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_FILE_SIZE_BYTES =
+        originalMaxFileSize;
     }
     clearRuntimeConfigForTests();
     await rm(projectRoot, { force: true, recursive: true });

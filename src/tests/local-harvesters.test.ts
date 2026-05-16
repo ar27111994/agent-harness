@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
-import { harvestLocalDirectorySource } from "../domains/discovery/local-harvesters.js";
+import {
+  harvestLocalDirectorySource,
+  harvestLocalManifestSource,
+} from "../domains/discovery/local-harvesters.js";
 import { buildGeneratedLocalSources } from "../domains/discovery/local-sources.js";
 import type {
   AssetKind,
@@ -195,6 +198,67 @@ void test("local directory source defaults missing endpoint paths to project roo
       entries.map((entry) => entry.install.relativePath),
       ["docs/guide.md"],
     );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("local manifest and directory harvesting tolerate omitted publisher and optional prerequisites", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-local-optional-"));
+
+  try {
+    const manifestPath = join(root, "manifest.json");
+    await writeText(manifestPath, JSON.stringify({ entries: [".mcp.json"] }));
+
+    const manifestEntries = await harvestLocalManifestSource(
+      {
+        ...buildLocalSource("local-manifest-fixture", root, ["opencode"]),
+        kind: "local-manifest",
+        publisher: undefined,
+        endpoints: { file: manifestPath },
+      },
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+
+    assert.equal(
+      manifestEntries[0]?.source.publisher,
+      "local-manifest-fixture",
+    );
+    assert.equal(manifestEntries[0]?.source.publisherVerified, false);
+    assert.equal(manifestEntries[0]?.hosts[0], "shared");
+
+    await writeText(
+      join(root, "skills", "needs-db", "SKILL.md"),
+      [
+        "---",
+        "name: needs-db",
+        "requiresEnv:",
+        "  - DATABASE_URL",
+        "---",
+        "# Needs DB",
+      ].join("\n"),
+    );
+
+    const directoryEntries = await harvestLocalDirectorySource(
+      buildLocalSource("local-opencode-context", root, ["opencode"]),
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+    const skill = directoryEntries.find(
+      (entry) => entry.install.relativePath === "skills/needs-db/SKILL.md",
+    );
+    assert.deepEqual(skill?.install.prerequisites, [
+      {
+        id: "env:DATABASE_URL",
+        kind: "env",
+        required: true,
+        envVars: ["DATABASE_URL"],
+        description: "Set required environment variable DATABASE_URL.",
+      },
+    ]);
   } finally {
     await rm(root, { force: true, recursive: true });
   }

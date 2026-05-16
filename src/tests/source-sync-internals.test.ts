@@ -353,6 +353,9 @@ void test("source sync helper exports cover registry sync edge branches", async 
               name: "name-only-crate",
               repository: "https://github.com/acme/name-only-crate",
             },
+            {
+              name: "no-url-crate",
+            },
           ],
         });
       case "https://index.golang.org/index?since=1970-01-01T00%3A00%3A00Z&limit=50":
@@ -544,14 +547,21 @@ void test("source sync helper exports cover registry sync edge branches", async 
             fallbackCargoContext,
           );
         assert.equal(fallbackCargoResult.status, "complete");
-        assert.equal(fallbackCargoContext.entriesById.size, 1);
-        const fallbackCargoEntry = fallbackCargoContext.entriesById
-          .values()
-          .next().value;
-        assert.equal(fallbackCargoEntry?.displayName, "name-only-crate");
+        assert.equal(fallbackCargoContext.entriesById.size, 2);
+        const fallbackCargoEntries = [
+          ...fallbackCargoContext.entriesById.values(),
+        ].sort((left, right) =>
+          left.displayName.localeCompare(right.displayName),
+        );
+        assert.equal(fallbackCargoEntries[0]?.displayName, "name-only-crate");
         assert.equal(
-          fallbackCargoEntry?.source.originUrl,
+          fallbackCargoEntries[0]?.source.originUrl,
           "https://github.com/acme/name-only-crate",
+        );
+        assert.equal(fallbackCargoEntries[1]?.displayName, "no-url-crate");
+        assert.equal(
+          fallbackCargoEntries[1]?.source.originUrl,
+          "https://crates.io/crates/no-url-crate",
         );
 
         const goContext = buildSourceSyncContext({

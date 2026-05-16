@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createEmptySignalSet } from "../domains/discovery/signals.js";
-import { applyTechnologySignatures } from "../domains/discovery/technology-signatures.js";
+import {
+  applyTechnologySignatures,
+  TECHNOLOGY_SIGNATURES,
+} from "../domains/discovery/technology-signatures.js";
 
 void test("technology signatures detect third-party vendors without bespoke code paths", () => {
   const signals = createEmptySignalSet();
@@ -250,4 +253,29 @@ void test("technology signatures detect MLOps, creative, security, and content s
   assert.ok(signals.concerns.includes("malware-analysis"));
   assert.ok(signals.concerns.includes("content-marketing"));
   assert.ok(signals.concerns.includes("video-production"));
+});
+
+void test("technology signatures ignore blank text markers and tolerate sparse signal groups", () => {
+  const signals = createEmptySignalSet();
+  const signature = {
+    id: "test-blank-marker",
+    textMarkers: ["   "],
+    signals: { tooling: ["blank-marker-ignored"] },
+  } satisfies (typeof TECHNOLOGY_SIGNATURES)[number];
+  const sparseSignalSignature = {
+    id: "test-sparse-signals",
+    textMarkers: ["sparse-platform"],
+    signals: { tooling: ["sparse-platform"] },
+  } satisfies (typeof TECHNOLOGY_SIGNATURES)[number];
+
+  TECHNOLOGY_SIGNATURES.push(signature, sparseSignalSignature);
+  try {
+    applyTechnologySignatures(signals, { text: "anything sparse-platform" });
+  } finally {
+    TECHNOLOGY_SIGNATURES.pop();
+    TECHNOLOGY_SIGNATURES.pop();
+  }
+
+  assert.deepEqual(signals.tooling, ["sparse-platform"]);
+  assert.deepEqual(signals.concerns, []);
 });

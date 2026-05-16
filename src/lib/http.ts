@@ -423,7 +423,7 @@ async function requestWithPinnedAddress(
         resolve(
           new Response(Readable.toWeb(responseMessage) as ReadableStream, {
             headers: buildResponseHeaders(responseMessage.headers),
-            status: responseMessage.statusCode ?? 0,
+            status: responseMessage.statusCode ?? 502,
             statusText: responseMessage.statusMessage,
           }),
         );

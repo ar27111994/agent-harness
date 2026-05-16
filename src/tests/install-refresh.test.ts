@@ -13,7 +13,10 @@ import {
   writeTextFile,
 } from "../files.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
-import { manageInstallRefresh } from "../install/refresh.js";
+import {
+  installRefreshInternals,
+  manageInstallRefresh,
+} from "../install/refresh.js";
 import {
   INSTALL_REFRESH_REPORT_OUTPUT_PATH,
   INSTALL_REFRESH_STATE_OUTPUT_PATH,
@@ -943,6 +946,56 @@ void test("install refresh apply-safe reapplies stale bundles and native install
     }
     process.env.PATH = originalPath;
     clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("install refresh native apply rejects invalid ids and failed host installs", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-refresh-native-failure-"),
+  );
+  const originalPath = process.env.PATH;
+  const originalStatePath = process.env.AGENT_HARNESS_FAKE_CODE_STATE;
+
+  try {
+    const { binDir, statePath } = await createFakeCodeCli(projectRoot);
+    process.env.PATH = `${binDir}${process.platform === "win32" ? ";" : ":"}${originalPath ?? ""}`;
+    process.env.AGENT_HARNESS_FAKE_CODE_STATE = statePath;
+
+    await assert.rejects(
+      installRefreshInternals.applyNativeRefreshes(
+        projectRoot,
+        new Map([["copilot-vscode", [""]]]),
+      ),
+      /one or more extension ids were invalid/u,
+    );
+
+    await writeTextFile(
+      join(binDir, "fake-code.mjs"),
+      [
+        "const args = process.argv.slice(2);",
+        'if (args[0] === "--version") { console.log("1.0.0"); process.exit(0); }',
+        'if (args[0] === "--list-extensions") process.exit(0);',
+        'if (args[0] === "--install-extension") { console.error("install failed"); process.exit(1); }',
+        "process.exit(1);",
+        "",
+      ].join("\n"),
+    );
+
+    await assert.rejects(
+      installRefreshInternals.applyNativeRefreshes(
+        projectRoot,
+        new Map([["copilot-vscode", ["fixture.fail-install"]]]),
+      ),
+      /Native install refresh failed for fixture\.fail-install/u,
+    );
+  } finally {
+    if (originalStatePath === undefined) {
+      delete process.env.AGENT_HARNESS_FAKE_CODE_STATE;
+    } else {
+      process.env.AGENT_HARNESS_FAKE_CODE_STATE = originalStatePath;
+    }
+    process.env.PATH = originalPath;
     await rm(projectRoot, { force: true, recursive: true });
   }
 });

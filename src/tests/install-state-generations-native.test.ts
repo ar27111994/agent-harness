@@ -528,11 +528,23 @@ void test("explainInstalledAsset reports active bundle membership for installed 
     sanitizeAssetId("asset-a"),
     "install-manifest.json",
   );
+  const inactivePackageManifestPath = join(
+    projectRoot,
+    "install",
+    "copilot-vscode",
+    "packages",
+    sanitizeAssetId("asset-b"),
+    "install-manifest.json",
+  );
 
   try {
     await writeJsonFile(
       packageManifestPath,
       buildInstalledPackageManifest("asset-a"),
+    );
+    await writeJsonFile(
+      inactivePackageManifestPath,
+      buildInstalledPackageManifest("asset-b"),
     );
     await writeJsonFile(
       join(
@@ -556,10 +568,13 @@ void test("explainInstalledAsset reports active bundle membership for installed 
     });
 
     await explainInstalledAsset(projectRoot, ["--asset", "asset-a"]);
+    await explainInstalledAsset(projectRoot, ["--asset", "asset-b"]);
 
     assert.deepEqual(output, [
       "Install explain for asset-a",
       `Host copilot-vscode: installed via sha256-asset-a\n  bundles: copilot-core\n  files: ${join("/install", "asset-a", "files")}\n  active generation: current-gen`,
+      "Install explain for asset-b",
+      `Host copilot-vscode: installed via sha256-asset-b\n  bundles: copilot-core\n  files: ${join("/install", "asset-b", "files")}\n  active generation: not active`,
     ]);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -1335,6 +1350,11 @@ void test("manageInstallGenerations lists generation manifests and validates hos
       ]),
       /Invalid generation ID: bad\/slash/u,
     );
+    await manageInstallGenerations(projectRoot, [
+      "prune",
+      "--keep",
+      "not-a-number",
+    ]);
     await assert.rejects(
       manageInstallGenerations(projectRoot, ["explode"]),
       /Unknown install generations command 'explode'/u,

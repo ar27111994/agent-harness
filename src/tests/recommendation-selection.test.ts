@@ -856,6 +856,26 @@ void test("candidate freshness handles invalid and mid-age timestamps", () => {
   assert.equal(midAgeBase?.breakdown.freshness, 0);
 });
 
+void test("selection uses lower prompt weight as a dynamic-score tiebreaker", () => {
+  const policy = buildPolicy({
+    recommendationLimit: 1,
+    activationBudget: 1_000,
+  });
+  const heavier = buildCatalogEntry("a-heavier", "skill", 90);
+  heavier.contextCost = { sizeClass: "tiny", estimatedPromptWeight: 3 };
+  const lighter = buildCatalogEntry("z-lighter", "skill", 90);
+  lighter.contextCost = { sizeClass: "tiny", estimatedPromptWeight: 2 };
+
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [heavier, lighter],
+    createEmptyDemandContext(),
+    policy,
+  );
+
+  assert.equal(recommendations[0]?.assetId, "z-lighter");
+});
+
 function buildRecommendationsForTest(
   host: "copilot-vscode",
   entries: AssetCatalogEntry[],

@@ -480,6 +480,76 @@ void test("selection relevance keeps absent catalog-wide terms specific", () => 
   assert.equal(rejectedEntries.length, entries.length);
 });
 
+void test("selection relevance demotes catalog-common high-signal terms at large scale", () => {
+  const entries = Array.from({ length: 210 }, (_, index) =>
+    createEntry(`common-astro-${index}`, [
+      "astro",
+      index % 2 === 0 ? "frontend" : "documentation",
+    ]),
+  );
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: ["astro"],
+    concerns: [],
+    tooling: [],
+  });
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(entries, demandProfile);
+
+  assert.deepEqual(selectedEntries, []);
+  assert.equal(rejectedEntries.length, entries.length);
+});
+
+void test("selection relevance admits executable MCP metadata paths only", () => {
+  const demandProfile = createDemandProfile({
+    concerns: ["unrelated-domain"],
+    tooling: [],
+  });
+  const executableMcp = createEntry("metadata-mcp", ["unrelated"], {
+    sourceKind: "repo",
+  });
+  executableMcp.assetKind = "mcp-server";
+  executableMcp.hosts = ["shared"];
+  executableMcp.install = {
+    method: "github-tree-metadata",
+    nativeHosts: ["shared"],
+  };
+  executableMcp.evidence = {
+    ...executableMcp.evidence,
+    filePath: "servers/metadata-mcp/server.ts",
+  };
+  const metadataOnlyMcp = createEntry("metadata-docs", ["unrelated"], {
+    sourceKind: "repo",
+  });
+  metadataOnlyMcp.assetKind = "mcp-server";
+  metadataOnlyMcp.hosts = ["shared"];
+  metadataOnlyMcp.install = {
+    method: "github-tree-metadata",
+    nativeHosts: ["shared"],
+  };
+  metadataOnlyMcp.evidence = {
+    ...metadataOnlyMcp.evidence,
+    filePath: "servers/metadata-mcp/README.md",
+  };
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [executableMcp, metadataOnlyMcp],
+      demandProfile,
+    );
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["metadata-mcp"],
+  );
+  assert.deepEqual(
+    rejectedEntries.map((entry) => entry.id),
+    ["metadata-docs"],
+  );
+});
+
 function createDemandProfile(
   overrides: Partial<DemandProfile["signals"]>,
 ): DemandProfile {

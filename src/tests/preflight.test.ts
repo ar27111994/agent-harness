@@ -6,6 +6,7 @@ import test from "node:test";
 
 import type { HostAdapter } from "../host-adapters/registry.js";
 import {
+  checkExecutableOnPath,
   runAdapterPreflight,
   runNativeInstallPreflight,
 } from "../lib/preflight.js";
@@ -100,6 +101,50 @@ void test("adapter runtime preflight can execute Windows cmd wrappers", async (t
     });
   } finally {
     await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+void test("executable preflight handles empty PATH and default Windows extensions", async (t) => {
+  const originalPath = process.env.PATH;
+  const originalPathext = process.env.PATHEXT;
+
+  try {
+    delete process.env.PATH;
+    const missing = await checkExecutableOnPath(
+      "definitely-missing-agent-harness-host",
+      "missing-host",
+    );
+    assert.equal(missing.severity, "warning");
+    assert.equal(missing.action?.startsWith("Install the host CLI"), true);
+
+    if (process.platform !== "win32") {
+      return;
+    }
+
+    const tempRoot = await mkdtemp(
+      join(tmpdir(), "agent-harness-preflight-path-"),
+    );
+    t.after(async () => {
+      await rm(tempRoot, { recursive: true, force: true });
+    });
+    await writeFile(join(tempRoot, "default-ext.cmd"), "@echo off\r\n", "utf8");
+    process.env.PATH = tempRoot;
+    delete process.env.PATHEXT;
+
+    const found = await checkExecutableOnPath("default-ext", "default-ext");
+    assert.equal(found.severity, "info");
+    assert.match(found.message, /default-ext/u);
+  } finally {
+    if (originalPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = originalPath;
+    }
+    if (originalPathext === undefined) {
+      delete process.env.PATHEXT;
+    } else {
+      process.env.PATHEXT = originalPathext;
+    }
   }
 });
 

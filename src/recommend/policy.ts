@@ -89,11 +89,7 @@ export async function loadRecommendationPolicy(
     recommendationHosts.map((host) => [
       host,
       mergeRecommendationHostPolicyOverride(
-        defaultHostOverrides[host] ??
-          buildDefaultRecommendationHostPolicyOverride(
-            host,
-            basePolicy.schemaVersion,
-          ),
+        defaultHostOverrides[host],
         userHostOverrides[host],
       ),
     ]),
@@ -111,6 +107,22 @@ export async function loadRecommendationPolicy(
   return policy;
 }
 
+async function loadRecommendationHostOverrides(
+  projectRoot: string,
+  directoryPath: readonly string[],
+  recommendationHosts: readonly RecommendationHost[],
+  schemaVersion: number,
+  buildDefaultsWhenMissing: true,
+): Promise<Record<RecommendationHost, RecommendationHostPolicyOverride>>;
+async function loadRecommendationHostOverrides(
+  projectRoot: string,
+  directoryPath: readonly string[],
+  recommendationHosts: readonly RecommendationHost[],
+  schemaVersion: number,
+  buildDefaultsWhenMissing: false,
+): Promise<
+  Partial<Record<RecommendationHost, RecommendationHostPolicyOverride>>
+>;
 async function loadRecommendationHostOverrides(
   projectRoot: string,
   directoryPath: readonly string[],

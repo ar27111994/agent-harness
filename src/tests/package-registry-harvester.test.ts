@@ -354,6 +354,123 @@ void test("package registry harvester enriches npm search results and pypi metad
   );
 });
 
+void test("package registry harvester tolerates malformed search and sparse metadata", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url.startsWith("https://registry.npmjs.org/-/v1/search?")) {
+      return jsonResponse({
+        objects: [
+          null,
+          { package: { name: "   " } },
+          {
+            package: {
+              name: "acme-server-mcp",
+              description: "Model Context Protocol server runtime",
+              keywords: ["mcp", 42, "server"],
+            },
+          },
+          {
+            package: {
+              name: "keyword-only-protocol",
+              keywords: ["mcp", "server"],
+            },
+          },
+        ],
+      });
+    }
+
+    if (url === "https://registry.npmjs.org/acme-server-mcp") {
+      return jsonResponse({
+        keywords: ["mcp", 7, "server"],
+        repository: "not a valid repo url",
+        time: {},
+      });
+    }
+
+    if (url === "https://registry.npmjs.org/keyword-only-protocol") {
+      return jsonResponse({
+        name: "keyword-only-protocol",
+        keywords: ["mcp", "server"],
+      });
+    }
+
+    if (url === "https://registry.npmjs.org/sparse-npm") {
+      return jsonResponse({ name: "sparse-npm" });
+    }
+
+    if (url === "https://pypi.org/pypi/sparse-pypi/json") {
+      return jsonResponse({
+        info: {
+          name: "sparse-pypi",
+          home_page: "not-a-url",
+          project_urls: { Homepage: "ftp://example.com/project" },
+        },
+        releases: {},
+        urls: [],
+      });
+    }
+
+    throw new Error("Unexpected fetch: " + url);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+  });
+
+  const selectionRegistry = buildSelectionRegistry();
+  const npmEntries = await harvestPackageRegistrySource(
+    buildSource("npm-registry"),
+    buildDemandProfile({ tooling: ["npm:sparse-npm"], concerns: ["mcp"] }),
+    selectionRegistry,
+  );
+  const pypiEntries = await harvestPackageRegistrySource(
+    buildSource("pypi-registry"),
+    buildDemandProfile({ tooling: ["pypi:sparse-pypi"] }),
+    selectionRegistry,
+  );
+
+  assert.deepEqual(
+    npmEntries.map((entry) => entry.displayName),
+    ["acme-server-mcp", "keyword-only-protocol", "sparse-npm"],
+  );
+  assert.equal(npmEntries[0]?.assetKind, "mcp-server");
+  assert.equal(npmEntries[1]?.assetKind, "mcp-server");
+  assert.equal(
+    npmEntries[0]?.source.originUrl,
+    "https://www.npmjs.com/package/acme-server-mcp",
+  );
+  assert.equal(
+    npmEntries[2]?.source.originUrl,
+    "https://www.npmjs.com/package/sparse-npm",
+  );
+  assert.deepEqual(npmEntries[2]?.capabilities, ["sparse", "npm"]);
+
+  assert.equal(pypiEntries[0]?.displayName, "sparse-pypi");
+  assert.equal(
+    pypiEntries[0]?.source.originUrl,
+    "https://pypi.org/project/sparse-pypi",
+  );
+  assert.equal(
+    pypiEntries[0]?.maintenance.lastUpdated,
+    new Date(0).toISOString(),
+  );
+});
+
 function buildSelectionRegistry(): SelectionRegistry {
   return {
     schemaVersion: 1,
