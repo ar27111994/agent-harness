@@ -154,6 +154,91 @@ void test("explicit ai enrichment writes a disabled artifact when config is miss
   }
 });
 
+void test("ci require-success policy fails skipped enrichment when selection is empty", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeDiscoveryInputs(root, { selectedEntries: [] });
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
+        AGENT_HARNESS_AI_ENRICHMENT_REQUIRE_SUCCESS_IN_CI: "true",
+      },
+      async () => {
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+          ci: true,
+        });
+
+        assert.equal(result.outcome, "skipped");
+        assert.equal(result.shouldFail, true);
+        assert.match(
+          result.artifact?.reason ?? "",
+          /contains no selected assets/u,
+        );
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("ai enrichment input handles missing demand profile and selected catalog hashes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+
+  try {
+    await writeJsonFile(
+      join(root, "discover", "output", "demand-profile.json"),
+      buildDemandProfile(),
+    );
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL: undefined,
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: undefined,
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "manual",
+      },
+      async () => {
+        await rm(join(root, "discover", "output", "demand-profile.json"), {
+          force: true,
+        });
+
+        const result = await orchestrateAiEnrichment(root, {
+          trigger: "manual",
+          explicitRequested: true,
+          disableRequested: false,
+          force: false,
+          requireSuccess: false,
+        });
+
+        assert.equal(result.outcome, "skipped");
+        const input = await readJsonFile(
+          join(root, "discover", "output", "ai-enrichment-input.json"),
+          assertAiEnrichmentInput,
+        );
+        assert.equal(input.selectedAssetCount, 0);
+        assert.equal(input.evidenceItemCount, 0);
+        assert.equal(input.omissions.evidenceItems, 0);
+        assert.equal(input.demandSignals, null);
+        assert.equal(input.fingerprints.demandProfileSha256, null);
+        assert.equal(input.fingerprints.selectedCatalogSha256, null);
+      },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 void test("explicit disable does not fail even when require-success is requested", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
 
@@ -201,6 +286,7 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
           "https://api.openai.com/v1/chat/completions",
         AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
         AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
+        AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI: "true",
       },
       async () => {
         const config = loadRuntimeConfig(process.env).aiEnrichment;
@@ -220,7 +306,7 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
           trigger: "after-select",
           explicit: false,
           interactive: false,
-          ci: false,
+          ci: true,
           configHash: buildAiEnrichmentConfigHash(config),
         });
 
@@ -238,7 +324,7 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
             trigger: "after-select",
             explicit: false,
             interactive: false,
-            ci: false,
+            ci: true,
             providerOrigin: "https://api.openai.com",
             model: config.model,
             status: "completed",
@@ -259,6 +345,7 @@ void test("automatic ai enrichment reuses cached output when inputs are unchange
           disableRequested: false,
           force: false,
           requireSuccess: false,
+          ci: true,
         });
 
         assert.equal(result.outcome, "reused");

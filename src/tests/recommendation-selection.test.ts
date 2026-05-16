@@ -679,6 +679,105 @@ void test("candidate base creation can build its own policy context and preserve
   );
 });
 
+void test("candidate scoring applies individual risk flag penalties", () => {
+  const policy = buildPolicy();
+  policy.scoring.riskFlagPenalties = {
+    hasHooks: 3,
+    hasExecScripts: 5,
+    requiresNetwork: 7,
+  };
+  const policyContext = buildPolicySearchContext(policy);
+  const riskyEntry = buildCatalogEntry("risky-entry", "skill", 50);
+  riskyEntry.risk.hasHooks = true;
+  riskyEntry.risk.hasExecScripts = true;
+  riskyEntry.risk.requiresNetwork = true;
+
+  const base = buildCandidateRecommendationBase(
+    riskyEntry,
+    createEmptyDemandContext(),
+    policy,
+    policyContext,
+  );
+
+  assert.equal(base?.breakdown.riskPenalty, 15);
+});
+
+void test("host deprioritization defaults to empty pattern lists and applies configured penalties", () => {
+  const policy = buildPolicy({
+    deprioritizedPenalty: 11,
+  });
+  const entry = buildCatalogEntry("neutral-entry", "skill", 50, {
+    capabilities: ["skill", "neutral"],
+  });
+  const policyContext = buildPolicySearchContext(policy);
+  const base = buildCandidateRecommendationBase(
+    entry,
+    createEmptyDemandContext(),
+    policy,
+    policyContext,
+  );
+  assert.ok(base);
+
+  const neutralCandidate = buildCandidateRecommendation(
+    base,
+    "copilot-vscode",
+    createEmptyDemandContext(),
+    policy,
+  );
+  assert.equal(neutralCandidate?.breakdown.negativePenalty, 0);
+
+  policy.hosts["copilot-vscode"].deprioritizedAssetIdPatterns = ["neutral"];
+  const deprioritizedCandidate = buildCandidateRecommendation(
+    base,
+    "copilot-vscode",
+    createEmptyDemandContext(),
+    policy,
+  );
+  assert.equal(deprioritizedCandidate?.breakdown.negativePenalty, 11);
+});
+
+void test("candidate recommendations clone signal strength counts only when present", () => {
+  const policy = buildPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: ["apify"],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const policyContext = buildPolicySearchContext(policy);
+  const base = buildCandidateRecommendationBase(
+    buildCatalogEntry("apify-entry", "skill", 50, {
+      capabilities: ["skill", "apify"],
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+  assert.ok(base);
+  delete base.matchedSignals[0]?.evidenceStrengthCounts;
+
+  const candidate = buildCandidateRecommendation(
+    base,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+
+  assert.equal(candidate?.matchedSignals[0]?.term, "apify");
+  assert.equal(candidate?.matchedSignals[0]?.evidenceStrengthCounts, undefined);
+});
+
 void test("preselection scoring penalizes medium and high risk entries differently", () => {
   const mediumRisk = buildCatalogEntry("medium-risk", "skill", 60, {
     fit: { portfolioFit: 0.5, hostFit: 0.5 },
@@ -694,6 +793,21 @@ void test("preselection scoring penalizes medium and high risk entries different
     computeEntryPreselectionScore(mediumRisk) >
       computeEntryPreselectionScore(highRisk),
   );
+});
+
+void test("host-suppressed candidates are excluded before selection", () => {
+  const policy = buildPolicy({
+    suppressedAssetIdPatterns: ["blocked"],
+  });
+
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [buildCatalogEntry("blocked-entry", "skill", 10)],
+    createEmptyDemandContext(),
+    policy,
+  );
+
+  assert.deepEqual(recommendations, []);
 });
 
 void test("zero minimum coverage targets still allow recommendation ranking to proceed", () => {

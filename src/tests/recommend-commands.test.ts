@@ -157,6 +157,48 @@ void test("recommend explain renders empty coverage and signal sections as none"
   assert.match(rendered, /matched signals: none/u);
 });
 
+void test("recommend explain renders optional entry fields and compact signals", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-recommend-optional-fields-"),
+  );
+  const report = createRecommendationReport();
+  const entry = report.topByHost["copilot-vscode"][0];
+  if (!entry) {
+    throw new Error("expected fixture entry for asset-a");
+  }
+  entry.assetKind = undefined;
+  entry.availableLocally = true;
+  entry.matchedSignals = [
+    {
+      signalType: "tooling",
+      term: "npm:apify",
+      weight: 5,
+      evidenceCount: 1,
+    },
+  ];
+  await seedRecommendationReport(projectRoot, report);
+  t.after(async () => {
+    await rm(projectRoot, { force: true, recursive: true });
+  });
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  const exitCode = await runRecommend(
+    ["explain", "--asset", "asset-a", "--host", "vscode"],
+    projectRoot,
+    projectRoot,
+  );
+
+  assert.equal(exitCode, 0);
+  const rendered = output.join("\n");
+  assert.match(rendered, /asset kind: unknown/u);
+  assert.match(rendered, /available locally: yes/u);
+  assert.match(rendered, /matched signals: tooling:npm:apify\(w=5,e=1\)/u);
+});
+
 void test("recommend help command prints help and succeeds", async () => {
   const originalStdoutWrite = process.stdout.write;
   let helpOutput = "";
@@ -204,6 +246,58 @@ void test("recommend evaluate writes evaluation artifacts for the copied policy 
     } finally {
       globalThis.console.log = originalConsoleLog;
     }
+  });
+});
+
+void test("recommend report writes deterministic report without ai review", async (t) => {
+  await withRecommendationWorkspace(async (projectRoot) => {
+    await seedRecommendationInputs(projectRoot);
+
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    const exitCode = await runRecommend(
+      ["report", "--intent", "frontend"],
+      projectRoot,
+      projectRoot,
+    );
+
+    assert.equal(exitCode, 0);
+    const report = JSON.parse(
+      await readFile(
+        join(projectRoot, "state", "recommendations.json"),
+        "utf8",
+      ),
+    ) as RecommendationReport;
+    assert.equal(report.sessionIntent, "frontend");
+    assert.ok(report.topByHost["copilot-vscode"].length > 0);
+    assert.match(output.join("\n"), /Recommendation report written/u);
+    assert.doesNotMatch(output.join("\n"), /AI review artifacts/u);
+  });
+});
+
+void test("recommend policy:print can emit the full merged policy", async (t) => {
+  await withRecommendationWorkspace(async (projectRoot) => {
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    const exitCode = await runRecommend(
+      ["policy:print", "--compact"],
+      projectRoot,
+      projectRoot,
+    );
+
+    assert.equal(exitCode, 0);
+    const printedPolicy = JSON.parse(output.join("\n")) as {
+      hosts: Record<string, unknown>;
+      scoring: Record<string, unknown>;
+    };
+    assert.ok(printedPolicy.hosts["copilot-vscode"]);
+    assert.ok(printedPolicy.scoring);
   });
 });
 

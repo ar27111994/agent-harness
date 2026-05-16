@@ -344,6 +344,17 @@ void test("source sync helper exports cover registry sync edge branches", async 
             })),
           ],
         });
+      case "https://crates.io/api/v1/crates-malformed?page=1&per_page=50":
+        return jsonResponse({ crates: "not-an-array" });
+      case "https://crates.io/api/v1/crates-fallback?page=1&per_page=50":
+        return jsonResponse({
+          crates: [
+            {
+              name: "name-only-crate",
+              repository: "https://github.com/acme/name-only-crate",
+            },
+          ],
+        });
       case "https://index.golang.org/index?since=1970-01-01T00%3A00%3A00Z&limit=50":
         return textResponse(
           [
@@ -358,9 +369,32 @@ void test("source sync helper exports cover registry sync edge branches", async 
             docs: [{ g: "com.acme" }, { g: "com.acme", a: "agent-core" }],
           },
         });
+      case "https://search.maven.org/solrsearch/malformed?q=*%3A*&rows=50&start=0&wt=json":
+        return jsonResponse({ response: { docs: "not-an-array" } });
+      case "https://search.maven.org/solrsearch/partial?q=*%3A*&rows=50&start=0&wt=json":
+        return jsonResponse({
+          response: {
+            numFound: 100,
+            docs: Array.from({ length: 50 }, (_, index) => ({
+              g: "com.acme",
+              a: `agent-${index}`,
+              timestamp: 1_700_000_000_000 + index,
+            })),
+          },
+        });
       case "https://api.nuget.org/v3/query?q=&skip=0&take=50&prerelease=true&semVerLevel=2.0.0":
         return jsonResponse({
           data: [{ description: "missing id" }, { id: "Acme.AgentTools" }],
+        });
+      case "https://api.nuget.org/v3/query-malformed?q=&skip=0&take=50&prerelease=true&semVerLevel=2.0.0":
+        return jsonResponse({ data: "not-an-array" });
+      case "https://api.nuget.org/v3/query-partial?q=&skip=0&take=50&prerelease=true&semVerLevel=2.0.0":
+        return jsonResponse({
+          totalHits: 100,
+          data: Array.from({ length: 50 }, (_, index) => ({
+            id: `Acme.AgentTools.${index}`,
+            tags: ["agent", 12, "tools"],
+          })),
         });
       default:
         throw new Error(`Unexpected fetch: ${url}`);
@@ -488,6 +522,38 @@ void test("source sync helper exports cover registry sync edge branches", async 
         assert.equal(cargoResult.cursors[0]?.nextToken, "2");
         assert.equal(cargoContext.entriesById.size, 49);
 
+        const malformedCargoContext = buildSourceSyncContext();
+        const malformedCargoResult =
+          await sourceSyncInternals.syncCargoRegistrySource(
+            buildSourceDefinition("cargo-registry", "package-registry", {
+              baseUrl: "https://crates.io",
+              apiUrl: "https://crates.io/api/v1/crates-malformed",
+            }),
+            malformedCargoContext,
+          );
+        assert.equal(malformedCargoResult.status, "complete");
+        assert.equal(malformedCargoContext.entriesById.size, 0);
+
+        const fallbackCargoContext = buildSourceSyncContext();
+        const fallbackCargoResult =
+          await sourceSyncInternals.syncCargoRegistrySource(
+            buildSourceDefinition("cargo-registry", "package-registry", {
+              baseUrl: "https://crates.io",
+              apiUrl: "https://crates.io/api/v1/crates-fallback",
+            }),
+            fallbackCargoContext,
+          );
+        assert.equal(fallbackCargoResult.status, "complete");
+        assert.equal(fallbackCargoContext.entriesById.size, 1);
+        const fallbackCargoEntry = fallbackCargoContext.entriesById
+          .values()
+          .next().value;
+        assert.equal(fallbackCargoEntry?.displayName, "name-only-crate");
+        assert.equal(
+          fallbackCargoEntry?.source.originUrl,
+          "https://github.com/acme/name-only-crate",
+        );
+
         const goContext = buildSourceSyncContext({
           sourceId: "go-registry",
           coverageMode: "indexed",
@@ -515,6 +581,30 @@ void test("source sync helper exports cover registry sync edge branches", async 
         assert.equal(mavenResult.status, "complete");
         assert.equal(mavenContext.entriesById.size, 1);
 
+        const malformedMavenContext = buildSourceSyncContext();
+        const malformedMavenResult =
+          await sourceSyncInternals.syncMavenRegistrySource(
+            buildSourceDefinition("maven-registry", "package-registry", {
+              baseUrl: "https://central.sonatype.com",
+              searchApi: "https://search.maven.org/solrsearch/malformed",
+            }),
+            malformedMavenContext,
+          );
+        assert.equal(malformedMavenResult.status, "complete");
+        assert.equal(malformedMavenContext.entriesById.size, 0);
+
+        const partialMavenContext = buildSourceSyncContext();
+        const partialMavenResult =
+          await sourceSyncInternals.syncMavenRegistrySource(
+            buildSourceDefinition("maven-registry", "package-registry", {
+              baseUrl: "https://central.sonatype.com",
+              searchApi: "https://search.maven.org/solrsearch/partial",
+            }),
+            partialMavenContext,
+          );
+        assert.equal(partialMavenResult.status, "partial");
+        assert.equal(partialMavenContext.entriesById.size, 50);
+
         const nugetContext = buildSourceSyncContext();
         const nugetResult = await sourceSyncInternals.syncNuGetRegistrySource(
           buildSourceDefinition("nuget-registry", "package-registry", {
@@ -525,6 +615,30 @@ void test("source sync helper exports cover registry sync edge branches", async 
         );
         assert.equal(nugetResult.status, "complete");
         assert.equal(nugetContext.entriesById.size, 1);
+
+        const malformedNugetContext = buildSourceSyncContext();
+        const malformedNugetResult =
+          await sourceSyncInternals.syncNuGetRegistrySource(
+            buildSourceDefinition("nuget-registry", "package-registry", {
+              baseUrl: "https://www.nuget.org",
+              queryApi: "https://api.nuget.org/v3/query-malformed",
+            }),
+            malformedNugetContext,
+          );
+        assert.equal(malformedNugetResult.status, "complete");
+        assert.equal(malformedNugetContext.entriesById.size, 0);
+
+        const partialNugetContext = buildSourceSyncContext();
+        const partialNugetResult =
+          await sourceSyncInternals.syncNuGetRegistrySource(
+            buildSourceDefinition("nuget-registry", "package-registry", {
+              baseUrl: "https://www.nuget.org",
+              queryApi: "https://api.nuget.org/v3/query-partial",
+            }),
+            partialNugetContext,
+          );
+        assert.equal(partialNugetResult.status, "partial");
+        assert.equal(partialNugetContext.entriesById.size, 50);
       },
     );
   } finally {

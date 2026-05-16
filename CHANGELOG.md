@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - coverage hardening roadmap and reproducible `coverage:gaps` reporting for #207, plus broad behavioral tests across recommendation, discovery, host-adapter, install, mirror, GitHub, HTTP, release-script, manifest-validation, and utility edge paths
+- branch-residual coverage suites for AI enrichment, discovery harvesters, recommendation review/policy/selection, host wiring, install refresh, mirror acquisition, HTTP/preflight utilities, and source-sync helpers, raising the latest verified local run to 99.70% statements/lines, 98.32% branches, and 100% functions
 - native-host recommendation fixture coverage for Cursor, Zed, Claude Code, and Pi defaults for #208
 - demand-detection coverage matrix, targeted stack/vertical signatures, and false-positive fixtures for monorepos, serverless/edge, cross-platform mobile, AI-agent frameworks, commerce/CMS, workflow orchestration, desktop, infrastructure, and related project types for #209
 - scenario-based recommendation-limit scaling guidance and copy-paste `preserve` / `scale` examples for #210

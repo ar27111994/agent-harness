@@ -621,10 +621,6 @@ async function determineRisk(
     return buildRisk(hasHooks, hasExecScripts, requiresNetwork);
   }
 
-  if (source.id === "local-opencode-context") {
-    return buildRisk(false, false, false);
-  }
-
   return buildRisk(false, false, false);
 }
 

@@ -146,6 +146,35 @@ void test("package registry catalog entries derive asset kinds, hosts, and origi
   }
 });
 
+void test("package registry catalog entries preserve package pages when repository and publisher metadata are absent", () => {
+  const source = buildSource("npm-registry");
+  delete source.publisher;
+
+  const entry = buildPackageRegistryCatalogEntry(
+    source,
+    "@acme/mcp-server-sdk",
+    "SDK and docs for MCP clients",
+    undefined,
+    undefined,
+    null,
+    buildSelectionRegistry(),
+    "npm",
+    ["mcp", "sdk", "client"],
+  );
+
+  assert.equal(entry.assetKind, "plugin");
+  assert.deepEqual(entry.hosts, ["copilot-vscode"]);
+  assert.equal(
+    entry.source.originUrl,
+    "https://www.npmjs.com/package/%40acme%2Fmcp-server-sdk",
+  );
+  assert.equal(entry.source.publisher, "npm-registry");
+  assert.equal(entry.source.publisherVerified, false);
+  assert.equal(entry.evidence.docsLinked, false);
+  assert.equal(entry.maintenance.lastUpdated, new Date(0).toISOString());
+  assert.deepEqual(entry.install.adaptableHosts, ["copilot-vscode"]);
+});
+
 void test("package registry harvester skips npm and pypi candidates when metadata is unavailable", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;

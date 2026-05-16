@@ -136,6 +136,119 @@ void test("github harvester classifies repository artifacts and carries reposito
   );
 });
 
+void test("github harvester classifies adaptable multi-host assets without publisher metadata", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-harvester-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://api.github.com/repos/acme/adaptable-toolbox") {
+      return jsonResponse({
+        name: "adaptable-toolbox",
+        full_name: "acme/adaptable-toolbox",
+        description: "Repository with portable agent assets",
+        default_branch: "main",
+        updated_at: null,
+        pushed_at: null,
+        stargazers_count: 7,
+        language: "Markdown",
+        topics: [],
+        archived: true,
+        html_url: "https://github.com/acme/adaptable-toolbox",
+      });
+    }
+
+    if (
+      url ===
+      "https://api.github.com/repos/acme/adaptable-toolbox/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          { path: "guides/SKILL.md", type: "blob", sha: "1" },
+          { path: ".github/copilot-instructions.md", type: "blob", sha: "2" },
+          { path: "rules/frontend.mdc", type: "blob", sha: "3" },
+          { path: "prompt-templates/review.md", type: "blob", sha: "4" },
+          { path: "workflow/deploy.json", type: "blob", sha: "5" },
+          { path: "plugins/helper.md", type: "blob", sha: "6" },
+          { path: "data/findings.csv", type: "blob", sha: "7" },
+          { path: "src/ignored.ts", type: "blob", sha: "8" },
+          { path: "docs", type: "tree", sha: "9" },
+        ],
+      });
+    }
+
+    if (url === "https://api.github.com/repos/acme/adaptable-toolbox/readme") {
+      return new Response(null, { status: 404 });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const source = buildSource();
+  delete source.publisher;
+  source.endpoints.repo = "https://github.com/acme/adaptable-toolbox";
+  source.hosts = ["cursor", "opencode"];
+
+  const entries = await harvestGitHubRepoSource(
+    source,
+    null,
+    buildSelectionRegistry(),
+    projectRoot,
+  );
+  const byPath = new Map(
+    entries.map((entry) => [entry.install.relativePath, entry]),
+  );
+
+  assert.equal(byPath.get("guides/SKILL.md")?.compatibilityMode, "adaptable");
+  assert.deepEqual(byPath.get("guides/SKILL.md")?.install.adaptableHosts, [
+    "cursor",
+    "opencode",
+  ]);
+  assert.equal(byPath.get("guides/SKILL.md")?.source.publisher, source.id);
+  assert.equal(byPath.get("guides/SKILL.md")?.source.publisherVerified, false);
+  assert.equal(
+    byPath.get("guides/SKILL.md")?.maintenance.releaseCadence,
+    "archived",
+  );
+  assert.ok(byPath.get("guides/SKILL.md")?.maintenance.lastUpdated);
+  assert.equal(
+    byPath.get(".github/copilot-instructions.md")?.assetKind,
+    "instruction",
+  );
+  assert.equal(byPath.get("rules/frontend.mdc")?.assetKind, "instruction");
+  assert.equal(
+    byPath.get("prompt-templates/review.md")?.assetKind,
+    "prompt-pack",
+  );
+  assert.equal(byPath.get("workflow/deploy.json")?.assetKind, "workflow");
+  assert.equal(byPath.get("plugins/helper.md")?.assetKind, "plugin");
+  assert.equal(byPath.get("data/findings.csv")?.assetKind, "reference-pack");
+  assert.equal(byPath.has("src/ignored.ts"), false);
+  assert.equal(byPath.has("docs"), false);
+});
+
 void test("github harvester skips truncated repository trees", async (context) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-github-harvester-"),

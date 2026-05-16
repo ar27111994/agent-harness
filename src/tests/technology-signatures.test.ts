@@ -209,6 +209,21 @@ void test("technology signatures detect modern workspace platforms", () => {
   assert.ok(signals.tooling.includes("temporal"));
 });
 
+void test("technology signatures reuse delimited text marker patterns across calls", () => {
+  const firstSignals = createEmptySignalSet();
+  const secondSignals = createEmptySignalSet();
+
+  applyTechnologySignatures(firstSignals, {
+    text: "apify actor webhook-debugger-logger pipeline",
+  });
+  applyTechnologySignatures(secondSignals, {
+    text: "another webhook-debugger-logger automation",
+  });
+
+  assert.ok(firstSignals.frameworks.includes("apify"));
+  assert.ok(secondSignals.frameworks.includes("apify"));
+});
+
 void test("technology signatures detect MLOps, creative, security, and content stacks", () => {
   const signals = createEmptySignalSet();
 

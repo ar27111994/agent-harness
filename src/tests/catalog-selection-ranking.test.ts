@@ -105,6 +105,31 @@ void test("catalog selection demand relevance keeps executable MCP sources", () 
   );
 });
 
+void test("catalog selection demand relevance rejects generic trusted-local guidance without stack alignment", () => {
+  const entries = [
+    buildEntry("generic-local", {
+      authorityTier: "trusted-local",
+      sourceKind: "local-directory",
+      installMethod: "local-file",
+      capabilities: ["api", "automation", "backend", "cloud"],
+    }),
+  ];
+
+  const result = filterCatalogEntriesByDemandRelevance(
+    entries,
+    buildDemandProfile({
+      tooling: ["tailwind"],
+      concerns: ["api", "automation", "backend", "cloud"],
+    }),
+  );
+
+  assert.deepEqual(result.selectedEntries, []);
+  assert.deepEqual(
+    result.rejectedEntries.map((entry) => entry.id),
+    ["generic-local"],
+  );
+});
+
 void test("catalog selection ranking compares compatibility fit risk context and maintenance", () => {
   const selectionRegistry = buildSelectionRegistry();
 
@@ -143,6 +168,27 @@ void test("catalog selection ranking compares compatibility fit risk context and
       selectionRegistry,
     ) < 0,
   );
+});
+
+void test("catalog selection ranking handles non-canonical sources and disabled star tie breakers", () => {
+  const selectionRegistry = buildSelectionRegistry({
+    selectionPolicies: {
+      ...buildSelectionRegistry().selectionPolicies,
+      starsAreTieBreakerOnly: false,
+    },
+  });
+  const left = buildEntry("alpha", {
+    installMethod: "custom-source",
+    stars: 1_000,
+    lastUpdated: "2026-05-01T00:00:00.000Z",
+  });
+  const right = buildEntry("beta", {
+    installMethod: "another-custom-source",
+    stars: 1,
+    lastUpdated: "2026-05-01T00:00:00.000Z",
+  });
+
+  assert.ok(compareSelectionCandidates(left, right, selectionRegistry) < 0);
 });
 
 void test("catalog selection ranking uses stars only as a late tie-breaker", () => {

@@ -337,11 +337,7 @@ async function generateCatalog(projectRoot: string): Promise<{
 
   appendCatalogEntries(
     catalogEntries,
-    await harvestOfficialSkillIndexes(
-      projectRoot,
-      demandProfile,
-      selectionRegistry,
-    ),
+    await harvestOfficialSkillIndexes(projectRoot, demandProfile),
   );
 
   const sortedEntries = [

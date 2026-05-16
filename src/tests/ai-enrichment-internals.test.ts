@@ -130,6 +130,10 @@ void test("ai enrichment helper exports reject malformed provider responses and 
     () => aiEnrichmentInternals.sanitizeAiEnrichmentContent({ summary: "   " }),
     /usable summary/u,
   );
+  assert.throws(
+    () => aiEnrichmentInternals.sanitizeAiEnrichmentContent("not-an-object"),
+    /usable summary/u,
+  );
 
   assert.equal(aiEnrichmentInternals.sanitizeSummary(42), "");
   assert.deepEqual(aiEnrichmentInternals.sanitizeStringList("nope", 2, 10), []);
@@ -192,10 +196,25 @@ void test("ai enrichment helper exports reject malformed provider responses and 
     } as never),
     /AI_ENRICHMENT_API_KEY/u,
   );
+  assert.equal(
+    aiEnrichmentInternals.buildMissingAiEnrichmentConfigMessage({
+      url: "https://api.openai.com/v1/chat/completions",
+      apiKey: "test-key",
+    } as never),
+    "AI enrichment is disabled by configuration.",
+  );
 
   assert.equal(
     aiEnrichmentInternals.shouldAutomaticallyRunAiEnrichment(
       "after-workspace",
+      "after-workspace",
+      false,
+    ),
+    true,
+  );
+  assert.equal(
+    aiEnrichmentInternals.shouldAutomaticallyRunAiEnrichment(
+      "on-input-change",
       "after-workspace",
       false,
     ),
@@ -208,6 +227,14 @@ void test("ai enrichment helper exports reject malformed provider responses and 
       false,
     ),
     false,
+  );
+  assert.equal(
+    aiEnrichmentInternals.shouldAutomaticallyRunAiEnrichment(
+      "ci-only",
+      "after-workspace",
+      true,
+    ),
+    true,
   );
   assert.equal(
     aiEnrichmentInternals.shouldAutomaticallyRunAiEnrichment(
@@ -467,6 +494,34 @@ void test("ai enrichment helper exports cover ambiguity and policy helper branch
     ),
     ["first", "second"],
   );
+
+  const originalStdoutIsTty = process.stdout.isTTY;
+  const originalStderrIsTty = process.stderr.isTTY;
+  try {
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: true,
+    });
+    assert.equal(aiEnrichmentInternals.isInteractiveTerminal(), true);
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: false,
+    });
+    assert.equal(aiEnrichmentInternals.isInteractiveTerminal(), false);
+  } finally {
+    Object.defineProperty(process.stdout, "isTTY", {
+      configurable: true,
+      value: originalStdoutIsTty,
+    });
+    Object.defineProperty(process.stderr, "isTTY", {
+      configurable: true,
+      value: originalStderrIsTty,
+    });
+  }
 });
 
 void test("ai enrichment writes a failed artifact when provider parsing exhausts retries", async () => {

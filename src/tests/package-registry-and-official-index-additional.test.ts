@@ -167,11 +167,7 @@ void test("official index harvester classifies skill, reference-pack, mcp-server
     sources: [],
   });
 
-  const entries = await harvestOfficialSkillIndexes(
-    projectRoot,
-    null,
-    buildSelectionRegistry(),
-  );
+  const entries = await harvestOfficialSkillIndexes(projectRoot, null);
   const bySlug = new Map(
     entries.map((e) => {
       const parts = e.id.split(":");
@@ -265,11 +261,7 @@ void test("official index harvester ignores entries with non-allowed repo owners
     sources: [],
   });
 
-  const entries = await harvestOfficialSkillIndexes(
-    projectRoot,
-    null,
-    buildSelectionRegistry(),
-  );
+  const entries = await harvestOfficialSkillIndexes(projectRoot, null);
   const bySlug = new Map(
     entries.map((e) => {
       const parts = e.id.split(":");

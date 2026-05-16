@@ -93,6 +93,55 @@ void test("ai review apply suppresses and reranks deterministically", async () =
   assert.ok(entries[0]?.reasons.includes("ai-review:rerank:+12"));
 });
 
+void test("ai review apply supports negative reranks and deterministic tie breaks", async () => {
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const report = createRecommendationReport();
+  report.topByHost["copilot-vscode"] = [
+    createEntry("asset-b", 100),
+    createEntry("asset-a", 90),
+    createEntry("asset-c", 101),
+  ];
+  const artifact: RecommendationAiReviewArtifact = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    enabled: true,
+    status: "completed",
+    reviewedHosts: ["copilot-vscode"],
+    hostReviews: [
+      {
+        host: "copilot-vscode",
+        acceptedAssetIds: [],
+        questionable: [],
+        suppressedAssetIds: [],
+        rerank: [
+          {
+            assetId: "asset-a",
+            delta: 10,
+            reason: "same score as asset b",
+            confidence: "medium",
+          },
+          {
+            assetId: "asset-c",
+            delta: -1,
+            reason: "slightly weaker",
+            confidence: "low",
+          },
+        ],
+      },
+    ],
+  };
+
+  const nextReport = applyAiReviewToReport(report, artifact, policy);
+  const entries = nextReport.topByHost["copilot-vscode"];
+
+  assert.deepEqual(
+    entries.map((entry) => entry.assetId),
+    ["asset-a", "asset-b", "asset-c"],
+  );
+  assert.ok(entries[0]?.reasons.includes("ai-review:rerank:+10"));
+  assert.ok(entries[2]?.reasons.includes("ai-review:rerank:-1"));
+});
+
 void test("ai review writes disabled artifacts when enrichment is not configured", async (context) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-ai-review-disabled-"),
@@ -1013,8 +1062,18 @@ void test("ai review treats missing message payloads as empty reviews", async (c
   process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
   clearRuntimeConfigForTests();
 
-  globalThis.fetch = async () =>
-    new Response(JSON.stringify({ choices: [{}] }), { status: 200 });
+  let fetchCallCount = 0;
+  globalThis.fetch = async () => {
+    fetchCallCount += 1;
+    return new Response(
+      JSON.stringify(
+        fetchCallCount === 1
+          ? { choices: [{}] }
+          : { choices: [{ message: {} }] },
+      ),
+      { status: 200 },
+    );
+  };
 
   context.after(async () => {
     globalThis.fetch = originalFetch;
@@ -1034,7 +1093,14 @@ void test("ai review treats missing message payloads as empty reviews", async (c
   });
 
   const policy = await loadRecommendationPolicy(process.cwd());
-  const result = await runRecommendationAiReview({
+  const firstResult = await runRecommendationAiReview({
+    projectRoot,
+    policy,
+    report,
+    host: "copilot-vscode",
+    apply: false,
+  });
+  const secondResult = await runRecommendationAiReview({
     projectRoot,
     policy,
     report,
@@ -1042,14 +1108,18 @@ void test("ai review treats missing message payloads as empty reviews", async (c
     apply: false,
   });
 
-  assert.equal(result.artifact.status, "completed");
-  assert.deepEqual(result.artifact.hostReviews[0], {
+  assert.equal(firstResult.artifact.status, "completed");
+  assert.deepEqual(firstResult.artifact.hostReviews[0], {
     host: "copilot-vscode",
     acceptedAssetIds: [],
     questionable: [],
     suppressedAssetIds: [],
     rerank: [],
   });
+  assert.deepEqual(
+    secondResult.artifact.hostReviews[0],
+    firstResult.artifact.hostReviews[0],
+  );
 });
 
 function createRecommendationReport(): RecommendationReport {

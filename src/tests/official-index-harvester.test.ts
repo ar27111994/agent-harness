@@ -6,11 +6,7 @@ import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
 import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
-import type {
-  DemandProfile,
-  SelectionRegistry,
-  SourceDefinition,
-} from "../types.js";
+import type { DemandProfile, SourceDefinition } from "../types.js";
 
 void test("official index harvester parses entries, resolves repo-backed sources, and dedupes duplicates", async (context) => {
   const projectRoot = await mkdtemp(
@@ -107,7 +103,6 @@ void test("official index harvester parses entries, resolves repo-backed sources
   const entries = await harvestOfficialSkillIndexes(
     projectRoot,
     buildDemandProfile(),
-    buildSelectionRegistry(),
   );
   const ids = entries.map((entry) => entry.id).sort();
 
@@ -179,14 +174,7 @@ void test("official index harvester ignores missing configs and unavailable fetc
     sources: [],
   });
 
-  assert.deepEqual(
-    await harvestOfficialSkillIndexes(
-      projectRoot,
-      null,
-      buildSelectionRegistry(),
-    ),
-    [],
-  );
+  assert.deepEqual(await harvestOfficialSkillIndexes(projectRoot, null), []);
 
   await writeJsonFile(
     join(projectRoot, "discover", "official-skills-indexes.json"),
@@ -202,14 +190,7 @@ void test("official index harvester ignores missing configs and unavailable fetc
     },
   );
 
-  assert.deepEqual(
-    await harvestOfficialSkillIndexes(
-      projectRoot,
-      null,
-      buildSelectionRegistry(),
-    ),
-    [],
-  );
+  assert.deepEqual(await harvestOfficialSkillIndexes(projectRoot, null), []);
 });
 
 void test("official index harvester skips malformed rows and resolves fallback repo sources without publisher metadata", async (context) => {
@@ -271,11 +252,7 @@ void test("official index harvester skips malformed rows and resolves fallback r
     ],
   });
 
-  const entries = await harvestOfficialSkillIndexes(
-    projectRoot,
-    null,
-    buildSelectionRegistry(),
-  );
+  const entries = await harvestOfficialSkillIndexes(projectRoot, null);
   const byId = new Map(entries.map((entry) => [entry.id, entry]));
 
   assert.deepEqual([...byId.keys()].sort(), [
@@ -292,22 +269,6 @@ void test("official index harvester skips malformed rows and resolves fallback r
     false,
   );
 });
-
-function buildSelectionRegistry(): SelectionRegistry {
-  return {
-    schemaVersion: 1,
-    selectionPolicies: {
-      officialBeatsPopularity: true,
-      starsAreTieBreakerOnly: true,
-      preferNativeOverAdaptable: true,
-      preferLowerRiskWhenEquivalent: true,
-      preferLowerContextCostWhenEquivalent: true,
-      communityDefaultPolicy: "catalog-only-unless-promoted",
-    },
-    rankingOrder: [],
-    duplicateGroups: [],
-  };
-}
 
 function buildDemandProfile(): DemandProfile {
   return {

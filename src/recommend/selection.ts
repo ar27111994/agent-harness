@@ -269,16 +269,19 @@ function selectCandidatesForHost(
         hostPolicy,
         demandContext,
         policy,
-        false,
       );
-      const currentBest = bestIndex === -1 ? null : remaining[bestIndex];
+      if (!bestScore) {
+        bestIndex = index;
+        bestScore = candidateScore;
+        continue;
+      }
+
       if (
-        !bestScore ||
         compareDynamicScores(
           candidateScore,
           bestScore,
           candidate,
-          currentBest,
+          remaining[bestIndex] as CandidateRecommendation,
         ) < 0
       ) {
         bestIndex = index;
@@ -297,32 +300,6 @@ function selectCandidatesForHost(
     );
   }
 
-  if (selectionState.selected.length >= hostPolicy.recommendationLimit) {
-    return selectionState.selected;
-  }
-
-  for (const candidate of remaining) {
-    if (selectionState.selected.length >= hostPolicy.recommendationLimit) {
-      break;
-    }
-    if (exceedsHostCaps(candidate, selectionState, hostPolicy)) {
-      continue;
-    }
-
-    const fallbackScore = scoreCandidateAgainstSelection(
-      candidate,
-      selectionState,
-      hostPolicy,
-      demandContext,
-      policy,
-      true,
-    );
-    addCandidateToSelectionState(
-      selectionState,
-      applyDynamicScore(candidate, fallbackScore),
-    );
-  }
-
   return selectionState.selected;
 }
 
@@ -332,7 +309,6 @@ function scoreCandidateAgainstSelection(
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
-  relaxed: boolean,
 ): DynamicScore {
   const coverage = computeCoverageGain(
     candidate,
@@ -369,11 +345,11 @@ function scoreCandidateAgainstSelection(
       coverage +
       diversity -
       redundancyPenalty -
-      (relaxed ? 0 : budgetPenalty),
+      budgetPenalty,
     coverage,
     diversity,
     redundancyPenalty,
-    budgetPenalty: relaxed ? 0 : budgetPenalty,
+    budgetPenalty,
   };
 }
 
@@ -572,20 +548,21 @@ function compareDynamicScores(
   left: DynamicScore,
   right: DynamicScore,
   leftCandidate: CandidateRecommendation,
-  rightCandidate: CandidateRecommendation | null,
+  rightCandidate: CandidateRecommendation,
 ): number {
   if (left.total !== right.total) {
     return right.total - left.total;
   }
 
-  const rightWeight =
-    rightCandidate?.entry.contextCost.estimatedPromptWeight ??
-    Number.MAX_SAFE_INTEGER;
-  if (leftCandidate.entry.contextCost.estimatedPromptWeight !== rightWeight) {
-    return leftCandidate.entry.contextCost.estimatedPromptWeight - rightWeight;
+  if (
+    leftCandidate.entry.contextCost.estimatedPromptWeight !==
+    rightCandidate.entry.contextCost.estimatedPromptWeight
+  ) {
+    return (
+      leftCandidate.entry.contextCost.estimatedPromptWeight -
+      rightCandidate.entry.contextCost.estimatedPromptWeight
+    );
   }
 
-  return leftCandidate.entry.id.localeCompare(
-    rightCandidate?.entry.id ?? leftCandidate.entry.id,
-  );
+  return leftCandidate.entry.id.localeCompare(rightCandidate.entry.id);
 }

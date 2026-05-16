@@ -6,7 +6,6 @@ import type {
   CompatibilityMode,
   DemandProfile,
   HostTarget,
-  SelectionRegistry,
 } from "../../types.js";
 import { getRuntimeConfig } from "../../config/runtime.js";
 import { readJsonFileOrNull } from "../../files.js";
@@ -20,7 +19,6 @@ import {
   computeHostFit,
   computePortfolioFit,
   computeTrustScore,
-  findDuplicateGroup,
   GENERIC_CAPABILITY_TOKENS,
   splitIntoKeywords,
   uniqueStrings,
@@ -54,7 +52,6 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
 export async function harvestOfficialSkillIndexes(
   projectRoot: string,
   demandProfile: DemandProfile | null,
-  selectionRegistry: SelectionRegistry,
 ): Promise<AssetCatalogEntry[]> {
   const indexConfigPath = join(
     projectRoot,
@@ -87,7 +84,6 @@ export async function harvestOfficialSkillIndexes(
     for (const parsedEntry of parseOfficialIndexEntries(
       content,
       demandProfile,
-      selectionRegistry,
     )) {
       const sourceIdParts = parsedEntry.source.sourceId.split(":");
       const owner = sourceIdParts[1];
@@ -156,7 +152,6 @@ function buildOfficialIndexHeaders(): HeadersInit {
 function parseOfficialIndexEntries(
   content: string,
   demandProfile: DemandProfile | null,
-  selectionRegistry: SelectionRegistry,
 ): AssetCatalogEntry[] {
   const matches = [
     ...content.matchAll(
@@ -256,9 +251,7 @@ function parseOfficialIndexEntries(
         hostFit: computeHostFit(hosts, compatibilityMode),
       },
       dedupe: {
-        duplicateGroup:
-          buildOfficialIndexDuplicateGroup(owner, slug) ??
-          findDuplicateGroup(capabilities, selectionRegistry),
+        duplicateGroup: buildOfficialIndexDuplicateGroup(owner, slug),
         candidateRankHint: buildCandidateRankHint(authorityTier),
       },
       status: buildOfficialIndexAssetStatus(authorityTier),
@@ -408,7 +401,7 @@ async function resolveOfficialIndexEntryToRepoSource(
       authorityTier: matchingSource.authorityTier,
       sourceKind: matchingSource.kind,
       sourcePriority: matchingSource.priority,
-      originUrl: matchingSource.endpoints.repo ?? entry.source.originUrl,
+      originUrl: matchingSource.endpoints.repo!,
       publisher: matchingSource.publisher?.name ?? entry.source.publisher,
       publisherVerified:
         matchingSource.publisher?.verified ?? entry.source.publisherVerified,
@@ -437,7 +430,7 @@ async function resolveOfficialIndexEntryToRepoSource(
     },
     evidence: {
       ...entry.evidence,
-      rootPath: matchingSource.endpoints.repo ?? entry.evidence.rootPath,
+      rootPath: matchingSource.endpoints.repo!,
     },
     maintenance: {
       ...entry.maintenance,

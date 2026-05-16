@@ -77,6 +77,40 @@ void test("reference source catalog entries derive compatibility and installabil
   assert.equal(fallbackEntry.status.mirrorEligible, false);
 });
 
+void test("reference source catalog entries fall back through repo and source id origins", () => {
+  const selectionRegistry = buildSelectionRegistry();
+  const repoSource = buildSource("repo-reference", "repo", {
+    repo: "https://github.com/acme/reference-pack",
+  });
+  delete repoSource.publisher;
+  const repoEntry = buildReferenceSourceCatalogEntry(
+    repoSource,
+    null,
+    selectionRegistry,
+  );
+
+  assert.equal(
+    repoEntry.source.originUrl,
+    "https://github.com/acme/reference-pack",
+  );
+  assert.equal(repoEntry.install.manifestEntry, repoEntry.source.originUrl);
+  assert.equal(repoEntry.source.publisher, "repo-reference");
+  assert.equal(repoEntry.source.publisherVerified, false);
+
+  const idOnlySource = buildSource("id-only-reference", "marketplace", {});
+  const idOnlyEntry = buildReferenceSourceCatalogEntry(
+    idOnlySource,
+    null,
+    selectionRegistry,
+  );
+
+  assert.equal(idOnlyEntry.source.originUrl, "id-only-reference");
+  assert.equal(idOnlyEntry.compatibilityMode, "partial");
+  assert.equal(idOnlyEntry.install.method, "marketplace-reference");
+  assert.equal(idOnlyEntry.status.mirrorEligible, false);
+  assert.equal(idOnlyEntry.status.installEligible, false);
+});
+
 void test("reference source harvester returns harvested docs items and falls back to raw content when needed", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;

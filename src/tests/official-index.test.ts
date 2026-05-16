@@ -98,19 +98,7 @@ void test("official index repo extraction respects checked-in owner allowlist", 
       restoreFetchMockFlag(previousFetchMockFlag);
     });
 
-    const entries = await harvestOfficialSkillIndexes(projectRoot, null, {
-      schemaVersion: 1,
-      selectionPolicies: {
-        officialBeatsPopularity: true,
-        starsAreTieBreakerOnly: true,
-        preferNativeOverAdaptable: true,
-        preferLowerRiskWhenEquivalent: true,
-        preferLowerContextCostWhenEquivalent: true,
-        communityDefaultPolicy: "catalog-only-unless-promoted",
-      },
-      rankingOrder: [],
-      duplicateGroups: [],
-    });
+    const entries = await harvestOfficialSkillIndexes(projectRoot, null);
 
     assert.equal(entries.length, 1);
     assert.equal(

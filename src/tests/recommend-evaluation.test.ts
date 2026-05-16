@@ -176,6 +176,22 @@ void test("top recommendation confidence distinguishes medium-or-strong, weak-on
     ),
     "weak-only",
   );
+
+  assert.equal(
+    classifyTopRecommendationConfidence(
+      createRecommendationEntry({
+        matchedSignals: [
+          {
+            signalType: "tooling",
+            term: "npm:unknown",
+            weight: 1,
+            evidenceCount: 1,
+          },
+        ],
+      }),
+    ),
+    "weak-only",
+  );
 });
 
 void test("recommend evaluation builds checks and host summaries from fixtures", () => {
@@ -298,7 +314,7 @@ void test("recommend evaluation records present and missing expectation details 
             requiredAssetIds: ["apify-exact"],
             forbiddenAssetIds: ["blocked-top"],
             forbiddenTopAssetIds: ["blocked-top"],
-            requiredConcerns: ["backend"],
+            requiredConcerns: ["backend", "security"],
             maxPerSourceFamily: 0,
           },
         ],
@@ -346,6 +362,14 @@ void test("recommend evaluation records present and missing expectation details 
         check.name === "copilot-vscode-concern-backend" &&
         /present \d+ times/u.test(check.details) &&
         check.passed,
+    ),
+  );
+  assert.ok(
+    checks.some(
+      (check) =>
+        check.name === "copilot-vscode-concern-security" &&
+        check.details === "missing" &&
+        !check.passed,
     ),
   );
 });

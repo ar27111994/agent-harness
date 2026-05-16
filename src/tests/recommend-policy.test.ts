@@ -209,6 +209,25 @@ void test("recommendation policy rejects missing preset catalogs referenced by h
   });
 });
 
+void test("recommendation policy merges base overrides without preset catalogs", async () => {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withEmptyPolicyWorkspace(async (projectRoot) => {
+      await writeMinimalBasePolicy(projectRoot);
+      await writePolicyJson(projectRoot, join("overrides", "base.json"), {
+        schemaVersion: 1,
+        concernKeywordMap: {
+          custom: ["custom-keyword"],
+        },
+      });
+
+      const policy = await loadRecommendationPolicy(projectRoot);
+
+      assert.deepEqual(policy.concernKeywordMap.custom, ["custom-keyword"]);
+      assert.equal(policy.hosts["copilot-vscode"].recommendationLimit, 12);
+    });
+  });
+});
+
 void test("recommendation policy handles policies without preset catalogs or refs", async () => {
   await withClearedRecommendationLimitEnv(async () => {
     await withEmptyPolicyWorkspace(async (projectRoot) => {
@@ -462,6 +481,56 @@ void test("recommend policy:print exposes explicit scale-mode runtime metadata",
       assert.ok(
         printedPolicy.runtimeOverrides.recommendationLimitScaledFields.includes(
           "maxPerAssetKind.skill",
+        ),
+      );
+    });
+  });
+});
+
+void test("recommend policy:print scales saturation free counts down to zero", async (t) => {
+  await withClearedRecommendationLimitEnv(async () => {
+    await withPolicyWorkspace(async (projectRoot) => {
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT = "1";
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE =
+        "scale";
+      clearRuntimeConfigForTests();
+
+      await writePolicyJson(
+        projectRoot,
+        join("overrides", "hosts", "copilot-vscode.json"),
+        {
+          schemaVersion: 1,
+          host: "copilot-vscode",
+          policy: {
+            sourceSaturationFreeCount: 1,
+          },
+        },
+      );
+
+      const output: string[] = [];
+      t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+        output.push(args.map((value) => String(value)).join(" "));
+      });
+
+      const exitCode = await runRecommend(
+        ["policy:print", "--host", "vscode", "--compact"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(exitCode, 0);
+      const printedPolicy = JSON.parse(output.join("\n")) as {
+        hostPolicy: {
+          sourceSaturationFreeCount: number;
+        };
+        runtimeOverrides: {
+          recommendationLimitScaledFields: string[];
+        };
+      };
+      assert.equal(printedPolicy.hostPolicy.sourceSaturationFreeCount, 0);
+      assert.ok(
+        printedPolicy.runtimeOverrides.recommendationLimitScaledFields.includes(
+          "sourceSaturationFreeCount",
         ),
       );
     });

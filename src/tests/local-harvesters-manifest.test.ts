@@ -200,8 +200,19 @@ void test("local antigravity skill harvesting filters by install manifest", asyn
       "# Unlisted Skill\n",
     );
 
+    const source = buildLocalSource("local-antigravity-skills", root, [
+      "copilot-vscode",
+    ]);
+    delete source.publisher;
+
     const entries = await harvestLocalDirectorySource(
-      buildLocalSource("local-antigravity-skills", root, ["copilot-vscode"]),
+      source,
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+    const cachedEntries = await harvestLocalDirectorySource(
+      source,
       null,
       buildSelectionRegistry(),
       root,
@@ -211,7 +222,13 @@ void test("local antigravity skill harvesting filters by install manifest", asyn
       entries.map((entry) => entry.install.relativePath),
       ["skills/approved-skill/SKILL.md"],
     );
+    assert.deepEqual(
+      cachedEntries.map((entry) => entry.install.relativePath),
+      ["skills/approved-skill/SKILL.md"],
+    );
     assert.equal(entries[0]?.source.sourceId, "local-antigravity-manifest");
+    assert.equal(entries[0]?.source.publisher, "local-antigravity-skills");
+    assert.equal(entries[0]?.source.publisherVerified, false);
     assert.equal(entries[0]?.displayName, "Approved Skill");
   } finally {
     if (previousHome === undefined) {
