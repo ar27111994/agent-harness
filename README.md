@@ -1435,7 +1435,7 @@ npm run validate:coverage
 npm run test:self-hosting
 ```
 
-Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI if statements/lines drop below 75%, branches below 76%, or functions below 76%. Track the remaining path to 100% covered runtime logic in [`COVERAGE-100-ROADMAP.md`](./COVERAGE-100-ROADMAP.md).
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI unless statements, branches, functions, and lines all remain at 100%. The maintained 100% coverage policy and gap-inventory workflow are documented in [`COVERAGE-100-ROADMAP.md`](./COVERAGE-100-ROADMAP.md).
 
 For release or adapter changes, also run:
 
