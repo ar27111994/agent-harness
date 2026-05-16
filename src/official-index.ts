@@ -39,7 +39,7 @@ export async function fetchOfficialIndexPageInfo(url: string): Promise<{
     githubUrl,
   });
   return {
-    content: extractedContent.length > 0 ? extractedContent : null,
+    content: extractedContent,
     repositoryUrl: normalizeGitHubRepositoryUrl(githubUrl),
   };
 }
@@ -165,7 +165,7 @@ function buildKeyPoints(input: {
 
 function extractTitle(html: string): string | null {
   const titleMatch = /<title>(.*?)<\/title>/iu.exec(html);
-  const rawTitle = cleanHtmlText(titleMatch?.[1] ?? "");
+  const rawTitle = cleanHtmlText(titleMatch ? titleMatch[1]! : "");
   return (
     rawTitle?.replace(/\s+—\s+Agent Skills\s+\|\s+officialskills\.sh$/iu, "") ??
     null
@@ -175,38 +175,38 @@ function extractTitle(html: string): string | null {
 function extractMetaDescription(html: string): string | null {
   const descriptionMatch =
     /<meta\s+name="description"\s+content="([^"]+)"/iu.exec(html);
-  return cleanHtmlText(descriptionMatch?.[1] ?? "");
+  return cleanHtmlText(descriptionMatch ? descriptionMatch[1]! : "");
 }
 
 function extractInstallCommand(html: string): string | null {
   const commandMatch = /npx skills add[^<]{0,300}?--skill\s+[a-z0-9-]+/iu.exec(
     html,
   );
-  return cleanHtmlText(commandMatch?.[0] ?? "");
+  return cleanHtmlText(commandMatch ? commandMatch[0]! : "");
 }
 
 function extractGitHubUrl(
   html: string,
   installCommand: string | null,
 ): string | null {
-  const installCommandRepositoryUrl =
+  const installCommandRepositoryMatch =
     /npx skills add\s+(https:\/\/github\.com\/[^\s]+)\s+--skill/iu.exec(
       installCommand ?? "",
-    )?.[1];
-  if (installCommandRepositoryUrl) {
-    return installCommandRepositoryUrl;
+    );
+  if (installCommandRepositoryMatch) {
+    return installCommandRepositoryMatch[1]!;
   }
 
   const viewOnGitHubMatch =
     /<a href="(https:\/\/github\.com\/[^"]+)"[^>]*>.*?View on GitHub<\/a>/iu.exec(
       html,
     );
-  if (viewOnGitHubMatch?.[1]) {
-    return cleanHtmlText(viewOnGitHubMatch[1]);
+  if (viewOnGitHubMatch) {
+    return cleanHtmlText(viewOnGitHubMatch[1]!);
   }
 
   const githubLinks = [...html.matchAll(/https:\/\/github\.com\/[^"\s<]+/giu)]
-    .map((match) => cleanHtmlText(match[0] ?? ""))
+    .map((match) => cleanHtmlText(match[0]!))
     .filter((value): value is string => Boolean(value && value.length > 0));
 
   return githubLinks[0] ?? null;
@@ -219,7 +219,7 @@ function extractSectionParagraph(heading: string, html: string): string | null {
   }
 
   const paragraphMatch = /<p[^>]*>(.*?)<\/p>/iu.exec(sectionContent);
-  return cleanHtmlText(paragraphMatch?.[1] ?? "");
+  return cleanHtmlText(paragraphMatch ? paragraphMatch[1]! : "");
 }
 
 function extractWhyItHelps(html: string): string | null {
@@ -229,7 +229,7 @@ function extractWhyItHelps(html: string): string | null {
   }
 
   const paragraphMatches = [...sectionContent.matchAll(/<p[^>]*>(.*?)<\/p>/giu)]
-    .map((match) => cleanHtmlText(match[1] ?? ""))
+    .map((match) => cleanHtmlText(match[1]!))
     .filter((value): value is string => Boolean(value && value.length > 0));
 
   return paragraphMatches[1] ?? null;
@@ -242,7 +242,7 @@ function extractSectionListItems(heading: string, html: string): string[] {
   }
 
   return [...sectionContent.matchAll(/<li[^>]*>(.*?)<\/li>/giu)]
-    .map((match) => cleanHtmlText(match[1] ?? ""))
+    .map((match) => cleanHtmlText(match[1]!))
     .filter((value): value is string => Boolean(value && value.length > 0));
 }
 
@@ -252,15 +252,15 @@ function extractSectionContent(heading: string, html: string): string | null {
     `<h2[^>]*>${escapedHeading}<\\/h2>([\\s\\S]*?)<\\/section>`,
     "iu",
   ).exec(html);
-  if (sectionMatch?.[1]) {
-    return sectionMatch[1];
+  if (sectionMatch) {
+    return sectionMatch[1]!;
   }
 
   const fallbackMatch = new RegExp(
     `<h3[^>]*>${escapedHeading}<\\/h3>([\\s\\S]*?)(?:<h[23]|<\\/section>)`,
     "iu",
   ).exec(html);
-  return fallbackMatch?.[1] ?? null;
+  return fallbackMatch ? fallbackMatch[1]! : null;
 }
 
 function cleanHtmlText(value: string): string | null {
@@ -301,7 +301,7 @@ function normalizeGitHubRepositoryUrl(url: string | null): string | null {
       return null;
     }
 
-    return `https://github.com/${pathParts[0]}/${pathParts[1]?.replace(/\.git$/u, "")}`;
+    return `https://github.com/${pathParts[0]}/${pathParts[1]!.replace(/\.git$/u, "")}`;
   } catch {
     return null;
   }

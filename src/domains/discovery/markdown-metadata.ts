@@ -92,7 +92,7 @@ function parseFrontmatter(content: string): {
   let bodyStartIndex = 1;
 
   for (let index = 1; index < lines.length; index += 1) {
-    const line = lines[index] ?? "";
+    const line = lines[index]!;
     const trimmedLine = line.trim();
 
     if (trimmedLine === "---") {
@@ -127,8 +127,7 @@ function parseFrontmatter(content: string): {
     }
 
     if (currentArrayKey && /^-\s+/u.test(trimmedLine)) {
-      const currentValue = fields[currentArrayKey];
-      const items = Array.isArray(currentValue) ? currentValue : [];
+      const items = fields[currentArrayKey] as string[];
       items.push(stripWrappingQuotes(trimmedLine.replace(/^-\s+/u, "")));
       fields[currentArrayKey] = items;
       continue;

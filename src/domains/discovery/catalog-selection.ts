@@ -5,6 +5,7 @@ import type {
   AssetCatalogEntry,
   AssetContextCost,
   AssetRisk,
+  AuthorityTier,
   CompatibilityMode,
   DemandProfile,
   SelectionRegistry,
@@ -118,8 +119,7 @@ export function filterCatalogEntriesByDemandRelevance(
   const rejectedEntries: AssetCatalogEntry[] = [];
 
   for (const entry of catalogEntries) {
-    const entryTerms =
-      catalogTermData.entryTermsByEntry.get(entry) ?? new Set();
+    const entryTerms = catalogTermData.entryTermsByEntry.get(entry)!;
     if (isEntryRelevantToDemand(entry, entryTerms, demandTerms)) {
       selectedEntries.push(entry);
     } else {
@@ -710,29 +710,29 @@ function hasExecutableMcpSourcePath(entry: AssetCatalogEntry): boolean {
   );
 }
 
-function getAuthorityRank(authorityTier: string): number {
-  const authorityRanks: Record<string, number> = {
-    "official-first-party": 6,
-    "official-marketplace": 5,
-    "official-compatible": 4,
-    "trusted-local": 3,
-    "trusted-community": 2,
-    "unverified-community": 1,
-  };
+const AUTHORITY_RANKS: Record<AuthorityTier, number> = {
+  "official-first-party": 6,
+  "official-marketplace": 5,
+  "official-compatible": 4,
+  "trusted-local": 3,
+  "trusted-community": 2,
+  "unverified-community": 1,
+};
 
-  return authorityRanks[authorityTier] ?? 0;
+function getAuthorityRank(authorityTier: AuthorityTier): number {
+  return AUTHORITY_RANKS[authorityTier];
 }
 
-function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
-  const compatibilityRanks: Record<CompatibilityMode, number> = {
-    native: 5,
-    adaptable: 4,
-    partial: 3,
-    "reference-only": 2,
-    incompatible: 1,
-  };
+const COMPATIBILITY_RANKS: Record<CompatibilityMode, number> = {
+  native: 5,
+  adaptable: 4,
+  partial: 3,
+  "reference-only": 2,
+  incompatible: 1,
+};
 
-  return compatibilityRanks[compatibilityMode] ?? 0;
+function getCompatibilityRank(compatibilityMode: CompatibilityMode): number {
+  return COMPATIBILITY_RANKS[compatibilityMode];
 }
 
 function getRiskRank(riskLevel: AssetRisk["level"]): number {

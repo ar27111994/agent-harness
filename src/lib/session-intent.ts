@@ -237,7 +237,7 @@ export function parseSessionIntent(
   }
 
   throw new Error(
-    `Invalid ${optionName} value '${value ?? ""}'. Must be one of: ${SESSION_INTENTS.join(", ")}`,
+    `Invalid ${optionName} value '${value}'. Must be one of: ${SESSION_INTENTS.join(", ")}`,
   );
 }
 

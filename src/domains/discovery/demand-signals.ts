@@ -584,7 +584,9 @@ function addPackageManagerSignal(
   packageManager: string | undefined,
   matchedSignals: DemandSignalSet,
 ): void {
-  const packageManagerName = packageManager?.split("@")[0]?.trim();
+  const packageManagerName = packageManager
+    ? packageManager.split("@")[0]!.trim()
+    : undefined;
   if (
     packageManagerName === "npm" ||
     packageManagerName === "pnpm" ||
@@ -608,7 +610,7 @@ function enrichRequirementsSignals(
     .map((line) => line.replace(/\s+#.*$/u, "").trim())
     .filter(isPlainRequirementLine)
     .filter((line) => !isPythonDirectReference(line))
-    .map((line) => line.split(/\s+@\s+|[<>=~!;[]/u)[0]?.trim())
+    .map((line) => line.split(/\s+@\s+|[<>=~!;[]/u)[0]!.trim())
     .filter(isPlainPackageName);
 
   applyTechnologySignatures(matchedSignals, {
@@ -661,7 +663,7 @@ function extractPyProjectDependencyNames(content: string): string[] {
     const line = rawLine.replace(/\s+#.*$/u, "").trim();
     const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
     if (sectionMatch) {
-      currentSection = sectionMatch[1]?.trim() ?? "";
+      currentSection = sectionMatch[1]!.trim();
       inDependencyList = false;
       continue;
     }
@@ -682,14 +684,14 @@ function extractPyProjectDependencyNames(content: string): string[] {
     }
 
     for (const dependencyMatch of line.matchAll(/["']([^"']+)["']/gu)) {
-      const dependencySpecifier = dependencyMatch[1]?.trim();
+      const dependencySpecifier = dependencyMatch[1]!.trim();
       if (isPythonDirectReference(dependencySpecifier)) {
         continue;
       }
 
       const packageName = dependencySpecifier
-        ?.split(/\s+@\s+|[<>=~!;[]/u)[0]
-        ?.trim();
+        .split(/\s+@\s+|[<>=~!;[]/u)[0]!
+        .trim();
       if (isPlainPackageName(packageName)) {
         dependencyNames.push(packageName);
       }
@@ -713,10 +715,13 @@ function extractPoetryDependencyName(
   }
 
   const dependencyMatch = line.match(/^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u);
-  const dependencyName = dependencyMatch?.[1];
-  const dependencySpec = dependencyMatch?.[2]?.trim();
+  if (!dependencyMatch) {
+    return null;
+  }
+
+  const dependencyName = dependencyMatch[1]!;
+  const dependencySpec = dependencyMatch[2]!.trim();
   if (
-    !dependencyName ||
     dependencyName.toLowerCase() === "python" ||
     isPythonDirectReference(dependencySpec) ||
     isPoetryTableReference(dependencySpec)
@@ -1058,8 +1063,8 @@ function extractPubspecDependencyNames(content: string): string[] {
 
   for (const rawLine of content.split(/\r?\n/u)) {
     const sectionMatch = /^(\S[^:#]*):\s*$/u.exec(rawLine);
-    if (sectionMatch?.[1] && !rawLine.startsWith(" ")) {
-      currentSection = sectionMatch[1].trim();
+    if (sectionMatch && !rawLine.startsWith(" ")) {
+      currentSection = sectionMatch[1]!.trim();
       dependencyIndent = null;
       continue;
     }
@@ -1069,14 +1074,14 @@ function extractPubspecDependencyNames(content: string): string[] {
     }
 
     const dependencyMatch = /^(\s*)([A-Za-z0-9_]+):/u.exec(rawLine);
-    if (!dependencyMatch?.[1] || !dependencyMatch[2]) {
+    if (!dependencyMatch || dependencyMatch[1]!.length === 0) {
       continue;
     }
 
-    const indentLength = dependencyMatch[1].length;
+    const indentLength = dependencyMatch[1]!.length;
     dependencyIndent ??= indentLength;
     if (indentLength === dependencyIndent) {
-      dependencyNames.push(dependencyMatch[2]);
+      dependencyNames.push(dependencyMatch[2]!);
     }
   }
 
@@ -1189,8 +1194,8 @@ function extractCargoDependencyNames(content: string): string[] {
   for (const rawLine of content.split(/\r?\n/u)) {
     const line = rawLine.replace(/\s+#.*$/u, "").trim();
     const sectionMatch = /^\[([^\]]+)\]$/u.exec(line);
-    if (sectionMatch?.[1]) {
-      currentSection = sectionMatch[1].trim();
+    if (sectionMatch) {
+      currentSection = sectionMatch[1]!.trim();
       continue;
     }
 
@@ -1199,8 +1204,8 @@ function extractCargoDependencyNames(content: string): string[] {
     }
 
     const dependencyMatch = /^([A-Za-z0-9_-]+)\s*=/u.exec(line);
-    if (dependencyMatch?.[1]) {
-      dependencyNames.push(dependencyMatch[1]);
+    if (dependencyMatch) {
+      dependencyNames.push(dependencyMatch[1]!);
     }
   }
 
@@ -1227,8 +1232,8 @@ function extractGoModuleDependencyNames(content: string): string[] {
     const line = rawLine.replace(/\/\/.*$/u, "").trim();
     const requireMatch =
       /^(?:require\s+)?([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)\s+v?\d/iu.exec(line);
-    if (requireMatch?.[1]) {
-      dependencies.push(requireMatch[1]);
+    if (requireMatch) {
+      dependencies.push(requireMatch[1]!);
     }
   }
   return uniqueStrings(dependencies);
@@ -1239,8 +1244,8 @@ function extractMavenDependencyNames(content: string): string[] {
   for (const dependencyMatch of content.matchAll(
     /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<\/dependency>/giu,
   )) {
-    const groupId = dependencyMatch[1]?.trim();
-    const artifactId = dependencyMatch[2]?.trim();
+    const groupId = dependencyMatch[1]!.trim();
+    const artifactId = dependencyMatch[2]!.trim();
     if (groupId && artifactId) {
       dependencies.push(`${groupId}:${artifactId}`);
     }
@@ -1249,8 +1254,8 @@ function extractMavenDependencyNames(content: string): string[] {
   for (const gradleMatch of content.matchAll(
     /(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|androidTestImplementation|kapt|annotationProcessor|classpath)\s*\(?["']([^:"']+):([^:"']+)(?::[^"']+)?["']/giu,
   )) {
-    const groupId = gradleMatch[1]?.trim();
-    const artifactId = gradleMatch[2]?.trim();
+    const groupId = gradleMatch[1]!.trim();
+    const artifactId = gradleMatch[2]!.trim();
     if (groupId && artifactId) {
       dependencies.push(`${groupId}:${artifactId}`);
     }
@@ -1267,7 +1272,7 @@ function extractNugetDependencyNames(content: string): string[] {
       ),
       ...content.matchAll(/<package\s+[^>]*id=["']([^"']+)["']/giu),
     ]
-      .map((match) => match[1]?.trim())
+      .map((match) => match[1]!.trim())
       .filter((value): value is string => Boolean(value)),
   );
 }
@@ -1275,7 +1280,7 @@ function extractNugetDependencyNames(content: string): string[] {
 function extractGemDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/^\s*gem\s+["']([^"']+)["']/gimu)]
-      .map((match) => match[1]?.trim())
+      .map((match) => match[1]!.trim())
       .filter((value): value is string => Boolean(value)),
   );
 }
@@ -1298,7 +1303,7 @@ function extractComposerDependencyNames(content: string): string[] {
 function extractSwiftDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/\.package\s*\([^)]*url:\s*["']([^"']+)["']/giu)]
-      .map((match) => match[1]?.trim())
+      .map((match) => match[1]!.trim())
       .filter((value): value is string => Boolean(value)),
   );
 }

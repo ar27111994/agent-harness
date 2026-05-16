@@ -529,11 +529,10 @@ async function resolveHostnameWithDns(
   hostname: string,
 ): Promise<ResolvedHostnameAddress[]> {
   const addresses = await lookup(hostname, { all: true, verbatim: true });
-  return addresses.flatMap((address) =>
-    address.family === 4 || address.family === 6
-      ? [{ address: address.address, family: address.family }]
-      : [],
-  );
+  return addresses.map((address) => ({
+    address: address.address,
+    family: address.family as 4 | 6,
+  }));
 }
 
 function isNonPublicIpAddress(hostname: string): boolean {
@@ -591,7 +590,7 @@ function isPrivateIpv6Address(hostname: string): boolean {
     );
   }
 
-  const firstGroup = normalizedHostname.split(":")[0] ?? "";
+  const firstGroup = normalizedHostname.split(":")[0]!;
   const firstGroupValue = Number.parseInt(firstGroup, 16);
 
   return (

@@ -573,7 +573,7 @@ function evaluateAutomaticPolicySkip(
         status: "skipped",
         reason:
           "Automatic AI enrichment did not run because deterministic selection did not meet the on-ambiguity trigger.",
-        warnings: ambiguity.reasons.length > 0 ? ambiguity.reasons : undefined,
+        warnings: undefined,
       });
     }
   }

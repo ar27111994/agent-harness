@@ -84,10 +84,11 @@ export async function manageInstallRefresh(
 
   if (
     dueOnly &&
+    previousRefreshState &&
     !isInstallRefreshDue(previousRefreshState, refreshPolicy, refreshIntervalMs)
   ) {
     console.log(
-      `Install refresh is not due until ${previousRefreshState?.nextCheckAt ?? "the configured interval elapses"}.`,
+      `Install refresh is not due until ${previousRefreshState.nextCheckAt}.`,
     );
     return;
   }

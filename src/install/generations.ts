@@ -137,15 +137,16 @@ export async function explainInstalledAsset(
       host,
       "current",
     );
-    const isInCurrentGeneration =
-      currentGeneration?.packageManifestPaths.includes(
-        toPosixPath(packageManifestPath),
-      ) ?? false;
+    const activeGenerationId = currentGeneration?.packageManifestPaths.includes(
+      toPosixPath(packageManifestPath),
+    )
+      ? currentGeneration.generationId
+      : null;
     lines.push(`Host ${host}: installed via ${packageManifest.mirrorId}`);
     lines.push(`  bundles: ${packageManifest.bundleMembership.join(", ")}`);
     lines.push(`  files: ${packageManifest.filesRoot}`);
     lines.push(
-      `  active generation: ${isInCurrentGeneration ? (currentGeneration?.generationId ?? "current") : "not active"}`,
+      `  active generation: ${activeGenerationId ?? "not active"}`,
     );
   }
 

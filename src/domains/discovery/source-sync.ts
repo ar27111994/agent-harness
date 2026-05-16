@@ -1621,13 +1621,13 @@ async function resolveSitemapLeafUrls(
 
 function parseSitemapIndex(content: string, baseUrl: string): URL[] {
   return [...content.matchAll(/<sitemap>\s*<loc>([^<]+)<\/loc>/giu)].flatMap(
-    (match) => toSameOriginUrl(match[1] ?? "", baseUrl),
+    (match) => toSameOriginUrl(match[1]!, baseUrl),
   );
 }
 
 function parseUrlSet(content: string, baseUrl: string): URL[] {
   return [...content.matchAll(/<url>\s*<loc>([^<]+)<\/loc>/giu)].flatMap(
-    (match) => toSameOriginUrl(match[1] ?? "", baseUrl),
+    (match) => toSameOriginUrl(match[1]!, baseUrl),
   );
 }
 
@@ -1638,7 +1638,7 @@ function extractNormalizedLinks(
   pattern: RegExp,
 ): URL[] {
   const matches = [...content.matchAll(pattern)]
-    .flatMap((match) => toSameOriginUrl(match[0] ?? "", baseUrl))
+    .flatMap((match) => toSameOriginUrl(match[0]!, baseUrl))
     .filter((url) => isAllowedOriginUrl(url, allowedOrigins))
     .map(stripUrlQueryAndHash);
   return dedupeUrls(matches);
@@ -1769,7 +1769,7 @@ function buildDisplayNameFromUrl(url: URL): string {
     return url.hostname;
   }
 
-  return segments[segments.length - 1] ?? url.hostname;
+  return segments[segments.length - 1]!;
 }
 
 function buildManifestEntryFromUrl(url: URL): string | undefined {

@@ -221,7 +221,7 @@ export function verifyVsCodeExtensionInstalled(
   const normalizedExtensionId = extensionId.toLowerCase();
   return listExtensionsOutput
     .split(/\r?\n/u)
-    .map((line) => line.trim().split("@")[0]?.toLowerCase() ?? "")
+    .map((line) => line.trim().split("@")[0]!.toLowerCase())
     .some((lineExtensionId) => lineExtensionId === normalizedExtensionId);
 }
 

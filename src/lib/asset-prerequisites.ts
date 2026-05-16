@@ -245,18 +245,25 @@ function buildHostLoginPrerequisiteDiagnostic(
   prerequisite: AssetPrerequisite,
   adapter: HostAdapter | undefined,
 ): PreflightDiagnostic {
-  const hostMatches =
+  if (
     !prerequisite.host ||
     !adapter ||
     [adapter.id, adapter.lifecycleHost, adapter.recommendationHost].includes(
       prerequisite.host,
-    );
+    )
+  ) {
+    return {
+      severity: prerequisite.required ? "warning" : "info",
+      code: `asset-prerequisite-host-login:${asset.id}:${prerequisite.id}`,
+      message: `${asset.displayName} requires a signed-in ${prerequisite.host ?? "host"} session.`,
+      action: buildPrerequisiteAction(prerequisite),
+    };
+  }
+
   return {
-    severity: hostMatches && prerequisite.required ? "warning" : "info",
+    severity: "info",
     code: `asset-prerequisite-host-login:${asset.id}:${prerequisite.id}`,
-    message: hostMatches
-      ? `${asset.displayName} requires a signed-in ${prerequisite.host ?? "host"} session.`
-      : `${asset.displayName} declares a host login prerequisite for ${prerequisite.host}; current host is ${adapter?.id ?? "unknown"}.`,
+    message: `${asset.displayName} declares a host login prerequisite for ${prerequisite.host}; current host is ${adapter.id}.`,
     action: buildPrerequisiteAction(prerequisite),
   };
 }
@@ -295,8 +302,8 @@ function buildOauthPrerequisiteDiagnostic(
 
 function buildPrerequisiteAction(prerequisite: AssetPrerequisite): string {
   const actions: string[] = [];
-  if ((prerequisite.envVars?.length ?? 0) > 0) {
-    actions.push(`Set ${formatEnvChoices(prerequisite.envVars ?? [])}`);
+  if (prerequisite.envVars && prerequisite.envVars.length > 0) {
+    actions.push(`Set ${formatEnvChoices(prerequisite.envVars)}`);
   }
   if (prerequisite.kind === "host-login" && prerequisite.host) {
     actions.push(`Run setup login --provider ${prerequisite.host}`);
@@ -317,9 +324,7 @@ function buildPrerequisiteAction(prerequisite: AssetPrerequisite): string {
 }
 
 function formatEnvChoices(envVars: string[]): string {
-  return envVars.length > 1
-    ? `one of ${envVars.join(", ")}`
-    : (envVars[0] ?? "the required environment variable");
+  return envVars.length > 1 ? `one of ${envVars.join(", ")}` : envVars[0]!;
 }
 
 function dedupePrerequisites(

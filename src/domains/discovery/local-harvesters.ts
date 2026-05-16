@@ -187,7 +187,7 @@ export async function harvestLocalDirectorySource(
   const antigravityManifestEntries =
     source.id === "local-antigravity-skills"
       ? await loadAntigravityManifestEntrySet(projectRoot)
-      : null;
+      : new Set<string>();
 
   for (const filePath of files) {
     const relativePath = toRelativePosixPath(rootPath, filePath);
@@ -199,7 +199,7 @@ export async function harvestLocalDirectorySource(
 
     if (source.id === "local-antigravity-skills") {
       const antigravitySkillKey = toAntigravityManifestEntry(relativePath);
-      if (!antigravityManifestEntries?.has(antigravitySkillKey)) {
+      if (!antigravityManifestEntries.has(antigravitySkillKey)) {
         continue;
       }
     }

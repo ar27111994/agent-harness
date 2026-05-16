@@ -166,11 +166,11 @@ function parseOfficialIndexEntries(
   const entries: AssetCatalogEntry[] = [];
 
   for (const match of matches) {
-    const displayName = match[1]?.trim();
-    const originUrl = match[2]?.trim();
-    const owner = match[3]?.trim();
-    const slug = match[4]?.trim();
-    const description = match[5]?.trim() ?? "";
+    const displayName = match[1]!.trim();
+    const originUrl = match[2]!.trim();
+    const owner = match[3]!.trim();
+    const slug = match[4]!.trim();
+    const description = match[5]!.trim();
 
     if (!displayName || !originUrl || !owner || !slug) {
       continue;
@@ -323,11 +323,11 @@ function normalizeGitHubRepoIdentity(
     );
   const match = httpsMatch ?? scpMatch ?? sshMatch;
 
-  if (!match?.[1] || !match[2]) {
+  if (!match) {
     return null;
   }
 
-  return `${match[1]}/${match[2].replace(/\.git$/iu, "")}`.toLowerCase();
+  return `${match[1]!}/${match[2]!.replace(/\.git$/iu, "")}`.toLowerCase();
 }
 
 function isOfficialIndexOwner(owner: string): boolean {
@@ -488,13 +488,14 @@ function extractOfficialSkillRepoUrls(
       continue;
     }
 
-    const officialOwner = officialEntryMatch[1].trim().toLowerCase();
-    const slug = officialEntryMatch[2]
+    const officialOwner = officialEntryMatch[1]!.trim().toLowerCase();
+    const slug = officialEntryMatch[2]!
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9-]+/gu, "-")
       .replace(/^-+|-+$/gu, "");
-    const repoOwner = repoMatch[1].split("/")[0]?.toLowerCase();
+    const repoIdentity = repoMatch[1]!;
+    const repoOwner = repoIdentity.split("/")[0]!.toLowerCase();
     if (
       !repoOwner ||
       !isAllowedOfficialRepoOwner(officialOwner, repoOwner, allowlist)
@@ -504,7 +505,7 @@ function extractOfficialSkillRepoUrls(
 
     repoUrls.set(
       `${officialOwner}:${slug}`,
-      `https://github.com/${repoMatch[1]}`,
+      `https://github.com/${repoIdentity}`,
     );
   }
 

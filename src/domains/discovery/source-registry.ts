@@ -299,8 +299,8 @@ function normalizeRepoIdentity(repo: string | undefined): string | undefined {
 
   const normalizedRepo = repo.trim().replace(/\.git$/u, "");
   const sshMatch = /^git@([^:]+):(.+)$/u.exec(normalizedRepo);
-  if (sshMatch?.[1] && sshMatch[2]) {
-    return `${sshMatch[1]}/${sshMatch[2]}`
+  if (sshMatch) {
+    return `${sshMatch[1]!}/${sshMatch[2]!}`
       .replace(/^\/+|\/+$/gu, "")
       .toLowerCase();
   }
@@ -324,8 +324,9 @@ function normalizeRepoIdentity(repo: string | undefined): string | undefined {
 function getRepoOwner(repo: string): string | undefined {
   const normalizedRepo = repo.trim().replace(/\.git$/u, "");
   const sshMatch = /^git@[^:]+:(.+)$/u.exec(normalizedRepo);
-  const pathLikeRepo =
-    sshMatch?.[1] ?? extractUrlPath(normalizedRepo) ?? normalizedRepo;
+  const pathLikeRepo = sshMatch
+    ? sshMatch[1]!
+    : (extractUrlPath(normalizedRepo) ?? normalizedRepo);
   const segments = pathLikeRepo
     .replace(/^\/+|\/+$/gu, "")
     .split("/")

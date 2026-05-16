@@ -77,8 +77,5 @@ export function resolveRecommendationHost(
     }
   }
 
-  return normalizedValue ===
-    formatRecommendationHostForDisplay(SHARED_RECOMMENDATION_HOST)
-    ? SHARED_RECOMMENDATION_HOST
-    : undefined;
+  return undefined;
 }

@@ -336,16 +336,16 @@ function extractReferenceLinks(
   for (const match of content.matchAll(
     /<a\s+[^>]*href=["']([^"']+)["'][^>]*>(.*?)<\/a>/gisu,
   )) {
-    const href = normalizeSameOriginUrl(match[1] ?? "", baseUrl, allowedOrigin);
-    const text = stripHtml(match[2] ?? "").trim();
+    const href = normalizeSameOriginUrl(match[1]!, baseUrl, allowedOrigin);
+    const text = stripHtml(match[2]!).trim();
     if (href && text.length > 0) {
       links.push({ href, text });
     }
   }
 
   for (const match of content.matchAll(/\[([^\]]+)\]\(([^)]+)\)/gu)) {
-    const href = normalizeSameOriginUrl(match[2] ?? "", baseUrl, allowedOrigin);
-    const text = (match[1] ?? "").trim();
+    const href = normalizeSameOriginUrl(match[2]!, baseUrl, allowedOrigin);
+    const text = match[1]!.trim();
     if (href && text.length > 0) {
       links.push({ href, text });
     }
@@ -389,13 +389,13 @@ function getAllowedOrigin(url: string): string | null {
 }
 
 function extractTitle(content: string): string | null {
-  const htmlTitle = /<title[^>]*>(.*?)<\/title>/iu.exec(content)?.[1];
-  if (htmlTitle) {
-    return stripHtml(htmlTitle).trim();
+  const htmlTitleMatch = /<title[^>]*>(.*?)<\/title>/iu.exec(content);
+  if (htmlTitleMatch) {
+    return stripHtml(htmlTitleMatch[1]!).trim();
   }
 
-  const markdownHeading = /^#\s+(.+)$/mu.exec(content)?.[1];
-  return markdownHeading?.trim() ?? null;
+  const markdownHeadingMatch = /^#\s+(.+)$/mu.exec(content);
+  return markdownHeadingMatch ? markdownHeadingMatch[1]!.trim() : null;
 }
 
 function summarizeText(content: string): string {
