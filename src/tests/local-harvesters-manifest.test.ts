@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import {
   harvestLocalDirectorySource,
   harvestLocalManifestSource,
@@ -173,6 +174,70 @@ void test("local opencode config harvesting recognizes native components", async
     assert.equal(kindByPath.get("commands/review.md"), "prompt-pack");
     assert.equal(kindByPath.get("plugins/helper.ts"), "plugin");
     assert.equal(kindByPath.has("docs/notes.md"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("local antigravity skill harvesting filters by install manifest", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-antigravity-"));
+  const previousHome = process.env.AGENT_HARNESS_HOME;
+
+  try {
+    process.env.AGENT_HARNESS_HOME = root;
+    clearRuntimeConfigForTests();
+
+    await writeText(
+      join(root, ".agents", "skills", ".antigravity-install-manifest.json"),
+      JSON.stringify({ entries: ["skills/approved-skill"] }),
+    );
+    await writeText(
+      join(root, "skills", "approved-skill", "SKILL.md"),
+      "---\nname: Approved Skill\n---\n# Approved Skill\n",
+    );
+    await writeText(
+      join(root, "skills", "unlisted-skill", "SKILL.md"),
+      "# Unlisted Skill\n",
+    );
+
+    const entries = await harvestLocalDirectorySource(
+      buildLocalSource("local-antigravity-skills", root, ["copilot-vscode"]),
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+
+    assert.deepEqual(
+      entries.map((entry) => entry.install.relativePath),
+      ["skills/approved-skill/SKILL.md"],
+    );
+    assert.equal(entries[0]?.source.sourceId, "local-antigravity-manifest");
+    assert.equal(entries[0]?.displayName, "Approved Skill");
+  } finally {
+    if (previousHome === undefined) {
+      delete process.env.AGENT_HARNESS_HOME;
+    } else {
+      process.env.AGENT_HARNESS_HOME = previousHome;
+    }
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("local cursor config ignores unrecognized markdown files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-cursor-local-"));
+
+  try {
+    await writeText(join(root, "notes.md"), "# Notes\n");
+
+    const entries = await harvestLocalDirectorySource(
+      buildLocalSource("local-cursor-config", root, ["cursor"]),
+      null,
+      buildSelectionRegistry(),
+      root,
+    );
+
+    assert.deepEqual(entries, []);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

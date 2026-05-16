@@ -42,8 +42,12 @@ void test("session intent parsing accepts common aliases for expanded workflows"
     /Invalid --session-intent value 'definitely-not-valid'/u,
   );
   assert.throws(
-    () => parseSessionIntent("still-not-valid", "--intent"),
+    () => parseSessionIntent("still-not-valid"),
     /Invalid --intent value 'still-not-valid'/u,
+  );
+  assert.throws(
+    () => parseSessionIntent("another-invalid", "--session-intent"),
+    /Invalid --session-intent value 'another-invalid'/u,
   );
 });
 

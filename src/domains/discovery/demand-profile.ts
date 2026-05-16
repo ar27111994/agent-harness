@@ -32,12 +32,8 @@ export async function buildDemandProfile(
   for (const filePath of scannedFiles) {
     const fileName = basename(filePath);
 
-    if (!shouldInspectFile(fileName, filePath)) {
-      continue;
-    }
-
     const evidenceStrength = getDemandEvidenceStrength(fileName, filePath);
-    if (evidenceStrength === null) {
+    if (evidenceStrength === null || !shouldInspectFile(fileName, filePath)) {
       continue;
     }
 

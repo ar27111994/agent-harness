@@ -6,11 +6,11 @@ Issue: [#207](https://github.com/ar27111994/agent-harness/issues/207)
 
 `npm run test:coverage` now exercises the release recommendation fixtures and the focused coverage-hardening suites added during the #207 pass. The latest verified local Windows run reports:
 
-- statements: `99.22%` (`37148/37439`)
-- branches: `94.63%` (`6294/6651`)
-- functions: `99.90%` (`1102/1103`)
-- lines: `99.22%` (`37148/37439`)
-- tests: `591/591` passing
+- statements: `99.30%` (`37164/37423`)
+- branches: `94.77%` (`6309/6657`)
+- functions: `100%` (`1103/1103`)
+- lines: `99.30%` (`37164/37423`)
+- tests: `594/594` passing
 
 The `.c8rc.json` gate currently remains at statements `75`, branches `76`, functions `76`, and lines `75` because #207 is not complete until the intended covered runtime surface reaches a clean 100%. The gap ledger is now small enough to drive the rest of the work directly from uncovered line/branch/function IDs, but the policy is unchanged: do not reach 100% by excluding broad runtime surfaces.
 

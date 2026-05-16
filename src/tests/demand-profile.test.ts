@@ -839,6 +839,32 @@ void test("demand profiles ignore agent metadata directories by default", async 
   }
 });
 
+void test("demand profile skips ignored non-demand files before evidence collection", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-demand-profile-null-evidence-"),
+  );
+
+  try {
+    await writeFixtureFiles(root, [
+      {
+        path: "CHANGELOG.md",
+        content: "# Changelog\n\nMentions React only historically.\n",
+      },
+      { path: "docs/README.md", content: "# Docs\n" },
+    ]);
+
+    const profile = await buildDemandProfile(root);
+
+    assert.equal(profile.summary.scannedFiles, 2);
+    assert.deepEqual(
+      profile.evidence.map((entry) => entry.path),
+      ["docs/README.md"],
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 void test("demand profile skips non-signal evidence and sorts matched evidence paths", async () => {
   const root = await mkdtemp(
     join(tmpdir(), "agent-harness-demand-profile-sort-"),

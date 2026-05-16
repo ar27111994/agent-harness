@@ -199,10 +199,7 @@ export async function harvestLocalDirectorySource(
 
     if (source.id === "local-antigravity-skills") {
       const antigravitySkillKey = toAntigravityManifestEntry(relativePath);
-      if (
-        !antigravitySkillKey ||
-        !antigravityManifestEntries?.has(antigravitySkillKey)
-      ) {
+      if (!antigravityManifestEntries?.has(antigravitySkillKey)) {
         continue;
       }
     }
@@ -553,11 +550,7 @@ function buildReferenceLocalFile(
   };
 }
 
-function toAntigravityManifestEntry(relativePath: string): string | null {
-  if (!relativePath.endsWith("/SKILL.md")) {
-    return null;
-  }
-
+function toAntigravityManifestEntry(relativePath: string): string {
   return relativePath.replace(/\/SKILL\.md$/u, "").toLowerCase();
 }
 

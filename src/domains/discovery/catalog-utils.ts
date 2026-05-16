@@ -462,12 +462,7 @@ export function deriveDisplayNameFromPath(relativePath: string): string {
   const baseSegment = normalizeDisplayNameSegment(lastPathSegment(fileSegment));
 
   if (GENERIC_DISPLAY_NAME_SEGMENTS.has(baseSegment)) {
-    for (let index = pathSegments.length - 2; index >= 0; index -= 1) {
-      const parentSegment = pathSegments[index];
-      if (!parentSegment) {
-        continue;
-      }
-
+    for (const parentSegment of pathSegments.slice(0, -1).reverse()) {
       const normalizedParent = normalizeDisplayNameSegment(parentSegment);
       if (!GENERIC_DISPLAY_NAME_SEGMENTS.has(normalizedParent)) {
         return humanizeSlug(parentSegment);
