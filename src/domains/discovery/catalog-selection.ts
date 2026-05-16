@@ -777,3 +777,16 @@ function compareNumberAscending(left: number, right: number): number {
 function compareStringDescending(left: string, right: string): number {
   return right.localeCompare(left);
 }
+
+/**
+ * Exposes focused catalog-selection helpers for deterministic coverage.
+ */
+export const catalogSelectionInternals = {
+  addDemandSignal,
+  buildCatalogTermData,
+  buildDemandTermSet,
+  classifyDemandKeyword,
+  isCatalogCommonHighSignal,
+  matchesTermGroupSet,
+  normalizeDemandSignalKeywords,
+};

@@ -25,6 +25,8 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 
+type FetchGitHubRepoSnapshot = typeof fetchGitHubRepoSnapshot;
+
 /**
  * Provides harvest git hub repo source for the lifecycle pipeline.
  */
@@ -33,9 +35,10 @@ export async function harvestGitHubRepoSource(
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
   projectRoot: string,
+  fetchSnapshot: FetchGitHubRepoSnapshot = fetchGitHubRepoSnapshot,
 ): Promise<AssetCatalogEntry[]> {
   try {
-    const snapshot = await fetchGitHubRepoSnapshot(source, projectRoot);
+    const snapshot = await fetchSnapshot(source, projectRoot);
 
     if (!snapshot) {
       return [];
@@ -61,8 +64,9 @@ export async function harvestGitHubRepoSource(
       )
       .filter((entry): entry is AssetCatalogEntry => entry !== null);
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    console.warn(`Skipping repo source ${source.id}: ${errorMessage}`);
+    console.warn(
+      `Skipping repo source ${source.id}: ${toGitHubHarvesterErrorMessage(error)}`,
+    );
     return [];
   }
 }
@@ -356,4 +360,8 @@ function buildGitHubRisk(assetKind: AssetKind): AssetRisk {
     hasExecScripts: false,
     requiresNetwork: false,
   };
+}
+
+function toGitHubHarvesterErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

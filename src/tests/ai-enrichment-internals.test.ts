@@ -558,6 +558,61 @@ void test("ai enrichment helper exports cover ambiguity and policy helper branch
   }
 });
 
+void test("ai enrichment reuses cached outputs in CI when cache reuse is allowed", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
+  let requestCount = 0;
+  const cleanupFetch = installFetchMock(async () => {
+    requestCount += 1;
+    return jsonResponse({
+      summary: "Cached summary",
+      recommendations: ["Keep the cached result"],
+      warnings: [],
+    });
+  });
+
+  try {
+    await writeDiscoveryInputs(root);
+
+    await withEnv(
+      {
+        HOME: "/home/tester",
+        AGENT_HARNESS_AI_ENRICHMENT_URL:
+          "https://api.openai.com/v1/chat/completions",
+        AGENT_HARNESS_AI_ENRICHMENT_API_KEY: "test-key",
+        AGENT_HARNESS_AI_ENRICHMENT_MODE: "after-select",
+        AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS: "https://api.openai.com",
+        AGENT_HARNESS_AI_ENRICHMENT_ALLOW_CACHE_IN_CI: "true",
+      },
+      async () => {
+        const completed = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: true,
+          ci: true,
+        });
+        const reused = await orchestrateAiEnrichment(root, {
+          trigger: "after-select",
+          explicitRequested: false,
+          disableRequested: false,
+          force: false,
+          requireSuccess: true,
+          ci: true,
+        });
+
+        assert.equal(completed.outcome, "completed");
+        assert.equal(reused.outcome, "reused");
+        assert.equal(reused.artifact?.summary, "Cached summary");
+        assert.equal(requestCount, 1);
+      },
+    );
+  } finally {
+    cleanupFetch();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 void test("ai enrichment writes a failed artifact when provider parsing exhausts retries", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-ai-enrichment-"));
   const cleanupFetch = installFetchMock(async () => jsonResponse(null));

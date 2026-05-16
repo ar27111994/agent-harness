@@ -120,7 +120,7 @@ export async function wireOpenCode(options: {
       localAgentsPath,
       previousWirePlan?.textFileSnapshots,
     );
-    await removeManagedLinks(previousWirePlan?.linkedPaths ?? []);
+    await removeManagedLinks(getManagedLinkedPaths(previousWirePlan));
     await removePath(localContextRoot);
     return;
   }
@@ -475,6 +475,12 @@ async function removeManagedAgentsSection(
   await writeTextFile(localAgentsPath, nextAgentsContent);
 }
 
+function getManagedLinkedPaths(
+  wirePlan: WirePlanManifest | null | undefined,
+): string[] {
+  return wirePlan?.linkedPaths ?? [];
+}
+
 async function removeManagedLinks(linkedPaths: string[]): Promise<void> {
   for (const linkedPath of linkedPaths) {
     await removePath(linkedPath);
@@ -483,10 +489,11 @@ async function removeManagedLinks(linkedPaths: string[]): Promise<void> {
 
 async function removeManagedLinksBestEffort(
   linkedPaths: string[],
+  removeManagedLink: typeof removePath = removePath,
 ): Promise<void> {
   for (const linkedPath of linkedPaths) {
     try {
-      await removePath(linkedPath);
+      await removeManagedLink(linkedPath);
     } catch (error) {
       console.warn(
         `Failed to roll back managed link ${linkedPath}: ${toLoggableErrorMessage(error)}`,
@@ -619,8 +626,10 @@ function toLoggableErrorMessage(error: unknown): string {
  * Exposes focused OpenCode wire helpers for behavioral coverage.
  */
 export const openCodeWireInternals = {
+  getManagedLinkedPaths,
   materializeOpenCodeLinkedAsset,
   validateManagedTextFileSnapshots,
   restoreManagedTextFileSnapshot,
+  removeManagedLinksBestEffort,
   toLoggableErrorMessage,
 };

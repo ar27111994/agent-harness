@@ -433,6 +433,31 @@ void test("selection relevance rejects trusted-local generic overlap when detect
   );
 });
 
+void test("selection relevance admits detector phrases without stack anchoring", () => {
+  const demandProfile = createDemandProfile({
+    languages: [],
+    packageManagers: [],
+    frameworks: [],
+    concerns: [],
+    tooling: ["detector:quantum flux"],
+  });
+  const matchingEntry = createEntry("detector-quantum-flux", [
+    "quantum",
+    "flux",
+    "workflow",
+  ]);
+
+  const { selectedEntries } = filterCatalogEntriesByDemandRelevance(
+    [matchingEntry],
+    demandProfile,
+  );
+
+  assert.deepEqual(
+    selectedEntries.map((entry) => entry.id),
+    ["detector-quantum-flux"],
+  );
+});
+
 void test("selection relevance supports uncommon concern phrases without stack anchoring", () => {
   const demandProfile = createDemandProfile({
     languages: [],

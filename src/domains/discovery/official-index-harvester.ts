@@ -86,12 +86,11 @@ export async function harvestOfficialSkillIndexes(
       demandProfile,
     )) {
       const sourceIdParts = parsedEntry.source.sourceId.split(":");
-      const owner = sourceIdParts[1];
-      const manifestEntry = parsedEntry.install.manifestEntry;
-      const officialRepoUrl =
-        owner && manifestEntry
-          ? officialSkillRepoUrlsByOwnerAndSlug.get(`${owner}:${manifestEntry}`)
-          : undefined;
+      const owner = sourceIdParts[1]!;
+      const manifestEntry = parsedEntry.install.manifestEntry!;
+      const officialRepoUrl = officialSkillRepoUrlsByOwnerAndSlug.get(
+        `${owner}:${manifestEntry}`,
+      );
       const entry = officialRepoUrl
         ? {
             ...parsedEntry,
@@ -109,18 +108,16 @@ export async function harvestOfficialSkillIndexes(
       seenIds.add(entry.id);
       entries.push(entry);
 
-      if (owner && manifestEntry) {
-        const resolvedRepoSource = await resolveOfficialIndexEntryToRepoSource(
-          owner,
-          manifestEntry,
-          entry,
-          projectRoot,
-          officialRepoUrl,
-        );
-        if (resolvedRepoSource && !seenIds.has(resolvedRepoSource.id)) {
-          seenIds.add(resolvedRepoSource.id);
-          entries.push(resolvedRepoSource);
-        }
+      const resolvedRepoSource = await resolveOfficialIndexEntryToRepoSource(
+        owner,
+        manifestEntry,
+        entry,
+        projectRoot,
+        officialRepoUrl,
+      );
+      if (resolvedRepoSource && !seenIds.has(resolvedRepoSource.id)) {
+        seenIds.add(resolvedRepoSource.id);
+        entries.push(resolvedRepoSource);
       }
     }
   }

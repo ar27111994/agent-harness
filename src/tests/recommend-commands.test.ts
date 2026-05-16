@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdtemp,
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -218,34 +226,48 @@ void test("recommend help command prints help and succeeds", async () => {
   }
 });
 
-void test("recommend evaluate writes evaluation artifacts for the copied policy workspace", async () => {
+void test("recommend evaluate writes evaluation artifacts for the copied policy workspace", async (t) => {
   await withRecommendationWorkspace(async (projectRoot) => {
     const output: string[] = [];
-    const originalConsoleLog = globalThis.console.log;
-    globalThis.console.log = (...args: unknown[]) => {
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
       output.push(args.map((value) => String(value)).join(" "));
-    };
+    });
 
-    try {
-      const exitCode = await runRecommend(
-        ["evaluate", "--write"],
-        projectRoot,
-        projectRoot,
-      );
+    const exitCode = await runRecommend(
+      ["evaluate", "--write"],
+      projectRoot,
+      projectRoot,
+    );
 
-      assert.equal(exitCode, 0);
-      assert.match(output.join("\n"), /Summary:/u);
-      const persisted = JSON.parse(
-        await readFile(
-          join(projectRoot, "state", "recommendation-evaluation.json"),
-          "utf8",
-        ),
-      ) as RecommendationEvaluationResult;
-      assert.ok(persisted.fixtures.length > 0);
-      assert.ok(persisted.summary.fixtureCount > 0);
-    } finally {
-      globalThis.console.log = originalConsoleLog;
-    }
+    assert.equal(exitCode, 0);
+    assert.match(output.join("\n"), /Summary:/u);
+    const persisted = JSON.parse(
+      await readFile(
+        join(projectRoot, "state", "recommendation-evaluation.json"),
+        "utf8",
+      ),
+    ) as RecommendationEvaluationResult;
+    assert.ok(persisted.fixtures.length > 0);
+    assert.ok(persisted.summary.fixtureCount > 0);
+  });
+});
+
+void test("recommend evaluate reports fixture failures with non-zero exit codes", async (t) => {
+  await withRecommendationWorkspace(async (projectRoot) => {
+    await capHostRecommendationLimits(projectRoot, 1);
+
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    const exitCode = await runRecommend(["evaluate"], projectRoot, projectRoot);
+
+    assert.equal(exitCode, 1);
+    const rendered = output.join("\n");
+    assert.match(rendered, /FAIL /u);
+    assert.match(rendered, / {2}x /u);
+    assert.match(rendered, /Summary:/u);
   });
 });
 
@@ -298,6 +320,60 @@ void test("recommend policy:print can emit the full merged policy", async (t) =>
     };
     assert.ok(printedPolicy.hosts["copilot-vscode"]);
     assert.ok(printedPolicy.scoring);
+
+    output.length = 0;
+    const prettyExitCode = await runRecommend(
+      ["policy:print"],
+      projectRoot,
+      projectRoot,
+    );
+
+    assert.equal(prettyExitCode, 0);
+    assert.match(output.join("\n"), /\n {2}"schemaVersion"/u);
+
+    const previousLimit =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    const previousMode =
+      process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT;
+    delete process.env.AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE;
+    clearRuntimeConfigForTests();
+
+    try {
+      output.length = 0;
+      const hostExitCode = await runRecommend(
+        ["policy:print", "--host", "vscode", "--compact"],
+        projectRoot,
+        projectRoot,
+      );
+
+      assert.equal(hostExitCode, 0);
+      const printedHostPolicy = JSON.parse(output.join("\n")) as {
+        runtimeOverrides: {
+          recommendationLimitOverrideMode: string;
+          recommendationLimitOverrideModeSource: string;
+        };
+      };
+      assert.equal(
+        printedHostPolicy.runtimeOverrides.recommendationLimitOverrideMode,
+        "preserve",
+      );
+      assert.equal(
+        printedHostPolicy.runtimeOverrides
+          .recommendationLimitOverrideModeSource,
+        "policy",
+      );
+    } finally {
+      restoreEnv(
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT",
+        previousLimit,
+      );
+      restoreEnv(
+        "AGENT_HARNESS_COPILOT_VSCODE_RECOMMENDATION_LIMIT_MODE",
+        previousMode,
+      );
+      clearRuntimeConfigForTests();
+    }
   });
 });
 
@@ -649,6 +725,42 @@ async function withRecommendationWorkspace(
     await callback(projectRoot);
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
+  }
+}
+
+async function capHostRecommendationLimits(
+  projectRoot: string,
+  recommendationLimit: number,
+): Promise<void> {
+  const hostsRoot = join(
+    projectRoot,
+    "discover",
+    "recommendation-policy",
+    "hosts",
+  );
+  for (const fileName of await readdir(hostsRoot)) {
+    if (!fileName.endsWith(".json")) {
+      continue;
+    }
+
+    const filePath = join(hostsRoot, fileName);
+    const hostPolicyFile = JSON.parse(await readFile(filePath, "utf8")) as {
+      policy?: {
+        activationBudget?: number;
+        recommendationLimit?: number;
+      };
+    };
+    if (!hostPolicyFile.policy) {
+      continue;
+    }
+
+    hostPolicyFile.policy.recommendationLimit = recommendationLimit;
+    hostPolicyFile.policy.activationBudget = recommendationLimit;
+    await writeFile(
+      filePath,
+      `${JSON.stringify(hostPolicyFile, null, 2)}\n`,
+      "utf8",
+    );
   }
 }
 

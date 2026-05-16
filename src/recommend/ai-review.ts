@@ -210,7 +210,7 @@ export async function runRecommendationAiReview(options: {
       model: config.model,
       reviewedHosts: input.reviewedHosts,
       hostReviews: input.reviewedHosts.map((host) => emptyHostReview(host)),
-      error: error instanceof Error ? error.message : String(error),
+      error: toAiReviewErrorMessage(error),
     };
     await writeJsonFile(
       join(options.projectRoot, ...OUTPUT_PATH),
@@ -382,7 +382,7 @@ function sanitizeAiReviewArtifact(
     sanitizeHostReview(
       host,
       findHostReviewRecord(hostReviewsRaw, host),
-      inputAssetIdsByHost.get(host) ?? new Set<string>(),
+      inputAssetIdsByHost.get(host)!,
     ),
   );
 
@@ -734,3 +734,14 @@ function asJsonObject(value: unknown): Record<string, unknown> | null {
     ? (value as Record<string, unknown>)
     : null;
 }
+
+function toAiReviewErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Exposes focused recommendation AI-review helpers for deterministic tests.
+ */
+export const recommendationAiReviewInternals = {
+  toAiReviewErrorMessage,
+};

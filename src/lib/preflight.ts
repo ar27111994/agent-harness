@@ -276,27 +276,45 @@ export async function checkExecutableOnPath(
 /**
  * Searches PATH for an executable, honoring PATHEXT on Windows.
  */
+interface FindExecutableOptions {
+  accessPath?: typeof access;
+  env?: NodeJS.ProcessEnv;
+  platform?: NodeJS.Platform;
+}
+
+function getExecutableSearchExtensions(
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+): string[] {
+  return platform === "win32"
+    ? (env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
+        .split(";")
+        .filter((entry) => entry.length > 0)
+    : [""];
+}
+
+function getExecutableAccessMode(platform: NodeJS.Platform): number {
+  return platform === "win32" ? constants.F_OK : constants.X_OK;
+}
+
 async function findExecutableOnPath(
   executableName: string,
+  options: FindExecutableOptions = {},
 ): Promise<string | null> {
-  const pathEntries = (process.env.PATH ?? "")
+  const env = options.env ?? process.env;
+  const platform = options.platform ?? process.platform;
+  const accessPath = options.accessPath ?? access;
+  const pathEntries = (env.PATH ?? "")
     .split(delimiter)
     .filter((entry) => entry.length > 0);
-  const extensions =
-    process.platform === "win32"
-      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
-          .split(";")
-          .filter((entry) => entry.length > 0)
-      : [""];
+  const extensions = getExecutableSearchExtensions(platform, env);
+  const accessMode = getExecutableAccessMode(platform);
 
   for (const pathEntry of pathEntries) {
     for (const extension of extensions) {
       const candidate = join(pathEntry, `${executableName}${extension}`);
       try {
-        await access(
-          candidate,
-          process.platform === "win32" ? constants.F_OK : constants.X_OK,
-        );
+        await accessPath(candidate, accessMode);
         return candidate;
       } catch {
         continue;
@@ -344,10 +362,7 @@ async function runRuntimeCommand(
   args: string[],
 ): Promise<{ exitCode: number | null; message: string }> {
   const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
-  const resolvedExecutable =
-    process.platform === "win32"
-      ? ((await findExecutableOnPath(executable)) ?? executable)
-      : executable;
+  const resolvedExecutable = await resolveRuntimeExecutable(executable);
   const isWindowsShellWrapper =
     process.platform === "win32" && /\.(?:cmd|bat)$/iu.test(resolvedExecutable);
 
@@ -406,6 +421,28 @@ async function runRuntimeCommand(
   });
 }
 
+async function resolveRuntimeExecutable(
+  executable: string,
+  platform: NodeJS.Platform = process.platform,
+  findExecutable: typeof findExecutableOnPath = findExecutableOnPath,
+): Promise<string> {
+  if (platform !== "win32") {
+    return executable;
+  }
+
+  return resolveFoundExecutable(
+    executable,
+    await findExecutable(executable, { platform }),
+  );
+}
+
+function resolveFoundExecutable(
+  executable: string,
+  foundExecutable: string | null,
+): string {
+  return foundExecutable ?? executable;
+}
+
 function buildWindowsPowerShellCommand(
   executable: string,
   args: string[],
@@ -455,3 +492,14 @@ export async function checkPathExists(
     };
   }
 }
+
+/**
+ * Exposes focused preflight helpers for deterministic platform-branch tests.
+ */
+export const preflightInternals = {
+  findExecutableOnPath,
+  getExecutableAccessMode,
+  getExecutableSearchExtensions,
+  resolveFoundExecutable,
+  resolveRuntimeExecutable,
+};

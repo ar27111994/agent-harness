@@ -290,7 +290,7 @@ async function printRecommendationPolicy(
           recommendationLimitSource: limitOverride ? "env" : "policy",
           recommendationLimitEnvVar: limitOverride?.envVar,
           recommendationLimitOverrideMode:
-            hostPolicy.recommendationLimitOverrideMode ?? "preserve",
+            resolveRecommendationLimitOverrideMode(hostPolicy),
           recommendationLimitOverrideModeSource: modeOverride
             ? "env"
             : "policy",
@@ -312,6 +312,19 @@ async function printRecommendationPolicy(
     ),
   );
 }
+
+function resolveRecommendationLimitOverrideMode(hostPolicy: {
+  recommendationLimitOverrideMode?: string;
+}): string {
+  return hostPolicy.recommendationLimitOverrideMode ?? "preserve";
+}
+
+/**
+ * Exposes narrow recommendation command helpers for focused tests.
+ */
+export const recommendCommandInternals = {
+  resolveRecommendationLimitOverrideMode,
+};
 
 function getRequestedReviewHost(
   args: string[],

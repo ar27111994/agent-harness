@@ -56,6 +56,8 @@ interface ClassifiedLocalFile {
   hosts: HostTarget[];
 }
 
+type ReadLocalTextFile = typeof readTextFileOrNull;
+
 /**
  * Provides harvest local manifest source for the lifecycle pipeline.
  */
@@ -175,6 +177,7 @@ export async function harvestLocalDirectorySource(
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
   projectRoot: string,
+  readLocalTextFile: ReadLocalTextFile = readTextFileOrNull,
 ): Promise<AssetCatalogEntry[]> {
   const rootPath = resolveEndpointPath(source.endpoints.path, projectRoot);
 
@@ -204,7 +207,7 @@ export async function harvestLocalDirectorySource(
       }
     }
 
-    const content = await readTextFileOrNull(filePath);
+    const content = await readLocalTextFile(filePath);
     if (content === null) {
       continue;
     }
@@ -634,3 +637,11 @@ function resolveEndpointPath(
 
   return resolvePortablePath(endpointValue, projectRoot);
 }
+
+/**
+ * Exposes focused local-harvester helpers for deterministic tests.
+ */
+export const localHarvesterInternals = {
+  classifyLocalDirectoryFile,
+  resolveEndpointPath,
+};

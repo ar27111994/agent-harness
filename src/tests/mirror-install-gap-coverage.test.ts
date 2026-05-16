@@ -2168,6 +2168,19 @@ void test("official index package materialization handles caps, content fallback
           const repo = repoMatch?.[1] ?? "unknown";
           if (url.includes("/git/trees/")) {
             const slug = repo.replace(/repo$/u, "").replace(/-skills$/u, "");
+            if (repo.includes("truncated")) {
+              return new Response(
+                JSON.stringify({
+                  sha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  truncated: true,
+                  tree: [],
+                }),
+                {
+                  status: 200,
+                  headers: { "content-type": "application/json" },
+                },
+              );
+            }
             if (repo.includes("bigfile")) {
               return new Response(
                 JSON.stringify({
@@ -2278,6 +2291,16 @@ void test("official index package materialization handles caps, content fallback
       );
     assert.match(
       fallback.artifact?.content.toString("utf8") ?? "",
+      /No concise summary/u,
+    );
+
+    const truncatedFallback =
+      await mirrorAcquireInternals.materializeOfficialIndexPackage(
+        officialEntry("truncated-entry", "truncated", "truncatedrepo"),
+        projectRoot,
+      );
+    assert.match(
+      truncatedFallback.artifact?.content.toString("utf8") ?? "",
       /No concise summary/u,
     );
 

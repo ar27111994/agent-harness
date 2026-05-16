@@ -247,7 +247,7 @@ export async function orchestrateAiEnrichment(
   if (!options.force) {
     const reusedArtifact = buildCachedAiEnrichmentArtifact(
       requestContext,
-      config.allowCacheInCi || !ci,
+      shouldAllowAiEnrichmentCache(config.allowCacheInCi, ci),
     );
     if (reusedArtifact) {
       await writeJsonFileAtomically(outputPath, reusedArtifact);
@@ -313,7 +313,7 @@ export async function orchestrateAiEnrichment(
       input,
       enabled: true,
       status: "failed",
-      error: error instanceof Error ? error.message : String(error),
+      error: toAiEnrichmentErrorMessage(error),
     });
     await writeJsonFileAtomically(outputPath, artifact);
     return {
@@ -1119,6 +1119,17 @@ function asJsonObject(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function toAiEnrichmentErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function shouldAllowAiEnrichmentCache(
+  allowCacheInCi: boolean,
+  ci: boolean,
+): boolean {
+  return allowCacheInCi || !ci;
+}
+
 /**
  * Narrow internal surface for deterministic helper coverage.
  *
@@ -1147,6 +1158,8 @@ export const aiEnrichmentInternals = {
   sanitizeSummary,
   shouldAutomaticallyRunAiEnrichment,
   sleep,
+  shouldAllowAiEnrichmentCache,
+  toAiEnrichmentErrorMessage,
   asJsonObject,
   asUnknownArray,
 };

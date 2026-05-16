@@ -266,6 +266,120 @@ void test("github harvester classifies adaptable multi-host assets without publi
   assert.equal(byPath.has("docs"), false);
 });
 
+void test("github harvester skips sources when fetching fails with non-Error values", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-harvester-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const originalConsoleWarn = globalThis.console.warn;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const warnings: string[] = [];
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async () => {
+    throw "network offline";
+  };
+  globalThis.console.warn = (...args: unknown[]) => {
+    warnings.push(args.map((value) => String(value)).join(" "));
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    globalThis.console.warn = originalConsoleWarn;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  assert.deepEqual(
+    await harvestGitHubRepoSource(
+      buildSource(),
+      null,
+      buildSelectionRegistry(),
+      projectRoot,
+    ),
+    [],
+  );
+  assert.match(warnings.join("\n"), /network offline/u);
+});
+
+void test("github harvester drops unrecognized repository files", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-github-harvester-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://api.github.com/repos/acme/toolbox") {
+      return jsonResponse({
+        name: "toolbox",
+        full_name: "acme/toolbox",
+        description: null,
+        default_branch: "main",
+        updated_at: "2026-05-15T00:00:00.000Z",
+        pushed_at: "2026-05-15T00:00:00.000Z",
+        stargazers_count: 0,
+        language: null,
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/acme/toolbox",
+      });
+    }
+
+    if (
+      url ===
+      "https://api.github.com/repos/acme/toolbox/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          { path: "src/main.ts", type: "blob", sha: "1" },
+          { path: "internal/config.yaml", type: "blob", sha: "2" },
+        ],
+      });
+    }
+
+    if (url === "https://api.github.com/repos/acme/toolbox/readme") {
+      return new Response(null, { status: 404 });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  assert.deepEqual(
+    await harvestGitHubRepoSource(
+      buildSource(),
+      null,
+      buildSelectionRegistry(),
+      projectRoot,
+    ),
+    [],
+  );
+});
+
 void test("github harvester skips truncated repository trees", async (context) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-github-harvester-"),

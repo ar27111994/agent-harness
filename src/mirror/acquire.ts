@@ -402,7 +402,7 @@ function restoreRefreshProcessedCount(
     Math.min(
       totalEligibleCount,
       Number.isFinite(previousAcquireState.processedCount)
-        ? (previousAcquireState.processedCount ?? 0)
+        ? previousAcquireState.processedCount!
         : 0,
     ),
   );
@@ -604,11 +604,6 @@ async function materializeOfficialIndexPackage(
 
     const packageFiles = packageFileCandidates;
 
-    if (packageFiles.length === 0) {
-      sawNonCapFailure = true;
-      continue;
-    }
-
     const commitSha = await fetchGitHubBranchCommitSha(
       snapshot.owner,
       snapshot.repo,
@@ -650,13 +645,11 @@ async function materializeOfficialIndexPackage(
 
     const skillMarkdownFile = materializedFiles.find(
       (file) => file.relativePath === "SKILL.md",
-    );
+    )!;
 
     return {
       artifact: {
-        content:
-          skillMarkdownFile?.content ??
-          Buffer.from(JSON.stringify(entry, null, 2), "utf8"),
+        content: skillMarkdownFile.content,
         files: materializedFiles,
         upstreamRef: snapshot.repoSummary.defaultBranch,
         upstreamCommit: commitSha ?? undefined,

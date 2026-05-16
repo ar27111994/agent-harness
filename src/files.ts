@@ -406,11 +406,7 @@ export async function createDirectoryLink(
   }
 
   await ensureDirectory(dirname(linkPath));
-  await symlink(
-    targetPath,
-    linkPath,
-    process.platform === "win32" ? "junction" : "dir",
-  );
+  await symlink(targetPath, linkPath, getDirectorySymlinkType());
 }
 
 /**
@@ -509,6 +505,41 @@ export function removeManagedSection(options: {
   }
 
   return originalContent.replace(sectionPattern, "\n").trimEnd() + "\n";
+}
+
+type DirectorySymlinkType = "dir" | "junction";
+
+interface PendingFileEntry {
+  entryPath: string;
+  relativeEntryPath: string;
+}
+
+interface CollectedFileStat extends PendingFileEntry {
+  size: number;
+}
+
+interface FileLikeStats {
+  isFile(): boolean;
+  size: number;
+}
+
+function getDirectorySymlinkType(
+  platform: NodeJS.Platform = process.platform,
+): DirectorySymlinkType {
+  return platform === "win32" ? "junction" : "dir";
+}
+
+function toCollectedFileStat(
+  fileEntry: PendingFileEntry,
+  stats: FileLikeStats | null,
+): CollectedFileStat | null {
+  return stats?.isFile() ? { ...fileEntry, size: stats.size } : null;
+}
+
+function compactCollectedFileStats(
+  fileStats: Array<CollectedFileStat | null>,
+): CollectedFileStat[] {
+  return fileStats.flatMap((fileStat) => (fileStat ? [fileStat] : []));
 }
 
 async function shouldIgnoreEnsureDirectoryError(
@@ -684,8 +715,7 @@ async function collectFilesFromDirectory(
 
   const entries = await readdir(directoryPath, { withFileTypes: true });
   const collectedFiles: string[] = [];
-  const fileEntries: Array<{ entryPath: string; relativeEntryPath: string }> =
-    [];
+  const fileEntries: PendingFileEntry[] = [];
   const directoryEntries: Array<{ entryPath: string }> = [];
 
   for (const entry of entries) {
@@ -723,16 +753,16 @@ async function collectFilesFromDirectory(
     }
   }
 
-  const fileStats = (
+  const fileStats = compactCollectedFileStats(
     await mapWithConcurrency(
       fileEntries,
       FILE_STAT_CONCURRENCY,
       async (fileEntry) => {
         const stats = await lstat(fileEntry.entryPath).catch(() => null);
-        return stats?.isFile() ? { ...fileEntry, size: stats.size } : null;
+        return toCollectedFileStat(fileEntry, stats);
       },
-    )
-  ).flatMap((fileStat) => (fileStat ? [fileStat] : []));
+    ),
+  );
 
   for (const fileStat of fileStats) {
     telemetry.visitedFiles += 1;
@@ -959,7 +989,10 @@ function globPatternToRegExp(pattern: string): RegExp {
 export const filesInternals = {
   shouldIgnoreEnsureDirectoryError,
   isUsableDirectoryPath,
+  getDirectorySymlinkType,
   getErrorMessage,
   collectFilesFromDirectory,
   globPatternToRegExp,
+  compactCollectedFileStats,
+  toCollectedFileStat,
 };

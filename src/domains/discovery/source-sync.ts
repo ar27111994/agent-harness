@@ -1894,6 +1894,7 @@ export const sourceSyncInternals = {
   parseNonNegativeIntegerToken,
   countEntriesForSource,
   buildDisplayNameFromUrl,
+  buildIndexedReferenceItem,
   buildManifestEntryFromUrl,
   decodePathSegments,
   extractPypiPackageNameFromUrl,
