@@ -719,6 +719,10 @@ async function collectFilesFromDirectory(
   const directoryEntries: Array<{ entryPath: string }> = [];
 
   for (const entry of entries) {
+    if (telemetry.truncated) {
+      break;
+    }
+
     const entryPath = `${directoryPath}${sep}${entry.name}`;
     const relativeEntryPath = toRelativePosixPath(rootPath, entryPath);
 
@@ -758,6 +762,10 @@ async function collectFilesFromDirectory(
       fileEntries,
       FILE_STAT_CONCURRENCY,
       async (fileEntry) => {
+        if (telemetry.truncated) {
+          return null;
+        }
+
         const stats = await lstat(fileEntry.entryPath).catch(() => null);
         return toCollectedFileStat(fileEntry, stats);
       },

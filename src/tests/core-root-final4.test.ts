@@ -227,6 +227,37 @@ void test("file internals cover usable path, ignore handling, and scan edge bran
     assert.equal(depthTelemetry.truncated, true);
     assert.equal(depthTelemetry.truncationReason, "max-depth");
 
+    const entryGuardTelemetry = createTelemetryThatTruncatesAfterReads(1);
+    assert.deepEqual(
+      await filesInternals.collectFilesFromDirectory(
+        root,
+        scanRoot,
+        new Set<string>(),
+        [],
+        { maxDepth: 4, maxFiles: 10, maxBytes: 1000 },
+        entryGuardTelemetry,
+        0,
+      ),
+      [],
+    );
+
+    const callbackGuardRoot = join(root, "callback-guard");
+    await writeTextFile(join(callbackGuardRoot, "pending.txt"), "pending");
+    const callbackGuardTelemetry = createTelemetryThatTruncatesAfterReads(2);
+    assert.deepEqual(
+      await filesInternals.collectFilesFromDirectory(
+        root,
+        callbackGuardRoot,
+        new Set<string>(),
+        [],
+        { maxDepth: 4, maxFiles: 10, maxBytes: 1000 },
+        callbackGuardTelemetry,
+        0,
+      ),
+      [],
+    );
+    assert.equal(callbackGuardTelemetry.visitedFiles, 0);
+
     await writeFile(join(scanRoot, "dangling.txt"), "temp", "utf8");
     const removeSoon = readTextFileOrNull(join(scanRoot, "dangling.txt")).then(
       async () => rm(join(scanRoot, "dangling.txt"), { force: true }),
@@ -251,3 +282,26 @@ void test("file internals cover usable path, ignore handling, and scan edge bran
     await rm(root, { force: true, recursive: true });
   }
 });
+
+function createTelemetryThatTruncatesAfterReads(readLimit: number): {
+  truncated: boolean;
+  truncationReason: string | undefined;
+  visitedFiles: number;
+  visitedBytes: number;
+} {
+  let truncated = false;
+  let reads = 0;
+
+  return {
+    get truncated() {
+      reads += 1;
+      return truncated || reads > readLimit;
+    },
+    set truncated(value: boolean) {
+      truncated = value;
+    },
+    truncationReason: undefined,
+    visitedFiles: 0,
+    visitedBytes: 0,
+  };
+}

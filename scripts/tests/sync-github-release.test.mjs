@@ -128,6 +128,7 @@ test("release context resolves flags and validates package version", async () =>
     });
 
     delete process.env.GITHUB_TOKEN;
+    delete process.env.GITHUB_SHA;
     process.env.GH_TOKEN = "fallback-token";
     process.argv = [
       "node",
