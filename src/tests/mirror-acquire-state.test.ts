@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -567,6 +567,57 @@ void test("acquireMirrorArtifacts refreshes stale mirror entries without manifes
       "utf8",
     );
     assert.match(refreshedManifest, /"aggregateHash"/u);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts refreshes stale mirror entries with manifest directories", async () => {
+  const entries = [buildAsset("mirror-a")];
+  const projectRoot = await createAcquireFixture(entries);
+  const staleMirrorEntry = createMirrorIndexEntry("mirror-a");
+
+  try {
+    await writeJsonLinesFile(mirrorIndexPath(projectRoot), [staleMirrorEntry]);
+    await mkdir(
+      join(
+        projectRoot,
+        "mirror",
+        "raw",
+        staleMirrorEntry.mirrorId,
+        "manifest.json",
+      ),
+      { recursive: true },
+    );
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--batch-size", "10"],
+      { materializeArtifact: createMaterializer([]) },
+    );
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.deepEqual(state.lastBatchAssetIds, ["mirror-a"]);
+    assert.equal(mirrorIndex.length, 1);
+    assert.notEqual(mirrorIndex[0]?.mirrorId, staleMirrorEntry.mirrorId);
+    assert.equal(
+      await mirrorAcquireInternals.pathLooksReadable(
+        join(
+          projectRoot,
+          "mirror",
+          "raw",
+          staleMirrorEntry.mirrorId,
+          "manifest.json",
+        ),
+      ),
+      false,
+    );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

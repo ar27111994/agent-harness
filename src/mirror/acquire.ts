@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { constants as fsConstants } from "node:fs";
-import { access } from "node:fs/promises";
+import { access, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
@@ -1153,8 +1153,15 @@ function buildGitHubCachePath(
 }
 
 async function pathLooksReadable(filePath: string): Promise<boolean> {
-  return access(filePath, fsConstants.R_OK)
-    .then(() => true)
+  return stat(filePath)
+    .then(async (stats) => {
+      if (!stats.isFile()) {
+        return false;
+      }
+
+      await access(filePath, fsConstants.R_OK);
+      return true;
+    })
     .catch(() => false);
 }
 
