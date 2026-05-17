@@ -146,7 +146,7 @@ function formatCell(value) {
 }
 
 function escapeMarkdownCell(value) {
-  return value.replace(/\|/gu, "\\|");
+  return value.replace(/\\/gu, "\\\\").replace(/\|/gu, "\\|");
 }
 
 export async function main({

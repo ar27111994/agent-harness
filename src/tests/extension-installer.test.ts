@@ -191,6 +191,10 @@ void test("extension install executor can use the default native command runner 
 });
 
 void test("extension install executor runs cmd wrappers through the shell when needed", async () => {
+  if (process.platform !== "win32") {
+    return;
+  }
+
   const tempRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-extension-installer-"),
   );

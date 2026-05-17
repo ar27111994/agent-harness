@@ -194,9 +194,7 @@ export function normalizeNpmPackageMetadata(
     repository: normalizeNpmRepository(data.repository),
     distTags: normalizeStringRecord(data["dist-tags"]),
     keywords: Array.isArray(data.keywords)
-      ? data.keywords.filter(
-          (value): value is string => typeof value === "string",
-        )
+      ? normalizeStringArray(data.keywords)
       : undefined,
     versions: isRecord(data.versions) ? data.versions : undefined,
     lastUpdated: normalizeStringRecord(data.time)?.modified,

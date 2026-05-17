@@ -4,6 +4,7 @@ import { getRuntimeConfig, type RuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, type JsonValidator } from "./files.js";
 import { runDiscover } from "./discover.js";
 import { runMirror } from "./mirror.js";
+import { assertInstallProgressState } from "./manifest-validation/install.js";
 import { assertMirrorAcquireState } from "./manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "./mirror/acquire-state.js";
 import { runInstall } from "./install.js";
@@ -318,6 +319,10 @@ export async function installBundleBatches(
       const progressState =
         await dependencies.readJsonFileOrNull<InstallProgressState>(
           join(projectRoot, ...INSTALL_PROGRESS_STATE_PATH),
+          (value) => {
+            assertInstallProgressState(value, "workspace pipeline");
+            return value as InstallProgressState;
+          },
         );
       if (!progressState) {
         throw new Error(

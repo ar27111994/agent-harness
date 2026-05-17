@@ -251,6 +251,20 @@ void test("guarded byte fetch returns null for validation failures", async () =>
   );
 });
 
+void test("http internals keep only IPv4 and IPv6 DNS lookup families", () => {
+  assert.deepEqual(
+    httpInternals.normalizeResolvedHostnameAddresses([
+      { address: "1.1.1.1", family: 4 },
+      { address: "::1", family: 6 },
+      { address: "ignored", family: 0 },
+    ]),
+    [
+      { address: "1.1.1.1", family: 4 },
+      { address: "::1", family: 6 },
+    ],
+  );
+});
+
 void test("http internals classify mapped ipv6 private ranges", () => {
   assert.equal(
     httpInternals.isPrivateIpv6Address("::ffff:0:203.0.113.10"),

@@ -87,7 +87,7 @@ export async function loadSourceRegistry(
         kind: "repo",
         authorityTier: entry.authorityTier ?? "trusted-community",
         publisher: {
-          name: entry.publisher ?? repoOwner ?? entry.id,
+          name: entry.publisher ?? repoOwner,
           verified: entry.publisherVerified ?? false,
           owner: repoOwner,
         },
@@ -254,12 +254,17 @@ function assertNonEmptyString(value: unknown, context: string): string {
 
 function assertRepositoryString(value: unknown, context: string): string {
   const stringValue = assertNonEmptyString(value, context);
-  const hasPathSegment = stringValue
+  const normalizedValue = stringValue.trim().replace(/\.git\/?$/u, "");
+  const sshMatch = /^git@[^:]+:(.+)$/u.exec(normalizedValue);
+  const repositoryPath = sshMatch
+    ? sshMatch[1]!
+    : (extractUrlPath(normalizedValue) ?? normalizedValue);
+  const segments = repositoryPath
     .replace(/^\/+|\/+$/gu, "")
-    .split(/[\\/]/u)
-    .some((segment) => segment.trim().length > 0);
-  if (!hasPathSegment) {
-    throw new Error(`${context} must include a repository path`);
+    .split(/[/\\]/u)
+    .filter((segment) => segment.trim().length > 0);
+  if (segments.length < 2) {
+    throw new Error(`${context} must include repository owner and name`);
   }
 
   return stringValue;
@@ -342,7 +347,7 @@ function normalizeRepoIdentity(repo: string | undefined): string | undefined {
   return normalizedRepo.replace(/^\/+|\/+$/gu, "").toLowerCase();
 }
 
-function getRepoOwner(repo: string): string | undefined {
+function getRepoOwner(repo: string): string {
   const normalizedRepo = repo.trim().replace(/\.git$/u, "");
   const sshMatch = /^git@[^:]+:(.+)$/u.exec(normalizedRepo);
   const pathLikeRepo = sshMatch
@@ -350,10 +355,10 @@ function getRepoOwner(repo: string): string | undefined {
     : (extractUrlPath(normalizedRepo) ?? normalizedRepo);
   const segments = pathLikeRepo
     .replace(/^\/+|\/+$/gu, "")
-    .split("/")
+    .split(/[/\\]/u)
     .filter((segment) => segment.length > 0);
 
-  return segments.length >= 2 ? segments[segments.length - 2] : undefined;
+  return segments[segments.length - 2]!;
 }
 
 function extractUrlPath(value: string): string | undefined {
@@ -367,7 +372,7 @@ function extractUrlPath(value: string): string | undefined {
 function lastPathSegment(value: string): string {
   const normalizedValue = value.replace(/\/+$/u, "");
   const segments = normalizedValue
-    .split(/[\\/]/u)
+    .split(/[/\\]/u)
     .map((segment) => segment.trim())
     .filter((segment) => segment.length > 0);
   return segments[segments.length - 1]!;

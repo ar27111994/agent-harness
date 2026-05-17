@@ -154,12 +154,23 @@ void test("runtime config ignores invalid or non-https enrichment origins from t
     AGENT_HARNESS_AI_ENRICHMENT_URL: "not-a-url",
   });
 
-  assert.ok(
-    !insecureConfig.aiEnrichment.allowedOrigins.includes(
-      "http://gateway.example.com",
+  assert.deepEqual(
+    insecureConfig.aiEnrichment.allowedOrigins.filter(
+      (origin) => new URL(origin).protocol !== "https:",
     ),
+    [],
   );
-  assert.ok(!malformedConfig.aiEnrichment.allowedOrigins.includes("not-a-url"));
+  assert.deepEqual(
+    malformedConfig.aiEnrichment.allowedOrigins.filter((origin) => {
+      try {
+        new URL(origin);
+        return false;
+      } catch {
+        return true;
+      }
+    }),
+    [],
+  );
 });
 
 void test("runtime config caches process env until explicitly cleared", () => {

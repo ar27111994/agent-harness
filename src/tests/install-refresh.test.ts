@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -512,6 +512,12 @@ async function createFakeCodeCli(tempRoot: string): Promise<{
       "",
     ].join("\n"),
   );
+  const codePath = join(binDir, "code");
+  await writeTextFile(
+    codePath,
+    `#!/bin/sh\nexec "${process.execPath}" "$(dirname "$0")/fake-code.mjs" "$@"\n`,
+  );
+  await chmod(codePath, 0o755);
   await writeTextFile(
     join(binDir, "code.cmd"),
     `@echo off\r\n"${process.execPath}" "%~dp0fake-code.mjs" %*\r\n`,

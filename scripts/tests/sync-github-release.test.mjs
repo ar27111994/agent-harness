@@ -405,6 +405,12 @@ test("syncGitHubRelease updates existing releases and creates missing ones", asy
   const previousArgv = process.argv;
   const previousCwd = process.cwd;
   const originalLog = console.log;
+  const previousEnv = {
+    GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY,
+    GITHUB_REF_NAME: process.env.GITHUB_REF_NAME,
+    GITHUB_SHA: process.env.GITHUB_SHA,
+    GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+  };
   const logs = [];
   const fetchCalls = [];
 
@@ -462,10 +468,7 @@ test("syncGitHubRelease updates existing releases and creates missing ones", asy
     process.argv = previousArgv;
     process.cwd = previousCwd;
     console.log = originalLog;
-    delete process.env.GITHUB_REPOSITORY;
-    delete process.env.GITHUB_REF_NAME;
-    delete process.env.GITHUB_SHA;
-    delete process.env.GITHUB_TOKEN;
+    restoreEnv(previousEnv);
   }
 });
 

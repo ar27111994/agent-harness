@@ -69,11 +69,15 @@ void test("local manifest source maps entries to correct asset kinds and builds 
     assert.equal(kindByEntry.get("plugins/my-plugin"), "plugin");
     assert.equal(kindByEntry.get("mcp-servers/my-mcp"), "mcp-server");
     assert.equal(kindByEntry.get("workflows/my-workflow"), "skill");
+    const skillEntry = entries.find(
+      (entry) => entry.install.manifestEntry === "skills/my-skill",
+    );
+    assert.ok(skillEntry);
     assert.equal(
-      entries[0]?.maintenance.lastUpdated,
+      skillEntry.maintenance.lastUpdated,
       "2026-05-15T00:00:00.000Z",
     );
-    assert.equal(entries[0]?.install.method, "manifest-entry");
+    assert.equal(skillEntry.install.method, "manifest-entry");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

@@ -222,12 +222,13 @@ void test("local manifest and directory harvesting tolerate omitted publisher an
       root,
     );
 
-    assert.equal(
-      manifestEntries[0]?.source.publisher,
-      "local-manifest-fixture",
+    const manifestEntry = manifestEntries.find(
+      (entry) => entry.install.manifestEntry === ".mcp.json",
     );
-    assert.equal(manifestEntries[0]?.source.publisherVerified, false);
-    assert.equal(manifestEntries[0]?.hosts[0], "shared");
+    assert.ok(manifestEntry);
+    assert.equal(manifestEntry.source.publisher, "local-manifest-fixture");
+    assert.equal(manifestEntry.source.publisherVerified, false);
+    assert.equal(manifestEntry.hosts[0], "shared");
 
     await writeText(
       join(root, "skills", "needs-db", "SKILL.md"),

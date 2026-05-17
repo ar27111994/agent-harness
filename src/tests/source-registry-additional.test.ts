@@ -274,7 +274,19 @@ void test("source registry rejects malformed source pack shapes and required fie
     );
     await assert.rejects(
       () => loadSourceRegistry(projectRoot),
-      /repo must include a repository path/u,
+      /repo must include repository owner and name/u,
+    );
+
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [{ id: "broken", repo: "https://github.com" }],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /repo must include repository owner and name/u,
     );
 
     await writeJsonFile(
@@ -366,10 +378,11 @@ void test("source registry generates source pack entries from path-like reposito
           {
             id: "path-like-repo",
             repo: "acme/path-like-tool",
+            publisher: "curated-pack",
           },
           {
-            id: "single-segment-repo",
-            repo: "single-segment-tool",
+            id: "windows-path-repo",
+            repo: "acme\\windows-tool",
           },
         ],
       },
@@ -379,16 +392,15 @@ void test("source registry generates source pack entries from path-like reposito
     const pathLike = registry.sources.find(
       (source) => source.id === "path-like-repo",
     );
-    const singleSegment = registry.sources.find(
-      (source) => source.id === "single-segment-repo",
+    const windowsPath = registry.sources.find(
+      (source) => source.id === "windows-path-repo",
     );
-
     assert.equal(pathLike?.name, "Path Like Tool");
     assert.equal(pathLike?.publisher?.owner, "acme");
-    assert.equal(pathLike?.publisher?.name, "acme");
-    assert.equal(singleSegment?.name, "Single Segment Tool");
-    assert.equal(singleSegment?.publisher?.owner, undefined);
-    assert.equal(singleSegment?.publisher?.name, "single-segment-repo");
+    assert.equal(pathLike?.publisher?.name, "curated-pack");
+    assert.equal(windowsPath?.name, "Windows Tool");
+    assert.equal(windowsPath?.publisher?.owner, "acme");
+    assert.equal(windowsPath?.publisher?.name, "acme");
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

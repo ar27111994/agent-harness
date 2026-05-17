@@ -9,6 +9,7 @@ import {
   buildRecommendationAiReviewInput,
   readRecommendationAiReviewArtifact,
   readRecommendationAiReviewInput,
+  recommendationAiReviewInternals,
   runRecommendationAiReview,
 } from "../recommend/ai-review.js";
 import type {
@@ -20,6 +21,26 @@ import type {
   RecommendationReport,
 } from "../types.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
+
+void test("ai review error formatter preserves structured and fallback errors", () => {
+  assert.equal(
+    recommendationAiReviewInternals.toAiReviewErrorMessage({
+      code: "bad_response",
+      retryable: false,
+    }),
+    '{\n  "code": "bad_response",\n  "retryable": false\n}',
+  );
+  assert.equal(
+    recommendationAiReviewInternals.toAiReviewErrorMessage({}),
+    "[object Object]",
+  );
+  const circular: Record<string, unknown> = {};
+  circular.self = circular;
+  assert.equal(
+    recommendationAiReviewInternals.toAiReviewErrorMessage(circular),
+    "[object Object]",
+  );
+});
 
 void test("ai review input stays bounded to the requested shortlist size", async () => {
   const report = createRecommendationReport();

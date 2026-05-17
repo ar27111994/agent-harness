@@ -736,7 +736,22 @@ function asJsonObject(value: unknown): Record<string, unknown> | null {
 }
 
 function toAiReviewErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (error !== null && typeof error === "object") {
+    try {
+      const serialized = JSON.stringify(error, null, 2);
+      if (serialized && serialized !== "{}") {
+        return serialized;
+      }
+    } catch {
+      // Fall back to String(error) for non-serializable objects.
+    }
+  }
+
+  return String(error);
 }
 
 /**

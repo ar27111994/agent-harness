@@ -529,10 +529,17 @@ async function resolveHostnameWithDns(
   hostname: string,
 ): Promise<ResolvedHostnameAddress[]> {
   const addresses = await lookup(hostname, { all: true, verbatim: true });
-  return addresses.map((address) => ({
-    address: address.address,
-    family: address.family as 4 | 6,
-  }));
+  return normalizeResolvedHostnameAddresses(addresses);
+}
+
+function normalizeResolvedHostnameAddresses(
+  addresses: readonly { address: string; family: number }[],
+): ResolvedHostnameAddress[] {
+  return addresses.flatMap((address) =>
+    address.family === 4 || address.family === 6
+      ? [{ address: address.address, family: address.family }]
+      : [],
+  );
 }
 
 function isNonPublicIpAddress(hostname: string): boolean {
@@ -764,4 +771,5 @@ export const httpInternals = {
   isPrivateIpv6Address,
   withBodyReadTimeout,
   setHttpsRequestForTests,
+  normalizeResolvedHostnameAddresses,
 };

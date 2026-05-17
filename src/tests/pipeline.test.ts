@@ -8,6 +8,7 @@ import {
   runWorkspacePipeline,
   type WorkspacePipelineDependencies,
 } from "../pipeline.js";
+import type { JsonValidator } from "../files.js";
 import type { InstallProgressState, MirrorAcquireState } from "../types.js";
 
 function createAcquireState(
@@ -330,6 +331,31 @@ void test("installBundleBatches keeps installing until each bundle is fully stag
     progressMessages.some((message) =>
       message.includes("staging bundle 'shared-mcp'"),
     ),
+  );
+});
+
+void test("installBundleBatches validates persisted progress state", async () => {
+  await assert.rejects(
+    installBundleBatches(
+      "/project",
+      "/workspace",
+      ["copilot-core"],
+      "40",
+      buildDependencies({
+        readJsonFileOrNull: async <T>(
+          _path: string,
+          validator?: JsonValidator<T>,
+        ): Promise<T | null> => {
+          const value: unknown = { schemaVersion: "bad", bundles: {} };
+          if (validator) {
+            const validate: JsonValidator<T> = validator;
+            validate(value, "install progress");
+          }
+          return value as T;
+        },
+      }),
+    ),
+    /workspace pipeline\.schemaVersion/u,
   );
 });
 

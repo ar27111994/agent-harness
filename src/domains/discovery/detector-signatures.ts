@@ -427,7 +427,6 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
       "sst.config.js",
       "firebase.json",
       "samconfig.toml",
-      "deno.json",
     ],
     filePathPattern:
       /(^|[/\\])(?:functions|lambda|edge|workers|cloudflare|netlify|vercel)([/\\]|$)/iu,
