@@ -258,16 +258,19 @@ async function executeNativeCommand(
   return toNativeCommandResult(lastError);
 }
 
-function shouldRunCandidateThroughShell(candidateExecutable: string): boolean {
+function shouldRunCandidateThroughShell(
+  candidateExecutable: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
   const extension = extname(candidateExecutable).toLowerCase();
-  return (
-    process.platform === "win32" &&
-    (extension === ".cmd" || extension === ".bat")
-  );
+  return platform === "win32" && (extension === ".cmd" || extension === ".bat");
 }
 
-function buildExecutableCandidates(executable: string): string[] {
-  if (process.platform !== "win32" || extname(executable).length > 0) {
+function buildExecutableCandidates(
+  executable: string,
+  platform: NodeJS.Platform = process.platform,
+): string[] {
+  if (platform !== "win32" || extname(executable).length > 0) {
     return [executable];
   }
 

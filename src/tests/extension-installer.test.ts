@@ -230,10 +230,12 @@ void test("extension install executor runs cmd wrappers through the shell when n
 
 void test("extension installer internals cover command formatting and native error conversion", () => {
   assert.deepEqual(
-    extensionInstallerInternals.buildExecutableCandidates("code"),
-    process.platform === "win32"
-      ? ["code", "code.cmd", "code.exe", "code.bat"]
-      : ["code"],
+    extensionInstallerInternals.buildExecutableCandidates("code", "win32"),
+    ["code", "code.cmd", "code.exe", "code.bat"],
+  );
+  assert.deepEqual(
+    extensionInstallerInternals.buildExecutableCandidates("code", "linux"),
+    ["code"],
   );
   assert.equal(
     extensionInstallerInternals.formatCommand(
@@ -243,8 +245,29 @@ void test("extension installer internals cover command formatting and native err
     '"C:/Program Files/Code/code.cmd" --install-extension publisher.extension "--flag=has space"',
   );
   assert.equal(
-    extensionInstallerInternals.shouldRunCandidateThroughShell("code.cmd"),
-    process.platform === "win32",
+    extensionInstallerInternals.shouldRunCandidateThroughShell(
+      "code.cmd",
+      "win32",
+    ),
+    true,
+  );
+  assert.equal(
+    extensionInstallerInternals.shouldRunCandidateThroughShell(
+      "code.bat",
+      "win32",
+    ),
+    true,
+  );
+  assert.equal(
+    extensionInstallerInternals.shouldRunCandidateThroughShell(
+      "code.cmd",
+      "linux",
+    ),
+    false,
+  );
+  assert.equal(
+    extensionInstallerInternals.shouldRunCandidateThroughShell("code", "win32"),
+    false,
   );
   assert.deepEqual(
     extensionInstallerInternals.toNativeCommandResult({ code: 7 }),
