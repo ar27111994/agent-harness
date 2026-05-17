@@ -11,6 +11,7 @@ import test from "node:test";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import {
   checkPathExists,
+  preflightInternals,
   runAdapterPreflight,
   runNativeInstallPreflight,
 } from "../lib/preflight.js";
@@ -229,6 +230,20 @@ void test("adapter preflight falls back to default guidance and non-wrapper exec
   assert.equal(
     diagnostics[2]?.action,
     "Sign in to the host CLI and confirm marketplace/runtime access is available.",
+  );
+});
+
+void test("adapter preflight quotes Windows wrapper commands deterministically", () => {
+  assert.equal(
+    preflightInternals.quotePowerShellLiteral("C:\\Tools\\Bob's CLI\\tool.cmd"),
+    "'C:\\Tools\\Bob''s CLI\\tool.cmd'",
+  );
+  assert.equal(
+    preflightInternals.buildWindowsPowerShellCommand("fake-wrapper", [
+      "--version",
+      "Bob's value",
+    ]),
+    "& 'fake-wrapper' '--version' 'Bob''s value'",
   );
 });
 

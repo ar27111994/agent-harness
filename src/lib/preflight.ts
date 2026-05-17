@@ -497,9 +497,11 @@ export async function checkPathExists(
  * Exposes focused preflight helpers for deterministic platform-branch tests.
  */
 export const preflightInternals = {
+  buildWindowsPowerShellCommand,
   findExecutableOnPath,
   getExecutableAccessMode,
   getExecutableSearchExtensions,
+  quotePowerShellLiteral,
   resolveFoundExecutable,
   resolveRuntimeExecutable,
 };

@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  mkdir,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import type * as FsPromises from "node:fs/promises";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
@@ -182,16 +189,17 @@ void test("safe path helpers sanitize ids and reject escaped real paths", async 
     await resolveAllowedRealFilePath("relative/file.json", [allowedRoot]),
     null,
   );
+  const realNestedFile = await realpath(nestedFile);
   assert.equal(
     await resolveAllowedRealFilePath(nestedFile, [allowedRoot]),
-    nestedFile,
+    realNestedFile,
   );
   assert.equal(
     await resolveAllowedRealFilePath(nestedFile, [
       join(outsideRoot, "missing"),
       allowedRoot,
     ]),
-    nestedFile,
+    realNestedFile,
   );
   assert.equal(
     await resolveAllowedRealFilePath(join(allowedRoot, "nested"), [

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
@@ -477,7 +477,7 @@ void test("safe path resolution tolerates unrelated and unresolved allowed roots
         missingRoot,
         allowedRoot,
       ]),
-      resolve(filePath),
+      await realpath(filePath),
     );
   } finally {
     await rm(root, { force: true, recursive: true });
