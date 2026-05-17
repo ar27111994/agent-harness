@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
-import { delimiter, dirname, join } from "node:path";
+import { delimiter, dirname, join, win32 } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import type {
@@ -304,15 +304,17 @@ async function findExecutableOnPath(
   const env = options.env ?? process.env;
   const platform = options.platform ?? process.platform;
   const accessPath = options.accessPath ?? access;
+  const pathDelimiter = platform === "win32" ? win32.delimiter : delimiter;
+  const joinPath = platform === "win32" ? win32.join : join;
   const pathEntries = (env.PATH ?? "")
-    .split(delimiter)
+    .split(pathDelimiter)
     .filter((entry) => entry.length > 0);
   const extensions = getExecutableSearchExtensions(platform, env);
   const accessMode = getExecutableAccessMode(platform);
 
   for (const pathEntry of pathEntries) {
     for (const extension of extensions) {
-      const candidate = join(pathEntry, `${executableName}${extension}`);
+      const candidate = joinPath(pathEntry, `${executableName}${extension}`);
       try {
         await accessPath(candidate, accessMode);
         return candidate;
