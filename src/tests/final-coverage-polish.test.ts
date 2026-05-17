@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { join, win32 } from "node:path";
 import test from "node:test";
 
 import { aiEnrichmentInternals } from "../domains/discovery/ai-enrichment.js";
@@ -402,14 +402,14 @@ void test("preflight internals resolve platform executable search behavior", asy
   assert.notEqual(preflightInternals.getExecutableAccessMode("linux"), 0);
 
   const env = {
-    PATH: ["/one", "/two"].join(delimiter),
+    PATH: ["C:\\one", "C:\\two"].join(win32.delimiter),
     PATHEXT: ".EXE",
   } as NodeJS.ProcessEnv;
   const found = await preflightInternals.findExecutableOnPath("tool", {
     env,
     platform: "win32",
     accessPath: async (candidate) => {
-      if (String(candidate).includes(`${delimiter === ";" ? "two" : "/two"}`)) {
+      if (String(candidate).includes("two")) {
         return;
       }
       throw new Error("not found");
