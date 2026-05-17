@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, win32 } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { aiEnrichmentInternals } from "../domains/discovery/ai-enrichment.js";
 import { catalogSelectionInternals } from "../domains/discovery/catalog-selection.js";
 import { harvestGitHubRepoSource } from "../domains/discovery/github-harvester.js";
@@ -11,8 +12,10 @@ import {
   harvestLocalDirectorySource,
   localHarvesterInternals,
 } from "../domains/discovery/local-harvesters.js";
+import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
 import { sourceSyncInternals } from "../domains/discovery/source-sync.js";
 import { filesInternals } from "../files.js";
+import { githubInternals } from "../github.js";
 import { nativeWireInternals } from "../host-adapters/native-wire.js";
 import { openCodeWireInternals } from "../host-adapters/opencode.js";
 import { installRefreshInternals } from "../install/refresh.js";
@@ -72,6 +75,84 @@ void test("final coverage helpers expose platform and null-stat branches", async
   } finally {
     await rm(root, { force: true, recursive: true });
   }
+});
+
+void test("GitHub-backed fetchers attach configured authorization headers", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-auth-headers-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousGitHubToken = process.env.GITHUB_TOKEN;
+  const previousGitHubPersonalAccessToken =
+    process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+  const previousFetchRetries = process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES;
+  const previousFetchMocks = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const observedAuthorizations: string[] = [];
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    restoreProcessEnv("GITHUB_TOKEN", previousGitHubToken);
+    restoreProcessEnv(
+      "GITHUB_PERSONAL_ACCESS_TOKEN",
+      previousGitHubPersonalAccessToken,
+    );
+    restoreProcessEnv(
+      "AGENT_HARNESS_GITHUB_FETCH_RETRIES",
+      previousFetchRetries,
+    );
+    restoreProcessEnv("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMocks);
+    clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  });
+
+  process.env.GITHUB_TOKEN = "fixture-token";
+  delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+  process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES = "1";
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  clearRuntimeConfigForTests();
+
+  globalThis.fetch = async (_input, init) => {
+    observedAuthorizations.push(
+      new Headers(init?.headers).get("authorization") ?? "",
+    );
+    return new Response("{}", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  await githubInternals.fetchGitHubResponse("/rate_limit");
+
+  await mkdir(join(projectRoot, "discover"), { recursive: true });
+  await writeFile(
+    join(projectRoot, "discover", "official-skills-indexes.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      indexes: [
+        {
+          id: "official-index",
+          kind: "markdown",
+          url: "https://raw.githubusercontent.com/acme/index/main/skills.md",
+        },
+      ],
+    }),
+  );
+
+  globalThis.fetch = async (_input, init) => {
+    observedAuthorizations.push(
+      new Headers(init?.headers).get("authorization") ?? "",
+    );
+    return new Response("# Empty official index\n", {
+      status: 200,
+      headers: { "content-type": "text/markdown; charset=utf-8" },
+    });
+  };
+
+  assert.deepEqual(await harvestOfficialSkillIndexes(projectRoot, null), []);
+  assert.deepEqual(observedAuthorizations, [
+    "Bearer fixture-token",
+    "Bearer fixture-token",
+  ]);
 });
 
 void test("catalog selection internals cover optional anchors and common-term fallbacks", () => {
@@ -532,6 +613,14 @@ void test("small error and fallback helpers keep non-Error values deterministic"
     false,
   );
 });
+
+function restoreProcessEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
+}
 
 function buildSource(id: string, endpoint: string): SourceDefinition {
   return {
