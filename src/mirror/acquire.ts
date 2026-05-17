@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { constants as fsConstants } from "node:fs";
+import { access } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
@@ -164,12 +166,14 @@ export async function acquireMirrorArtifacts(
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
-  const staleMirrorAssetIds = await findAssetIdsMissingMirrorManifests(
-    projectRoot,
-    existingMirrorIndexEntries,
-    mirrorEligibleAssetIds,
-  );
   const fullRefreshRequested = refreshRequested && refreshAssetIds.size === 0;
+  const staleMirrorAssetIds = fullRefreshRequested
+    ? new Set<string>()
+    : await findAssetIdsMissingMirrorManifests(
+        projectRoot,
+        existingMirrorIndexEntries,
+        mirrorEligibleAssetIds,
+      );
   const refreshProcessedCount = fullRefreshRequested
     ? restoreRefreshProcessedCount(
         previousAcquireState,
@@ -1149,8 +1153,8 @@ function buildGitHubCachePath(
 }
 
 async function pathLooksReadable(filePath: string): Promise<boolean> {
-  return readTextFileOrNull(filePath)
-    .then((content) => content !== null)
+  return access(filePath, fsConstants.R_OK)
+    .then(() => true)
     .catch(() => false);
 }
 
