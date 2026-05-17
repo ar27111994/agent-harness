@@ -22,6 +22,12 @@ All notable changes to this project will be documented in this file.
 
 - improved release synchronization, version-check, GitHub resilience, guarded HTTP, path/file, native wire, install refresh, mirror acquisition, and recommendation validation regression coverage with deterministic tests
 
+## [1.0.8] - 2026-05-17
+
+### Fixed
+
+- `rebuild full` now refreshes selected mirror artifacts whose raw cache directory predates the mirror `manifest.json` format, preventing install from failing on stale `mirror/index.jsonl` entries after upgrading existing workspaces
+
 ## [1.0.7] - 2026-05-14
 
 ### Added
