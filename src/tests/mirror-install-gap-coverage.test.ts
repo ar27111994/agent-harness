@@ -2094,6 +2094,39 @@ void test("mirror acquire defaults invalid batch sizes and records default skip 
   }
 });
 
+void test("official index primary content falls back when SKILL markdown is absent", () => {
+  const entry = buildAsset("official-index-no-skill", {
+    source: {
+      sourceId: "official-index:fixture:no-skill",
+      authorityTier: "official-first-party",
+      sourceKind: "docs",
+      sourcePriority: 100,
+      originUrl: "https://officialskills.sh/no-skill",
+      publisher: "Fixture",
+      publisherVerified: true,
+    },
+  });
+
+  assert.equal(
+    mirrorAcquireInternals
+      .selectOfficialIndexPrimaryContent(
+        [{ relativePath: "README.md", content: Buffer.from("readme", "utf8") }],
+        entry,
+      )
+      .toString("utf8"),
+    JSON.stringify(entry, null, 2),
+  );
+  assert.equal(
+    mirrorAcquireInternals
+      .selectOfficialIndexPrimaryContent(
+        [{ relativePath: "SKILL.md", content: Buffer.from("# Skill", "utf8") }],
+        entry,
+      )
+      .toString("utf8"),
+    "# Skill",
+  );
+});
+
 void test("official index package materialization handles caps, content fallback, and raw misses", async (t) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-gap-official-index-"),

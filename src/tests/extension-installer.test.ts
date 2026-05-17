@@ -1,10 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
-
-import { writeTextFile } from "../files.js";
 
 import {
   buildExtensionInstallActions,
@@ -190,42 +185,41 @@ void test("extension install executor can use the default native command runner 
   assert.match(result.stdout, /github\.copilot@1\.0\.0/u);
 });
 
-void test("extension install executor runs cmd wrappers through the shell when needed", async () => {
-  if (process.platform !== "win32") {
-    return;
-  }
+void test("extension install executor verifies explicit cmd wrapper paths", async () => {
+  const wrapperPath = "C:\\Tools\\fake-cli.cmd";
+  const calls: Array<{ executable: string; args: string[] }> = [];
 
-  const tempRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-extension-installer-"),
+  const result = await executeExtensionInstallAction(
+    {
+      host: "copilot-vscode",
+      extensionId: "github.copilot",
+      executable: wrapperPath,
+      installArgs: [],
+      verifyArgs: ["--list-extensions", "--show-versions"],
+      removeArgs: [],
+      command: wrapperPath,
+      verifyCommand: wrapperPath,
+      removeCommand: wrapperPath,
+    },
+    "verify",
+    async (executable, args) => {
+      calls.push({ executable, args });
+      return {
+        exitCode: 0,
+        stdout: "github.copilot@1.0.0",
+        stderr: "",
+      };
+    },
   );
-  const wrapperPath = join(tempRoot, "fake-cli.cmd");
 
-  try {
-    await writeTextFile(
-      wrapperPath,
-      "@echo off\r\necho github.copilot@1.0.0\r\n",
-    );
-
-    const result = await executeExtensionInstallAction(
-      {
-        host: "copilot-vscode",
-        extensionId: "github.copilot",
-        executable: wrapperPath,
-        installArgs: [],
-        verifyArgs: [],
-        removeArgs: [],
-        command: wrapperPath,
-        verifyCommand: wrapperPath,
-        removeCommand: wrapperPath,
-      },
-      "verify",
-    );
-
-    assert.equal(result.success, true);
-    assert.equal(result.installed, true);
-  } finally {
-    await rm(tempRoot, { force: true, recursive: true });
-  }
+  assert.equal(result.success, true);
+  assert.equal(result.installed, true);
+  assert.deepEqual(calls, [
+    {
+      executable: wrapperPath,
+      args: ["--list-extensions", "--show-versions"],
+    },
+  ]);
 });
 
 void test("extension installer internals cover command formatting and native error conversion", () => {

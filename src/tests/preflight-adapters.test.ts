@@ -247,50 +247,35 @@ void test("adapter preflight quotes Windows wrapper commands deterministically",
   );
 });
 
-void test("adapter preflight honors default PATHEXT when resolving Windows executables", async (context) => {
-  if (process.platform !== "win32") {
-    context.skip("Windows-specific PATH resolution test.");
-    return;
-  }
-
-  const tempRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-preflight-pathext-"),
-  );
-  const executableName = "agent-harness-runtime-default-pathext";
-  const originalPath = process.env.PATH ?? "";
-  const originalPathext = process.env.PATHEXT;
-
-  context.after(async () => {
-    process.env.PATH = originalPath;
-    if (originalPathext === undefined) {
-      delete process.env.PATHEXT;
-    } else {
-      process.env.PATHEXT = originalPathext;
-    }
-    clearRuntimeConfigForTests();
-    await rm(tempRoot, { recursive: true, force: true });
-  });
-
-  process.env.PATH = `${tempRoot};${originalPath}`;
-  delete process.env.PATHEXT;
-  await writeFile(
-    join(tempRoot, `${executableName}.CMD`),
-    ["@echo off", "exit /b 0"].join("\r\n"),
-    "utf8",
-  );
-  clearRuntimeConfigForTests();
-
-  const diagnostics = await runAdapterPreflight(
-    buildAdapter({
-      id: "default-pathext-host",
-      runtime: {
-        executable: executableName,
-        versionArgs: ["--version"],
+void test("adapter preflight honors default PATHEXT when resolving Windows executables", async () => {
+  const checkedCandidates: string[] = [];
+  const found = await preflightInternals.findExecutableOnPath(
+    "agent-harness-runtime-default-pathext",
+    {
+      accessPath: async (candidate) => {
+        checkedCandidates.push(String(candidate));
+        if (
+          String(candidate).endsWith(
+            "agent-harness-runtime-default-pathext.CMD",
+          )
+        ) {
+          return;
+        }
+        throw Object.assign(new Error("missing"), { code: "ENOENT" });
       },
-    }),
+      env: { PATH: "C:\\Tools" } as NodeJS.ProcessEnv,
+      platform: "win32",
+    },
   );
 
-  assert.equal(diagnostics[0]?.severity, "info");
+  assert.equal(found, "C:\\Tools\\agent-harness-runtime-default-pathext.CMD");
+  assert.deepEqual(
+    checkedCandidates.map((candidate) => candidate.replace(/\\/gu, "/")),
+    [
+      "C:/Tools/agent-harness-runtime-default-pathext.EXE",
+      "C:/Tools/agent-harness-runtime-default-pathext.CMD",
+    ],
+  );
 });
 
 void test("adapter preflight surfaces spawn errors without error codes", async (context) => {

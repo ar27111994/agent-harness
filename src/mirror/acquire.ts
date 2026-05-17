@@ -643,13 +643,9 @@ async function materializeOfficialIndexPackage(
       continue;
     }
 
-    const skillMarkdownFile = materializedFiles.find(
-      (file) => file.relativePath === "SKILL.md",
-    )!;
-
     return {
       artifact: {
-        content: skillMarkdownFile.content,
+        content: selectOfficialIndexPrimaryContent(materializedFiles, entry),
         files: materializedFiles,
         upstreamRef: snapshot.repoSummary.defaultBranch,
         upstreamCommit: commitSha ?? undefined,
@@ -726,6 +722,16 @@ function isGitHubHttpsUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+function selectOfficialIndexPrimaryContent(
+  materializedFiles: Array<{ relativePath: string; content: Buffer }>,
+  entry: AssetCatalogEntry,
+): Buffer {
+  return (
+    materializedFiles.find((file) => file.relativePath === "SKILL.md")
+      ?.content ?? Buffer.from(JSON.stringify(entry, null, 2), "utf8")
+  );
 }
 
 function findOfficialIndexSkillRoot(
@@ -1126,6 +1132,7 @@ export const mirrorAcquireInternals = {
   isGitHubHttpsRepositoryUrl,
   isGitHubHttpsUrl,
   findOfficialIndexSkillRoot,
+  selectOfficialIndexPrimaryContent,
   fetchVerifiedGitHubFileContent,
   fetchGitHubBranchCommitSha,
   parseGitHubBlobEntry,
