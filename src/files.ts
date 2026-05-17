@@ -594,7 +594,7 @@ function isFileNotFoundError(error: unknown): boolean {
  * Provides to posix path for the lifecycle pipeline.
  */
 export function toPosixPath(filePath: string): string {
-  return filePath.split(sep).join("/");
+  return filePath.replace(/\\/gu, "/").split(sep).join("/");
 }
 
 /**

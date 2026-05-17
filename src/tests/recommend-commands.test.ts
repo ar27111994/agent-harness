@@ -561,7 +561,7 @@ void test("recommend ai-review can apply disabled review artifacts and persist o
         assert.ok(report.topByHost["copilot-vscode"].length > 0);
         assert.match(
           output.join("\n"),
-          /Applied AI review adjustments to .*state\\recommendations\.json/u,
+          /Applied AI review adjustments to .*state[\\/]recommendations\.json/u,
         );
       } finally {
         globalThis.console.log = originalConsoleLog;

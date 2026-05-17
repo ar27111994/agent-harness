@@ -170,7 +170,7 @@ void test("safe path helpers sanitize ids and reject escaped real paths", async 
     nestedFile,
   );
   assert.throws(
-    () => resolveSafeMirrorFilePath(allowedRoot, "..\\escape.json", "read"),
+    () => resolveSafeMirrorFilePath(allowedRoot, "../escape.json", "read"),
     /Refusing to read mirrored artifact outside raw root/u,
   );
   assert.throws(

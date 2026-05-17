@@ -338,45 +338,43 @@ void test("path helpers resolve host config roots for win32 darwin and linux", (
     Object.defineProperty(process, "platform", { value: "win32" });
     clearRuntimeConfigForTests();
     assert.equal(
-      resolveVsCodeUserSettingsPath(),
-      resolve(
-        "C:/Users/tester/AppData/Roaming",
-        "Code",
-        "User",
-        "settings.json",
-      ),
+      toPosixPath(resolveVsCodeUserSettingsPath()),
+      "C:/Users/tester/AppData/Roaming/Code/User/settings.json",
     );
     assert.equal(
-      resolveDefaultOpenCodeConfigRoot(),
-      resolve("C:/Users/tester/AppData/Roaming", "opencode"),
+      toPosixPath(resolveDefaultOpenCodeConfigRoot()),
+      "C:/Users/tester/AppData/Roaming/opencode",
     );
 
     Object.defineProperty(process, "platform", { value: "darwin" });
     clearRuntimeConfigForTests();
     assert.equal(
-      resolveVsCodeUserSettingsPath(),
-      "\\home\\tester\\Library\\Application Support\\Code\\User\\settings.json",
+      toPosixPath(resolveVsCodeUserSettingsPath()),
+      "/home/tester/Library/Application Support/Code/User/settings.json",
     );
     assert.equal(
-      resolveDefaultOpenCodeConfigRoot(),
-      "\\home\\tester\\Library\\Application Support\\opencode",
+      toPosixPath(resolveDefaultOpenCodeConfigRoot()),
+      "/home/tester/Library/Application Support/opencode",
     );
 
     Object.defineProperty(process, "platform", { value: "linux" });
     clearRuntimeConfigForTests();
     assert.equal(
-      resolveVsCodeUserSettingsPath(),
-      "\\home\\tester\\.config-alt\\Code\\User\\settings.json",
+      toPosixPath(resolveVsCodeUserSettingsPath()),
+      "/home/tester/.config-alt/Code/User/settings.json",
     );
     assert.equal(
-      resolveDefaultOpenCodeConfigRoot(),
-      "\\home\\tester\\.config-alt\\opencode",
+      toPosixPath(resolveDefaultOpenCodeConfigRoot()),
+      "/home/tester/.config-alt/opencode",
     );
     assert.equal(
-      resolveDefaultClaudeCodeConfigRoot(),
-      "\\home\\tester\\.claude",
+      toPosixPath(resolveDefaultClaudeCodeConfigRoot()),
+      "/home/tester/.claude",
     );
-    assert.equal(resolveDefaultCursorConfigRoot(), "\\home\\tester\\.cursor");
+    assert.equal(
+      toPosixPath(resolveDefaultCursorConfigRoot()),
+      "/home/tester/.cursor",
+    );
   } finally {
     if (platformDescriptor) {
       Object.defineProperty(process, "platform", platformDescriptor);
