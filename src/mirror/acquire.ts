@@ -164,6 +164,11 @@ export async function acquireMirrorArtifacts(
   const existingMirrorIdsByAssetId = new Map(
     existingMirrorIndexEntries.map((entry) => [entry.assetId, entry.mirrorId]),
   );
+  const staleMirrorAssetIds = await findAssetIdsMissingMirrorManifests(
+    projectRoot,
+    existingMirrorIndexEntries,
+    mirrorEligibleAssetIds,
+  );
   const fullRefreshRequested = refreshRequested && refreshAssetIds.size === 0;
   const refreshProcessedCount = fullRefreshRequested
     ? restoreRefreshProcessedCount(
@@ -175,7 +180,9 @@ export async function acquireMirrorArtifacts(
     ? mirrorEligibleEntries.slice(refreshProcessedCount)
     : mirrorEligibleEntries.filter((entry) => {
         const shouldRefreshEntry =
-          refreshRequested || refreshAssetIds.has(entry.id);
+          refreshRequested ||
+          refreshAssetIds.has(entry.id) ||
+          staleMirrorAssetIds.has(entry.id);
 
         if (shouldRefreshEntry) {
           return true;
@@ -1054,6 +1061,33 @@ async function readPersistedSkippedAssets(
   };
 }
 
+async function findAssetIdsMissingMirrorManifests(
+  projectRoot: string,
+  mirrorIndexEntries: MirrorIndexEntry[],
+  eligibleAssetIds: Set<string>,
+): Promise<Set<string>> {
+  const assetIds = new Set<string>();
+
+  for (const entry of mirrorIndexEntries) {
+    if (!eligibleAssetIds.has(entry.assetId)) {
+      continue;
+    }
+
+    const manifestPath = join(
+      projectRoot,
+      "mirror",
+      "raw",
+      sanitizeMirrorId(entry.mirrorId),
+      "manifest.json",
+    );
+    if (!(await pathLooksReadable(manifestPath))) {
+      assetIds.add(entry.assetId);
+    }
+  }
+
+  return assetIds;
+}
+
 function buildSortedReasonRecord(
   reasons: Map<string, string>,
 ): Record<string, string> {
@@ -1143,6 +1177,7 @@ export const mirrorAcquireInternals = {
   normalizePromptInjectionText,
   createGitBlobSha,
   isGitBlobSha,
+  findAssetIdsMissingMirrorManifests,
   buildSortedReasonRecord,
   mergeMirrorIndexEntries,
   buildGitHubCachePath,

@@ -17,7 +17,10 @@ import {
   assertMirrorIndexEntry,
 } from "../manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
-import { acquireMirrorArtifacts } from "../mirror/acquire.js";
+import {
+  acquireMirrorArtifacts,
+  mirrorAcquireInternals,
+} from "../mirror/acquire.js";
 import type {
   AssetCatalogEntry,
   MirrorAcquireState,
@@ -493,6 +496,77 @@ void test("acquireMirrorArtifacts ignores stale persisted skipped ids outside th
       mirrorIndex.map((entry) => entry.assetId),
       ["mirror-a"],
     );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("mirror acquire stale-manifest detection ignores ineligible index entries", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-acquire-"));
+
+  try {
+    const staleAssetIds =
+      await mirrorAcquireInternals.findAssetIdsMissingMirrorManifests(
+        projectRoot,
+        [createMirrorIndexEntry("outside-current-selection")],
+        new Set(["mirror-a"]),
+      );
+
+    assert.deepEqual([...staleAssetIds], []);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("acquireMirrorArtifacts refreshes stale mirror entries without manifests", async () => {
+  const entries = [buildAsset("mirror-a")];
+  const projectRoot = await createAcquireFixture(entries);
+  const staleMirrorEntry = createMirrorIndexEntry("mirror-a");
+
+  try {
+    await writeJsonLinesFile(mirrorIndexPath(projectRoot), [staleMirrorEntry]);
+    await writeTextFile(
+      join(
+        projectRoot,
+        "mirror",
+        "raw",
+        staleMirrorEntry.mirrorId,
+        "content.txt",
+      ),
+      "legacy mirror content without a file manifest",
+    );
+
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--batch-size", "10"],
+      { materializeArtifact: createMaterializer([]) },
+    );
+
+    const state = await readAcquireStateFixture(projectRoot);
+    const mirrorIndex = await readMirrorIndexFixture(projectRoot);
+
+    assert.equal(state.terminal, true);
+    assert.equal(state.mirroredCount, 1);
+    assert.equal(state.skippedCount, 0);
+    assert.equal(state.remainingCount, 0);
+    assert.equal(state.lastBatchMirroredCount, 1);
+    assert.deepEqual(state.lastBatchAssetIds, ["mirror-a"]);
+    assert.equal(mirrorIndex.length, 1);
+    assert.equal(mirrorIndex[0]?.assetId, "mirror-a");
+    assert.notEqual(mirrorIndex[0]?.mirrorId, staleMirrorEntry.mirrorId);
+
+    const refreshedManifest = await readFile(
+      join(
+        projectRoot,
+        "mirror",
+        "raw",
+        mirrorIndex[0]!.mirrorId,
+        "manifest.json",
+      ),
+      "utf8",
+    );
+    assert.match(refreshedManifest, /"aggregateHash"/u);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
@@ -1609,9 +1683,12 @@ void test("acquireMirrorArtifacts treats mirrored overlap ids as mirrored instea
   const projectRoot = await createAcquireFixture(entries);
 
   try {
-    await writeJsonLinesFile(mirrorIndexPath(projectRoot), [
-      createMirrorIndexEntry("mirror-a"),
-    ]);
+    await acquireMirrorArtifacts(
+      projectRoot,
+      projectRoot,
+      ["--batch-size", "10"],
+      { materializeArtifact: createMaterializer([]) },
+    );
     await writeJsonFile(
       acquireStatePath(projectRoot),
       createAcquireState({
