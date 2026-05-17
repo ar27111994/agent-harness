@@ -27,6 +27,7 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 - `rebuild full` now refreshes selected mirror artifacts whose raw cache directory predates the mirror `manifest.json` format, preventing install from failing on stale `mirror/index.jsonl` entries after upgrading existing workspaces
+- CodeQL URL-sanitization alerts in mirror/install regression tests are resolved by parsing mocked request URLs before checking allowed hostnames
 
 ## [1.0.7] - 2026-05-14
 

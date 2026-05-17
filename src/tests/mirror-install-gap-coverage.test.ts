@@ -52,6 +52,14 @@ import type {
   MirrorPolicy,
 } from "../types.js";
 
+function parseMockFetchUrl(input: string | URL | Request): URL {
+  return new URL(String(input instanceof Request ? input.url : input));
+}
+
+function hasHostname(url: URL, hostname: string): boolean {
+  return url.hostname === hostname;
+}
+
 function buildPolicy(): MirrorPolicy {
   return {
     schemaVersion: 1,
@@ -1597,20 +1605,20 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
     });
 
     t.mock.method(globalThis, "fetch", async (input: string | URL) => {
-      const url = String(input);
-      if (url.includes("officialskills.sh")) {
+      const url = parseMockFetchUrl(input);
+      if (hasHostname(url, "officialskills.sh")) {
         return new Response(
           '<html><title>Summary Entry - Agent Skills | officialskills.sh</title><meta name="description" content="Summary description"><h2>What This Skill Does</h2><section><p>Helpful summary.</p></section></html>',
           { status: 200, headers: { "content-type": "text/html" } },
         );
       }
-      if (url.includes("api.github.com")) {
+      if (hasHostname(url, "api.github.com")) {
         return new Response(JSON.stringify({ sha: "abcdef123456" }), {
           status: 200,
           headers: { "content-type": "application/json" },
         });
       }
-      if (url.includes("/null-content/")) {
+      if (url.pathname.includes("/null-content/")) {
         return new Response("missing", {
           status: 404,
           headers: { "content-type": "text/plain" },
@@ -1914,7 +1922,11 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
         }),
         "cloudflare",
       );
-    assert.ok(repoCandidates.some((url) => url.includes("github.com")));
+    assert.ok(
+      repoCandidates.some(
+        (url) => parseMockFetchUrl(url).hostname === "github.com",
+      ),
+    );
     assert.equal(
       mirrorAcquireInternals.isGitHubHttpsRepositoryUrl("not-a-url"),
       false,
@@ -2176,19 +2188,22 @@ void test("official index package materialization handles caps, content fallback
       globalThis,
       "fetch",
       async (input: string | URL | Request) => {
-        const url = String(input instanceof Request ? input.url : input);
-        if (url.includes("officialskills.sh/nullraw")) {
+        const url = parseMockFetchUrl(input);
+        if (
+          hasHostname(url, "officialskills.sh") &&
+          url.pathname.endsWith("/nullraw")
+        ) {
           return new Response("missing", { status: 404 });
         }
-        if (url.includes("officialskills.sh")) {
-          const slug = url.split("/").at(-1) ?? "fixture";
+        if (hasHostname(url, "officialskills.sh")) {
+          const slug = url.pathname.split("/").at(-1) ?? "fixture";
           return new Response(
             `<html><title>${slug}</title><a href="https://github.com/fixture/${slug}repo">GitHub</a><h2>What This Skill Does</h2><p>${slug} fallback summary.</p></html>`,
             { status: 200, headers: { "content-type": "text/html" } },
           );
         }
-        if (url.includes("raw.githubusercontent.com")) {
-          if (url.includes("nullraw")) {
+        if (hasHostname(url, "raw.githubusercontent.com")) {
+          if (url.pathname.includes("nullraw")) {
             return new Response("missing", { status: 404 });
           }
           return new Response("# Skill\n", {
@@ -2196,10 +2211,10 @@ void test("official index package materialization handles caps, content fallback
             headers: { "content-type": "text/plain" },
           });
         }
-        if (url.includes("api.github.com")) {
-          const repoMatch = /\/repos\/fixture\/([^/?]+)/u.exec(url);
+        if (hasHostname(url, "api.github.com")) {
+          const repoMatch = /\/repos\/fixture\/([^/?]+)/u.exec(url.pathname);
           const repo = repoMatch?.[1] ?? "unknown";
-          if (url.includes("/git/trees/")) {
+          if (url.pathname.includes("/git/trees/")) {
             const slug = repo.replace(/repo$/u, "").replace(/-skills$/u, "");
             if (repo.includes("truncated")) {
               return new Response(
@@ -2276,7 +2291,7 @@ void test("official index package materialization handles caps, content fallback
               { status: 200, headers: { "content-type": "application/json" } },
             );
           }
-          if (url.includes("/commits/")) {
+          if (url.pathname.includes("/commits/")) {
             return new Response(
               JSON.stringify({
                 sha: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
