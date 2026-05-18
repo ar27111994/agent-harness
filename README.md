@@ -8,7 +8,6 @@
 [![npm version](https://img.shields.io/npm/v/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
 [![npm downloads](https://img.shields.io/npm/dm/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
 [![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
-
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ar27111994/agent-harness)
 
 `agent-harness` is a Node.js 22+ TypeScript CLI, published as `@ar27111994/agent-harness`, for discovering, curating, staging, activating, and wiring reusable AI-agent assets into developer workspaces.
