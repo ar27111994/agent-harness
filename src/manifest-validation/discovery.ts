@@ -106,12 +106,37 @@ export function assertSourceRegistry(
       `${context}.sources[${index}].includePaths`,
       false,
     );
+    assertNonEmptyTrimmedStringArray(
+      entryRecord.includePaths,
+      `${context}.sources[${index}].includePaths`,
+    );
     assertMaybeStringArray(
       entryRecord.excludePaths,
       `${context}.sources[${index}].excludePaths`,
       false,
     );
+    assertNonEmptyTrimmedStringArray(
+      entryRecord.excludePaths,
+      `${context}.sources[${index}].excludePaths`,
+    );
     assertRecord(entryRecord.rules, `${context}.sources[${index}].rules`);
+  });
+}
+
+function assertNonEmptyTrimmedStringArray(
+  value: unknown,
+  context: string,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertArray(value, context).forEach((entry, index) => {
+    const entryContext = `${context}[${index}]`;
+    const stringEntry = assertString(entry, entryContext);
+    if (stringEntry.trim().length === 0) {
+      throw new Error(`${entryContext} must not be empty`);
+    }
   });
 }
 

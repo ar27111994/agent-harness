@@ -1290,7 +1290,6 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
         "@figma/plugin-typings",
         "figma-api",
         "token-transformer",
-        "@penpot/mcp",
       ],
     },
     textMarkers: [
@@ -1298,12 +1297,24 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
       "design-source",
       "figma plugin",
       "machine-readable design system",
-      "penpot",
-      "penpot mcp",
-      "penpot mrds",
       "style dictionary",
       "design system",
     ],
+    signals: {
+      concerns: [
+        "design-systems",
+        "design-assets",
+        "frontend",
+        "frontend-design",
+        "design-source",
+      ],
+      tooling: ["design-system"],
+    },
+  },
+  {
+    id: "penpot-mrds",
+    packages: { npm: ["@penpot/mcp"] },
+    textMarkers: ["penpot", "penpot mcp", "penpot mrds"],
     signals: {
       concerns: [
         "design-systems",
@@ -1315,7 +1326,7 @@ export const TECHNOLOGY_SIGNATURES: TechnologySignature[] = [
         "penpot",
         "penpot-mrds",
       ],
-      tooling: ["design-system"],
+      tooling: ["design-system", "penpot", "penpot-mcp"],
     },
   },
   {

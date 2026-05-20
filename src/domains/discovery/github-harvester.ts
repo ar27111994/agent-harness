@@ -210,8 +210,9 @@ function classifyGitHubTreePath(
   const normalizedPath = relativePath.toLowerCase();
   const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
   const adaptableHosts = source.hosts;
+  const pathFilterMatched = matchesSourcePathFilters(normalizedPath, source);
 
-  if (!matchesSourcePathFilters(normalizedPath, source)) {
+  if (!pathFilterMatched) {
     return null;
   }
 
@@ -295,7 +296,7 @@ function classifyGitHubTreePath(
     };
   }
 
-  if (isExecutableMcpServerPath(normalizedPath)) {
+  if (isExecutableMcpServerPath(normalizedPath, source, pathFilterMatched)) {
     return {
       assetKind: "mcp-server",
       compatibilityMode: "native",
@@ -339,22 +340,43 @@ function matchesSourcePathPattern(
   normalizedPath: string,
   pathPattern: string,
 ): boolean {
-  const normalizedPattern = pathPattern.toLowerCase().replaceAll("\\", "/");
+  const normalizedTreePath = normalizeSourceFilterPath(normalizedPath);
+  const normalizedPattern = normalizeSourceFilterPath(pathPattern);
 
   if (normalizedPattern.endsWith("/**")) {
-    return normalizedPath.startsWith(normalizedPattern.slice(0, -2));
+    return normalizedTreePath.startsWith(normalizedPattern.slice(0, -3));
   }
 
-  return normalizedPath === normalizedPattern;
+  return normalizedTreePath === normalizedPattern;
 }
 
-function isExecutableMcpServerPath(normalizedPath: string): boolean {
-  if (/^mcp\/packages\/server\/src\//u.test(normalizedPath)) {
-    return /\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath);
+function normalizeSourceFilterPath(value: string): string {
+  let normalizedValue = value.trim().toLowerCase().replaceAll("\\", "/");
+  while (normalizedValue.startsWith("./")) {
+    normalizedValue = normalizedValue.slice(2);
   }
+  while (normalizedValue.startsWith("/")) {
+    normalizedValue = normalizedValue.slice(1);
+  }
+  return normalizedValue;
+}
 
+function isExecutableMcpServerPath(
+  normalizedPath: string,
+  source: SourceDefinition,
+  pathFilterMatched: boolean,
+): boolean {
   if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
     return false;
+  }
+
+  if (
+    pathFilterMatched &&
+    source.includePaths &&
+    source.includePaths.length > 0 &&
+    source.assetKinds.includes("mcp-server")
+  ) {
+    return true;
   }
 
   return /(^|\/)(mcp[-_ ]?servers?|servers?\/.*mcp|.*mcp[-_ ]?server.*)(\/|\.|$)/u.test(
