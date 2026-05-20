@@ -191,6 +191,7 @@ void test("demand signals extract static signals from lock files and manifest fi
     const composePath = join(root, "compose.yaml");
     const openApiPath = join(root, "openapi.yaml");
     const vitestConfigPath = join(root, "vitest.config.ts");
+    const envExamplePath = join(root, ".env.example");
 
     for (const filePath of [
       pnpmLockPath,
@@ -208,9 +209,14 @@ void test("demand signals extract static signals from lock files and manifest fi
       composePath,
       openApiPath,
       vitestConfigPath,
+      envExamplePath,
     ]) {
       await writeText(filePath, "# placeholder content\n");
     }
+    await writeText(
+      envExamplePath,
+      "PENPOT_MCP_URL=http://localhost:4401/mcp\n",
+    );
 
     const pnpmSignals = await collectDemandSignalsForFile(
       "pnpm-lock.yaml",
@@ -269,6 +275,10 @@ void test("demand signals extract static signals from lock files and manifest fi
       "vitest.config.ts",
       vitestConfigPath,
     );
+    const envExampleSignals = await collectDemandSignalsForFile(
+      ".env.example",
+      envExamplePath,
+    );
 
     assert.ok(pnpmSignals.packageManagers.includes("pnpm"));
     assert.ok(yarnSignals.packageManagers.includes("yarn"));
@@ -301,6 +311,8 @@ void test("demand signals extract static signals from lock files and manifest fi
 
     assert.ok(vitestSignals.tooling.includes("vitest"));
     assert.ok(vitestSignals.concerns.includes("testing"));
+    assert.ok(envExampleSignals.concerns.includes("penpot"));
+    assert.ok(envExampleSignals.concerns.includes("design-mcp"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
