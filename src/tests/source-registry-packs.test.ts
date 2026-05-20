@@ -8,6 +8,38 @@ import { writeJsonFile } from "../files.js";
 import { loadSourceRegistry } from "../domains/discovery/source-registry.js";
 import type { SelectionRegistry, SourceDefinition } from "../types.js";
 
+void test("source registry includes official Penpot MCP source pack entry", async () => {
+  const registry = await loadSourceRegistry(process.cwd());
+  const penpotSource = registry.sources.find(
+    (source) => source.id === "penpot-mcp-pack",
+  );
+
+  assert.ok(penpotSource);
+  assert.equal(penpotSource?.authorityTier, "official-first-party");
+  assert.equal(penpotSource?.publisher?.name, "Penpot");
+  assert.equal(penpotSource?.publisher?.verified, true);
+  assert.deepEqual(penpotSource?.hosts, [
+    "opencode",
+    "cursor",
+    "zed",
+    "claude-code",
+    "pi",
+    "shared",
+  ]);
+  assert.deepEqual(penpotSource?.assetKinds, ["mcp-server", "reference-pack"]);
+  assert.equal(
+    penpotSource?.endpoints.repo,
+    "https://github.com/penpot/penpot",
+  );
+  assert.deepEqual(penpotSource?.includePaths, [
+    "mcp/README.md",
+    "mcp/packages/server/**",
+    "docs/mcp/**",
+    "docs/user-guide/integrations/mcp/**",
+  ]);
+  assert.deepEqual(penpotSource?.excludePaths, ["mcp/packages/plugin/**"]);
+});
+
 void test("source registry generates repo sources from packs and dedupes matching repo identities", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-registry-"),
@@ -40,6 +72,8 @@ void test("source registry generates repo sources from packs and dedupes matchin
             publisherVerified: true,
             priority: 75,
             enabled: false,
+            includePaths: ["packages/server/**"],
+            excludePaths: ["packages/plugin/**"],
           },
           {
             id: "duplicate-repo-url",
@@ -82,6 +116,8 @@ void test("source registry generates repo sources from packs and dedupes matchin
     assert.equal(generated?.enabled, false);
     assert.equal(generated?.publisher?.owner, "acme");
     assert.equal(generated?.publisher?.verified, true);
+    assert.deepEqual(generated?.includePaths, ["packages/server/**"]);
+    assert.deepEqual(generated?.excludePaths, ["packages/plugin/**"]);
     assert.equal(
       generated?.endpoints.repo,
       "git@github.com:acme/new-toolkit.git",
@@ -121,6 +157,41 @@ void test("source registry rejects malformed source pack entries", async () => {
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            includePaths: [""],
+          },
+        ],
+      },
+    );
+
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /broken\.json\.entries\[0\]\.includePaths\[0\].*must not be empty/iu,
+    );
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("source registry rejects invalid host values in source pack entries", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-registry-"),
+  );
+
+  try {
+    await writeJsonFile(join(projectRoot, "discover", "sources.json"), {
+      schemaVersion: 1,
+      sources: [
+        buildSource("existing-repo", "https://github.com/acme/toolbox"),
+      ],
+    });
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken-host.json"),
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: "broken-host",
+            repo: "https://github.com/acme/broken-host",
             hosts: ["Not-A-Host"],
           },
         ],
@@ -129,7 +200,7 @@ void test("source registry rejects malformed source pack entries", async () => {
 
     await assert.rejects(
       () => loadSourceRegistry(projectRoot),
-      /broken\.json\.entries\[0\]\.hosts\[0\].*lowercase host identifier/iu,
+      /broken-host\.json\.entries\[0\]\.hosts\[0\].*lowercase host identifier/iu,
     );
   } finally {
     await rm(projectRoot, { recursive: true, force: true });

@@ -133,6 +133,20 @@
               "minLength": 1
             }
           },
+          "includePaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "excludePaths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
           "rules": {
             "type": "object",
             "additionalProperties": false,

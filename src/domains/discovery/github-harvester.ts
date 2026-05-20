@@ -211,6 +211,10 @@ function classifyGitHubTreePath(
   const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
   const adaptableHosts = source.hosts;
 
+  if (!matchesSourcePathFilters(normalizedPath, source)) {
+    return null;
+  }
+
   if (normalizedPath.endsWith("/skill.md")) {
     return {
       assetKind: "skill",
@@ -310,7 +314,45 @@ function classifyGitHubTreePath(
   return null;
 }
 
+function matchesSourcePathFilters(
+  normalizedPath: string,
+  source: SourceDefinition,
+): boolean {
+  if (
+    source.excludePaths?.some((pathPattern) =>
+      matchesSourcePathPattern(normalizedPath, pathPattern),
+    )
+  ) {
+    return false;
+  }
+
+  if (!source.includePaths || source.includePaths.length === 0) {
+    return true;
+  }
+
+  return source.includePaths.some((pathPattern) =>
+    matchesSourcePathPattern(normalizedPath, pathPattern),
+  );
+}
+
+function matchesSourcePathPattern(
+  normalizedPath: string,
+  pathPattern: string,
+): boolean {
+  const normalizedPattern = pathPattern.toLowerCase().replaceAll("\\", "/");
+
+  if (normalizedPattern.endsWith("/**")) {
+    return normalizedPath.startsWith(normalizedPattern.slice(0, -2));
+  }
+
+  return normalizedPath === normalizedPattern;
+}
+
 function isExecutableMcpServerPath(normalizedPath: string): boolean {
+  if (/^mcp\/packages\/server\/src\//u.test(normalizedPath)) {
+    return /\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath);
+  }
+
   if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
     return false;
   }

@@ -101,6 +101,16 @@ export function assertSourceRegistry(
       entryRecord.endpoints,
       `${context}.sources[${index}].endpoints`,
     );
+    assertMaybeStringArray(
+      entryRecord.includePaths,
+      `${context}.sources[${index}].includePaths`,
+      false,
+    );
+    assertMaybeStringArray(
+      entryRecord.excludePaths,
+      `${context}.sources[${index}].excludePaths`,
+      false,
+    );
     assertRecord(entryRecord.rules, `${context}.sources[${index}].rules`);
   });
 }

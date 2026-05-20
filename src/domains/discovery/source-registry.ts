@@ -25,6 +25,8 @@ interface SourcePackShape {
     publisherVerified?: boolean;
     hosts?: HostTarget[];
     assetKinds?: AssetKind[];
+    includePaths?: string[];
+    excludePaths?: string[];
     priority?: number;
     enabled?: boolean;
     name?: string;
@@ -106,6 +108,8 @@ export async function loadSourceRegistry(
         endpoints: {
           repo: entry.repo,
         },
+        includePaths: entry.includePaths,
+        excludePaths: entry.excludePaths,
         rules: {
           officialPreferred: true,
           allowMirror: false,
@@ -199,6 +203,14 @@ function assertSourcePackShape(
       entryRecord.assetKinds,
       ASSET_KINDS,
       `${context}.entries[${index}].assetKinds`,
+    );
+    assertOptionalStringArray(
+      entryRecord.includePaths,
+      `${context}.entries[${index}].includePaths`,
+    );
+    assertOptionalStringArray(
+      entryRecord.excludePaths,
+      `${context}.entries[${index}].excludePaths`,
     );
     if (
       entryRecord.priority !== undefined &&
@@ -319,6 +331,16 @@ function assertOptionalEnumArray<T extends string>(
 
   assertArray(value, context).forEach((entry, index) => {
     assertOptionalEnum(entry, allowedValues, `${context}[${index}]`);
+  });
+}
+
+function assertOptionalStringArray(value: unknown, context: string): void {
+  if (value === undefined) {
+    return;
+  }
+
+  assertArray(value, context).forEach((entry, index) => {
+    assertNonEmptyString(entry, `${context}[${index}]`);
   });
 }
 

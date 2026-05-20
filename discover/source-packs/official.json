@@ -48,6 +48,25 @@
       "enabled": true
     },
     {
+      "id": "penpot-mcp-pack",
+      "name": "Penpot MCP",
+      "repo": "https://github.com/penpot/penpot",
+      "authorityTier": "official-first-party",
+      "publisher": "Penpot",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true,
+      "assetKinds": ["mcp-server", "reference-pack"],
+      "hosts": ["opencode", "cursor", "zed", "claude-code", "pi", "shared"],
+      "includePaths": [
+        "mcp/README.md",
+        "mcp/packages/server/**",
+        "docs/mcp/**",
+        "docs/user-guide/integrations/mcp/**"
+      ],
+      "excludePaths": ["mcp/packages/plugin/**"]
+    },
+    {
       "id": "microsoft-skills-pack",
       "repo": "https://github.com/microsoft/skills",
       "authorityTier": "official-first-party",

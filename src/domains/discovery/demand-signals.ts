@@ -49,6 +49,14 @@ const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
 const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
+const ENV_TEMPLATE_FILE_NAMES = new Set([
+  ".env.example",
+  ".env.sample",
+  ".env.template",
+  "env.example",
+  "env.sample",
+  "env.template",
+]);
 const INSPECTABLE_FILE_NAMES = new Set([
   "package.json",
   "package-lock.json",
@@ -93,6 +101,7 @@ const INSPECTABLE_FILE_NAMES = new Set([
   "deno.json",
   "actor.json",
   "input_schema.json",
+  ...ENV_TEMPLATE_FILE_NAMES,
 ]);
 
 /**
@@ -916,6 +925,10 @@ function enrichGenericTextSignals(
 function shouldReadTextForTechnologySignals(fileName: string): boolean {
   if (isLockfileName(fileName)) {
     return false;
+  }
+
+  if (ENV_TEMPLATE_FILE_NAMES.has(fileName)) {
+    return true;
   }
 
   if (isDockerfileName(fileName)) {

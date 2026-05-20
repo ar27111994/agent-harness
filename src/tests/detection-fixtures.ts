@@ -80,6 +80,21 @@ export const ROADMAP_DETECTION_FIXTURES: DetectionFixture[] = [
     expectedConcerns: ["media", "design-assets", "creative-production"],
   },
   {
+    archetype: "penpot-mrds",
+    fileName: "penpot-mrds.md",
+    filePath: "design/penpot-mrds.md",
+    expectedConcerns: [
+      "design-systems",
+      "design-assets",
+      "frontend",
+      "design-source",
+      "design-mcp",
+      "frontend-design",
+      "penpot",
+      "penpot-mrds",
+    ],
+  },
+  {
     archetype: "security",
     fileName: "SECURITY.md",
     filePath: "security/SECURITY.md",

@@ -292,6 +292,35 @@ export const DETECTOR_SIGNATURES: DetectorSignature[] = [
     signals: {
       concerns: ["design-systems", "design-assets", "frontend"],
     },
+    conditionalSignals: [
+      {
+        fileNamePattern:
+          /(^|[/\\])penpot(?:[-_]?mrds)?\.(?:md|mdx|json|ya?ml)$/iu,
+        signals: {
+          concerns: [
+            "design-source",
+            "design-mcp",
+            "frontend-design",
+            "penpot",
+            "penpot-mrds",
+          ],
+          tooling: ["penpot", "penpot-mcp"],
+        },
+      },
+      {
+        filePathPattern: /(^|[/\\])penpot(?:[/\\]|[-_])/iu,
+        signals: {
+          concerns: [
+            "design-source",
+            "design-mcp",
+            "frontend-design",
+            "penpot",
+            "penpot-mrds",
+          ],
+          tooling: ["penpot", "penpot-mcp"],
+        },
+      },
+    ],
   },
   {
     id: "finance-trading",
