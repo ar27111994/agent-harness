@@ -48,37 +48,39 @@ void test("assertSelectionReport rejects missing required fields", () => {
 });
 
 void test("assertSourceRegistry rejects blank source path filters", () => {
-  assert.throws(
-    () =>
-      assertSourceRegistry(
-        {
-          schemaVersion: 1,
-          sources: [
-            {
-              id: "source-a",
-              name: "Source A",
-              kind: "repo",
-              authorityTier: "trusted-community",
-              hosts: ["opencode"],
-              assetKinds: ["mcp-server"],
-              discoveryMode: "catalog",
-              priority: 60,
-              enabled: true,
-              endpoints: { repo: "https://github.com/acme/source-a" },
-              includePaths: ["   "],
-              excludePaths: ["mcp/packages/plugin/**"],
-              rules: {
-                officialPreferred: true,
-                allowMirror: false,
-                allowInstall: false,
-              },
-            },
-          ],
+  const buildRegistry = (pathField: string) => ({
+    schemaVersion: 1,
+    sources: [
+      {
+        id: "source-a",
+        name: "Source A",
+        kind: "repo",
+        authorityTier: "trusted-community",
+        hosts: ["opencode"],
+        assetKinds: ["mcp-server"],
+        discoveryMode: "catalog",
+        priority: 60,
+        enabled: true,
+        endpoints: { repo: "https://github.com/acme/source-a" },
+        [pathField]: ["   "],
+        rules: {
+          officialPreferred: true,
+          allowMirror: false,
+          allowInstall: false,
         },
-        "registry",
+      },
+    ],
+  });
+
+  for (const pathField of ["includePaths", "excludePaths", "mcpServerPaths"]) {
+    assert.throws(
+      () => assertSourceRegistry(buildRegistry(pathField), "registry"),
+      new RegExp(
+        `registry\\.sources\\[0\\]\\.${pathField}\\[0\\] must not be empty`,
+        "u",
       ),
-    /registry\.sources\[0\]\.includePaths\[0\] must not be empty/u,
-  );
+    );
+  }
 });
 
 void test("assertGitHubRepoSnapshot accepts a complete snapshot with readme", () => {

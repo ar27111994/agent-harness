@@ -27,6 +27,7 @@ interface SourcePackShape {
     assetKinds?: AssetKind[];
     includePaths?: string[];
     excludePaths?: string[];
+    mcpServerPaths?: string[];
     priority?: number;
     enabled?: boolean;
     name?: string;
@@ -110,6 +111,7 @@ export async function loadSourceRegistry(
         },
         includePaths: entry.includePaths,
         excludePaths: entry.excludePaths,
+        mcpServerPaths: entry.mcpServerPaths,
         rules: {
           officialPreferred: true,
           allowMirror: false,
@@ -211,6 +213,10 @@ function assertSourcePackShape(
     assertOptionalStringArray(
       entryRecord.excludePaths,
       `${context}.entries[${index}].excludePaths`,
+    );
+    assertOptionalStringArray(
+      entryRecord.mcpServerPaths,
+      `${context}.entries[${index}].mcpServerPaths`,
     );
     if (
       entryRecord.priority !== undefined &&

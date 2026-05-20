@@ -64,7 +64,8 @@
         "docs/mcp/**",
         "docs/user-guide/integrations/mcp/**"
       ],
-      "excludePaths": ["mcp/packages/plugin/**"]
+      "excludePaths": ["mcp/packages/plugin/**"],
+      "mcpServerPaths": ["mcp/packages/server/src/**"]
     },
     {
       "id": "microsoft-skills-pack",

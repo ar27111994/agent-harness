@@ -210,9 +210,8 @@ function classifyGitHubTreePath(
   const normalizedPath = relativePath.toLowerCase();
   const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
   const adaptableHosts = source.hosts;
-  const pathFilterMatched = matchesSourcePathFilters(normalizedPath, source);
 
-  if (!pathFilterMatched) {
+  if (!matchesSourcePathFilters(normalizedPath, source)) {
     return null;
   }
 
@@ -296,7 +295,7 @@ function classifyGitHubTreePath(
     };
   }
 
-  if (isExecutableMcpServerPath(normalizedPath, source, pathFilterMatched)) {
+  if (isExecutableMcpServerPath(normalizedPath, source)) {
     return {
       assetKind: "mcp-server",
       compatibilityMode: "native",
@@ -344,7 +343,11 @@ function matchesSourcePathPattern(
   const normalizedPattern = normalizeSourceFilterPath(pathPattern);
 
   if (normalizedPattern.endsWith("/**")) {
-    return normalizedTreePath.startsWith(normalizedPattern.slice(0, -3));
+    const directoryPrefix = normalizedPattern.slice(0, -3);
+    return (
+      normalizedTreePath === directoryPrefix ||
+      normalizedTreePath.startsWith(`${directoryPrefix}/`)
+    );
   }
 
   return normalizedTreePath === normalizedPattern;
@@ -364,17 +367,15 @@ function normalizeSourceFilterPath(value: string): string {
 function isExecutableMcpServerPath(
   normalizedPath: string,
   source: SourceDefinition,
-  pathFilterMatched: boolean,
 ): boolean {
   if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
     return false;
   }
 
   if (
-    pathFilterMatched &&
-    source.includePaths &&
-    source.includePaths.length > 0 &&
-    source.assetKinds.includes("mcp-server")
+    source.mcpServerPaths?.some((pathPattern) =>
+      matchesSourcePathPattern(normalizedPath, pathPattern),
+    )
   ) {
     return true;
   }

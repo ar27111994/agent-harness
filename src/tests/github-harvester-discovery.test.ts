@@ -177,9 +177,15 @@ void test("github harvester classifies Penpot MCP package server sources", async
         truncated: false,
         tree: [
           { path: "mcp/packages/server/src/index.ts", type: "blob", sha: "1" },
+          {
+            path: "mcp/packages/serverish/src/index.ts",
+            type: "blob",
+            sha: "6",
+          },
           { path: "mcp/packages/plugin/src/plugin.ts", type: "blob", sha: "2" },
           { path: "mcp/README.md", type: "blob", sha: "3" },
           { path: "docs/mcp/index.md", type: "blob", sha: "5" },
+          { path: "docs/mcpx/example.md", type: "blob", sha: "7" },
           {
             path: ".opencode/skills/internal/SKILL.md",
             type: "blob",
@@ -227,6 +233,7 @@ void test("github harvester classifies Penpot MCP package server sources", async
         "docs\\mcp\\**",
       ],
       excludePaths: ["/mcp/packages/plugin/**"],
+      mcpServerPaths: ["mcp/packages/server/src/**"],
       endpoints: { repo: "https://github.com/penpot/penpot" },
     },
     null,
@@ -246,6 +253,8 @@ void test("github harvester classifies Penpot MCP package server sources", async
   ]);
   assert.equal(byPath.get("mcp/README.md")?.assetKind, "reference-pack");
   assert.equal(byPath.get("docs/mcp/index.md")?.assetKind, "reference-pack");
+  assert.equal(byPath.has("mcp/packages/serverish/src/index.ts"), false);
+  assert.equal(byPath.has("docs/mcpx/example.md"), false);
   assert.equal(byPath.has("mcp/packages/plugin/src/plugin.ts"), false);
   assert.equal(byPath.has(".opencode/skills/internal/SKILL.md"), false);
 });

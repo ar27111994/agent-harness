@@ -41,6 +41,7 @@ export interface SourceDefinition {
   rules: SourceRules;
   includePaths?: string[];
   excludePaths?: string[];
+  mcpServerPaths?: string[];
 }
 
 /**

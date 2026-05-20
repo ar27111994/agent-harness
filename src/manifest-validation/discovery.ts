@@ -101,23 +101,17 @@ export function assertSourceRegistry(
       entryRecord.endpoints,
       `${context}.sources[${index}].endpoints`,
     );
-    assertMaybeStringArray(
-      entryRecord.includePaths,
-      `${context}.sources[${index}].includePaths`,
-      false,
-    );
     assertNonEmptyTrimmedStringArray(
       entryRecord.includePaths,
       `${context}.sources[${index}].includePaths`,
     );
-    assertMaybeStringArray(
-      entryRecord.excludePaths,
-      `${context}.sources[${index}].excludePaths`,
-      false,
-    );
     assertNonEmptyTrimmedStringArray(
       entryRecord.excludePaths,
       `${context}.sources[${index}].excludePaths`,
+    );
+    assertNonEmptyTrimmedStringArray(
+      entryRecord.mcpServerPaths,
+      `${context}.sources[${index}].mcpServerPaths`,
     );
     assertRecord(entryRecord.rules, `${context}.sources[${index}].rules`);
   });

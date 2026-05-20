@@ -38,6 +38,9 @@ void test("source registry includes official Penpot MCP source pack entry", asyn
     "docs/user-guide/integrations/mcp/**",
   ]);
   assert.deepEqual(penpotSource?.excludePaths, ["mcp/packages/plugin/**"]);
+  assert.deepEqual(penpotSource?.mcpServerPaths, [
+    "mcp/packages/server/src/**",
+  ]);
 });
 
 void test("source registry generates repo sources from packs and dedupes matching repo identities", async () => {
@@ -74,6 +77,7 @@ void test("source registry generates repo sources from packs and dedupes matchin
             enabled: false,
             includePaths: ["packages/server/**"],
             excludePaths: ["packages/plugin/**"],
+            mcpServerPaths: ["packages/server/src/**"],
           },
           {
             id: "duplicate-repo-url",
@@ -118,6 +122,7 @@ void test("source registry generates repo sources from packs and dedupes matchin
     assert.equal(generated?.publisher?.verified, true);
     assert.deepEqual(generated?.includePaths, ["packages/server/**"]);
     assert.deepEqual(generated?.excludePaths, ["packages/plugin/**"]);
+    assert.deepEqual(generated?.mcpServerPaths, ["packages/server/src/**"]);
     assert.equal(
       generated?.endpoints.repo,
       "git@github.com:acme/new-toolkit.git",
@@ -149,24 +154,37 @@ void test("source registry rejects malformed source pack entries", async () => {
         buildSource("existing-repo", "https://github.com/acme/toolbox"),
       ],
     });
-    await writeJsonFile(
-      join(projectRoot, "discover", "source-packs", "broken.json"),
-      {
-        schemaVersion: 1,
-        entries: [
-          {
-            id: "broken",
-            repo: "https://github.com/acme/broken",
-            includePaths: [""],
-          },
-        ],
-      },
-    );
+    for (const pathField of [
+      "includePaths",
+      "excludePaths",
+      "mcpServerPaths",
+    ]) {
+      await rm(join(projectRoot, "discover", "source-packs"), {
+        recursive: true,
+        force: true,
+      });
+      await writeJsonFile(
+        join(projectRoot, "discover", "source-packs", "broken.json"),
+        {
+          schemaVersion: 1,
+          entries: [
+            {
+              id: "broken",
+              repo: "https://github.com/acme/broken",
+              [pathField]: [""],
+            },
+          ],
+        },
+      );
 
-    await assert.rejects(
-      () => loadSourceRegistry(projectRoot),
-      /broken\.json\.entries\[0\]\.includePaths\[0\].*must not be empty/iu,
-    );
+      await assert.rejects(
+        () => loadSourceRegistry(projectRoot),
+        new RegExp(
+          `broken\\.json\\.entries\\[0\\]\\.${pathField}\\[0\\].*must not be empty`,
+          "iu",
+        ),
+      );
+    }
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
