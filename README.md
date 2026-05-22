@@ -48,7 +48,6 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md)
 - [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
 
-
 ## What this project does
 
 `agent-harness` automates the lifecycle of reusable agent assets:
@@ -1631,18 +1630,18 @@ Known boundaries:
 ## Related documentation
 
 - [`CHANGELOG.md`](https://github.com/ar27111994/agent-harness/blob/main/CHANGELOG.md) - release notes
-- [`AGENT-SETUP-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md) -  dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
-- [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md)  - how to maximize the practical candidate pool before judging recommendation quality
+- [`AGENT-SETUP-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md) - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md) - how to maximize the practical candidate pool before judging recommendation quality
 - [`AI-ENRICHMENT-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AI-ENRICHMENT-PLAYBOOK.md) - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
-- [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md) -  report-only, due-only, and apply-safe refresh/update workflows for installed assets
-- [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md) - current decision and guardrails for CLI output/logging vs a full logging library 
-- [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md) - how to inspect and tweak ranking policy only after recall looks healthy 
-- [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/HOST-SURFACE-AUDIT.md)  - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
-- [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md)  - vulnerability reporting and supported-version policy
+- [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md) - report-only, due-only, and apply-safe refresh/update workflows for installed assets
+- [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md) - current decision and guardrails for CLI output/logging vs a full logging library
+- [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md) - how to inspect and tweak ranking policy only after recall looks healthy
+- [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/HOST-SURFACE-AUDIT.md) - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
+- [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md) - vulnerability reporting and supported-version policy
 - [`Roadmap.md`](https://github.com/ar27111994/agent-harness/blob/main/Roadmap.md) - gap analysis and long-range direction
 - [`IMPLEMENTATION-PLAN.md`](https://github.com/ar27111994/agent-harness/blob/main/IMPLEMENTATION-PLAN.md) - milestone-oriented execution plan
 - [`FUTURE-IMPROVEMENTS.md`](https://github.com/ar27111994/agent-harness/blob/main/FUTURE-IMPROVEMENTS.md) - follow-up ideas and architectural extensions
-- [`CONTRIBUTING.md`](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md)  - contribution workflow and hygiene
+- [`CONTRIBUTING.md`](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md) - contribution workflow and hygiene
 
 ## Sponsor
 
