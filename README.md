@@ -21,17 +21,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Supported hosts](#supported-hosts)
 - [Quick start](#quick-start)
 - [Usage examples](#usage-examples)
-
-## Repository / Contributor Reference Docs
-
-- [Agent setup playbook](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md)
-- [Discovery breadth playbook](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md)
-- [Demand detection playbook](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-PLAYBOOK.md)
-- [Source coverage playbook](https://github.com/ar27111994/agent-harness/blob/main/SOURCE-COVERAGE-PLAYBOOK.md)
-- [AI enrichment playbook](https://github.com/ar27111994/agent-harness/blob/main/AI-ENRICHMENT-PLAYBOOK.md)
-- [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md)
-- [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md)
-- [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
+- [Key playbooks](#key-playbooks)
 - [Command reference](#command-reference)
 - [Host wire-in details](#host-wire-in-details)
 - [Discovery and recommendations](#discovery-and-recommendations)
@@ -45,6 +35,19 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Related documentation](#related-documentation)
 - [Sponsor](#sponsor)
 - [License](#license)
+
+## Key Playbooks
+
+- [Agent setup playbook](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md)
+- [Discovery breadth playbook](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md)
+- [Demand detection playbook](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-PLAYBOOK.md)
+- [Demand detection coverage](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-COVERAGE.md)
+- [Source coverage playbook](https://github.com/ar27111994/agent-harness/blob/main/SOURCE-COVERAGE-PLAYBOOK.md)
+- [AI enrichment playbook](https://github.com/ar27111994/agent-harness/blob/main/AI-ENRICHMENT-PLAYBOOK.md)
+- [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md)
+- [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md)
+- [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
+
 
 ## What this project does
 
@@ -222,7 +225,7 @@ Preview output is written under `activate/<host>/` and can be reviewed before `-
 
 When you want another agent to operate `agent-harness` for you, start with a dry run before any apply/install step. This keeps workspace mutation, extension installation, and MCP/tool authentication separate from discovery and recommendation review.
 
-For the full playbook, reusable prompts, classification rules, and decision tree, see [`AGENT-SETUP-PLAYBOOK.md`](./AGENT-SETUP-PLAYBOOK.md).
+For the full playbook, reusable prompts, classification rules, and decision tree, see [`AGENT-SETUP-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md).
 
 Available playbooks:
 
@@ -251,16 +254,16 @@ Short version:
 - separate staged/wired assets from native installs and manual runtime follow-up
 - only run mutating install/apply commands after the dry run looks correct
 
-If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy. If breadth looks wrong because stack detection is weak, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md); if the stack looks right but the discovery universe is still too small, continue with [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md).
+If your main question is "how do I give recommendations the widest sensible candidate pool first?", use [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md) before changing recommendation policy. If breadth looks wrong because stack detection is weak, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-PLAYBOOK.md); if the stack looks right but the discovery universe is still too small, continue with [`SOURCE-COVERAGE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/SOURCE-COVERAGE-PLAYBOOK.md).
 
 ### Default workspace diagnostic ladder
 
 When `agent-harness workspace <host>` gives surprising output, diagnose in this order instead of jumping straight to bigger limits or host-policy edits:
 
 1. **Did the workspace command complete?** If not, inspect preflight/runtime/install/wire logs and host readiness with `agent-harness setup doctor --host <host>`.
-2. **Is `discover/output/demand-profile.json` wrong or weak?** If yes, use [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) and the matrix in [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md).
-3. **Is source utilization or selected-candidate breadth starved?** Inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json`, then use [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) / [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
-4. **Are relevant assets selected but buried?** Inspect `state/recommendations.json`, `recommend policy:print --host <host>`, and `recommend explain --host <host> --asset <asset-id>`, then use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md).
+2. **Is `discover/output/demand-profile.json` wrong or weak?** If yes, use [`DEMAND-DETECTION-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-PLAYBOOK.md) and the matrix in [`DEMAND-DETECTION-COVERAGE.md`](https://github.com/ar27111994/agent-harness/blob/main/DEMAND-DETECTION-COVERAGE.md).
+3. **Is source utilization or selected-candidate breadth starved?** Inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json`, then use [`SOURCE-COVERAGE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/SOURCE-COVERAGE-PLAYBOOK.md) / [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md).
+4. **Are relevant assets selected but buried?** Inspect `state/recommendations.json`, `recommend policy:print --host <host>`, and `recommend explain --host <host> --asset <asset-id>`, then use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md).
 5. **Is the problem host-specific?** Validate the host policy with recommendation fixtures before changing defaults.
 6. **Is narrative judgment needed after deterministic output is sane?** Use bounded AI review/enrichment as an audit layer, not as a replacement for detection/source/ranking fixes.
 
@@ -394,7 +397,7 @@ The discovery configuration is assembled from multiple checked-in inputs on purp
 
 `discover sources` now records those assembled configuration inputs in `discover/output/source-index.json` so the effective discovery universe is inspectable instead of implicit.
 
-If you want the widest practical candidate pool before judging recommendation quality, start with `agent-harness discover breadth`. That first-class command runs the full breadth-oriented discovery pass and prints whether the bottleneck currently looks like demand detection, source coverage, selection filtering, or ranking. For the step-by-step workflow and agent-operated version, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+If you want the widest practical candidate pool before judging recommendation quality, start with `agent-harness discover breadth`. That first-class command runs the full breadth-oriented discovery pass and prints whether the bottleneck currently looks like demand detection, source coverage, selection filtering, or ranking. For the step-by-step workflow and agent-operated version, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md).
 
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
 
@@ -445,7 +448,7 @@ agent-harness discover full --ai-enrich
 agent-harness workspace cursor --intent frontend --ai-enrich
 ```
 
-Use `setup login --provider ai` for configuration guidance. For scenario-based operator guidance, see [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md).
+Use `setup login --provider ai` for configuration guidance. For scenario-based operator guidance, see [`AI-ENRICHMENT-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AI-ENRICHMENT-PLAYBOOK.md).
 
 ### Recommend
 
@@ -475,7 +478,7 @@ Print the merged effective policy for a host:
 node ./dist/cli.js recommend policy:print --host shared
 ```
 
-If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md).
+If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md).
 
 ### Mirror
 
@@ -519,7 +522,7 @@ npm run install:reset
 
 `stage refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. When stale VS Code-family extension assets are applied through refresh, the native extension install step is executed too so host-native installs stay in sync with the refreshed bundle state. `install refresh` remains a supported alias.
 
-For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md).
+For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md).
 
 ### Activate
 
@@ -626,7 +629,7 @@ npm run rebuild:full
 
 All host-specific behavior lives behind `src/host-adapters/`. Generic orchestration lives in `src/workspace.ts`, `src/wire.ts`, `src/pipeline.ts`, `src/install.ts`, `src/activate.ts`, and related lifecycle modules.
 
-For the checked-in host-surface classification backing the current README wording, see [`HOST-SURFACE-AUDIT.md`](./HOST-SURFACE-AUDIT.md).
+For the checked-in host-surface classification backing the current README wording, see [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/HOST-SURFACE-AUDIT.md).
 
 Unless noted otherwise, lifecycle file paths shown in this section are relative to the configured state root. In repository-local development that is the repository root; in packaged CLI usage the default state root is workspace-local `.agent-harness/`.
 
@@ -1446,7 +1449,7 @@ npm run validate:coverage
 npm run test:self-hosting
 ```
 
-Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI unless statements, branches, functions, and lines all remain at 100%. The maintained 100% coverage policy and gap-inventory workflow are documented in [`COVERAGE-100-ROADMAP.md`](./COVERAGE-100-ROADMAP.md).
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI unless statements, branches, functions, and lines all remain at 100%. The maintained 100% coverage policy and gap-inventory workflow are documented in [`COVERAGE-100-ROADMAP.md`](https://github.com/ar27111994/agent-harness/blob/main/COVERAGE-100-ROADMAP.md).
 
 For release or adapter changes, also run:
 
@@ -1468,7 +1471,7 @@ npm run validate:release
 
 The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, coverage-gated unit/integration tests, the dedicated self-hosting suite, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. It also publishes a coverage summary into the GitHub Actions step summary for each run. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
 
-For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](./LOGGING-STRATEGY.md).
+For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md).
 
 ## Troubleshooting
 
@@ -1593,7 +1596,7 @@ Usually no. First confirm that demand detection found the real workspace technol
 
 ### How do I give recommendations the widest possible asset pool?
 
-Run `agent-harness discover breadth` from the real workspace root first, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun `agent-harness discover breadth`. Use this recall-first path when you are diagnosing breadth specifically; for a normal new-user end-to-end setup, use `agent-harness workspace <host>` instead. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md).
+Run `agent-harness discover breadth` from the real workspace root first, then inspect `discover/output/source-index.json`, `discover/output/source-utilization.json`, and `discover/output/selection-report.json` before touching policy. If the checked-in source universe is still too narrow, widen the active state-root discovery inputs (`discover/sources.json`, `discover/source-packs/*.json`, `discover/official-skills-indexes.json`, and `discover/official-upstreams.json`) and rerun `agent-harness discover breadth`. Use this recall-first path when you are diagnosing breadth specifically; for a normal new-user end-to-end setup, use `agent-harness workspace <host>` instead. For the step-by-step workflow and agent prompt, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md).
 
 ### Why do Cursor, Zed, Claude Code, and Pi reuse lifecycle hosts?
 
@@ -1627,19 +1630,19 @@ Known boundaries:
 
 ## Related documentation
 
-- `CHANGELOG.md` - release notes
-- `AGENT-SETUP-PLAYBOOK.md` - dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
-- `DISCOVERY-BREADTH-PLAYBOOK.md` - how to maximize the practical candidate pool before judging recommendation quality
-- `AI-ENRICHMENT-PLAYBOOK.md` - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
-- `ASSET-UPDATE-PLAYBOOK.md` - report-only, due-only, and apply-safe refresh/update workflows for installed assets
-- `LOGGING-STRATEGY.md` - current decision and guardrails for CLI output/logging vs a full logging library
-- `RECOMMENDATION-POLICY-PLAYBOOK.md` - how to inspect and tweak ranking policy only after recall looks healthy
-- `HOST-SURFACE-AUDIT.md` - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
-- `SECURITY.md` - vulnerability reporting and supported-version policy
-- `Roadmap.md` - gap analysis and long-range direction
-- `IMPLEMENTATION-PLAN.md` - milestone-oriented execution plan
-- `FUTURE-IMPROVEMENTS.md` - follow-up ideas and architectural extensions
-- `CONTRIBUTING.md` - contribution workflow and hygiene
+- [`CHANGELOG.md`](https://github.com/ar27111994/agent-harness/blob/main/CHANGELOG.md) - release notes
+- [`AGENT-SETUP-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md) -  dry-run setup workflow, decision tree, and reusable agent prompts for workspace/host asset setup
+- [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/DISCOVERY-BREADTH-PLAYBOOK.md)  - how to maximize the practical candidate pool before judging recommendation quality
+- [`AI-ENRICHMENT-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AI-ENRICHMENT-PLAYBOOK.md) - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
+- [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md) -  report-only, due-only, and apply-safe refresh/update workflows for installed assets
+- [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md) - current decision and guardrails for CLI output/logging vs a full logging library 
+- [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md) - how to inspect and tweak ranking policy only after recall looks healthy 
+- [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/HOST-SURFACE-AUDIT.md)  - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
+- [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md)  - vulnerability reporting and supported-version policy
+- [`Roadmap.md`](https://github.com/ar27111994/agent-harness/blob/main/Roadmap.md) - gap analysis and long-range direction
+- [`IMPLEMENTATION-PLAN.md`](https://github.com/ar27111994/agent-harness/blob/main/IMPLEMENTATION-PLAN.md) - milestone-oriented execution plan
+- [`FUTURE-IMPROVEMENTS.md`](https://github.com/ar27111994/agent-harness/blob/main/FUTURE-IMPROVEMENTS.md) - follow-up ideas and architectural extensions
+- [`CONTRIBUTING.md`](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md)  - contribution workflow and hygiene
 
 ## Sponsor
 
