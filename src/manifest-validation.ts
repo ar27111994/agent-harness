@@ -23,6 +23,7 @@ export {
   assertMirrorIndexEntry,
   assertMirrorPolicy,
 } from "./manifest-validation/mirror.js";
+export { assertQuarantineStateReport } from "./manifest-validation/quarantine.js";
 export {
   assertRecommendationAiReviewArtifact,
   assertRecommendationAiReviewInput,

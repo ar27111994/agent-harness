@@ -5,6 +5,7 @@ import {
   readJsonLinesFile,
   readTextFileOrNull,
   toPosixPath,
+  writeJsonFile,
   writeJsonLinesFile,
 } from "./files.js";
 import { printCommandHelp } from "./lib/cli-output.js";
@@ -14,19 +15,23 @@ import {
   assertAssetCatalogEntry,
   assertMirrorIndexEntry,
 } from "./manifest-validation.js";
-import type { AssetCatalogEntry, MirrorIndexEntry } from "./types.js";
-
-interface QuarantineReviewDecision {
-  schemaVersion: 1;
-  reviewedAt: string;
-  action: "approved" | "rejected";
-  assetId: string;
-  mirrorId: string;
-  reason: string;
-}
+import type {
+  AssetCatalogEntry,
+  MirrorIndexEntry,
+  QuarantineReviewAction,
+  QuarantineReviewDecision,
+  QuarantineStateEntry,
+  QuarantineStateReport,
+  QuarantineTransition,
+} from "./types.js";
 
 const MIRROR_INDEX_PATH = ["mirror", "index.jsonl"] as const;
 const REVIEW_LOG_PATH = ["state", "quarantine", "reviews.jsonl"] as const;
+const QUARANTINE_REPORT_PATH = [
+  "state",
+  "quarantine",
+  "quarantine-state.json",
+] as const;
 
 /**
  * Dispatches the quarantine CLI command group.
@@ -44,11 +49,17 @@ export async function runQuarantine(
     case "inspect":
       await inspectQuarantinedAsset(projectRoot, rest);
       return 0;
+    case "report":
+      await writeQuarantineReport(projectRoot);
+      return 0;
     case "approve":
       await reviewQuarantinedAsset(projectRoot, rest, "approved");
       return 0;
     case "reject":
       await reviewQuarantinedAsset(projectRoot, rest, "rejected");
+      return 0;
+    case "pin":
+      await reviewQuarantinedAsset(projectRoot, rest, "pinned");
       return 0;
     case "help":
       printQuarantineHelp();
@@ -110,19 +121,18 @@ async function inspectQuarantinedAsset(
 async function reviewQuarantinedAsset(
   projectRoot: string,
   args: string[],
-  action: QuarantineReviewDecision["action"],
+  action: QuarantineReviewAction,
 ): Promise<void> {
   const entry = await findReviewTarget(projectRoot, args);
   const reason = getOptionValue(args, "--reason") ?? "manual review";
+  const reviewer = getOptionValue(args, "--reviewer");
   const entries = await readMirrorIndex(projectRoot);
+  const nextStatus = getReviewedStatus(action);
   const nextEntries = entries.map((candidate) =>
     candidate.mirrorId === entry.mirrorId
       ? {
           ...candidate,
-          status:
-            action === "approved"
-              ? ("approved-with-warning" as const)
-              : ("quarantined" as const),
+          status: nextStatus,
         }
       : candidate,
   );
@@ -133,10 +143,18 @@ async function reviewQuarantinedAsset(
     assetId: entry.assetId,
     mirrorId: entry.mirrorId,
     reason,
+    reviewer,
+    evidence: {
+      previousStatus: entry.status,
+      nextStatus,
+      upstreamUrl: entry.upstream.url,
+      authorityTier: entry.source.authorityTier,
+      publisher: entry.source.publisher,
+      publisherVerified: entry.source.publisherVerified,
+      contentHash: entry.contentHash,
+    },
   };
-  const previousDecisions = await readJsonLinesFile<QuarantineReviewDecision>(
-    join(projectRoot, ...REVIEW_LOG_PATH),
-  );
+  const previousDecisions = await readQuarantineReviewDecisions(projectRoot);
 
   await writeJsonLinesFile(
     join(projectRoot, ...MIRROR_INDEX_PATH),
@@ -146,9 +164,200 @@ async function reviewQuarantinedAsset(
     ...previousDecisions,
     decision,
   ]);
+  await writeQuarantineReport(projectRoot, nextEntries, [
+    ...previousDecisions,
+    decision,
+  ]);
 
   console.log(
-    `${action === "approved" ? "Approved" : "Rejected"} ${entry.assetId} (${entry.mirrorId}). Review log written to ${toPosixPath(join(projectRoot, ...REVIEW_LOG_PATH))}`,
+    `${formatReviewAction(action)} ${entry.assetId} (${entry.mirrorId}). Review log written to ${toPosixPath(join(projectRoot, ...REVIEW_LOG_PATH))}`,
+  );
+}
+
+async function writeQuarantineReport(
+  projectRoot: string,
+  entries: MirrorIndexEntry[] | undefined = undefined,
+  decisions: QuarantineReviewDecision[] | undefined = undefined,
+): Promise<void> {
+  const report = buildQuarantineStateReport(
+    entries ?? (await readMirrorIndex(projectRoot)),
+    decisions ?? (await readQuarantineReviewDecisions(projectRoot)),
+  );
+
+  await writeJsonFile(join(projectRoot, ...QUARANTINE_REPORT_PATH), report);
+  console.log(
+    `Wrote quarantine state report to ${toPosixPath(join(projectRoot, ...QUARANTINE_REPORT_PATH))}`,
+  );
+}
+
+function buildQuarantineStateReport(
+  entries: readonly MirrorIndexEntry[],
+  decisions: readonly QuarantineReviewDecision[],
+): QuarantineStateReport {
+  const decisionsByMirrorId = groupReviewDecisions(decisions);
+  const reportEntries = entries
+    .filter((entry) => shouldReportQuarantineEntry(entry, decisionsByMirrorId))
+    .map((entry) =>
+      buildQuarantineStateEntry(
+        entry,
+        decisionsByMirrorId.get(entry.mirrorId) ?? [],
+      ),
+    )
+    .sort((left, right) => left.assetId.localeCompare(right.assetId));
+
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    entries: reportEntries,
+    summary: {
+      quarantinedCount: reportEntries.filter(
+        (entry) => entry.currentState === "quarantined",
+      ).length,
+      approvedWithWarningCount: reportEntries.filter(
+        (entry) => entry.currentState === "approved-with-warning",
+      ).length,
+      rejectedCount: reportEntries.filter((entry) =>
+        entry.transitions.includes("review-rejected"),
+      ).length,
+      pinnedCount: reportEntries.filter((entry) =>
+        entry.transitions.includes("review-pinned"),
+      ).length,
+      reviewRequiredCount: reportEntries.filter((entry) =>
+        ["review", "keep-quarantined"].includes(entry.suggestedAction),
+      ).length,
+    },
+  };
+}
+
+function buildQuarantineStateEntry(
+  entry: MirrorIndexEntry,
+  decisions: readonly QuarantineReviewDecision[],
+): QuarantineStateEntry {
+  const latestDecision = decisions.at(-1);
+  const transitions = collectQuarantineTransitions(entry, decisions);
+  return {
+    assetId: entry.assetId,
+    mirrorId: entry.mirrorId,
+    currentState: entry.status,
+    reason: describeQuarantineReason(entry, transitions, latestDecision),
+    firstSeenAt: entry.mirroredAt,
+    lastReviewedAt: latestDecision?.reviewedAt,
+    suggestedAction: suggestQuarantineAction(entry, latestDecision),
+    transitions,
+    upstreamUrl: entry.upstream.url,
+    authorityTier: entry.source.authorityTier,
+    publisher: entry.source.publisher,
+    publisherVerified: entry.source.publisherVerified,
+    contentHash: entry.contentHash,
+  };
+}
+
+function collectQuarantineTransitions(
+  entry: MirrorIndexEntry,
+  decisions: readonly QuarantineReviewDecision[],
+): QuarantineTransition[] {
+  const transitions = new Set<QuarantineTransition>();
+  if (entry.status === "quarantined") {
+    transitions.add("new-risky-asset");
+  }
+  if (entry.source.authorityTier === "unverified-community") {
+    transitions.add("ownership-changed");
+  }
+  if (entry.status === "approved-with-warning") {
+    transitions.add("safer-update-available");
+  }
+  for (const decision of decisions) {
+    if (decision.action === "approved") {
+      transitions.add("review-approved");
+    } else if (decision.action === "rejected") {
+      transitions.add("review-rejected");
+    } else {
+      transitions.add("review-pinned");
+    }
+  }
+  return [...transitions];
+}
+
+function describeQuarantineReason(
+  entry: MirrorIndexEntry,
+  transitions: readonly QuarantineTransition[],
+  latestDecision: QuarantineReviewDecision | undefined,
+): string {
+  if (latestDecision) {
+    return latestDecision.reason;
+  }
+  if (entry.status === "quarantined") {
+    return "Asset is quarantined pending source, risk, and executable-behavior review.";
+  }
+  if (transitions.includes("review-approved")) {
+    return "Asset was approved with warning after quarantine review.";
+  }
+  return "Asset has quarantine lifecycle history.";
+}
+
+function suggestQuarantineAction(
+  entry: MirrorIndexEntry,
+  latestDecision: QuarantineReviewDecision | undefined,
+): QuarantineStateEntry["suggestedAction"] {
+  if (latestDecision?.action === "pinned") {
+    return "pin";
+  }
+  if (entry.status === "approved-with-warning") {
+    return "approve";
+  }
+  if (entry.status === "quarantined") {
+    return "review";
+  }
+  return "keep-quarantined";
+}
+
+function shouldReportQuarantineEntry(
+  entry: MirrorIndexEntry,
+  decisionsByMirrorId: Map<string, QuarantineReviewDecision[]>,
+): boolean {
+  return (
+    entry.status === "quarantined" ||
+    entry.status === "approved-with-warning" ||
+    decisionsByMirrorId.has(entry.mirrorId)
+  );
+}
+
+function groupReviewDecisions(
+  decisions: readonly QuarantineReviewDecision[],
+): Map<string, QuarantineReviewDecision[]> {
+  const byMirrorId = new Map<string, QuarantineReviewDecision[]>();
+  for (const decision of decisions) {
+    const existing = byMirrorId.get(decision.mirrorId) ?? [];
+    existing.push(decision);
+    byMirrorId.set(decision.mirrorId, existing);
+  }
+  return byMirrorId;
+}
+
+function getReviewedStatus(
+  action: QuarantineReviewAction,
+): MirrorIndexEntry["status"] {
+  if (action === "approved") {
+    return "approved-with-warning";
+  }
+  return "quarantined";
+}
+
+function formatReviewAction(action: QuarantineReviewAction): string {
+  if (action === "approved") {
+    return "Approved";
+  }
+  if (action === "pinned") {
+    return "Pinned";
+  }
+  return "Rejected";
+}
+
+async function readQuarantineReviewDecisions(
+  projectRoot: string,
+): Promise<QuarantineReviewDecision[]> {
+  return readJsonLinesFile<QuarantineReviewDecision>(
+    join(projectRoot, ...REVIEW_LOG_PATH),
   );
 }
 
@@ -197,6 +406,10 @@ function printQuarantineHelp(): void {
         description: "Show quarantined artifact metadata and content preview",
       },
       {
+        command: "report",
+        description: "Write state/quarantine/quarantine-state.json",
+      },
+      {
         command: "approve --asset <assetId>",
         description: "Mark a quarantined artifact approved-with-warning",
       },
@@ -204,6 +417,10 @@ function printQuarantineHelp(): void {
         command: "reject --asset <assetId>",
         description:
           "Record a rejection decision while keeping quarantine status",
+      },
+      {
+        command: "pin --asset <assetId>",
+        description: "Pin a quarantine decision for future refresh reviews",
       },
     ],
     sections: [
@@ -213,6 +430,7 @@ function printQuarantineHelp(): void {
           "--asset <assetId>",
           "--mirror <mirrorId>",
           "--reason <review reason>",
+          "--reviewer <name or bot id>",
         ],
       },
     ],

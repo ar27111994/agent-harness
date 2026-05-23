@@ -557,11 +557,13 @@ agent-harness mirror explain --asset <asset-id>
 ```bash
 agent-harness quarantine list
 agent-harness quarantine inspect --asset <asset-id>
+agent-harness quarantine report
 agent-harness quarantine approve --asset <asset-id> --reason "reviewed source and content"
 agent-harness quarantine reject --asset <asset-id> --reason "unsafe prompt or executable behavior"
+agent-harness quarantine pin --asset <asset-id> --reason "await ownership proof"
 ```
 
-Mirror acquisition routes high-risk or prompt-injection-like community assets into quarantine. Install and activation skip quarantined assets until an explicit review approves them as `approved-with-warning`.
+Mirror acquisition routes high-risk or prompt-injection-like community assets into quarantine. Install and activation skip quarantined assets until an explicit review approves them as `approved-with-warning`. `quarantine report` writes `state/quarantine/quarantine-state.json` with current state, reason, first seen, last reviewed, suggested action, and transition evidence. See [`QUARANTINE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/QUARANTINE-PLAYBOOK.md) for review flow.
 
 ### Stage / install
 

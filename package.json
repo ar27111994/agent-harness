@@ -87,8 +87,8 @@
     "HARNESS-MAINTENANCE-GUIDE.md",
     "MAINTENANCE-WORKFLOW.md",
     "README.md",
+    "QUARANTINE-PLAYBOOK.md",
     "CHANGELOG.md",
-    "discover/schema/source-pack.schema.json",
     "LICENSE"
   ],
   "publishConfig": {
