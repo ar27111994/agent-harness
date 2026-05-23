@@ -69,6 +69,7 @@
     "discover/sources.json",
     "mirror/policy.json",
     "mirror/schema/**",
+    "SOURCE-SYNC-DECOMPOSITION-PLAN.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
