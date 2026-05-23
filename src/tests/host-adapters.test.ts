@@ -117,14 +117,18 @@ void test("OpenCode adapter upserts and resets only the managed AGENTS section",
   }
 });
 
-void test("OpenCode wire links every supported asset bucket into the project overlay", async () => {
+void test("OpenCode wire projects reference-only plugin and MCP assets as files", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-opencode-"));
   const workspaceRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-workspace-"),
   );
 
   try {
-    const selectedAssets = buildAllAssetFixtures();
+    const selectedAssets = buildAllAssetFixtures().map((asset) =>
+      asset.assetKind === "plugin" || asset.assetKind === "mcp-server"
+        ? { ...asset, compatibilityMode: "reference-only" as const }
+        : asset,
+    );
     await writeOpenCodeActivation(projectRoot, selectedAssets);
     await writeOpenCodeInstallBundle(projectRoot, selectedAssets);
 
@@ -167,7 +171,11 @@ void test("OpenCode wire links every supported asset bucket into the project ove
       join(localOverlayRoot, "skills", sanitizeAssetId("asset-skill")),
     );
     await assertPathExists(
-      join(localOverlayRoot, "plugins", sanitizeAssetId("asset-plugin")),
+      join(
+        managedContextRoot,
+        "plugin-references",
+        `${sanitizeAssetId("asset-plugin")}.md`,
+      ),
     );
     await assertPathExists(
       join(managedContextRoot, "hooks", sanitizeAssetId("asset-hook")),
@@ -176,11 +184,15 @@ void test("OpenCode wire links every supported asset bucket into the project ove
       join(
         managedContextRoot,
         "reference-packs",
-        sanitizeAssetId("asset-reference"),
+        `${sanitizeAssetId("asset-reference")}.md`,
       ),
     );
     await assertPathExists(
-      join(managedContextRoot, "mcp-servers", sanitizeAssetId("asset-mcp")),
+      join(
+        managedContextRoot,
+        "mcp-references",
+        `${sanitizeAssetId("asset-mcp")}.md`,
+      ),
     );
     await assertPathExists(
       join(
@@ -189,6 +201,7 @@ void test("OpenCode wire links every supported asset bucket into the project ove
         sanitizeAssetId("ms-python.python"),
       ),
     );
+    assert.equal(wirePlan.mcpServers?.includes("asset-mcp"), false);
     await assertPathExists(
       join(
         localOverlayRoot,
@@ -308,7 +321,7 @@ void test("Cursor native wire plan exposes supported staged asset buckets", asyn
   }
 });
 
-void test("OpenCode-compatible native wire plans expose every asset bucket", async () => {
+void test("OpenCode-compatible native wire plans keep reference-only runnable assets as references", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-native-wire-"),
   );
@@ -317,7 +330,13 @@ void test("OpenCode-compatible native wire plans expose every asset bucket", asy
   );
 
   try {
-    const selectedAssets = buildAllAssetFixtures();
+    const selectedAssets = buildAllAssetFixtures().map((asset) =>
+      asset.assetKind === "plugin" ||
+      asset.assetKind === "mcp-server" ||
+      asset.assetKind === "extension"
+        ? { ...asset, compatibilityMode: "reference-only" as const }
+        : asset,
+    );
     await writeOpenCodeActivation(projectRoot, selectedAssets);
 
     for (const host of ["zed", "claude-code", "pi"] as const) {
@@ -331,7 +350,11 @@ void test("OpenCode-compatible native wire plans expose every asset bucket", asy
           "utf8",
         ),
       ) as WirePlanManifest;
-      assertCompleteNativeWirePlan(plan);
+      assertCompleteNativeWirePlan(plan, {
+        pluginRunnable: false,
+        mcpRunnable: false,
+        extensionRunnable: false,
+      });
     }
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -963,16 +986,39 @@ async function assertNativeHostExtras(
   }
 }
 
-function assertCompleteNativeWirePlan(plan: WirePlanManifest): void {
+function assertCompleteNativeWirePlan(
+  plan: WirePlanManifest,
+  options: {
+    pluginRunnable: boolean;
+    mcpRunnable: boolean;
+    extensionRunnable: boolean;
+  } = {
+    pluginRunnable: true,
+    mcpRunnable: true,
+    extensionRunnable: true,
+  },
+): void {
   assert.ok(plan.instructionsFiles?.length);
   assert.ok(plan.agentFiles?.length);
   assert.ok(plan.skillDirs?.length);
-  assert.ok(plan.pluginDirs?.length);
+  if (options.pluginRunnable) {
+    assert.ok(plan.pluginDirs?.length);
+  } else {
+    assert.equal(plan.pluginDirs?.length ?? 0, 0);
+  }
   assert.ok(plan.hookFiles?.length);
   assert.ok(plan.workflowFiles?.length);
   assert.ok(plan.referenceFiles?.length);
-  assert.ok(plan.mcpServers?.includes("asset-mcp"));
-  assert.ok(plan.extensionIds?.includes("ms-python.python"));
+  if (options.mcpRunnable) {
+    assert.ok(plan.mcpServers?.includes("asset-mcp"));
+  } else {
+    assert.equal(plan.mcpServers?.includes("asset-mcp"), false);
+  }
+  if (options.extensionRunnable) {
+    assert.ok(plan.extensionIds?.includes("ms-python.python"));
+  } else {
+    assert.equal(plan.extensionIds?.includes("ms-python.python"), false);
+  }
 }
 
 function assertWireCapabilities(

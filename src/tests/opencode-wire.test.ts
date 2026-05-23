@@ -98,7 +98,11 @@ void test("OpenCode wire apply/reset creates managed links, merges native config
     );
     assert.equal(
       await pathExists(
-        join(localOverlayRoot, "plugins", sanitizeAssetId("opencode.plugin")),
+        join(
+          localContextRoot,
+          "plugin-references",
+          `${sanitizeAssetId("opencode.plugin")}.md`,
+        ),
       ),
       true,
     );
@@ -786,7 +790,9 @@ function buildAssets(): AssetCatalogEntry[] {
     buildAsset("opencode.workflow", "workflow"),
     buildAsset("opencode.prompt-pack", "prompt-pack"),
     buildAsset("opencode.skill", "skill"),
-    buildAsset("opencode.plugin", "plugin"),
+    buildAsset("opencode.plugin", "plugin", {
+      compatibilityMode: "reference-only",
+    }),
     buildAsset("opencode.reference", "reference-pack"),
     buildAsset("opencode.native", "plugin", {
       hostNativeConfig: {
@@ -818,6 +824,7 @@ function buildAsset(
   id: string,
   assetKind: AssetCatalogEntry["assetKind"],
   options: {
+    compatibilityMode?: AssetCatalogEntry["compatibilityMode"];
     hostNativeConfig?: AssetHostNativeConfigMap;
   } = {},
 ): AssetCatalogEntry {
@@ -829,7 +836,7 @@ function buildAsset(
         : id.replace(/[.-]/gu, " "),
     assetKind,
     hosts: ["opencode"],
-    compatibilityMode: "adaptable",
+    compatibilityMode: options.compatibilityMode ?? "adaptable",
     source: {
       sourceId: `${id}-source`,
       authorityTier: "trusted-local",
@@ -936,6 +943,7 @@ void test("OpenCode wire internals validate snapshots and restore AGENTS fallbac
     openCodeWireInternals.materializeOpenCodeLinkedAsset({
       assetId: "missing.instruction",
       assetKind: "instruction",
+      compatibilityMode: "adaptable",
       sourcePath: missingSourcePath,
       linkPath,
       linkMode: "file",

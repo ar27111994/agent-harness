@@ -42,8 +42,8 @@ const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
   instruction: "context/project-intelligence/agent-harness/instructions",
   workflow: "commands",
   hook: "context/project-intelligence/agent-harness/hooks",
-  plugin: "plugins",
-  "mcp-server": "context/project-intelligence/agent-harness/mcp-servers",
+  plugin: "context/project-intelligence/agent-harness/plugin-references",
+  "mcp-server": "context/project-intelligence/agent-harness/mcp-references",
   extension: "context/project-intelligence/agent-harness/extensions",
   "prompt-pack": "commands",
   "reference-pack":
@@ -53,6 +53,7 @@ const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
 interface OpenCodeLinkedAsset {
   assetId: string;
   assetKind: AssetKind;
+  compatibilityMode: AssetCatalogEntry["compatibilityMode"];
   sourcePath: string;
   linkPath: string;
   linkMode: "directory" | "file";
@@ -271,8 +272,15 @@ async function resolveOpenCodeLinkedAssets(options: {
         activationRoot,
         sanitizeAssetId(packageManifest.assetId),
       );
+      const catalogEntry = await readJsonFileOrNull<AssetCatalogEntry>(
+        join(assetRoot, "asset.json"),
+      );
+      const compatibilityMode =
+        catalogEntry?.compatibilityMode ??
+        (packageManifest.assetKind === "extension" ? "native" : "adaptable");
       const fileLinkedAsset = isOpenCodeFileLinkedAsset(
         packageManifest.assetKind,
+        compatibilityMode,
       );
       const sourcePath = fileLinkedAsset
         ? join(assetRoot, "content.txt")
@@ -285,6 +293,7 @@ async function resolveOpenCodeLinkedAssets(options: {
       linkedAssets.push({
         assetId: packageManifest.assetId,
         assetKind: packageManifest.assetKind,
+        compatibilityMode,
         sourcePath,
         linkMode: fileLinkedAsset ? "file" : "directory",
         linkPath: join(
@@ -386,11 +395,16 @@ async function materializeOpenCodeLinkedAsset(
   await writeTextFile(linkedAsset.linkPath, content);
 }
 
-function isOpenCodeFileLinkedAsset(assetKind: AssetKind): boolean {
+function isOpenCodeFileLinkedAsset(
+  assetKind: AssetKind,
+  compatibilityMode: AssetCatalogEntry["compatibilityMode"],
+): boolean {
   return (
     assetKind === "instruction" ||
     assetKind === "workflow" ||
-    assetKind === "prompt-pack"
+    assetKind === "prompt-pack" ||
+    assetKind === "reference-pack" ||
+    compatibilityMode === "reference-only"
   );
 }
 
@@ -628,6 +642,7 @@ function toLoggableErrorMessage(error: unknown): string {
 export const openCodeWireInternals = {
   getManagedLinkedPaths,
   materializeOpenCodeLinkedAsset,
+  isOpenCodeFileLinkedAsset,
   validateManagedTextFileSnapshots,
   restoreManagedTextFileSnapshot,
   removeManagedLinksBestEffort,

@@ -59,6 +59,7 @@ interface NativeAsset {
   assetId: string;
   assetKind: AssetKind;
   displayName: string;
+  compatibilityMode: AssetCatalogEntry["compatibilityMode"];
   content: string;
   extensionId?: string;
   hostNativeConfig?: AssetHostNativeConfigMap;
@@ -352,6 +353,7 @@ async function readNativeAssetFromActivation(
     assetId,
     assetKind: asset.assetKind,
     displayName: asset.displayName,
+    compatibilityMode: asset.compatibilityMode,
     content,
     extensionId: resolveVsCodeExtensionId(asset),
     hostNativeConfig: asset.hostNativeConfig,
@@ -412,7 +414,11 @@ async function materializeNativeAssets(
         materializedAssets.skillDirs.push(assetRoot);
         break;
       case "plugin":
-        materializedAssets.pluginDirs.push(assetRoot);
+        if (nativeAsset.compatibilityMode === "reference-only") {
+          materializedAssets.referenceFiles.push(contentPath);
+        } else {
+          materializedAssets.pluginDirs.push(assetRoot);
+        }
         break;
       case "hook":
         materializedAssets.hookFiles.push(contentPath);
@@ -423,14 +429,19 @@ async function materializeNativeAssets(
         break;
       case "mcp-server":
         materializedAssets.referenceFiles.push(contentPath);
-        materializedAssets.mcpServers.push(nativeAsset.assetId);
+        if (nativeAsset.compatibilityMode !== "reference-only") {
+          materializedAssets.mcpServers.push(nativeAsset.assetId);
+        }
         break;
       case "reference-pack":
         materializedAssets.referenceFiles.push(contentPath);
         break;
       case "extension":
         materializedAssets.referenceFiles.push(contentPath);
-        if (nativeAsset.extensionId) {
+        if (
+          nativeAsset.compatibilityMode === "native" &&
+          nativeAsset.extensionId
+        ) {
           materializedAssets.extensionIds.push(nativeAsset.extensionId);
         }
         break;
