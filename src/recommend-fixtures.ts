@@ -10,12 +10,8 @@ import type {
   SourceKind,
 } from "./types.js";
 
-const FIXTURE_UPDATED_AT = new Date(
-  Date.now() - 3 * 24 * 60 * 60 * 1000,
-).toISOString();
-const FIXTURE_GENERATED_AT = new Date(
-  Date.now() - 4 * 24 * 60 * 60 * 1000,
-).toISOString();
+const FIXTURE_UPDATED_AT = "2025-01-15T12:00:00.000Z";
+const FIXTURE_GENERATED_AT = "2025-01-14T12:00:00.000Z";
 
 interface FixtureAssetOptions {
   assetKind: AssetKind;
