@@ -162,7 +162,8 @@
     "wire:pi": "node ./dist/cli.js wire pi --apply",
     "workspace:codex": "node ./dist/cli.js workspace codex",
     "wire:codex": "node ./dist/cli.js wire codex --apply",
-    "maintenance:summary": "node ./scripts/maintenance-summary.mjs"
+    "maintenance:summary": "node ./scripts/maintenance-summary.mjs",
+    "maintenance:bot-plan": "node ./scripts/maintenance-bot-plan.mjs"
   },
   "lint-staged": {
     "src/**/*.ts": [

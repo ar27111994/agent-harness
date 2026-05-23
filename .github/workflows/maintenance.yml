@@ -45,6 +45,7 @@ jobs:
           npm run recommend:report -- --intent general
           node ./dist/cli.js install refresh --host copilot-vscode --due-only
           node ./scripts/maintenance-summary.mjs
+          node ./scripts/maintenance-bot-plan.mjs
 
       - name: Upload maintenance artifacts
         uses: actions/upload-artifact@v4
@@ -55,5 +56,6 @@ jobs:
             discover/output/*.json
             discover/output/*.jsonl
             discover/output/maintenance-summary.md
+            discover/output/maintenance-bot-plan.json
             state/install/refresh-report.json
             state/install/refresh-state.json

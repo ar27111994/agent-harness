@@ -20,6 +20,7 @@ npm run discover:stats
 npm run recommend:report -- --intent general
 node ./dist/cli.js install refresh --host copilot-vscode --due-only
 node ./scripts/maintenance-summary.mjs
+node ./scripts/maintenance-bot-plan.mjs
 ```
 
 The workflow uploads these artifacts:
@@ -32,6 +33,7 @@ The workflow uploads these artifacts:
 - `discover/output/unknown-signals.json`
 - `discover/output/asset-fingerprints.json`
 - `discover/output/maintenance-summary.md`
+- `discover/output/maintenance-bot-plan.json`
 - `state/install/refresh-report.json`
 - `state/install/refresh-state.json`
 
@@ -48,6 +50,7 @@ npm run discover:stats
 npm run recommend:report -- --intent general
 node ./dist/cli.js install refresh --host copilot-vscode --due-only
 node ./scripts/maintenance-summary.mjs
+node ./scripts/maintenance-bot-plan.mjs
 ```
 
 For low-rate local runs, bound sync breadth:
@@ -68,6 +71,8 @@ Safe to propose automatically as report-only PRs:
 - low-risk metadata corrections with stable provenance
 - dormant-source notes that do not change trust tier
 - non-mutating documentation updates
+
+`scripts/maintenance-bot-plan.mjs` converts review reports into explicit PR/issue intents. Report-only updates can become PRs; source drift, source candidates, official-source demotions, and other trust-sensitive findings become review issues with evidence.
 
 Must stay human-review-gated:
 
