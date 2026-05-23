@@ -10,15 +10,16 @@
 [![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ar27111994/agent-harness)
 
-`agent-harness` is a Node.js 22+ TypeScript CLI, published as `@ar27111994/agent-harness`, for discovering, curating, staging, activating, and wiring reusable AI-agent assets into developer workspaces.
+`agent-harness` treats reusable AI-agent assets like a reproducible, auditable supply chain: discover trusted sources, rank recommendations, mirror pinned bundles, quarantine risky assets, stage and activate selected assets, then wire them into VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex workspaces.
 
-It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, and reset behavior required by VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
+It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, preview/apply/reset behavior, and explicit native-install boundaries required by that host.
 
 ## Table of contents
 
 - [What this project does](#what-this-project-does)
 - [Lifecycle model](#lifecycle-model)
 - [Supported hosts](#supported-hosts)
+- [Where it fits](#where-it-fits)
 - [Quick start](#quick-start)
 - [Usage examples](#usage-examples)
 - [Key playbooks](#key-playbooks)
@@ -108,6 +109,19 @@ Use `setup hosts` to print the registered adapters from the local build:
 ```bash
 agent-harness setup hosts
 ```
+
+## Where it fits
+
+`agent-harness` is the supply-chain layer that decides what reusable agent assets enter a workspace and how they are staged, activated, reviewed, and wired. It does **not** run agents. It prepares inspectable inputs for the host or harness you already use.
+
+| Tool or category               | What it does                                                                                                                                                                                                | Boundary                                                                                                                        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Curated skill/plugin libraries | Help you find and install assets from one ecosystem or curated catalog.                                                                                                                                     | Usually focused on acquisition, not cross-host lifecycle state, pinned mirrors, quarantine, and resettable wire plans.          |
+| MCP/server lists               | Help you discover servers and integration ideas.                                                                                                                                                            | Lists are references; they do not decide what enters a workspace, stage reproducible artifacts, or manage host-specific wiring. |
+| Agent runtime harnesses        | Run agents, tasks, models, tools, and sessions.                                                                                                                                                             | `agent-harness` is not the runtime. It manages reusable assets before they enter one.                                           |
+| **agent-harness**              | **Discovers sources, ranks recommendations, mirrors pinned bundles, stages/activates assets, quarantines risky inputs, and wires selected assets into supported hosts with preview/apply/reset semantics.** | **Supply-chain and workspace integration layer for reusable AI-agent assets.**                                                  |
+
+The practical lifecycle is: `discover -> recommend -> mirror -> stage -> activate -> wire`. Official and verified sources are preferred over popularity-only signals, mirrored generations are pinned for review, risky candidates route through quarantine, and native/global host installs remain explicit instead of hidden inside `workspace <host>`.
 
 ## Quick start
 
