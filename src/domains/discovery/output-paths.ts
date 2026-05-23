@@ -17,6 +17,15 @@ export const UNKNOWN_SIGNALS_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the asset lifecycle fingerprint output path location used by persisted project state.
+ */
+export const ASSET_FINGERPRINTS_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "asset-fingerprints.json",
+];
+
+/**
  * Defines the source index output path location used by persisted project state.
  */
 export const SOURCE_INDEX_OUTPUT_PATH = [

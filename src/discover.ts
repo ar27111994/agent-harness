@@ -32,6 +32,7 @@ import {
   orchestrateAiEnrichment,
   type AiEnrichmentOrchestrationResult,
 } from "./domains/discovery/ai-enrichment.js";
+import { writeAssetLifecycleFingerprintReport } from "./domains/discovery/asset-fingerprints.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
@@ -480,9 +481,14 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     join(projectRoot, ...SELECTION_REPORT_OUTPUT_PATH),
     selectionReport,
   );
+  const fingerprintReport =
+    await writeAssetLifecycleFingerprintReport(projectRoot);
 
   console.log(
     `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
+  );
+  console.log(
+    `Asset lifecycle fingerprints written (${fingerprintReport.assetCount} assets, ${fingerprintReport.duplicateGroupCount} duplicate groups)`,
   );
 
   return {

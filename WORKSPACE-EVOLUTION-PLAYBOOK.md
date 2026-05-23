@@ -34,6 +34,7 @@ Keep `wire <host>` in preview mode until the report changes make sense. Use `wor
 | `discover/output/source-utilization.json`  | Whether selected sources produced usable catalog entries or are dead weight.                                 |
 | `discover/output/selection-report.json`    | Why candidates were accepted, rejected, capped, or deferred.                                                 |
 | `discover/catalog.assets.jsonl`            | Raw asset evidence before ranking.                                                                           |
+| `discover/output/asset-fingerprints.json`  | Stable asset identity, mirror content hashes, trust/quarantine state, and duplicate-group evidence.          |
 | `state/recommendations.json`               | Ranked host-specific recommendations and budgets.                                                            |
 | `mirror/bundles/*.lock.json`               | Pinned mirror inputs for reproducibility.                                                                    |
 | `mirror/quarantine/**`                     | Risky content that must not be staged/activated without review.                                              |
@@ -141,6 +142,7 @@ Inspect:
 - discover/output/unknown-signals.json
 - discover/output/source-utilization.json
 - discover/output/selection-report.json
+- discover/output/asset-fingerprints.json
 - state/recommendations.json
 - mirror/bundles/*.lock.json
 - mirror/quarantine/**
