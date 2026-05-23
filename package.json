@@ -83,6 +83,7 @@
     "mirror/policy.json",
     "mirror/schema/**",
     "SOURCE-SYNC-DECOMPOSITION-PLAN.md",
+    "WORKSPACE-EVOLUTION-PLAYBOOK.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"

@@ -53,6 +53,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md)
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md)
 - [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
+- [Workspace evolution control-loop playbook](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md)
 
 ## What this project does
 
@@ -537,7 +538,7 @@ Print the merged effective policy for a host:
 agent-harness recommend policy:print --host shared
 ```
 
-If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md).
+If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md). For recurring post-wire-in repository drift, use [`WORKSPACE-EVOLUTION-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md).
 
 ### Mirror
 
