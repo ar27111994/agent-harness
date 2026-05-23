@@ -24,6 +24,7 @@ interface SourcePackShape {
   entries: Array<{
     id: string;
     repo: string;
+    kind?: SourceDefinition["kind"];
     authorityTier?: SourceDefinition["authorityTier"];
     publisher?: string;
     publisherVerified?: boolean;
@@ -91,7 +92,7 @@ export async function loadSourceRegistry(
       generatedSources.push({
         id: entry.id,
         name: entry.name ?? humanizeSlug(lastPathSegment(entry.repo)),
-        kind: "repo",
+        kind: entry.kind ?? "repo",
         authorityTier: entry.authorityTier ?? "trusted-community",
         publisher: {
           name: entry.publisher ?? repoOwner,
@@ -201,6 +202,19 @@ function assertSourcePackShape(
     assertRepositoryString(
       entryRecord.repo,
       `${context}.entries[${index}].repo`,
+    );
+    assertOptionalEnum(
+      entryRecord.kind,
+      [
+        "repo",
+        "docs",
+        "marketplace",
+        "registry",
+        "package-registry",
+        "local-manifest",
+        "local-directory",
+      ],
+      `${context}.entries[${index}].kind`,
     );
     assertOptionalEnum(
       entryRecord.authorityTier,

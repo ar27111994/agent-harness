@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -7,6 +7,38 @@ import test from "node:test";
 import { writeJsonFile } from "../files.js";
 import { loadSourceRegistry } from "../domains/discovery/source-registry.js";
 import type { SelectionRegistry, SourceDefinition } from "../types.js";
+
+void test("checked-in source pack entries declare taxonomy fields", async () => {
+  for (const sourcePackPath of [
+    join(process.cwd(), "discover", "source-packs", "official.json"),
+    join(process.cwd(), "discover", "source-packs", "community.json"),
+  ]) {
+    const sourcePack = JSON.parse(await readFile(sourcePackPath, "utf8")) as {
+      entries: Array<{
+        id: string;
+        kind?: string;
+        hosts?: string[];
+        assetKinds?: string[];
+      }>;
+    };
+    const incompleteEntries = sourcePack.entries
+      .filter(
+        (entry) =>
+          !entry.kind ||
+          !entry.hosts ||
+          entry.hosts.length === 0 ||
+          !entry.assetKinds ||
+          entry.assetKinds.length === 0,
+      )
+      .map((entry) => entry.id);
+
+    assert.deepEqual(
+      incompleteEntries,
+      [],
+      `${sourcePackPath} entries should declare kind, hosts, and assetKinds`,
+    );
+  }
+});
 
 void test("source registry includes Codex community source pack entries", async () => {
   const registry = await loadSourceRegistry(process.cwd());
@@ -48,6 +80,99 @@ void test("source registry includes Codex community source pack entries", async 
   ]);
 });
 
+void test("source registry includes requested Codex-compatible source pack entries", async () => {
+  const registry = await loadSourceRegistry(process.cwd());
+  const anthropicClaudeCode = registry.sources.find(
+    (source) => source.id === "anthropics-claude-code-pack",
+  );
+  const trailOfBitsSkills = registry.sources.find(
+    (source) => source.id === "trailofbits-skills-pack",
+  );
+  const trailOfBitsConfig = registry.sources.find(
+    (source) => source.id === "trailofbits-claude-code-config",
+  );
+  const gitNexus = registry.sources.find(
+    (source) => source.id === "abhigyanpatwari-gitnexus",
+  );
+  const superpowers = registry.sources.find(
+    (source) => source.id === "obra-superpowers",
+  );
+
+  assert.ok(anthropicClaudeCode);
+  assert.equal(anthropicClaudeCode?.authorityTier, "official-first-party");
+  assert.deepEqual(anthropicClaudeCode?.hosts, [
+    "claude-code",
+    "opencode",
+    "codex",
+    "cursor",
+    "copilot-vscode",
+  ]);
+  assert.deepEqual(anthropicClaudeCode?.assetKinds, [
+    "plugin",
+    "skill",
+    "agent",
+    "instruction",
+    "workflow",
+    "hook",
+    "mcp-server",
+    "reference-pack",
+  ]);
+
+  assert.ok(trailOfBitsSkills);
+  assert.equal(trailOfBitsSkills?.authorityTier, "official-first-party");
+  assert.deepEqual(trailOfBitsSkills?.hosts, [
+    "codex",
+    "claude-code",
+    "opencode",
+    "cursor",
+    "copilot-vscode",
+  ]);
+  assert.deepEqual(trailOfBitsSkills?.includePaths?.slice(0, 4), [
+    "README.md",
+    "CLAUDE.md",
+    ".codex/INSTALL.md",
+    ".codex/skills/**",
+  ]);
+
+  assert.ok(trailOfBitsConfig);
+  assert.equal(trailOfBitsConfig?.authorityTier, "trusted-community");
+  assert.deepEqual(trailOfBitsConfig?.hosts, [
+    "claude-code",
+    "codex",
+    "opencode",
+  ]);
+  assert.deepEqual(trailOfBitsConfig?.assetKinds, [
+    "instruction",
+    "workflow",
+    "hook",
+    "mcp-server",
+    "reference-pack",
+  ]);
+
+  assert.ok(gitNexus);
+  assert.deepEqual(gitNexus?.hosts, [
+    "claude-code",
+    "cursor",
+    "codex",
+    "opencode",
+    "copilot-vscode",
+  ]);
+  assert.deepEqual(gitNexus?.assetKinds, [
+    "plugin",
+    "skill",
+    "mcp-server",
+    "hook",
+    "instruction",
+    "workflow",
+    "reference-pack",
+  ]);
+
+  assert.ok(superpowers);
+  assert.ok(superpowers?.hosts.includes("codex"));
+  assert.ok(superpowers?.assetKinds.includes("plugin"));
+  assert.ok(superpowers?.includePaths?.includes(".codex-plugin/**"));
+});
+
 void test("source registry includes official Penpot MCP source pack entry", async () => {
   const registry = await loadSourceRegistry(process.cwd());
   const penpotSource = registry.sources.find(
@@ -65,6 +190,7 @@ void test("source registry includes official Penpot MCP source pack entry", asyn
     "claude-code",
     "pi",
     "shared",
+    "codex",
   ]);
   assert.deepEqual(penpotSource?.assetKinds, ["mcp-server", "reference-pack"]);
   assert.equal(
@@ -111,6 +237,7 @@ void test("source registry generates repo sources from packs and dedupes matchin
           {
             id: "new-toolkit",
             repo: "git@github.com:acme/new-toolkit.git",
+            kind: "registry",
             authorityTier: "official-compatible",
             publisherVerified: true,
             priority: 75,
@@ -146,6 +273,7 @@ void test("source registry generates repo sources from packs and dedupes matchin
 
     assert.ok(generated);
     assert.equal(generated?.name, "New Toolkit.Git");
+    assert.equal(generated?.kind, "registry");
     assert.equal(generated?.authorityTier, "official-compatible");
     assert.deepEqual(generated?.hosts, ["copilot-vscode", "opencode"]);
     assert.deepEqual(generated?.assetKinds, [

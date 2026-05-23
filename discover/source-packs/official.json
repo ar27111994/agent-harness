@@ -8,7 +8,25 @@
       "publisher": "Anthropic",
       "publisherVerified": true,
       "priority": 100,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "anthropics-claude-cookbooks-pack",
@@ -18,7 +36,17 @@
       "publisherVerified": true,
       "priority": 95,
       "enabled": true,
-      "assetKinds": ["reference-pack", "instruction", "workflow"]
+      "assetKinds": ["reference-pack", "instruction", "workflow"],
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ]
     },
     {
       "id": "remotion-dev-skills-pack",
@@ -27,7 +55,25 @@
       "publisher": "Remotion",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "vercel-labs-agent-skills-pack",
@@ -36,7 +82,25 @@
       "publisher": "Vercel",
       "publisherVerified": true,
       "priority": 100,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "openai-skills-pack",
@@ -45,7 +109,25 @@
       "publisher": "OpenAI",
       "publisherVerified": true,
       "priority": 100,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "penpot-mcp-pack",
@@ -57,7 +139,15 @@
       "priority": 100,
       "enabled": true,
       "assetKinds": ["mcp-server", "reference-pack"],
-      "hosts": ["opencode", "cursor", "zed", "claude-code", "pi", "shared"],
+      "hosts": [
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "shared",
+        "codex"
+      ],
       "includePaths": [
         "mcp/README.md",
         "mcp/packages/server/**",
@@ -65,7 +155,8 @@
         "docs/user-guide/integrations/mcp/**"
       ],
       "excludePaths": ["mcp/packages/plugin/**"],
-      "mcpServerPaths": ["mcp/packages/server/src/**"]
+      "mcpServerPaths": ["mcp/packages/server/src/**"],
+      "kind": "repo"
     },
     {
       "id": "microsoft-skills-pack",
@@ -74,7 +165,25 @@
       "publisher": "Microsoft",
       "publisherVerified": true,
       "priority": 100,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "google-gemini-skills-pack",
@@ -83,7 +192,25 @@
       "publisher": "Google Gemini",
       "publisherVerified": true,
       "priority": 100,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "apify-agent-skills-pack",
@@ -92,7 +219,25 @@
       "publisher": "Apify",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "android-skills-pack",
@@ -101,7 +246,25 @@
       "publisher": "Android",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "expo-skills-pack",
@@ -110,7 +273,25 @@
       "publisher": "Expo",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "huggingface-skills-pack",
@@ -119,7 +300,25 @@
       "publisher": "Hugging Face",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "neondatabase-agent-skills-pack",
@@ -128,7 +327,25 @@
       "publisher": "Neon",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "scopeblind-gateway-pack",
@@ -138,8 +355,18 @@
       "publisherVerified": true,
       "priority": 95,
       "enabled": true,
-      "hosts": ["copilot-vscode", "opencode", "shared"],
-      "assetKinds": ["mcp-server", "workflow", "reference-pack"]
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server", "workflow", "reference-pack"],
+      "kind": "repo"
     },
     {
       "id": "pbakaus-impeccable-pack",
@@ -148,7 +375,25 @@
       "publisher": "pbakaus",
       "publisherVerified": false,
       "priority": 70,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "flutter-skills-pack",
@@ -157,7 +402,25 @@
       "publisher": "Flutter",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "genkit-ai-skills-pack",
@@ -166,7 +429,25 @@
       "publisher": "Genkit",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
     },
     {
       "id": "firebase-skills-pack",
@@ -175,7 +456,90 @@
       "publisher": "Firebase",
       "publisherVerified": true,
       "priority": 95,
-      "enabled": true
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ]
+    },
+    {
+      "id": "anthropics-claude-code-pack",
+      "name": "Claude Code",
+      "repo": "https://github.com/anthropics/claude-code",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Anthropic",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true,
+      "hosts": ["claude-code", "opencode", "codex", "cursor", "copilot-vscode"],
+      "assetKinds": [
+        "plugin",
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "hook",
+        "mcp-server",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "README.md",
+        "CHANGELOG.md",
+        "SECURITY.md",
+        "plugins/**",
+        ".claude-plugin/**",
+        ".claude/**",
+        "examples/hooks/**",
+        "examples/settings/**",
+        "examples/mdm/**"
+      ],
+      "excludePaths": [".github/**", ".devcontainer/**", "demo.gif", "feed.xml"]
+    },
+    {
+      "id": "trailofbits-skills-pack",
+      "name": "Trail of Bits Skills",
+      "repo": "https://github.com/trailofbits/skills",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Trail of Bits",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true,
+      "hosts": ["codex", "claude-code", "opencode", "cursor", "copilot-vscode"],
+      "assetKinds": [
+        "skill",
+        "plugin",
+        "agent",
+        "instruction",
+        "workflow",
+        "hook",
+        "mcp-server",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "README.md",
+        "CLAUDE.md",
+        ".codex/INSTALL.md",
+        ".codex/skills/**",
+        "plugins/**",
+        ".claude-plugin/**"
+      ],
+      "excludePaths": [".github/**"]
     }
   ]
 }

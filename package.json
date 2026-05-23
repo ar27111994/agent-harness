@@ -88,6 +88,7 @@
     "MAINTENANCE-WORKFLOW.md",
     "README.md",
     "CHANGELOG.md",
+    "discover/schema/source-pack.schema.json",
     "LICENSE"
   ],
   "publishConfig": {

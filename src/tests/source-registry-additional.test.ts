@@ -297,6 +297,24 @@ void test("source registry rejects malformed source pack shapes and required fie
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            kind: "not-real",
+          },
+        ],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /kind must be one of/u,
+    );
+
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: "broken",
+            repo: "https://github.com/acme/broken",
             authorityTier: "not-real",
           },
         ],

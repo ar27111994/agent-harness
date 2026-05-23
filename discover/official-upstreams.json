@@ -35,6 +35,7 @@
     "scopeblind": ["scopeblind"],
     "penpot": ["penpot"],
     "zed-industries": ["zed-industries"],
-    "pi": ["pi"]
+    "pi": ["pi"],
+    "trailofbits": ["trailofbits"]
   }
 }

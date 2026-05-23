@@ -1,43 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://agent-harness.local/discover/source-registry.schema.json",
+  "$id": "https://agent-harness.local/discover/source-pack.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "sources"],
+  "required": ["schemaVersion", "entries"],
   "properties": {
-    "$schema": {
-      "type": "string"
-    },
     "schemaVersion": {
       "type": "integer",
       "minimum": 1
     },
-    "sources": {
+    "entries": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "id",
-          "name",
-          "kind",
-          "authorityTier",
-          "hosts",
-          "assetKinds",
-          "discoveryMode",
-          "priority",
-          "enabled",
-          "endpoints",
-          "rules"
-        ],
+        "required": ["id", "repo"],
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "repo": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
           },
           "kind": {
             "type": "string",
@@ -63,36 +55,19 @@
             ]
           },
           "publisher": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["name"],
-            "properties": {
-              "name": {
-                "type": "string"
-              },
-              "verified": {
-                "type": "boolean"
-              },
-              "owner": {
-                "type": "string"
-              }
-            }
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "publisherVerified": {
+            "type": "boolean"
           },
           "hosts": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "string",
-              "enum": [
-                "copilot-vscode",
-                "opencode",
-                "shared",
-                "cursor",
-                "zed",
-                "claude-code",
-                "pi",
-                "codex"
-              ]
+              "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
             }
           },
           "assetKinds": {
@@ -112,26 +87,6 @@
                 "prompt-pack",
                 "reference-pack"
               ]
-            }
-          },
-          "discoveryMode": {
-            "type": "string",
-            "enum": ["catalog", "seed"]
-          },
-          "priority": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "enabled": {
-            "type": "boolean"
-          },
-          "endpoints": {
-            "type": "object",
-            "minProperties": 1,
-            "additionalProperties": {
-              "type": "string",
-              "minLength": 1
             }
           },
           "includePaths": {
@@ -158,21 +113,13 @@
               "pattern": "\\S"
             }
           },
-          "rules": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["officialPreferred", "allowMirror", "allowInstall"],
-            "properties": {
-              "officialPreferred": {
-                "type": "boolean"
-              },
-              "allowMirror": {
-                "type": "boolean"
-              },
-              "allowInstall": {
-                "type": "boolean"
-              }
-            }
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "enabled": {
+            "type": "boolean"
           }
         }
       }
