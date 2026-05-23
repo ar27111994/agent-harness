@@ -26,6 +26,33 @@ export const ASSET_FINGERPRINTS_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the source health report output path location used by persisted project state.
+ */
+export const SOURCE_HEALTH_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "source-health.json",
+];
+
+/**
+ * Defines the source drift report output path location used by persisted project state.
+ */
+export const SOURCE_DRIFT_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "source-drift.json",
+];
+
+/**
+ * Defines the catalog maintenance candidate output path location used by persisted project state.
+ */
+export const CATALOG_MAINTENANCE_CANDIDATES_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "catalog-maintenance-candidates.json",
+];
+
+/**
  * Defines the source index output path location used by persisted project state.
  */
 export const SOURCE_INDEX_OUTPUT_PATH = [

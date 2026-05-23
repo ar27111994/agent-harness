@@ -26,20 +26,23 @@ Keep `wire <host>` in preview mode until the report changes make sense. Use `wor
 
 ## What to inspect
 
-| Output                                     | Decision it supports                                                                                         |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `discover/output/demand-profile.json`      | Which technologies, file families, host configs, package manifests, and docs now drive demand.               |
-| `discover/output/unknown-signals.json`     | Unfamiliar MCP manifests, host rule folders, plugin manifests, and package dependencies that need follow-up. |
-| `discover/output/source-index.json`        | Which configured/generated sources are enabled, indexed, direct, or unsupported.                             |
-| `discover/output/source-utilization.json`  | Whether selected sources produced usable catalog entries or are dead weight.                                 |
-| `discover/output/selection-report.json`    | Why candidates were accepted, rejected, capped, or deferred.                                                 |
-| `discover/catalog.assets.jsonl`            | Raw asset evidence before ranking.                                                                           |
-| `discover/output/asset-fingerprints.json`  | Stable asset identity, mirror content hashes, trust/quarantine state, and duplicate-group evidence.          |
-| `state/recommendations.json`               | Ranked host-specific recommendations and budgets.                                                            |
-| `mirror/bundles/*.lock.json`               | Pinned mirror inputs for reproducibility.                                                                    |
-| `mirror/quarantine/**`                     | Risky content that must not be staged/activated without review.                                              |
-| `state/install/refresh-report.json`        | Already installed assets that are stale relative to current locks.                                           |
-| `activate/<host>/wire-preview-<host>.json` | Exact workspace writes planned by the host adapter.                                                          |
+| Output                                                | Decision it supports                                                                                         |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `discover/output/demand-profile.json`                 | Which technologies, file families, host configs, package manifests, and docs now drive demand.               |
+| `discover/output/unknown-signals.json`                | Unfamiliar MCP manifests, host rule folders, plugin manifests, and package dependencies that need follow-up. |
+| `discover/output/source-index.json`                   | Which configured/generated sources are enabled, indexed, direct, or unsupported.                             |
+| `discover/output/source-utilization.json`             | Whether selected sources produced usable catalog entries or are dead weight.                                 |
+| `discover/output/source-health.json`                  | Deterministic source health, drift severity, duplicate rate, and recommended maintenance action.             |
+| `discover/output/source-drift.json`                   | Broken, stale, dormant, or ambiguous-trust sources that need review.                                         |
+| `discover/output/catalog-maintenance-candidates.json` | Source/catalogue maintenance candidates suitable for scheduled jobs or PRs.                                  |
+| `discover/output/selection-report.json`               | Why candidates were accepted, rejected, capped, or deferred.                                                 |
+| `discover/catalog.assets.jsonl`                       | Raw asset evidence before ranking.                                                                           |
+| `discover/output/asset-fingerprints.json`             | Stable asset identity, mirror content hashes, trust/quarantine state, and duplicate-group evidence.          |
+| `state/recommendations.json`                          | Ranked host-specific recommendations and budgets.                                                            |
+| `mirror/bundles/*.lock.json`                          | Pinned mirror inputs for reproducibility.                                                                    |
+| `mirror/quarantine/**`                                | Risky content that must not be staged/activated without review.                                              |
+| `state/install/refresh-report.json`                   | Already installed assets that are stale relative to current locks.                                           |
+| `activate/<host>/wire-preview-<host>.json`            | Exact workspace writes planned by the host adapter.                                                          |
 
 ## Decision points
 
@@ -141,6 +144,9 @@ Inspect:
 - discover/output/demand-profile.json
 - discover/output/unknown-signals.json
 - discover/output/source-utilization.json
+- discover/output/source-health.json
+- discover/output/source-drift.json
+- discover/output/catalog-maintenance-candidates.json
 - discover/output/selection-report.json
 - discover/output/asset-fingerprints.json
 - state/recommendations.json

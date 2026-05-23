@@ -64,6 +64,7 @@ import {
   loadRemoteHarvestState,
   writeRemoteHarvestState,
 } from "./domains/discovery/remote-state.js";
+import { writeSourceHealthReports } from "./domains/discovery/source-health.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
 import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
 import {
@@ -483,12 +484,24 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   );
   const fingerprintReport =
     await writeAssetLifecycleFingerprintReport(projectRoot);
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
+  const sourceSyncState = await loadSourceSyncState(projectRoot);
+  const sourceHealthReport = await writeSourceHealthReports(
+    projectRoot,
+    sourceRegistry.sources.filter((source) => source.enabled),
+    sortedSelectedEntries,
+    sortedRejectedEntries,
+    sourceSyncState,
+  );
 
   console.log(
     `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
   );
   console.log(
     `Asset lifecycle fingerprints written (${fingerprintReport.assetCount} assets, ${fingerprintReport.duplicateGroupCount} duplicate groups)`,
+  );
+  console.log(
+    `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
   );
 
   return {
