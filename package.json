@@ -84,6 +84,7 @@
     "mirror/schema/**",
     "SOURCE-SYNC-DECOMPOSITION-PLAN.md",
     "WORKSPACE-EVOLUTION-PLAYBOOK.md",
+    "HARNESS-MAINTENANCE-GUIDE.md",
     "MAINTENANCE-WORKFLOW.md",
     "README.md",
     "CHANGELOG.md",
