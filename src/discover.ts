@@ -33,6 +33,7 @@ import {
   type AiEnrichmentOrchestrationResult,
 } from "./domains/discovery/ai-enrichment.js";
 import { writeAssetLifecycleFingerprintReport } from "./domains/discovery/asset-fingerprints.js";
+import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
@@ -491,12 +492,19 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     sourceRegistry.sources,
   );
   const sourceSyncState = await loadSourceSyncState(projectRoot);
+  const enabledSources = sourceRegistry.sources.filter(
+    (source) => source.enabled,
+  );
   const sourceHealthReport = await writeSourceHealthReports(
     projectRoot,
-    sourceRegistry.sources.filter((source) => source.enabled),
+    enabledSources,
     sortedSelectedEntries,
     sortedRejectedEntries,
     sourceSyncState,
+  );
+  const sourceCandidateQueue = await writeSourceCandidateQueue(
+    projectRoot,
+    enabledSources,
   );
 
   console.log(
@@ -510,6 +518,9 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   );
   console.log(
     `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
+  );
+  console.log(
+    `Source candidate queue written (${sourceCandidateQueue.candidateCount} candidates, ${sourceCandidateQueue.reviewRequiredCount} review-required)`,
   );
 
   return {

@@ -35,6 +35,7 @@ Keep `wire <host>` in preview mode until the report changes make sense. Use `wor
 | `discover/output/source-health.json`                  | Deterministic source health, drift severity, duplicate rate, and recommended maintenance action.             |
 | `discover/output/source-drift.json`                   | Broken, stale, dormant, or ambiguous-trust sources that need review.                                         |
 | `discover/output/catalog-maintenance-candidates.json` | Source/catalogue maintenance candidates suitable for scheduled jobs or PRs.                                  |
+| `discover/output/source-candidates.json`              | New source candidates with provenance, score, duplicate status, recommended trust tier, and review action.   |
 | `discover/output/selection-report.json`               | Why candidates were accepted, rejected, capped, or deferred.                                                 |
 | `discover/catalog.assets.jsonl`                       | Raw asset evidence before ranking.                                                                           |
 | `discover/output/asset-fingerprints.json`             | Stable asset identity, mirror content hashes, trust/quarantine state, and duplicate-group evidence.          |
@@ -147,6 +148,7 @@ Inspect:
 - discover/output/source-health.json
 - discover/output/source-drift.json
 - discover/output/catalog-maintenance-candidates.json
+- discover/output/source-candidates.json
 - discover/output/selection-report.json
 - discover/output/asset-fingerprints.json
 - state/recommendations.json

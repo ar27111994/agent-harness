@@ -53,6 +53,15 @@ export const CATALOG_MAINTENANCE_CANDIDATES_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the source candidate queue output path location used by persisted project state.
+ */
+export const SOURCE_CANDIDATES_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "source-candidates.json",
+];
+
+/**
  * Defines the source index output path location used by persisted project state.
  */
 export const SOURCE_INDEX_OUTPUT_PATH = [
