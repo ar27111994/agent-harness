@@ -10,6 +10,10 @@ import type {
   MirrorIndexEntry,
 } from "../../types.js";
 import {
+  scoreCommunityAsset,
+  type CommunityAssetScore,
+} from "./community-scoring.js";
+import {
   ASSET_FINGERPRINTS_OUTPUT_PATH,
   CATALOG_OUTPUT_PATH,
 } from "./output-paths.js";
@@ -32,6 +36,7 @@ export interface AssetLifecycleFingerprint {
   quarantineState?: MirrorIndexEntry["status"];
   hosts: HostTarget[];
   duplicateGroup?: string;
+  communityScore?: CommunityAssetScore;
 }
 
 /**
@@ -145,6 +150,7 @@ export function buildAssetLifecycleFingerprint(
     quarantineState: mirrorEntry?.status,
     hosts: [...entry.hosts].sort(),
     duplicateGroup: entry.dedupe.duplicateGroup,
+    communityScore: scoreCommunityAsset(entry),
   };
 }
 

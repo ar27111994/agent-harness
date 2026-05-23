@@ -4,6 +4,7 @@ import { access, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
+import { shouldQuarantineCommunityAsset } from "../domains/discovery/community-scoring.js";
 import {
   createContentHash,
   ensureCleanDirectory,
@@ -961,6 +962,10 @@ function determineMirrorStatus(
 
   if (hasPromptInjectionRisk(materializedArtifact)) {
     return "approved-with-warning";
+  }
+
+  if (shouldQuarantineCommunityAsset(entry)) {
+    return "quarantined";
   }
 
   if (
