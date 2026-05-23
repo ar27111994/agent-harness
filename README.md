@@ -144,6 +144,15 @@ Preview mode writes reviewable wire plans without touching host files. Apply mod
 
 ## Quick start
 
+### Try it in one command
+
+```bash
+npm install -g @ar27111994/agent-harness
+agent-harness workspace opencode --intent general
+```
+
+Run the command from the workspace you want to inspect. By default, the installed CLI writes lifecycle state under `.agent-harness/`, applies only the selected adapter's managed project-local wire-in, and leaves native/global host installs, MCP authentication, marketplace extensions, and executable integrations as explicit follow-up operations. Review [What it produces](#what-it-produces) for the generated files and [Host wire-in details](#host-wire-in-details) for the exact OpenCode boundaries.
+
 ### Requirements
 
 - Node.js `>=22`
