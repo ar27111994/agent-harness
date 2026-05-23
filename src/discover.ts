@@ -51,6 +51,7 @@ import {
   CATALOG_OUTPUT_PATH,
   DEMAND_PROFILE_OUTPUT_PATH,
   REJECTED_CATALOG_OUTPUT_PATH,
+  UNKNOWN_SIGNALS_OUTPUT_PATH,
   REMOTE_CATALOG_STATE_OUTPUT_PATH,
   SELECTED_CATALOG_OUTPUT_PATH,
   SELECTION_REPORT_OUTPUT_PATH,
@@ -63,6 +64,7 @@ import {
   writeRemoteHarvestState,
 } from "./domains/discovery/remote-state.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
+import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
 import {
   assertAssetCatalogEntry,
   assertDemandProfile,
@@ -187,7 +189,19 @@ async function generateDemandProfile(
   const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH);
   await writeJsonFile(outputPath, demandProfile);
 
+  const unknownSignalsOutputPath = join(
+    projectRoot,
+    ...UNKNOWN_SIGNALS_OUTPUT_PATH,
+  );
+  const unknownSignalsReport = await writeUnknownSignalReport(
+    scanRoot,
+    unknownSignalsOutputPath,
+  );
+
   console.log(`Demand profile written to ${toPosixPath(outputPath)}`);
+  console.log(
+    `Unknown signal backlog written to ${toPosixPath(unknownSignalsOutputPath)} (${unknownSignalsReport.summary.signalCount} signals)`,
+  );
   return demandProfile;
 }
 

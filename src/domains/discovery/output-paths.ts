@@ -8,6 +8,15 @@ export const DEMAND_PROFILE_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the unknown-signal backlog output path location used by persisted project state.
+ */
+export const UNKNOWN_SIGNALS_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "unknown-signals.json",
+];
+
+/**
  * Defines the source index output path location used by persisted project state.
  */
 export const SOURCE_INDEX_OUTPUT_PATH = [
