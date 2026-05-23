@@ -14,6 +14,10 @@ import type {
   SourceRegistry,
 } from "../../types.js";
 import { buildGeneratedLocalSources } from "./local-sources.js";
+import {
+  applySourceVerificationDemotions,
+  buildSourceVerificationReport,
+} from "./source-verification.js";
 
 interface SourcePackShape {
   schemaVersion: number;
@@ -52,7 +56,7 @@ export async function loadSourceRegistry(
   );
 
   if (!(await pathExists(sourcePackDirectory))) {
-    return registryWithLocalSeeds;
+    return applySourceVerification(projectRoot, registryWithLocalSeeds);
   }
 
   const sourcePackFiles = (await listFilesRecursive(sourcePackDirectory))
@@ -126,9 +130,27 @@ export async function loadSourceRegistry(
     }
   }
 
-  return {
+  return applySourceVerification(projectRoot, {
     ...registryWithLocalSeeds,
     sources: [...registryWithLocalSeeds.sources, ...generatedSources],
+  });
+}
+
+async function applySourceVerification(
+  projectRoot: string,
+  registry: SourceRegistry,
+): Promise<SourceRegistry> {
+  const verificationReport = await buildSourceVerificationReport(
+    projectRoot,
+    registry.sources,
+  );
+
+  return {
+    ...registry,
+    sources: applySourceVerificationDemotions(
+      registry.sources,
+      verificationReport,
+    ),
   };
 }
 

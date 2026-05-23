@@ -32,6 +32,9 @@
     "firebase": ["firebase"],
     "apify": ["apify"],
     "duckdb": ["duckdb"],
-    "scopeblind": ["scopeblind"]
+    "scopeblind": ["scopeblind"],
+    "penpot": ["penpot"],
+    "zed-industries": ["zed-industries"],
+    "pi": ["pi"]
   }
 }

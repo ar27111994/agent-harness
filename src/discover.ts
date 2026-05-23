@@ -66,6 +66,7 @@ import {
 } from "./domains/discovery/remote-state.js";
 import { writeSourceHealthReports } from "./domains/discovery/source-health.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
+import { writeSourceVerificationReport } from "./domains/discovery/source-verification.js";
 import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
 import {
   assertAssetCatalogEntry,
@@ -485,6 +486,10 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   const fingerprintReport =
     await writeAssetLifecycleFingerprintReport(projectRoot);
   const sourceRegistry = await loadSourceRegistry(projectRoot);
+  const sourceVerificationReport = await writeSourceVerificationReport(
+    projectRoot,
+    sourceRegistry.sources,
+  );
   const sourceSyncState = await loadSourceSyncState(projectRoot);
   const sourceHealthReport = await writeSourceHealthReports(
     projectRoot,
@@ -499,6 +504,9 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   );
   console.log(
     `Asset lifecycle fingerprints written (${fingerprintReport.assetCount} assets, ${fingerprintReport.duplicateGroupCount} duplicate groups)`,
+  );
+  console.log(
+    `Source verification report written (${sourceVerificationReport.demotedSourceCount} deterministic demotions)`,
   );
   console.log(
     `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
