@@ -84,6 +84,7 @@
     "mirror/schema/**",
     "SOURCE-SYNC-DECOMPOSITION-PLAN.md",
     "WORKSPACE-EVOLUTION-PLAYBOOK.md",
+    "MAINTENANCE-WORKFLOW.md",
     "README.md",
     "CHANGELOG.md",
     "LICENSE"
@@ -160,7 +161,8 @@
     "wire:claude-code": "node ./dist/cli.js wire claude-code --apply",
     "wire:pi": "node ./dist/cli.js wire pi --apply",
     "workspace:codex": "node ./dist/cli.js workspace codex",
-    "wire:codex": "node ./dist/cli.js wire codex --apply"
+    "wire:codex": "node ./dist/cli.js wire codex --apply",
+    "maintenance:summary": "node ./scripts/maintenance-summary.mjs"
   },
   "lint-staged": {
     "src/**/*.ts": [

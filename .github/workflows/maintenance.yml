@@ -1,0 +1,59 @@
+name: Maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  discovery-maintenance:
+    name: Discovery and catalogue maintenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Refresh discovery reports
+        env:
+          AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1"
+          AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS: "50"
+          AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "2"
+          AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY: "10"
+        run: |
+          npm run discover:sources
+          npm run discover:sync
+          npm run discover:sources
+          npm run discover:catalog
+          npm run discover:select -- --no-ai-enrich
+          npm run discover:stats
+          npm run recommend:report -- --intent general
+          node ./dist/cli.js install refresh --host copilot-vscode --due-only
+          node ./scripts/maintenance-summary.mjs
+
+      - name: Upload maintenance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-harness-maintenance-reports
+          if-no-files-found: warn
+          path: |
+            discover/output/*.json
+            discover/output/*.jsonl
+            discover/output/maintenance-summary.md
+            state/install/refresh-report.json
+            state/install/refresh-state.json
