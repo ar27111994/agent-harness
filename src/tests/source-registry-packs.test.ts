@@ -8,6 +8,46 @@ import { writeJsonFile } from "../files.js";
 import { loadSourceRegistry } from "../domains/discovery/source-registry.js";
 import type { SelectionRegistry, SourceDefinition } from "../types.js";
 
+void test("source registry includes Codex community source pack entries", async () => {
+  const registry = await loadSourceRegistry(process.cwd());
+  const codexSubagents = registry.sources.find(
+    (source) => source.id === "voltagent-awesome-codex-subagents",
+  );
+  const codexPlugins = registry.sources.find(
+    (source) => source.id === "hashgraph-online-awesome-codex-plugins",
+  );
+
+  assert.ok(codexSubagents);
+  assert.deepEqual(codexSubagents?.hosts, ["codex", "opencode", "claude-code"]);
+  assert.deepEqual(codexSubagents?.assetKinds, [
+    "agent",
+    "instruction",
+    "workflow",
+    "reference-pack",
+  ]);
+
+  assert.ok(codexPlugins?.publisher);
+  assert.equal(codexPlugins.publisher.name, "Hashgraph Online");
+  assert.deepEqual(codexPlugins?.hosts, ["codex"]);
+  assert.deepEqual(codexPlugins?.assetKinds, [
+    "plugin",
+    "skill",
+    "mcp-server",
+    "hook",
+    "reference-pack",
+  ]);
+  assert.deepEqual(codexPlugins?.includePaths, [
+    "README.md",
+    "**/.codex-plugin/**",
+    "**/plugin.json",
+    "**/marketplace.json",
+    "**/SKILL.md",
+    "**/hooks.json",
+    "**/.mcp.json",
+    "**/*.md",
+  ]);
+});
+
 void test("source registry includes official Penpot MCP source pack entry", async () => {
   const registry = await loadSourceRegistry(process.cwd());
   const penpotSource = registry.sources.find(

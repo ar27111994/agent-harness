@@ -119,6 +119,27 @@
       "id": "voltagent-awesome-codex-subagents",
       "repo": "https://github.com/VoltAgent/awesome-codex-subagents",
       "publisher": "VoltAgent",
+      "hosts": ["codex", "opencode", "claude-code"],
+      "assetKinds": ["agent", "instruction", "workflow", "reference-pack"],
+      "includePaths": ["**/*.md", "**/*.yaml", "**/*.yml", "**/*.json"],
+      "priority": 72
+    },
+    {
+      "id": "hashgraph-online-awesome-codex-plugins",
+      "repo": "https://github.com/hashgraph-online/awesome-codex-plugins",
+      "publisher": "Hashgraph Online",
+      "hosts": ["codex"],
+      "assetKinds": ["plugin", "skill", "mcp-server", "hook", "reference-pack"],
+      "includePaths": [
+        "README.md",
+        "**/.codex-plugin/**",
+        "**/plugin.json",
+        "**/marketplace.json",
+        "**/SKILL.md",
+        "**/hooks.json",
+        "**/.mcp.json",
+        "**/*.md"
+      ],
       "priority": 72
     },
     {
