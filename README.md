@@ -297,7 +297,7 @@ Cursor reuses the Copilot-compatible lifecycle host but applies Cursor-specific 
 ### Inspect why an asset was recommended
 
 ```bash
-node ./dist/cli.js recommend explain --host claude-code --asset <asset-id>
+agent-harness recommend explain --host claude-code --asset <asset-id>
 ```
 
 Use this to inspect scoring reasons, matched demand signals, coverage tags, and score breakdowns.
@@ -305,7 +305,7 @@ Use this to inspect scoring reasons, matched demand signals, coverage tags, and 
 ### Run bounded AI review for a host
 
 ```bash
-node ./dist/cli.js recommend ai-review --host vscode --apply
+agent-harness recommend ai-review --host vscode --apply
 ```
 
 This writes bounded AI-review input/output artifacts under `recommend/output/` and, with `--apply`, folds validated suppressions and reranks back into the recommendation report.
@@ -313,7 +313,7 @@ This writes bounded AI-review input/output artifacts under `recommend/output/` a
 ### Print the effective policy for one host
 
 ```bash
-node ./dist/cli.js recommend policy:print --host pi
+agent-harness recommend policy:print --host pi
 ```
 
 This is useful when tuning host policy overrides or investigating why a host selected different assets than another host.
@@ -329,6 +329,18 @@ npm run activate:host
 Use this sequence after changing source definitions, recommendation policy, mirror bundles, or install behavior.
 
 ## Command reference
+
+### Command style convention
+
+- Use `agent-harness ...` for installed package usage and copy-pasteable user commands.
+- Use `npm run ...` for repository-development shortcuts after `npm install`.
+- Use `node ./dist/cli.js ...` only when intentionally testing the built local entrypoint from this repository.
+
+### Managed wire-in vs native/global install
+
+`workspace <host>` applies the complete managed lifecycle and final host wire-in. It stages and activates selected harness assets, then writes the host-specific project/user files owned by the adapter.
+
+It does not silently perform separate native or global installation steps. Marketplace extension installs, MCP authentication, global host package/plugin registration, executable hook/tool setup, and host logins remain explicit or manual unless an asset provides structured host-native config for a documented surface. Use `agent-harness install native --host <host> --operation <plan|verify|install|remove>` for supported native extension flows.
 
 ### Build and validation
 
@@ -352,11 +364,11 @@ npm run validate:recommendations
 ```bash
 npm run discover:demand
 npm run discover:sources
-node ./dist/cli.js discover sync
+agent-harness discover sync
 npm run discover:catalog
 npm run discover:select
 npm run discover:full
-node ./dist/cli.js discover breadth
+agent-harness discover breadth
 npm run discover:stats
 npm run discover:enrich
 ```
@@ -364,17 +376,17 @@ npm run discover:enrich
 Equivalent direct CLI examples:
 
 ```bash
-node ./dist/cli.js discover demand-profile
-node ./dist/cli.js discover sources
-node ./dist/cli.js discover sync
-node ./dist/cli.js discover catalog
-node ./dist/cli.js discover select --ai-enrich
-node ./dist/cli.js discover full --ai-enrich
-node ./dist/cli.js discover breadth
-node ./dist/cli.js discover recall
-node ./dist/cli.js discover candidate-pool
-node ./dist/cli.js discover stats
-node ./dist/cli.js discover enrich --force
+agent-harness discover demand-profile
+agent-harness discover sources
+agent-harness discover sync
+agent-harness discover catalog
+agent-harness discover select --ai-enrich
+agent-harness discover full --ai-enrich
+agent-harness discover breadth
+agent-harness discover recall
+agent-harness discover candidate-pool
+agent-harness discover stats
+agent-harness discover enrich --force
 ```
 
 `discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
@@ -453,9 +465,9 @@ Use `setup login --provider ai` for configuration guidance. For scenario-based o
 
 ```bash
 npm run recommend:report
-node ./dist/cli.js recommend
-node ./dist/cli.js recommend report --ai-review
-node ./dist/cli.js recommend ai-review --apply
+agent-harness recommend
+agent-harness recommend report --ai-review
+agent-harness recommend ai-review --apply
 npm run recommend:evaluate
 npm run recommend:update
 ```
@@ -468,13 +480,13 @@ Omitting the recommendation subcommand defaults to `report`.
 Explain a specific recommendation:
 
 ```bash
-node ./dist/cli.js recommend explain --host vscode --asset <asset-id>
+agent-harness recommend explain --host vscode --asset <asset-id>
 ```
 
 Print the merged effective policy for a host:
 
 ```bash
-node ./dist/cli.js recommend policy:print --host shared
+agent-harness recommend policy:print --host shared
 ```
 
 If the selected candidate pool already looks healthy but the final ranking still feels wrong, use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md).
@@ -485,8 +497,8 @@ If the selected candidate pool already looks healthy but the final ranking still
 npm run mirror:plan
 npm run mirror:locks
 npm run mirror:acquire
-node ./dist/cli.js mirror diff
-node ./dist/cli.js mirror explain --asset <asset-id>
+agent-harness mirror diff
+agent-harness mirror explain --asset <asset-id>
 ```
 
 ### Quarantine review
@@ -504,15 +516,15 @@ Mirror acquisition routes high-risk or prompt-injection-like community assets in
 
 ```bash
 npm run install:bundle
-node ./dist/cli.js install native --host vscode
-node ./dist/cli.js install native --host vscode --operation verify
-node ./dist/cli.js install native --host vscode --operation install --apply
-node ./dist/cli.js install native --host vscode --operation remove --apply
-node ./dist/cli.js install native --host cursor
-node ./dist/cli.js install native --host cursor --operation verify
-node ./dist/cli.js stage refresh --host copilot-vscode
-node ./dist/cli.js stage refresh --host copilot-vscode --apply
-node ./dist/cli.js stage refresh --host copilot-vscode --due-only
+agent-harness install native --host vscode
+agent-harness install native --host vscode --operation verify
+agent-harness install native --host vscode --operation install --apply
+agent-harness install native --host vscode --operation remove --apply
+agent-harness install native --host cursor
+agent-harness install native --host cursor --operation verify
+agent-harness stage refresh --host copilot-vscode
+agent-harness stage refresh --host copilot-vscode --apply
+agent-harness stage refresh --host copilot-vscode --due-only
 npm run install:reconcile
 npm run install:reset
 ```
@@ -528,22 +540,22 @@ For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-P
 ```bash
 npm run activate:host
 npm run activate:reset
-node ./dist/cli.js activate rollback --host opencode --generation <generation-id>
+agent-harness activate rollback --host opencode --generation <generation-id>
 ```
 
 You can bias recommendation ranking and activation ordering with a validated `--intent`:
 
 ```bash
-node ./dist/cli.js activate host --intent frontend
-node ./dist/cli.js activate host --intent devops
-node ./dist/cli.js activate host --intent design
-node ./dist/cli.js activate host --intent product
+agent-harness activate host --intent frontend
+agent-harness activate host --intent devops
+agent-harness activate host --intent design
+agent-harness activate host --intent product
 ```
 
 You can also activate one lifecycle host using another recommendation policy:
 
 ```bash
-node ./dist/cli.js activate host --host copilot-vscode --recommendation-host cursor
+agent-harness activate host --host copilot-vscode --recommendation-host cursor
 ```
 
 `--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and can be passed repeatedly. Activation uses the first provided intent as its primary activation context so downstream views stay deterministic even when recommendation/workspace flows were built from multiple intents.
@@ -1480,7 +1492,7 @@ Build first and run through the local `dist` entrypoint, or use npm scripts from
 
 ```bash
 npm run build
-node ./dist/cli.js setup hosts
+agent-harness setup hosts
 npm run workspace:vscode -- --intent frontend
 ```
 
