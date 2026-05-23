@@ -31,6 +31,10 @@ const cliOutputFiles = [
   "src/tests/workspace-smoke.ts",
 ];
 
+// Keep no-magic-numbers scoped to policy/runtime hot paths where numeric
+// thresholds directly affect user-visible safety, ranking, or resource limits.
+// Expanding it repository-wide would add noise in fixture-heavy modules; add
+// files here intentionally as they gain policy-style constants.
 const magicThresholdFiles = [
   "src/config/runtime.ts",
   "src/recommend/selection.ts",
