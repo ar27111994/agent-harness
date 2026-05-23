@@ -211,6 +211,22 @@ export function assertInstallRefreshReport(
       hostRecord.currentCount,
       `${context}.hosts[${index}].currentCount`,
     );
+    assertNumber(
+      hostRecord.stageEligibleCount,
+      `${context}.hosts[${index}].stageEligibleCount`,
+    );
+    assertNumber(
+      hostRecord.applyEligibleCount,
+      `${context}.hosts[${index}].applyEligibleCount`,
+    );
+    assertNumber(
+      hostRecord.reviewRequiredCount,
+      `${context}.hosts[${index}].reviewRequiredCount`,
+    );
+    assertNumber(
+      hostRecord.quarantinedCount,
+      `${context}.hosts[${index}].quarantinedCount`,
+    );
     assertArray(hostRecord.assets, `${context}.hosts[${index}].assets`).forEach(
       (assetEntry, assetIndex) => {
         const assetRecord = assertRecord(
@@ -241,7 +257,15 @@ export function assertInstallRefreshReport(
         );
         assertLiteral(
           assetRecord.policyDecision,
-          ["ignore", "notify", "plan", "apply"],
+          [
+            "ignore",
+            "notify",
+            "plan",
+            "stage-only",
+            "apply",
+            "review-required",
+            "blocked-quarantined",
+          ],
           `${context}.hosts[${index}].assets[${assetIndex}].policyDecision`,
         );
         assertBoolean(
@@ -252,6 +276,28 @@ export function assertInstallRefreshReport(
           assetRecord.reason,
           `${context}.hosts[${index}].assets[${assetIndex}].reason`,
         );
+        assertLiteral(
+          assetRecord.refreshTier,
+          [
+            "auto-report-only",
+            "auto-stage",
+            "auto-refresh-low-risk",
+            "review-required",
+            "blocked-quarantined",
+          ],
+          `${context}.hosts[${index}].assets[${assetIndex}].refreshTier`,
+        );
+        assertString(
+          assetRecord.policyReason,
+          `${context}.hosts[${index}].assets[${assetIndex}].policyReason`,
+        );
+        if (assetRecord.lastRefreshAction !== undefined) {
+          assertLiteral(
+            assetRecord.lastRefreshAction,
+            ["refreshed", "staged", "skipped"],
+            `${context}.hosts[${index}].assets[${assetIndex}].lastRefreshAction`,
+          );
+        }
         assertString(
           assetRecord.installedMirrorId,
           `${context}.hosts[${index}].assets[${assetIndex}].installedMirrorId`,
@@ -366,5 +412,8 @@ export function assertInstallRefreshState(
   }
   assertBoolean(record.refreshedMirrorState, `${context}.refreshedMirrorState`);
   assertNumber(record.staleCount, `${context}.staleCount`);
+  assertNumber(record.stageEligibleCount, `${context}.stageEligibleCount`);
   assertNumber(record.applyEligibleCount, `${context}.applyEligibleCount`);
+  assertNumber(record.reviewRequiredCount, `${context}.reviewRequiredCount`);
+  assertNumber(record.quarantinedCount, `${context}.quarantinedCount`);
 }

@@ -967,7 +967,10 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       nextCheckAt: new Date(Date.now() + 60_000).toISOString(),
       refreshedMirrorState: false,
       staleCount: 0,
+      stageEligibleCount: 0,
       applyEligibleCount: 0,
+      reviewRequiredCount: 0,
+      quarantinedCount: 0,
     } satisfies InstallRefreshState;
     assert.equal(
       installRefreshInternals.isInstallRefreshDue(
@@ -1006,18 +1009,16 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       /Invalid --host value 'bad-host'/u,
     );
     assert.equal(
-      installRefreshInternals.decideInstallRefreshPolicy(
-        "stale",
-        "report-only",
-      ),
+      installRefreshInternals.decideInstallRefreshPolicy("stale", "report-only")
+        .decision,
       "plan",
     );
     assert.equal(
       installRefreshInternals.decideInstallRefreshPolicy(
         "blocked",
         "apply-safe",
-      ),
-      "notify",
+      ).decision,
+      "review-required",
     );
     assert.deepEqual(
       [
@@ -1036,6 +1037,10 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
                 pinnedCount: 0,
                 blockedCount: 0,
                 currentCount: 1,
+                stageEligibleCount: 0,
+                applyEligibleCount: 2,
+                reviewRequiredCount: 0,
+                quarantinedCount: 0,
                 assets: [
                   {
                     assetId: "b",
@@ -1046,6 +1051,8 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
                     policyDecision: "apply",
                     pinned: false,
                     reason: "fixture",
+                    refreshTier: "auto-refresh-low-risk",
+                    policyReason: "fixture",
                     installedMirrorId: "sha256-old",
                     latestMirrorId: "sha256-new",
                     installedFingerprint: undefined,
@@ -1064,6 +1071,8 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
                     policyDecision: "apply",
                     pinned: false,
                     reason: "fixture",
+                    refreshTier: "auto-refresh-low-risk",
+                    policyReason: "fixture",
                     installedMirrorId: "sha256-old-a",
                     latestMirrorId: "sha256-new-a",
                     installedFingerprint: undefined,
@@ -1413,8 +1422,8 @@ void test("manageInstallRefresh reports missing, conflicting, stale, and pinned 
         asset.nativeInstall?.extensionId ?? "",
       ]),
       [
-        ["conflict-asset", "blocked", "notify", ""],
-        ["missing-from-bundles", "blocked", "notify", ""],
+        ["conflict-asset", "blocked", "review-required", ""],
+        ["missing-from-bundles", "blocked", "review-required", ""],
         ["stale-extension", "stale", "notify", "fixture.stale"],
       ],
     );
@@ -1439,7 +1448,10 @@ void test("manageInstallRefresh reports missing, conflicting, stale, and pinned 
       nextCheckAt: new Date(Date.now() + 60_000).toISOString(),
       refreshedMirrorState: false,
       staleCount: 0,
+      stageEligibleCount: 0,
       applyEligibleCount: 0,
+      reviewRequiredCount: 0,
+      quarantinedCount: 0,
     } satisfies InstallRefreshState;
     await writeJsonFile(
       join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH),

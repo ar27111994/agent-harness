@@ -127,7 +127,7 @@ void test("install refresh reports stale assets when bundle locks move to a new 
       source: {
         authorityTier: "trusted-community",
         publisher: "fixture",
-        publisherVerified: false,
+        publisherVerified: true,
       },
       mirroredAt: new Date().toISOString(),
       contentHash: "hash-new",
@@ -153,7 +153,7 @@ void test("install refresh reports stale assets when bundle locks move to a new 
         originUrl:
           "https://marketplace.visualstudio.com/items?itemName=pub.flutter-skill",
         publisher: "fixture",
-        publisherVerified: false,
+        publisherVerified: true,
       },
       trust: {
         score: 80,
@@ -256,9 +256,15 @@ void test("install refresh reports stale assets when bundle locks move to a new 
     assert.equal(assetReport?.status, "stale");
     assert.equal(assetReport?.latestMirrorId, "sha256-new");
     assert.equal(assetReport?.nativeInstall?.extensionId, "pub.flutter-skill");
+    assert.equal(assetReport?.refreshTier, "auto-report-only");
+    assert.equal(assetReport?.policyDecision, "notify");
+    assert.match(assetReport?.policyReason ?? "", /Manual policy/u);
     assert.equal(refreshState.policy, "manual");
     assert.equal(refreshState.staleCount, 1);
+    assert.equal(refreshState.stageEligibleCount, 0);
     assert.equal(refreshState.applyEligibleCount, 0);
+    assert.equal(refreshState.reviewRequiredCount, 0);
+    assert.equal(refreshState.quarantinedCount, 0);
     assert.ok(
       Date.parse(refreshState.nextCheckAt) > Date.parse(refreshState.updatedAt),
     );
@@ -379,6 +385,8 @@ void test("install refresh blocks assets when bundle locks disagree on mirror id
     assert.equal(hostReport?.blockedCount, 1);
     assert.equal(assetReport?.status, "blocked");
     assert.equal(assetReport?.latestMirrorId, undefined);
+    assert.equal(assetReport?.refreshTier, "review-required");
+    assert.equal(assetReport?.policyDecision, "review-required");
     assert.match(assetReport?.reason ?? "", /conflicting bundle lock mirrors/u);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -406,7 +414,10 @@ void test("install refresh due-only skips runs before the next scheduled check",
       nextCheckAt: futureNextCheckAt,
       refreshedMirrorState: false,
       staleCount: 0,
+      stageEligibleCount: 0,
       applyEligibleCount: 0,
+      reviewRequiredCount: 0,
+      quarantinedCount: 0,
     } satisfies InstallRefreshState);
 
     const originalRefreshState = await readJsonFile<InstallRefreshState>(
@@ -621,7 +632,7 @@ void test("install refresh honors report-only and pinned policies", async () => 
         source: {
           authorityTier: "trusted-community",
           publisher: "fixture",
-          publisherVerified: false,
+          publisherVerified: true,
         },
         mirroredAt: new Date().toISOString(),
         contentHash: "hash-new",
@@ -645,6 +656,7 @@ void test("install refresh honors report-only and pinned policies", async () => 
     const pinnedAsset = pinnedReport.hosts[0]?.assets[0];
     assert.equal(pinnedAsset?.status, "pinned");
     assert.equal(pinnedAsset?.policyDecision, "ignore");
+    assert.equal(pinnedAsset?.refreshTier, "auto-report-only");
 
     await writeJsonFile(
       join(
@@ -677,6 +689,7 @@ void test("install refresh honors report-only and pinned policies", async () => 
     const reportOnlyAsset = reportOnlyReport.hosts[0]?.assets[0];
     assert.equal(reportOnlyAsset?.status, "stale");
     assert.equal(reportOnlyAsset?.policyDecision, "plan");
+    assert.equal(reportOnlyAsset?.refreshTier, "auto-report-only");
   } finally {
     if (originalPolicy === undefined) {
       delete process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;
@@ -731,7 +744,7 @@ void test("install refresh apply-safe reapplies stale bundles and native install
         sourcePriority: 90,
         originUrl: "https://example.com/flutter-skill",
         publisher: "fixture",
-        publisherVerified: false,
+        publisherVerified: true,
       },
       trust: {
         score: 80,
@@ -886,7 +899,7 @@ void test("install refresh apply-safe reapplies stale bundles and native install
         source: {
           authorityTier: "trusted-community",
           publisher: "fixture",
-          publisherVerified: false,
+          publisherVerified: true,
         },
         mirroredAt: new Date().toISOString(),
         contentHash: latestHash,
@@ -916,10 +929,10 @@ void test("install refresh apply-safe reapplies stale bundles and native install
       join(projectRoot, ...INSTALL_REFRESH_STATE_OUTPUT_PATH),
       assertInstallRefreshState,
     );
-    const nativeInstallState = await readJsonFile<{
-      operation: string;
-      results: Array<{ success: boolean; installed: boolean }>;
-    }>(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH));
+    assert.equal(
+      await pathExists(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH)),
+      false,
+    );
     const updatedBundleManifest =
       await readJsonFile<InstalledBundleManifest>(bundleManifestPath);
     const updatedManifest = await readJsonFile<InstalledPackageManifest>(
@@ -928,6 +941,11 @@ void test("install refresh apply-safe reapplies stale bundles and native install
 
     assert.equal(report.hosts[0]?.staleCount, 0);
     assert.equal(report.hosts[0]?.currentCount, 1);
+    assert.equal(report.hosts[0]?.assets[0]?.lastRefreshAction, "staged");
+    assert.equal(refreshState.stageEligibleCount, 0);
+    assert.equal(refreshState.applyEligibleCount, 0);
+    assert.equal(refreshState.reviewRequiredCount, 0);
+    assert.equal(refreshState.quarantinedCount, 0);
     assert.equal(updatedBundleManifest.packages[0]?.mirrorId, latestMirrorId);
     assert.equal(updatedManifest.mirrorId, latestMirrorId);
     assert.equal(
@@ -936,9 +954,6 @@ void test("install refresh apply-safe reapplies stale bundles and native install
     );
     assert.equal(refreshState.policy, "apply-safe");
     assert.match(refreshState.lastAppliedAt ?? "", /^\d{4}-\d{2}-\d{2}T/u);
-    assert.equal(nativeInstallState.operation, "install");
-    assert.equal(nativeInstallState.results[0]?.success, true);
-    assert.equal(nativeInstallState.results[0]?.installed, true);
   } finally {
     if (originalPolicy === undefined) {
       delete process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;

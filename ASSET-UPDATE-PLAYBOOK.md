@@ -24,7 +24,8 @@ Important behavior:
 
 - `--due-only` skips the run unless the configured refresh interval is due
 - `--apply` only mutates when the refresh policy and report both allow it
-- when stale VS Code-family extension assets are refreshed with apply, the host-native extension install step also runs so host-native state stays aligned
+- refresh reports classify each stale asset as report-only, stage-only, low-risk apply, review-required, or quarantined
+- executable/native assets can be staged, but host-native activation/install remains review-gated
 
 ## Manual scenarios
 
@@ -52,6 +53,18 @@ agent-harness install refresh --host copilot-vscode --due-only
 
 This is the right mode for cron/background polling.
 
+## Refresh policy tiers
+
+| Tier                    | Decision                   | Mutates with `--apply`?      | Use for                                                                     |
+| ----------------------- | -------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `auto-report-only`      | `ignore`, `notify`, `plan` | No                           | current, pinned, manual, or report-only checks                              |
+| `auto-stage`            | `stage-only`               | Stages harness material only | activation-eligible or executable/native assets after policy checks         |
+| `auto-refresh-low-risk` | `apply`                    | Yes                          | verified, low-risk, non-executable, non-activating assets                   |
+| `review-required`       | `review-required`          | No                           | trust, publisher, risk, compatibility, or conflicting-fingerprint ambiguity |
+| `blocked-quarantined`   | `blocked-quarantined`      | No                           | quarantined latest mirrors                                                  |
+
+`stage-only` is intentionally conservative: it can refresh the harness-managed package material, but it does not run host-native extension installs, activate hooks, enable MCP servers, or promote executable assets into a live host surface. Run `wire <host>` as a preview and use explicit native install / quarantine review commands after human approval.
+
 ## Recommended review workflow
 
 ### Step 1. Inspect current refresh policy
@@ -73,7 +86,7 @@ Then inspect:
 
 ### Step 3. Re-verify host-native extension state when relevant
 
-For stale VS Code-family extension assets, refresh apply already runs the host-native extension update step. Still verify after apply when you are diagnosing host behavior.
+For stale VS Code-family extension assets, refresh apply stages updated harness material only. Use `agent-harness install native --host <host> --operation verify` first, then run the explicit native install command with `--apply` only after review.
 
 ## Agent-prompted workflow
 
@@ -87,7 +100,7 @@ Goals:
 1. Determine whether assets are stale.
 2. Separate report-only checks from mutating refresh/apply steps.
 3. Explain whether due-only scheduling or safe apply is the right next step.
-4. Verify any host-native extension update implications for VS Code-family assets.
+4. Verify any host-native extension update implications for VS Code-family assets without automatically installing them.
 
 Required workflow:
 - Run `agent-harness install refresh --host <host>` first.
@@ -102,7 +115,7 @@ When ready, give me:
 - whether the stale state is real and actionable
 - the exact commands you ran
 - the exact next command for report-only, due-only, or apply-safe flow
-- any host-native follow-up I should verify after apply
+- any explicit host-native follow-up I should verify or approve after apply
 ```
 
 ## Rule of thumb

@@ -113,7 +113,25 @@ export type InstallRefreshPolicyDecision =
   | "ignore"
   | "notify"
   | "plan"
-  | "apply";
+  | "stage-only"
+  | "apply"
+  | "review-required"
+  | "blocked-quarantined";
+
+/**
+ * Defines install refresh automation tiers.
+ */
+export type InstallRefreshTier =
+  | "auto-report-only"
+  | "auto-stage"
+  | "auto-refresh-low-risk"
+  | "review-required"
+  | "blocked-quarantined";
+
+/**
+ * Defines install refresh actions completed during an apply run.
+ */
+export type InstallRefreshAction = "refreshed" | "staged" | "skipped";
 
 /**
  * Describes one install refresh asset status entry.
@@ -127,6 +145,9 @@ export interface InstallRefreshAssetStatus {
   policyDecision: InstallRefreshPolicyDecision;
   pinned: boolean;
   reason: string;
+  refreshTier: InstallRefreshTier;
+  policyReason: string;
+  lastRefreshAction?: InstallRefreshAction;
   installedMirrorId: string;
   latestMirrorId?: string;
   installedFingerprint?: InstalledUpstreamFingerprint;
@@ -148,6 +169,10 @@ export interface InstallRefreshHostSummary {
   pinnedCount: number;
   blockedCount: number;
   currentCount: number;
+  stageEligibleCount: number;
+  applyEligibleCount: number;
+  reviewRequiredCount: number;
+  quarantinedCount: number;
   assets: InstallRefreshAssetStatus[];
 }
 
@@ -174,5 +199,8 @@ export interface InstallRefreshState {
   lastAppliedAt?: string;
   refreshedMirrorState: boolean;
   staleCount: number;
+  stageEligibleCount: number;
   applyEligibleCount: number;
+  reviewRequiredCount: number;
+  quarantinedCount: number;
 }
