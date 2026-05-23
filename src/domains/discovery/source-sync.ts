@@ -1672,6 +1672,13 @@ function dedupeUrls(urls: URL[]): URL[] {
   return [...new Map(urls.map((url) => [url.toString(), url])).values()];
 }
 
+/**
+ * Builds source-sync fetch origins from checked-in source definitions. Source
+ * pack authors are trusted to point at legitimate registry/docs endpoints, while
+ * guarded fetch still enforces the public-hostname/IP SSRF backstop. Do not
+ * reuse this self-derived allowlist pattern for arbitrary user-provided runtime
+ * endpoints.
+ */
 function getAllowedOrigins(...urls: Array<string | undefined>): string[] {
   return [
     ...new Set(urls.flatMap((url) => getAllowedOrigin(url)).filter(Boolean)),
