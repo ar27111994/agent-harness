@@ -10,6 +10,7 @@ const FULL_SUPPORTED_HOSTS = [
   "zed",
   "claude-code",
   "pi",
+  "codex",
 ] as const;
 
 const PORTABLE_MULTI_HOST_SOURCE_IDS = [
@@ -55,7 +56,7 @@ void test("source registry models direct official discovery coverage for support
   assert.ok(cursorMarketplace);
   assert.equal(cursorMarketplace.kind, "marketplace");
   assert.equal(cursorMarketplace.authorityTier, "official-marketplace");
-  assertSameHostSet(cursorMarketplace.hosts, ["cursor"]);
+  assertSameHostSet(cursorMarketplace.hosts, ["cursor", "codex"]);
   assert.equal(
     cursorMarketplace.endpoints.baseUrl,
     "https://cursor.com/marketplace",
@@ -109,6 +110,7 @@ void test("source registry models direct official discovery coverage for support
   assertHostHasOfficialDocs(configuredSources, "zed");
   assertHostHasOfficialDocs(configuredSources, "claude-code");
   assertHostHasOfficialDocs(configuredSources, "pi");
+  assertHostHasOfficialDocs(configuredSources, "codex");
 
   assertHostHasOfficialRegistryOrMarketplace(
     configuredSources,
@@ -117,6 +119,7 @@ void test("source registry models direct official discovery coverage for support
   assertHostHasOfficialRegistryOrMarketplace(configuredSources, "cursor");
   assertHostHasOfficialRegistryOrMarketplace(configuredSources, "zed");
   assertHostHasOfficialRegistryOrMarketplace(configuredSources, "pi");
+  assertHostHasOfficialRegistryOrMarketplace(configuredSources, "codex");
 });
 
 function assertSourceHasHosts(

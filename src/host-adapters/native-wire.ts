@@ -41,7 +41,7 @@ import type { WireMode } from "./types.js";
 /**
  * Defines the supported native wire host values.
  */
-export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi";
+export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi" | "codex";
 
 type LifecycleActivationHost = "copilot-vscode" | "opencode";
 
@@ -158,6 +158,26 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
       "Pi native wire-in writes project AGENTS.md and SYSTEM.md managed sections.",
       "Selected assets are exposed through Pi-native .pi/skills and .pi/prompts entries.",
       "MCP assets are staged as references because Pi does not ship with built-in MCP support.",
+    ],
+  },
+  codex: {
+    host: "codex",
+    displayName: "OpenAI Codex",
+    activationHost: "opencode",
+    previewHost: "opencode",
+    managedRootSegments: [".codex", "agent-harness"],
+    targetPathSegments: [
+      ["AGENTS.md"],
+      [".agents", "skills", "agent-harness", "SKILL.md"],
+      [".agents", "plugins", "agent-harness"],
+      [".codex", "agent-harness"],
+      [".codex", "config.toml"],
+      [".codex", "hooks.json"],
+    ],
+    notes: [
+      "Codex wire-in writes project AGENTS.md context and repo-local Open Agent Skills under .agents/skills.",
+      "Reference assets are materialized under .codex/agent-harness for reviewable project context.",
+      "Plugin, MCP, hook, and rules activation require structured Codex-native config and trusted-project review; global Codex config and plugin caches are not modified.",
     ],
   },
 };
@@ -468,6 +488,8 @@ async function writeHostNativeFiles(options: {
       return writeClaudeCodeNativeFiles(options);
     case "pi":
       return writePiNativeFiles(options);
+    case "codex":
+      return writeCodexNativeFiles(options);
   }
 }
 
@@ -819,9 +841,121 @@ async function writePiNativeFiles(options: {
   });
 }
 
+async function writeCodexNativeFiles(options: {
+  workspaceRoot: string;
+  managedRoot: string;
+  nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
+  mcpServers: string[];
+}): Promise<NativeConfigOperation[]> {
+  const managedLines = buildManagedInstructionLines({
+    hostName: "OpenAI Codex",
+    managedRoot: options.managedRoot,
+    nativeAssets: options.nativeAssets,
+    materializedAssets: options.materializedAssets,
+    mcpServers: options.mcpServers,
+  });
+
+  await upsertManagedSectionFile(
+    join(options.workspaceRoot, "AGENTS.md"),
+    "agent-harness-codex",
+    [
+      "Use these Agent Harness assets as project-scoped Codex context.",
+      "Do not treat plugin, MCP, hook, or rules references as active integrations unless structured Codex-native config exists in the wire plan.",
+      "",
+      ...managedLines,
+    ],
+  );
+  await writeTextFile(
+    join(
+      options.workspaceRoot,
+      ".agents",
+      "skills",
+      "agent-harness",
+      "SKILL.md",
+    ),
+    buildSkillFile(
+      "agent-harness",
+      "Use curated Agent Harness assets for this Codex project.",
+      [
+        ...managedLines,
+        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
+      ],
+    ),
+  );
+  await writeJsonFile(
+    join(options.workspaceRoot, ".agents", "plugins", "marketplace.json"),
+    buildCodexPluginMarketplace(),
+  );
+  await writeJsonFile(
+    join(
+      options.workspaceRoot,
+      ".agents",
+      "plugins",
+      "agent-harness",
+      ".codex-plugin",
+      "plugin.json",
+    ),
+    buildCodexPluginManifest(options.nativeAssets),
+  );
+  await writeTextFile(
+    join(
+      options.workspaceRoot,
+      ".agents",
+      "plugins",
+      "agent-harness",
+      "skills",
+      "agent-harness",
+      "SKILL.md",
+    ),
+    buildSkillFile(
+      "agent-harness",
+      "Use curated Agent Harness assets from the Codex plugin surface.",
+      [
+        ...managedLines,
+        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
+      ],
+    ),
+  );
+
+  return applyStructuredNativeConfig(options.workspaceRoot, "codex", {
+    nativeAssets: options.nativeAssets,
+  });
+}
+
+function buildCodexPluginMarketplace(): JsonObject {
+  return {
+    schemaVersion: 1,
+    plugins: [
+      {
+        name: "agent-harness",
+        path: "./agent-harness",
+      },
+    ],
+  };
+}
+
+function buildCodexPluginManifest(nativeAssets: NativeAsset[]): JsonObject {
+  const assetKinds = new Set(
+    nativeAssets.map((nativeAsset) => nativeAsset.assetKind),
+  );
+  const manifest: JsonObject = {
+    name: "agent-harness",
+    version: "1.0.0",
+    description: "Project-local Agent Harness assets for OpenAI Codex.",
+    skills: "./skills",
+  };
+
+  if (assetKinds.has("hook")) {
+    manifest.hooks = "./hooks/hooks.json";
+  }
+
+  return manifest;
+}
+
 async function applyStructuredNativeConfig(
   workspaceRoot: string,
-  host: "cursor" | "zed" | "claude-code" | "pi",
+  host: "cursor" | "zed" | "claude-code" | "pi" | "codex",
   options: {
     nativeAssets: NativeAsset[];
   },

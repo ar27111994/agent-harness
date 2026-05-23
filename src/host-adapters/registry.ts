@@ -135,6 +135,8 @@ const zedCapabilities: HostCapability[] = nativeReferenceCapabilities;
 
 const claudeCodeCapabilities: HostCapability[] = nativeReferenceCapabilities;
 
+const codexCapabilities: HostCapability[] = nativeReferenceCapabilities;
+
 const piCapabilities: HostCapability[] = nativeReferenceCapabilities.map(
   (capability) =>
     capability.assetKind === "mcp-server"
@@ -276,6 +278,24 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
     },
     capabilities: piCapabilities,
     wire: (options) => wireNativeHost("pi", options),
+  },
+  {
+    id: "codex",
+    aliases: ["openai-codex", "codex-app"],
+    displayName: "OpenAI Codex",
+    lifecycleHost: "opencode",
+    recommendationHost: "codex",
+    defaultBundleIds: ["opencode-global", "community-stable", "shared-mcp"],
+    mutatesHostPaths: true,
+    requiresLifecycleHostPaths: false,
+    runtime: {
+      executable: "codex",
+      versionArgs: ["--version"],
+      guidance:
+        "Install the Codex CLI if you want runtime validation beyond project-local file wiring.",
+    },
+    capabilities: codexCapabilities,
+    wire: (options) => wireNativeHost("codex", options),
   },
 ];
 

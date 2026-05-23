@@ -12,7 +12,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": ["copilot-vscode", "cursor"],
+      "hosts": ["copilot-vscode", "cursor", "codex"],
       "assetKinds": ["instruction", "agent", "workflow", "plugin"],
       "discoveryMode": "catalog",
       "priority": 100,
@@ -36,7 +36,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": ["copilot-vscode", "cursor"],
+      "hosts": ["copilot-vscode", "cursor", "codex"],
       "assetKinds": [
         "skill",
         "agent",
@@ -67,7 +67,7 @@
         "verified": true,
         "owner": "github"
       },
-      "hosts": ["copilot-vscode", "cursor"],
+      "hosts": ["copilot-vscode", "cursor", "codex"],
       "assetKinds": [
         "agent",
         "skill",
@@ -89,6 +89,39 @@
       }
     },
     {
+      "id": "openai-codex-docs",
+      "name": "OpenAI Codex Docs",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": {
+        "name": "OpenAI",
+        "verified": true,
+        "owner": "openai"
+      },
+      "hosts": ["codex"],
+      "assetKinds": [
+        "instruction",
+        "agent",
+        "skill",
+        "plugin",
+        "hook",
+        "mcp-server",
+        "workflow",
+        "reference-pack"
+      ],
+      "discoveryMode": "catalog",
+      "priority": 100,
+      "enabled": true,
+      "endpoints": {
+        "docsUrl": "https://developers.openai.com/codex"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
       "id": "vscode-marketplace",
       "name": "VS Code Marketplace",
       "kind": "marketplace",
@@ -98,7 +131,7 @@
         "verified": true,
         "owner": "microsoft"
       },
-      "hosts": ["copilot-vscode", "cursor"],
+      "hosts": ["copilot-vscode", "cursor", "codex"],
       "assetKinds": ["extension", "plugin", "mcp-server"],
       "discoveryMode": "catalog",
       "priority": 95,
@@ -123,7 +156,7 @@
         "verified": true,
         "owner": "anthropic"
       },
-      "hosts": ["copilot-vscode", "opencode", "claude-code"],
+      "hosts": ["copilot-vscode", "opencode", "claude-code", "codex"],
       "assetKinds": [
         "instruction",
         "skill",
@@ -157,7 +190,7 @@
         "verified": true,
         "owner": "cursor"
       },
-      "hosts": ["copilot-vscode", "cursor"],
+      "hosts": ["copilot-vscode", "cursor", "codex"],
       "assetKinds": [
         "instruction",
         "skill",
@@ -191,7 +224,7 @@
         "verified": true,
         "owner": "cursor"
       },
-      "hosts": ["cursor"],
+      "hosts": ["cursor", "codex"],
       "assetKinds": ["plugin", "extension", "mcp-server", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 94,
@@ -216,7 +249,7 @@
         "verified": true,
         "owner": "zed-industries"
       },
-      "hosts": ["opencode", "zed"],
+      "hosts": ["opencode", "zed", "codex"],
       "assetKinds": ["instruction", "agent", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 92,
@@ -240,7 +273,7 @@
         "verified": true,
         "owner": "zed-industries"
       },
-      "hosts": ["zed"],
+      "hosts": ["zed", "codex"],
       "assetKinds": ["extension", "mcp-server", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 90,
@@ -264,7 +297,7 @@
         "verified": true,
         "owner": "pi"
       },
-      "hosts": ["opencode", "pi"],
+      "hosts": ["opencode", "pi", "codex"],
       "assetKinds": [
         "instruction",
         "agent",
@@ -294,7 +327,7 @@
         "verified": true,
         "owner": "pi"
       },
-      "hosts": ["pi"],
+      "hosts": ["pi", "codex"],
       "assetKinds": [
         "skill",
         "agent",
@@ -330,7 +363,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "agent", "instruction", "prompt-pack"],
       "discoveryMode": "catalog",
@@ -362,7 +396,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": [
         "skill",
@@ -402,7 +437,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["mcp-server"],
       "discoveryMode": "catalog",
@@ -432,7 +468,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["mcp-server"],
       "discoveryMode": "catalog",
@@ -463,7 +500,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
@@ -494,7 +532,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["mcp-server", "plugin", "skill"],
       "discoveryMode": "catalog",
@@ -525,7 +564,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -556,7 +596,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -587,7 +628,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -618,7 +660,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -649,7 +692,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -679,7 +723,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -710,7 +755,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
@@ -742,7 +788,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "agent"],
       "discoveryMode": "catalog",
@@ -771,7 +818,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": [
         "skill",
@@ -810,7 +858,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -841,7 +890,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["reference-pack", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -872,7 +922,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -903,7 +954,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -934,7 +986,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "agent", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -965,7 +1018,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
@@ -996,7 +1050,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1027,7 +1082,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1058,7 +1114,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1089,7 +1146,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
@@ -1120,7 +1178,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1152,7 +1211,8 @@
         "zed",
         "claude-code",
         "pi",
-        "shared"
+        "shared",
+        "codex"
       ],
       "assetKinds": ["mcp-server", "workflow", "reference-pack"],
       "discoveryMode": "catalog",
@@ -1183,7 +1243,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1214,7 +1275,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1245,7 +1307,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1276,7 +1339,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",
@@ -1307,7 +1371,8 @@
         "cursor",
         "zed",
         "claude-code",
-        "pi"
+        "pi",
+        "codex"
       ],
       "assetKinds": ["skill", "instruction", "workflow"],
       "discoveryMode": "catalog",

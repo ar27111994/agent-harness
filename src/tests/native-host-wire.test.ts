@@ -1025,6 +1025,25 @@ function buildHostNativeConfig(host: NativeWireHost): AssetHostNativeConfigMap {
           ],
         },
       };
+    case "codex":
+      return {
+        codex: {
+          files: [
+            {
+              path: ".codex/config.toml",
+              format: "text",
+              content: "# generated codex config\n",
+            },
+            {
+              path: ".codex/hooks.json",
+              format: "json",
+              content: {
+                hooks: [],
+              },
+            },
+          ],
+        },
+      };
   }
 }
 

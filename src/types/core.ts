@@ -46,7 +46,8 @@ export type BuiltInHostTarget =
   | "cursor"
   | "zed"
   | "claude-code"
-  | "pi";
+  | "pi"
+  | "codex";
 
 /**
  * Defines the supported host target values.

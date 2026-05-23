@@ -144,7 +144,9 @@
     "wire:cursor": "node ./dist/cli.js wire cursor --apply",
     "wire:zed": "node ./dist/cli.js wire zed --apply",
     "wire:claude-code": "node ./dist/cli.js wire claude-code --apply",
-    "wire:pi": "node ./dist/cli.js wire pi --apply"
+    "wire:pi": "node ./dist/cli.js wire pi --apply",
+    "workspace:codex": "node ./dist/cli.js workspace codex",
+    "wire:codex": "node ./dist/cli.js wire codex --apply"
   },
   "lint-staged": {
     "src/**/*.ts": [

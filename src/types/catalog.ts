@@ -14,7 +14,8 @@ export type HostNativeConfigTarget =
   | "cursor"
   | "zed"
   | "claude-code"
-  | "pi";
+  | "pi"
+  | "codex";
 
 /**
  * Describes host-native text file payloads exchanged by the lifecycle pipeline.
@@ -58,6 +59,7 @@ export interface AssetHostNativeConfigMap {
   zed?: AssetHostNativeConfig;
   "claude-code"?: AssetHostNativeConfig;
   pi?: AssetHostNativeConfig;
+  codex?: AssetHostNativeConfig;
 }
 
 /**

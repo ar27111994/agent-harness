@@ -12,7 +12,7 @@
 
 `agent-harness` is a Node.js 22+ TypeScript CLI, published as `@ar27111994/agent-harness`, for discovering, curating, staging, activating, and wiring reusable AI-agent assets into developer workspaces.
 
-It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, and reset behavior required by VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, and Pi.
+It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, and reset behavior required by VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
 ## Table of contents
 
@@ -91,16 +91,16 @@ Some adapters intentionally reuse another lifecycle host while keeping their own
 
 ## Supported hosts
 
-`agent-harness` currently registers six host adapters in `src/host-adapters/registry.ts`.
+`agent-harness` currently registers seven host adapters in `src/host-adapters/registry.ts`.
 
 | CLI target    | Aliases                | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                           |
-| ------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- |
+| ------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- | --- | ------- | --------------------------- | ---------- | ------- | --------------------------------------------------- | ---------------------------------------------------------------------- |
 | `vscode`      | `copilot`              | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                    |
 | `opencode`    | `open-code`            | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                  |
 | `cursor`      | -                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
 | `zed`         | -                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
 | `claude-code` | `claude`, `claudecode` | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands            |
-| `pi`          | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings |
+| `pi`          | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings | `n  | `codex` | `openai-codex`, `codex-app` | `opencode` | `codex` | `opencode-global`, `community-stable`, `shared-mcp` | project-local AGENTS.md, .agents skills/plugins, and .codex references |
 
 Use `setup hosts` to print the registered adapters from the local build:
 
@@ -157,7 +157,7 @@ agent-harness setup doctor --host opencode
 agent-harness setup doctor --host cursor
 agent-harness setup doctor --host zed
 agent-harness setup doctor --host claude-code
-agent-harness setup doctor --host pi
+agent-harness setup doctor --host pi`nagent-harness setup doctor --host codex
 ```
 
 `setup doctor` prints each adapter's lifecycle host, recommendation host, default bundles, runtime executable, advertised capabilities, lifecycle preflight diagnostics, adapter-specific CLI readiness diagnostics, and activated asset prerequisite guidance. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path or native installer runtime.
@@ -173,7 +173,7 @@ agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent design
 agent-harness workspace claude-code --intent research
-agent-harness workspace pi --intent product
+agent-harness workspace pi --intent product`nagent-harness workspace codex --intent research
 ```
 
 From this repository, equivalent npm scripts are available:
@@ -184,7 +184,7 @@ npm run workspace:opencode -- --intent devops
 npm run workspace:cursor -- --intent frontend
 npm run workspace:zed -- --intent design
 npm run workspace:claude-code -- --intent research
-npm run workspace:pi -- --intent product
+npm run workspace:pi -- --intent product`nnpm run workspace:codex -- --intent research
 ```
 
 Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. For a new user, this is the straightforward default path: it runs the broad discovery/recommendation pipeline, stages and activates assets, and then performs the selected host's final wire-in. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
@@ -587,7 +587,7 @@ agent-harness wire claude-code --reset
 
 agent-harness wire pi --preview
 agent-harness wire pi --apply
-agent-harness wire pi --reset
+agent-harness wire pi --reset`nagent-harness wire codex --preview`nagent-harness wire codex --apply`nagent-harness wire codex --reset
 ```
 
 Repository scripts apply the corresponding wire-in:
@@ -598,7 +598,7 @@ npm run wire:opencode
 npm run wire:cursor
 npm run wire:zed
 npm run wire:claude-code
-npm run wire:pi
+npm run wire:pi`nnpm run wire:codex
 ```
 
 ### Workspace
@@ -612,7 +612,7 @@ agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent design
 agent-harness workspace claude-code --intent research
-agent-harness workspace pi --intent product
+agent-harness workspace pi --intent product`nagent-harness workspace codex --intent research
 ```
 
 `workspace <host>` also accepts `--no-ai-enrich`, `--force`, and `--require-ai-enrich` for explicit control of the bounded enrichment sidecar.
@@ -918,6 +918,36 @@ Current boundaries:
 - MCP and reference assets are still staged as project-readable references by default.
 - The adapter can synthesize Claude Code `.mcp.json` and `.claude/settings*.json` surfaces when an asset includes structured host-native config payloads.
 - Executable hook/plugin settings still require asset metadata that deliberately targets those documented Claude surfaces.
+
+### OpenAI Codex
+
+The Codex adapter uses the OpenCode-compatible lifecycle host while applying Codex-specific recommendation policy and project-local wire-in surfaces.
+
+Official references:
+
+- <https://developers.openai.com/codex>
+- <https://developers.openai.com/codex/app>
+- <https://developers.openai.com/codex/cli>
+- <https://developers.openai.com/codex/skills>
+- <https://developers.openai.com/codex/plugins>
+- <https://developers.openai.com/codex/mcp>
+- <https://developers.openai.com/codex/hooks>
+- <https://developers.openai.com/codex/guides/agents-md>
+
+What the adapter does:
+
+- writes a managed Codex section into project `AGENTS.md`
+- materializes selected skills into repo-local `.agents/skills/agent-harness/`
+- writes a repo-local `.agents/plugins/marketplace.json` and reviewable `agent-harness` plugin descriptor
+- stores reference assets under `.codex/agent-harness/`
+- applies structured Codex-native payloads only when assets explicitly provide documented host-native config
+
+What it does not do by default:
+
+- it does not write global `~/.codex` config or plugin cache entries
+- it does not silently enable plugin hooks
+- it does not perform MCP OAuth/login or create MCP server config without structured native payloads
+- it does not create automations, remote connections, browser/computer-use settings, or full-access sandbox settings
 
 ### Pi
 

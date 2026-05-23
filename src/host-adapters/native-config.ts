@@ -15,7 +15,13 @@ import type {
 } from "../types.js";
 
 type JsonObject = Record<string, unknown>;
-type NativeConfigHost = "opencode" | "cursor" | "zed" | "claude-code" | "pi";
+type NativeConfigHost =
+  | "opencode"
+  | "cursor"
+  | "zed"
+  | "claude-code"
+  | "pi"
+  | "codex";
 
 /**
  * Collects structured native-config file payloads for one host.
@@ -325,6 +331,16 @@ function assertAllowedHostNativePath(
       if (
         relativePath.startsWith(".pi/extensions/") ||
         relativePath.startsWith(".pi/packages/")
+      ) {
+        return;
+      }
+      break;
+    case "codex":
+      if (
+        [".codex/config.toml", ".codex/hooks.json"].includes(relativePath) ||
+        relativePath.startsWith(".codex/rules/") ||
+        relativePath.startsWith(".agents/plugins/") ||
+        relativePath.startsWith(".agents/skills/")
       ) {
         return;
       }

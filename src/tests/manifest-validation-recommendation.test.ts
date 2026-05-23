@@ -287,6 +287,7 @@ function createRecommendationReport(): RecommendationReport {
       zed: [],
       "claude-code": [],
       pi: [],
+      codex: [],
     },
     hostSummaries: Object.fromEntries(
       [
@@ -297,6 +298,7 @@ function createRecommendationReport(): RecommendationReport {
         "zed",
         "claude-code",
         "pi",
+        "codex",
       ].map((host) => [
         host,
         {
@@ -390,6 +392,7 @@ function createRecommendationPolicy(): RecommendationPolicy {
       zed: createHostPolicy("zed"),
       "claude-code": createHostPolicy("claude-code"),
       pi: createHostPolicy("pi"),
+      codex: createHostPolicy("codex"),
     },
     concernKeywordMap: {},
     taskModeKeywordMap: {},

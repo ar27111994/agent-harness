@@ -75,6 +75,7 @@ export const HOST_TARGETS: BuiltInHostTarget[] = [
   "zed",
   "claude-code",
   "pi",
+  "codex",
 ];
 
 /**

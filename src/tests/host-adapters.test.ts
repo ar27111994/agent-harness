@@ -23,7 +23,7 @@ import type {
   WirePreviewManifest,
 } from "../types.js";
 
-const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi"] as const;
+const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi", "codex"] as const;
 const ALL_ASSET_KINDS = [
   "agent",
   "skill",
@@ -66,6 +66,8 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   assert.equal(resolveHostAdapter("claude")?.id, "claude-code");
   assert.equal(resolveHostAdapter("claudecode")?.id, "claude-code");
   assert.equal(resolveHostAdapter("pi-coding-agent")?.id, "pi");
+  assert.equal(resolveHostAdapter("openai-codex")?.id, "codex");
+  assert.equal(resolveHostAdapter("codex-app")?.id, "codex");
 
   const vscodeAdapter = resolveHostAdapter("vscode");
   assert.ok(vscodeAdapter);
@@ -88,6 +90,17 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   assert.ok(piAdapter);
   assert.equal(piAdapter.recommendationHost, "pi");
   assertWireCapabilities(piAdapter, ALL_ASSET_KINDS);
+
+  const codexAdapter = resolveHostAdapter("codex");
+  assert.ok(codexAdapter);
+  assert.equal(codexAdapter.lifecycleHost, "opencode");
+  assert.equal(codexAdapter.recommendationHost, "codex");
+  assert.deepEqual(codexAdapter.defaultBundleIds, [
+    "opencode-global",
+    "community-stable",
+    "shared-mcp",
+  ]);
+  assertWireCapabilities(codexAdapter, ALL_ASSET_KINDS);
 });
 
 void test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {
@@ -952,6 +965,7 @@ async function assertNativeHostFile(
     zed: join(workspaceRoot, ".rules"),
     "claude-code": join(workspaceRoot, "CLAUDE.md"),
     pi: join(workspaceRoot, "AGENTS.md"),
+    codex: join(workspaceRoot, "AGENTS.md"),
   } satisfies Record<(typeof NATIVE_HOSTS)[number], string>;
 
   const content = await readFile(hostFileByHost[host], "utf8");
@@ -983,6 +997,26 @@ async function assertNativeHostExtras(
       "utf8",
     );
     assert.match(agentFile, /Agent Harness/u);
+  }
+
+  if (host === "codex") {
+    const skillFile = await readFile(
+      join(workspaceRoot, ".agents", "skills", "agent-harness", "SKILL.md"),
+      "utf8",
+    );
+    const pluginManifest = await readFile(
+      join(
+        workspaceRoot,
+        ".agents",
+        "plugins",
+        "agent-harness",
+        ".codex-plugin",
+        "plugin.json",
+      ),
+      "utf8",
+    );
+    assert.match(skillFile, /Agent Harness/u);
+    assert.match(pluginManifest, /agent-harness/u);
   }
 }
 

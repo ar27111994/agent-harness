@@ -647,6 +647,18 @@ function buildPolicy(): RecommendationPolicy {
         suppressedAssetIdPatterns: [],
         suppressedCapabilityTerms: [],
       },
+      codex: {
+        recommendationLimit: 10,
+        activationBudget: 20,
+        suggestedBundleId: "codex-bundle",
+        maxPerSourceFamily: 10,
+        maxPerDuplicateGroup: 10,
+        maxPerAssetKind: {},
+        targetAssetKinds: [],
+        targetConcerns: [],
+        suppressedAssetIdPatterns: [],
+        suppressedCapabilityTerms: [],
+      },
       pi: {
         recommendationLimit: 10,
         activationBudget: 20,

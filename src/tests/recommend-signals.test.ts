@@ -381,6 +381,7 @@ function buildPolicy(): RecommendationPolicy {
       zed: hostPolicy,
       "claude-code": hostPolicy,
       pi: hostPolicy,
+      codex: hostPolicy,
     },
     concernKeywordMap: {},
     taskModeKeywordMap: {},
