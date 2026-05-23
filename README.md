@@ -93,14 +93,15 @@ Some adapters intentionally reuse another lifecycle host while keeping their own
 
 `agent-harness` currently registers seven host adapters in `src/host-adapters/registry.ts`.
 
-| CLI target    | Aliases                | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                           |
-| ------------- | ---------------------- | ---------------- | ------------------- | --------------------------------------------------- | -------------------------------------------------------------------- | --- | ------- | --------------------------- | ---------- | ------- | --------------------------------------------------- | ---------------------------------------------------------------------- |
-| `vscode`      | `copilot`              | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                    |
-| `opencode`    | `open-code`            | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                  |
-| `cursor`      | -                      | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                        |
-| `zed`         | -                      | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets     |
-| `claude-code` | `claude`, `claudecode` | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands            |
-| `pi`          | `pi-coding-agent`      | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings | `n  | `codex` | `openai-codex`, `codex-app` | `opencode` | `codex` | `opencode-global`, `community-stable`, `shared-mcp` | project-local AGENTS.md, .agents skills/plugins, and .codex references |
+| CLI target    | Aliases                     | Lifecycle host   | Recommendation host | Default bundles                                     | Wire style                                                             |
+| ------------- | --------------------------- | ---------------- | ------------------- | --------------------------------------------------- | ---------------------------------------------------------------------- |
+| `vscode`      | `copilot`                   | `copilot-vscode` | `copilot-vscode`    | `copilot-core`, `community-stable`, `shared-mcp`    | VS Code user settings plus workspace instructions                      |
+| `opencode`    | `open-code`                 | `opencode`       | `opencode`          | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.opencode` overlay and managed links                    |
+| `cursor`      | -                           | `copilot-vscode` | `cursor`            | `copilot-core`, `community-stable`, `shared-mcp`    | project-local Cursor rules and managed assets                          |
+| `zed`         | -                           | `opencode`       | `zed`               | `opencode-global`, `community-stable`, `shared-mcp` | project-local `.rules`, `.zed/settings.json`, and managed assets       |
+| `claude-code` | `claude`, `claudecode`      | `opencode`       | `claude-code`       | `opencode-global`, `community-stable`, `shared-mcp` | project-local Claude context, rules, skills, and commands              |
+| `pi`          | `pi-coding-agent`           | `opencode`       | `pi`                | `opencode-global`, `community-stable`               | project-local Pi agent/system context, skills, prompts, and settings   |
+| `codex`       | `openai-codex`, `codex-app` | `opencode`       | `codex`             | `opencode-global`, `community-stable`, `shared-mcp` | project-local AGENTS.md, .agents skills/plugins, and .codex references |
 
 Use `setup hosts` to print the registered adapters from the local build:
 
@@ -157,7 +158,8 @@ agent-harness setup doctor --host opencode
 agent-harness setup doctor --host cursor
 agent-harness setup doctor --host zed
 agent-harness setup doctor --host claude-code
-agent-harness setup doctor --host pi`nagent-harness setup doctor --host codex
+agent-harness setup doctor --host pi
+agent-harness setup doctor --host codex
 ```
 
 `setup doctor` prints each adapter's lifecycle host, recommendation host, default bundles, runtime executable, advertised capabilities, lifecycle preflight diagnostics, adapter-specific CLI readiness diagnostics, and activated asset prerequisite guidance. Missing optional host CLIs are reported as warnings unless the selected operation requires a writable host-native path or native installer runtime.
@@ -173,7 +175,8 @@ agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent design
 agent-harness workspace claude-code --intent research
-agent-harness workspace pi --intent product`nagent-harness workspace codex --intent research
+agent-harness workspace pi --intent product
+agent-harness workspace codex --intent research
 ```
 
 From this repository, equivalent npm scripts are available:
@@ -184,7 +187,8 @@ npm run workspace:opencode -- --intent devops
 npm run workspace:cursor -- --intent frontend
 npm run workspace:zed -- --intent design
 npm run workspace:claude-code -- --intent research
-npm run workspace:pi -- --intent product`nnpm run workspace:codex -- --intent research
+npm run workspace:pi -- --intent product
+npm run workspace:codex -- --intent research
 ```
 
 Use the adapter-driven `agent-harness workspace <host>` command for end-to-end host setup. For a new user, this is the straightforward default path: it runs the broad discovery/recommendation pipeline, stages and activates assets, and then performs the selected host's final wire-in. Add `--ai-enrich` when you want the bounded enrichment sidecar as part of the same run, or configure `AGENT_HARNESS_AI_ENRICHMENT_MODE` for conservative automatic behavior.
@@ -587,7 +591,11 @@ agent-harness wire claude-code --reset
 
 agent-harness wire pi --preview
 agent-harness wire pi --apply
-agent-harness wire pi --reset`nagent-harness wire codex --preview`nagent-harness wire codex --apply`nagent-harness wire codex --reset
+agent-harness wire pi --reset
+
+agent-harness wire codex --preview
+agent-harness wire codex --apply
+agent-harness wire codex --reset
 ```
 
 Repository scripts apply the corresponding wire-in:
@@ -598,7 +606,8 @@ npm run wire:opencode
 npm run wire:cursor
 npm run wire:zed
 npm run wire:claude-code
-npm run wire:pi`nnpm run wire:codex
+npm run wire:pi
+npm run wire:codex
 ```
 
 ### Workspace
@@ -612,7 +621,8 @@ agent-harness workspace cursor --intent frontend
 agent-harness workspace cursor --intent frontend --ai-enrich
 agent-harness workspace zed --intent design
 agent-harness workspace claude-code --intent research
-agent-harness workspace pi --intent product`nagent-harness workspace codex --intent research
+agent-harness workspace pi --intent product
+agent-harness workspace codex --intent research
 ```
 
 `workspace <host>` also accepts `--no-ai-enrich`, `--force`, and `--require-ai-enrich` for explicit control of the bounded enrichment sidecar.
