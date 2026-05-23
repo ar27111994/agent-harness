@@ -22,6 +22,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Lifecycle model](#lifecycle-model)
 - [Supported hosts](#supported-hosts)
 - [Where it fits](#where-it-fits)
+- [What it produces](#what-it-produces)
 - [Quick start](#quick-start)
 - [Usage examples](#usage-examples)
 - [Key playbooks](#key-playbooks)
@@ -124,6 +125,22 @@ agent-harness setup hosts
 | **agent-harness**              | **Discovers sources, ranks recommendations, mirrors pinned bundles, stages/activates assets, quarantines risky inputs, and wires selected assets into supported hosts with preview/apply/reset semantics.** | **Supply-chain and workspace integration layer for reusable AI-agent assets.**                                                  |
 
 The practical lifecycle is: `discover -> recommend -> mirror -> stage -> activate -> wire`. Official and verified sources are preferred over popularity-only signals, mirrored generations are pinned for review, risky candidates route through quarantine, and native/global host installs remain explicit instead of hidden inside `workspace <host>`.
+
+## What it produces
+
+When you run the installed CLI from a workspace, mutable lifecycle state is written under `.agent-harness/` by default. Repository-local development keeps the same layout at the repository root so npm scripts and checked-in policy assets continue to work.
+
+| Phase                       | Inspectable outputs                                                                                                                                                                                                                                                                                                 |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Demand detection            | `.agent-harness/discover/output/demand-profile.json`                                                                                                                                                                                                                                                                |
+| Source selection            | `.agent-harness/discover/output/source-index.json`, `.agent-harness/discover/output/selection-report.json`, `.agent-harness/discover/output/source-utilization.json`                                                                                                                                                |
+| Catalog and recommendations | `.agent-harness/discover/catalog.assets.jsonl`, `.agent-harness/state/recommendations.json`                                                                                                                                                                                                                         |
+| Mirror locks and quarantine | `.agent-harness/mirror/bundles/*.lock.json`, `.agent-harness/mirror/quarantine/**`, `.agent-harness/mirror/audit/**`                                                                                                                                                                                                |
+| Staged generations          | `.agent-harness/install/generations/<host>/current.json`, `.agent-harness/install/<host>/packages/*/install-manifest.json`                                                                                                                                                                                          |
+| Activation                  | `.agent-harness/activate/<host>/activation-manifest.json`, `.agent-harness/activate/<host>/<host>-overlay-plan.json` when the adapter emits an overlay plan                                                                                                                                                         |
+| Wire preview/apply          | `.agent-harness/activate/<host>/wire-preview-<host>.json`, `.agent-harness/activate/<host>/wire-plan.json`, plus host-specific managed files such as `.opencode/...`, `.cursor/...`, `.zed/settings.json`, `.claude/...`, `.pi/...`, `.agents/...`, `.codex/...`, `AGENTS.md`, or `.github/copilot-instructions.md` |
+
+Preview mode writes reviewable wire plans without touching host files. Apply mode writes only the selected adapter's managed project files/settings, while native/global host installs remain explicit `install native` operations where supported. See [Host wire-in details](#host-wire-in-details) for the per-host paths and reset behavior.
 
 ## Quick start
 
