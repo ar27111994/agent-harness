@@ -453,7 +453,10 @@ function buildInstallIdentity(packageIdentity: {
   return `${packageIdentity.assetId}:${packageIdentity.mirrorId}`;
 }
 
-function getRegisteredBundleIds(): string[] {
+/**
+ * Returns every bundle id declared by the registered host adapters.
+ */
+export function getRegisteredBundleIds(): string[] {
   return [
     ...new Set(
       listHostAdapters().flatMap((adapter) => adapter.defaultBundleIds),
@@ -486,6 +489,7 @@ export const installBundleInternals = {
   assertNoUnexpectedMirrorFiles,
   debugInstallBundleSkip,
   buildInstallIdentity,
+  getRegisteredBundleIds,
   getPendingAssets,
   extractBundleId,
 };

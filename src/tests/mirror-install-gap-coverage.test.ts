@@ -420,6 +420,12 @@ void test("install bundle internals validate manifests and honor debug logging",
       installBundleInternals.extractBundleId("copilot-core.lock.json"),
       "copilot-core",
     );
+    assert.deepEqual(installBundleInternals.getRegisteredBundleIds(), [
+      "community-stable",
+      "copilot-core",
+      "opencode-global",
+      "shared-mcp",
+    ]);
   } finally {
     if (originalDebug === undefined) {
       delete process.env.AGENT_HARNESS_DEBUG;

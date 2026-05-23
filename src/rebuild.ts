@@ -8,6 +8,7 @@ import { runMirror } from "./mirror.js";
 import { assertMirrorAcquireState } from "./manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "./mirror/acquire-state.js";
 import { runInstall } from "./install.js";
+import { getRegisteredBundleIds } from "./install/bundle.js";
 import { runRecommend } from "./recommend.js";
 import { runActivate } from "./activate.js";
 import type {
@@ -18,12 +19,6 @@ import type {
 
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
-const BUNDLE_LOCK_FILE_NAMES = [
-  "opencode-global.lock.json",
-  "copilot-core.lock.json",
-  "shared-mcp.lock.json",
-  "community-stable.lock.json",
-];
 
 /**
  * Dispatches the rebuild CLI command group.
@@ -138,9 +133,9 @@ async function installAllBundleBatches(
 async function discoverBundleIds(projectRoot: string): Promise<string[]> {
   const bundleIds: string[] = [];
 
-  for (const bundleFileName of BUNDLE_LOCK_FILE_NAMES) {
+  for (const bundleId of getRegisteredBundleIds()) {
     const bundleLock = await readJsonFileOrNull<BundleLock>(
-      join(projectRoot, "mirror", "bundles", bundleFileName),
+      join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
     );
     if (bundleLock && bundleLock.assets.length > 0) {
       bundleIds.push(bundleLock.bundleId);
