@@ -55,6 +55,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
 - [Workspace evolution control-loop playbook](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md)
 - [End-user harness maintenance guide](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)
+- [v2 CLI and report contract](https://github.com/ar27111994/agent-harness/blob/main/V2-CONTRACT.md)
 - [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)
 
 ## What this project does
