@@ -207,8 +207,19 @@ function getLoginProviderNames(
 
 function printHosts(): void {
   for (const adapter of listHostAdapters()) {
+    const nativeInstallKinds = adapter.nativeInstall
+      ? [adapter.nativeInstall.assetKind]
+      : [];
+    const wireKinds = adapter.capabilities
+      .filter((capability) => capability.behaviors.includes("wire"))
+      .map((capability) => capability.assetKind);
+    const runtimeChecks = [
+      adapter.runtime?.versionArgs ? "version" : undefined,
+      adapter.runtime?.readinessArgs ? "readiness" : undefined,
+    ].filter((check): check is string => check !== undefined);
+
     console.log(
-      `${adapter.id}\t${adapter.displayName}\taliases=${adapter.aliases.join(",")}`,
+      `${adapter.id}\t${adapter.displayName}\taliases=${adapter.aliases.join(",")}\tlifecycle=${adapter.lifecycleHost}\trecommendation=${adapter.recommendationHost}\tbundles=${adapter.defaultBundleIds.join(",")}\twire=${wireKinds.join(",")}\tnativeInstall=${nativeInstallKinds.join(",") || "none"}\truntime=${adapter.runtime?.executable ?? "none"}\truntimeChecks=${runtimeChecks.join(",") || "none"}`,
     );
   }
 }

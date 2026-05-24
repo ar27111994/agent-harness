@@ -83,7 +83,8 @@ export interface WirePlanManifest {
     | "cursor"
     | "zed"
     | "claude-code"
-    | "pi";
+    | "pi"
+    | "codex";
   generatedAt: string;
   workspaceRoot: string;
   runtimeRoot: string;
@@ -108,7 +109,7 @@ export interface WirePlanManifest {
  */
 export interface WirePreviewManifest {
   schemaVersion: number;
-  host: "vscode" | "opencode";
+  host: HostTarget | "vscode" | "opencode";
   mode: "preview" | "apply" | "reset";
   generatedAt: string;
   workspaceRoot: string;
