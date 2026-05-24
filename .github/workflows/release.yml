@@ -96,7 +96,11 @@ jobs:
         run: npm audit --omit=dev
 
       - name: Verify packed artifact contents
-        run: npm pack --dry-run --json --ignore-scripts
+        run: npm run release:package-audit
+
+      - name: Smoke test packed package
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run release:package-smoke
 
       - name: Verify publish dry run
         if: matrix.os == 'ubuntu-latest' && !(github.event_name == 'workflow_dispatch' && steps.npm-version-published.outputs.value == 'true')
@@ -172,6 +176,12 @@ jobs:
 
       - name: Build package
         run: npm run build
+
+      - name: Verify packed artifact contents
+        run: npm run release:package-audit
+
+      - name: Smoke test packed package
+        run: npm run release:package-smoke
 
       - name: Publish package with npm trusted publishing
         if: github.event_name != 'workflow_dispatch' || steps.npm-version-published.outputs.value != 'true'

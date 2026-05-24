@@ -57,7 +57,7 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [End-user harness maintenance guide](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)`n- [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md)
 - [v2 CLI and report contract](https://github.com/ar27111994/agent-harness/blob/main/V2-CONTRACT.md)
 - [v1 to v2 upgrade guide](https://github.com/ar27111994/agent-harness/blob/main/V1-TO-V2-UPGRADE.md)
-- [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)
+- [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)`n- [Release process](https://github.com/ar27111994/agent-harness/blob/main/RELEASE-PROCESS.md)
 
 ## What this project does
 
