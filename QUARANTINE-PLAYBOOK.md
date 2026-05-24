@@ -50,3 +50,7 @@ Review before changing quarantine state when any of these occur:
 3. Check for hooks, install scripts, MCP servers, plugins, extensions, network behavior, and prompt-injection-like instructions.
 4. Check whether an official duplicate supersedes the community asset.
 5. Approve only if the risk is understood and acceptable; otherwise reject or pin.
+
+## Related security model
+
+See [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md) for the broader v2 trust tiers, prompt-injection handling, executable asset boundaries, and non-guarantees that quarantine enforces.

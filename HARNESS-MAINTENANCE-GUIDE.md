@@ -156,7 +156,7 @@ Return:
 
 ## Deeper docs
 
-- [`WORKSPACE-EVOLUTION-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md)
+- [`TRUST-CENTER.md`](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md)`n- [`WORKSPACE-EVOLUTION-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md)
 - [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md)
 - [`MAINTENANCE-WORKFLOW.md`](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)
 - [`AGENT-SETUP-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/AGENT-SETUP-PLAYBOOK.md)
