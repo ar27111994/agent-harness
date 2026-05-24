@@ -1,15 +1,17 @@
 import { join } from "node:path";
 
+import { fetchOfficialIndexPageRepositoryUrl } from "../../official-index.js";
 import type {
   AssetCatalogEntry,
   AssetKind,
   CompatibilityMode,
   DemandProfile,
   HostTarget,
+  SourceDefinition,
 } from "../../types.js";
 import { getRuntimeConfig } from "../../config/runtime.js";
-import { readJsonFileOrNull } from "../../files.js";
-import { fetchTextWithGuards } from "../../lib/http.js";
+import { readJsonFileOrNull, writeJsonFile } from "../../files.js";
+import { fetchJsonWithGuards, fetchTextWithGuards } from "../../lib/http.js";
 import { buildOfficialIndexAssetStatus } from "../../official-index.js";
 import {
   buildCandidateRankHint,
@@ -23,6 +25,10 @@ import {
   splitIntoKeywords,
   uniqueStrings,
 } from "./catalog-utils.js";
+import {
+  OFFICIAL_UPSTREAM_CACHE_STATE_PATH,
+  OFFICIAL_UPSTREAM_RESOLUTION_OUTPUT_PATH,
+} from "./output-paths.js";
 import { loadSourceRegistry } from "./source-registry.js";
 
 interface OfficialSkillIndexShape {
@@ -42,9 +48,69 @@ interface OfficialUpstreamAllowlistShape {
   owners: Record<string, string[]>;
 }
 
+interface GitHubSearchResponseShape {
+  items?: Array<{
+    full_name?: unknown;
+    html_url?: unknown;
+  }>;
+}
+
+interface OfficialUpstreamCacheShape {
+  schemaVersion: number;
+  updatedAt: string;
+  entries: Array<{
+    owner: string;
+    slug: string;
+    officialUrl: string;
+    repoUrl: string;
+    source: "index" | "page" | "search";
+    resolvedAt: string;
+  }>;
+}
+
+interface OfficialUpstreamResolutionReport {
+  schemaVersion: number;
+  generatedAt: string;
+  resolvedCount: number;
+  unresolvedCount: number;
+  ambiguousCount: number;
+  resolved: Array<{
+    owner: string;
+    slug: string;
+    officialUrl: string;
+    repoUrl: string;
+    source: "index" | "page" | "search";
+    sourceId?: string;
+  }>;
+  unresolved: Array<{
+    owner: string;
+    slug: string;
+    officialUrl: string;
+    reason: string;
+    attemptedFallbacks: string[];
+  }>;
+  ambiguous: Array<{
+    owner: string;
+    slug: string;
+    officialUrl: string;
+    candidates: string[];
+    reason: string;
+  }>;
+}
+
+interface OfficialUpstreamResolutionState {
+  cache: Map<string, OfficialUpstreamCacheShape["entries"][number]>;
+  resolved: OfficialUpstreamResolutionReport["resolved"];
+  unresolved: OfficialUpstreamResolutionReport["unresolved"];
+  ambiguous: OfficialUpstreamResolutionReport["ambiguous"];
+}
+
 const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://raw.githubusercontent.com",
 ] as const;
+const GITHUB_API_ALLOWED_ORIGINS = ["https://api.github.com"] as const;
+const OFFICIAL_UPSTREAM_RESOLUTION_SCHEMA_VERSION = 1;
+const OFFICIAL_UPSTREAM_CACHE_SCHEMA_VERSION = 1;
 
 /**
  * Provides harvest official skill indexes for the lifecycle pipeline.
@@ -66,6 +132,9 @@ export async function harvestOfficialSkillIndexes(
 
   const officialUpstreamAllowlist =
     await loadOfficialUpstreamAllowlist(projectRoot);
+  const resolutionState =
+    await loadOfficialUpstreamResolutionState(projectRoot);
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
   const entries: AssetCatalogEntry[] = [];
 
   const seenIds = new Set<string>();
@@ -88,9 +157,14 @@ export async function harvestOfficialSkillIndexes(
       const sourceIdParts = parsedEntry.source.sourceId.split(":");
       const owner = sourceIdParts[1]!;
       const manifestEntry = parsedEntry.install.manifestEntry!;
-      const officialRepoUrl = officialSkillRepoUrlsByOwnerAndSlug.get(
-        `${owner}:${manifestEntry}`,
-      );
+      const officialRepoUrl = await resolveOfficialRepoUrl({
+        allowlist: officialUpstreamAllowlist,
+        fallbackCandidates: officialSkillRepoUrlsByOwnerAndSlug,
+        officialUrl: parsedEntry.source.originUrl,
+        owner,
+        resolutionState,
+        slug: manifestEntry,
+      });
       const entry = officialRepoUrl
         ? {
             ...parsedEntry,
@@ -108,19 +182,29 @@ export async function harvestOfficialSkillIndexes(
       seenIds.add(entry.id);
       entries.push(entry);
 
-      const resolvedRepoSource = await resolveOfficialIndexEntryToRepoSource(
+      const resolvedRepoSource = resolveOfficialIndexEntryToRepoSource(
         owner,
         manifestEntry,
         entry,
-        projectRoot,
+        sourceRegistry,
         officialRepoUrl,
       );
-      if (resolvedRepoSource && !seenIds.has(resolvedRepoSource.id)) {
-        seenIds.add(resolvedRepoSource.id);
-        entries.push(resolvedRepoSource);
+      if (resolvedRepoSource) {
+        markResolvedSourceId(
+          resolutionState,
+          owner,
+          manifestEntry,
+          resolvedRepoSource.source.sourceId,
+        );
+        if (!seenIds.has(resolvedRepoSource.id)) {
+          seenIds.add(resolvedRepoSource.id);
+          entries.push(resolvedRepoSource);
+        }
       }
     }
   }
+
+  await writeOfficialUpstreamResolutionState(projectRoot, resolutionState);
 
   return entries;
 }
@@ -356,14 +440,13 @@ function isOfficialIndexOwner(owner: string): boolean {
   ].includes(owner);
 }
 
-async function resolveOfficialIndexEntryToRepoSource(
+function resolveOfficialIndexEntryToRepoSource(
   owner: string,
   slug: string,
   entry: AssetCatalogEntry,
-  projectRoot: string,
+  sourceRegistry: { sources: SourceDefinition[] },
   officialRepoUrl?: string,
-): Promise<AssetCatalogEntry | null> {
-  const sourceRegistry = await loadSourceRegistry(projectRoot);
+): AssetCatalogEntry | null {
   const officialRepoIdentity = normalizeGitHubRepoIdentity(officialRepoUrl);
   const expectedFallbackIdentity = normalizeGitHubRepoIdentity(
     `https://github.com/${owner}/${slug}`,
@@ -448,6 +531,362 @@ async function resolveOfficialIndexEntryToRepoSource(
   };
 }
 
+async function resolveOfficialRepoUrl(input: {
+  allowlist: Record<string, string[]>;
+  fallbackCandidates: Map<string, string>;
+  officialUrl: string;
+  owner: string;
+  resolutionState: OfficialUpstreamResolutionState;
+  slug: string;
+}): Promise<string | undefined> {
+  const owner = input.owner.toLowerCase();
+  const slug = normalizeOfficialSkillSlug(input.slug);
+  const key = buildOfficialUpstreamKey(owner, slug);
+  const cachedEntry = input.resolutionState.cache.get(key);
+  if (cachedEntry) {
+    recordResolvedOfficialUpstream(input.resolutionState, {
+      officialUrl: input.officialUrl,
+      owner,
+      repoUrl: cachedEntry.repoUrl,
+      slug,
+      source: cachedEntry.source,
+    });
+    return cachedEntry.repoUrl;
+  }
+
+  const fallbackRepoUrl = input.fallbackCandidates.get(key);
+  if (fallbackRepoUrl) {
+    return recordResolvedOfficialRepoUrl(input.resolutionState, {
+      officialUrl: input.officialUrl,
+      owner,
+      repoUrl: fallbackRepoUrl,
+      slug,
+      source: "index",
+    });
+  }
+
+  const pageRepoUrl = await fetchOfficialIndexPageRepositoryUrl(
+    input.officialUrl,
+  );
+  if (pageRepoUrl) {
+    const normalizedRepoIdentity = normalizeGitHubRepoIdentity(pageRepoUrl);
+    const repoOwner = normalizedRepoIdentity?.split("/")[0] ?? null;
+    if (
+      repoOwner &&
+      isAllowedOfficialRepoOwner(owner, repoOwner, input.allowlist)
+    ) {
+      return recordResolvedOfficialRepoUrl(input.resolutionState, {
+        officialUrl: input.officialUrl,
+        owner,
+        repoUrl: pageRepoUrl,
+        slug,
+        source: "page",
+      });
+    }
+
+    recordAmbiguousOfficialUpstream(input.resolutionState, {
+      candidates: [pageRepoUrl],
+      officialUrl: input.officialUrl,
+      owner,
+      reason:
+        "Page advertised a GitHub repository outside the allowed owner set.",
+      slug,
+    });
+    return undefined;
+  }
+
+  const searchCandidates = await searchOfficialRepoCandidates({
+    allowlist: input.allowlist,
+    owner,
+    slug,
+  });
+  if (searchCandidates.length === 1) {
+    return recordResolvedOfficialRepoUrl(input.resolutionState, {
+      officialUrl: input.officialUrl,
+      owner,
+      repoUrl: searchCandidates[0]!,
+      slug,
+      source: "search",
+    });
+  }
+  if (searchCandidates.length > 1) {
+    recordAmbiguousOfficialUpstream(input.resolutionState, {
+      candidates: searchCandidates,
+      officialUrl: input.officialUrl,
+      owner,
+      reason: "Repository search found multiple allowed owner candidates.",
+      slug,
+    });
+    return undefined;
+  }
+
+  recordUnresolvedOfficialUpstream(input.resolutionState, {
+    attemptedFallbacks: [
+      "official index adjacent repository link",
+      "official page repository extraction",
+      "GitHub repository search",
+    ],
+    officialUrl: input.officialUrl,
+    owner,
+    reason:
+      "No canonical GitHub repository was advertised by the official index, page, or repository search.",
+    slug,
+  });
+  return undefined;
+}
+
+async function searchOfficialRepoCandidates(input: {
+  allowlist: Record<string, string[]>;
+  owner: string;
+  slug: string;
+}): Promise<string[]> {
+  const candidates: string[] = [];
+  const allowedOwners = input.allowlist[input.owner] ?? [input.owner];
+
+  for (const allowedOwner of allowedOwners) {
+    const searchUrl = new URL("https://api.github.com/search/repositories");
+    searchUrl.searchParams.set(
+      "q",
+      `${input.slug} in:name user:${allowedOwner}`,
+    );
+    searchUrl.searchParams.set("per_page", "5");
+    const data = await fetchJsonWithGuards(searchUrl.toString(), {
+      allowedOrigins: GITHUB_API_ALLOWED_ORIGINS,
+      headers: buildOfficialIndexHeaders(),
+      maxBytes: getRuntimeConfig().officialIndex.contentMaxBytes,
+    });
+    const response = data as GitHubSearchResponseShape | null;
+    for (const item of response?.items ?? []) {
+      const fullName = typeof item.full_name === "string" ? item.full_name : "";
+      const htmlUrl = typeof item.html_url === "string" ? item.html_url : "";
+      const [repoOwner, repoName] = fullName.toLowerCase().split("/");
+      if (
+        !repoOwner ||
+        !repoName ||
+        normalizeOfficialSkillSlug(repoName) !== input.slug ||
+        !isAllowedOfficialRepoOwner(input.owner, repoOwner, input.allowlist)
+      ) {
+        continue;
+      }
+
+      const normalizedCandidate = normalizeGitHubRepositoryUrl(htmlUrl);
+      if (normalizedCandidate) {
+        candidates.push(normalizedCandidate);
+      }
+    }
+  }
+
+  return uniqueStrings(candidates).sort();
+}
+
+function normalizeGitHubRepositoryUrl(repoUrl: string): string | null {
+  const normalizedRepoIdentity = normalizeGitHubRepoIdentity(repoUrl);
+  return normalizedRepoIdentity
+    ? `https://github.com/${normalizedRepoIdentity}`
+    : null;
+}
+
+function recordResolvedOfficialRepoUrl(
+  resolutionState: OfficialUpstreamResolutionState,
+  input: {
+    officialUrl: string;
+    owner: string;
+    repoUrl: string;
+    slug: string;
+    source: "index" | "page" | "search";
+  },
+): string {
+  const normalizedRepoIdentity = normalizeGitHubRepoIdentity(input.repoUrl);
+  const repoUrl = normalizedRepoIdentity
+    ? `https://github.com/${normalizedRepoIdentity}`
+    : input.repoUrl;
+  const resolvedAt = new Date().toISOString();
+  resolutionState.cache.set(buildOfficialUpstreamKey(input.owner, input.slug), {
+    owner: input.owner,
+    slug: input.slug,
+    officialUrl: input.officialUrl,
+    repoUrl,
+    source: input.source,
+    resolvedAt,
+  });
+  recordResolvedOfficialUpstream(resolutionState, {
+    officialUrl: input.officialUrl,
+    owner: input.owner,
+    repoUrl,
+    slug: input.slug,
+    source: input.source,
+  });
+  return repoUrl;
+}
+
+function recordResolvedOfficialUpstream(
+  resolutionState: OfficialUpstreamResolutionState,
+  input: {
+    officialUrl: string;
+    owner: string;
+    repoUrl: string;
+    slug: string;
+    source: "index" | "page" | "search";
+  },
+): void {
+  const key = buildOfficialUpstreamKey(input.owner, input.slug);
+  resolutionState.unresolved = resolutionState.unresolved.filter(
+    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) !== key,
+  );
+  resolutionState.ambiguous = resolutionState.ambiguous.filter(
+    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) !== key,
+  );
+  if (
+    resolutionState.resolved.some(
+      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+    )
+  ) {
+    return;
+  }
+
+  resolutionState.resolved.push({
+    owner: input.owner,
+    slug: input.slug,
+    officialUrl: input.officialUrl,
+    repoUrl: input.repoUrl,
+    source: input.source,
+  });
+}
+
+function markResolvedSourceId(
+  resolutionState: OfficialUpstreamResolutionState,
+  owner: string,
+  slug: string,
+  sourceId: string,
+): void {
+  const key = buildOfficialUpstreamKey(owner, slug);
+  const resolvedEntry = resolutionState.resolved.find(
+    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+  );
+  if (resolvedEntry) {
+    resolvedEntry.sourceId = sourceId;
+  }
+}
+
+function recordUnresolvedOfficialUpstream(
+  resolutionState: OfficialUpstreamResolutionState,
+  entry: OfficialUpstreamResolutionReport["unresolved"][number],
+): void {
+  const key = buildOfficialUpstreamKey(entry.owner, entry.slug);
+  if (
+    resolutionState.resolved.some(
+      (resolvedEntry) =>
+        buildOfficialUpstreamKey(resolvedEntry.owner, resolvedEntry.slug) ===
+        key,
+    ) ||
+    resolutionState.unresolved.some(
+      (unresolvedEntry) =>
+        buildOfficialUpstreamKey(
+          unresolvedEntry.owner,
+          unresolvedEntry.slug,
+        ) === key,
+    )
+  ) {
+    return;
+  }
+
+  resolutionState.unresolved.push(entry);
+}
+
+function recordAmbiguousOfficialUpstream(
+  resolutionState: OfficialUpstreamResolutionState,
+  entry: OfficialUpstreamResolutionReport["ambiguous"][number],
+): void {
+  const key = buildOfficialUpstreamKey(entry.owner, entry.slug);
+  if (
+    resolutionState.resolved.some(
+      (resolvedEntry) =>
+        buildOfficialUpstreamKey(resolvedEntry.owner, resolvedEntry.slug) ===
+        key,
+    ) ||
+    resolutionState.ambiguous.some(
+      (ambiguousEntry) =>
+        buildOfficialUpstreamKey(ambiguousEntry.owner, ambiguousEntry.slug) ===
+        key,
+    )
+  ) {
+    return;
+  }
+
+  resolutionState.ambiguous.push(entry);
+}
+
+async function loadOfficialUpstreamResolutionState(
+  projectRoot: string,
+): Promise<OfficialUpstreamResolutionState> {
+  const cache = await readJsonFileOrNull<OfficialUpstreamCacheShape>(
+    join(projectRoot, ...OFFICIAL_UPSTREAM_CACHE_STATE_PATH),
+  );
+
+  return {
+    cache: new Map(
+      (cache?.entries ?? []).map((entry) => [
+        buildOfficialUpstreamKey(entry.owner, entry.slug),
+        entry,
+      ]),
+    ),
+    resolved: [],
+    unresolved: [],
+    ambiguous: [],
+  };
+}
+
+async function writeOfficialUpstreamResolutionState(
+  projectRoot: string,
+  resolutionState: OfficialUpstreamResolutionState,
+): Promise<void> {
+  const generatedAt = new Date().toISOString();
+  const cacheEntries = [...resolutionState.cache.values()].sort(
+    compareOfficialUpstreamEntries,
+  );
+  await writeJsonFile(
+    join(projectRoot, ...OFFICIAL_UPSTREAM_CACHE_STATE_PATH),
+    {
+      schemaVersion: OFFICIAL_UPSTREAM_CACHE_SCHEMA_VERSION,
+      updatedAt: generatedAt,
+      entries: cacheEntries,
+    } satisfies OfficialUpstreamCacheShape,
+  );
+
+  await writeJsonFile(
+    join(projectRoot, ...OFFICIAL_UPSTREAM_RESOLUTION_OUTPUT_PATH),
+    {
+      schemaVersion: OFFICIAL_UPSTREAM_RESOLUTION_SCHEMA_VERSION,
+      generatedAt,
+      resolvedCount: resolutionState.resolved.length,
+      unresolvedCount: resolutionState.unresolved.length,
+      ambiguousCount: resolutionState.ambiguous.length,
+      resolved: [...resolutionState.resolved].sort(
+        compareOfficialUpstreamEntries,
+      ),
+      unresolved: [...resolutionState.unresolved].sort(
+        compareOfficialUpstreamEntries,
+      ),
+      ambiguous: [...resolutionState.ambiguous].sort(
+        compareOfficialUpstreamEntries,
+      ),
+    } satisfies OfficialUpstreamResolutionReport,
+  );
+}
+
+function compareOfficialUpstreamEntries(
+  left: { owner: string; slug: string },
+  right: { owner: string; slug: string },
+): number {
+  return buildOfficialUpstreamKey(left.owner, left.slug).localeCompare(
+    buildOfficialUpstreamKey(right.owner, right.slug),
+  );
+}
+
+function buildOfficialUpstreamKey(owner: string, slug: string): string {
+  return `${owner.toLowerCase()}:${normalizeOfficialSkillSlug(slug)}`;
+}
+
 async function loadOfficialUpstreamAllowlist(
   projectRoot: string,
 ): Promise<Record<string, string[]>> {
@@ -479,11 +918,7 @@ function extractOfficialSkillRepoUrls(
     }
 
     const officialOwner = officialEntryMatch[1]!.trim().toLowerCase();
-    const slug = officialEntryMatch[2]!
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9-]+/gu, "-")
-      .replace(/^-+|-+$/gu, "");
+    const slug = normalizeOfficialSkillSlug(officialEntryMatch[2]!);
     const repoIdentity = repoMatch[1]!;
     const repoOwner = repoIdentity.split("/")[0]!.toLowerCase();
     if (
@@ -500,6 +935,14 @@ function extractOfficialSkillRepoUrls(
   }
 
   return repoUrls;
+}
+
+function normalizeOfficialSkillSlug(slug: string): string {
+  return slug
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
 }
 
 function isAllowedOfficialRepoOwner(

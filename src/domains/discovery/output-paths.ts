@@ -62,6 +62,24 @@ export const SOURCE_CANDIDATES_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the official upstream resolution report output path location used by persisted project state.
+ */
+export const OFFICIAL_UPSTREAM_RESOLUTION_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "official-upstream-resolution.json",
+];
+
+/**
+ * Defines the official upstream resolver cache path location used by persisted project state.
+ */
+export const OFFICIAL_UPSTREAM_CACHE_STATE_PATH = [
+  "state",
+  "discover",
+  "official-upstream-cache.json",
+];
+
+/**
  * Defines the source index output path location used by persisted project state.
  */
 export const SOURCE_INDEX_OUTPUT_PATH = [
