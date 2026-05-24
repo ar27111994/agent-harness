@@ -10,6 +10,10 @@ import {
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 import {
+  formatActionableDiagnostic,
+  unknownHostDiagnostic,
+} from "./lib/diagnostics.js";
+import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
   runAdapterPreflight,
@@ -35,6 +39,7 @@ export async function runWire(
 
   const hostAdapter = resolveHostAdapter(target);
   if (!hostAdapter) {
+    console.log(formatActionableDiagnostic(unknownHostDiagnostic(target)));
     printWireHelp();
     return 1;
   }

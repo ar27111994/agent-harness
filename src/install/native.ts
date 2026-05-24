@@ -13,6 +13,12 @@ import {
 } from "../host-adapters/registry.js";
 import { getOptionValue } from "../lib/cli-options.js";
 import {
+  formatActionableDiagnostic,
+  noNativeInstallAssetsDiagnostic,
+  unknownHostDiagnostic,
+  unsupportedNativeInstallDiagnostic,
+} from "../lib/diagnostics.js";
+import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
   runNativeInstallPreflight,
@@ -44,12 +50,17 @@ export async function manageNativeInstall(
   const adapter = resolveHostAdapter(hostName);
 
   if (!adapter) {
-    throw new Error(`Unknown host '${hostName}' for native install.`);
+    throw new Error(formatActionableDiagnostic(unknownHostDiagnostic(hostName)));
   }
 
   if (!adapter.nativeInstall) {
     throw new Error(
-      `${adapter.displayName} does not support host-native installation through agent-harness.`,
+      formatActionableDiagnostic(
+        unsupportedNativeInstallDiagnostic({
+          displayName: adapter.displayName,
+          hostId: adapter.id,
+        }),
+      ),
     );
   }
 
@@ -58,7 +69,13 @@ export async function manageNativeInstall(
 
   if (actions.length === 0) {
     console.log(
-      `No selected ${adapter.nativeInstall.assetKind} assets are ready for native install on ${adapter.displayName}.`,
+      formatActionableDiagnostic(
+        noNativeInstallAssetsDiagnostic({
+          assetKind: adapter.nativeInstall.assetKind,
+          displayName: adapter.displayName,
+          hostId: adapter.id,
+        }),
+      ),
     );
     return;
   }

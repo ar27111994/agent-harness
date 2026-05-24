@@ -2,6 +2,10 @@ import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import {
+  formatActionableDiagnostic,
+  installRefreshPolicyDiagnostic,
+} from "../lib/diagnostics.js";
+import {
   readJsonFileOrNull,
   readJsonLinesFile,
   toPosixPath,
@@ -881,6 +885,11 @@ function printInstallRefreshReport(
     console.log(
       `  ${host.host}: assets=${host.assetCount} stale=${host.staleCount} pinned=${host.pinnedCount} blocked=${host.blockedCount} current=${host.currentCount} stage=${host.stageEligibleCount} apply=${host.applyEligibleCount} review=${host.reviewRequiredCount} quarantined=${host.quarantinedCount}`,
     );
+  }
+
+  const policyDiagnostic = installRefreshPolicyDiagnostic(report);
+  if (policyDiagnostic) {
+    console.log(formatActionableDiagnostic(policyDiagnostic));
   }
 }
 
