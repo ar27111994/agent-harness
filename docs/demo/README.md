@@ -1,4 +1,4 @@
-# Terminal demo
+# Terminal demo`n`nFor the full v2 before/after walkthrough, expected artifacts, and quarantine/security talking points, see [`v2-opencode-walkthrough.md`](./v2-opencode-walkthrough.md).
 
 Issue #232 tracks adding a short public terminal demo near the README hero. The repo keeps this reproducible script so the recording can be regenerated without exposing a private workstation.
 

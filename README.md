@@ -12,7 +12,7 @@
 
 **Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
-Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. A rendered GIF/video can be linked here once uploaded as a release asset.
+Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. The full v2 before/after walkthrough lives in [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md). A rendered GIF/video can be linked here once uploaded as a release asset.
 
 `agent-harness` treats reusable AI-agent assets like a reproducible, auditable supply chain: discover trusted sources, rank recommendations, mirror pinned bundles, quarantine risky assets, stage and activate selected assets, then wire them into VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex workspaces.
 
