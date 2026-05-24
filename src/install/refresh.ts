@@ -17,7 +17,7 @@ import {
   type NativeInstallResult,
 } from "../host-adapters/extension-installer.js";
 import { resolveHostAdapter } from "../host-adapters/registry.js";
-import { getOptionValue } from "../lib/cli-options.js";
+import { getOptionValue, hasSingleFlag } from "../lib/cli-options.js";
 import {
   assertNoPreflightErrors,
   formatPreflightDiagnostics,
@@ -72,6 +72,10 @@ const RISKY_EXECUTABLE_ASSET_KINDS = new Set([
   "mcp-server",
   "plugin",
 ] as const);
+const REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS = new Set([
+  "trusted-community",
+  "unverified-community",
+] as const);
 const INSTALL_REFRESH_POLICIES = [
   "manual",
   "report-only",
@@ -91,7 +95,7 @@ export async function manageInstallRefresh(
   const installConfig = getRuntimeConfig().install;
   const refreshPolicy = installConfig.refreshPolicy;
   const refreshIntervalMs = installConfig.refreshIntervalMs;
-  const applyRequested = args.includes("--apply");
+  const applyRequested = hasSingleFlag(args, "--apply");
   const dueOnly = args.includes("--due-only");
   const refreshedMirrorState = shouldRefreshMirrorState(args);
   const previousRefreshState = await loadInstallRefreshState(projectRoot);
@@ -130,7 +134,13 @@ export async function manageInstallRefresh(
   let applied = false;
 
   if (applyRequested) {
-    if (
+    const unsafeApplyDiagnostic = installRefreshPolicyDiagnostic(report);
+    if (unsafeApplyDiagnostic) {
+      console.log(formatActionableDiagnostic(unsafeApplyDiagnostic));
+      console.log(
+        "Install refresh apply skipped until review-required or quarantined assets are resolved.",
+      );
+    } else if (
       bundleIdsToRefresh.length === 0 &&
       nativeRefreshExtensionIds.size === 0
     ) {
@@ -665,6 +675,16 @@ function requiresRefreshReview(
     return true;
   }
   if (!latestCatalogEntry.status.installEligible) {
+    return true;
+  }
+  if (
+    RISKY_EXECUTABLE_ASSET_KINDS.has(
+      latestCatalogEntry.assetKind as "extension" | "hook" | "mcp-server" | "plugin",
+    ) &&
+    REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS.has(
+      latestMirrorEntry.source.authorityTier as "trusted-community" | "unverified-community",
+    )
+  ) {
     return true;
   }
   if (latestCatalogEntry.risk.level !== "low") {

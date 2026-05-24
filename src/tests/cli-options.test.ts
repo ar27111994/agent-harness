@@ -5,6 +5,7 @@ import {
   getOptionValue,
   getOptionValues,
   getSingleOptionValue,
+  hasSingleFlag,
 } from "../lib/cli-options.js";
 import { getWireMode } from "../wire.js";
 
@@ -29,6 +30,15 @@ void test("wire mode parsing honors explicit apply and defaults to preview", () 
   assert.throws(
     () => getWireMode(["--apply", "--preview"]),
     /Conflicting wire mode flags/u,
+  );
+});
+
+void test("single CLI flags reject duplicates", () => {
+  assert.equal(hasSingleFlag(["--apply"], "--apply"), true);
+  assert.equal(hasSingleFlag([], "--apply"), false);
+  assert.throws(
+    () => hasSingleFlag(["--apply", "--apply"], "--apply"),
+    /Flag '--apply' may only be provided once\./u,
   );
 });
 

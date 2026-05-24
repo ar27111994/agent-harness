@@ -37,7 +37,8 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Development and validation](#development-and-validation)
 - [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
-- [Security and trust center](#security-and-trust-center)`n- [Current boundaries](#current-boundaries)
+- [Security and trust center](#security-and-trust-center)
+- [Current boundaries](#current-boundaries)
 - [Related documentation](#related-documentation)
 - [Sponsor](#sponsor)
 - [License](#license)
@@ -54,10 +55,13 @@ It is built around one generic command surface and a host-adapter model. The lif
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/LOGGING-STRATEGY.md)
 - [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/RECOMMENDATION-POLICY-PLAYBOOK.md)
 - [Workspace evolution control-loop playbook](https://github.com/ar27111994/agent-harness/blob/main/WORKSPACE-EVOLUTION-PLAYBOOK.md)
-- [End-user harness maintenance guide](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)`n- [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md)
+- [End-user harness maintenance guide](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)
+- [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md)
+- [v2 safe defaults](https://github.com/ar27111994/agent-harness/blob/main/SAFE-DEFAULTS.md)
 - [v2 CLI and report contract](https://github.com/ar27111994/agent-harness/blob/main/V2-CONTRACT.md)
 - [v1 to v2 upgrade guide](https://github.com/ar27111994/agent-harness/blob/main/V1-TO-V2-UPGRADE.md)
-- [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)`n- [Release process](https://github.com/ar27111994/agent-harness/blob/main/RELEASE-PROCESS.md)
+- [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/MAINTENANCE-WORKFLOW.md)
+- [Release process](https://github.com/ar27111994/agent-harness/blob/main/RELEASE-PROCESS.md)
 
 ## What this project does
 
@@ -1734,7 +1738,7 @@ Inspect the effective wire plan. Depending on host, it is written under `activat
 
 ## Security and trust center
 
-For the v2 trust model, safe defaults, review-required paths, and security non-guarantees, see [`TRUST-CENTER.md`](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md). The short rule is: discovery/reporting can be automated, but quarantine approval, trust-tier promotion, executable hooks/plugins/MCP/custom tools, native/global installs, and host-native credential flows require explicit review.
+For the v2 trust model, safe defaults, review-required paths, and security non-guarantees, see [`TRUST-CENTER.md`](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md) and [`SAFE-DEFAULTS.md`](https://github.com/ar27111994/agent-harness/blob/main/SAFE-DEFAULTS.md). The short rule is: discovery/reporting can be automated, but quarantine approval, trust-tier promotion, executable hooks/plugins/MCP/custom tools, native/global installs, and host-native credential flows require explicit review.
 
 ## Current boundaries
 

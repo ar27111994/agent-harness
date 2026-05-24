@@ -62,7 +62,7 @@ const AI_ENRICHMENT_DEFAULTS = {
   autoMinIntervalMs: 300_000,
 } as const;
 const INSTALL_DEFAULTS = {
-  refreshPolicy: "manual",
+  refreshPolicy: "report-only",
   refreshIntervalMs: 21_600_000,
 } as const;
 const HTTP_DEFAULTS = {

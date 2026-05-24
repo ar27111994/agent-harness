@@ -6,6 +6,8 @@ This document is for both end users and maintainers. It explains what the harnes
 
 ## Short version
 
+For the concise lifecycle policy matrix, see [`SAFE-DEFAULTS.md`](https://github.com/ar27111994/agent-harness/blob/main/SAFE-DEFAULTS.md).
+
 Safe by default means:
 
 - Discovery and recommendation can report on untrusted assets, but risky assets are quarantined before stage/activation/wire-in.

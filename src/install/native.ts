@@ -11,7 +11,7 @@ import {
   resolveHostAdapter,
   type HostAdapter,
 } from "../host-adapters/registry.js";
-import { getOptionValue } from "../lib/cli-options.js";
+import { getOptionValue, hasSingleFlag } from "../lib/cli-options.js";
 import {
   formatActionableDiagnostic,
   noNativeInstallAssetsDiagnostic,
@@ -46,7 +46,7 @@ export async function manageNativeInstall(
   const operation = parseNativeInstallOperation(
     getOptionValue(args, "--operation") ?? "plan",
   );
-  const apply = args.includes("--apply");
+  const apply = hasSingleFlag(args, "--apply");
   const adapter = resolveHostAdapter(hostName);
 
   if (!adapter) {

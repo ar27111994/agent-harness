@@ -257,9 +257,9 @@ void test("install refresh reports stale assets when bundle locks move to a new 
     assert.equal(assetReport?.latestMirrorId, "sha256-new");
     assert.equal(assetReport?.nativeInstall?.extensionId, "pub.flutter-skill");
     assert.equal(assetReport?.refreshTier, "auto-report-only");
-    assert.equal(assetReport?.policyDecision, "notify");
-    assert.match(assetReport?.policyReason ?? "", /Manual policy/u);
-    assert.equal(refreshState.policy, "manual");
+    assert.equal(assetReport?.policyDecision, "plan");
+    assert.match(assetReport?.policyReason ?? "", /Report-only policy/u);
+    assert.equal(refreshState.policy, "report-only");
     assert.equal(refreshState.staleCount, 1);
     assert.equal(refreshState.stageEligibleCount, 0);
     assert.equal(refreshState.applyEligibleCount, 0);
@@ -409,7 +409,7 @@ void test("install refresh due-only skips runs before the next scheduled check",
     await writeJsonFile(refreshStatePath, {
       schemaVersion: 1,
       updatedAt: initialUpdatedAt,
-      policy: "manual",
+      policy: "report-only",
       intervalMs: 21_600_000,
       nextCheckAt: futureNextCheckAt,
       refreshedMirrorState: false,
@@ -701,7 +701,7 @@ void test("install refresh honors report-only and pinned policies", async () => 
   }
 });
 
-void test("install refresh apply-safe reapplies stale bundles and native installs", async () => {
+void test("install refresh apply-safe blocks community executable refreshes", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-install-refresh-"),
   );
@@ -939,21 +939,23 @@ void test("install refresh apply-safe reapplies stale bundles and native install
       updatedBundleManifest.packages[0]?.manifestPath ?? installManifestPath,
     );
 
-    assert.equal(report.hosts[0]?.staleCount, 0);
-    assert.equal(report.hosts[0]?.currentCount, 1);
-    assert.equal(report.hosts[0]?.assets[0]?.lastRefreshAction, "staged");
+    assert.equal(report.hosts[0]?.staleCount, 1);
+    assert.equal(report.hosts[0]?.currentCount, 0);
+    assert.equal(report.hosts[0]?.assets[0]?.policyDecision, "review-required");
+    assert.equal(report.hosts[0]?.assets[0]?.refreshTier, "review-required");
+    assert.equal(report.hosts[0]?.assets[0]?.lastRefreshAction, undefined);
     assert.equal(refreshState.stageEligibleCount, 0);
     assert.equal(refreshState.applyEligibleCount, 0);
-    assert.equal(refreshState.reviewRequiredCount, 0);
+    assert.equal(refreshState.reviewRequiredCount, 1);
     assert.equal(refreshState.quarantinedCount, 0);
-    assert.equal(updatedBundleManifest.packages[0]?.mirrorId, latestMirrorId);
-    assert.equal(updatedManifest.mirrorId, latestMirrorId);
+    assert.equal(updatedBundleManifest.packages[0]?.mirrorId, "sha256-old");
+    assert.equal(updatedManifest.mirrorId, "sha256-old");
     assert.equal(
       updatedManifest.nativeInstall?.extensionId,
       "pub.flutter-skill",
     );
     assert.equal(refreshState.policy, "apply-safe");
-    assert.match(refreshState.lastAppliedAt ?? "", /^\d{4}-\d{2}-\d{2}T/u);
+    assert.equal(refreshState.lastAppliedAt, undefined);
   } finally {
     if (originalPolicy === undefined) {
       delete process.env.AGENT_HARNESS_INSTALL_REFRESH_POLICY;

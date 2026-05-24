@@ -799,11 +799,11 @@ void test("manageNativeInstall builds a native install plan from selected activa
 void test("manageNativeInstall rejects unsupported and invalid operations", async () => {
   await assert.rejects(
     manageNativeInstall(process.cwd(), ["--host", "not-a-host"]),
-    /Unknown host 'not-a-host' for native install/u,
+    /Unsupported host adapter/u,
   );
   await assert.rejects(
     manageNativeInstall(process.cwd(), ["--host", "zed"]),
-    /does not support host-native installation/u,
+    /Unsupported native install capability/u,
   );
   await assert.rejects(
     manageNativeInstall(process.cwd(), [
@@ -834,9 +834,16 @@ void test("manageNativeInstall reports when no selected assets are ready", async
       "plan",
     ]);
 
-    assert.deepEqual(output, [
-      "No selected extension assets are ready for native install on GitHub Copilot in VS Code.",
-    ]);
+    assert.equal(output.length, 1);
+    assert.match(output[0] ?? "", /No native-install assets selected/u);
+    assert.match(
+      output[0] ?? "",
+      /No selected extension assets are ready for native install on GitHub Copilot in VS Code\./u,
+    );
+    assert.match(
+      output[0] ?? "",
+      /agent-harness install native --host copilot-vscode --operation plan/u,
+    );
     assert.equal(
       await pathExists(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH)),
       false,

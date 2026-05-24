@@ -66,3 +66,19 @@ export function getOptionValues(
 
   return values;
 }
+
+/**
+ * Returns whether a CLI flag was provided, rejecting duplicate occurrences.
+ */
+export function hasSingleFlag(
+  args: readonly string[],
+  flagName: string,
+): boolean {
+  const count = args.filter((arg) => arg === flagName).length;
+
+  if (count > 1) {
+    throw new Error(`Flag '${flagName}' may only be provided once.`);
+  }
+
+  return count === 1;
+}

@@ -19,7 +19,7 @@ void test("runtime config preserves existing defaults when new env vars are unse
   assert.equal(config.aiEnrichment.maxCapabilitiesPerAsset, 16);
   assert.deepEqual(config.recommendation.limitOverrides, {});
   assert.deepEqual(config.recommendation.limitOverrideModes, {});
-  assert.equal(config.install.refreshPolicy, "manual");
+  assert.equal(config.install.refreshPolicy, "report-only");
   assert.equal(config.install.refreshIntervalMs, 21_600_000);
   assert.equal(config.aiEnrichment.redactFilePaths, false);
   assert.equal(config.aiEnrichment.redactSourceIdentifiers, false);
