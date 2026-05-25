@@ -1,5 +1,8 @@
 import type { AssetCatalogEntry } from "../../types.js";
 
+/**
+ * Describes a community asset safety score and review decision.
+ */
 export interface CommunityAssetScore {
   assetId: string;
   score: number;

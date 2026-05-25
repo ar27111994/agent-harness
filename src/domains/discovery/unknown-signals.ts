@@ -339,6 +339,9 @@ function countByCategory(
   };
 }
 
+/**
+ * Exposes pure helpers for focused unknown-signal branch coverage.
+ */
 export const unknownSignalInternals = {
   KNOWN_PACKAGE_PREFIXES,
   createSignal,

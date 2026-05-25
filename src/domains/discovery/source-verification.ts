@@ -7,6 +7,9 @@ interface OfficialUpstreamsConfig {
   owners?: Record<string, string[]>;
 }
 
+/**
+ * Describes source trust verification for one configured source.
+ */
 export interface SourceVerificationEntry {
   sourceId: string;
   originalAuthorityTier: AuthorityTier;
@@ -22,6 +25,9 @@ export interface SourceVerificationEntry {
   };
 }
 
+/**
+ * Describes deterministic source trust verification results.
+ */
 export interface SourceVerificationReport {
   schemaVersion: number;
   generatedAt: string;
@@ -94,6 +100,9 @@ export function applySourceVerificationDemotions(
   }));
 }
 
+/**
+ * Verifies a source authority tier against explicit publisher and owner evidence.
+ */
 export function verifySourceAuthority(
   source: SourceDefinition,
   officialUpstreams: Record<string, string[]>,

@@ -9,6 +9,9 @@ import {
 } from "./output-paths.js";
 import type { UnknownSignalReport } from "./unknown-signals.js";
 
+/**
+ * Describes one proposed source candidate that still needs explicit review.
+ */
 export interface SourceCandidate {
   id: string;
   provenance: "unknown-signal" | "source-health" | "manual-seed";
@@ -22,6 +25,9 @@ export interface SourceCandidate {
   risky: boolean;
 }
 
+/**
+ * Describes the persisted queue of source candidates awaiting review.
+ */
 export interface SourceCandidateQueueReport {
   schemaVersion: number;
   generatedAt: string;

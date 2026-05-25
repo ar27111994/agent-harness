@@ -1424,7 +1424,7 @@ void test("manageInstallRefresh reports missing, conflicting, stale, and pinned 
       [
         ["conflict-asset", "blocked", "review-required", ""],
         ["missing-from-bundles", "blocked", "review-required", ""],
-        ["stale-extension", "stale", "notify", "fixture.stale"],
+        ["stale-extension", "stale", "plan", "fixture.stale"],
       ],
     );
 
@@ -1443,7 +1443,7 @@ void test("manageInstallRefresh reports missing, conflicting, stale, and pinned 
     const futureState = {
       schemaVersion: 1,
       updatedAt: new Date().toISOString(),
-      policy: "manual",
+      policy: "report-only",
       intervalMs: 21_600_000,
       nextCheckAt: new Date(Date.now() + 60_000).toISOString(),
       refreshedMirrorState: false,

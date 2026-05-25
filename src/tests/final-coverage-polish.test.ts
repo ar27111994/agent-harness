@@ -125,6 +125,10 @@ void test("GitHub-backed fetchers attach configured authorization headers", asyn
 
   await mkdir(join(projectRoot, "discover"), { recursive: true });
   await writeFile(
+    join(projectRoot, "discover", "sources.json"),
+    JSON.stringify({ schemaVersion: 1, sources: [] }),
+  );
+  await writeFile(
     join(projectRoot, "discover", "official-skills-indexes.json"),
     JSON.stringify({
       schemaVersion: 1,
