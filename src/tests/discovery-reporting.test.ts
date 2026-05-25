@@ -10,8 +10,10 @@ import {
   printCatalogStats,
 } from "../domains/discovery/catalog-inspection.js";
 import { buildDiscoverDiffReport } from "../domains/discovery/diff.js";
+import { writeEnvironmentIndex } from "../domains/discovery/environment-index.js";
 import {
   CATALOG_OUTPUT_PATH,
+  ENVIRONMENT_INDEX_OUTPUT_PATH,
   SOURCE_INDEX_OUTPUT_PATH,
   SOURCE_UTILIZATION_OUTPUT_PATH,
 } from "../domains/discovery/output-paths.js";
@@ -197,6 +199,63 @@ void test("discover diff reports source catalog and selection changes", async ()
   } finally {
     await rm(baselineRoot, { recursive: true, force: true });
     await rm(currentRoot, { recursive: true, force: true });
+  }
+});
+
+void test("environment index writes experimental query metadata for selected assets", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-environment-index-"),
+  );
+
+  try {
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [
+        buildEntry("asset-a", "source-a", "skill", {
+          queryMetadata: {
+            symbolicHandle: "custom:asset-a",
+            retrievalFacets: ["custom", "backend"],
+            chunkingHints: {
+              preferredStrategy: "section",
+              maxPromptWeight: 3,
+            },
+            citation: {
+              provenance: "custom-provenance",
+              sourceUrl: "https://example.com/custom",
+              sourceId: "source-a",
+            },
+            safetyFlags: ["network"],
+          },
+        }),
+        buildEntry("asset-b", "source-b", "plugin", {
+          hasExecScripts: true,
+          requiresNetwork: true,
+        }),
+      ],
+    );
+
+    const output = await captureConsole(async () => {
+      await writeEnvironmentIndex(projectRoot, ["--json"]);
+    });
+    const report = JSON.parse(output) as Awaited<
+      ReturnType<typeof writeEnvironmentIndex>
+    >;
+    const persisted = (await readJsonFile(
+      join(projectRoot, ...ENVIRONMENT_INDEX_OUTPUT_PATH),
+    )) as typeof report;
+
+    assert.equal(report.experimental, true);
+    assert.equal(persisted.selectedAssetCount, 2);
+    assert.equal(report.assets[0]?.symbolicHandle, "custom:asset-a");
+    assert.deepEqual(report.assets[0]?.retrievalFacets, ["backend", "custom"]);
+    assert.equal(report.assets[1]?.symbolicHandle, "source-b:plugin:asset-b");
+    assert.deepEqual(report.assets[1]?.safetyFlags, [
+      "exec-scripts",
+      "network",
+    ]);
+    assert.match(report.notes.join("\n"), /does not change mirror/u);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
   }
 });
 
@@ -464,6 +523,9 @@ function buildEntry(
     mirrorEligible?: boolean;
     installEligible?: boolean;
     activationEligible?: boolean;
+    hasExecScripts?: boolean;
+    requiresNetwork?: boolean;
+    queryMetadata?: AssetCatalogEntry["queryMetadata"];
   } = {},
 ): AssetCatalogEntry {
   return {
@@ -509,8 +571,8 @@ function buildEntry(
     risk: {
       level: "low",
       hasHooks: false,
-      hasExecScripts: false,
-      requiresNetwork: false,
+      hasExecScripts: overrides.hasExecScripts ?? false,
+      requiresNetwork: overrides.requiresNetwork ?? false,
     },
     contextCost: {
       sizeClass: "tiny",
@@ -529,5 +591,6 @@ function buildEntry(
       installEligible: overrides.installEligible ?? true,
       activationEligible: overrides.activationEligible ?? true,
     },
+    queryMetadata: overrides.queryMetadata,
   };
 }

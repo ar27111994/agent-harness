@@ -246,6 +246,10 @@ function printHelp(): void {
         description: "Compare discovery outputs against a baseline state root",
       },
       {
+        command: "discover environment-index",
+        description: "Write experimental read-only query metadata index",
+      },
+      {
         command: "mirror locks",
         description: "Generate mirror bundle locks",
       },

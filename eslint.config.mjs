@@ -11,6 +11,7 @@ const cliOutputFiles = [
   "src/domains/discovery/ai-enrichment.ts",
   "src/domains/discovery/catalog-inspection.ts",
   "src/domains/discovery/diff.ts",
+  "src/domains/discovery/environment-index.ts",
   "src/domains/discovery/source-index.ts",
   "src/install.ts",
   "src/install/*.ts",

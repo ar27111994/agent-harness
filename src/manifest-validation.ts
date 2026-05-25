@@ -4,6 +4,7 @@ export {
   assertAssetCatalogEntry,
   assertDemandProfile,
   assertDiscoverDiffReport,
+  assertEnvironmentIndexReport,
   assertGitHubRepoSnapshot,
   assertSelectionRegistry,
   assertSelectionReport,

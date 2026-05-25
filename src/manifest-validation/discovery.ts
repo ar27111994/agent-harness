@@ -4,6 +4,7 @@ import type {
   AssetCatalogEntry,
   DemandProfile,
   DiscoverDiffReport,
+  EnvironmentIndexReport,
   GitHubRepoSnapshot,
   SelectionRegistry,
   SelectionReport,
@@ -274,6 +275,82 @@ export function assertDiscoverDiffReport(
 /**
  * Validates unknown data as source index.
  */
+export function assertEnvironmentIndexReport(
+  value: unknown,
+  context: string,
+): asserts value is EnvironmentIndexReport {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertBoolean(record.experimental, `${context}.experimental`);
+  if (record.experimental !== true) {
+    throw new Error(`${context}.experimental must be true`);
+  }
+  assertNumber(record.selectedAssetCount, `${context}.selectedAssetCount`);
+  assertArray(record.assets, `${context}.assets`).forEach((asset, index) => {
+    const assetRecord = assertRecord(asset, `${context}.assets[${index}]`);
+    assertString(assetRecord.assetId, `${context}.assets[${index}].assetId`);
+    assertString(
+      assetRecord.displayName,
+      `${context}.assets[${index}].displayName`,
+    );
+    assertLiteral(
+      assetRecord.assetKind,
+      ASSET_KINDS,
+      `${context}.assets[${index}].assetKind`,
+    );
+    assertHostTargetArray(
+      assetRecord.hosts,
+      `${context}.assets[${index}].hosts`,
+    );
+    assertString(
+      assetRecord.symbolicHandle,
+      `${context}.assets[${index}].symbolicHandle`,
+    );
+    assertStringArray(
+      assetRecord.retrievalFacets,
+      `${context}.assets[${index}].retrievalFacets`,
+    );
+    const chunkingHints = assertRecord(
+      assetRecord.chunkingHints,
+      `${context}.assets[${index}].chunkingHints`,
+    );
+    assertLiteral(
+      chunkingHints.preferredStrategy,
+      ["document", "section", "file"],
+      `${context}.assets[${index}].chunkingHints.preferredStrategy`,
+    );
+    assertNumber(
+      chunkingHints.maxPromptWeight,
+      `${context}.assets[${index}].chunkingHints.maxPromptWeight`,
+    );
+    const citation = assertRecord(
+      assetRecord.citation,
+      `${context}.assets[${index}].citation`,
+    );
+    assertString(
+      citation.provenance,
+      `${context}.assets[${index}].citation.provenance`,
+    );
+    assertString(
+      citation.sourceUrl,
+      `${context}.assets[${index}].citation.sourceUrl`,
+    );
+    assertString(
+      citation.sourceId,
+      `${context}.assets[${index}].citation.sourceId`,
+    );
+    assertStringArray(
+      assetRecord.safetyFlags,
+      `${context}.assets[${index}].safetyFlags`,
+    );
+  });
+  assertStringArray(record.notes, `${context}.notes`);
+}
+
+/**
+ * Validates unknown data as source index.
+ */
 export function assertSourceIndex(
   value: unknown,
   context: string,
@@ -455,12 +532,39 @@ export function assertAssetCatalogEntry(
     status.activationEligible,
     `${context}.status.activationEligible`,
   );
+  if (record.queryMetadata !== undefined) {
+    assertAssetQueryMetadata(record.queryMetadata, `${context}.queryMetadata`);
+  }
   if (record.hostNativeConfig !== undefined) {
     assertAssetHostNativeConfigMap(
       record.hostNativeConfig,
       `${context}.hostNativeConfig`,
     );
   }
+}
+
+function assertAssetQueryMetadata(value: unknown, context: string): void {
+  const record = assertRecord(value, context);
+  assertString(record.symbolicHandle, `${context}.symbolicHandle`);
+  assertStringArray(record.retrievalFacets, `${context}.retrievalFacets`);
+  const chunkingHints = assertRecord(
+    record.chunkingHints,
+    `${context}.chunkingHints`,
+  );
+  assertLiteral(
+    chunkingHints.preferredStrategy,
+    ["document", "section", "file"],
+    `${context}.chunkingHints.preferredStrategy`,
+  );
+  assertNumber(
+    chunkingHints.maxPromptWeight,
+    `${context}.chunkingHints.maxPromptWeight`,
+  );
+  const citation = assertRecord(record.citation, `${context}.citation`);
+  assertString(citation.provenance, `${context}.citation.provenance`);
+  assertString(citation.sourceUrl, `${context}.citation.sourceUrl`);
+  assertString(citation.sourceId, `${context}.citation.sourceId`);
+  assertStringArray(record.safetyFlags, `${context}.safetyFlags`);
 }
 
 function assertAssetClassificationEvidence(

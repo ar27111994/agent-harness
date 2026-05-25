@@ -98,6 +98,15 @@ export const DISCOVER_DIFF_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the experimental environment index output path location used by persisted project state.
+ */
+export const ENVIRONMENT_INDEX_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "environment-index.json",
+];
+
+/**
  * Defines the catalog output path location used by persisted project state.
  */
 export const CATALOG_OUTPUT_PATH = ["discover", "catalog.assets.jsonl"];

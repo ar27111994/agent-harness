@@ -194,6 +194,24 @@ export interface AssetStatus {
 }
 
 /**
+ * Describes additive query-oriented metadata for future read-only retrieval.
+ */
+export interface AssetQueryMetadata {
+  symbolicHandle: string;
+  retrievalFacets: string[];
+  chunkingHints: {
+    preferredStrategy: "document" | "section" | "file";
+    maxPromptWeight: number;
+  };
+  citation: {
+    provenance: string;
+    sourceUrl: string;
+    sourceId: string;
+  };
+  safetyFlags: string[];
+}
+
+/**
  * Describes asset catalog entry data exchanged by the lifecycle pipeline.
  */
 export interface AssetCatalogEntry {
@@ -213,5 +231,6 @@ export interface AssetCatalogEntry {
   fit: AssetFit;
   dedupe: AssetDedupe;
   status: AssetStatus;
+  queryMetadata?: AssetQueryMetadata;
   hostNativeConfig?: AssetHostNativeConfigMap;
 }

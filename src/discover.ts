@@ -36,6 +36,7 @@ import { writeAssetLifecycleFingerprintReport } from "./domains/discovery/asset-
 import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
+import { writeEnvironmentIndex } from "./domains/discovery/environment-index.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -176,6 +177,9 @@ export async function runDiscover(
       return 0;
     case "diff":
       await writeDiscoverDiffReport(projectRoot, rest);
+      return 0;
+    case "environment-index":
+      await writeEnvironmentIndex(projectRoot, rest);
       return 0;
     case "inspect":
       await inspectCatalog(projectRoot, rest);
@@ -805,6 +809,11 @@ function printDiscoverHelp(): void {
         command: "diff",
         description:
           "Compare discovery outputs against --baseline <stateRoot> (--json for agents)",
+      },
+      {
+        command: "environment-index",
+        description:
+          "Write experimental read-only query metadata to discover/output/environment-index.json",
       },
       {
         command: "enrich",

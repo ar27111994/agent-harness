@@ -206,6 +206,40 @@ export interface DiscoverDiffReport {
 }
 
 /**
+ * Describes one read-only experimental environment index asset.
+ */
+export interface EnvironmentIndexAsset {
+  assetId: string;
+  displayName: string;
+  assetKind: AssetKind;
+  hosts: HostTarget[];
+  symbolicHandle: string;
+  retrievalFacets: string[];
+  chunkingHints: {
+    preferredStrategy: "document" | "section" | "file";
+    maxPromptWeight: number;
+  };
+  citation: {
+    provenance: string;
+    sourceUrl: string;
+    sourceId: string;
+  };
+  safetyFlags: string[];
+}
+
+/**
+ * Describes the experimental read-only environment index artifact.
+ */
+export interface EnvironmentIndexReport {
+  schemaVersion: number;
+  generatedAt: string;
+  experimental: true;
+  selectedAssetCount: number;
+  assets: EnvironmentIndexAsset[];
+  notes: string[];
+}
+
+/**
  * Describes git hub repo snapshot data exchanged by the lifecycle pipeline.
  */
 export interface GitHubRepoSnapshot {
