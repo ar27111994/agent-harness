@@ -9,6 +9,7 @@ import {
   inspectCatalog,
   printCatalogStats,
 } from "../domains/discovery/catalog-inspection.js";
+import { buildDiscoverDiffReport } from "../domains/discovery/diff.js";
 import {
   CATALOG_OUTPUT_PATH,
   SOURCE_INDEX_OUTPUT_PATH,
@@ -149,6 +150,56 @@ void test("discovery reporting writes source index and source utilization artifa
   }
 });
 
+void test("discover diff reports source catalog and selection changes", async () => {
+  const baselineRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discover-diff-base-"),
+  );
+  const currentRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discover-diff-current-"),
+  );
+
+  try {
+    await writeDiscoverDiffFixture(baselineRoot, {
+      sourceIds: ["source-a"],
+      catalogEntries: [buildEntry("asset-a", "source-a", "skill")],
+      selectedEntries: [buildEntry("asset-a", "source-a", "skill")],
+      rejectedCount: 0,
+    });
+    await writeDiscoverDiffFixture(currentRoot, {
+      sourceIds: ["source-a", "source-b"],
+      catalogEntries: [
+        buildEntry("asset-a", "source-a", "skill", { hosts: ["cursor"] }),
+        buildEntry("asset-b", "source-b", "plugin", { hosts: ["cursor"] }),
+      ],
+      selectedEntries: [buildEntry("asset-b", "source-b", "plugin")],
+      rejectedCount: 1,
+      recommendationBundles: [
+        {
+          bundleId: "cursor-core",
+          assetIds: ["asset-b"],
+        },
+      ],
+    });
+
+    const report = await buildDiscoverDiffReport({ baselineRoot, currentRoot });
+
+    assert.deepEqual(report.sources.added, ["source-b"]);
+    assert.deepEqual(report.catalog.added, ["asset-b"]);
+    assert.deepEqual(report.catalog.changed, ["asset-a"]);
+    assert.deepEqual(report.selection.added, ["asset-b"]);
+    assert.deepEqual(report.selection.removed, ["asset-a"]);
+    assert.deepEqual(report.counts.catalog, { baseline: 1, current: 2 });
+    assert.match(report.highImpactChanges.join("\n"), /selected asset added/u);
+    assert.match(
+      report.highImpactChanges.join("\n"),
+      /suggested bundle impacted: cursor-core/u,
+    );
+  } finally {
+    await rm(baselineRoot, { recursive: true, force: true });
+    await rm(currentRoot, { recursive: true, force: true });
+  }
+});
+
 void test("catalog inspection prints aggregate stats and filtered matches with limit parsing", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-inspection-"),
@@ -253,6 +304,75 @@ async function writeRegistry(
     join(projectRoot, "discover", "selections.json"),
     buildSelectionRegistry(),
   );
+}
+
+async function writeDiscoverDiffFixture(
+  projectRoot: string,
+  input: {
+    sourceIds: string[];
+    catalogEntries: AssetCatalogEntry[];
+    selectedEntries: AssetCatalogEntry[];
+    rejectedCount: number;
+    recommendationBundles?: Array<{
+      bundleId: string;
+      assetIds: string[];
+    }>;
+  },
+): Promise<void> {
+  await writeJsonFile(join(projectRoot, ...SOURCE_INDEX_OUTPUT_PATH), {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    sourceCount: input.sourceIds.length,
+    byAuthorityTier: {},
+    byKind: {},
+    hostCoverage: {},
+    communityDefaultPolicy: "catalog-only-unless-promoted",
+    configurationInputs: {
+      checkedInRegistryPath: "discover/sources.json",
+      sourcePackFiles: [],
+      officialSkillIndexIds: [],
+      officialUpstreamNamespaces: [],
+    },
+    enabledSources: input.sourceIds.map((sourceId, index) => ({
+      id: sourceId,
+      kind: "repo",
+      authorityTier: "official-marketplace",
+      priority: 100 - index,
+      hosts: ["copilot-vscode"],
+      coverageMode: "direct",
+      syncStatus: "not-applicable",
+    })),
+  });
+  await writeJsonLinesFile(
+    join(projectRoot, ...CATALOG_OUTPUT_PATH),
+    input.catalogEntries,
+  );
+  await writeJsonLinesFile(
+    join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+    input.selectedEntries,
+  );
+  await writeJsonFile(
+    join(projectRoot, "discover", "output", "selection-report.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      inputCount: input.catalogEntries.length,
+      selectedCount: input.selectedEntries.length,
+      rejectedCount: input.rejectedCount,
+      duplicateDecisions: [],
+    },
+  );
+  if (input.recommendationBundles) {
+    await writeJsonFile(join(projectRoot, "state", "recommendations.json"), {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      policyVersion: 1,
+      sessionIntent: "general",
+      topByHost: {},
+      hostSummaries: {},
+      suggestedBundles: input.recommendationBundles,
+    });
+  }
 }
 
 async function writeSourcePacks(projectRoot: string): Promise<void> {

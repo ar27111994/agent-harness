@@ -3,6 +3,7 @@ export {
   assertAiEnrichmentReport,
   assertAssetCatalogEntry,
   assertDemandProfile,
+  assertDiscoverDiffReport,
   assertGitHubRepoSnapshot,
   assertSelectionRegistry,
   assertSelectionReport,

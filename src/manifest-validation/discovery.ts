@@ -3,6 +3,7 @@ import type {
   AiEnrichmentReport,
   AssetCatalogEntry,
   DemandProfile,
+  DiscoverDiffReport,
   GitHubRepoSnapshot,
   SelectionRegistry,
   SelectionReport,
@@ -38,6 +39,19 @@ function assertNullableString(value: unknown, context: string): void {
   }
 
   assertString(value, context);
+}
+
+function assertDiffBucket(value: unknown, context: string): void {
+  const record = assertRecord(value, context);
+  assertStringArray(record.added, `${context}.added`);
+  assertStringArray(record.removed, `${context}.removed`);
+  assertStringArray(record.changed, `${context}.changed`);
+}
+
+function assertCountPair(value: unknown, context: string): void {
+  const record = assertRecord(value, context);
+  assertNumber(record.baseline, `${context}.baseline`);
+  assertNumber(record.current, `${context}.current`);
 }
 
 const DEMAND_EVIDENCE_STRENGTHS = ["strong", "medium", "weak"] as const;
@@ -232,6 +246,29 @@ export function assertDemandProfile(
       );
     },
   );
+}
+
+/**
+ * Validates unknown data as discover diff report.
+ */
+export function assertDiscoverDiffReport(
+  value: unknown,
+  context: string,
+): asserts value is DiscoverDiffReport {
+  const record = assertRecord(value, context);
+  assertNumber(record.schemaVersion, `${context}.schemaVersion`);
+  assertString(record.generatedAt, `${context}.generatedAt`);
+  assertString(record.baselineLabel, `${context}.baselineLabel`);
+  assertString(record.currentLabel, `${context}.currentLabel`);
+  assertDiffBucket(record.sources, `${context}.sources`);
+  assertDiffBucket(record.catalog, `${context}.catalog`);
+  assertDiffBucket(record.selection, `${context}.selection`);
+  const counts = assertRecord(record.counts, `${context}.counts`);
+  assertCountPair(counts.sources, `${context}.counts.sources`);
+  assertCountPair(counts.catalog, `${context}.counts.catalog`);
+  assertCountPair(counts.selected, `${context}.counts.selected`);
+  assertCountPair(counts.rejected, `${context}.counts.rejected`);
+  assertStringArray(record.highImpactChanges, `${context}.highImpactChanges`);
 }
 
 /**

@@ -89,6 +89,15 @@ export const SOURCE_INDEX_OUTPUT_PATH = [
 ];
 
 /**
+ * Defines the discover diff output path location used by persisted project state.
+ */
+export const DISCOVER_DIFF_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "discover-diff.json",
+];
+
+/**
  * Defines the catalog output path location used by persisted project state.
  */
 export const CATALOG_OUTPUT_PATH = ["discover", "catalog.assets.jsonl"];

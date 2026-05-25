@@ -242,6 +242,10 @@ function printHelp(): void {
         description: "Print catalog/source stats",
       },
       {
+        command: "discover diff",
+        description: "Compare discovery outputs against a baseline state root",
+      },
+      {
         command: "mirror locks",
         description: "Generate mirror bundle locks",
       },

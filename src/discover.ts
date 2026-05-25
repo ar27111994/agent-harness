@@ -35,6 +35,7 @@ import {
 import { writeAssetLifecycleFingerprintReport } from "./domains/discovery/asset-fingerprints.js";
 import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.js";
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
+import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -172,6 +173,9 @@ export async function runDiscover(
       );
     case "stats":
       await printCatalogStats(projectRoot);
+      return 0;
+    case "diff":
+      await writeDiscoverDiffReport(projectRoot, rest);
       return 0;
     case "inspect":
       await inspectCatalog(projectRoot, rest);
@@ -796,6 +800,11 @@ function printDiscoverHelp(): void {
         command: "stats",
         description:
           "Print catalog summary counts grouped by source, kind, host, and authority",
+      },
+      {
+        command: "diff",
+        description:
+          "Compare discovery outputs against --baseline <stateRoot> (--json for agents)",
       },
       {
         command: "enrich",
