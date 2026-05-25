@@ -1,6 +1,10 @@
 import { acquireMirrorArtifacts } from "./mirror/acquire.js";
 import { generateBundleLocks } from "./mirror/bundles.js";
-import { diffMirrorIndex, explainMirrorArtifact } from "./mirror/inspect.js";
+import {
+  diffMirrorIndex,
+  explainBundleLock,
+  explainMirrorArtifact,
+} from "./mirror/inspect.js";
 import { generateMirrorPlan } from "./mirror/plan.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
@@ -39,6 +43,12 @@ export async function runMirror(
     case "diff":
       await diffMirrorIndex(projectRoot);
       return 0;
+    case "bundle-explain":
+      await explainBundleLock(projectRoot, rest);
+      return 0;
+    case "explain-bundle":
+      await explainBundleLock(projectRoot, rest);
+      return 0;
     case "explain":
       await explainMirrorArtifact(projectRoot, rest);
       return 0;
@@ -74,6 +84,15 @@ function printMirrorHelp(): void {
         command: "diff",
         description:
           "Compare current mirror index to the previous mirror index snapshot",
+      },
+      {
+        command: "bundle-explain",
+        description:
+          "Explain why assets are present in a bundle lock by --bundle <bundleId>",
+      },
+      {
+        command: "explain-bundle",
+        description: "Alias for bundle-explain",
       },
       {
         command: "explain",

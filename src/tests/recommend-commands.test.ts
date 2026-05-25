@@ -210,6 +210,158 @@ void test("recommend explain renders optional entry fields and compact signals",
   assert.match(rendered, /matched signals: tooling:npm:apify\(w=5,e=1\)/u);
 });
 
+void test("recommend explain emits machine-readable selected reasons", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-recommend-json-selected-"),
+  );
+  await seedRecommendationReport(projectRoot, createRecommendationReport());
+  t.after(async () => {
+    await rm(projectRoot, { force: true, recursive: true });
+  });
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  const exitCode = await runRecommend(
+    ["explain", "--asset", "asset-a", "--host", "vscode", "--json"],
+    projectRoot,
+    projectRoot,
+  );
+
+  assert.equal(exitCode, 0);
+  const parsed = JSON.parse(output.join("\n")) as {
+    explanations: Array<{ state: string; reason: string }>;
+  };
+  assert.equal(parsed.explanations[0]?.state, "selected");
+  assert.match(parsed.explanations[0]?.reason ?? "", /rank 1/u);
+});
+
+void test("recommend explain covers rejected, quarantined, and budget-pruned assets", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-recommend-sidecars-"),
+  );
+  const report = createRecommendationReport();
+  report.suggestedBundles = [
+    {
+      host: "copilot-vscode",
+      bundleId: "copilot-core",
+      assetIds: ["asset-a"],
+      estimatedPromptWeight: 2,
+      activationBudget: 2,
+      budgetPrunedAssetIds: ["asset-b"],
+      budgetPrunedAssets: [
+        {
+          assetId: "asset-b",
+          estimatedPromptWeight: 4,
+          remainingBudget: 0,
+          reason:
+            "estimated prompt weight 4 exceeds remaining activation budget 0",
+        },
+      ],
+      concernBuckets: {},
+      taskModeBuckets: {},
+    },
+  ];
+  report.topByHost["copilot-vscode"] = [
+    createRecommendationEntry("asset-a", 1, 91),
+  ];
+  await seedRecommendationReport(projectRoot, report);
+  await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+  await writeFile(
+    join(projectRoot, "discover", "output", "selection-report.json"),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        inputCount: 2,
+        selectedCount: 1,
+        rejectedCount: 1,
+        duplicateDecisions: [
+          {
+            duplicateGroup: "fixture-group",
+            selectedAssetId: "asset-a",
+            rejectedAssetIds: ["rejected-asset"],
+            selectionReason: "official source wins duplicate group",
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  await mkdir(join(projectRoot, "state", "quarantine"), { recursive: true });
+  await writeFile(
+    join(projectRoot, "state", "quarantine", "quarantine-state.json"),
+    `${JSON.stringify(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        entries: [
+          {
+            assetId: "quarantined-asset",
+            mirrorId: "sha256-quarantined-asset",
+            currentState: "quarantined",
+            reason: "Asset is quarantined pending executable-behavior review.",
+            firstSeenAt: new Date().toISOString(),
+            suggestedAction: "review",
+            transitions: ["new-risky-asset"],
+            upstreamUrl: "https://example.com/quarantined-asset",
+            authorityTier: "unverified-community",
+            publisher: "fixture",
+            publisherVerified: false,
+            contentHash: "hash-quarantined-asset",
+          },
+        ],
+        summary: {
+          quarantinedCount: 1,
+          approvedWithWarningCount: 0,
+          rejectedCount: 0,
+          pinnedCount: 0,
+          reviewRequiredCount: 1,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  t.after(async () => {
+    await rm(projectRoot, { force: true, recursive: true });
+  });
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  await runRecommend(
+    ["explain", "--asset", "asset-b", "--host", "vscode"],
+    projectRoot,
+    projectRoot,
+  );
+  await runRecommend(
+    ["explain", "--asset", "rejected-asset", "--host", "vscode"],
+    projectRoot,
+    projectRoot,
+  );
+  await runRecommend(
+    ["explain", "--asset", "quarantined-asset", "--host", "vscode"],
+    projectRoot,
+    projectRoot,
+  );
+
+  const rendered = output.join("\n");
+  assert.match(rendered, /Host: vscode \(budget-pruned\)/u);
+  assert.match(rendered, /remaining activation budget 0/u);
+  assert.match(rendered, /Host: vscode \(rejected\)/u);
+  assert.match(rendered, /official source wins duplicate group/u);
+  assert.match(rendered, /Host: vscode \(quarantined\)/u);
+  assert.match(rendered, /Suggested action: review/u);
+});
+
 void test("recommend help command prints help and succeeds", async () => {
   const originalStdoutWrite = process.stdout.write;
   let helpOutput = "";

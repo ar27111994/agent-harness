@@ -268,6 +268,16 @@ export interface RecommendationHostSummary {
 }
 
 /**
+ * Describes one ranked recommendation omitted from a suggested bundle by budget.
+ */
+export interface RecommendationSuggestedBundlePrunedAsset {
+  assetId: string;
+  estimatedPromptWeight: number;
+  remainingBudget: number;
+  reason: string;
+}
+
+/**
  * Describes recommendation suggested bundle data exchanged by the lifecycle pipeline.
  */
 export interface RecommendationSuggestedBundle {
@@ -275,6 +285,9 @@ export interface RecommendationSuggestedBundle {
   bundleId: string;
   assetIds: string[];
   estimatedPromptWeight: number;
+  activationBudget?: number;
+  budgetPrunedAssetIds?: string[];
+  budgetPrunedAssets?: RecommendationSuggestedBundlePrunedAsset[];
   concernBuckets: Record<string, string[]>;
   taskModeBuckets: Record<string, string[]>;
 }

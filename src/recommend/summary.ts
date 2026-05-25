@@ -6,6 +6,7 @@ import type {
   RecommendationHostSummary,
   RecommendationPolicy,
   RecommendationSuggestedBundle,
+  RecommendationSuggestedBundlePrunedAsset,
 } from "../types.js";
 import type { RecommendationHost } from "./hosts.js";
 
@@ -59,7 +60,7 @@ export function buildSuggestedBundle(
   policy: RecommendationPolicy,
 ): RecommendationSuggestedBundle {
   const hostPolicy = policy.hosts[host];
-  const selectedEntries = selectEntriesWithinBudget(
+  const selection = selectEntriesWithinBudget(
     entries,
     hostPolicy.activationBudget,
   );
@@ -67,31 +68,46 @@ export function buildSuggestedBundle(
   return {
     host,
     bundleId: hostPolicy.suggestedBundleId,
-    assetIds: selectedEntries.map((entry) => entry.assetId),
-    estimatedPromptWeight: selectedEntries.reduce(
+    assetIds: selection.selectedEntries.map((entry) => entry.assetId),
+    estimatedPromptWeight: selection.selectedEntries.reduce(
       (total, entry) => total + entry.estimatedPromptWeight,
       0,
     ),
-    concernBuckets: buildConcernBuckets(selectedEntries),
-    taskModeBuckets: buildTaskModeBuckets(selectedEntries),
+    activationBudget: hostPolicy.activationBudget,
+    budgetPrunedAssetIds: selection.prunedAssets.map((asset) => asset.assetId),
+    budgetPrunedAssets: selection.prunedAssets,
+    concernBuckets: buildConcernBuckets(selection.selectedEntries),
+    taskModeBuckets: buildTaskModeBuckets(selection.selectedEntries),
   };
 }
 
 function selectEntriesWithinBudget(
   entries: RecommendationEntry[],
   budget: number,
-): RecommendationEntry[] {
-  const selected: RecommendationEntry[] = [];
+): {
+  selectedEntries: RecommendationEntry[];
+  prunedAssets: RecommendationSuggestedBundlePrunedAsset[];
+} {
+  const selectedEntries: RecommendationEntry[] = [];
+  const prunedAssets: RecommendationSuggestedBundlePrunedAsset[] = [];
   let remainingBudget = budget;
 
   for (const entry of entries) {
     if (entry.estimatedPromptWeight <= remainingBudget) {
-      selected.push(entry);
+      selectedEntries.push(entry);
       remainingBudget -= entry.estimatedPromptWeight;
+      continue;
     }
+
+    prunedAssets.push({
+      assetId: entry.assetId,
+      estimatedPromptWeight: entry.estimatedPromptWeight,
+      remainingBudget,
+      reason: `estimated prompt weight ${entry.estimatedPromptWeight} exceeds remaining activation budget ${remainingBudget}`,
+    });
   }
 
-  return selected;
+  return { selectedEntries, prunedAssets };
 }
 
 function buildConcernBuckets(

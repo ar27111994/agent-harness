@@ -25,6 +25,7 @@ const HELP_DEFAULT_DOMAINS = new Set([
   "install",
   "stage",
   "mirror",
+  "bundle",
   "quarantine",
   "rebuild",
   "wire",
@@ -59,6 +60,12 @@ async function main(): Promise<number> {
       return runDiscover(args, workingDirectory, projectRoot);
     case "mirror":
       return runMirror(args, workingDirectory, projectRoot);
+    case "bundle":
+      return runMirror(
+        ["bundle-explain", ...args.slice(1)],
+        workingDirectory,
+        projectRoot,
+      );
     case "install":
     case "stage":
       return runInstall(args, workingDirectory, projectRoot);
@@ -115,6 +122,8 @@ function runHelpCommand(
     case "discover":
       return runDiscover(["help"], workingDirectory, "");
     case "mirror":
+      return runMirror(["help"], workingDirectory, "");
+    case "bundle":
       return runMirror(["help"], workingDirectory, "");
     case "install":
     case "stage":
@@ -241,6 +250,14 @@ function printHelp(): void {
         description: "Acquire raw mirror artifacts and resolve bundle locks",
       },
       {
+        command: "bundle explain <bundleId>",
+        description: "Explain why assets are present in a bundle lock",
+      },
+      {
+        command: "mirror bundle-explain",
+        description: "Alias for bundle explain",
+      },
+      {
         command: "stage bundle",
         description: "Stage mirrored assets from bundle locks",
       },
@@ -300,7 +317,8 @@ function printHelp(): void {
       },
       {
         command: "recommend explain",
-        description: "Explain why an asset ranked for a host",
+        description:
+          "Explain why an asset was selected, rejected, quarantined, or budget-pruned",
       },
       {
         command: "recommend evaluate",

@@ -1,14 +1,18 @@
 import { join } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
-import { readJsonFile, writeJsonFile } from "../files.js";
+import { readJsonFile, readJsonFileOrNull, writeJsonFile } from "../files.js";
 import { printCommandHelp } from "../lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
 } from "../lib/session-intent.js";
-import { assertRecommendationReport } from "../manifest-validation.js";
+import {
+  assertQuarantineStateReport,
+  assertRecommendationReport,
+  assertSelectionReport,
+} from "../manifest-validation.js";
 import { buildRecommendationFixtures } from "../recommend-fixtures.js";
 import { EVALUATION_FILE_PATH, REPORT_FILE_PATH } from "./constants.js";
 import { buildRecommendationEvaluationResult } from "./evaluation.js";
@@ -23,10 +27,13 @@ import { writeRecommendationReport } from "./report.js";
 import { runRecommendationAiReview } from "./ai-review.js";
 import type { RecommendationHost } from "./hosts.js";
 import type {
+  QuarantineStateReport,
+  RecommendationEntry,
   RecommendationEvaluationResult,
   RecommendationReport,
   RecommendationScoreBreakdown,
   RecommendationSignalMatch,
+  SelectionReport,
   SessionIntent,
 } from "../types.js";
 
@@ -143,6 +150,7 @@ async function explainRecommendation(
 ): Promise<void> {
   const assetId = getOptionValue(args, "--asset") ?? args[0];
   const requestedHostRaw = getOptionValue(args, "--host");
+  const json = args.includes("--json");
 
   if (!assetId) {
     throw new Error("recommend explain requires --asset <assetId>");
@@ -163,18 +171,41 @@ async function explainRecommendation(
     }
   }
 
-  const hosts = requestedHost ? [requestedHost] : getRecommendationHosts();
+  const selectionReport = await readJsonFileOrNull<SelectionReport>(
+    join(projectRoot, "discover", "output", "selection-report.json"),
+    assertSelectionReport,
+  );
+  const quarantineReport = await readJsonFileOrNull<QuarantineStateReport>(
+    join(projectRoot, "state", "quarantine", "quarantine-state.json"),
+    assertQuarantineStateReport,
+  );
+  const explanations = buildRecommendationExplanations({
+    report,
+    assetId,
+    hosts: requestedHost ? [requestedHost] : getRecommendationHosts(),
+    selectionReport,
+    quarantineReport,
+  });
+
+  if (json) {
+    console.log(JSON.stringify({ assetId, explanations }, null, 2));
+    return;
+  }
+
   const lines: string[] = [];
 
-  for (const host of hosts) {
-    const entry = report.topByHost[host].find(
-      (candidate) => candidate.assetId === assetId,
-    );
-    if (!entry) {
+  for (const explanation of explanations) {
+    if (explanation.state !== "selected") {
+      lines.push(
+        `Host: ${formatRecommendationHostForDisplay(explanation.host)} (${explanation.state})`,
+      );
+      lines.push(`  reason: ${explanation.reason}`);
       continue;
     }
 
-    lines.push(`Host: ${formatRecommendationHostForDisplay(host)}`);
+    const { entry } = explanation;
+
+    lines.push(`Host: ${formatRecommendationHostForDisplay(explanation.host)}`);
     lines.push(`  rank: ${entry.rank}`);
     lines.push(`  score: ${entry.score}`);
     lines.push(`  asset kind: ${entry.assetKind ?? "unknown"}`);
@@ -200,12 +231,105 @@ async function explainRecommendation(
 
   if (lines.length === 0) {
     console.log(
-      `Asset ${assetId} is not present in the current recommendation report.`,
+      `Asset ${assetId} is not present in the current recommendation report or explainability sidecars.`,
     );
     return;
   }
 
   console.log(lines.join("\n"));
+}
+
+type RecommendationExplanation =
+  | {
+      host: RecommendationHost;
+      state: "selected";
+      reason: string;
+      entry: RecommendationEntry;
+    }
+  | {
+      host: RecommendationHost;
+      state: "rejected" | "quarantined" | "budget-pruned";
+      reason: string;
+    };
+
+function buildRecommendationExplanations(input: {
+  report: RecommendationReport;
+  assetId: string;
+  hosts: RecommendationHost[];
+  selectionReport: SelectionReport | null;
+  quarantineReport: QuarantineStateReport | null;
+}): RecommendationExplanation[] {
+  const explanations: RecommendationExplanation[] = [];
+  const quarantineEntry = input.quarantineReport?.entries.find(
+    (entry) => entry.assetId === input.assetId,
+  );
+  const duplicateDecision = input.selectionReport?.duplicateDecisions.find(
+    (decision) => decision.rejectedAssetIds.includes(input.assetId),
+  );
+
+  for (const host of input.hosts) {
+    const entry = input.report.topByHost[host].find(
+      (candidate) => candidate.assetId === input.assetId,
+    );
+    if (entry) {
+      explanations.push({
+        host,
+        state: "selected",
+        reason: buildSelectedRecommendationReason(entry),
+        entry,
+      });
+      continue;
+    }
+
+    const suggestedBundle = input.report.suggestedBundles.find(
+      (bundle) =>
+        bundle.host === host &&
+        (bundle.budgetPrunedAssetIds?.includes(input.assetId) ?? false),
+    );
+    const prunedAsset = suggestedBundle?.budgetPrunedAssets?.find(
+      (asset) => asset.assetId === input.assetId,
+    );
+    if (suggestedBundle) {
+      explanations.push({
+        host,
+        state: "budget-pruned",
+        reason:
+          prunedAsset?.reason ??
+          `Asset was ranked for ${host} but excluded from suggested bundle ${suggestedBundle.bundleId} by activation budget ${suggestedBundle.activationBudget ?? "unknown"}.`,
+      });
+      continue;
+    }
+
+    if (quarantineEntry) {
+      explanations.push({
+        host,
+        state: "quarantined",
+        reason: `${quarantineEntry.reason} Suggested action: ${quarantineEntry.suggestedAction}.`,
+      });
+      continue;
+    }
+
+    if (duplicateDecision) {
+      explanations.push({
+        host,
+        state: "rejected",
+        reason: `Rejected during discovery selection as duplicate of ${duplicateDecision.selectedAssetId}: ${duplicateDecision.selectionReason}`,
+      });
+    }
+  }
+
+  return explanations;
+}
+
+function buildSelectedRecommendationReason(entry: RecommendationEntry): string {
+  const signalSummary = formatMatchedSignals(entry.matchedSignals);
+  return [
+    `rank ${entry.rank} with score ${entry.score}`,
+    `basis ${entry.recommendationBasis}`,
+    `trust/source ${entry.sourceFamily}`,
+    `signals ${signalSummary}`,
+    `reasons ${entry.reasons.join(", ")}`,
+  ].join("; ");
 }
 
 async function evaluateRecommendationFixtures(
@@ -328,6 +452,7 @@ function resolveRecommendationLimitOverrideMode(hostPolicy: {
  * Exposes narrow recommendation command helpers for focused tests.
  */
 export const recommendCommandInternals = {
+  buildRecommendationExplanations,
   resolveRecommendationLimitOverrideMode,
 };
 
@@ -430,7 +555,8 @@ function printRecommendHelp(): void {
       },
       {
         command: "explain",
-        description: "Explain why an asset ranked for a host",
+        description:
+          "Explain why an asset was selected, rejected, quarantined, or budget-pruned (--json for agents)",
       },
       {
         command: "evaluate",

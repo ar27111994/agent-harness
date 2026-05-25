@@ -832,10 +832,50 @@ async function explainActivationState(
       continue;
     }
 
+    const recommendationReport = await readJsonFileOrNull<RecommendationReport>(
+      join(projectRoot, "state", "recommendations.json"),
+      assertRecommendationReport,
+    );
+    const recommendationEntry = recommendationReport?.topByHost[host]?.find(
+      (entry) => entry.assetId === assetId,
+    );
+    const suggestedBundle = recommendationReport?.suggestedBundles.find(
+      (bundle) =>
+        bundle.host === host &&
+        (bundle.assetIds.includes(assetId) ||
+          (bundle.budgetPrunedAssetIds?.includes(assetId) ?? false)),
+    );
+    const budgetPrunedAsset = suggestedBundle?.budgetPrunedAssets?.find(
+      (asset) => asset.assetId === assetId,
+    );
+    const activationBudget =
+      recommendationReport?.hostSummaries[host]?.activationBudget ??
+      getActivationBudget(host);
     const isActive = activationManifest.activeAssets.includes(assetId);
     lines.push(`Host ${host}: ${isActive ? "active" : "not active"}`);
     lines.push(`  generation: ${activationManifest.generationId ?? "unknown"}`);
     lines.push(`  bundles: ${activationManifest.activeBundles.join(", ")}`);
+    lines.push(`  activation budget: ${activationBudget}`);
+    if (recommendationEntry) {
+      lines.push(
+        `  recommendation: rank ${recommendationEntry.rank}, score ${recommendationEntry.score}, prompt weight ${recommendationEntry.estimatedPromptWeight}`,
+      );
+    }
+    if (isActive) {
+      lines.push(
+        "  reason: selected from staged bundle outputs by recommendation order, session intent, trust, and activation budget",
+      );
+    } else if (budgetPrunedAsset) {
+      lines.push(`  reason: ${budgetPrunedAsset.reason}`);
+    } else if (suggestedBundle) {
+      lines.push(
+        `  reason: present in suggested bundle ${suggestedBundle.bundleId} but absent from current activation manifest`,
+      );
+    } else {
+      lines.push(
+        "  reason: absent from the current activation manifest and current suggested bundle metadata",
+      );
+    }
 
     if (host === "copilot-vscode") {
       const profileManifest =

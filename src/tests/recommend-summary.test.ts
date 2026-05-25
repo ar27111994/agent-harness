@@ -110,6 +110,16 @@ void test("recommend suggested bundles skip over-budget entries and preserve bro
 
   assert.deepEqual(bundle.assetIds, ["fits", "also-fits"]);
   assert.equal(bundle.estimatedPromptWeight, 5);
+  assert.equal(bundle.activationBudget, 5);
+  assert.deepEqual(bundle.budgetPrunedAssetIds, ["oversized"]);
+  assert.deepEqual(bundle.budgetPrunedAssets, [
+    {
+      assetId: "oversized",
+      estimatedPromptWeight: 8,
+      remainingBudget: 5,
+      reason: "estimated prompt weight 8 exceeds remaining activation budget 5",
+    },
+  ]);
   assert.deepEqual(bundle.concernBuckets, {
     docs: ["fits"],
     testing: ["also-fits"],
