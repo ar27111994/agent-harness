@@ -24,6 +24,14 @@ import {
   splitIntoKeywords,
   uniqueStrings,
 } from "./catalog-utils.js";
+import {
+  buildClassificationConfidence,
+  pathEvidence,
+  schemaEvidence,
+  sourceFamilyEvidence,
+  type ClassificationConfidence,
+  type ClassificationEvidenceItem,
+} from "./classification-confidence.js";
 
 type FetchGitHubRepoSnapshot = typeof fetchGitHubRepoSnapshot;
 
@@ -149,6 +157,7 @@ function buildGitHubCatalogEntry(
       docsLinked: true,
       filePath: relativePath,
       rootPath: snapshot.repoSummary.htmlUrl,
+      classification: classification.classification,
     },
     maintenance: {
       lastUpdated: snapshot.repoSummary.updatedAt ?? snapshot.fetchedAt,
@@ -206,6 +215,7 @@ function classifyGitHubTreePath(
   assetKind: AssetKind;
   compatibilityMode: CompatibilityMode;
   hosts: HostTarget[];
+  classification: ClassificationConfidence;
 } | null {
   const normalizedPath = relativePath.toLowerCase();
   const nativeHosts = source.hosts.length === 1 ? source.hosts : undefined;
@@ -216,22 +226,27 @@ function classifyGitHubTreePath(
   }
 
   if (normalizedPath.endsWith("/skill.md")) {
-    return {
+    return buildGitHubClassification({
       assetKind: "skill",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [schemaEvidence("matched SKILL.md skill manifest")],
+    });
   }
 
   if (
     /(^|\/)(agents?|subagents)(\/|$)/u.test(normalizedPath) &&
     normalizedPath.endsWith(".md")
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "agent",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [
+        sourceFamilyEvidence("matched agent/subagent source path"),
+        pathEvidence("matched agent markdown path"),
+      ],
+    });
   }
 
   if (
@@ -240,11 +255,12 @@ function classifyGitHubTreePath(
     (/(^|\/)(?:instructions?|rules?)(\/|$)/u.test(normalizedPath) &&
       /\.(?:md|mdc)$/u.test(normalizedPath))
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "instruction",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [pathEvidence("matched instruction/rules markdown path")],
+    });
   }
 
   if (
@@ -253,33 +269,36 @@ function classifyGitHubTreePath(
     ) &&
     normalizedPath.endsWith(".md")
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "prompt-pack",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [pathEvidence("matched command/prompt markdown path")],
+    });
   }
 
   if (
     /(^|\/)(workflows?)(\/|$)/u.test(normalizedPath) &&
     /\.(md|ya?ml|json)$/u.test(normalizedPath)
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "workflow",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [pathEvidence("matched workflow path")],
+    });
   }
 
   if (
     /(^|\/)(hooks?)(\/|$)/u.test(normalizedPath) &&
     /\.(md|sh|js|ts|ya?ml|json)$/u.test(normalizedPath)
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "hook",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [pathEvidence("matched hook path")],
+    });
   }
 
   if (
@@ -288,30 +307,59 @@ function classifyGitHubTreePath(
       /(^|\/)(plugins?)(\/|$)/u.test(normalizedPath)) &&
     /\.(md|sh|js|ts|json)$/u.test(normalizedPath)
   ) {
-    return {
+    return buildGitHubClassification({
       assetKind: "plugin",
       compatibilityMode: nativeHosts ? "native" : "adaptable",
       hosts: nativeHosts ?? adaptableHosts,
-    };
+      evidence: [
+        /plugin\.json$/u.test(normalizedPath)
+          ? schemaEvidence("matched plugin.json manifest")
+          : pathEvidence("matched plugin path"),
+      ],
+    });
   }
 
   if (isExecutableMcpServerPath(normalizedPath, source)) {
-    return {
+    return buildGitHubClassification({
       assetKind: "mcp-server",
       compatibilityMode: "native",
       hosts: ["shared"],
-    };
+      evidence: [sourceFamilyEvidence("matched MCP server source pattern")],
+    });
   }
 
   if (isGenericRepositoryArtifact(normalizedPath)) {
-    return {
+    return buildGitHubClassification({
       assetKind: "reference-pack",
       compatibilityMode: "reference-only",
       hosts: source.hosts,
-    };
+      evidence: [pathEvidence("matched generic repository documentation")],
+    });
   }
 
   return null;
+}
+
+function buildGitHubClassification(input: {
+  assetKind: AssetKind;
+  compatibilityMode: CompatibilityMode;
+  hosts: HostTarget[];
+  evidence: ClassificationEvidenceItem[];
+}): {
+  assetKind: AssetKind;
+  compatibilityMode: CompatibilityMode;
+  hosts: HostTarget[];
+  classification: ClassificationConfidence;
+} {
+  return {
+    assetKind: input.assetKind,
+    compatibilityMode: input.compatibilityMode,
+    hosts: input.hosts,
+    classification: buildClassificationConfidence({
+      assetKind: input.assetKind,
+      evidence: input.evidence,
+    }),
+  };
 }
 
 function matchesSourcePathFilters(

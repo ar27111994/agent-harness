@@ -222,6 +222,8 @@ export interface RecommendationEntry {
   score: number;
   reasons: string[];
   assetKind?: AssetKind;
+  classificationConfidence?: number;
+  classificationConfidenceLevel?: "strong" | "medium" | "weak";
   sourceId: string;
   sourceFamily: string;
   availableLocally: boolean;

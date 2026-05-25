@@ -176,6 +176,8 @@ void test("recommend explain renders optional entry fields and compact signals",
   }
   entry.assetKind = undefined;
   entry.availableLocally = true;
+  entry.classificationConfidence = 0.75;
+  entry.classificationConfidenceLevel = "medium";
   entry.matchedSignals = [
     {
       signalType: "tooling",
@@ -203,6 +205,7 @@ void test("recommend explain renders optional entry fields and compact signals",
   assert.equal(exitCode, 0);
   const rendered = output.join("\n");
   assert.match(rendered, /asset kind: unknown/u);
+  assert.match(rendered, /classification confidence: medium \(0.75\)/u);
   assert.match(rendered, /available locally: yes/u);
   assert.match(rendered, /matched signals: tooling:npm:apify\(w=5,e=1\)/u);
 });
@@ -811,6 +814,7 @@ function createRecommendationReport(): RecommendationReport {
       zed: [],
       "claude-code": [],
       pi: [],
+      codex: [],
     },
     hostSummaries: {
       shared: createSummary("shared"),
@@ -820,6 +824,7 @@ function createRecommendationReport(): RecommendationReport {
       zed: createSummary("zed"),
       "claude-code": createSummary("claude-code"),
       pi: createSummary("pi"),
+      codex: createSummary("codex"),
     },
     suggestedBundles: [],
   };

@@ -128,6 +128,16 @@ export interface AssetEvidence {
   dependencies?: string[];
   filePath?: string;
   rootPath?: string;
+  classification?: {
+    assetKind: AssetKind;
+    confidence: number;
+    level: "strong" | "medium" | "weak";
+    evidence: Array<{
+      source: string;
+      strength: "strong" | "medium" | "weak";
+      detail: string;
+    }>;
+  };
 }
 
 /**

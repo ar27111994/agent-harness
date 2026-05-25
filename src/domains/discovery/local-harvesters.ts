@@ -38,6 +38,15 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 import {
+  buildClassificationConfidence,
+  frontmatterEvidence,
+  pathEvidence,
+  schemaEvidence,
+  sourceFamilyEvidence,
+  type ClassificationConfidence,
+  type ClassificationEvidenceItem,
+} from "./classification-confidence.js";
+import {
   extractMarkdownMetadata,
   getFirstStringField,
   type ParsedMarkdownMetadata,
@@ -54,6 +63,7 @@ interface ClassifiedLocalFile {
   assetKind: AssetKind;
   compatibilityMode: CompatibilityMode;
   hosts: HostTarget[];
+  classification: ClassificationConfidence;
 }
 
 type ReadLocalTextFile = typeof readTextFileOrNull;
@@ -290,6 +300,10 @@ export async function harvestLocalDirectorySource(
         dependencies: metadata.dependencies,
         filePath: toPosixPath(filePath),
         rootPath: toPosixPath(rootPath),
+        classification: mergeFrontmatterClassificationEvidence(
+          classification,
+          metadata,
+        ),
       },
       maintenance: {
         lastUpdated: fileStat.mtime.toISOString(),
@@ -370,44 +384,37 @@ function classifyLocalDirectoryFile(
       return null;
     }
 
-    return {
-      assetKind: "skill",
-      compatibilityMode: "adaptable",
-      hosts: source.hosts,
-    };
+    return buildLocalClassification(source, "skill", "adaptable", [
+      schemaEvidence("matched Antigravity SKILL.md manifest"),
+    ]);
   }
 
   if (source.id === "local-opencode-config") {
     if (/^skills\/.+\/SKILL\.md$/iu.test(relativePath)) {
-      return {
-        assetKind: "skill",
-        compatibilityMode: "native",
-        hosts: source.hosts,
-      };
+      return buildLocalClassification(source, "skill", "native", [
+        schemaEvidence("matched OpenCode SKILL.md manifest"),
+      ]);
     }
 
     if (/^agents?\/.+\.md$/iu.test(relativePath)) {
-      return {
-        assetKind: "agent",
-        compatibilityMode: "native",
-        hosts: source.hosts,
-      };
+      return buildLocalClassification(source, "agent", "native", [
+        sourceFamilyEvidence("matched OpenCode agent path"),
+        pathEvidence("matched agent markdown file"),
+      ]);
     }
 
     if (/^commands\/.+\.md$/iu.test(relativePath)) {
-      return {
-        assetKind: "prompt-pack",
-        compatibilityMode: "native",
-        hosts: source.hosts,
-      };
+      return buildLocalClassification(source, "prompt-pack", "native", [
+        sourceFamilyEvidence("matched OpenCode command path"),
+        pathEvidence("matched command markdown file"),
+      ]);
     }
 
     if (/^plugins?\/.+\.(ts|js|mts|cts)$/iu.test(relativePath)) {
-      return {
-        assetKind: "plugin",
-        compatibilityMode: "native",
-        hosts: source.hosts,
-      };
+      return buildLocalClassification(source, "plugin", "native", [
+        sourceFamilyEvidence("matched OpenCode plugin path"),
+        pathEvidence("matched executable plugin file"),
+      ]);
     }
 
     return null;
@@ -536,21 +543,56 @@ function buildNativeLocalFile(
   source: SourceDefinition,
   assetKind: AssetKind,
 ): ClassifiedLocalFile {
-  return {
-    assetKind,
-    compatibilityMode: "native",
-    hosts: source.hosts,
-  };
+  return buildLocalClassification(source, assetKind, "native", [
+    sourceFamilyEvidence(`matched ${source.id} ${assetKind} classifier`),
+  ]);
 }
 
 function buildReferenceLocalFile(
   source: SourceDefinition,
 ): ClassifiedLocalFile {
+  return buildLocalClassification(source, "reference-pack", "reference-only", [
+    pathEvidence("matched reference/documentation path"),
+  ]);
+}
+
+function buildLocalClassification(
+  source: SourceDefinition,
+  assetKind: AssetKind,
+  compatibilityMode: CompatibilityMode,
+  evidence: ClassificationEvidenceItem[],
+): ClassifiedLocalFile {
   return {
-    assetKind: "reference-pack",
-    compatibilityMode: "reference-only",
+    assetKind,
+    compatibilityMode,
     hosts: source.hosts,
+    classification: buildClassificationConfidence({ assetKind, evidence }),
   };
+}
+
+function mergeFrontmatterClassificationEvidence(
+  classification: ClassifiedLocalFile,
+  metadata: ParsedMarkdownMetadata,
+): ClassificationConfidence {
+  if (!hasClassificationFrontmatter(metadata)) {
+    return classification.classification;
+  }
+
+  return buildClassificationConfidence({
+    assetKind: classification.assetKind,
+    evidence: [
+      frontmatterEvidence("frontmatter supplied classification metadata"),
+      ...classification.classification.evidence,
+    ],
+  });
+}
+
+function hasClassificationFrontmatter(
+  metadata: ParsedMarkdownMetadata,
+): boolean {
+  return ["type", "kind", "assetKind", "name", "description", "tags"].some(
+    (field) => metadata.fields[field] !== undefined,
+  );
 }
 
 function toAntigravityManifestEntry(relativePath: string): string {

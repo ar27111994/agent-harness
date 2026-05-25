@@ -86,26 +86,36 @@ export function buildTopRecommendationsForHost(
     policy,
   );
 
-  return selectedCandidates.map((candidate, index) => ({
-    assetId: candidate.entry.id,
-    host,
-    rank: index + 1,
-    score: candidate.breakdown.total,
-    reasons: candidate.reasons,
-    assetKind: candidate.entry.assetKind,
-    sourceId: candidate.entry.source.sourceId,
-    sourceFamily: candidate.sourceFamily,
-    availableLocally: candidate.availableLocally,
-    recommendationBasis: candidate.recommendationBasis,
-    contextSizeClass: candidate.entry.contextCost.sizeClass,
-    estimatedPromptWeight: candidate.entry.contextCost.estimatedPromptWeight,
-    duplicateGroup: candidate.duplicateGroup,
-    selectionStage: "top-by-host",
-    coverageTags: candidate.coverageTags,
-    taskModes: candidate.taskModes,
-    matchedSignals: candidate.matchedSignals,
-    scoreBreakdown: candidate.breakdown,
-  }));
+  return selectedCandidates.map((candidate, index) => {
+    const classification = candidate.entry.evidence.classification;
+
+    return {
+      assetId: candidate.entry.id,
+      host,
+      rank: index + 1,
+      score: candidate.breakdown.total,
+      reasons: candidate.reasons,
+      assetKind: candidate.entry.assetKind,
+      ...(classification
+        ? {
+            classificationConfidence: classification.confidence,
+            classificationConfidenceLevel: classification.level,
+          }
+        : {}),
+      sourceId: candidate.entry.source.sourceId,
+      sourceFamily: candidate.sourceFamily,
+      availableLocally: candidate.availableLocally,
+      recommendationBasis: candidate.recommendationBasis,
+      contextSizeClass: candidate.entry.contextCost.sizeClass,
+      estimatedPromptWeight: candidate.entry.contextCost.estimatedPromptWeight,
+      duplicateGroup: candidate.duplicateGroup,
+      selectionStage: "top-by-host",
+      coverageTags: candidate.coverageTags,
+      taskModes: candidate.taskModes,
+      matchedSignals: candidate.matchedSignals,
+      scoreBreakdown: candidate.breakdown,
+    };
+  });
 }
 
 function compareScoredCandidates(

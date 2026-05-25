@@ -54,6 +54,7 @@ const SOURCE_SYNC_STATUSES = [
   "complete",
   "failed",
 ] as const;
+const CLASSIFICATION_CONFIDENCE_LEVELS = ["strong", "medium", "weak"] as const;
 const HOST_NATIVE_CONFIG_HOST_KEYS = [
   "opencode",
   "cursor",
@@ -381,6 +382,13 @@ export function assertAssetCatalogEntry(
     maintenance.releaseCadence,
     `${context}.maintenance.releaseCadence`,
   );
+  const evidence = assertRecord(record.evidence, `${context}.evidence`);
+  if (evidence.classification !== undefined) {
+    assertAssetClassificationEvidence(
+      evidence.classification,
+      `${context}.evidence.classification`,
+    );
+  }
   const risk = assertRecord(record.risk, `${context}.risk`);
   assertLiteral(risk.level, [...RISK_LEVELS], `${context}.risk.level`);
   assertBoolean(risk.hasHooks, `${context}.risk.hasHooks`);
@@ -416,6 +424,32 @@ export function assertAssetCatalogEntry(
       `${context}.hostNativeConfig`,
     );
   }
+}
+
+function assertAssetClassificationEvidence(
+  value: unknown,
+  context: string,
+): void {
+  const record = assertRecord(value, context);
+  assertLiteral(record.assetKind, ASSET_KINDS, `${context}.assetKind`);
+  assertNumber(record.confidence, `${context}.confidence`);
+  assertLiteral(
+    record.level,
+    CLASSIFICATION_CONFIDENCE_LEVELS,
+    `${context}.level`,
+  );
+  assertArray(record.evidence, `${context}.evidence`).forEach(
+    (entry, index) => {
+      const evidence = assertRecord(entry, `${context}.evidence[${index}]`);
+      assertString(evidence.source, `${context}.evidence[${index}].source`);
+      assertLiteral(
+        evidence.strength,
+        CLASSIFICATION_CONFIDENCE_LEVELS,
+        `${context}.evidence[${index}].strength`,
+      );
+      assertString(evidence.detail, `${context}.evidence[${index}].detail`);
+    },
+  );
 }
 
 /**

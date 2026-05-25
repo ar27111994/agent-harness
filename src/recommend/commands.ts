@@ -178,6 +178,11 @@ async function explainRecommendation(
     lines.push(`  rank: ${entry.rank}`);
     lines.push(`  score: ${entry.score}`);
     lines.push(`  asset kind: ${entry.assetKind ?? "unknown"}`);
+    if (entry.classificationConfidence !== undefined) {
+      lines.push(
+        `  classification confidence: ${entry.classificationConfidenceLevel ?? "unknown"} (${entry.classificationConfidence})`,
+      );
+    }
     lines.push(`  source: ${entry.sourceId} (${entry.sourceFamily})`);
     lines.push(`  recommendation basis: ${entry.recommendationBasis}`);
     lines.push(`  available locally: ${entry.availableLocally ? "yes" : "no"}`);
