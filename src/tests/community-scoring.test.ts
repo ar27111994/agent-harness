@@ -8,6 +8,18 @@ import {
 import { mirrorAcquireInternals } from "../mirror/acquire.js";
 import type { AssetCatalogEntry } from "../types.js";
 
+void test("community scoring leaves official assets promoted", () => {
+  assert.equal(
+    scoreCommunityAsset(
+      buildEntry("official", {
+        authorityTier: "official-compatible",
+        assetKind: "skill",
+      }),
+    ).decision,
+    "promote",
+  );
+});
+
 void test("community scoring promotes useful low-risk community assets", () => {
   const score = scoreCommunityAsset(
     buildEntry("safe-skill", {
@@ -40,6 +52,40 @@ void test("community scoring quarantines risky executable integrations", () => {
       "community executable/integration asset requires review",
     ),
   );
+});
+
+void test("community scoring reviews stale duplicate community assets and clamps weak scores", () => {
+  const score = scoreCommunityAsset(
+    buildEntry("stale-duplicate", {
+      authorityTier: "trusted-community",
+      assetKind: "skill",
+      duplicateGroup: "testing-skills",
+      manifestFound: true,
+      readmeFound: true,
+      releaseCadence: "stale",
+      stars: 250,
+    }),
+  );
+
+  assert.equal(score.decision, "review");
+  assert.ok(score.reasons.includes("release cadence is stale"));
+  assert.ok(
+    score.reasons.includes("asset duplicates an existing capability group"),
+  );
+
+  const weakScore = scoreCommunityAsset(
+    buildEntry("weak-community", {
+      authorityTier: "trusted-community",
+      assetKind: "plugin",
+      duplicateGroup: "weak-group",
+      hasExecScripts: true,
+      manifestFound: false,
+      readmeFound: false,
+      releaseCadence: "unknown",
+    }),
+  );
+  assert.equal(weakScore.score, 0);
+  assert.equal(weakScore.decision, "quarantine");
 });
 
 void test("mirror status cannot bypass community quarantine policy", () => {
@@ -82,7 +128,9 @@ function buildEntry(
     manifestFound?: boolean;
     readmeFound?: boolean;
     riskLevel?: AssetCatalogEntry["risk"]["level"];
+    duplicateGroup?: string;
     hasExecScripts?: boolean;
+    releaseCadence?: string;
   },
 ): AssetCatalogEntry {
   return {
@@ -112,7 +160,7 @@ function buildEntry(
     maintenance: {
       lastUpdated: "2026-01-01T00:00:00.000Z",
       stars: options.stars ?? 1,
-      releaseCadence: "active",
+      releaseCadence: options.releaseCadence ?? "active",
     },
     risk: {
       level: options.riskLevel ?? "low",
@@ -129,6 +177,7 @@ function buildEntry(
       hostFit: 0.8,
     },
     dedupe: {
+      duplicateGroup: options.duplicateGroup,
       candidateRankHint: "fixture",
     },
     status: {

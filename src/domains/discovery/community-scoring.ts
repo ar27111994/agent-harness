@@ -111,10 +111,6 @@ function decideCommunityAsset(
   entry: AssetCatalogEntry,
   score: number,
 ): CommunityAssetScore["decision"] {
-  if (!COMMUNITY_TIERS.has(entry.source.authorityTier)) {
-    return "promote";
-  }
-
   if (
     RISKY_COMMUNITY_KINDS.has(entry.assetKind) ||
     entry.risk.level === "high" ||

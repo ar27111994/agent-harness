@@ -533,6 +533,40 @@ void test("host deprioritization penalties and stale metadata affect recommendat
   assert.ok((candidate?.breakdown.total ?? 0) < (base?.breakdown.total ?? 0));
 });
 
+void test("selection preserves recommendations without classification metadata", () => {
+  const policy = buildPolicy({ recommendationLimit: 1 });
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [buildCatalogEntry("plain-skill", "skill", 100)],
+    createEmptyDemandContext(),
+    policy,
+  );
+
+  assert.equal(recommendations[0]?.assetId, "plain-skill");
+  const classifiedRecommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [
+      buildCatalogEntry("classified-skill", "skill", 100, {
+        classification: {
+          assetKind: "skill",
+          confidence: 0.9,
+          level: "strong",
+          evidence: [],
+        },
+      }),
+    ],
+    createEmptyDemandContext(),
+    policy,
+  );
+  assert.equal(classifiedRecommendations[0]?.classificationConfidence, 0.9);
+  assert.equal(
+    classifiedRecommendations[0]?.classificationConfidenceLevel,
+    "strong",
+  );
+  assert.equal(recommendations[0]?.classificationConfidence, undefined);
+  assert.equal(recommendations[0]?.classificationConfidenceLevel, undefined);
+});
+
 void test("selection enforces duplicate-group caps across different source families", () => {
   const policy = buildPolicy({
     recommendationLimit: 2,
@@ -989,6 +1023,7 @@ function buildCatalogEntry(
     installRelativePath?: string;
     lastUpdated?: string;
     manifestEntry?: string;
+    classification?: AssetCatalogEntry["evidence"]["classification"];
     publisher?: string;
     sourceId?: string;
     sourceKind?: AssetCatalogEntry["source"]["sourceKind"];
@@ -1028,6 +1063,7 @@ function buildCatalogEntry(
       examplesFound: false,
       docsLinked: true,
       filePath: options.evidenceFilePath,
+      classification: options.classification,
     },
     maintenance: {
       lastUpdated: options.lastUpdated ?? new Date().toISOString(),

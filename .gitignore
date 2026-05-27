@@ -39,5 +39,13 @@ AGENTS.md
 CLAUDE.md
 SYSTEM.md
 
+# OpenClaw/local assistant workspace metadata
+/.openclaw/
+/HEARTBEAT.md
+/IDENTITY.md
+/SOUL.md
+/TOOLS.md
+/USER.md
+
 *.log
 *.tgz

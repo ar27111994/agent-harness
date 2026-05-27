@@ -433,6 +433,61 @@ void test("native config rejects invalid paths and unsupported host surfaces", a
   await assert.rejects(
     applyHostNativeFilePayloads({
       workspaceRoot,
+      host: "codex",
+      payloads: [
+        {
+          path: ".codex/settings.json",
+          format: "json",
+          merge: true,
+          content: {},
+        },
+      ],
+    }),
+    /Unsupported codex host-native payload target/u,
+  );
+
+  await applyHostNativeFilePayloads({
+    workspaceRoot,
+    host: "codex",
+    payloads: [
+      {
+        path: ".codex/config.toml",
+        format: "text",
+        content: 'approval_policy = "never"\n',
+      },
+      {
+        path: ".codex/rules/generated.md",
+        format: "text",
+        content: "# Codex rule\n",
+      },
+      {
+        path: ".agents/skills/generated/SKILL.md",
+        format: "text",
+        content: "# Codex skill\n",
+      },
+      {
+        path: ".agents/plugins/generated/plugin.json",
+        format: "json",
+        merge: false,
+        content: { name: "generated" },
+      },
+    ],
+  });
+  assert.equal(
+    await readFile(join(workspaceRoot, ".codex", "config.toml"), "utf8"),
+    'approval_policy = "never"\n',
+  );
+  assert.equal(
+    await readFile(
+      join(workspaceRoot, ".agents", "skills", "generated", "SKILL.md"),
+      "utf8",
+    ),
+    "# Codex skill\n",
+  );
+
+  await assert.rejects(
+    applyHostNativeFilePayloads({
+      workspaceRoot,
       host: "pi",
       payloads: [
         {

@@ -18,6 +18,7 @@
     "dist/recommend.js",
     "dist/setup.js",
     "dist/wire.js",
-    "dist/workspace.js"
+    "dist/workspace.js",
+    "scripts/tests/**"
   ]
 }

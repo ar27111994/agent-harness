@@ -476,6 +476,155 @@ void test("explainBundleLock prints human and machine-readable inclusion reasons
   }
 });
 
+void test("explainBundleLock renders unknown trust when no catalog or mirror entry exists", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-bundle-explain-unknown-"),
+  );
+
+  try {
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date().toISOString(),
+        host: "copilot-vscode",
+        assets: [
+          {
+            assetId: "unresolved-asset",
+            mirrorId: "sha256-unresolved",
+            projectionType: "native-skill",
+            activationEligible: true,
+            notes: "fixture",
+          },
+        ],
+      } satisfies BundleLock,
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [],
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.rejected.jsonl"),
+      [],
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      createMirrorIndexEntry("unresolved-asset", {
+        mirrorId: "sha256-unresolved",
+        source: {
+          authorityTier: "trusted-community",
+          publisher: "Fixture",
+          publisherVerified: true,
+        },
+      }),
+    ]);
+
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    await explainBundleLock(projectRoot, ["copilot-core"]);
+
+    const rendered = output.join("\n");
+    assert.match(rendered, /trust: trusted-community/u);
+    assert.match(rendered, /mirror: approved \(sha256-unresolved\)/u);
+
+    output.length = 0;
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), []);
+    await explainBundleLock(projectRoot, ["copilot-core"]);
+    assert.match(output.join("\n"), /trust: unknown/u);
+
+    await explainBundleLock(projectRoot, ["copilot-core", "--json"]);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("explainBundleLock explains rejected and unresolved assets", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-bundle-explain-rejected-"),
+  );
+  const output: string[] = [];
+
+  try {
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.rejected.jsonl"),
+      [buildAsset("rejected-duplicate", { assetKind: "plugin" })],
+    );
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "selection-report.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        inputCount: 2,
+        selectedCount: 1,
+        rejectedCount: 1,
+        duplicateDecisions: [
+          {
+            duplicateGroup: "fixture-group",
+            selectedAssetId: "official-skill",
+            rejectedAssetIds: ["rejected-duplicate"],
+            selectionReason: "official asset outranks duplicate",
+          },
+        ],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date().toISOString(),
+        host: "copilot-vscode",
+        assets: [
+          {
+            assetId: "rejected-duplicate",
+            mirrorId: "sha256-rejected-duplicate",
+            projectionType: "native-plugin",
+            activationEligible: true,
+          },
+          {
+            assetId: "missing-catalog",
+            mirrorId: "missing-mirror",
+            projectionType: "native-skill",
+            activationEligible: true,
+          },
+        ],
+      } satisfies BundleLock,
+    );
+
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    await explainBundleLock(projectRoot, ["copilot-core", "--json"]);
+    const explained = JSON.parse(output.join("\n")) as {
+      assets: Array<{
+        assetId: string;
+        assetKind: string;
+        mirrorStatus: string;
+        reason: string;
+        rejected: boolean;
+        sourceAuthorityTier?: string;
+      }>;
+    };
+
+    assert.equal(explained.assets[0]?.rejected, true);
+    assert.equal(explained.assets[0]?.assetKind, "plugin");
+    assert.match(explained.assets[0]?.reason ?? "", /rejected as duplicate/u);
+    assert.equal(explained.assets[1]?.assetKind, "unknown");
+    assert.equal(explained.assets[1]?.mirrorStatus, "unresolved");
+    assert.equal(explained.assets[1]?.sourceAuthorityTier, undefined);
+    assert.match(
+      explained.assets[1]?.reason ?? "",
+      /no longer in the selected or rejected catalog/u,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("explainBundleLock requires a bundle id", async () => {
   await assert.rejects(
     explainBundleLock(process.cwd(), []),

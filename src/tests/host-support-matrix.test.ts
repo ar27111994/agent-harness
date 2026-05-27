@@ -55,6 +55,23 @@ void test("v2 host support matrix covers every registered adapter without overst
       .map((row) => row.cliTarget),
     ["copilot-vscode", "cursor"],
   );
+  assert.deepEqual(buildHostSupportMatrix([]), []);
+  assert.deepEqual(
+    buildHostSupportMatrix([
+      {
+        id: "fixture-host",
+        displayName: "Fixture Host",
+        aliases: [],
+        lifecycleHost: "copilot-vscode",
+        recommendationHost: "copilot-vscode",
+        defaultBundleIds: [],
+        mutatesHostPaths: false,
+        capabilities: [],
+        wire: async () => undefined,
+      },
+    ]).map((row) => row.knownLimitations),
+    [[]],
+  );
 });
 
 void test("README documents the v2 host matrix and every supported host row", async () => {

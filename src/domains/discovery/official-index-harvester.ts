@@ -570,7 +570,7 @@ async function resolveOfficialRepoUrl(input: {
   );
   if (pageRepoUrl) {
     const normalizedRepoIdentity = normalizeGitHubRepoIdentity(pageRepoUrl);
-    const repoOwner = normalizedRepoIdentity?.split("/")[0] ?? null;
+    const repoOwner = normalizedRepoIdentity?.split("/")[0];
     if (
       repoOwner &&
       isAllowedOfficialRepoOwner(owner, repoOwner, input.allowlist)
@@ -953,3 +953,14 @@ function isAllowedOfficialRepoOwner(
   const allowedOwners = allowlist[officialOwner] ?? [officialOwner];
   return allowedOwners.includes(repoOwner);
 }
+
+/**
+ * Exposes narrow official-index internals for focused resolution coverage.
+ */
+export const officialIndexHarvesterInternals = {
+  buildOfficialUpstreamKey,
+  extractOfficialSkillRepoUrls,
+  normalizeGitHubRepositoryUrl,
+  resolveOfficialRepoUrl,
+  searchOfficialRepoCandidates,
+};

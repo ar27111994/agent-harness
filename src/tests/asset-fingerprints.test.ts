@@ -30,6 +30,77 @@ void test("asset lifecycle fingerprints are stable and include mirror trust stat
   assert.equal(first.sourceCatalogIdentity, "source-a|asset-a|skill|native");
   assert.equal(first.contentHash, "sha256-content-a");
   assert.equal(first.commit, "abc123");
+
+  const versioned = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-versioned", { duplicateGroup: undefined }),
+    {
+      ...mirror,
+      upstream: {
+        type: "package",
+        url: "https://registry.example.com/acme/tool/",
+        version: "2.0.0",
+        ref: "latest",
+      },
+    },
+  );
+  assert.equal(
+    versioned.canonicalUpstreamIdentity,
+    "package|https://registry.example.com/acme/tool|2.0.0",
+  );
+  assert.equal(versioned.version, "2.0.0");
+  assert.equal(versioned.ref, "latest");
+
+  const pathIdentity = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-path-identity", {
+      duplicateGroup: undefined,
+      install: {
+        method: "manual",
+        relativePath: "skills/example",
+      },
+    }),
+  );
+  assert.equal(
+    pathIdentity.canonicalUpstreamIdentity,
+    "repo|https://example.com/acme/tool|skills/example",
+  );
+
+  const evidencePathIdentity = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-evidence-identity", {
+      duplicateGroup: undefined,
+      install: { method: "manual" },
+    }),
+  );
+  assert.equal(
+    evidencePathIdentity.canonicalUpstreamIdentity,
+    "repo|https://example.com/acme/tool|asset-evidence-identity/README.md",
+  );
+
+  const idOnlyIdentity = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-id-identity", {
+      duplicateGroup: undefined,
+      install: { method: "manual" },
+      evidenceFilePath: undefined,
+    }),
+  );
+  assert.equal(
+    idOnlyIdentity.canonicalUpstreamIdentity,
+    "repo|https://example.com/acme/tool|asset-id-identity",
+  );
+
+  const unversioned = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-unversioned", { duplicateGroup: undefined }),
+    {
+      ...mirror,
+      upstream: {
+        type: "docs",
+        url: "https://docs.example.com/tool/",
+      },
+    },
+  );
+  assert.equal(
+    unversioned.canonicalUpstreamIdentity,
+    "docs|https://docs.example.com/tool|unversioned",
+  );
   assert.equal(first.trustTier, "trusted-community");
   assert.equal(first.quarantineState, "quarantined");
   assert.deepEqual(first.hosts, ["cursor", "opencode"]);
@@ -81,7 +152,11 @@ void test("asset lifecycle fingerprint report includes duplicate evidence and wr
 
 function buildCatalogEntry(
   id: string,
-  options: { duplicateGroup?: string } = {},
+  options: {
+    duplicateGroup?: string;
+    evidenceFilePath?: string;
+    install?: AssetCatalogEntry["install"];
+  } = {},
 ): AssetCatalogEntry {
   return {
     id,
@@ -103,7 +178,7 @@ function buildCatalogEntry(
       signals: ["fixture"],
     },
     capabilities: ["testing"],
-    install: {
+    install: options.install ?? {
       method: "manual",
       relativePath: `${id}/README.md`,
     },
@@ -112,7 +187,10 @@ function buildCatalogEntry(
       readmeFound: true,
       examplesFound: false,
       docsLinked: false,
-      filePath: `${id}/README.md`,
+      filePath:
+        "evidenceFilePath" in options
+          ? options.evidenceFilePath
+          : `${id}/README.md`,
     },
     maintenance: {
       lastUpdated: "2026-01-01T00:00:00.000Z",

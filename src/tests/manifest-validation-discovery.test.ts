@@ -9,6 +9,8 @@ import test from "node:test";
 
 import {
   assertAssetCatalogEntry,
+  assertDiscoverDiffReport,
+  assertEnvironmentIndexReport,
   assertGitHubRepoSnapshot,
   assertSelectionReport,
   assertSourceIndex,
@@ -278,6 +280,81 @@ void test("assertAiEnrichmentReport accepts completed report with summary and re
   );
 });
 
+void test("assertDiscoverDiffReport and assertEnvironmentIndexReport accept valid reports", () => {
+  assert.doesNotThrow(() =>
+    assertDiscoverDiffReport(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        baselineLabel: "baseline",
+        currentLabel: "current",
+        sources: { added: ["source-a"], removed: [], changed: [] },
+        catalog: { added: [], removed: ["asset-old"], changed: ["asset-a"] },
+        selection: { added: ["asset-a"], removed: [], changed: [] },
+        counts: {
+          sources: { baseline: 1, current: 2 },
+          catalog: { baseline: 2, current: 1 },
+          selected: { baseline: 0, current: 1 },
+          rejected: { baseline: 1, current: 0 },
+        },
+        highImpactChanges: ["selected asset added: asset-a"],
+      },
+      "diff",
+    ),
+  );
+
+  assert.doesNotThrow(() =>
+    assertEnvironmentIndexReport(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        experimental: true,
+        selectedAssetCount: 1,
+        assets: [
+          {
+            assetId: "asset-a",
+            displayName: "Asset A",
+            assetKind: "skill",
+            hosts: ["copilot-vscode"],
+            symbolicHandle: "source:skill:asset-a",
+            retrievalFacets: ["skill"],
+            chunkingHints: {
+              preferredStrategy: "document",
+              maxPromptWeight: 1,
+            },
+            citation: {
+              provenance: "official-marketplace:repo",
+              sourceUrl: "https://example.com/asset-a",
+              sourceId: "source-a",
+            },
+            safetyFlags: [],
+          },
+        ],
+        notes: ["experimental"],
+      },
+      "environmentIndex",
+    ),
+  );
+});
+
+void test("assertEnvironmentIndexReport rejects non-experimental reports", () => {
+  assert.throws(
+    () =>
+      assertEnvironmentIndexReport(
+        {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          experimental: false,
+          selectedAssetCount: 0,
+          assets: [],
+          notes: [],
+        },
+        "environmentIndex",
+      ),
+    /environmentIndex\.experimental must be true/u,
+  );
+});
+
 void test("assertSourceIndex accepts complete indexed source metadata", () => {
   assert.doesNotThrow(() =>
     assertSourceIndex(
@@ -360,6 +437,18 @@ void test("assertAssetCatalogEntry accepts prerequisites and host-native config 
           examplesFound: false,
           docsLinked: true,
           filePath: "README.md",
+          classification: {
+            assetKind: "skill",
+            confidence: 0.92,
+            level: "strong",
+            evidence: [
+              {
+                source: "schema",
+                strength: "strong",
+                detail: "matched known schema",
+              },
+            ],
+          },
         },
         maintenance: {
           lastUpdated: new Date().toISOString(),

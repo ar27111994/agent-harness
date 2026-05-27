@@ -239,13 +239,13 @@ async function buildLifecycleImpact(input: {
   }
 
   const impactedBundles = recommendationReport.suggestedBundles
-    .filter((bundle) =>
-      Array.isArray(bundle.assetIds)
-        ? bundle.assetIds.some(
-            (assetId) =>
-              typeof assetId === "string" && changedAssetIds.includes(assetId),
-          )
-        : false,
+    .filter(
+      (bundle) =>
+        Array.isArray(bundle.assetIds) &&
+        bundle.assetIds.some(
+          (assetId) =>
+            typeof assetId === "string" && changedAssetIds.includes(assetId),
+        ),
     )
     .flatMap((bundle) =>
       typeof bundle.bundleId === "string" ? [bundle.bundleId] : [],

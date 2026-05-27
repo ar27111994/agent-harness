@@ -5,7 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { runDiscover } from "../discover.js";
-import { buildUnknownSignalReport } from "../domains/discovery/unknown-signals.js";
+import {
+  buildUnknownSignalReport,
+  unknownSignalInternals,
+} from "../domains/discovery/unknown-signals.js";
 
 void test("unknown-signal report captures MCP, host, plugin, and unfamiliar dependency evidence", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-unknown-signals-"));
@@ -64,6 +67,115 @@ void test("unknown-signal report captures MCP, host, plugin, and unfamiliar depe
           signal.category === "mcp-manifest" &&
           signal.suggestedNextAction === "needs-research",
       ),
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("unknown-signal report ignores non-package and unreadable dependency manifests", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-unknown-signals-ignored-"),
+  );
+
+  try {
+    await writeFile(join(root, "requirements.txt"), "acme-unknown\n", "utf8");
+    await mkdir(join(root, "empty-package"), { recursive: true });
+    await writeFile(join(root, "bad-package.json"), "not-json", "utf8");
+
+    const report = await buildUnknownSignalReport(root);
+
+    assert.equal(report.summary.signalCount, 0);
+    assert.deepEqual(
+      await unknownSignalInternals.collectUnfamiliarDependencyNames(
+        "requirements.txt",
+        join(root, "requirements.txt"),
+      ),
+      [],
+    );
+    assert.deepEqual(
+      await unknownSignalInternals.collectUnfamiliarDependencyNames(
+        "package.json",
+        join(root, "missing-package.json"),
+      ),
+      [],
+    );
+    assert.equal(unknownSignalInternals.parsePackageJson("null"), null);
+    assert.deepEqual(unknownSignalInternals.parsePackageJson("[]"), []);
+    assert.deepEqual(
+      await unknownSignalInternals.collectUnfamiliarDependencyNames(
+        "package.json",
+        join(root, "bad-package.json"),
+      ),
+      [],
+    );
+    assert.equal(unknownSignalInternals.parsePackageJson("not-json"), null);
+    assert.equal(
+      unknownSignalInternals.createSignal(
+        "package.json",
+        "package.json",
+        "unfamiliar-package-dependency",
+        "low",
+        ["dependency may need a technology signature: @acme/unknown"],
+      ).suggestedNextAction,
+      "add-signature",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("unknown-signal report collects dependency buckets and dedupes repeated signals", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-unknown-signals-deps-"),
+  );
+
+  try {
+    await writeFile(join(root, ".mcp.json"), "{}\n", "utf8");
+    await mkdir(join(root, ".cursor-plugin"), { recursive: true });
+    await writeFile(
+      join(root, ".cursor-plugin", "manifest.json"),
+      "{}\n",
+      "utf8",
+    );
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({
+        dependencies: { "@types/node": "latest", "@acme/runtime": "1" },
+        devDependencies: { "@acme/devtool": "1" },
+        optionalDependencies: { "@acme/optional": "1" },
+        peerDependencies: { "@acme/peer": "1" },
+      }),
+      "utf8",
+    );
+
+    const report = await buildUnknownSignalReport(root);
+
+    const dependencySignal = report.signals.find(
+      (signal) => signal.category === "unfamiliar-package-dependency",
+    );
+    assert.deepEqual(dependencySignal, {
+      id: "unfamiliar-package-dependency:package.json",
+      path: "package.json",
+      fileName: "package.json",
+      category: "unfamiliar-package-dependency",
+      confidence: "low",
+      evidence: ["dependency may need a technology signature: @acme/runtime"],
+      ambiguityNotes: [
+        "single dependency names are weak evidence until supported by imports, config, or docs",
+      ],
+      suggestedNextAction: "add-signature",
+    });
+    assert.deepEqual(
+      report.signals.map((signal) => signal.suggestedNextAction).sort(),
+      ["add-signature", "needs-research"],
+    );
+    assert.deepEqual(
+      unknownSignalInternals.dedupeSignals([
+        report.signals[0]!,
+        report.signals[0]!,
+      ]),
+      [report.signals[0]],
     );
   } finally {
     await rm(root, { recursive: true, force: true });

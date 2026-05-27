@@ -45,6 +45,7 @@ import type {
   AssetCatalogEntry,
   BundleLock,
   InstallGenerationManifest,
+  InstallRefreshReport,
   InstallRefreshState,
   InstalledPackageManifest,
   MirrorAcquireState,
@@ -165,6 +166,62 @@ function buildAsset(
       activationEligible: true,
     },
     ...overrides,
+  };
+}
+
+function buildInstalledManifest(
+  assetId: string,
+  overrides: Partial<InstalledPackageManifest> = {},
+): InstalledPackageManifest {
+  return {
+    schemaVersion: 1,
+    assetId,
+    mirrorId: `sha256-${assetId}-old`,
+    host: "copilot-vscode",
+    installedAt: new Date().toISOString(),
+    projectionType: "native-skill",
+    assetKind: "skill",
+    sourceAuthorityTier: "trusted-community",
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    portfolioFit: 0.8,
+    filesRoot: `/tmp/${assetId}`,
+    bundleMembership: ["copilot-core"],
+    activationEligible: true,
+    activeByDefault: false,
+    upstream: {
+      mirrorId: `sha256-${assetId}-old`,
+      mirroredAt: new Date().toISOString(),
+      sourceId: "fixture-source",
+      sourceOriginUrl: `https://example.com/${assetId}`,
+      sourceLastUpdated: new Date().toISOString(),
+      upstream: { type: "docs", url: `https://example.com/${assetId}` },
+    },
+    ...overrides,
+  };
+}
+
+function buildRefreshMirror(
+  assetId: string,
+  overrides: {
+    authorityTier?: MirrorIndexEntry["source"]["authorityTier"];
+    status?: MirrorIndexEntry["status"];
+  } = {},
+): MirrorIndexEntry {
+  return {
+    mirrorId: `sha256-${assetId}-new`,
+    assetId,
+    upstream: { type: "docs", url: `https://example.com/${assetId}` },
+    source: {
+      authorityTier: overrides.authorityTier ?? "trusted-community",
+      publisher: "Fixture",
+      publisherVerified: true,
+    },
+    mirroredAt: new Date().toISOString(),
+    contentHash: `sha256-${assetId}-new-hash`,
+    projectionCandidates: [
+      { host: "copilot-vscode", projectionType: "native-skill" },
+    ],
+    status: overrides.status ?? "approved",
   };
 }
 
@@ -1009,9 +1066,26 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       /Invalid --host value 'bad-host'/u,
     );
     assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy("stale", "manual")
+        .decision,
+      "notify",
+    );
+    assert.equal(
       installRefreshInternals.decideInstallRefreshPolicy("stale", "report-only")
         .decision,
       "plan",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "current",
+        "apply-safe",
+      ).decision,
+      "ignore",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy("pinned", "apply-safe")
+        .decision,
+      "ignore",
     );
     assert.equal(
       installRefreshInternals.decideInstallRefreshPolicy(
@@ -1020,6 +1094,307 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       ).decision,
       "review-required",
     );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "unknown",
+        "apply-safe",
+      ).decision,
+      "review-required",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "stale",
+        "apply-safe",
+        undefined,
+        undefined,
+        buildAsset("missing-review-input"),
+      ).decision,
+      "review-required",
+    );
+
+    const manifest = buildInstalledManifest("safe-refresh", {
+      assetKind: "skill",
+      activationEligible: false,
+      sourceAuthorityTier: "official-first-party",
+    });
+    const approvedMirror = buildRefreshMirror("safe-refresh", {
+      authorityTier: "official-first-party",
+    });
+    const safeCatalogEntry = buildAsset("safe-refresh", {
+      source: {
+        ...buildAsset("safe-refresh").source,
+        authorityTier: "official-first-party",
+        publisherVerified: true,
+      },
+      status: {
+        cataloged: true,
+        mirrorEligible: true,
+        installEligible: true,
+        activationEligible: false,
+      },
+    });
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "stale",
+        "apply-safe",
+        manifest,
+        approvedMirror,
+        safeCatalogEntry,
+      ).decision,
+      "apply",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "stale",
+        "apply-safe",
+        manifest,
+        { ...approvedMirror, status: "quarantined" },
+        safeCatalogEntry,
+      ).decision,
+      "blocked-quarantined",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "stale",
+        "apply-safe",
+        { ...manifest, assetKind: "plugin" },
+        approvedMirror,
+        {
+          ...safeCatalogEntry,
+          assetKind: "plugin",
+          source: {
+            ...safeCatalogEntry.source,
+            authorityTier: "trusted-community",
+          },
+          status: { ...safeCatalogEntry.status, activationEligible: true },
+        },
+      ).decision,
+      "stage-only",
+    );
+    assert.equal(
+      installRefreshInternals.decideInstallRefreshPolicy(
+        "stale",
+        "apply-safe",
+        { ...manifest, activationEligible: true },
+        approvedMirror,
+        {
+          ...safeCatalogEntry,
+          status: { ...safeCatalogEntry.status, activationEligible: true },
+        },
+      ).decision,
+      "stage-only",
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(
+        manifest,
+        { ...approvedMirror, status: "metadata-only" },
+        safeCatalogEntry,
+      ),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(
+        {
+          ...manifest,
+          sourceAuthorityTier: "trusted-community",
+        },
+        approvedMirror,
+        safeCatalogEntry,
+      ),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(
+        manifest,
+        {
+          ...approvedMirror,
+          source: {
+            ...approvedMirror.source,
+            authorityTier: "unverified-community",
+          },
+        },
+        safeCatalogEntry,
+      ),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(
+        manifest,
+        {
+          ...approvedMirror,
+          source: { ...approvedMirror.source, publisherVerified: false },
+        },
+        safeCatalogEntry,
+      ),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(manifest, approvedMirror, {
+        ...safeCatalogEntry,
+        hosts: ["cursor"],
+      }),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(manifest, approvedMirror, {
+        ...safeCatalogEntry,
+        status: { ...safeCatalogEntry.status, installEligible: false },
+      }),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(
+        manifest,
+        {
+          ...approvedMirror,
+          source: {
+            ...approvedMirror.source,
+            authorityTier: "trusted-community",
+          },
+        },
+        { ...safeCatalogEntry, assetKind: "mcp-server" },
+      ),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(manifest, approvedMirror, {
+        ...safeCatalogEntry,
+        risk: { ...safeCatalogEntry.risk, level: "medium" },
+      }),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(manifest, approvedMirror, {
+        ...safeCatalogEntry,
+        risk: { ...safeCatalogEntry.risk, hasHooks: true },
+      }),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.requiresRefreshReview(manifest, approvedMirror, {
+        ...safeCatalogEntry,
+        assetKind: "instruction",
+      }),
+      true,
+    );
+    assert.equal(
+      installRefreshInternals.isStageOnlyRefresh(undefined, safeCatalogEntry),
+      false,
+    );
+    assert.equal(
+      installRefreshInternals.isStageOnlyRefresh(manifest, undefined),
+      false,
+    );
+
+    const refreshActionReport: InstallRefreshReport = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      policy: "apply-safe",
+      refreshedMirrorState: false,
+      hosts: [
+        {
+          host: "copilot-vscode",
+          pinnedGeneration: false,
+          assetCount: 3,
+          staleCount: 2,
+          pinnedCount: 0,
+          blockedCount: 0,
+          currentCount: 1,
+          stageEligibleCount: 1,
+          applyEligibleCount: 1,
+          reviewRequiredCount: 0,
+          quarantinedCount: 0,
+          assets: [
+            {
+              assetId: "refresh-apply",
+              host: "copilot-vscode",
+              bundleIds: ["copilot-core"],
+              assetKind: "skill",
+              status: "stale",
+              policyDecision: "apply",
+              pinned: false,
+              reason: "fixture",
+              refreshTier: "auto-refresh-low-risk",
+              policyReason: "fixture",
+              installedMirrorId: "sha256-old-apply",
+              latestMirrorId: "sha256-new-apply",
+            },
+            {
+              assetId: "refresh-stage",
+              host: "copilot-vscode",
+              bundleIds: ["copilot-core"],
+              assetKind: "plugin",
+              status: "stale",
+              policyDecision: "stage-only",
+              pinned: false,
+              reason: "fixture",
+              refreshTier: "auto-stage",
+              policyReason: "fixture",
+              installedMirrorId: "sha256-old-stage",
+              latestMirrorId: "sha256-new-stage",
+            },
+            {
+              assetId: "current-skip",
+              host: "copilot-vscode",
+              bundleIds: ["copilot-core"],
+              assetKind: "skill",
+              status: "current",
+              policyDecision: "ignore",
+              pinned: false,
+              reason: "fixture",
+              refreshTier: "auto-report-only",
+              policyReason: "fixture",
+              installedMirrorId: "sha256-current",
+            },
+          ],
+        },
+      ],
+    };
+    assert.deepEqual(
+      installRefreshInternals.collectRefreshBundleIds(refreshActionReport, [
+        "apply",
+        "stage-only",
+      ]),
+      ["copilot-core"],
+    );
+    assert.deepEqual(
+      installRefreshInternals
+        .applyRefreshActionAnnotations(
+          refreshActionReport,
+          installRefreshInternals.collectAppliedAssetActions(
+            refreshActionReport,
+          ),
+        )
+        .hosts[0]?.assets.map((asset) => asset.lastRefreshAction),
+      ["refreshed", "staged", "skipped"],
+    );
+    await assert.rejects(
+      () =>
+        installRefreshInternals.applyBundleRefreshes(
+          "/tmp/project",
+          ["bundle-a"],
+          {
+            install: async () => undefined,
+            maxBatches: 1,
+            readProgressState: async () => ({
+              schemaVersion: 1,
+              updatedAt: new Date().toISOString(),
+              bundles: {
+                "bundle-a": {
+                  host: "copilot-vscode",
+                  batchSize: 1,
+                  totalAssets: 2,
+                  installedAssets: 1,
+                  remainingAssets: 1,
+                  lastBatchAssetIds: ["asset-a"],
+                },
+              },
+            }),
+          },
+        ),
+      /install refresh did not complete bundle 'bundle-a'/u,
+    );
+
     assert.deepEqual(
       [
         ...installRefreshInternals

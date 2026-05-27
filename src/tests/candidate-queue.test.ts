@@ -82,6 +82,21 @@ void test("source candidate queue turns unknown signals into reviewable candidat
   }
 });
 
+void test("source candidate queue returns empty queue when unknown signals are absent", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-candidate-empty-"),
+  );
+
+  try {
+    const report = await buildSourceCandidateQueue(projectRoot, []);
+    assert.equal(report.candidateCount, 0);
+    assert.equal(report.reviewRequiredCount, 0);
+    assert.deepEqual(report.candidates, []);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 void test("source candidate queue marks duplicates from existing sources", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-candidate-dupes-"),
@@ -125,6 +140,75 @@ void test("source candidate queue marks duplicates from existing sources", async
 
     assert.equal(report.candidates[0]?.duplicate, true);
     assert.equal(report.candidates[0]?.suggestedAction, "research");
+    assert.equal(report.candidates[0]?.score, 25);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("source candidate queue auto-approves high-confidence non-risky new sources", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-candidate-auto-approve-"),
+  );
+
+  try {
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "unknown-signals.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: "2026-01-01T00:00:00.000Z",
+        scanRoot: projectRoot,
+        summary: {
+          scannedFiles: 1,
+          signalCount: 1,
+          byCategory: {
+            "mcp-manifest": 0,
+            "host-rule-folder": 1,
+            "unfamiliar-package-dependency": 0,
+            "plugin-manifest": 0,
+          },
+        },
+        signals: [
+          {
+            id: "host-rule-folder-low:.cursor/rules/low.md",
+            path: ".cursor/rules/low.md",
+            fileName: "low.md",
+            category: "host-rule-folder",
+            confidence: "low",
+            evidence: ["workspace contains weak host rules"],
+            ambiguityNotes: [],
+            suggestedNextAction: "add-source-mapping",
+          },
+          {
+            id: "host-rule-folder:.cursor/rules/app.md",
+            path: ".cursor/rules/app.md",
+            fileName: "app.md",
+            category: "host-rule-folder",
+            confidence: "high",
+            evidence: ["workspace contains host rules"],
+            ambiguityNotes: [],
+            suggestedNextAction: "add-source-mapping",
+          },
+        ],
+      },
+    );
+
+    const report = await buildSourceCandidateQueue(projectRoot, []);
+
+    assert.equal(report.reviewRequiredCount, 1);
+    const candidatesByScore = [...report.candidates].sort(
+      (left, right) => right.score - left.score,
+    );
+    assert.deepEqual(candidatesByScore[0]?.evidence, [
+      "workspace contains host rules",
+    ]);
+    assert.equal(candidatesByScore[0]?.score, 75);
+    assert.equal(candidatesByScore[1]?.score, 35);
+    assert.equal(
+      candidatesByScore[0]?.recommendedTrustTier,
+      "official-compatible",
+    );
+    assert.equal(candidatesByScore[0]?.suggestedAction, "approve");
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

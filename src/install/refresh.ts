@@ -63,9 +63,6 @@ import {
 import { INSTALL_HOSTS } from "./utils.js";
 
 const MAX_REFRESH_BATCHES = 200;
-const REVIEW_REQUIRED_AUTHORITY_TIERS = new Set([
-  "unverified-community",
-] as const);
 const RISKY_EXECUTABLE_ASSET_KINDS = new Set([
   "extension",
   "hook",
@@ -661,13 +658,6 @@ function requiresRefreshReview(
   if (manifest.sourceAuthorityTier !== latestMirrorEntry.source.authorityTier) {
     return true;
   }
-  if (
-    REVIEW_REQUIRED_AUTHORITY_TIERS.has(
-      latestMirrorEntry.source.authorityTier as "unverified-community",
-    )
-  ) {
-    return true;
-  }
   if (!latestMirrorEntry.source.publisherVerified) {
     return true;
   }
@@ -927,8 +917,13 @@ export const installRefreshInternals = {
   isStageOnlyRefresh,
   collectRefreshBundleIds,
   collectNativeRefreshExtensionIds,
+  collectAppliedAssetActions,
+  applyRefreshActionAnnotations,
   applyNativeRefreshes,
   applyBundleRefreshes,
+  buildInstallRefreshReport,
+  writeInstallRefreshState,
+  printInstallRefreshReport,
 };
 
 /**

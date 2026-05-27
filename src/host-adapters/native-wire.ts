@@ -1138,6 +1138,42 @@ async function resetNativeHost(
         workspaceRoot,
       );
       return;
+    case "codex":
+      await restoreManagedTextFileSnapshot(
+        join(workspaceRoot, "AGENTS.md"),
+        previousWirePlan?.textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, "AGENTS.md"),
+            "agent-harness-codex",
+          ),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "skills", "agent-harness"),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents", "plugins"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents", "skills"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".codex"),
+        workspaceRoot,
+      );
+      return;
   }
 }
 
@@ -1255,6 +1291,42 @@ async function cleanupFailedNativeHostApply(
         workspaceRoot,
       );
       return;
+    case "codex":
+      await restoreManagedTextFileSnapshot(
+        join(workspaceRoot, "AGENTS.md"),
+        textFileSnapshots,
+        () =>
+          removeManagedSectionFile(
+            join(workspaceRoot, "AGENTS.md"),
+            "agent-harness-codex",
+          ),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "skills", "agent-harness"),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
+      );
+      await removePath(
+        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents", "plugins"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents", "skills"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".agents"),
+        workspaceRoot,
+      );
+      await removeEmptyParentDirectories(
+        join(workspaceRoot, ".codex"),
+        workspaceRoot,
+      );
+      return;
   }
 }
 
@@ -1275,6 +1347,8 @@ function resolveManagedTextFileSnapshotPaths(
         join(workspaceRoot, "AGENTS.md"),
         join(workspaceRoot, "SYSTEM.md"),
       ];
+    case "codex":
+      return [join(workspaceRoot, "AGENTS.md")];
     default:
       return [];
   }
@@ -1923,4 +1997,5 @@ export const nativeWireInternals = {
   removeManagedStringArrayEntries,
   toLoggableErrorMessage,
   validateManagedTextFileSnapshots,
+  buildCodexPluginManifest,
 };

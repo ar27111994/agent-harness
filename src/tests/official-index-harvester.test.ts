@@ -5,7 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
-import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
+import {
+  harvestOfficialSkillIndexes,
+  officialIndexHarvesterInternals,
+} from "../domains/discovery/official-index-harvester.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
 interface OfficialUpstreamResolutionTestReport {
@@ -229,6 +232,9 @@ void test("official index harvester resolves page repositories, caches them, and
           "# Search only",
           "**[Search Repo](https://officialskills.sh/anthropics/skills/search-repo)** - Workflow from repository search.",
           "",
+          "# Multi Search",
+          "**[Multi Search](https://officialskills.sh/anthropics/skills/multi-search)** - Workflow with ambiguous search results.",
+          "",
           "# Missing",
           "**[Missing Repo](https://officialskills.sh/anthropics/skills/missing-repo)** - Workflow without a repo.",
           "",
@@ -259,6 +265,13 @@ void test("official index harvester resolves page repositories, caches them, and
       });
     }
 
+    if (url === "https://officialskills.sh/anthropics/skills/multi-search") {
+      return new Response("<html><body>No repository here.</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    }
+
     if (url === "https://officialskills.sh/anthropics/skills/missing-repo") {
       return new Response("<html><body>No repository here.</body></html>", {
         status: 200,
@@ -279,6 +292,27 @@ void test("official index harvester resolves page repositories, caches them, and
     if (url.startsWith("https://api.github.com/search/repositories?")) {
       const parsedUrl = new URL(url);
       const query = parsedUrl.searchParams.get("q") ?? "";
+      if (query.includes("multi-search")) {
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                full_name: "anthropics/multi-search",
+                html_url: "https://github.com/anthropics/multi-search",
+              },
+              {
+                full_name: "anthropics-forks/multi-search",
+                html_url: "https://github.com/anthropics-forks/multi-search",
+              },
+            ],
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json; charset=utf-8" },
+          },
+        );
+      }
+
       if (query.includes("search-repo")) {
         return new Response(
           JSON.stringify({
@@ -333,7 +367,7 @@ void test("official index harvester resolves page repositories, caches them, and
     {
       schemaVersion: 1,
       owners: {
-        anthropics: ["anthropics"],
+        anthropics: ["anthropics", "anthropics-forks"],
       },
     },
   );
@@ -367,7 +401,7 @@ void test("official index harvester resolves page repositories, caches them, and
   );
   assert.equal(firstReport.resolvedCount, 2);
   assert.equal(firstReport.unresolvedCount, 1);
-  assert.equal(firstReport.ambiguousCount, 1);
+  assert.equal(firstReport.ambiguousCount, 2);
   const resolvedBySlug = new Map<
     string,
     { source?: string; sourceId?: string }
@@ -386,9 +420,18 @@ void test("official index harvester resolves page repositories, caches them, and
   );
   assert.equal(resolvedBySlug.get("search-repo")?.source, "search");
   assert.equal(firstReport.unresolved[0]?.slug, "missing-repo");
-  assert.deepEqual(firstReport.ambiguous[0]?.candidates, [
-    "https://github.com/community/wrong-owner",
-  ]);
+  assert.ok(
+    firstReport.ambiguous.some(
+      (entry) =>
+        entry.candidates.length === 1 &&
+        entry.candidates[0] === "https://github.com/community/wrong-owner",
+    ),
+  );
+  assert.ok(
+    firstReport.ambiguous.some((entry) =>
+      entry.candidates.includes("https://github.com/anthropics/multi-search"),
+    ),
+  );
 
   const pageFetchCount = fetchedUrls.filter(
     (url) => url === "https://officialskills.sh/anthropics/skills/page-repo",
@@ -400,6 +443,247 @@ void test("official index harvester resolves page repositories, caches them, and
     (url) => url === "https://officialskills.sh/anthropics/skills/page-repo",
   ).length;
   assert.equal(secondPageFetchCount, 1);
+});
+
+void test("official index resolution helpers reject malformed search and duplicate unresolved states", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (url === "https://officialskills.sh/anthropics/skills/page-resolved") {
+      return new Response(
+        '<html><body><a href="https://github.com/anthropics/page-resolved/#readme">View on GitHub</a></body></html>',
+        {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+
+    if (url === "https://officialskills.sh/anthropics/skills/bad-page") {
+      return new Response(
+        '<html><body><a href="https://example.com/not-github/bad-page">View on GitHub</a></body></html>',
+        {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+
+    if (
+      url === "https://officialskills.sh/anthropics/skills/already-ambiguous"
+    ) {
+      return new Response(
+        '<html><body><a href="https://github.com/community/already-ambiguous">View on GitHub</a></body></html>',
+        {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        },
+      );
+    }
+
+    if (url.startsWith("https://api.github.com/search/repositories?")) {
+      return new Response(
+        JSON.stringify({
+          items: [
+            { full_name: 7, html_url: "https://github.com/anthropics/bad" },
+            {
+              full_name: "anthropics/not-the-slug",
+              html_url: "https://github.com/anthropics/not-the-slug",
+            },
+            {
+              full_name: "community/demo-skill",
+              html_url: "https://github.com/community/demo-skill",
+            },
+            { full_name: "anthropics/demo-skill", html_url: 3 },
+            {
+              full_name: "anthropics/demo-skill",
+              html_url: "not-a-github-url",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        },
+      );
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+  });
+
+  assert.deepEqual(
+    await officialIndexHarvesterInternals.searchOfficialRepoCandidates({
+      allowlist: { anthropics: ["anthropics"] },
+      owner: "anthropics",
+      slug: "demo-skill",
+    }),
+    [],
+  );
+  assert.equal(
+    officialIndexHarvesterInternals.normalizeGitHubRepositoryUrl(
+      "https://example.com/not-github/demo",
+    ),
+    null,
+  );
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map(),
+      officialUrl: "https://officialskills.sh/anthropics/skills/page-resolved",
+      owner: "anthropics",
+      resolutionState: {
+        cache: new Map(),
+        resolved: [],
+        unresolved: [],
+        ambiguous: [],
+      },
+      slug: "page-resolved",
+    }),
+    "https://github.com/anthropics/page-resolved",
+  );
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map(),
+      officialUrl: "https://officialskills.sh/anthropics/skills/bad-page",
+      owner: "anthropics",
+      resolutionState: {
+        cache: new Map(),
+        resolved: [],
+        unresolved: [],
+        ambiguous: [],
+      },
+      slug: "bad-page",
+    }),
+    undefined,
+  );
+
+  const resolutionState = {
+    cache: new Map(),
+    resolved: [
+      {
+        owner: "anthropics",
+        slug: "already-resolved",
+        officialUrl:
+          "https://officialskills.sh/anthropics/skills/already-resolved",
+        repoUrl: "https://github.com/anthropics/already-resolved",
+        source: "index" as const,
+      },
+    ],
+    unresolved: [
+      {
+        owner: "anthropics",
+        slug: "already-unresolved",
+        officialUrl:
+          "https://officialskills.sh/anthropics/skills/already-unresolved",
+        reason: "fixture",
+        attemptedFallbacks: ["fixture"],
+      },
+    ],
+    ambiguous: [
+      {
+        owner: "anthropics",
+        slug: "already-ambiguous",
+        officialUrl:
+          "https://officialskills.sh/anthropics/skills/already-ambiguous",
+        candidates: ["https://github.com/anthropics/one"],
+        reason: "fixture",
+      },
+    ],
+  };
+
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map(),
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-resolved",
+      owner: "anthropics",
+      resolutionState,
+      slug: "already-resolved",
+    }),
+    undefined,
+  );
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map(),
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-unresolved",
+      owner: "anthropics",
+      resolutionState,
+      slug: "already-unresolved",
+    }),
+    undefined,
+  );
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map(),
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-ambiguous",
+      owner: "anthropics",
+      resolutionState,
+      slug: "already-ambiguous",
+    }),
+    undefined,
+  );
+  assert.equal(resolutionState.unresolved.length, 1);
+  assert.equal(resolutionState.ambiguous.length, 1);
+
+  assert.equal(
+    officialIndexHarvesterInternals.extractOfficialSkillRepoUrls(
+      [
+        "# Wrong Owner",
+        "**[Skill](https://officialskills.sh/anthropics/skills/wrong-owner)** - Demo.",
+        "Repo: https://github.com/community/wrong-owner",
+      ].join("\n"),
+      { anthropics: ["anthropics"] },
+    ).size,
+    0,
+  );
+
+  const fallbackResolutionState = {
+    cache: new Map(),
+    resolved: [],
+    unresolved: [],
+    ambiguous: [],
+  };
+  assert.equal(
+    await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
+      allowlist: { anthropics: ["anthropics"] },
+      fallbackCandidates: new Map([
+        [
+          officialIndexHarvesterInternals.buildOfficialUpstreamKey(
+            "anthropics",
+            "fallback-repo",
+          ),
+          "https://gitlab.com/anthropics/fallback-repo",
+        ],
+      ]),
+      officialUrl: "https://officialskills.sh/anthropics/skills/fallback-repo",
+      owner: "anthropics",
+      resolutionState: fallbackResolutionState,
+      slug: "fallback-repo",
+    }),
+    "https://gitlab.com/anthropics/fallback-repo",
+  );
 });
 
 void test("official index harvester ignores missing configs and unavailable fetches", async (context) => {

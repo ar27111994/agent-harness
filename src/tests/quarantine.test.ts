@@ -74,6 +74,28 @@ void test("quarantine approve records evidence and promotes mirror status", asyn
   }
 });
 
+void test("quarantine validator rejects malformed schema versions", () => {
+  assert.throws(
+    () =>
+      assertQuarantineStateReport(
+        {
+          schemaVersion: 2,
+          generatedAt: new Date().toISOString(),
+          entries: [],
+          summary: {
+            quarantinedCount: 0,
+            approvedWithWarningCount: 0,
+            rejectedCount: 0,
+            pinnedCount: 0,
+            reviewRequiredCount: 0,
+          },
+        },
+        "quarantineReport",
+      ),
+    /quarantineReport.schemaVersion must be 1/u,
+  );
+});
+
 void test("quarantine report shows rejected and pinned lifecycle decisions", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-quarantine-"),

@@ -177,7 +177,7 @@ void test("recommend explain renders optional entry fields and compact signals",
   entry.assetKind = undefined;
   entry.availableLocally = true;
   entry.classificationConfidence = 0.75;
-  entry.classificationConfidenceLevel = "medium";
+  entry.classificationConfidenceLevel = undefined;
   entry.matchedSignals = [
     {
       signalType: "tooling",
@@ -205,7 +205,7 @@ void test("recommend explain renders optional entry fields and compact signals",
   assert.equal(exitCode, 0);
   const rendered = output.join("\n");
   assert.match(rendered, /asset kind: unknown/u);
-  assert.match(rendered, /classification confidence: medium \(0.75\)/u);
+  assert.match(rendered, /classification confidence: unknown \(0.75\)/u);
   assert.match(rendered, /available locally: yes/u);
   assert.match(rendered, /matched signals: tooling:npm:apify\(w=5,e=1\)/u);
 });
@@ -244,6 +244,25 @@ void test("recommend explain covers rejected, quarantined, and budget-pruned ass
   );
   const report = createRecommendationReport();
   report.suggestedBundles = [
+    {
+      host: "cursor",
+      bundleId: "cursor-core",
+      assetIds: ["asset-a"],
+      estimatedPromptWeight: 2,
+      activationBudget: undefined,
+      concernBuckets: {},
+      taskModeBuckets: {},
+    },
+    {
+      host: "cursor",
+      bundleId: "cursor-core",
+      assetIds: ["asset-a"],
+      estimatedPromptWeight: 2,
+      activationBudget: undefined,
+      budgetPrunedAssetIds: ["cursor-pruned-asset"],
+      concernBuckets: {},
+      taskModeBuckets: {},
+    },
     {
       host: "copilot-vscode",
       bundleId: "copilot-core",
@@ -343,6 +362,11 @@ void test("recommend explain covers rejected, quarantined, and budget-pruned ass
     projectRoot,
   );
   await runRecommend(
+    ["explain", "--asset", "cursor-pruned-asset", "--host", "cursor"],
+    projectRoot,
+    projectRoot,
+  );
+  await runRecommend(
     ["explain", "--asset", "rejected-asset", "--host", "vscode"],
     projectRoot,
     projectRoot,
@@ -356,6 +380,10 @@ void test("recommend explain covers rejected, quarantined, and budget-pruned ass
   const rendered = output.join("\n");
   assert.match(rendered, /Host: vscode \(budget-pruned\)/u);
   assert.match(rendered, /remaining activation budget 0/u);
+  assert.match(
+    rendered,
+    /suggested bundle cursor-core by activation budget unknown/u,
+  );
   assert.match(rendered, /Host: vscode \(rejected\)/u);
   assert.match(rendered, /official source wins duplicate group/u);
   assert.match(rendered, /Host: vscode \(quarantined\)/u);

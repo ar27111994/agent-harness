@@ -116,6 +116,14 @@ void test("source verification reports and applies demotion counts", async () =>
         owners: { openai: ["openai"] },
       },
     );
+    const localCommunitySource: SourceDefinition = {
+      ...buildSource("community", {
+        repo: "https://github.com/community/codex",
+        publisherOwner: "community",
+        publisherVerified: true,
+      }),
+      authorityTier: "trusted-community",
+    };
     const sources = [
       buildSource("verified", {
         repo: "https://github.com/openai/codex",
@@ -127,12 +135,30 @@ void test("source verification reports and applies demotion counts", async () =>
         publisherOwner: "openai",
         publisherVerified: true,
       }),
+      localCommunitySource,
     ];
     const report = await buildSourceVerificationReport(projectRoot, sources);
-    const demoted = applySourceVerificationDemotions(sources, report);
+    const demoted = applySourceVerificationDemotions(
+      [
+        ...sources,
+        {
+          ...localCommunitySource,
+          id: "not-in-report",
+        },
+      ],
+      report,
+    );
 
     assert.equal(report.demotedSourceCount, 1);
-    assert.equal(demoted[1]?.authorityTier, "official-compatible");
+    assert.deepEqual(
+      demoted.map((source) => source.authorityTier),
+      [
+        "official-first-party",
+        "official-compatible",
+        "trusted-community",
+        "trusted-community",
+      ],
+    );
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

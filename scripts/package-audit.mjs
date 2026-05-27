@@ -26,7 +26,8 @@ const REQUIRED_PACKED_FILES = [
 ];
 const FORBIDDEN_PACKED_PATH_PATTERNS = [
   /^(?:src|scripts|\.github|node_modules|coverage|\.tmp)\//u,
-  /^(?:activate|install|state|\.agent-harness|\.opencode|\.cursor|\.zed|\.claude|\.pi)\//u,
+  /^(?:activate|install|state|\.agent-harness|\.opencode|\.openclaw|\.cursor|\.zed|\.claude|\.pi)\//u,
+  /^(?:AGENTS|CLAUDE|HEARTBEAT|IDENTITY|SOUL|SYSTEM|TOOLS|USER)\.md$/u,
   /^(?!\.env\.example$).*\.env(?:\..*)?$/u,
   /^.*\.log$/u,
   /^.*\.tgz$/u,
@@ -140,21 +141,32 @@ export async function runPackedPackageSmoke({ cwd = process.cwd() } = {}) {
   }
 }
 
-async function runNpm(args, options) {
-  const npmCliPath = process.env.npm_execpath;
+export function buildNpmInvocation(args, options = {}) {
+  const npmCliPath = options.npmExecPath ?? process.env.npm_execpath;
+  const platform = options.platform ?? process.platform;
+  const nodeExecPath = options.nodeExecPath ?? process.execPath;
   const command = npmCliPath
-    ? process.execPath
-    : process.platform === "win32"
+    ? nodeExecPath
+    : platform === "win32"
       ? "npm.cmd"
       : "npm";
   const commandArgs = npmCliPath ? [npmCliPath, ...args] : args;
-  return execFileAsync(command, commandArgs, {
+  return {
+    command,
+    commandArgs,
+    shell: !npmCliPath && platform === "win32",
+  };
+}
+
+async function runNpm(args, options) {
+  const invocation = buildNpmInvocation(args);
+  return execFileAsync(invocation.command, invocation.commandArgs, {
     cwd: options.cwd,
     encoding: "utf8",
     maxBuffer: DEFAULT_MAX_BUFFER,
     timeout: DEFAULT_TIMEOUT_MS,
     windowsHide: true,
-    shell: !npmCliPath && process.platform === "win32",
+    shell: invocation.shell,
   });
 }
 
@@ -172,11 +184,19 @@ const isDirectExecution =
   process.argv[1] !== undefined &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
+export function resolvePackageAuditAction(command) {
+  return command === "smoke" ? runPackedPackageSmoke : runPackageAudit;
+}
+
+export function toPackageAuditErrorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
 if (isDirectExecution) {
   const command = process.argv[2] ?? "audit";
-  const action = command === "smoke" ? runPackedPackageSmoke : runPackageAudit;
+  const action = resolvePackageAuditAction(command);
   action().catch((error) => {
-    console.error(error instanceof Error ? error.message : error);
+    console.error(toPackageAuditErrorMessage(error));
     process.exitCode = 1;
   });
 }

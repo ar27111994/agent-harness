@@ -3,6 +3,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  rename,
   rm,
   stat,
   writeFile,
@@ -130,6 +131,58 @@ void test("OpenCode adapter upserts and resets only the managed AGENTS section",
   }
 });
 
+void test("OpenCode wire treats extensions as native when catalog metadata is unavailable", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-opencode-"));
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-workspace-"),
+  );
+
+  try {
+    const selectedAssets = [buildAsset("ms-python.python", "extension")];
+    await writeOpenCodeActivation(projectRoot, selectedAssets);
+    await writeOpenCodeInstallBundle(projectRoot, selectedAssets);
+    await rm(
+      join(
+        projectRoot,
+        "activate",
+        "opencode",
+        sanitizeAssetId("ms-python.python"),
+        "asset.json",
+      ),
+      { force: true },
+    );
+    await rm(
+      join(
+        projectRoot,
+        "activate",
+        "opencode",
+        sanitizeAssetId("ms-python.python"),
+        "content.txt",
+      ),
+      { force: true },
+    );
+
+    const adapter = resolveHostAdapter("opencode");
+    assert.ok(adapter);
+    await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
+
+    await assertPathExists(
+      join(
+        workspaceRoot,
+        ".opencode",
+        "context",
+        "project-intelligence",
+        "agent-harness",
+        "extensions",
+        sanitizeAssetId("ms-python.python"),
+      ),
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+    await rm(workspaceRoot, { force: true, recursive: true });
+  }
+});
+
 void test("OpenCode wire projects reference-only plugin and MCP assets as files", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-opencode-"));
   const workspaceRoot = await mkdtemp(
@@ -147,6 +200,22 @@ void test("OpenCode wire projects reference-only plugin and MCP assets as files"
 
     const adapter = resolveHostAdapter("opencode");
     assert.ok(adapter);
+    const assetAgentsRoot = join(
+      projectRoot,
+      "activate",
+      "opencode",
+      sanitizeAssetId("asset-agent"),
+    );
+    await rename(
+      assetAgentsRoot,
+      join(
+        projectRoot,
+        "activate",
+        "opencode",
+        sanitizeAssetId("asset-agent-renamed"),
+      ),
+    );
+
     await adapter.wire({ projectRoot, workspaceRoot, mode: "apply" });
 
     const localOverlayRoot = join(workspaceRoot, ".opencode");
@@ -178,7 +247,11 @@ void test("OpenCode wire projects reference-only plugin and MCP assets as files"
       ),
     );
     await assertPathExists(
-      join(localOverlayRoot, "agents", sanitizeAssetId("asset-agent")),
+      join(
+        managedContextRoot,
+        "extensions",
+        sanitizeAssetId("ms-python.python"),
+      ),
     );
     await assertPathExists(
       join(localOverlayRoot, "skills", sanitizeAssetId("asset-skill")),

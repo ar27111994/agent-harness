@@ -346,5 +346,7 @@ export const unknownSignalInternals = {
   KNOWN_PACKAGE_PREFIXES,
   createSignal,
   dedupeSignals,
+  collectUnfamiliarDependencyNames,
+  parsePackageJson,
   countByCategory,
 };

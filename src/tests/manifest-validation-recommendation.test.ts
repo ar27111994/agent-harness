@@ -31,6 +31,9 @@ void test("recommendation manifest validation applies report defaults for option
   ).recommendationLimitOverrideModeSource;
   delete (report as { sessionIntent?: string }).sessionIntent;
 
+  report.topByHost["copilot-vscode"][0]!.classificationConfidenceLevel =
+    "strong";
+
   assert.doesNotThrow(() => assertRecommendationReport(report, "report"));
   assert.equal(report.sessionIntent, "general");
   assert.equal(report.topByHost["copilot-vscode"][0]?.availableLocally, false);

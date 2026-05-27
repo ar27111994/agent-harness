@@ -291,6 +291,29 @@ void test("mirror acquire residual pure helpers cover fallback and invalid state
     }),
     null,
   );
+  assert.equal(
+    mirrorAcquireInternals.determineMirrorStatus(
+      buildAsset("high-risk-community", {
+        risk: {
+          level: "high",
+          hasHooks: false,
+          hasExecScripts: false,
+          requiresNetwork: false,
+        },
+        source: {
+          sourceId: "community-source",
+          authorityTier: "unverified-community",
+          sourceKind: "repo",
+          sourcePriority: 10,
+          originUrl: "https://example.com/high-risk-community",
+          publisher: "Community",
+          publisherVerified: false,
+        },
+      }),
+      { content: Buffer.from("regular content", "utf8") },
+    ),
+    "quarantined",
+  );
 });
 
 void test("install bundle residual helpers keep path identity behavior explicit", () => {
