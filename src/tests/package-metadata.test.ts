@@ -25,6 +25,12 @@ const REQUIRED_KEYWORDS = [
   "automation",
   "supply-chain",
   "mcp",
+  "model-context-protocol",
+  "mcp-manager",
+  "mcp-server",
+  "skills",
+  "context-window",
+  "package-manager",
   "github-copilot",
   "vscode",
   "opencode",
@@ -32,6 +38,7 @@ const REQUIRED_KEYWORDS = [
   "cursor",
   "zed",
   "claude-code",
+  "pi-agent",
   "pi",
 ] as const;
 
@@ -40,10 +47,15 @@ void test("package metadata describes the public agent-asset lifecycle surface",
     await readFile(join(process.cwd(), "package.json"), "utf8"),
   ) as PackageMetadata;
 
-  assert.match(metadata.description, /discovering, pinning, staging/u);
-  assert.match(metadata.description, /reusable AI-agent assets/u);
-  assert.match(metadata.description, /developer workspaces/u);
+  assert.ok(
+    metadata.description.length <= 160,
+    "package description should stay within npm/GitHub preview length",
+  );
+  assert.match(metadata.description, /MCP server and agent skills manager/u);
+  assert.match(metadata.description, /Copilot, OpenCode, Cursor/u);
+  assert.match(metadata.description, /Codex workspaces/u);
   assert.doesNotMatch(metadata.description, /runs? agents?/iu);
+  assert.doesNotMatch(metadata.description, /silently installs?/iu);
 
   for (const keyword of REQUIRED_KEYWORDS) {
     assert.ok(

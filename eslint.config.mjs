@@ -39,6 +39,9 @@ const cliOutputFiles = [
 // files here intentionally as they gain policy-style constants.
 const magicThresholdFiles = [
   "src/config/runtime.ts",
+  "src/domains/discovery/ai-enrichment.ts",
+  "src/install/refresh.ts",
+  "src/mirror/acquire.ts",
   "src/recommend/selection.ts",
 ];
 

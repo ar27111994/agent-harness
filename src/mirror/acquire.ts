@@ -60,6 +60,15 @@ import {
   sanitizeMirrorId,
 } from "./paths.js";
 
+const FALLBACK_MIRROR_ACQUIRE_BATCH_SIZE = 120;
+const PRETTY_JSON_INDENT_SPACES = 2;
+const GITHUB_BLOB_OWNER_INDEX = 0;
+const GITHUB_BLOB_REPO_INDEX = 1;
+const GITHUB_BLOB_KIND_INDEX = 2;
+const GITHUB_BLOB_REF_START_INDEX = 3;
+const MIN_GITHUB_BLOB_PATH_PARTS = 5;
+const MIN_GITHUB_REPOSITORY_PATH_PARTS = 2;
+
 interface MaterializedMirrorArtifact {
   content: Buffer;
   files?: Array<{
@@ -148,7 +157,7 @@ export async function acquireMirrorArtifacts(
     Number.isInteger(rawBatchSize) &&
     rawBatchSize >= 1
       ? rawBatchSize
-      : 120;
+      : FALLBACK_MIRROR_ACQUIRE_BATCH_SIZE;
   const existingMirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, ...MIRROR_INDEX_OUTPUT_PATH),
     assertMirrorIndexEntry,
@@ -484,7 +493,10 @@ async function materializeMirrorArtifact(
 
   return {
     artifact: {
-      content: Buffer.from(JSON.stringify(entry, null, 2), "utf8"),
+      content: Buffer.from(
+        JSON.stringify(entry, null, PRETTY_JSON_INDENT_SPACES),
+        "utf8",
+      ),
     },
   };
 }
@@ -499,7 +511,10 @@ async function materializeGitHubTreeArtifact(
       ? { artifact: null }
       : {
           artifact: {
-            content: Buffer.from(JSON.stringify(entry, null, 2), "utf8"),
+            content: Buffer.from(
+              JSON.stringify(entry, null, PRETTY_JSON_INDENT_SPACES),
+              "utf8",
+            ),
           },
         };
   }
@@ -717,7 +732,8 @@ function isGitHubHttpsRepositoryUrl(value: string): boolean {
     return (
       parsedUrl.protocol === "https:" &&
       parsedUrl.hostname.toLowerCase() === "github.com" &&
-      parsedUrl.pathname.split("/").filter(Boolean).length >= 2
+      parsedUrl.pathname.split("/").filter(Boolean).length >=
+        MIN_GITHUB_REPOSITORY_PATH_PARTS
     );
   } catch {
     return false;
@@ -742,7 +758,8 @@ function selectOfficialIndexPrimaryContent(
 ): Buffer {
   return (
     materializedFiles.find((file) => file.relativePath === "SKILL.md")
-      ?.content ?? Buffer.from(JSON.stringify(entry, null, 2), "utf8")
+      ?.content ??
+    Buffer.from(JSON.stringify(entry, null, PRETTY_JSON_INDENT_SPACES), "utf8")
   );
 }
 
@@ -842,13 +859,16 @@ function parseGitHubBlobEntry(entry: AssetCatalogEntry): {
     }
 
     const pathParts = url.pathname.split("/").filter(Boolean);
-    if (pathParts.length < 5 || pathParts[2] !== "blob") {
+    if (
+      pathParts.length < MIN_GITHUB_BLOB_PATH_PARTS ||
+      pathParts[GITHUB_BLOB_KIND_INDEX] !== "blob"
+    ) {
       return null;
     }
 
-    const owner = pathParts[0];
-    const repo = pathParts[1].replace(/\.git$/u, "");
-    const blobPath = pathParts.slice(3).join("/");
+    const owner = pathParts[GITHUB_BLOB_OWNER_INDEX];
+    const repo = pathParts[GITHUB_BLOB_REPO_INDEX].replace(/\.git$/u, "");
+    const blobPath = pathParts.slice(GITHUB_BLOB_REF_START_INDEX).join("/");
     if (!blobPath.endsWith(filePath)) {
       return null;
     }
@@ -876,7 +896,10 @@ function buildMirrorFileManifest(
     { relativePath: "content.txt", content: materializedArtifact.content },
     {
       relativePath: "asset.json",
-      content: Buffer.from(`${JSON.stringify(entry, null, 2)}\n`, "utf8"),
+      content: Buffer.from(
+        `${JSON.stringify(entry, null, PRETTY_JSON_INDENT_SPACES)}\n`,
+        "utf8",
+      ),
     },
     ...(materializedArtifact.files ?? []),
   ]

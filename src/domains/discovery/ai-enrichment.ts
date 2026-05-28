@@ -48,6 +48,11 @@ const MAX_SUMMARY_LENGTH = 4_000;
 const MAX_RECOMMENDATION_COUNT = 20;
 const MAX_RECOMMENDATION_LENGTH = 300;
 const MAX_WARNING_COUNT = 12;
+const MAX_WARNING_LENGTH = 240;
+const PRETTY_JSON_INDENT_SPACES = 2;
+const REDACTED_IDENTIFIER_HASH_LENGTH = 12;
+const NEAR_TIE_SELECTION_SAMPLE_SIZE = 8;
+const AMBIGUITY_GENERIC_CONCERN_DIVISOR = 2;
 const AMBIGUITY_EXACT_MATCH_DENSITY_THRESHOLD = 0.35;
 const AMBIGUITY_GENERIC_ONLY_COUNT_THRESHOLD = 3;
 const AMBIGUITY_NEAR_TIE_DELTA_THRESHOLD = 0.05;
@@ -492,7 +497,7 @@ export function analyzeAiEnrichmentAmbiguity(options: {
     genericConcernOnlyCount >=
     Math.max(
       AMBIGUITY_GENERIC_ONLY_COUNT_THRESHOLD,
-      Math.ceil(selectedEntries.length / 2),
+      Math.ceil(selectedEntries.length / AMBIGUITY_GENERIC_CONCERN_DIVISOR),
     )
   ) {
     reasons.push(
@@ -919,7 +924,11 @@ function sanitizeAiEnrichmentContent(
     MAX_RECOMMENDATION_COUNT,
     MAX_RECOMMENDATION_LENGTH,
   );
-  const warnings = sanitizeStringList(record.warnings, MAX_WARNING_COUNT, 240);
+  const warnings = sanitizeStringList(
+    record.warnings,
+    MAX_WARNING_COUNT,
+    MAX_WARNING_LENGTH,
+  );
 
   if (!summary) {
     throw new Error(
@@ -981,7 +990,11 @@ async function writeJsonFileAtomically(
 ): Promise<void> {
   await ensureDirectory(dirname(filePath));
   const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(
+    tempPath,
+    `${JSON.stringify(value, null, PRETTY_JSON_INDENT_SPACES)}\n`,
+    "utf8",
+  );
   await rm(filePath, { force: true });
   await rename(tempPath, filePath);
 }
@@ -1032,7 +1045,7 @@ function extractProviderOrigin(value: string | undefined): string | undefined {
 }
 
 function redactIdentifier(value: string): string {
-  return `sha256-${createContentHash(value).slice(0, 12)}`;
+  return `sha256-${createContentHash(value).slice(0, REDACTED_IDENTIFIER_HASH_LENGTH)}`;
 }
 
 function buildNormalizedTermSet(values: readonly string[]): Set<string> {
@@ -1077,7 +1090,7 @@ function countNearTieSelections(entries: AssetCatalogEntry[]): number {
   const rankedFits = entries
     .map((entry) => entry.fit.portfolioFit)
     .sort((left, right) => right - left)
-    .slice(0, 8);
+    .slice(0, NEAR_TIE_SELECTION_SAMPLE_SIZE);
   let nearTieCount = 0;
 
   for (let index = 1; index < rankedFits.length; index += 1) {
