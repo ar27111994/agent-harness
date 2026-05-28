@@ -435,7 +435,7 @@ function isExecutableMcpServerPath(
 
 function isGenericRepositoryArtifact(normalizedPath: string): boolean {
   return (
-    /(^|\/)(readme|docs?|notebooks?|data|datasets?|research|papers?|design|media|cad|hardware|firmware|models?|examples?)(\/|\.|$)/u.test(
+    /(^|\/)(readme|docs?|references?|notebooks?|data|datasets?|research|papers?|design|media|cad|hardware|firmware|models?|examples?)(\/|\.|$)/u.test(
       normalizedPath,
     ) ||
     /\.(ipynb|csv|parquet|jsonl|bib|tex|stl|step|kicad_pcb|uproject|godot)$/u.test(

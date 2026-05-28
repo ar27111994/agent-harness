@@ -1511,6 +1511,79 @@
         "packages/**",
         "node_modules/**"
       ]
+    },
+    {
+      "id": "steipete-agent-scripts",
+      "name": "Agent Scripts",
+      "repo": "https://github.com/steipete/agent-scripts",
+      "kind": "repo",
+      "authorityTier": "trusted-community",
+      "publisher": "steipete",
+      "publisherVerified": false,
+      "priority": 76,
+      "enabled": true,
+      "hosts": ["claude-code", "codex", "opencode", "cursor", "copilot-vscode"],
+      "assetKinds": [
+        "skill",
+        "agent",
+        "instruction",
+        "workflow",
+        "hook",
+        "plugin",
+        "mcp-server",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "README.md",
+        "AGENTS.MD",
+        "tools.md",
+        ".github/copilot-instructions.md",
+        "skills/**",
+        "docs/**",
+        "hooks/**",
+        "scripts/validate-skills",
+        "scripts/committer",
+        "scripts/browser-tools.ts",
+        "scripts/trash.ts"
+      ],
+      "excludePaths": [".github/workflows/**", ".vscode/**", "release/**"]
+    },
+    {
+      "id": "ar27111994-penpot-mcp",
+      "name": "penpot-mcp skill",
+      "repo": "https://github.com/ar27111994/penpot-mcp",
+      "kind": "repo",
+      "authorityTier": "trusted-community",
+      "publisher": "ar27111994",
+      "publisherVerified": false,
+      "priority": 74,
+      "enabled": true,
+      "hosts": [
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "shared",
+        "codex",
+        "copilot-vscode"
+      ],
+      "assetKinds": [
+        "skill",
+        "mcp-server",
+        "instruction",
+        "workflow",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "README.md",
+        "penpot-mcp/SKILL.md",
+        "penpot-mcp/references/**",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "excludePaths": [".github/**", "scripts/**"]
     }
   ]
 }

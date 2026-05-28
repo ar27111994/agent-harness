@@ -173,10 +173,13 @@ void test("source registry includes requested Codex-compatible source pack entri
   assert.ok(superpowers?.includePaths?.includes(".codex-plugin/**"));
 });
 
-void test("source registry includes official Penpot MCP source pack entry", async () => {
+void test("source registry includes Penpot MCP source pack entries", async () => {
   const registry = await loadSourceRegistry(process.cwd());
   const penpotSource = registry.sources.find(
     (source) => source.id === "penpot-mcp-pack",
+  );
+  const communitySkillSource = registry.sources.find(
+    (source) => source.id === "ar27111994-penpot-mcp",
   );
 
   assert.ok(penpotSource);
@@ -206,6 +209,89 @@ void test("source registry includes official Penpot MCP source pack entry", asyn
   assert.deepEqual(penpotSource?.excludePaths, ["mcp/packages/plugin/**"]);
   assert.deepEqual(penpotSource?.mcpServerPaths, [
     "mcp/packages/server/src/**",
+  ]);
+
+  assert.ok(communitySkillSource);
+  assert.equal(communitySkillSource?.authorityTier, "trusted-community");
+  assert.equal(communitySkillSource?.publisher?.name, "ar27111994");
+  assert.deepEqual(communitySkillSource?.hosts, [
+    "opencode",
+    "cursor",
+    "zed",
+    "claude-code",
+    "pi",
+    "shared",
+    "codex",
+    "copilot-vscode",
+  ]);
+  assert.deepEqual(communitySkillSource?.assetKinds, [
+    "skill",
+    "mcp-server",
+    "instruction",
+    "workflow",
+    "reference-pack",
+  ]);
+  assert.equal(
+    communitySkillSource?.endpoints.repo,
+    "https://github.com/ar27111994/penpot-mcp",
+  );
+  assert.deepEqual(communitySkillSource?.includePaths, [
+    "README.md",
+    "penpot-mcp/SKILL.md",
+    "penpot-mcp/references/**",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+  ]);
+});
+
+void test("source registry includes agent-scripts source pack entry", async () => {
+  const registry = await loadSourceRegistry(process.cwd());
+  const agentScripts = registry.sources.find(
+    (source) => source.id === "steipete-agent-scripts",
+  );
+
+  assert.ok(agentScripts);
+  assert.equal(agentScripts?.authorityTier, "trusted-community");
+  assert.equal(agentScripts?.publisher?.name, "steipete");
+  assert.deepEqual(agentScripts?.hosts, [
+    "claude-code",
+    "codex",
+    "opencode",
+    "cursor",
+    "copilot-vscode",
+  ]);
+  assert.deepEqual(agentScripts?.assetKinds, [
+    "skill",
+    "agent",
+    "instruction",
+    "workflow",
+    "hook",
+    "plugin",
+    "mcp-server",
+    "prompt-pack",
+    "reference-pack",
+  ]);
+  assert.equal(
+    agentScripts?.endpoints.repo,
+    "https://github.com/steipete/agent-scripts",
+  );
+  assert.deepEqual(agentScripts?.includePaths, [
+    "README.md",
+    "AGENTS.MD",
+    "tools.md",
+    ".github/copilot-instructions.md",
+    "skills/**",
+    "docs/**",
+    "hooks/**",
+    "scripts/validate-skills",
+    "scripts/committer",
+    "scripts/browser-tools.ts",
+    "scripts/trash.ts",
+  ]);
+  assert.deepEqual(agentScripts?.excludePaths, [
+    ".github/workflows/**",
+    ".vscode/**",
+    "release/**",
   ]);
 });
 

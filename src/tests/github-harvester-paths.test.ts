@@ -275,8 +275,9 @@ void test("github harvester classifies docs and notebooks as reference-packs", a
         tree: [
           { path: "docs/guide.md", type: "blob", sha: "d1" },
           { path: "README.md", type: "blob", sha: "d2" },
-          { path: "notebooks/analysis.ipynb", type: "blob", sha: "d3" },
-          { path: "examples/demo.py", type: "blob", sha: "d4" },
+          { path: "references/api.md", type: "blob", sha: "d3" },
+          { path: "notebooks/analysis.ipynb", type: "blob", sha: "d4" },
+          { path: "examples/demo.py", type: "blob", sha: "d5" },
         ],
       });
     }
@@ -308,6 +309,7 @@ void test("github harvester classifies docs and notebooks as reference-packs", a
 
   assert.equal(byPath.get("docs/guide.md")?.assetKind, "reference-pack");
   assert.equal(byPath.get("README.md")?.assetKind, "reference-pack");
+  assert.equal(byPath.get("references/api.md")?.assetKind, "reference-pack");
   assert.equal(
     byPath.get("notebooks/analysis.ipynb")?.assetKind,
     "reference-pack",
