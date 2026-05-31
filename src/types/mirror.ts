@@ -136,6 +136,25 @@ export interface MirrorIndexEntry {
     | "quarantined"
     | "metadata-only"
     | "reference-only";
+  /**
+   * Records the concrete safety signals that drove this entry's status at
+   * acquisition time. Persisted so quarantine lifecycle reporting can derive
+   * real transitions (prompt-injection, executable/community/high risk)
+   * instead of guessing from coarse status alone. Optional for backward
+   * compatibility with indexes written before signal capture.
+   */
+  quarantineSignals?: MirrorQuarantineSignals;
+}
+
+/**
+ * Captures the safety signals that justified a mirror entry's quarantine or
+ * warning status. Each flag maps to an observable acquisition-time check.
+ */
+export interface MirrorQuarantineSignals {
+  promptInjection: boolean;
+  executableRisk: boolean;
+  communityRisk: boolean;
+  highRisk: boolean;
 }
 
 /**

@@ -195,12 +195,14 @@ function buildQuarantineStateReport(
   decisions: readonly QuarantineReviewDecision[],
 ): QuarantineStateReport {
   const decisionsByMirrorId = groupReviewDecisions(decisions);
+  const officialAssetIds = collectOfficialAssetIds(entries);
   const reportEntries = entries
     .filter((entry) => shouldReportQuarantineEntry(entry, decisionsByMirrorId))
     .map((entry) =>
       buildQuarantineStateEntry(
         entry,
         decisionsByMirrorId.get(entry.mirrorId) ?? [],
+        officialAssetIds,
       ),
     )
     .sort((left, right) => left.assetId.localeCompare(right.assetId));
@@ -232,9 +234,14 @@ function buildQuarantineStateReport(
 function buildQuarantineStateEntry(
   entry: MirrorIndexEntry,
   decisions: readonly QuarantineReviewDecision[],
+  officialAssetIds: ReadonlySet<string>,
 ): QuarantineStateEntry {
   const latestDecision = decisions.at(-1);
-  const transitions = collectQuarantineTransitions(entry, decisions);
+  const transitions = collectQuarantineTransitions(
+    entry,
+    decisions,
+    officialAssetIds,
+  );
   return {
     assetId: entry.assetId,
     mirrorId: entry.mirrorId,
@@ -252,21 +259,83 @@ function buildQuarantineStateEntry(
   };
 }
 
+/**
+ * Collects asset ids that have at least one official-first-party mirror entry,
+ * used to detect when an official asset supersedes a community duplicate.
+ */
+function collectOfficialAssetIds(
+  entries: readonly MirrorIndexEntry[],
+): ReadonlySet<string> {
+  const officialAssetIds = new Set<string>();
+  for (const entry of entries) {
+    if (entry.source.authorityTier === "official-first-party") {
+      officialAssetIds.add(entry.assetId);
+    }
+  }
+  return officialAssetIds;
+}
+
+const SAFE_MIRROR_STATUSES: ReadonlySet<MirrorIndexEntry["status"]> = new Set([
+  "approved",
+  "reference-only",
+  "metadata-only",
+]);
+
+/**
+ * Derives the full quarantine lifecycle transition set for an entry from real
+ * signals: the acquisition-time quarantine signals recorded on the entry, the
+ * persisted review-decision evidence (prior/next status deltas), and
+ * cross-entry official-duplicate detection. Every declared transition kind maps
+ * to an observable cause; nothing is inferred without a concrete signal.
+ */
 function collectQuarantineTransitions(
   entry: MirrorIndexEntry,
   decisions: readonly QuarantineReviewDecision[],
+  officialAssetIds: ReadonlySet<string>,
 ): QuarantineTransition[] {
   const transitions = new Set<QuarantineTransition>();
+  const signals = entry.quarantineSignals;
+
   if (entry.status === "quarantined") {
     transitions.add("new-risky-asset");
   }
-  if (entry.source.authorityTier === "unverified-community") {
+  if (
+    signals?.communityRisk ??
+    entry.source.authorityTier === "unverified-community"
+  ) {
     transitions.add("ownership-changed");
   }
   if (entry.status === "approved-with-warning") {
     transitions.add("safer-update-available");
   }
+  if (signals?.promptInjection) {
+    transitions.add("prompt-injection-detected");
+  }
+
+  // Status deltas recorded in review evidence reveal lifecycle movement that a
+  // single current-state snapshot cannot: an asset going safe -> risky, an
+  // installed/projected asset newly quarantined on refresh, or a previously
+  // prompt-injected asset that has since been cleared.
+  const isProjected = entry.projectionCandidates.length > 0;
   for (const decision of decisions) {
+    const wasSafe = SAFE_MIRROR_STATUSES.has(decision.evidence.previousStatus);
+    const becameRisky =
+      decision.evidence.nextStatus === "quarantined" ||
+      decision.evidence.nextStatus === "approved-with-warning";
+    if (wasSafe && becameRisky) {
+      transitions.add("safe-to-risky");
+      if (isProjected) {
+        transitions.add("installed-asset-became-risky");
+      }
+    }
+    if (
+      !signals?.promptInjection &&
+      SAFE_MIRROR_STATUSES.has(entry.status) &&
+      decision.evidence.previousStatus === "quarantined"
+    ) {
+      transitions.add("prompt-injection-cleared");
+    }
+
     if (decision.action === "approved") {
       transitions.add("review-approved");
     } else if (decision.action === "rejected") {
@@ -275,6 +344,16 @@ function collectQuarantineTransitions(
       transitions.add("review-pinned");
     }
   }
+
+  // A community asset that is shadowed by an official entry for the same asset
+  // id is superseded by the official source.
+  if (
+    entry.source.authorityTier !== "official-first-party" &&
+    officialAssetIds.has(entry.assetId)
+  ) {
+    transitions.add("official-duplicate-supersedes-community");
+  }
+
   return [...transitions];
 }
 

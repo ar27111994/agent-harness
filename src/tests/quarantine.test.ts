@@ -143,6 +143,93 @@ void test("quarantine report shows rejected and pinned lifecycle decisions", asy
   }
 });
 
+void test("quarantine derives signal- and evidence-based lifecycle transitions", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      // Demotion into quarantine: a prompt-injected community asset.
+      buildMirrorEntry("asset-injected", "sha256-injected", {
+        authorityTier: "unverified-community",
+        status: "quarantined",
+        quarantineSignals: {
+          promptInjection: true,
+          executableRisk: false,
+          communityRisk: true,
+          highRisk: false,
+        },
+      }),
+      // Community asset shadowed by an official entry of the same asset id.
+      buildMirrorEntry("asset-dup", "sha256-dup-community", {
+        authorityTier: "trusted-community",
+        status: "quarantined",
+      }),
+      buildMirrorEntry("asset-dup", "sha256-dup-official", {
+        authorityTier: "official-first-party",
+        status: "approved",
+      }),
+      // Installed/projected asset that flips safe -> risky on refresh.
+      buildMirrorEntry("asset-installed", "sha256-installed", {
+        status: "quarantined",
+        projectionCandidates: [
+          { host: "copilot-vscode", projectionType: "adapted-skill" },
+        ],
+      }),
+      // Promotion out of quarantine: previously quarantined, now approved.
+      buildMirrorEntry("asset-cleared", "sha256-cleared", {
+        status: "approved",
+      }),
+    ]);
+
+    await writeReviewLog(projectRoot, [
+      buildReviewDecision("asset-installed", "sha256-installed", {
+        action: "rejected",
+        previousStatus: "approved",
+        nextStatus: "quarantined",
+      }),
+      buildReviewDecision("asset-cleared", "sha256-cleared", {
+        action: "approved",
+        previousStatus: "quarantined",
+        nextStatus: "approved",
+      }),
+    ]);
+
+    await runQuarantine(["report"], projectRoot);
+
+    const report = await readJsonFile<QuarantineStateReport>(
+      join(projectRoot, "state", "quarantine", "quarantine-state.json"),
+      assertQuarantineStateReport,
+    );
+    const byAsset = (id: string) =>
+      report.entries.find((entry) => entry.assetId === id);
+
+    assert.ok(
+      byAsset("asset-injected")?.transitions.includes(
+        "prompt-injection-detected",
+      ),
+    );
+    const dupCommunity = report.entries.find(
+      (entry) => entry.mirrorId === "sha256-dup-community",
+    );
+    assert.ok(
+      dupCommunity?.transitions.includes(
+        "official-duplicate-supersedes-community",
+      ),
+    );
+    const installed = byAsset("asset-installed");
+    assert.ok(installed?.transitions.includes("safe-to-risky"));
+    assert.ok(installed?.transitions.includes("installed-asset-became-risky"));
+    assert.ok(
+      byAsset("asset-cleared")?.transitions.includes(
+        "prompt-injection-cleared",
+      ),
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 async function writeMirrorIndex(
   projectRoot: string,
   entries: Array<Record<string, unknown>>,
@@ -158,9 +245,14 @@ async function writeMirrorIndex(
 function buildMirrorEntry(
   assetId: string,
   mirrorId: string,
-  overrides: { authorityTier?: string } = {},
+  overrides: {
+    authorityTier?: string;
+    status?: string;
+    quarantineSignals?: Record<string, boolean>;
+    projectionCandidates?: Array<Record<string, unknown>>;
+  } = {},
 ): Record<string, unknown> {
-  return {
+  const entry: Record<string, unknown> = {
     mirrorId,
     assetId,
     upstream: { type: "repo", url: "https://github.com/example/repo" },
@@ -171,9 +263,13 @@ function buildMirrorEntry(
     },
     mirroredAt: new Date(0).toISOString(),
     contentHash: `hash-${mirrorId}`,
-    projectionCandidates: [],
-    status: "quarantined",
+    projectionCandidates: overrides.projectionCandidates ?? [],
+    status: overrides.status ?? "quarantined",
   };
+  if (overrides.quarantineSignals) {
+    entry.quarantineSignals = overrides.quarantineSignals;
+  }
+  return entry;
 }
 
 function parseJsonRecord(content: string): Record<string, unknown> {
@@ -182,4 +278,44 @@ function parseJsonRecord(content: string): Record<string, unknown> {
   assert.notEqual(value, null);
   assert.equal(Array.isArray(value), false);
   return value as Record<string, unknown>;
+}
+
+async function writeReviewLog(
+  projectRoot: string,
+  decisions: Array<Record<string, unknown>>,
+): Promise<void> {
+  await mkdir(join(projectRoot, "state", "quarantine"), { recursive: true });
+  await writeFile(
+    join(projectRoot, "state", "quarantine", "reviews.jsonl"),
+    decisions.map((decision) => JSON.stringify(decision)).join("\n") + "\n",
+    "utf8",
+  );
+}
+
+function buildReviewDecision(
+  assetId: string,
+  mirrorId: string,
+  overrides: {
+    action: string;
+    previousStatus: string;
+    nextStatus: string;
+  },
+): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    reviewedAt: new Date(0).toISOString(),
+    action: overrides.action,
+    assetId,
+    mirrorId,
+    reason: "fixture",
+    evidence: {
+      previousStatus: overrides.previousStatus,
+      nextStatus: overrides.nextStatus,
+      upstreamUrl: "https://github.com/example/repo",
+      authorityTier: "trusted-community",
+      publisher: "example",
+      publisherVerified: false,
+      contentHash: `hash-${mirrorId}`,
+    },
+  };
 }

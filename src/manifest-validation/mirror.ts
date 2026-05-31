@@ -118,6 +118,25 @@ export function assertMirrorIndexEntry(
   assertString(record.mirroredAt, `${context}.mirroredAt`);
   assertString(record.contentHash, `${context}.contentHash`);
   assertLiteral(record.status, [...MIRROR_STATUSES], `${context}.status`);
+  if (record.quarantineSignals !== undefined) {
+    const signals = assertRecord(
+      record.quarantineSignals,
+      `${context}.quarantineSignals`,
+    );
+    assertBoolean(
+      signals.promptInjection,
+      `${context}.quarantineSignals.promptInjection`,
+    );
+    assertBoolean(
+      signals.executableRisk,
+      `${context}.quarantineSignals.executableRisk`,
+    );
+    assertBoolean(
+      signals.communityRisk,
+      `${context}.quarantineSignals.communityRisk`,
+    );
+    assertBoolean(signals.highRisk, `${context}.quarantineSignals.highRisk`);
+  }
 }
 
 /**

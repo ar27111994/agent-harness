@@ -41,6 +41,7 @@ import type {
   MirrorAcquireState,
   MirrorIndexEntry,
   MirrorPolicy,
+  MirrorQuarantineSignals,
 } from "../types.js";
 import { resolveBundleLocks } from "./bundles.js";
 import {
@@ -277,7 +278,7 @@ export async function acquireMirrorArtifacts(
             ? `native-${entry.assetKind}`
             : `adapted-${entry.assetKind}`,
       })),
-      status: determineMirrorStatus(entry, materializedArtifact),
+      ...buildMirrorSafetyFields(entry, materializedArtifact),
     };
 
     if (
@@ -972,41 +973,81 @@ function buildUpstreamMetadata(
   };
 }
 
+/**
+ * Builds the status and quarantine-signal fields for a mirror index entry from
+ * a single safety evaluation, so the persisted entry records why it landed in
+ * its status. `quarantineSignals` is only attached when at least one signal is
+ * present, keeping clean approved entries free of empty signal noise.
+ */
+function buildMirrorSafetyFields(
+  entry: AssetCatalogEntry,
+  materializedArtifact: MaterializedMirrorArtifact,
+): Pick<MirrorIndexEntry, "status" | "quarantineSignals"> {
+  const { status, signals } = evaluateMirrorSafety(entry, materializedArtifact);
+  const hasSignal =
+    signals.promptInjection ||
+    signals.executableRisk ||
+    signals.communityRisk ||
+    signals.highRisk;
+  return hasSignal ? { status, quarantineSignals: signals } : { status };
+}
+
+/**
+ * Evaluates a materialized artifact against the acquisition-time safety checks
+ * and returns both the resolved mirror status and the concrete signals that
+ * drove it. The status precedence is identical to the prior implementation;
+ * signals are captured so downstream quarantine reporting reflects real causes.
+ */
+function evaluateMirrorSafety(
+  entry: AssetCatalogEntry,
+  materializedArtifact: MaterializedMirrorArtifact,
+): {
+  status: MirrorIndexEntry["status"];
+  signals: MirrorQuarantineSignals;
+} {
+  const isOfficialFirstParty =
+    entry.source.authorityTier === "official-first-party";
+  const signals: MirrorQuarantineSignals = {
+    promptInjection: hasPromptInjectionRisk(materializedArtifact),
+    executableRisk: shouldQuarantineCommunityAsset(entry),
+    communityRisk: entry.source.authorityTier === "unverified-community",
+    highRisk: entry.risk.level === "high",
+  };
+
+  if (signals.promptInjection) {
+    return {
+      status: isOfficialFirstParty ? "approved-with-warning" : "quarantined",
+      signals,
+    };
+  }
+
+  if (signals.executableRisk) {
+    return { status: "quarantined", signals };
+  }
+
+  if (signals.highRisk) {
+    return {
+      status: isOfficialFirstParty ? "approved-with-warning" : "quarantined",
+      signals,
+    };
+  }
+
+  if (entry.compatibilityMode === "reference-only") {
+    return { status: "reference-only", signals };
+  }
+
+  return { status: "approved", signals };
+}
+
+/**
+ * Returns only the resolved mirror status for an artifact. Retained as a stable
+ * internal test surface; delegates to {@link evaluateMirrorSafety}.
+ */
 function determineMirrorStatus(
   entry: AssetCatalogEntry,
   materializedArtifact: MaterializedMirrorArtifact,
 ): MirrorIndexEntry["status"] {
-  if (
-    hasPromptInjectionRisk(materializedArtifact) &&
-    entry.source.authorityTier !== "official-first-party"
-  ) {
-    return "quarantined";
-  }
-
-  if (hasPromptInjectionRisk(materializedArtifact)) {
-    return "approved-with-warning";
-  }
-
-  if (shouldQuarantineCommunityAsset(entry)) {
-    return "quarantined";
-  }
-
-  if (
-    entry.risk.level === "high" &&
-    entry.source.authorityTier !== "official-first-party"
-  ) {
-    return "quarantined";
-  }
-
-  if (entry.risk.level === "high") {
-    return "approved-with-warning";
-  }
-
-  if (entry.compatibilityMode === "reference-only") {
-    return "reference-only";
-  }
-
-  return "approved";
+  return evaluateMirrorSafety(entry, materializedArtifact).status;
 }
 
 function hasPromptInjectionRisk(
