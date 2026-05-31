@@ -12,7 +12,13 @@
 
 **Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), discoverable via [GitHub Explore topic visibility](https://github.com/github/explore/pull/5175) (topic listing, not an endorsement), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
-**▶️ Watch the demo:** [![agent-harness demo video](https://img.youtube.com/vi/u1OmcS97iOg/maxresdefault.jpg)](https://youtu.be/u1OmcS97iOg)
+**▶️ Watch the demo:**
+
+<!-- GitHub's README sanitizer strips <video>/<iframe>, so the hero is a clickable poster linking to the full sound-on YouTube walkthrough. A muted, looping terminal-run clip is hosted in the demo-video repo (opens in GitHub's own player); raw-HTML renderers can autoplay it inline. -->
+
+[![agent-harness demo — watch the full walkthrough](https://img.youtube.com/vi/u1OmcS97iOg/maxresdefault.jpg)](https://youtu.be/u1OmcS97iOg)
+
+_Prefer a quick silent preview? The [muted 14s terminal-run loop](https://raw.githubusercontent.com/ar27111994/agent-harness-demo-video/main/media/readme/agent-harness-terminal-loop.mp4) shows the live 11-step `workspace opencode` run end to end._
 
 The full product walkthrough is on YouTube: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (rendered with Remotion; source repo: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)).
 
