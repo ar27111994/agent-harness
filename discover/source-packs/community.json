@@ -1584,6 +1584,36 @@
         "SECURITY.md"
       ],
       "excludePaths": [".github/**", "scripts/**"]
+    },
+    {
+      "id": "k-dense-ai-scientific-agent-skills",
+      "name": "Scientific Agent Skills",
+      "repo": "https://github.com/K-Dense-AI/scientific-agent-skills",
+      "kind": "repo",
+      "authorityTier": "trusted-community",
+      "publisher": "K-Dense-AI",
+      "publisherVerified": false,
+      "priority": 70,
+      "enabled": true,
+      "hosts": ["cursor", "claude-code", "codex", "opencode", "copilot-vscode"],
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "includePaths": ["README.md", "**/SKILL.md", "skills/**", "**/*.md"],
+      "excludePaths": [".github/**"]
+    },
+    {
+      "id": "msitarzewski-agency-agents",
+      "name": "Agency Agents",
+      "repo": "https://github.com/msitarzewski/agency-agents",
+      "kind": "repo",
+      "authorityTier": "trusted-community",
+      "publisher": "msitarzewski",
+      "publisherVerified": false,
+      "priority": 68,
+      "enabled": true,
+      "hosts": ["claude-code", "codex", "opencode", "cursor", "copilot-vscode"],
+      "assetKinds": ["agent", "instruction", "workflow", "reference-pack"],
+      "includePaths": ["README.md", "agents/**", "**/*.md"],
+      "excludePaths": [".github/**"]
     }
   ]
 }

@@ -295,6 +295,52 @@ void test("source registry includes agent-scripts source pack entry", async () =
   ]);
 });
 
+void test("source registry includes the v2 requested official and community sources", async () => {
+  const registry = await loadSourceRegistry(process.cwd());
+
+  const cursorPlugins = registry.sources.find(
+    (source) => source.id === "cursor-plugins-pack",
+  );
+  const scientificAgentSkills = registry.sources.find(
+    (source) => source.id === "k-dense-ai-scientific-agent-skills",
+  );
+  const agencyAgents = registry.sources.find(
+    (source) => source.id === "msitarzewski-agency-agents",
+  );
+
+  assert.ok(cursorPlugins, "cursor/plugins should be registered");
+  assert.equal(cursorPlugins?.authorityTier, "official-first-party");
+  assert.equal(cursorPlugins?.publisher?.name, "Cursor");
+  assert.equal(cursorPlugins?.publisher?.verified, true);
+  assert.equal(
+    cursorPlugins?.endpoints.repo,
+    "https://github.com/cursor/plugins",
+  );
+  assert.ok(cursorPlugins?.hosts.includes("cursor"));
+  assert.ok(cursorPlugins?.assetKinds.includes("plugin"));
+
+  assert.ok(
+    scientificAgentSkills,
+    "K-Dense-AI/scientific-agent-skills should be registered",
+  );
+  assert.equal(scientificAgentSkills?.authorityTier, "trusted-community");
+  assert.equal(scientificAgentSkills?.publisher?.name, "K-Dense-AI");
+  assert.equal(
+    scientificAgentSkills?.endpoints.repo,
+    "https://github.com/K-Dense-AI/scientific-agent-skills",
+  );
+  assert.ok(scientificAgentSkills?.assetKinds.includes("skill"));
+
+  assert.ok(agencyAgents, "msitarzewski/agency-agents should be registered");
+  assert.equal(agencyAgents?.authorityTier, "trusted-community");
+  assert.equal(agencyAgents?.publisher?.name, "msitarzewski");
+  assert.equal(
+    agencyAgents?.endpoints.repo,
+    "https://github.com/msitarzewski/agency-agents",
+  );
+  assert.ok(agencyAgents?.assetKinds.includes("agent"));
+});
+
 void test("source registry generates repo sources from packs and dedupes matching repo identities", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-registry-"),

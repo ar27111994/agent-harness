@@ -540,6 +540,34 @@
         ".claude-plugin/**"
       ],
       "excludePaths": [".github/**"]
+    },
+    {
+      "id": "cursor-plugins-pack",
+      "name": "Cursor Plugins",
+      "repo": "https://github.com/cursor/plugins",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Cursor",
+      "publisherVerified": true,
+      "priority": 100,
+      "enabled": true,
+      "hosts": ["cursor", "opencode", "codex", "claude-code", "copilot-vscode"],
+      "assetKinds": [
+        "plugin",
+        "mcp-server",
+        "hook",
+        "instruction",
+        "workflow",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "README.md",
+        "SPEC.md",
+        "plugins/**",
+        "**/plugin.json",
+        "**/*.md"
+      ],
+      "excludePaths": [".github/**"]
     }
   ]
 }

@@ -36,6 +36,7 @@
     "penpot": ["penpot"],
     "zed-industries": ["zed-industries"],
     "pi": ["pi"],
-    "trailofbits": ["trailofbits"]
+    "trailofbits": ["trailofbits"],
+    "cursor": ["cursor"]
   }
 }
