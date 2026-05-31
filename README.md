@@ -790,7 +790,7 @@ Workspace and activation outputs:
 - `activate/copilot-vscode/wire-plan.json`
 - `activate/copilot-vscode/workspace-profile-manifest.json`
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - Applying VS Code wire-in requires the VS Code user settings directory to exist and be writable.
 - The README treats instruction files, skills, plugins, and MCP as the primary documented public contract. Some patched settings remain implementation detail unless a current VS Code settings reference explicitly documents them.
@@ -862,7 +862,7 @@ Wire-plan outputs:
 - `activate/opencode/wire-preview-opencode.json`
 - `.opencode/context/project-intelligence/agent-harness/wire-plan.json`
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - The adapter links activated assets into a project-local overlay and reference tree.
 - It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.
@@ -915,7 +915,7 @@ Agent-harness staged/plugin-compatible surfaces:
 - `.cursor/agent-harness/cursor-plugin/`
 - staged plugin `agents/`, `skills/`, `rules/`, `commands/`, and references
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
 - `.cursor/agent-harness/` and `.cursor/agent-harness/cursor-plugin/` are staged project-local managed locations; `.cursor/agent-harness/cursor-plugin/` is treated as a compatible plugin bundle, and registering plugin paths remains host/user-managed.
@@ -958,7 +958,7 @@ Agent-harness managed reference surfaces:
 - `.zed/agent-harness/`
 - project-readable references for non-native asset kinds
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - The adapter writes project-local context and profile hints.
 - Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references unless explicit extension-install intent is provided.
@@ -998,7 +998,7 @@ Supported behavior:
 - writes `activate/claude-code/wire-plan.json` on apply
 - avoids global Claude Code profile mutation
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - MCP and reference assets are still staged as project-readable references by default.
 - The adapter can synthesize Claude Code `.mcp.json` and `.claude/settings*.json` surfaces when an asset includes structured host-native config payloads.
@@ -1074,7 +1074,7 @@ Documented Pi-native surfaces used directly:
 - `.pi/prompts/`
 - `.pi/settings.json` top-level resource arrays
 
-Current boundaries:
+Current boundaries (host-specific details only; see [Managed wire-in vs native/global install](#managed-wire-in-vs-nativeglobal-install) for the shared invariants):
 
 - Pi does not include `shared-mcp` in its default bundles.
 - `.pi/agent-harness/` remains a harness-managed reference tree for non-native assets.
