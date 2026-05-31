@@ -50,6 +50,7 @@ import { buildReferenceSourceCatalogEntry } from "./reference-source-harvester.j
 const SOURCE_SYNC_FETCH_MAX_BYTES = 5_000_000;
 const SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES = 25_000_000;
 const SOURCE_SYNC_BATCH_SIZE = 50;
+const MIN_OWNER_REPO_PATH_SEGMENTS = 2;
 const SOURCE_SYNC_TIMEOUT_MS = 30_000;
 const SOURCE_SYNC_HEADERS = {
   Accept: "application/json,text/html,application/xml,text/plain,*/*",
@@ -1814,7 +1815,7 @@ function extractPypiPackageNameFromUrl(url: URL): string | undefined {
 
 function extractSwiftPackageNameFromUrl(url: URL): string | undefined {
   const segments = decodePathSegments(url.pathname);
-  if (segments.length < 2) {
+  if (segments.length < MIN_OWNER_REPO_PATH_SEGMENTS) {
     return undefined;
   }
   return `${segments[0]}/${segments[1]}`;

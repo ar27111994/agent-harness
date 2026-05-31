@@ -40,6 +40,7 @@ const cliOutputFiles = [
 const magicThresholdFiles = [
   "src/config/runtime.ts",
   "src/domains/discovery/ai-enrichment.ts",
+  "src/domains/discovery/source-sync.ts",
   "src/install/refresh.ts",
   "src/mirror/acquire.ts",
   "src/recommend/selection.ts",
