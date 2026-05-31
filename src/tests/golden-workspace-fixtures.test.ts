@@ -146,55 +146,92 @@ const fixtures: GoldenWorkspaceFixture[] = [
   },
 ];
 
+/**
+ * Runs a single named lifecycle phase, re-throwing any failure with the phase
+ * and fixture name prefixed so a regression report points at the exact stage
+ * that broke (discover, recommend, mirror, wire-preview, wire-apply,
+ * wire-reset, or quarantine).
+ */
+async function runPhase<T>(
+  fixtureName: string,
+  phase: string,
+  step: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await step();
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `${fixtureName}: lifecycle phase "${phase}" regressed: ${detail}`,
+      { cause: error },
+    );
+  }
+}
+
 void test("golden workspace fixtures cover v2 lifecycle signals and host wire previews", async () => {
   for (const fixture of fixtures) {
     await withFixtureWorkspace(fixture, async (workspaceRoot, stateRoot) => {
-      const profile = await buildDemandProfile(workspaceRoot);
-      const unknownSignals = await buildUnknownSignalReport(workspaceRoot);
+      const profile = await runPhase(fixture.name, "discover", () =>
+        buildDemandProfile(workspaceRoot),
+      );
+      const unknownSignals = await runPhase(fixture.name, "discover", () =>
+        buildUnknownSignalReport(workspaceRoot),
+      );
 
       for (const language of fixture.expected.languages ?? []) {
         assert.ok(
           profile.signals.languages.includes(language),
-          `${fixture.name}: expected language ${language}`,
+          `${fixture.name}: lifecycle phase "discover" regressed: expected language ${language}`,
         );
       }
       for (const framework of fixture.expected.frameworks ?? []) {
         assert.ok(
           profile.signals.frameworks.includes(framework),
-          `${fixture.name}: expected framework ${framework}`,
+          `${fixture.name}: lifecycle phase "discover" regressed: expected framework ${framework}`,
         );
       }
       for (const tooling of fixture.expected.tooling ?? []) {
         assert.ok(
           profile.signals.tooling.includes(tooling) ||
             profile.signals.packageManagers.includes(tooling),
-          `${fixture.name}: expected tooling ${tooling}`,
+          `${fixture.name}: lifecycle phase "discover" regressed: expected tooling ${tooling}`,
         );
       }
       for (const concern of fixture.expected.concerns ?? []) {
         assert.ok(
           profile.signals.concerns.includes(concern),
-          `${fixture.name}: expected concern ${concern}`,
+          `${fixture.name}: lifecycle phase "discover" regressed: expected concern ${concern}`,
         );
       }
       for (const kind of fixture.expected.unknownSignalKinds ?? []) {
         assert.ok(
           unknownSignals.signals.some((signal) => signal.category === kind),
-          `${fixture.name}: expected unknown signal ${kind}`,
+          `${fixture.name}: lifecycle phase "discover" regressed: expected unknown signal ${kind}`,
         );
       }
 
-      await seedLifecycleState(stateRoot, fixture.host, profile);
-      await generateBundleLocks(stateRoot);
-      await writeRecommendationReport(stateRoot, {
-        policy: await loadRecommendationPolicy(process.cwd()),
-        sessionIntent: "general",
+      await runPhase(fixture.name, "mirror", async () => {
+        await seedLifecycleState(stateRoot, fixture.host, profile);
+        await generateBundleLocks(stateRoot);
       });
-      await wireNativeHost(fixture.host, {
-        projectRoot: stateRoot,
-        workspaceRoot,
-        mode: "preview",
-      });
+      const recommendationPolicy = await runPhase(
+        fixture.name,
+        "recommend",
+        () => loadRecommendationPolicy(process.cwd()),
+      );
+      await runPhase(fixture.name, "recommend", () =>
+        writeRecommendationReport(stateRoot, {
+          policy: recommendationPolicy,
+          sessionIntent: "general",
+        }),
+      );
+      await runPhase(fixture.name, "wire-preview", () =>
+        wireNativeHost(fixture.host, {
+          projectRoot: stateRoot,
+          workspaceRoot,
+          mode: "preview",
+        }),
+      );
 
       const preview = JSON.parse(
         await readFile(
@@ -209,23 +246,74 @@ void test("golden workspace fixtures cover v2 lifecycle signals and host wire pr
       ) as { targetPaths?: string[]; notes?: string[] };
       assert.ok(
         (preview.targetPaths?.length ?? 0) > 0,
-        `${fixture.name}: wire preview should list target paths`,
+        `${fixture.name}: lifecycle phase "wire-preview" regressed: should list target paths`,
       );
       assert.ok(
         (preview.notes?.length ?? 0) > 0,
-        `${fixture.name}: wire preview should include notes`,
+        `${fixture.name}: lifecycle phase "wire-preview" regressed: should include notes`,
       );
 
+      // Exercise the full wire preview/apply/reset slice on one representative
+      // fixture so apply materialization and reset cleanup are covered, not just
+      // the preview projection.
+      if (fixture.name === "simple-node-typescript") {
+        await runPhase(fixture.name, "wire-apply", () =>
+          wireNativeHost(fixture.host, {
+            projectRoot: stateRoot,
+            workspaceRoot,
+            mode: "apply",
+          }),
+        );
+        const wirePlanPath = join(
+          stateRoot,
+          "activate",
+          fixture.host,
+          "wire-plan.json",
+        );
+        const wirePlan = JSON.parse(await readFile(wirePlanPath, "utf8")) as {
+          host?: string;
+        };
+        assert.equal(
+          wirePlan.host,
+          fixture.host,
+          `${fixture.name}: lifecycle phase "wire-apply" regressed: applied wire plan should record the target host`,
+        );
+
+        await runPhase(fixture.name, "wire-reset", () =>
+          wireNativeHost(fixture.host, {
+            projectRoot: stateRoot,
+            workspaceRoot,
+            mode: "reset",
+          }),
+        );
+      }
+
       if (fixture.name === "risky-quarantined-assets") {
-        await seedQuarantinedMirror(stateRoot);
-        await runQuarantine(["report"], stateRoot);
+        await runPhase(fixture.name, "quarantine", async () => {
+          await seedQuarantinedMirror(stateRoot);
+          await runQuarantine(["report"], stateRoot);
+        });
         const quarantineReport = JSON.parse(
           await readFile(
             join(stateRoot, "state", "quarantine", "quarantine-state.json"),
             "utf8",
           ),
-        ) as { summary: { quarantinedCount: number } };
-        assert.equal(quarantineReport.summary.quarantinedCount, 1);
+        ) as {
+          summary: { quarantinedCount: number };
+          entries: Array<{ assetId: string; transitions: string[] }>;
+        };
+        assert.equal(
+          quarantineReport.summary.quarantinedCount,
+          1,
+          `${fixture.name}: lifecycle phase "quarantine" regressed: risky asset should be quarantined`,
+        );
+        const risky = quarantineReport.entries.find(
+          (entry) => entry.assetId === "risky-hook",
+        );
+        assert.ok(
+          risky?.transitions.includes("new-risky-asset"),
+          `${fixture.name}: lifecycle phase "quarantine" regressed: risky asset should record a new-risky-asset transition`,
+        );
       }
     });
   }

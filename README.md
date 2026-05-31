@@ -10,7 +10,7 @@
 [![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ar27111994/agent-harness)
 
-**Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
+**Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), discoverable via [GitHub Explore topic visibility](https://github.com/github/explore/pull/5175) (topic listing, not an endorsement), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
 **▶️ Watch the demo:** [![agent-harness demo video](https://img.youtube.com/vi/u1OmcS97iOg/maxresdefault.jpg)](https://youtu.be/u1OmcS97iOg)
 
