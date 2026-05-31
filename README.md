@@ -12,7 +12,11 @@
 
 **Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
-Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. The full v2 before/after walkthrough lives in [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md). A rendered GIF/video is intentionally kept out of the package until uploaded as an external release asset so the repository and npm tarball stay lean.
+**▶️ Watch the demo:** [![agent-harness demo video](https://img.youtube.com/vi/u1OmcS97iOg/maxresdefault.jpg)](https://youtu.be/u1OmcS97iOg)
+
+The full product walkthrough is on YouTube: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (rendered with Remotion; source repo: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)).
+
+Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. The full v2 before/after walkthrough lives in [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md). The rendered video is hosted on YouTube (linked above) and its source kept in a separate repo so the package and npm tarball stay lean.
 
 `agent-harness` treats reusable AI-agent assets like a reproducible, auditable supply chain: discover trusted sources, rank recommendations, mirror pinned bundles, quarantine risky assets, stage and activate selected assets, then wire them into VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex workspaces.
 

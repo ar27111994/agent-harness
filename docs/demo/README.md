@@ -1,4 +1,8 @@
-# Terminal demo`n`nFor the full v2 before/after walkthrough, expected artifacts, and quarantine/security talking points, see [`v2-opencode-walkthrough.md`](./v2-opencode-walkthrough.md).
+# Terminal demo
+
+The published product demo video is live on YouTube: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (Remotion source: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)). It is linked from the README hero.
+
+For the full v2 before/after walkthrough, expected artifacts, and quarantine/security talking points, see [`v2-opencode-walkthrough.md`](./v2-opencode-walkthrough.md).
 
 Issue #232 tracks adding a short public terminal demo near the README hero. The repo keeps this reproducible script so the recording can be regenerated without exposing a private workstation.
 
