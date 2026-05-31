@@ -64,7 +64,7 @@ agent-harness recommend report --intent <intent>
 
 Stable report:
 
-- `recommend/report.json`
+- `state/recommendations.json`
 
 Schema/schema-like locations:
 
@@ -152,7 +152,7 @@ Stable files/reports:
 
 - `activate/<host>/activation-manifest.json`
 - `activate/<host>/wire-preview-<host>.json`
-- `activate/<host>/wire-plan-<host>.json`
+- `activate/<host>/wire-plan.json`
 - host-managed project files listed in each wire preview
 
 Schema/schema-like locations:
