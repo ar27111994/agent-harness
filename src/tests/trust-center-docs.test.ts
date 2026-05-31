@@ -5,7 +5,7 @@ import test from "node:test";
 
 void test("v2 trust center documents safe defaults, guarantees, and non-guarantees", async () => {
   const trustCenter = await readFile(
-    join(process.cwd(), "TRUST-CENTER.md"),
+    join(process.cwd(), "docs", "guides", "TRUST-CENTER.md"),
     "utf8",
   );
 
@@ -32,8 +32,8 @@ void test("v2 trust center documents safe defaults, guarantees, and non-guarante
 void test("README and maintenance docs link the v2 trust center", async () => {
   const files = [
     "README.md",
-    "HARNESS-MAINTENANCE-GUIDE.md",
-    "QUARANTINE-PLAYBOOK.md",
+    "docs/guides/HARNESS-MAINTENANCE-GUIDE.md",
+    "docs/playbooks/QUARANTINE-PLAYBOOK.md",
   ];
 
   for (const file of files) {

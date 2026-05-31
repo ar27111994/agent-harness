@@ -22,13 +22,13 @@ const REQUIRED_FILES = [
   "README.md",
   "CHANGELOG.md",
   "LICENSE",
-  "V1-TO-V2-UPGRADE.md",
-  "V2-CONTRACT.md",
-  "TRUST-CENTER.md",
-  "SAFE-DEFAULTS.md",
-  "RELEASE-PROCESS.md",
-  "QUARANTINE-PLAYBOOK.md",
-  "HARNESS-MAINTENANCE-GUIDE.md",
+  "docs/guides/V1-TO-V2-UPGRADE.md",
+  "docs/guides/V2-CONTRACT.md",
+  "docs/guides/TRUST-CENTER.md",
+  "docs/guides/SAFE-DEFAULTS.md",
+  "docs/guides/RELEASE-PROCESS.md",
+  "docs/playbooks/QUARANTINE-PLAYBOOK.md",
+  "docs/guides/HARNESS-MAINTENANCE-GUIDE.md",
   "discover/sources.json",
   "mirror/policy.json",
 ];
@@ -140,7 +140,7 @@ test("package audit rejects malformed npm pack payloads", async () => {
 
 test("package audit direct execution reports failures", async () => {
   const cwd = await createFixturePackage(
-    REQUIRED_FILES.filter((file) => file !== "TRUST-CENTER.md"),
+    REQUIRED_FILES.filter((file) => file !== "docs/guides/TRUST-CENTER.md"),
   );
 
   const result = await execFileAsync(
@@ -150,17 +150,20 @@ test("package audit direct execution reports failures", async () => {
   ).catch((error) => error);
 
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /Missing required files: TRUST-CENTER\.md/u);
+  assert.match(
+    result.stderr,
+    /Missing required files: docs\/guides\/TRUST-CENTER\.md/u,
+  );
 });
 
 test("package audit rejects missing v2 trust docs", async () => {
   const cwd = await createFixturePackage(
-    REQUIRED_FILES.filter((file) => file !== "TRUST-CENTER.md"),
+    REQUIRED_FILES.filter((file) => file !== "docs/guides/TRUST-CENTER.md"),
   );
 
   await assert.rejects(
     () => runPackageAudit({ cwd }),
-    /Missing required files: TRUST-CENTER\.md/u,
+    /Missing required files: docs\/guides\/TRUST-CENTER\.md/u,
   );
 });
 

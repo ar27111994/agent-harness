@@ -101,7 +101,7 @@ The happy-path demo should explicitly mention this security boundary:
 - It does **not** silently approve quarantine.
 - It does **not** silently install native/global extensions.
 - It does **not** silently enable executable hooks, MCP servers, plugins, custom tools, OAuth/login, or global host config.
-- Use `TRUST-CENTER.md` and `QUARANTINE-PLAYBOOK.md` before approving anything executable or ambiguous.
+- Use `docs/guides/TRUST-CENTER.md` and `docs/playbooks/QUARANTINE-PLAYBOOK.md` before approving anything executable or ambiguous.
 
 If a future recording uses a live fixture containing a risky asset, show `agent-harness quarantine list` and `agent-harness quarantine inspect --asset <asset-id>` instead of approving it.
 
@@ -130,4 +130,4 @@ If the final GIF/video is too large for git, upload it as a GitHub Release asset
 - If `dist/cli.js` is missing, run `npm run build` first.
 - If live discovery is rate-limited, use the deterministic script output for the recording source and rerun the real quick-start later for comparison.
 - If generated files differ, inspect `.agent-harness/discover/output/source-health.json`, `.agent-harness/discover/output/source-drift.json`, and `.agent-harness/state/recommendations.json` before updating the recording.
-- If a risky asset appears, stop at preview/report output and follow `QUARANTINE-PLAYBOOK.md`.
+- If a risky asset appears, stop at preview/report output and follow `docs/playbooks/QUARANTINE-PLAYBOOK.md`.

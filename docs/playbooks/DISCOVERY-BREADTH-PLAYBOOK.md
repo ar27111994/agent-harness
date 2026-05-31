@@ -43,7 +43,7 @@ Common failures:
 - manifests filtered by `.gitignore`, `.ignore`, or `.agent-harnessignore`
 - weak evidence for a real stack that is mostly implicit
 
-If the demand profile is the bottleneck, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) and check the audited coverage matrix in [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md).
+If the demand profile is the bottleneck, continue with [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) and check the audited coverage matrix in [`DEMAND-DETECTION-COVERAGE.md`](../reference/DEMAND-DETECTION-COVERAGE.md).
 
 ### 2. Discovery source coverage
 

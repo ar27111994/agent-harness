@@ -41,9 +41,9 @@ tsconfig.json
 
 # Planning/local-only docs
 AGENTS.md
-IMPLEMENTATION-PLAN.md
-Roadmap.md
-FUTURE-IMPROVEMENTS.md
+docs/reference/IMPLEMENTATION-PLAN.md
+docs/reference/Roadmap.md
+docs/reference/FUTURE-IMPROVEMENTS.md
 CONTRIBUTING.md
 
 # Local package artifacts

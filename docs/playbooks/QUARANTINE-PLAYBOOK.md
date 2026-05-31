@@ -53,4 +53,4 @@ Review before changing quarantine state when any of these occur:
 
 ## Related security model
 
-See [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md) for the broader v2 trust tiers, prompt-injection handling, executable asset boundaries, and non-guarantees that quarantine enforces.
+See [Security and trust center](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/TRUST-CENTER.md) for the broader v2 trust tiers, prompt-injection handling, executable asset boundaries, and non-guarantees that quarantine enforces.

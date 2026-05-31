@@ -5,7 +5,7 @@ import test from "node:test";
 
 void test("v2 safe defaults are documented in one policy matrix", async () => {
   const safeDefaults = await readFile(
-    join(process.cwd(), "SAFE-DEFAULTS.md"),
+    join(process.cwd(), "docs", "guides", "SAFE-DEFAULTS.md"),
     "utf8",
   );
 
@@ -25,7 +25,7 @@ void test("v2 safe defaults are documented in one policy matrix", async () => {
 void test("README, trust center, and package metadata link safe defaults", async () => {
   const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
   const trustCenter = await readFile(
-    join(process.cwd(), "TRUST-CENTER.md"),
+    join(process.cwd(), "docs", "guides", "TRUST-CENTER.md"),
     "utf8",
   );
   const packageJson = await readFile(
@@ -35,7 +35,7 @@ void test("README, trust center, and package metadata link safe defaults", async
 
   assert.match(readme, /SAFE-DEFAULTS\.md/u);
   assert.match(trustCenter, /SAFE-DEFAULTS\.md/u);
-  assert.match(packageJson, /"SAFE-DEFAULTS\.md"/u);
+  assert.match(packageJson, /"docs\/guides\/SAFE-DEFAULTS\.md"/u);
 });
 
 function escapeRegExp(value: string): string {

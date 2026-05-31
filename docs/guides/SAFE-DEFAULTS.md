@@ -59,7 +59,7 @@ Inspect these before applying changes:
 
 ## Related docs
 
-- [`TRUST-CENTER.md`](https://github.com/ar27111994/agent-harness/blob/main/TRUST-CENTER.md)
-- [`QUARANTINE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/QUARANTINE-PLAYBOOK.md)
-- [`HARNESS-MAINTENANCE-GUIDE.md`](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)
-- [`V2-CONTRACT.md`](https://github.com/ar27111994/agent-harness/blob/main/V2-CONTRACT.md)
+- [`TRUST-CENTER.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/TRUST-CENTER.md)
+- [`QUARANTINE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/QUARANTINE-PLAYBOOK.md)
+- [`HARNESS-MAINTENANCE-GUIDE.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/HARNESS-MAINTENANCE-GUIDE.md)
+- [`V2-CONTRACT.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/V2-CONTRACT.md)

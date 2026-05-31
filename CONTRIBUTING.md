@@ -15,8 +15,8 @@ This repository manages a curated asset supply chain for OpenCode, GitHub Copilo
 ## Before you start
 
 - read [`README.md`](./README.md) for the current commands and lifecycle
-- review [`IMPLEMENTATION-PLAN.md`](./IMPLEMENTATION-PLAN.md) for architecture intent
-- check [`FUTURE-IMPROVEMENTS.md`](./FUTURE-IMPROVEMENTS.md) if your change touches roadmap items
+- review [`IMPLEMENTATION-PLAN.md`](./docs/reference/IMPLEMENTATION-PLAN.md) for architecture intent
+- check [`FUTURE-IMPROVEMENTS.md`](./docs/reference/FUTURE-IMPROVEMENTS.md) if your change touches roadmap items
 
 ## Development setup
 

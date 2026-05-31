@@ -6,7 +6,7 @@ This document is for both end users and maintainers. It explains what the harnes
 
 ## Short version
 
-For the concise lifecycle policy matrix, see [`SAFE-DEFAULTS.md`](https://github.com/ar27111994/agent-harness/blob/main/SAFE-DEFAULTS.md).
+For the concise lifecycle policy matrix, see [`SAFE-DEFAULTS.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SAFE-DEFAULTS.md).
 
 Safe by default means:
 
@@ -162,8 +162,8 @@ When adding a host or asset kind, update the host support matrix, security/trust
 ## Related docs
 
 - [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md)
-- [`QUARANTINE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/QUARANTINE-PLAYBOOK.md)
-- [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/HOST-SURFACE-AUDIT.md)
-- [`HARNESS-MAINTENANCE-GUIDE.md`](https://github.com/ar27111994/agent-harness/blob/main/HARNESS-MAINTENANCE-GUIDE.md)
-- [`V2-CONTRACT.md`](https://github.com/ar27111994/agent-harness/blob/main/V2-CONTRACT.md)
-- [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/ASSET-UPDATE-PLAYBOOK.md)
+- [`QUARANTINE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/QUARANTINE-PLAYBOOK.md)
+- [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/HOST-SURFACE-AUDIT.md)
+- [`HARNESS-MAINTENANCE-GUIDE.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/HARNESS-MAINTENANCE-GUIDE.md)
+- [`V2-CONTRACT.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/V2-CONTRACT.md)
+- [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md)

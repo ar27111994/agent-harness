@@ -11,7 +11,7 @@ This is the right guide when:
 
 If the real problem is that the source universe itself is too small, use [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md) instead.
 
-Use [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) as the audited project-type matrix when you need to check whether a popular stack, vertical, platform, language, or framework is already covered.
+Use [`DEMAND-DETECTION-COVERAGE.md`](../reference/DEMAND-DETECTION-COVERAGE.md) as the audited project-type matrix when you need to check whether a popular stack, vertical, platform, language, or framework is already covered.
 
 ## The short answer
 
@@ -142,7 +142,7 @@ Good fixture candidates live alongside or near:
 - `src/tests/technology-signatures.test.ts`
 - `src/tests/fixtures/`
 
-If the fix expands project-type support, update [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) so future contributors can see the audited coverage and validation path.
+If the fix expands project-type support, update [`DEMAND-DETECTION-COVERAGE.md`](../reference/DEMAND-DETECTION-COVERAGE.md) so future contributors can see the audited coverage and validation path.
 
 ### Step 2. Inspect the current detection result
 

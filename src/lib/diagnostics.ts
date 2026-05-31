@@ -80,7 +80,10 @@ export function unsupportedNativeInstallDiagnostic(options: {
       `agent-harness wire ${options.hostId} --preview`,
       "agent-harness setup hosts",
     ],
-    reportPaths: ["TRUST-CENTER.md", "README.md#v2-host-support-matrix"],
+    reportPaths: [
+      "docs/guides/TRUST-CENTER.md",
+      "README.md#v2-host-support-matrix",
+    ],
     policyBlock: true,
   };
 }

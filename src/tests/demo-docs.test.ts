@@ -22,8 +22,8 @@ void test("v2 demo walkthrough documents the full reproducible value chain", asy
     "## Before and after host wiring",
     "## What was selected, skipped, quarantined, staged, activated, and wired",
     "## Quarantine and risk behavior to point out in recordings",
-    "TRUST-CENTER.md",
-    "QUARANTINE-PLAYBOOK.md",
+    "docs/guides/TRUST-CENTER.md",
+    "docs/playbooks/QUARANTINE-PLAYBOOK.md",
   ]) {
     assert.match(walkthrough, new RegExp(escapeRegExp(expected), "u"));
   }

@@ -187,7 +187,7 @@ A bad outcome can come from correct recommendations plus incomplete runtime setu
 Use this handoff ladder before changing defaults:
 
 - wrong or weak `discover/output/demand-profile.json` -> [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md)
-- missing project-type support -> [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md)
+- missing project-type support -> [`DEMAND-DETECTION-COVERAGE.md`](../reference/DEMAND-DETECTION-COVERAGE.md)
 - starved source universe -> [`SOURCE-COVERAGE-PLAYBOOK.md`](./SOURCE-COVERAGE-PLAYBOOK.md)
 - broad recall diagnosis -> [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md)
 - relevant assets selected but buried -> [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md)
@@ -390,7 +390,7 @@ A good agent response after the dry run should usually look like this:
 
 - [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md) - maximize the candidate pool before ranking/setup decisions
 - [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md) - fix false negatives, false positives, and weak stack evidence
-- [`DEMAND-DETECTION-COVERAGE.md`](./DEMAND-DETECTION-COVERAGE.md) - audited stack/vertical/platform coverage matrix
+- [`DEMAND-DETECTION-COVERAGE.md`](../reference/DEMAND-DETECTION-COVERAGE.md) - audited stack/vertical/platform coverage matrix
 - [`AI-ENRICHMENT-PLAYBOOK.md`](./AI-ENRICHMENT-PLAYBOOK.md) - choose between enrichment modes and bounded AI review
 - [`ASSET-UPDATE-PLAYBOOK.md`](./ASSET-UPDATE-PLAYBOOK.md) - refresh stale installed assets safely
 - [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md) - tune ranking only after recall looks healthy

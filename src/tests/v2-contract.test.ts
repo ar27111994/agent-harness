@@ -5,7 +5,7 @@ import test from "node:test";
 
 void test("v2 contract documents stable automation reports", async () => {
   const contract = await readFile(
-    join(process.cwd(), "V2-CONTRACT.md"),
+    join(process.cwd(), "docs", "guides", "V2-CONTRACT.md"),
     "utf8",
   );
 
@@ -29,7 +29,7 @@ void test("v2 contract documents stable automation reports", async () => {
 
 void test("v2 contract defines apply and compatibility rules", async () => {
   const contract = await readFile(
-    join(process.cwd(), "V2-CONTRACT.md"),
+    join(process.cwd(), "docs", "guides", "V2-CONTRACT.md"),
     "utf8",
   );
 
