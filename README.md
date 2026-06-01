@@ -1,35 +1,50 @@
 # agent-harness
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
-[![Node >=22](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](./package.json)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)](./package.json)
-[![Quality](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml/badge.svg)](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml)
-[![Latest Release](https://img.shields.io/github/v/release/ar27111994/agent-harness?display_name=tag)](https://github.com/ar27111994/agent-harness/releases)
-[![npm version](https://img.shields.io/npm/v/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
-[![npm downloads](https://img.shields.io/npm/dm/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837)](https://www.npmjs.com/package/@ar27111994/agent-harness)
-[![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ar27111994/agent-harness)
+<p>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
+  <a href="./package.json"><img alt="Node >=22" src="https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white" /></a>
+  <a href="./package.json"><img alt="TypeScript 5.9" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" /></a>
+  <a href="https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml"><img alt="Quality workflow" src="https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml/badge.svg" /></a>
+  <a href="https://github.com/ar27111994/agent-harness/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/ar27111994/agent-harness?display_name=tag" /></a>
+  <a href="https://www.npmjs.com/package/@ar27111994/agent-harness"><img alt="npm version" src="https://img.shields.io/npm/v/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837" /></a>
+  <a href="https://www.npmjs.com/package/@ar27111994/agent-harness"><img alt="npm downloads" src="https://img.shields.io/npm/dm/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837" /></a>
+  <a href="#sponsor"><img alt="Sponsor" src="https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white" /></a>
+  <a href="https://deepwiki.com/ar27111994/agent-harness"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg" /></a>
+</p>
 
-[![Host: VS Code + Copilot](https://img.shields.io/badge/host-VS%20Code%20%2B%20Copilot-007ACC?logo=visualstudiocode&logoColor=white)](#supported-hosts)
-[![Host: OpenCode](https://img.shields.io/badge/host-OpenCode-111827)](#supported-hosts)
-[![Host: Cursor](https://img.shields.io/badge/host-Cursor-000000)](#supported-hosts)
-[![Host: Zed](https://img.shields.io/badge/host-Zed-084CCF)](#supported-hosts)
-[![Host: Claude Code](https://img.shields.io/badge/host-Claude%20Code-D97757)](#supported-hosts)
-[![Host: Pi](https://img.shields.io/badge/host-Pi-FF4F8B)](#supported-hosts)
-[![Host: OpenAI Codex](https://img.shields.io/badge/host-OpenAI%20Codex-412991?logo=openai&logoColor=white)](#supported-hosts)
+<p>
+  <strong>Hosts:</strong>
+  <a href="#supported-hosts"><img alt="VS Code + Copilot" src="https://img.shields.io/badge/VS%20Code%20%2B%20Copilot-007ACC?logo=visualstudiocode&logoColor=white" /></a>
+  <a href="#supported-hosts"><img alt="OpenCode" src="https://img.shields.io/badge/OpenCode-111827" /></a>
+  <a href="#supported-hosts"><img alt="Cursor" src="https://img.shields.io/badge/Cursor-000000" /></a>
+  <a href="#supported-hosts"><img alt="Zed" src="https://img.shields.io/badge/Zed-084CCF" /></a>
+  <a href="#supported-hosts"><img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-D97757" /></a>
+  <a href="#supported-hosts"><img alt="Pi" src="https://img.shields.io/badge/Pi-FF4F8B" /></a>
+  <a href="#supported-hosts"><img alt="OpenAI Codex" src="https://img.shields.io/badge/OpenAI%20Codex-412991?logo=openai&logoColor=white" /></a>
+</p>
 
-[![Assets: skills](https://img.shields.io/badge/assets-skills-5B8DEF)](#discovery-and-recommendations)
-[![Assets: agents](https://img.shields.io/badge/assets-agents-7C3AED)](#discovery-and-recommendations)
-[![Assets: instructions](https://img.shields.io/badge/assets-instructions-0F766E)](#discovery-and-recommendations)
-[![Assets: workflows](https://img.shields.io/badge/assets-workflows-F59E0B)](#discovery-and-recommendations)
-[![Assets: prompt packs](https://img.shields.io/badge/assets-prompt%20packs-DB2777)](#discovery-and-recommendations)
-[![Assets: MCP servers](https://img.shields.io/badge/assets-MCP%20servers-2563EB)](#discovery-and-recommendations)
-[![Assets: plugins](https://img.shields.io/badge/assets-plugins-16A34A)](#discovery-and-recommendations)
-[![Assets: hooks](https://img.shields.io/badge/assets-hooks-DC2626)](#discovery-and-recommendations)
-[![Assets: extensions](https://img.shields.io/badge/assets-extensions-0891B2)](#discovery-and-recommendations)
-[![Assets: reference packs](https://img.shields.io/badge/assets-reference%20packs-64748B)](#discovery-and-recommendations)
+<p>
+  <strong>Assets:</strong>
+  <a href="#discovery-and-recommendations"><img alt="skills" src="https://img.shields.io/badge/skills-5B8DEF" /></a>
+  <a href="#discovery-and-recommendations"><img alt="agents" src="https://img.shields.io/badge/agents-7C3AED" /></a>
+  <a href="#discovery-and-recommendations"><img alt="instructions" src="https://img.shields.io/badge/instructions-0F766E" /></a>
+  <a href="#discovery-and-recommendations"><img alt="workflows" src="https://img.shields.io/badge/workflows-F59E0B" /></a>
+  <a href="#discovery-and-recommendations"><img alt="prompt packs" src="https://img.shields.io/badge/prompt%20packs-DB2777" /></a>
+  <a href="#discovery-and-recommendations"><img alt="MCP servers" src="https://img.shields.io/badge/MCP%20servers-2563EB" /></a>
+  <a href="#discovery-and-recommendations"><img alt="plugins" src="https://img.shields.io/badge/plugins-16A34A" /></a>
+  <a href="#discovery-and-recommendations"><img alt="hooks" src="https://img.shields.io/badge/hooks-DC2626" /></a>
+  <a href="#discovery-and-recommendations"><img alt="extensions" src="https://img.shields.io/badge/extensions-0891B2" /></a>
+  <a href="#discovery-and-recommendations"><img alt="reference packs" src="https://img.shields.io/badge/reference%20packs-64748B" /></a>
+</p>
 
-**Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), discoverable via [GitHub Explore topic visibility](https://github.com/github/explore/pull/5175) (topic listing, not an endorsement), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
+`agent-harness` is a reviewable supply chain for reusable AI-agent assets: discover trusted sources, rank workspace-specific recommendations, mirror pinned bundles, stage local files, activate host views, and wire everything into the agent host you already use.
+
+**Proof points**
+
+- **Published CLI:** [`@ar27111994/agent-harness` on npm](https://www.npmjs.com/package/@ar27111994/agent-harness), with release artifacts on [GitHub Releases](https://github.com/ar27111994/agent-harness/releases).
+- **Quality-gated:** every release path is backed by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml).
+- **Discoverable:** listed through [GitHub Explore topic visibility](https://github.com/github/explore/pull/5175) as topic metadata, not an endorsement.
+- **Cross-host today:** VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
 **▶️ Watch the demo:**
 
@@ -37,13 +52,13 @@
 
 [![agent-harness autoplay demo preview — click for sound-on walkthrough](https://raw.githubusercontent.com/ar27111994/agent-harness-demo-video/main/media/readme/agent-harness-readme-preview.gif)](https://youtu.be/u1OmcS97iOg)
 
-Sound-on walkthrough: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (rendered with Remotion; source repo: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)).
+**Sound-on walkthrough:** [youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)
 
-Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. The full v2 before/after walkthrough lives in [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md). The rendered video is hosted on YouTube (linked above) and its source kept in a separate repo so the package and npm tarball stay lean.
+- **Video source:** [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video), rendered with Remotion and kept outside this package so npm tarballs stay lean.
+- **Terminal source:** [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs), which records the public-safe OpenCode quick-start transcript and generated-output tree.
+- **Walkthrough notes:** [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md), covering the full v2 before/after flow.
 
-`agent-harness` treats reusable AI-agent assets like a reproducible, auditable supply chain: discover trusted sources, rank recommendations, mirror pinned bundles, quarantine risky assets, stage and activate selected assets, then wire them into VS Code / GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex workspaces.
-
-It is built around one generic command surface and a host-adapter model. The lifecycle stays consistent across hosts, while each adapter owns the host-specific files, settings, preview/apply/reset behavior, and explicit native-install boundaries required by that host.
+The core model is deliberately boring in the best way: one command surface, a host-adapter boundary, preview-first writes, and explicit native-install steps. The lifecycle stays consistent across hosts while each adapter owns the files, settings, apply/reset behavior, and safety boundaries required by that host.
 
 ## Table of contents
 
