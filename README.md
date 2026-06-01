@@ -10,17 +10,34 @@
 [![Sponsor](https://img.shields.io/badge/Sponsor-support-ff69b4?logo=githubsponsors&logoColor=white)](#sponsor)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ar27111994/agent-harness)
 
+[![Host: VS Code + Copilot](https://img.shields.io/badge/host-VS%20Code%20%2B%20Copilot-007ACC?logo=visualstudiocode&logoColor=white)](#supported-hosts)
+[![Host: OpenCode](https://img.shields.io/badge/host-OpenCode-111827)](#supported-hosts)
+[![Host: Cursor](https://img.shields.io/badge/host-Cursor-000000)](#supported-hosts)
+[![Host: Zed](https://img.shields.io/badge/host-Zed-084CCF)](#supported-hosts)
+[![Host: Claude Code](https://img.shields.io/badge/host-Claude%20Code-D97757)](#supported-hosts)
+[![Host: Pi](https://img.shields.io/badge/host-Pi-FF4F8B)](#supported-hosts)
+[![Host: OpenAI Codex](https://img.shields.io/badge/host-OpenAI%20Codex-412991?logo=openai&logoColor=white)](#supported-hosts)
+
+[![Assets: skills](https://img.shields.io/badge/assets-skills-5B8DEF)](#discovery-and-recommendations)
+[![Assets: agents](https://img.shields.io/badge/assets-agents-7C3AED)](#discovery-and-recommendations)
+[![Assets: instructions](https://img.shields.io/badge/assets-instructions-0F766E)](#discovery-and-recommendations)
+[![Assets: workflows](https://img.shields.io/badge/assets-workflows-F59E0B)](#discovery-and-recommendations)
+[![Assets: prompt packs](https://img.shields.io/badge/assets-prompt%20packs-DB2777)](#discovery-and-recommendations)
+[![Assets: MCP servers](https://img.shields.io/badge/assets-MCP%20servers-2563EB)](#discovery-and-recommendations)
+[![Assets: plugins](https://img.shields.io/badge/assets-plugins-16A34A)](#discovery-and-recommendations)
+[![Assets: hooks](https://img.shields.io/badge/assets-hooks-DC2626)](#discovery-and-recommendations)
+[![Assets: extensions](https://img.shields.io/badge/assets-extensions-0891B2)](#discovery-and-recommendations)
+[![Assets: reference packs](https://img.shields.io/badge/assets-reference%20packs-64748B)](#discovery-and-recommendations)
+
 **Proof points:** published on [npm as `@ar27111994/agent-harness`](https://www.npmjs.com/package/@ar27111994/agent-harness), distributed from [GitHub releases](https://github.com/ar27111994/agent-harness/releases), guarded by the [quality workflow](https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml), discoverable via [GitHub Explore topic visibility](https://github.com/github/explore/pull/5175) (topic listing, not an endorsement), and currently wired for seven hosts: VS Code/GitHub Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex.
 
 **▶️ Watch the demo:**
 
-<!-- GitHub's README sanitizer strips <video>/<iframe>, so the hero is a clickable poster linking to the full sound-on YouTube walkthrough. A muted, looping terminal-run clip is hosted in the demo-video repo (opens in GitHub's own player); raw-HTML renderers can autoplay it inline. -->
+<!-- GitHub's README sanitizer strips <video>/<iframe>, so the hero uses a committed, muted GIF from the demo-video repo and links to the full sound-on YouTube walkthrough. -->
 
-[![agent-harness demo — watch the full walkthrough](https://img.youtube.com/vi/u1OmcS97iOg/maxresdefault.jpg)](https://youtu.be/u1OmcS97iOg)
+[![agent-harness autoplay demo preview — click for sound-on walkthrough](https://raw.githubusercontent.com/ar27111994/agent-harness-demo-video/main/media/readme/agent-harness-readme-preview.gif)](https://youtu.be/u1OmcS97iOg)
 
-_Prefer a quick silent preview? The [muted 14s terminal-run loop](https://raw.githubusercontent.com/ar27111994/agent-harness-demo-video/main/media/readme/agent-harness-terminal-loop.mp4) shows the live 11-step `workspace opencode` run end to end._
-
-The full product walkthrough is on YouTube: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (rendered with Remotion; source repo: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)).
+Sound-on walkthrough: **[youtu.be/u1OmcS97iOg](https://youtu.be/u1OmcS97iOg)** (rendered with Remotion; source repo: [`agent-harness-demo-video`](https://github.com/ar27111994/agent-harness-demo-video)).
 
 Terminal demo source: [`docs/demo/workspace-opencode-demo.mjs`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/workspace-opencode-demo.mjs) records the public-safe OpenCode quick-start transcript and generated-output tree. The full v2 before/after walkthrough lives in [`docs/demo/v2-opencode-walkthrough.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/demo/v2-opencode-walkthrough.md). The rendered video is hosted on YouTube (linked above) and its source kept in a separate repo so the package and npm tarball stay lean.
 
