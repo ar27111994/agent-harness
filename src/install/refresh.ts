@@ -133,13 +133,17 @@ export async function manageInstallRefresh(
   let applied = false;
 
   if (applyRequested) {
+    // Warn about risky assets, but do not block applying the safe allowlist.
+    // The allowlist already excludes review-required and quarantined assets,
+    // so the diagnostic is informational only when safe work is still present.
     const unsafeApplyDiagnostic = installRefreshPolicyDiagnostic(report);
     if (unsafeApplyDiagnostic) {
       console.log(formatActionableDiagnostic(unsafeApplyDiagnostic));
       console.log(
-        "Install refresh apply skipped until review-required or quarantined assets are resolved.",
+        "Risky assets were skipped. Safe assets in the allowlist will still be applied.",
       );
-    } else if (
+    }
+    if (
       bundleAssetAllowlist.size === 0 &&
       nativeRefreshExtensionIds.size === 0
     ) {
