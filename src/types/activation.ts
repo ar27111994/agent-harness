@@ -27,6 +27,8 @@ export interface ActivationManifest {
   host: HostTarget;
   generatedAt: string;
   generationId?: string;
+  recommendationHost?: HostTarget;
+  activationBudget?: number;
   activeBundles: string[];
   activeAssets: string[];
   runtimeRoot: string;
@@ -38,13 +40,14 @@ export interface ActivationManifest {
  */
 export interface CopilotWorkspaceOverlayManifest {
   schemaVersion: 1;
-  host: "copilot-vscode";
+  host: HostTarget;
   generatedAt: string;
   workspaceRoot: string;
   selectedBundleIds: string[];
   selectedAssetIds: string[];
   activationBudget: number;
   mode: string;
+  recommendationHost?: HostTarget;
   sessionIntent?: SessionIntent;
   concernBuckets?: Record<string, string[]>;
   taskModeBuckets?: Record<string, string[]>;

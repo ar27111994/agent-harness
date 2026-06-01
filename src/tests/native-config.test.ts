@@ -790,6 +790,58 @@ function buildAssetWithNativeConfig(
   };
 }
 
+void test("native config internals enforce Codex config payload formats", () => {
+  assert.doesNotThrow(() =>
+    nativeConfigInternals.assertAllowedHostNativePath(
+      "codex",
+      ".codex/config.toml",
+      {
+        path: ".codex/config.toml",
+        format: "text",
+        content: "model = 'gpt-5'\n",
+      },
+    ),
+  );
+  assert.doesNotThrow(() =>
+    nativeConfigInternals.assertAllowedHostNativePath(
+      "codex",
+      ".codex/hooks.json",
+      {
+        path: ".codex/hooks.json",
+        format: "json",
+        merge: true,
+        content: { hooks: [] },
+      },
+    ),
+  );
+  assert.throws(
+    () =>
+      nativeConfigInternals.assertAllowedHostNativePath(
+        "codex",
+        ".codex/config.toml",
+        {
+          path: ".codex/config.toml",
+          format: "json",
+          content: {},
+        },
+      ),
+    /Unsupported codex host-native payload target/u,
+  );
+  assert.throws(
+    () =>
+      nativeConfigInternals.assertAllowedHostNativePath(
+        "codex",
+        ".codex/hooks.json",
+        {
+          path: ".codex/hooks.json",
+          format: "text",
+          content: "hooks = []\n",
+        },
+      ),
+    /Unsupported codex host-native payload target/u,
+  );
+});
+
 void test("native config internals reject resolved paths that escape the workspace", () => {
   const workspaceRoot = join(tmpdir(), "agent-harness-native-config-root");
 

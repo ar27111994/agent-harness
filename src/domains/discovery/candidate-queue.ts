@@ -96,10 +96,8 @@ function buildCandidateFromUnknownSignal(
     signal.category === "mcp-manifest" || signal.category === "plugin-manifest";
   const duplicate = existingSourceKeys.has(signal.path);
   const score = scoreUnknownSignal(signal, risky, duplicate);
-  const recommendedTrustTier = risky
-    ? "trusted-community"
-    : "official-compatible";
-  const reviewRequired = risky || signal.confidence !== "high" || duplicate;
+  const recommendedTrustTier = "unverified-community";
+  const reviewRequired = true;
 
   return {
     id: `candidate-${hashCandidateId(signal.category, signal.path)}`,
@@ -110,7 +108,7 @@ function buildCandidateFromUnknownSignal(
     duplicate,
     recommendedTrustTier,
     reviewRequired,
-    suggestedAction: reviewRequired ? "research" : "approve",
+    suggestedAction: "research",
     risky,
   };
 }

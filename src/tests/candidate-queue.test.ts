@@ -146,7 +146,7 @@ void test("source candidate queue marks duplicates from existing sources", async
   }
 });
 
-void test("source candidate queue auto-approves high-confidence non-risky new sources", async () => {
+void test("source candidate queue keeps high-confidence non-risky new sources review-gated", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-candidate-auto-approve-"),
   );
@@ -195,7 +195,7 @@ void test("source candidate queue auto-approves high-confidence non-risky new so
 
     const report = await buildSourceCandidateQueue(projectRoot, []);
 
-    assert.equal(report.reviewRequiredCount, 1);
+    assert.equal(report.reviewRequiredCount, 2);
     const candidatesByScore = [...report.candidates].sort(
       (left, right) => right.score - left.score,
     );
@@ -206,9 +206,9 @@ void test("source candidate queue auto-approves high-confidence non-risky new so
     assert.equal(candidatesByScore[1]?.score, 35);
     assert.equal(
       candidatesByScore[0]?.recommendedTrustTier,
-      "official-compatible",
+      "unverified-community",
     );
-    assert.equal(candidatesByScore[0]?.suggestedAction, "approve");
+    assert.equal(candidatesByScore[0]?.suggestedAction, "research");
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

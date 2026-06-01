@@ -210,9 +210,18 @@ function computeDuplicateRate(entries: AssetCatalogEntry[]): number {
   if (entries.length === 0) {
     return 0;
   }
-  const duplicateEntries = entries.filter(
-    (entry) => entry.dedupe.duplicateGroup,
-  );
+  const groupCounts = new Map<string, number>();
+  for (const entry of entries) {
+    const group = entry.dedupe.duplicateGroup;
+    if (!group) {
+      continue;
+    }
+    groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
+  }
+  const duplicateEntries = entries.filter((entry) => {
+    const group = entry.dedupe.duplicateGroup;
+    return group ? (groupCounts.get(group) ?? 0) > 1 : false;
+  });
   return Number((duplicateEntries.length / entries.length).toFixed(4));
 }
 

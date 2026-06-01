@@ -98,7 +98,9 @@ function buildSourceVerificationIssues(report) {
 }
 
 function buildReportOnlyPullRequests(sourceHealth, issues) {
-  const hasReportOnlyUpdates = Boolean(sourceHealth) && issues.length === 0;
+  const hasBlockingHealthFindings = (sourceHealth?.severeCount ?? 0) > 0;
+  const hasReportOnlyUpdates =
+    Boolean(sourceHealth) && issues.length === 0 && !hasBlockingHealthFindings;
   if (!hasReportOnlyUpdates) {
     return [];
   }

@@ -395,6 +395,36 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             hooks: "./hooks/hooks.json",
           },
         );
+        const codexHooksManifest = JSON.parse(
+          await readFile(
+            join(
+              fixture.workspaceRoot,
+              ".agents",
+              "plugins",
+              "agent-harness",
+              "hooks",
+              "hooks.json",
+            ),
+            "utf8",
+          ),
+        ) as {
+          schemaVersion: number;
+          hooks: Array<{ name: string; description: string; source: string }>;
+        };
+        assert.equal(codexHooksManifest.schemaVersion, 1);
+        assert.deepEqual(
+          codexHooksManifest.hooks.map(({ description, name }) => ({
+            description,
+            name,
+          })),
+          [
+            {
+              name: "cursor.hook",
+              description: "Cursor Hook",
+            },
+          ],
+        );
+        assert.match(codexHooksManifest.hooks[0]?.source ?? "", /hook\.md$/u);
       }
 
       await wireNativeHost(host, {
@@ -1112,6 +1142,7 @@ function buildHostNativeConfig(host: NativeWireHost): AssetHostNativeConfigMap {
             {
               path: ".codex/hooks.json",
               format: "json",
+              merge: true,
               content: {
                 hooks: [],
               },

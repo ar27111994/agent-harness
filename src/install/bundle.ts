@@ -67,6 +67,7 @@ export async function installBundles(
   );
   const allBundleIds = getRegisteredBundleIds();
   const targetBundleIds = getOptionValues(args, "--bundle");
+  const allowedAssetIds = getAllowedAssetIds(args);
   const batchSizeRaw = Number(getOptionValue(args, "--batch-size") ?? "250");
   const batchSize =
     Number.isFinite(batchSizeRaw) && batchSizeRaw >= 1
@@ -120,7 +121,9 @@ export async function installBundles(
       mirrorIndexById,
     );
     const pendingAssets = getPendingAssets(
-      installableAssets,
+      installableAssets.filter(
+        (asset) => allowedAssetIds?.has(asset.assetId) ?? true,
+      ),
       alreadyInstalledAssetIdentities,
     );
     const assetsToInstall = pendingAssets.slice(
@@ -464,6 +467,11 @@ export function getRegisteredBundleIds(): string[] {
   ].sort((left, right) => left.localeCompare(right));
 }
 
+function getAllowedAssetIds(args: readonly string[]): ReadonlySet<string> | null {
+  const assetIds = getOptionValues(args, "--asset");
+  return assetIds.length > 0 ? new Set(assetIds) : null;
+}
+
 function getPendingAssets(
   bundleAssets: BundleLock["assets"],
   installedAssetIdentities: Set<string>,
@@ -490,6 +498,7 @@ export const installBundleInternals = {
   debugInstallBundleSkip,
   buildInstallIdentity,
   getRegisteredBundleIds,
+  getAllowedAssetIds,
   getPendingAssets,
   extractBundleId,
 };

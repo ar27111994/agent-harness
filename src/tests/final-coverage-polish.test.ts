@@ -448,15 +448,29 @@ void test("install refresh internals cover skipped refresh and bounded batch loo
   );
 
   let installCalls = 0;
-  await installRefreshInternals.applyBundleRefreshes("/project", ["bundle-a"], {
-    install: async () => {
-      installCalls += 1;
+  let installArgs: string[] = [];
+  await installRefreshInternals.applyBundleRefreshes(
+    "/project",
+    new Map([["bundle-a", new Set(["asset-a"])]]),
+    {
+      install: async (_projectRoot, args) => {
+        installCalls += 1;
+        installArgs = args;
+      },
+      maxBatches: 1,
+      readProgressState: async () =>
+        buildInstallProgressState("bundle-a", { remainingAssets: 0 }),
     },
-    maxBatches: 1,
-    readProgressState: async () =>
-      buildInstallProgressState("bundle-a", { remainingAssets: 0 }),
-  });
+  );
   assert.equal(installCalls, 1);
+  assert.deepEqual(installArgs, [
+    "--bundle",
+    "bundle-a",
+    "--batch-size",
+    "250",
+    "--asset",
+    "asset-a",
+  ]);
 
   await assert.rejects(
     installRefreshInternals.applyBundleRefreshes("/project", ["bundle-b"], {

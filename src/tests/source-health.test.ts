@@ -129,6 +129,21 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     sourceEntry(report, "active-source")?.reasons.join("\n") ?? "",
     /duplicate rate is/u,
   );
+
+  const uniqueDuplicateGroupReport = buildSourceHealthReport(
+    [buildSource("unique-groups")],
+    [
+      buildEntry("unique-a", "unique-groups", { duplicateGroup: "unique-a" }),
+      buildEntry("unique-b", "unique-groups", { duplicateGroup: "unique-b" }),
+    ],
+    [],
+    [],
+    { schemaVersion: 1, generatedAt: "2026-01-01T00:00:00.000Z", sources: [] },
+  );
+  assert.equal(
+    sourceEntry(uniqueDuplicateGroupReport, "unique-groups")?.duplicateRate,
+    0,
+  );
 });
 
 void test("source health writer emits health, drift, and maintenance reports", async () => {

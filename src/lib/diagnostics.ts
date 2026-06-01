@@ -131,13 +131,18 @@ export function installRefreshPolicyDiagnostic(
     0,
   );
 
-  if (reviewCount + quarantinedCount + blockedCount === 0) {
+  const nonQuarantinedBlockedCount = Math.max(
+    0,
+    blockedCount - quarantinedCount,
+  );
+
+  if (reviewCount + quarantinedCount + nonQuarantinedBlockedCount === 0) {
     return null;
   }
 
   return {
     title: "Install refresh blocked by review policy",
-    summary: `${reviewCount} asset(s) require review, ${quarantinedCount} asset(s) are quarantined, and ${blockedCount} asset(s) are blocked.`,
+    summary: `${reviewCount} asset(s) require review, ${quarantinedCount} asset(s) are quarantined, and ${nonQuarantinedBlockedCount} asset(s) are blocked.`,
     why: "Refresh policy blocks unsafe or ambiguous assets from being staged, activated, or wired automatically.",
     nextCommands: [
       "agent-harness quarantine list",

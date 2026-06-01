@@ -170,11 +170,12 @@ export async function buildUnknownSignalReport(
       )) {
         signals.push(
           createSignal(
-            relativePath,
+            `${relativePath}:${dependencyName}`,
             fileName,
             "unfamiliar-package-dependency",
             "low",
             [`dependency may need a technology signature: ${dependencyName}`],
+            relativePath,
           ),
         );
       }
@@ -202,17 +203,18 @@ export async function buildUnknownSignalReport(
 }
 
 function createSignal(
-  path: string,
+  idPath: string,
   fileName: string,
   category: UnknownSignalEntry["category"],
   confidence: UnknownSignalEntry["confidence"],
   evidence: string[],
+  displayPath: string = idPath,
 ): UnknownSignalEntry {
   const suggestedNextAction = suggestedActionForCategory(category);
 
   return {
-    id: `${category}:${path}`,
-    path,
+    id: `${category}:${idPath}`,
+    path: displayPath,
     fileName,
     category,
     confidence,

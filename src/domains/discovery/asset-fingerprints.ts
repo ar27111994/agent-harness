@@ -177,10 +177,17 @@ function buildCanonicalUpstreamIdentity(
 }
 
 function normalizeIdentityUrl(value: string): string {
-  return toPosixPath(value)
+  const normalizedValue = toPosixPath(value)
     .replace(/\.git$/iu, "")
-    .replace(/\/$/u, "")
-    .toLowerCase();
+    .replace(/\/$/u, "");
+  try {
+    const parsedUrl = new URL(normalizedValue);
+    parsedUrl.protocol = parsedUrl.protocol.toLowerCase();
+    parsedUrl.hostname = parsedUrl.hostname.toLowerCase();
+    return parsedUrl.toString().replace(/\/$/u, "");
+  } catch {
+    return normalizedValue;
+  }
 }
 
 function hashStableJson(value: unknown): string {

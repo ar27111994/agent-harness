@@ -12,6 +12,7 @@ export interface CommunityAssetScore {
 
 const COMMUNITY_TIERS = new Set([
   "trusted-community",
+  "unverified-community",
   "community",
   "experimental",
 ]);
@@ -122,7 +123,7 @@ function decideCommunityAsset(
     return "quarantine";
   }
 
-  if (score < 70) {
+  if (entry.source.authorityTier === "unverified-community" || score < 70) {
     return "review";
   }
 

@@ -61,6 +61,13 @@ async function main(): Promise<number> {
     case "mirror":
       return runMirror(args, workingDirectory, projectRoot);
     case "bundle":
+      if (args.length === 0) {
+        return runMirror(["help"], workingDirectory, projectRoot);
+      }
+      if (args[0] !== "explain") {
+        printHelp();
+        return 1;
+      }
       return runMirror(
         ["bundle-explain", ...args.slice(1)],
         workingDirectory,

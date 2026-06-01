@@ -36,6 +36,19 @@ void test("community scoring promotes useful low-risk community assets", () => {
   assert.ok(score.reasons.includes("README evidence is present"));
 });
 
+void test("community scoring reviews unverified community assets", () => {
+  const score = scoreCommunityAsset(
+    buildEntry("unverified-skill", {
+      authorityTier: "unverified-community",
+      assetKind: "skill",
+      manifestFound: true,
+      readmeFound: true,
+    }),
+  );
+
+  assert.equal(score.decision, "review");
+});
+
 void test("community scoring quarantines risky executable integrations", () => {
   const entry = buildEntry("risky-plugin", {
     authorityTier: "trusted-community",

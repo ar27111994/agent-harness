@@ -590,7 +590,7 @@ function mergeFrontmatterClassificationEvidence(
 function hasClassificationFrontmatter(
   metadata: ParsedMarkdownMetadata,
 ): boolean {
-  return ["type", "kind", "assetKind", "name", "description", "tags"].some(
+  return ["type", "kind", "assetKind"].some(
     (field) => metadata.fields[field] !== undefined,
   );
 }

@@ -883,21 +883,29 @@ async function writeCodexNativeFiles(options: {
       ],
     ),
   );
-  await writeJsonFile(
+  await mergeCodexPluginMarketplace(
     join(options.workspaceRoot, ".agents", "plugins", "marketplace.json"),
-    buildCodexPluginMarketplace(),
   );
+  const codexPluginRoot = join(
+    options.workspaceRoot,
+    ".agents",
+    "plugins",
+    "agent-harness",
+  );
+  const codexPluginManifest = buildCodexPluginManifest(options.nativeAssets);
   await writeJsonFile(
-    join(
-      options.workspaceRoot,
-      ".agents",
-      "plugins",
-      "agent-harness",
-      ".codex-plugin",
-      "plugin.json",
-    ),
-    buildCodexPluginManifest(options.nativeAssets),
+    join(codexPluginRoot, ".codex-plugin", "plugin.json"),
+    codexPluginManifest,
   );
+  if (typeof codexPluginManifest.hooks === "string") {
+    await writeJsonFile(
+      join(codexPluginRoot, codexPluginManifest.hooks),
+      buildCodexHooksManifest(
+        options.nativeAssets,
+        options.materializedAssets.hookFiles,
+      ),
+    );
+  }
   await writeTextFile(
     join(
       options.workspaceRoot,
@@ -923,16 +931,27 @@ async function writeCodexNativeFiles(options: {
   });
 }
 
-function buildCodexPluginMarketplace(): JsonObject {
-  return {
-    schemaVersion: 1,
+async function mergeCodexPluginMarketplace(filePath: string): Promise<void> {
+  const marketplace = await readJsonFileOrNull<unknown>(filePath);
+  const marketplaceObject =
+    marketplace === null ? {} : assertJsonObject(marketplace, filePath);
+  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
+    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
+  );
+  await writeJsonFile(filePath, {
+    ...marketplaceObject,
+    schemaVersion:
+      typeof marketplaceObject.schemaVersion === "number"
+        ? marketplaceObject.schemaVersion
+        : 1,
     plugins: [
+      ...plugins,
       {
         name: "agent-harness",
         path: "./agent-harness",
       },
     ],
-  };
+  });
 }
 
 function buildCodexPluginManifest(nativeAssets: NativeAsset[]): JsonObject {
@@ -951,6 +970,31 @@ function buildCodexPluginManifest(nativeAssets: NativeAsset[]): JsonObject {
   }
 
   return manifest;
+}
+
+function buildCodexHooksManifest(
+  nativeAssets: NativeAsset[],
+  hookFiles: readonly string[],
+): JsonObject {
+  const hookAssets = nativeAssets.filter(
+    (nativeAsset) => nativeAsset.assetKind === "hook",
+  );
+  return {
+    schemaVersion: 1,
+    hooks: hookAssets.map((nativeAsset, index) => ({
+      name: nativeAsset.assetId,
+      description: nativeAsset.displayName,
+      source: hookFiles[index] ?? nativeAsset.assetId,
+    })),
+  };
+}
+
+function isNamedJsonObject(value: unknown, name: string): boolean {
+  return isJsonObject(value) && value.name === name;
+}
+
+function coerceJsonObjectArray(value: unknown): JsonObject[] {
+  return Array.isArray(value) ? value.filter(isJsonObject) : [];
 }
 
 async function applyStructuredNativeConfig(
@@ -1267,6 +1311,27 @@ async function cleanupFailedNativeHostApply(
   }
 }
 
+async function removeCodexPluginMarketplaceEntry(
+  filePath: string,
+): Promise<void> {
+  const marketplace = await readJsonFileOrNull<unknown>(filePath);
+  if (marketplace === null) {
+    return;
+  }
+  const marketplaceObject = assertJsonObject(marketplace, filePath);
+  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
+    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
+  );
+  if (plugins.length === 0) {
+    await removePath(filePath);
+    return;
+  }
+  await writeJsonFile(filePath, {
+    ...marketplaceObject,
+    plugins,
+  });
+}
+
 async function cleanupCodexNativeFiles(
   workspaceRoot: string,
   textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
@@ -1282,7 +1347,7 @@ async function cleanupCodexNativeFiles(
   );
   await removePath(join(workspaceRoot, ".agents", "skills", "agent-harness"));
   await removePath(join(workspaceRoot, ".agents", "plugins", "agent-harness"));
-  await removePath(
+  await removeCodexPluginMarketplaceEntry(
     join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
   );
   await removeEmptyParentDirectories(
@@ -1971,4 +2036,5 @@ export const nativeWireInternals = {
   toLoggableErrorMessage,
   validateManagedTextFileSnapshots,
   buildCodexPluginManifest,
+  buildCodexHooksManifest,
 };

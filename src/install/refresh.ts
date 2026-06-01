@@ -125,7 +125,7 @@ export async function manageInstallRefresh(
   await writeJsonFile(join(projectRoot, ...INSTALL_REFRESH_REPORT_OUTPUT_PATH), report);
   printInstallRefreshReport(projectRoot, report, false);
 
-  const bundleIdsToRefresh = collectRefreshBundleIds(report, [
+  const bundleAssetAllowlist = collectRefreshBundleAssetAllowlist(report, [
     "apply",
     "stage-only",
   ]);
@@ -140,12 +140,12 @@ export async function manageInstallRefresh(
         "Install refresh apply skipped until review-required or quarantined assets are resolved.",
       );
     } else if (
-      bundleIdsToRefresh.length === 0 &&
+      bundleAssetAllowlist.size === 0 &&
       nativeRefreshExtensionIds.size === 0
     ) {
       console.log("No stale install bundles were eligible for refresh apply.");
     } else {
-      await applyBundleRefreshes(projectRoot, bundleIdsToRefresh);
+      await applyBundleRefreshes(projectRoot, bundleAssetAllowlist);
       await applyNativeRefreshes(projectRoot, nativeRefreshExtensionIds);
       applied = true;
 
@@ -277,6 +277,8 @@ interface ApplyBundleRefreshesOptions {
   maxBatches?: number;
   readProgressState?: () => Promise<InstallProgressState | null>;
 }
+
+type BundleAssetAllowlist = ReadonlyMap<string, ReadonlySet<string>>;
 
 function shouldRefreshMirrorState(args: readonly string[]): boolean {
   return !args.includes("--no-mirror-refresh");
@@ -703,22 +705,38 @@ function isStageOnlyRefresh(
   return false;
 }
 
+function collectRefreshBundleAssetAllowlist(
+  report: InstallRefreshReport,
+  decisions: readonly InstallRefreshPolicyDecision[],
+): Map<string, Set<string>> {
+  const decisionSet = new Set(decisions);
+  const bundleAssetAllowlist = new Map<string, Set<string>>();
+
+  for (const host of report.hosts) {
+    for (const asset of host.assets) {
+      if (asset.status !== "stale" || !decisionSet.has(asset.policyDecision)) {
+        continue;
+      }
+      for (const bundleId of asset.bundleIds) {
+        const assetIds = bundleAssetAllowlist.get(bundleId) ?? new Set<string>();
+        assetIds.add(asset.assetId);
+        bundleAssetAllowlist.set(bundleId, assetIds);
+      }
+    }
+  }
+
+  return new Map(
+    [...bundleAssetAllowlist.entries()].sort(([left], [right]) =>
+      left.localeCompare(right),
+    ),
+  );
+}
+
 function collectRefreshBundleIds(
   report: InstallRefreshReport,
   decisions: readonly InstallRefreshPolicyDecision[],
 ): string[] {
-  const decisionSet = new Set(decisions);
-  return [
-    ...new Set(
-      report.hosts.flatMap((host) =>
-        host.assets
-          .filter(
-            (asset) => asset.status === "stale" && decisionSet.has(asset.policyDecision),
-          )
-          .flatMap((asset) => asset.bundleIds),
-      ),
-    ),
-  ].sort((left, right) => left.localeCompare(right));
+  return [...collectRefreshBundleAssetAllowlist(report, decisions).keys()];
 }
 
 function collectAppliedAssetActions(
@@ -845,7 +863,7 @@ async function applyNativeRefreshes(
 
 async function applyBundleRefreshes(
   projectRoot: string,
-  bundleIds: readonly string[],
+  bundleAssetAllowlist: BundleAssetAllowlist | readonly string[],
   options: ApplyBundleRefreshesOptions = {},
 ): Promise<void> {
   const batchSize = String(getRuntimeConfig().batches.installBundle);
@@ -859,9 +877,17 @@ async function applyBundleRefreshes(
         assertInstallProgressState,
       ));
 
-  for (const bundleId of bundleIds) {
+  const allowlistByBundleId = normalizeBundleAssetAllowlist(bundleAssetAllowlist);
+
+  for (const [bundleId, assetIds] of allowlistByBundleId) {
     for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
-      await install(projectRoot, ["--bundle", bundleId, "--batch-size", batchSize]);
+      await install(projectRoot, [
+        "--bundle",
+        bundleId,
+        "--batch-size",
+        batchSize,
+        ...[...assetIds].flatMap((assetId) => ["--asset", assetId]),
+      ]);
       const progressState = await readProgressState();
       const bundleState = progressState?.bundles[bundleId];
       if (bundleState && bundleState.remainingAssets <= 0) {
@@ -874,6 +900,25 @@ async function applyBundleRefreshes(
       }
     }
   }
+}
+
+function normalizeBundleAssetAllowlist(
+  bundleAssetAllowlist: BundleAssetAllowlist | readonly string[],
+): Map<string, ReadonlySet<string>> {
+  if (isBundleIdList(bundleAssetAllowlist)) {
+    return new Map<string, ReadonlySet<string>>(
+      bundleAssetAllowlist.map((bundleId) => [bundleId, new Set<string>()]),
+    );
+  }
+  return new Map<string, ReadonlySet<string>>([
+    ...bundleAssetAllowlist.entries(),
+  ]);
+}
+
+function isBundleIdList(
+  bundleAssetAllowlist: BundleAssetAllowlist | readonly string[],
+): bundleAssetAllowlist is readonly string[] {
+  return Array.isArray(bundleAssetAllowlist);
 }
 
 function printInstallRefreshReport(
@@ -909,12 +954,14 @@ export const installRefreshInternals = {
   decideInstallRefreshPolicy,
   requiresRefreshReview,
   isStageOnlyRefresh,
+  collectRefreshBundleAssetAllowlist,
   collectRefreshBundleIds,
   collectNativeRefreshExtensionIds,
   collectAppliedAssetActions,
   applyRefreshActionAnnotations,
   applyNativeRefreshes,
   applyBundleRefreshes,
+  normalizeBundleAssetAllowlist,
   buildInstallRefreshReport,
   writeInstallRefreshState,
   printInstallRefreshReport,

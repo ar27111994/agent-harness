@@ -429,7 +429,19 @@ void test("official index harvester resolves page repositories, caches them, and
   );
   assert.ok(
     firstReport.ambiguous.some((entry) =>
-      entry.candidates.includes("https://github.com/anthropics/multi-search"),
+      entry.candidates.some((candidate) => {
+        try {
+          const parsed = new URL(candidate);
+          const normalizedPath = parsed.pathname.replace(/\/+$/u, "");
+          return (
+            parsed.protocol === "https:" &&
+            parsed.hostname === "github.com" &&
+            normalizedPath === "/anthropics/multi-search"
+          );
+        } catch {
+          return false;
+        }
+      }),
     ),
   );
 

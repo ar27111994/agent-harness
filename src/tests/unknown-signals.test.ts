@@ -151,11 +151,20 @@ void test("unknown-signal report collects dependency buckets and dedupes repeate
 
     const report = await buildUnknownSignalReport(root);
 
-    const dependencySignal = report.signals.find(
+    const dependencySignals = report.signals.filter(
       (signal) => signal.category === "unfamiliar-package-dependency",
     );
-    assert.deepEqual(dependencySignal, {
-      id: "unfamiliar-package-dependency:package.json",
+    assert.deepEqual(
+      dependencySignals.map((signal) => signal.id),
+      [
+        "unfamiliar-package-dependency:package.json:@acme/devtool",
+        "unfamiliar-package-dependency:package.json:@acme/optional",
+        "unfamiliar-package-dependency:package.json:@acme/peer",
+        "unfamiliar-package-dependency:package.json:@acme/runtime",
+      ],
+    );
+    assert.deepEqual(dependencySignals[3], {
+      id: "unfamiliar-package-dependency:package.json:@acme/runtime",
       path: "package.json",
       fileName: "package.json",
       category: "unfamiliar-package-dependency",
@@ -168,7 +177,13 @@ void test("unknown-signal report collects dependency buckets and dedupes repeate
     });
     assert.deepEqual(
       report.signals.map((signal) => signal.suggestedNextAction).sort(),
-      ["add-signature", "needs-research"],
+      [
+        "add-signature",
+        "add-signature",
+        "add-signature",
+        "add-signature",
+        "needs-research",
+      ],
     );
     assert.deepEqual(
       unknownSignalInternals.dedupeSignals([

@@ -355,6 +355,8 @@ async function activateHost(
     host,
     generatedAt: new Date().toISOString(),
     generationId: currentGeneration?.generationId,
+    recommendationHost,
+    activationBudget,
     activeBundles: activeBundleIds,
     activeAssets: [...activeAssets].sort(),
     runtimeRoot: toPosixPath(runtimeRoot),
@@ -836,12 +838,13 @@ async function explainActivationState(
       join(projectRoot, "state", "recommendations.json"),
       assertRecommendationReport,
     );
-    const recommendationEntry = recommendationReport?.topByHost[host]?.find(
-      (entry) => entry.assetId === assetId,
-    );
+    const recommendationHost = activationManifest.recommendationHost ?? host;
+    const recommendationEntry = recommendationReport?.topByHost[
+      recommendationHost
+    ]?.find((entry) => entry.assetId === assetId);
     const suggestedBundle = recommendationReport?.suggestedBundles.find(
       (bundle) =>
-        bundle.host === host &&
+        bundle.host === recommendationHost &&
         (bundle.assetIds.includes(assetId) ||
           (bundle.budgetPrunedAssetIds?.includes(assetId) ?? false)),
     );
@@ -849,7 +852,9 @@ async function explainActivationState(
       (asset) => asset.assetId === assetId,
     );
     const activationBudget =
-      recommendationReport?.hostSummaries[host]?.activationBudget ??
+      activationManifest.activationBudget ??
+      recommendationReport?.hostSummaries[recommendationHost]
+        ?.activationBudget ??
       getActivationBudget(host);
     const isActive = activationManifest.activeAssets.includes(assetId);
     lines.push(`Host ${host}: ${isActive ? "active" : "not active"}`);

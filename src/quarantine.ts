@@ -300,7 +300,7 @@ function collectQuarantineTransitions(
     transitions.add("new-risky-asset");
   }
   if (
-    signals?.communityRisk ??
+    (signals?.communityRisk ?? false) ||
     entry.source.authorityTier === "unverified-community"
   ) {
     transitions.add("ownership-changed");
@@ -380,6 +380,9 @@ function suggestQuarantineAction(
 ): QuarantineStateEntry["suggestedAction"] {
   if (latestDecision?.action === "pinned") {
     return "pin";
+  }
+  if (latestDecision?.action === "rejected") {
+    return "keep-quarantined";
   }
   if (entry.status === "approved-with-warning") {
     return "approve";

@@ -26,6 +26,8 @@ void test("activate explain reports active and budget-pruned reasons", async (t)
         host: "copilot-vscode",
         generatedAt: new Date().toISOString(),
         generationId: "gen-1",
+        recommendationHost: "codex",
+        activationBudget: 7,
         activeBundles: ["copilot-core"],
         activeAssets: ["asset-a"],
         runtimeRoot: join(projectRoot, "activate", "copilot-vscode"),
@@ -46,13 +48,13 @@ void test("activate explain reports active and budget-pruned reasons", async (t)
         sessionIntent: "general",
         topByHost: {
           shared: [],
-          "copilot-vscode": [createRecommendationEntry("asset-a", 1, 2)],
+          "copilot-vscode": [],
           opencode: [],
           cursor: [],
           zed: [],
           "claude-code": [],
           pi: [],
-          codex: [],
+          codex: [createRecommendationEntry("asset-a", 1, 2)],
         },
         hostSummaries: {
           shared: createSummary("shared"),
@@ -66,7 +68,7 @@ void test("activate explain reports active and budget-pruned reasons", async (t)
         },
         suggestedBundles: [
           {
-            host: "copilot-vscode",
+            host: "codex",
             bundleId: "copilot-core",
             assetIds: ["asset-a"],
             estimatedPromptWeight: 2,
@@ -114,6 +116,7 @@ void test("activate explain reports active and budget-pruned reasons", async (t)
   const rendered = output.join("\n");
   assert.match(rendered, /Host copilot-vscode: active/u);
   assert.match(rendered, /recommendation: rank 1, score 10, prompt weight 2/u);
+  assert.match(rendered, /activation budget: 7/u);
   assert.match(rendered, /selected from staged bundle outputs/u);
   assert.match(rendered, /Host copilot-vscode: not active/u);
   assert.match(rendered, /remaining activation budget 0/u);
@@ -126,7 +129,7 @@ function createRecommendationEntry(
 ): RecommendationEntry {
   return {
     assetId,
-    host: "copilot-vscode",
+    host: "codex",
     rank,
     score: 10,
     reasons: ["fixture"],

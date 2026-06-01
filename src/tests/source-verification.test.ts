@@ -29,10 +29,19 @@ void test("official source verification demotes unverified or non-allowlisted of
     publisherOwner: "openai",
     publisherVerified: true,
   });
+  const sshUrlOfficial = buildSource("ssh-url", {
+    repo: "ssh://git@github.com/openai/codex.git",
+    publisherOwner: "openai",
+    publisherVerified: true,
+  });
   const allowlist = { openai: ["openai"] };
 
   assert.equal(
     verifySourceAuthority(verifiedOfficial, allowlist).effectiveAuthorityTier,
+    "official-first-party",
+  );
+  assert.equal(
+    verifySourceAuthority(sshUrlOfficial, allowlist).effectiveAuthorityTier,
     "official-first-party",
   );
   assert.equal(
@@ -97,6 +106,29 @@ void test("source registry applies deterministic official demotions", async () =
       registry.sources.find((source) => source.id === "unverified")
         ?.authorityTier,
       "official-compatible",
+    );
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("source verification rejects malformed official upstream owner maps", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-report-invalid-"),
+  );
+
+  try {
+    await writeJsonFile(
+      join(projectRoot, "discover", "official-upstreams.json"),
+      {
+        schemaVersion: 1,
+        owners: { openai: "openai" },
+      },
+    );
+
+    await assert.rejects(
+      buildSourceVerificationReport(projectRoot, []),
+      /owners\.openai must be an array of strings/u,
     );
   } finally {
     await rm(projectRoot, { recursive: true, force: true });

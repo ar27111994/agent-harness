@@ -1025,6 +1025,10 @@ function evaluateMirrorSafety(
     return { status: "quarantined", signals };
   }
 
+  if (signals.communityRisk) {
+    return { status: "quarantined", signals };
+  }
+
   if (signals.highRisk) {
     return {
       status: isOfficialFirstParty ? "approved-with-warning" : "quarantined",

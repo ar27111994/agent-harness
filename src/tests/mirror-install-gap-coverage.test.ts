@@ -1389,6 +1389,17 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       ["copilot-core"],
     );
     assert.deepEqual(
+      [
+        ...installRefreshInternals
+          .collectRefreshBundleAssetAllowlist(refreshActionReport, [
+            "apply",
+            "stage-only",
+          ])
+          .entries(),
+      ].map(([bundleId, assetIds]) => [bundleId, [...assetIds].sort()]),
+      [["copilot-core", ["refresh-apply", "refresh-stage"]]],
+    );
+    assert.deepEqual(
       installRefreshInternals
         .applyRefreshActionAnnotations(
           refreshActionReport,

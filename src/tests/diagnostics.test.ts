@@ -66,7 +66,10 @@ void test("install refresh policy diagnostic distinguishes review blocks from cl
   const message = formatActionableDiagnostic(diagnostic);
 
   assert.match(message, /Install refresh blocked by review policy/u);
-  assert.match(message, /2 asset\(s\) require review/u);
+  assert.match(
+    message,
+    /2 asset\(s\) require review, 1 asset\(s\) are quarantined, and 2 asset\(s\) are blocked/u,
+  );
   assert.match(message, /state\/install\/refresh-report.json/u);
   assert.match(message, /agent-harness quarantine inspect --asset <asset-id>/u);
 });

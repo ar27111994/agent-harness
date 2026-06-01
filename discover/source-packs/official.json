@@ -564,8 +564,7 @@
         "README.md",
         "SPEC.md",
         "plugins/**",
-        "**/plugin.json",
-        "**/*.md"
+        ".cursor-plugin/**"
       ],
       "excludePaths": [".github/**"]
     }

@@ -32,6 +32,15 @@ export function assertActivationManifest(
   if (record.generationId !== undefined) {
     assertString(record.generationId, `${context}.generationId`);
   }
+  if (record.recommendationHost !== undefined) {
+    assertHostTarget(
+      record.recommendationHost,
+      `${context}.recommendationHost`,
+    );
+  }
+  if (record.activationBudget !== undefined) {
+    assertNumber(record.activationBudget, `${context}.activationBudget`);
+  }
 }
 
 /**

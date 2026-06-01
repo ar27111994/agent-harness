@@ -337,7 +337,10 @@ function assertAllowedHostNativePath(
       break;
     case "codex":
       if (
-        [".codex/config.toml", ".codex/hooks.json"].includes(relativePath) ||
+        (relativePath === ".codex/config.toml" && payload.format === "text") ||
+        (relativePath === ".codex/hooks.json" &&
+          payload.format === "json" &&
+          mergeRequired) ||
         relativePath.startsWith(".codex/rules/") ||
         relativePath.startsWith(".agents/plugins/") ||
         relativePath.startsWith(".agents/skills/")
@@ -503,5 +506,6 @@ function isJsonObject(value: unknown): value is JsonObject {
  * Exposes pure native-config helpers for focused behavioral coverage.
  */
 export const nativeConfigInternals = {
+  assertAllowedHostNativePath,
   resolveWorkspacePath,
 };

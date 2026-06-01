@@ -132,7 +132,7 @@ void test("quarantine report shows rejected and pinned lifecycle decisions", asy
     );
     const pinned = report.entries.find((entry) => entry.assetId === "asset-2");
     assert.equal(rejected?.reason, "prompt injection");
-    assert.equal(rejected?.suggestedAction, "review");
+    assert.equal(rejected?.suggestedAction, "keep-quarantined");
     assert.ok(rejected?.transitions.includes("ownership-changed"));
     assert.ok(rejected?.transitions.includes("review-rejected"));
     assert.equal(pinned?.reason, "await ownership proof");
@@ -165,6 +165,20 @@ void test("quarantine derives signal- and evidence-based lifecycle transitions",
         authorityTier: "trusted-community",
         status: "quarantined",
       }),
+      buildMirrorEntry(
+        "asset-community-fallback",
+        "sha256-community-fallback",
+        {
+          authorityTier: "unverified-community",
+          status: "quarantined",
+          quarantineSignals: {
+            promptInjection: false,
+            executableRisk: false,
+            communityRisk: false,
+            highRisk: false,
+          },
+        },
+      ),
       buildMirrorEntry("asset-dup", "sha256-dup-official", {
         authorityTier: "official-first-party",
         status: "approved",
@@ -215,6 +229,11 @@ void test("quarantine derives signal- and evidence-based lifecycle transitions",
     assert.ok(
       dupCommunity?.transitions.includes(
         "official-duplicate-supersedes-community",
+      ),
+    );
+    assert.ok(
+      byAsset("asset-community-fallback")?.transitions.includes(
+        "ownership-changed",
       ),
     );
     const installed = byAsset("asset-installed");

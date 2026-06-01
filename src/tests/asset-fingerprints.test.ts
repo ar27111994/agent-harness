@@ -101,6 +101,21 @@ void test("asset lifecycle fingerprints are stable and include mirror trust stat
     unversioned.canonicalUpstreamIdentity,
     "docs|https://docs.example.com/tool|unversioned",
   );
+
+  const mixedCasePath = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-case-path", { duplicateGroup: undefined }),
+    {
+      ...mirror,
+      upstream: {
+        type: "docs",
+        url: "HTTPS://EXAMPLE.COM/Acme/Tool/Guide/",
+      },
+    },
+  );
+  assert.equal(
+    mixedCasePath.canonicalUpstreamIdentity,
+    "docs|https://example.com/Acme/Tool/Guide|unversioned",
+  );
   assert.equal(first.trustTier, "trusted-community");
   assert.equal(first.quarantineState, "quarantined");
   assert.deepEqual(first.hosts, ["cursor", "opencode"]);

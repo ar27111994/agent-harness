@@ -554,6 +554,10 @@ async function resolveOfficialRepoUrl(input: {
     return cachedEntry.repoUrl;
   }
 
+  if (hasRecordedOfficialUpstreamResolution(input.resolutionState, key)) {
+    return undefined;
+  }
+
   const fallbackRepoUrl = input.fallbackCandidates.get(key);
   if (fallbackRepoUrl) {
     return recordResolvedOfficialRepoUrl(input.resolutionState, {
@@ -717,6 +721,23 @@ function recordResolvedOfficialRepoUrl(
     source: input.source,
   });
   return repoUrl;
+}
+
+function hasRecordedOfficialUpstreamResolution(
+  resolutionState: OfficialUpstreamResolutionState,
+  key: string,
+): boolean {
+  return (
+    resolutionState.resolved.some(
+      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+    ) ||
+    resolutionState.unresolved.some(
+      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+    ) ||
+    resolutionState.ambiguous.some(
+      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+    )
+  );
 }
 
 function recordResolvedOfficialUpstream(

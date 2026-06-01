@@ -594,9 +594,10 @@ async function runDiscoveryBreadth(
     workingDirectory,
     projectRoot,
   );
-  logDiscoverPhase("discover breadth", 2, 5, "Syncing indexed sources");
+  logDiscoverPhase("discover breadth", 2, 5, "Refreshing source index");
+  await generateSourceIndex(projectRoot);
+  logDiscoverPhase("discover breadth", 3, 5, "Syncing indexed sources");
   await syncIndexedSources(projectRoot);
-  logDiscoverPhase("discover breadth", 3, 5, "Refreshing source index");
   const sourceIndex = await generateSourceIndex(projectRoot);
   logDiscoverPhase("discover breadth", 4, 5, "Building discovery catalog");
   const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);

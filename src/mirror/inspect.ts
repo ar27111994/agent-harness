@@ -144,7 +144,7 @@ export async function explainBundleLock(
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
     assertAssetCatalogEntry,
-  );
+  ).catch(() => []);
   const selectedById = new Map(
     selectedEntries.map((entry) => [entry.id, entry] as const),
   );

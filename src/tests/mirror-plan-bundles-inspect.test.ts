@@ -501,10 +501,6 @@ void test("explainBundleLock renders unknown trust when no catalog or mirror ent
       } satisfies BundleLock,
     );
     await writeJsonLinesFile(
-      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-      [],
-    );
-    await writeJsonLinesFile(
       join(projectRoot, "discover", "output", "catalog.rejected.jsonl"),
       [],
     );

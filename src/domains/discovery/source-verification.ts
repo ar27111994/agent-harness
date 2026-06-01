@@ -7,6 +7,37 @@ interface OfficialUpstreamsConfig {
   owners?: Record<string, string[]>;
 }
 
+function assertOfficialUpstreamsConfig(
+  value: unknown,
+): asserts value is OfficialUpstreamsConfig {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("discover/official-upstreams.json must be an object");
+  }
+
+  const owners = (value as { owners?: unknown }).owners;
+  if (owners === undefined) {
+    return;
+  }
+  if (owners === null || typeof owners !== "object" || Array.isArray(owners)) {
+    throw new Error(
+      "discover/official-upstreams.json owners must be an object",
+    );
+  }
+
+  for (const [key, entries] of Object.entries(
+    owners as Record<string, unknown>,
+  )) {
+    if (
+      !Array.isArray(entries) ||
+      entries.some((entry) => typeof entry !== "string")
+    ) {
+      throw new Error(
+        `discover/official-upstreams.json owners.${key} must be an array of strings`,
+      );
+    }
+  }
+}
+
 /**
  * Describes source trust verification for one configured source.
  */
@@ -58,12 +89,13 @@ export async function buildSourceVerificationReport(
   projectRoot: string,
   sources: SourceDefinition[],
 ): Promise<SourceVerificationReport> {
-  const officialUpstreams =
-    (
-      await readJsonFileOrNull<OfficialUpstreamsConfig>(
-        join(projectRoot, "discover", "official-upstreams.json"),
-      )
-    )?.owners ?? {};
+  const officialUpstreamsConfig = await readJsonFileOrNull<unknown>(
+    join(projectRoot, "discover", "official-upstreams.json"),
+  );
+  if (officialUpstreamsConfig !== null) {
+    assertOfficialUpstreamsConfig(officialUpstreamsConfig);
+  }
+  const officialUpstreams = officialUpstreamsConfig?.owners ?? {};
   const entries = sources.map((source) =>
     verifySourceAuthority(source, officialUpstreams),
   );
@@ -190,6 +222,13 @@ function getGitHubRepoOwner(repoUrl: string | undefined): string | undefined {
   const httpsMatch = /^https:\/\/github\.com\/([^/]+)\/[^/]+/iu.exec(repoUrl);
   if (httpsMatch?.[1]) {
     return httpsMatch[1];
+  }
+
+  const sshUrlMatch = /^ssh:\/\/git@github\.com\/([^/]+)\/[^/]+/iu.exec(
+    repoUrl,
+  );
+  if (sshUrlMatch?.[1]) {
+    return sshUrlMatch[1];
   }
 
   const sshMatch = /^git@github\.com:([^/]+)\/[^/]+/iu.exec(repoUrl);
