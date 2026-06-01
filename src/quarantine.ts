@@ -152,6 +152,7 @@ async function reviewQuarantinedAsset(
       publisher: entry.source.publisher,
       publisherVerified: entry.source.publisherVerified,
       contentHash: entry.contentHash,
+      promptInjection: entry.quarantineSignals?.promptInjection,
     },
   };
   const previousDecisions = await readQuarantineReviewDecisions(projectRoot);
@@ -331,7 +332,8 @@ function collectQuarantineTransitions(
     if (
       !signals?.promptInjection &&
       SAFE_MIRROR_STATUSES.has(entry.status) &&
-      decision.evidence.previousStatus === "quarantined"
+      decision.evidence.previousStatus === "quarantined" &&
+      decision.evidence.promptInjection === true
     ) {
       transitions.add("prompt-injection-cleared");
     }

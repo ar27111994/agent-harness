@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import test from "node:test";
 
 import {
@@ -455,7 +455,14 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             },
           ],
         );
-        assert.match(codexHooksManifest.hooks[0]?.source ?? "", /hook\.md$/u);
+        assert.match(
+          codexHooksManifest.hooks[0]?.source ?? "",
+          /^\.\.\/\.\.\/\.\.\/\.\.\/\.codex\/agent-harness\/assets\/hooks\/cursor-hook-[a-f0-9]+\/hook\.md$/u,
+        );
+        assert.equal(
+          isAbsolute(codexHooksManifest.hooks[0]?.source ?? ""),
+          false,
+        );
       }
 
       await wireNativeHost(host, {

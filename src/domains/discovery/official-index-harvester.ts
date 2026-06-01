@@ -98,8 +98,12 @@ interface OfficialUpstreamResolutionReport {
   }>;
 }
 
+type OfficialUpstreamResolutionKind = "resolved" | "unresolved" | "ambiguous";
+
 interface OfficialUpstreamResolutionState {
   cache: Map<string, OfficialUpstreamCacheShape["entries"][number]>;
+  recordedOfficialKeys: Set<string>;
+  recordedOfficialKeyKinds: Map<string, OfficialUpstreamResolutionKind>;
   resolved: OfficialUpstreamResolutionReport["resolved"];
   unresolved: OfficialUpstreamResolutionReport["unresolved"];
   ambiguous: OfficialUpstreamResolutionReport["ambiguous"];
@@ -727,17 +731,7 @@ function hasRecordedOfficialUpstreamResolution(
   resolutionState: OfficialUpstreamResolutionState,
   key: string,
 ): boolean {
-  return (
-    resolutionState.resolved.some(
-      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
-    ) ||
-    resolutionState.unresolved.some(
-      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
-    ) ||
-    resolutionState.ambiguous.some(
-      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
-    )
-  );
+  return resolutionState.recordedOfficialKeys.has(key);
 }
 
 function recordResolvedOfficialUpstream(
@@ -751,18 +745,19 @@ function recordResolvedOfficialUpstream(
   },
 ): void {
   const key = buildOfficialUpstreamKey(input.owner, input.slug);
-  resolutionState.unresolved = resolutionState.unresolved.filter(
-    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) !== key,
-  );
-  resolutionState.ambiguous = resolutionState.ambiguous.filter(
-    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) !== key,
-  );
-  if (
-    resolutionState.resolved.some(
-      (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
-    )
-  ) {
+  const recordedKind = resolutionState.recordedOfficialKeyKinds.get(key);
+  if (recordedKind === "resolved") {
     return;
+  }
+  if (recordedKind === "unresolved") {
+    resolutionState.unresolved = resolutionState.unresolved.filter(
+      (entry) => !hasOfficialUpstreamKey(entry, key),
+    );
+  }
+  if (recordedKind === "ambiguous") {
+    resolutionState.ambiguous = resolutionState.ambiguous.filter(
+      (entry) => !hasOfficialUpstreamKey(entry, key),
+    );
   }
 
   resolutionState.resolved.push({
@@ -772,6 +767,7 @@ function recordResolvedOfficialUpstream(
     repoUrl: input.repoUrl,
     source: input.source,
   });
+  recordOfficialUpstreamKey(resolutionState, key, "resolved");
 }
 
 function markResolvedSourceId(
@@ -781,8 +777,8 @@ function markResolvedSourceId(
   sourceId: string,
 ): void {
   const key = buildOfficialUpstreamKey(owner, slug);
-  const resolvedEntry = resolutionState.resolved.find(
-    (entry) => buildOfficialUpstreamKey(entry.owner, entry.slug) === key,
+  const resolvedEntry = resolutionState.resolved.find((entry) =>
+    hasOfficialUpstreamKey(entry, key),
   );
   if (resolvedEntry) {
     resolvedEntry.sourceId = sourceId;
@@ -794,24 +790,12 @@ function recordUnresolvedOfficialUpstream(
   entry: OfficialUpstreamResolutionReport["unresolved"][number],
 ): void {
   const key = buildOfficialUpstreamKey(entry.owner, entry.slug);
-  if (
-    resolutionState.resolved.some(
-      (resolvedEntry) =>
-        buildOfficialUpstreamKey(resolvedEntry.owner, resolvedEntry.slug) ===
-        key,
-    ) ||
-    resolutionState.unresolved.some(
-      (unresolvedEntry) =>
-        buildOfficialUpstreamKey(
-          unresolvedEntry.owner,
-          unresolvedEntry.slug,
-        ) === key,
-    )
-  ) {
+  if (resolutionState.recordedOfficialKeys.has(key)) {
     return;
   }
 
   resolutionState.unresolved.push(entry);
+  recordOfficialUpstreamKey(resolutionState, key, "unresolved");
 }
 
 function recordAmbiguousOfficialUpstream(
@@ -819,22 +803,71 @@ function recordAmbiguousOfficialUpstream(
   entry: OfficialUpstreamResolutionReport["ambiguous"][number],
 ): void {
   const key = buildOfficialUpstreamKey(entry.owner, entry.slug);
-  if (
-    resolutionState.resolved.some(
-      (resolvedEntry) =>
-        buildOfficialUpstreamKey(resolvedEntry.owner, resolvedEntry.slug) ===
-        key,
-    ) ||
-    resolutionState.ambiguous.some(
-      (ambiguousEntry) =>
-        buildOfficialUpstreamKey(ambiguousEntry.owner, ambiguousEntry.slug) ===
-        key,
-    )
-  ) {
+  if (resolutionState.recordedOfficialKeys.has(key)) {
     return;
   }
 
   resolutionState.ambiguous.push(entry);
+  recordOfficialUpstreamKey(resolutionState, key, "ambiguous");
+}
+
+function createOfficialUpstreamResolutionState(input: {
+  cache?: Map<string, OfficialUpstreamCacheShape["entries"][number]>;
+  resolved?: OfficialUpstreamResolutionReport["resolved"];
+  unresolved?: OfficialUpstreamResolutionReport["unresolved"];
+  ambiguous?: OfficialUpstreamResolutionReport["ambiguous"];
+}): OfficialUpstreamResolutionState {
+  const cache = new Map<
+    string,
+    OfficialUpstreamCacheShape["entries"][number]
+  >();
+  const resolutionState: OfficialUpstreamResolutionState = {
+    cache: input.cache ?? cache,
+    recordedOfficialKeys: new Set(),
+    recordedOfficialKeyKinds: new Map(),
+    resolved: input.resolved ?? [],
+    unresolved: input.unresolved ?? [],
+    ambiguous: input.ambiguous ?? [],
+  };
+  for (const entry of resolutionState.resolved) {
+    recordOfficialUpstreamKey(
+      resolutionState,
+      buildOfficialUpstreamKey(entry.owner, entry.slug),
+      "resolved",
+    );
+  }
+  for (const entry of resolutionState.unresolved) {
+    recordOfficialUpstreamKey(
+      resolutionState,
+      buildOfficialUpstreamKey(entry.owner, entry.slug),
+      "unresolved",
+    );
+  }
+  for (const entry of resolutionState.ambiguous) {
+    recordOfficialUpstreamKey(
+      resolutionState,
+      buildOfficialUpstreamKey(entry.owner, entry.slug),
+      "ambiguous",
+    );
+  }
+
+  return resolutionState;
+}
+
+function recordOfficialUpstreamKey(
+  resolutionState: OfficialUpstreamResolutionState,
+  key: string,
+  kind: OfficialUpstreamResolutionKind,
+): void {
+  resolutionState.recordedOfficialKeys.add(key);
+  resolutionState.recordedOfficialKeyKinds.set(key, kind);
+}
+
+function hasOfficialUpstreamKey(
+  entry: { owner: string; slug: string },
+  key: string,
+): boolean {
+  return buildOfficialUpstreamKey(entry.owner, entry.slug) === key;
 }
 
 async function loadOfficialUpstreamResolutionState(
@@ -844,17 +877,14 @@ async function loadOfficialUpstreamResolutionState(
     join(projectRoot, ...OFFICIAL_UPSTREAM_CACHE_STATE_PATH),
   );
 
-  return {
+  return createOfficialUpstreamResolutionState({
     cache: new Map(
       (cache?.entries ?? []).map((entry) => [
         buildOfficialUpstreamKey(entry.owner, entry.slug),
         entry,
       ]),
     ),
-    resolved: [],
-    unresolved: [],
-    ambiguous: [],
-  };
+  });
 }
 
 async function writeOfficialUpstreamResolutionState(
@@ -980,9 +1010,11 @@ function isAllowedOfficialRepoOwner(
  */
 export const officialIndexHarvesterInternals = {
   buildOfficialUpstreamKey,
+  createOfficialUpstreamResolutionState,
   extractOfficialSkillRepoUrls,
   normalizeGitHubRepositoryUrl,
   recordAmbiguousOfficialUpstream,
+  recordResolvedOfficialUpstream,
   recordUnresolvedOfficialUpstream,
   resolveOfficialRepoUrl,
   searchOfficialRepoCandidates,

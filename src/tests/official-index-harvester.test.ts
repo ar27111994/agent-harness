@@ -559,12 +559,10 @@ void test("official index resolution helpers reject malformed search and duplica
       fallbackCandidates: new Map(),
       officialUrl: "https://officialskills.sh/anthropics/skills/page-resolved",
       owner: "anthropics",
-      resolutionState: {
-        cache: new Map(),
-        resolved: [],
-        unresolved: [],
-        ambiguous: [],
-      },
+      resolutionState:
+        officialIndexHarvesterInternals.createOfficialUpstreamResolutionState(
+          {},
+        ),
       slug: "page-resolved",
     }),
     "https://github.com/anthropics/page-resolved",
@@ -575,50 +573,48 @@ void test("official index resolution helpers reject malformed search and duplica
       fallbackCandidates: new Map(),
       officialUrl: "https://officialskills.sh/anthropics/skills/bad-page",
       owner: "anthropics",
-      resolutionState: {
-        cache: new Map(),
-        resolved: [],
-        unresolved: [],
-        ambiguous: [],
-      },
+      resolutionState:
+        officialIndexHarvesterInternals.createOfficialUpstreamResolutionState(
+          {},
+        ),
       slug: "bad-page",
     }),
     undefined,
   );
 
-  const resolutionState = {
-    cache: new Map(),
-    resolved: [
-      {
-        owner: "anthropics",
-        slug: "already-resolved",
-        officialUrl:
-          "https://officialskills.sh/anthropics/skills/already-resolved",
-        repoUrl: "https://github.com/anthropics/already-resolved",
-        source: "index" as const,
-      },
-    ],
-    unresolved: [
-      {
-        owner: "anthropics",
-        slug: "already-unresolved",
-        officialUrl:
-          "https://officialskills.sh/anthropics/skills/already-unresolved",
-        reason: "fixture",
-        attemptedFallbacks: ["fixture"],
-      },
-    ],
-    ambiguous: [
-      {
-        owner: "anthropics",
-        slug: "already-ambiguous",
-        officialUrl:
-          "https://officialskills.sh/anthropics/skills/already-ambiguous",
-        candidates: ["https://github.com/anthropics/one"],
-        reason: "fixture",
-      },
-    ],
-  };
+  const resolutionState =
+    officialIndexHarvesterInternals.createOfficialUpstreamResolutionState({
+      resolved: [
+        {
+          owner: "anthropics",
+          slug: "already-resolved",
+          officialUrl:
+            "https://officialskills.sh/anthropics/skills/already-resolved",
+          repoUrl: "https://github.com/anthropics/already-resolved",
+          source: "index" as const,
+        },
+      ],
+      unresolved: [
+        {
+          owner: "anthropics",
+          slug: "already-unresolved",
+          officialUrl:
+            "https://officialskills.sh/anthropics/skills/already-unresolved",
+          reason: "fixture",
+          attemptedFallbacks: ["fixture"],
+        },
+      ],
+      ambiguous: [
+        {
+          owner: "anthropics",
+          slug: "already-ambiguous",
+          officialUrl:
+            "https://officialskills.sh/anthropics/skills/already-ambiguous",
+          candidates: ["https://github.com/anthropics/one"],
+          reason: "fixture",
+        },
+      ],
+    });
 
   assert.equal(
     await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
@@ -691,6 +687,31 @@ void test("official index resolution helpers reject malformed search and duplica
   );
   assert.equal(resolutionState.unresolved.length, 1);
   assert.equal(resolutionState.ambiguous.length, 1);
+  officialIndexHarvesterInternals.recordResolvedOfficialUpstream(
+    resolutionState,
+    {
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-unresolved",
+      owner: "anthropics",
+      repoUrl: "https://github.com/anthropics/already-unresolved",
+      slug: "already-unresolved",
+      source: "search",
+    },
+  );
+  officialIndexHarvesterInternals.recordResolvedOfficialUpstream(
+    resolutionState,
+    {
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-ambiguous",
+      owner: "anthropics",
+      repoUrl: "https://github.com/anthropics/already-ambiguous",
+      slug: "already-ambiguous",
+      source: "page",
+    },
+  );
+  assert.equal(resolutionState.unresolved.length, 0);
+  assert.equal(resolutionState.ambiguous.length, 0);
+  assert.equal(resolutionState.resolved.length, 3);
 
   assert.equal(
     officialIndexHarvesterInternals.extractOfficialSkillRepoUrls(
@@ -704,12 +725,8 @@ void test("official index resolution helpers reject malformed search and duplica
     0,
   );
 
-  const fallbackResolutionState = {
-    cache: new Map(),
-    resolved: [],
-    unresolved: [],
-    ambiguous: [],
-  };
+  const fallbackResolutionState =
+    officialIndexHarvesterInternals.createOfficialUpstreamResolutionState({});
   assert.equal(
     await officialIndexHarvesterInternals.resolveOfficialRepoUrl({
       allowlist: { anthropics: ["anthropics"] },

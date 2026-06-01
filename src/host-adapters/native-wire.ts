@@ -903,6 +903,7 @@ async function writeCodexNativeFiles(options: {
       buildCodexHooksManifest(
         options.nativeAssets,
         options.materializedAssets.hookFiles,
+        join(codexPluginRoot, codexPluginManifest.hooks),
       ),
     );
   }
@@ -975,7 +976,9 @@ function buildCodexPluginManifest(nativeAssets: NativeAsset[]): JsonObject {
 function buildCodexHooksManifest(
   nativeAssets: NativeAsset[],
   hookFiles: readonly string[],
+  manifestPath?: string,
 ): JsonObject {
+  const manifestDirectory = manifestPath ? dirname(manifestPath) : undefined;
   const hookAssets = nativeAssets.filter(
     (nativeAsset) => nativeAsset.assetKind === "hook",
   );
@@ -984,9 +987,28 @@ function buildCodexHooksManifest(
     hooks: hookAssets.map((nativeAsset, index) => ({
       name: nativeAsset.assetId,
       description: nativeAsset.displayName,
-      source: hookFiles[index] ?? nativeAsset.assetId,
+      source: buildCodexHookSource(
+        hookFiles[index],
+        nativeAsset.assetId,
+        manifestDirectory,
+      ),
     })),
   };
+}
+
+function buildCodexHookSource(
+  hookFile: string | undefined,
+  fallback: string,
+  manifestDirectory: string | undefined,
+): string {
+  if (!hookFile) {
+    return fallback;
+  }
+  if (!manifestDirectory) {
+    return hookFile;
+  }
+
+  return toPosixPath(relative(manifestDirectory, hookFile));
 }
 
 function isNamedJsonObject(value: unknown, name: string): boolean {

@@ -40,6 +40,7 @@ export interface QuarantineReviewDecision {
     publisher: string;
     publisherVerified: boolean;
     contentHash: string;
+    promptInjection?: boolean;
   };
 }
 

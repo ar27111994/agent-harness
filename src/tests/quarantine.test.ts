@@ -190,8 +190,12 @@ void test("quarantine derives signal- and evidence-based lifecycle transitions",
           { host: "copilot-vscode", projectionType: "adapted-skill" },
         ],
       }),
-      // Promotion out of quarantine: previously quarantined, now approved.
+      // Promotion out of quarantine: previously prompt-injected, now approved.
       buildMirrorEntry("asset-cleared", "sha256-cleared", {
+        status: "approved",
+      }),
+      // Promotion out of quarantine without prior prompt-injection evidence.
+      buildMirrorEntry("asset-clean-review", "sha256-clean-review", {
         status: "approved",
       }),
     ]);
@@ -203,6 +207,12 @@ void test("quarantine derives signal- and evidence-based lifecycle transitions",
         nextStatus: "quarantined",
       }),
       buildReviewDecision("asset-cleared", "sha256-cleared", {
+        action: "approved",
+        previousStatus: "quarantined",
+        nextStatus: "approved",
+        promptInjection: true,
+      }),
+      buildReviewDecision("asset-clean-review", "sha256-clean-review", {
         action: "approved",
         previousStatus: "quarantined",
         nextStatus: "approved",
@@ -243,6 +253,12 @@ void test("quarantine derives signal- and evidence-based lifecycle transitions",
       byAsset("asset-cleared")?.transitions.includes(
         "prompt-injection-cleared",
       ),
+    );
+    assert.equal(
+      byAsset("asset-clean-review")?.transitions.includes(
+        "prompt-injection-cleared",
+      ),
+      false,
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -318,6 +334,7 @@ function buildReviewDecision(
     action: string;
     previousStatus: string;
     nextStatus: string;
+    promptInjection?: boolean;
   },
 ): Record<string, unknown> {
   return {
@@ -335,6 +352,7 @@ function buildReviewDecision(
       publisher: "example",
       publisherVerified: false,
       contentHash: `hash-${mirrorId}`,
+      promptInjection: overrides.promptInjection,
     },
   };
 }

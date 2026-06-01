@@ -507,8 +507,15 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
             content: "# Hook\n",
             displayName: "Hook Without File",
           },
+          {
+            assetId: "hook-with-file",
+            assetKind: "hook",
+            compatibilityMode: "adaptable",
+            content: "# Hook\n",
+            displayName: "Hook With File",
+          },
         ],
-        [],
+        [join(root, "hook.md")],
       ),
       {
         schemaVersion: 1,
@@ -516,7 +523,12 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
           {
             name: "hook-without-file",
             description: "Hook Without File",
-            source: "hook-without-file",
+            source: join(root, "hook.md"),
+          },
+          {
+            name: "hook-with-file",
+            description: "Hook With File",
+            source: "hook-with-file",
           },
         ],
       },
