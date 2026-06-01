@@ -35,6 +35,8 @@ import {
 } from "../manifest-validation.js";
 import type {
   AssetCatalogEntry,
+  AssetKind,
+  AuthorityTier,
   BundleLock,
   InstallGenerationManifest,
   InstallProgressState,
@@ -63,16 +65,16 @@ import {
 import { INSTALL_HOSTS } from "./utils.js";
 
 const MAX_REFRESH_BATCHES = 200;
-const RISKY_EXECUTABLE_ASSET_KINDS = new Set([
+const RISKY_EXECUTABLE_ASSET_KINDS = new Set<AssetKind>([
   "extension",
   "hook",
   "mcp-server",
   "plugin",
-] as const);
-const REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS = new Set([
+]);
+const REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS = new Set<AuthorityTier>([
   "trusted-community",
   "unverified-community",
-] as const);
+]);
 const INSTALL_REFRESH_POLICIES = [
   "manual",
   "report-only",
@@ -668,12 +670,8 @@ function requiresRefreshReview(
     return true;
   }
   if (
-    RISKY_EXECUTABLE_ASSET_KINDS.has(
-      latestCatalogEntry.assetKind as "extension" | "hook" | "mcp-server" | "plugin",
-    ) &&
-    REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS.has(
-      latestMirrorEntry.source.authorityTier as "trusted-community" | "unverified-community",
-    )
+    RISKY_EXECUTABLE_ASSET_KINDS.has(latestCatalogEntry.assetKind) &&
+    REVIEW_REQUIRED_RISKY_AUTHORITY_TIERS.has(latestMirrorEntry.source.authorityTier)
   ) {
     return true;
   }
@@ -696,11 +694,7 @@ function isStageOnlyRefresh(
   if (!manifest || !latestCatalogEntry) {
     return false;
   }
-  if (
-    RISKY_EXECUTABLE_ASSET_KINDS.has(
-      latestCatalogEntry.assetKind as "extension" | "hook" | "mcp-server" | "plugin",
-    )
-  ) {
+  if (RISKY_EXECUTABLE_ASSET_KINDS.has(latestCatalogEntry.assetKind)) {
     return true;
   }
   if (manifest.activationEligible || latestCatalogEntry.status.activationEligible) {
@@ -930,4 +924,3 @@ export const installRefreshInternals = {
  * Exposes the supported install refresh policy values for CLI/config validation.
  */
 export const installRefreshPolicies = [...INSTALL_REFRESH_POLICIES];
-

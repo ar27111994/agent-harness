@@ -1139,39 +1139,9 @@ async function resetNativeHost(
       );
       return;
     case "codex":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "AGENTS.md"),
+      await cleanupCodexNativeFiles(
+        workspaceRoot,
         previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "AGENTS.md"),
-            "agent-harness-codex",
-          ),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "skills", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents", "plugins"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents", "skills"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".codex"),
-        workspaceRoot,
       );
       return;
   }
@@ -1292,42 +1262,45 @@ async function cleanupFailedNativeHostApply(
       );
       return;
     case "codex":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "AGENTS.md"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "AGENTS.md"),
-            "agent-harness-codex",
-          ),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "skills", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents", "plugins"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents", "skills"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".agents"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".codex"),
-        workspaceRoot,
-      );
+      await cleanupCodexNativeFiles(workspaceRoot, textFileSnapshots);
       return;
   }
+}
+
+async function cleanupCodexNativeFiles(
+  workspaceRoot: string,
+  textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
+): Promise<void> {
+  await restoreManagedTextFileSnapshot(
+    join(workspaceRoot, "AGENTS.md"),
+    textFileSnapshots,
+    () =>
+      removeManagedSectionFile(
+        join(workspaceRoot, "AGENTS.md"),
+        "agent-harness-codex",
+      ),
+  );
+  await removePath(join(workspaceRoot, ".agents", "skills", "agent-harness"));
+  await removePath(join(workspaceRoot, ".agents", "plugins", "agent-harness"));
+  await removePath(
+    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".agents", "plugins"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".agents", "skills"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".agents"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".codex"),
+    workspaceRoot,
+  );
 }
 
 function resolveManagedTextFileSnapshotPaths(
