@@ -300,6 +300,17 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
           join(fixture.workspaceRoot, "AGENTS.md"),
           "Existing AGENTS\n",
         );
+        await writeJsonFile(
+          join(fixture.workspaceRoot, ".agents", "plugins", "marketplace.json"),
+          {
+            schemaVersion: 2,
+            plugins: [
+              { name: "existing", path: "./existing" },
+              { name: "agent-harness", path: "./stale-agent-harness" },
+              "ignored malformed entry",
+            ],
+          },
+        );
       }
 
       await wireNativeHost(host, {
@@ -393,6 +404,26 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             description: "Project-local Agent Harness assets for OpenAI Codex.",
             skills: "./skills",
             hooks: "./hooks/hooks.json",
+          },
+        );
+        assert.deepEqual(
+          JSON.parse(
+            await readFile(
+              join(
+                fixture.workspaceRoot,
+                ".agents",
+                "plugins",
+                "marketplace.json",
+              ),
+              "utf8",
+            ),
+          ),
+          {
+            schemaVersion: 2,
+            plugins: [
+              { name: "existing", path: "./existing" },
+              { name: "agent-harness", path: "./agent-harness" },
+            ],
           },
         );
         const codexHooksManifest = JSON.parse(

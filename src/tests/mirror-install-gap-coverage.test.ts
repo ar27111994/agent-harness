@@ -711,6 +711,38 @@ void test("install bundle edge paths reject malformed manifests and skip missing
 
     await installBundles(projectRoot, ["--bundle", "copilot-core"]);
     assert.match(stderr.join(""), /mirror source material missing/u);
+    const assetManifestsRoot = join(
+      projectRoot,
+      "install",
+      "copilot-vscode",
+      "packages",
+    );
+    await installBundles(projectRoot, [
+      "--bundle",
+      "copilot-core",
+      "--asset",
+      skillAsset.id,
+    ]);
+    assert.equal(
+      await pathExists(
+        join(
+          assetManifestsRoot,
+          sanitizeAssetId(extensionAsset.id),
+          "install-manifest.json",
+        ),
+      ),
+      true,
+    );
+    assert.equal(
+      await pathExists(
+        join(
+          assetManifestsRoot,
+          sanitizeAssetId(skillAsset.id),
+          "install-manifest.json",
+        ),
+      ),
+      true,
+    );
     const extensionManifest = await readJsonFile<InstalledPackageManifest>(
       join(
         projectRoot,

@@ -296,26 +296,54 @@ void test("github harvesting filters unclassified blobs from injected snapshots"
   assert.match(warnings[0] ?? "", /plain github failure/u);
 });
 
-void test("local directory harvesting skips unreadable classified files", async () => {
+void test("local directory harvesting covers unreadable and frontmatter classified files", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-local-null-read-"));
 
   try {
     const skillPath = join(root, "skills", "fixture", "SKILL.md");
+    const frontmatterSkillPath = join(
+      root,
+      "skills",
+      "frontmatter",
+      "SKILL.md",
+    );
     await mkdir(join(root, "skills", "fixture"), { recursive: true });
+    await mkdir(join(root, "skills", "frontmatter"), { recursive: true });
     await writeFile(skillPath, "# Fixture\n", "utf8");
+    await writeFile(frontmatterSkillPath, "# Frontmatter Fixture\n", "utf8");
 
+    const source = buildSource("local-claude-code-config", root);
     const entries = await harvestLocalDirectorySource(
-      buildSource("local-claude-code-config", root),
+      source,
       null,
       buildSelectionRegistry(),
       root,
-      async () => null,
+      async (filePath) => {
+        if (filePath === skillPath) {
+          return null;
+        }
+        return [
+          "---",
+          "assetKind: skill",
+          "---",
+          "# Frontmatter Fixture",
+          "",
+          "Body",
+          "",
+        ].join("\n");
+      },
     );
 
-    assert.deepEqual(entries, []);
+    assert.equal(entries.length, 1);
+    const classification = entries[0]!.evidence.classification!;
+    assert.equal(classification.level, "strong");
+    assert.equal(
+      classification.evidence[0]?.detail,
+      "frontmatter supplied classification metadata",
+    );
     assert.equal(
       localHarvesterInternals.classifyLocalDirectoryFile(
-        buildSource("local-claude-code-config", root),
+        source,
         "skills/fixture/SKILL.md",
       )?.assetKind,
       "skill",
@@ -655,7 +683,7 @@ function buildSource(id: string, endpoint: string): SourceDefinition {
     priority: 100,
     enabled: true,
     endpoints: id.startsWith("local-")
-      ? { path: endpoint }
+      ? { path: endpoint, directory: endpoint }
       : { baseUrl: endpoint },
     rules: {
       officialPreferred: true,

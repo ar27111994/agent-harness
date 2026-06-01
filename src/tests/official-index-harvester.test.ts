@@ -656,6 +656,39 @@ void test("official index resolution helpers reject malformed search and duplica
     }),
     undefined,
   );
+  officialIndexHarvesterInternals.recordUnresolvedOfficialUpstream(
+    resolutionState,
+    {
+      attemptedFallbacks: [],
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-resolved",
+      owner: "anthropics",
+      reason: "already resolved",
+      slug: "already-resolved",
+    },
+  );
+  officialIndexHarvesterInternals.recordAmbiguousOfficialUpstream(
+    resolutionState,
+    {
+      candidates: ["https://github.com/anthropics/already-resolved"],
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-resolved",
+      owner: "anthropics",
+      reason: "already resolved",
+      slug: "already-resolved",
+    },
+  );
+  officialIndexHarvesterInternals.recordAmbiguousOfficialUpstream(
+    resolutionState,
+    {
+      candidates: ["https://github.com/anthropics/two"],
+      officialUrl:
+        "https://officialskills.sh/anthropics/skills/already-ambiguous",
+      owner: "anthropics",
+      reason: "already ambiguous",
+      slug: "already-ambiguous",
+    },
+  );
   assert.equal(resolutionState.unresolved.length, 1);
   assert.equal(resolutionState.ambiguous.length, 1);
 

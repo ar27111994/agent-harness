@@ -112,26 +112,63 @@ void test("source registry applies deterministic official demotions", async () =
   }
 });
 
-void test("source verification rejects malformed official upstream owner maps", async () => {
-  const projectRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-source-report-invalid-"),
-  );
+void test("source verification rejects malformed official upstream config shapes", async () => {
+  const cases: Array<{ name: string; config: unknown; message: RegExp }> = [
+    {
+      name: "root",
+      config: [],
+      message: /official-upstreams\.json must be an object/u,
+    },
+    {
+      name: "missing owners",
+      config: { schemaVersion: 1 },
+      message: /owners\.openai/u,
+    },
+    {
+      name: "owners",
+      config: { schemaVersion: 1, owners: [] },
+      message: /official-upstreams\.json owners must be an object/u,
+    },
+    {
+      name: "owner entries",
+      config: { schemaVersion: 1, owners: { openai: "openai" } },
+      message: /owners\.openai must be an array of strings/u,
+    },
+  ];
 
-  try {
-    await writeJsonFile(
-      join(projectRoot, "discover", "official-upstreams.json"),
-      {
-        schemaVersion: 1,
-        owners: { openai: "openai" },
-      },
+  for (const { config, message, name } of cases) {
+    const projectRoot = await mkdtemp(
+      join(tmpdir(), `agent-harness-source-report-invalid-${name}-`),
     );
 
-    await assert.rejects(
-      buildSourceVerificationReport(projectRoot, []),
-      /owners\.openai must be an array of strings/u,
-    );
-  } finally {
-    await rm(projectRoot, { recursive: true, force: true });
+    try {
+      await writeJsonFile(
+        join(projectRoot, "discover", "official-upstreams.json"),
+        config,
+      );
+
+      if (name === "missing owners") {
+        assert.equal(
+          (
+            await buildSourceVerificationReport(projectRoot, [
+              buildSource("openai", {
+                repo: "https://github.com/openai/codex",
+                publisherOwner: "openai",
+                publisherVerified: true,
+              }),
+            ])
+          ).demotedSourceCount,
+          1,
+        );
+      } else {
+        await assert.rejects(
+          buildSourceVerificationReport(projectRoot, []),
+          message,
+        );
+      }
+    } finally {
+      await rm(projectRoot, { recursive: true, force: true });
+    }
   }
 });
 

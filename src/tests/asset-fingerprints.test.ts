@@ -116,6 +116,38 @@ void test("asset lifecycle fingerprints are stable and include mirror trust stat
     mixedCasePath.canonicalUpstreamIdentity,
     "docs|https://example.com/Acme/Tool/Guide|unversioned",
   );
+
+  const nonUrlIdentity = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-non-url-identity", {
+      duplicateGroup: undefined,
+      install: {
+        method: "manual",
+        relativePath: "C:\\Agents\\Fixture\\",
+      },
+    }),
+  );
+  assert.equal(
+    nonUrlIdentity.canonicalUpstreamIdentity,
+    "repo|https://example.com/acme/tool|C:\\Agents\\Fixture\\",
+  );
+
+  const malformedMirrorIdentity = buildAssetLifecycleFingerprint(
+    buildCatalogEntry("asset-malformed-url-identity", {
+      duplicateGroup: undefined,
+    }),
+    {
+      ...mirror,
+      upstream: {
+        type: "repo",
+        url: "https://[malformed",
+      },
+    },
+  );
+  assert.equal(
+    malformedMirrorIdentity.canonicalUpstreamIdentity,
+    "repo|https://[malformed|unversioned",
+  );
+
   assert.equal(first.trustTier, "trusted-community");
   assert.equal(first.quarantineState, "quarantined");
   assert.deepEqual(first.hosts, ["cursor", "opencode"]);

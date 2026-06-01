@@ -211,17 +211,19 @@ function computeDuplicateRate(entries: AssetCatalogEntry[]): number {
     return 0;
   }
   const groupCounts = new Map<string, number>();
-  for (const entry of entries) {
-    const group = entry.dedupe.duplicateGroup;
-    if (!group) {
-      continue;
+  for (const { dedupe } of entries) {
+    if (dedupe.duplicateGroup !== undefined) {
+      groupCounts.set(
+        dedupe.duplicateGroup,
+        (groupCounts.get(dedupe.duplicateGroup) ?? 0) + 1,
+      );
     }
-    groupCounts.set(group, (groupCounts.get(group) ?? 0) + 1);
   }
-  const duplicateEntries = entries.filter((entry) => {
-    const group = entry.dedupe.duplicateGroup;
-    return group ? (groupCounts.get(group) ?? 0) > 1 : false;
-  });
+  const duplicateEntries = entries.filter(
+    ({ dedupe }) =>
+      dedupe.duplicateGroup !== undefined &&
+      groupCounts.get(dedupe.duplicateGroup)! > 1,
+  );
   return Number((duplicateEntries.length / entries.length).toFixed(4));
 }
 

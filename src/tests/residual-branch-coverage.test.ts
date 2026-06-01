@@ -293,7 +293,24 @@ void test("mirror acquire residual pure helpers cover fallback and invalid state
   );
   assert.equal(
     mirrorAcquireInternals.determineMirrorStatus(
-      buildAsset("high-risk-community", {
+      buildAsset("unverified-community", {
+        source: {
+          sourceId: "community-source",
+          authorityTier: "unverified-community",
+          sourceKind: "repo",
+          sourcePriority: 10,
+          originUrl: "https://example.com/unverified-community",
+          publisher: "Community",
+          publisherVerified: false,
+        },
+      }),
+      { content: Buffer.from("regular content", "utf8") },
+    ),
+    "quarantined",
+  );
+  assert.equal(
+    mirrorAcquireInternals.determineMirrorStatus(
+      buildAsset("official-high-risk", {
         risk: {
           level: "high",
           hasHooks: false,
@@ -301,13 +318,36 @@ void test("mirror acquire residual pure helpers cover fallback and invalid state
           requiresNetwork: false,
         },
         source: {
-          sourceId: "community-source",
-          authorityTier: "unverified-community",
+          sourceId: "official-source",
+          authorityTier: "official-first-party",
           sourceKind: "repo",
-          sourcePriority: 10,
-          originUrl: "https://example.com/high-risk-community",
-          publisher: "Community",
-          publisherVerified: false,
+          sourcePriority: 100,
+          originUrl: "https://example.com/official-high-risk",
+          publisher: "Official",
+          publisherVerified: true,
+        },
+      }),
+      { content: Buffer.from("regular content", "utf8") },
+    ),
+    "approved-with-warning",
+  );
+  assert.equal(
+    mirrorAcquireInternals.determineMirrorStatus(
+      buildAsset("compatible-high-risk", {
+        risk: {
+          level: "high",
+          hasHooks: false,
+          hasExecScripts: false,
+          requiresNetwork: false,
+        },
+        source: {
+          sourceId: "compatible-source",
+          authorityTier: "official-compatible",
+          sourceKind: "repo",
+          sourcePriority: 90,
+          originUrl: "https://example.com/compatible-high-risk",
+          publisher: "Compatible",
+          publisherVerified: true,
         },
       }),
       { content: Buffer.from("regular content", "utf8") },
@@ -320,6 +360,27 @@ void test("install bundle residual helpers keep path identity behavior explicit"
   assert.equal(
     installBundleInternals.extractBundleId("C:/tmp/copilot-core.lock.json"),
     "copilot-core",
+  );
+  assert.deepEqual(
+    installBundleInternals.getPendingAssets(
+      [
+        {
+          assetId: "asset-a",
+          mirrorId: "mirror-a",
+          projectionType: "copy",
+          activationEligible: true,
+        },
+      ],
+      new Set(["other-asset:mirror-a"]),
+    ),
+    [
+      {
+        assetId: "asset-a",
+        mirrorId: "mirror-a",
+        projectionType: "copy",
+        activationEligible: true,
+      },
+    ],
   );
   assert.deepEqual(
     installBundleInternals.getPendingAssets(
@@ -435,6 +496,31 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
       undefined,
     );
     assert.equal(await readTextFileOrNull(agentsPath), "before\nafter\n");
+
+    assert.deepEqual(
+      nativeWireInternals.buildCodexHooksManifest(
+        [
+          {
+            assetId: "hook-without-file",
+            assetKind: "hook",
+            compatibilityMode: "adaptable",
+            content: "# Hook\n",
+            displayName: "Hook Without File",
+          },
+        ],
+        [],
+      ),
+      {
+        schemaVersion: 1,
+        hooks: [
+          {
+            name: "hook-without-file",
+            description: "Hook Without File",
+            source: "hook-without-file",
+          },
+        ],
+      },
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

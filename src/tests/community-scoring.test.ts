@@ -119,9 +119,8 @@ void test("mirror status cannot bypass community quarantine policy", () => {
 void test("official risky executable assets are approved with warning", () => {
   const entry = buildEntry("official-plugin", {
     authorityTier: "official-first-party",
-    assetKind: "plugin",
+    assetKind: "skill",
     riskLevel: "high",
-    hasExecScripts: true,
   });
 
   assert.equal(

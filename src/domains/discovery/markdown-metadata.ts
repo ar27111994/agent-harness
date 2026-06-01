@@ -84,6 +84,9 @@ function parseFrontmatter(content: string): {
     "requiresHostLogin",
     "requiresOAuth",
     "setupUrl",
+    "type",
+    "kind",
+    "assetKind",
     "mode",
     "compatibility",
   ]);

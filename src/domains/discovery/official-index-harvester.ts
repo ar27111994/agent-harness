@@ -982,6 +982,8 @@ export const officialIndexHarvesterInternals = {
   buildOfficialUpstreamKey,
   extractOfficialSkillRepoUrls,
   normalizeGitHubRepositoryUrl,
+  recordAmbiguousOfficialUpstream,
+  recordUnresolvedOfficialUpstream,
   resolveOfficialRepoUrl,
   searchOfficialRepoCandidates,
 };

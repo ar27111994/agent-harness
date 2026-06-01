@@ -144,6 +144,15 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     sourceEntry(uniqueDuplicateGroupReport, "unique-groups")?.duplicateRate,
     0,
   );
+
+  const noEntryReport = buildSourceHealthReport(
+    [buildSource("empty-source")],
+    [],
+    [],
+    [],
+    { schemaVersion: 1, generatedAt: "2026-01-01T00:00:00.000Z", sources: [] },
+  );
+  assert.equal(sourceEntry(noEntryReport, "empty-source")?.duplicateRate, 0);
 });
 
 void test("source health writer emits health, drift, and maintenance reports", async () => {
