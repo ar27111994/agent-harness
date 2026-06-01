@@ -1,6 +1,6 @@
 {
   "name": "@ar27111994/agent-harness",
-  "version": "1.0.8",
+  "version": "2.0.0",
   "description": "MCP server and agent skills manager for Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and Codex workspaces.",
   "license": "MIT",
   "author": "ar27111994",

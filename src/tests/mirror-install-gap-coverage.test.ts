@@ -34,6 +34,7 @@ import {
   manageInstallRefresh,
 } from "../install/refresh.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
+import { rebuildInternals } from "../rebuild.js";
 import {
   acquireMirrorArtifacts,
   mirrorAcquireInternals,
@@ -481,6 +482,36 @@ void test("install bundle internals validate manifests and honor debug logging",
       "community-stable",
       "copilot-core",
       "opencode-global",
+      "shared-mcp",
+    ]);
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date(0).toISOString(),
+        host: "copilot-vscode",
+        assets: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "shared-mcp.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "shared-mcp",
+        generatedAt: new Date(0).toISOString(),
+        host: "shared",
+        assets: [
+          {
+            assetId: "fixture-shared-mcp",
+            mirrorId: "sha256-shared-mcp",
+            projectionType: "mcp-server",
+            activationEligible: true,
+          },
+        ],
+      },
+    );
+    assert.deepEqual(await rebuildInternals.discoverBundleIds(projectRoot), [
       "shared-mcp",
     ]);
   } finally {

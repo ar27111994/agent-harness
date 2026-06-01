@@ -162,3 +162,10 @@ function printRebuildHelp(): void {
     ],
   });
 }
+
+/**
+ * Exposes narrow rebuild internals for registry-driven bundle discovery tests.
+ */
+export const rebuildInternals = {
+  discoverBundleIds,
+};

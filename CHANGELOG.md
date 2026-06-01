@@ -4,8 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-01
+
 ### Added
 
+- v2 agent asset supply-chain workflow covering discover, recommend, mirror, stage/install, refresh, activate, host wire-in, and rebuild flows across VS Code + Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex
+- Codex host adapter support with project-local workspace/wire commands, documented boundaries, source compatibility, recommendation policy coverage, and safe reset behavior for #229
+- README hero repositioning, proof points, one-command quick start, concrete lifecycle outputs, command-style conventions, supported-host/asset badges, and a real autoplay demo GIF with a sound-on walkthrough link for #225, #226, #230, #232, #233, #234, and #236
+- workspace evolution, maintenance, quarantine, safe-default, trust-center, host support matrix, v1-to-v2 upgrade, release-process, and reproducible demo documentation for #239, #248, #252, #254, #255, #256, #258, and #259
+- unknown workspace-signal backlog reports, source/catalog health doctor reports, candidate source queues, scheduled maintenance and maintenance-bot workflows, discover diff summaries, explainability commands, experimental environment index metadata, and evidence-weighted asset classification confidence for #240, #242, #245, #246, #247, #261, #262, #263, and #264
 - coverage hardening roadmap and reproducible `coverage:gaps` reporting for #207, plus broad behavioral tests across recommendation, discovery, host-adapter, install, mirror, GitHub, HTTP, release-script, manifest-validation, and utility edge paths
 - branch-residual coverage suites for AI enrichment, discovery harvesters, recommendation review/policy/selection, host wiring, install refresh, mirror acquisition, HTTP/preflight utilities, and source-sync helpers, raising the latest verified local run to 100% statements, branches, functions, and lines
 - native-host recommendation fixture coverage for Cursor, Zed, Claude Code, and Pi defaults for #208
