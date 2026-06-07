@@ -24,6 +24,8 @@ All notable changes to this project will be documented in this file.
 - default workspace troubleshooting docs now include a diagnostic ladder, artifact checklist, anti-vibes evidence requirements, and clearer playbook handoffs for #211
 - coverage thresholds were raised to the verified 100% release floor while keeping runtime exclusions narrow instead of masking uncovered code
 - recommendation policy maps now recognize the newly emitted demand/stack terms so detection, policy quality, and recommendation validation stay aligned
+- `source-sync.ts` (1,916 lines) decomposed into 16 focused sub-modules under `src/domains/discovery/source-sync/` — shared types, state I/O, fetching, HTML engines, references, reporting, orchestrator, and 9 per-registry adapters — with `source-sync.ts` retained as a thin re-export barrel so all existing import paths are unchanged for #270
+- `no-magic-numbers` ESLint rule expanded to `activate.ts`, `official-index-harvester.ts`, and `demand-signals.ts`; 12 new named constants extracted (`COPILOT_PROFILE_ID_MAX_LENGTH`, `COPILOT_VSCODE_ACTIVATION_BUDGET`, `OPENCODE_ACTIVATION_BUDGET`, `DEFAULT_ACTIVATION_BUDGET`, `FOCUSED_ACTIVATION_BUCKET_MAX_SIZE`, `COPILOT_FALLBACK_SKILL_POOL_LIMIT`, `COPILOT_PROFILE_ID_ASSET_SEGMENT_COUNT`, `OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY`, `NON_FIRST_PARTY_SOURCE_PRIORITY`, `MAX_DEPENDENCY_SIGNALS_PER_FILE`, `TEXT_SIGNAL_READ_LIMIT`) for #271
 
 ### Fixed
 
@@ -34,6 +36,8 @@ All notable changes to this project will be documented in this file.
 - added full Codex surface table (13 rows) to `HOST-SURFACE-AUDIT.md` documenting all managed path segments, config files, and lifecycle hooks for #229
 - surfaced `HARNESS-MAINTENANCE-GUIDE.md` link in README Quick Start so post-wire-in maintenance steps are discoverable for #248
 - added icons to all supported-host badges (VS Code + Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, OpenAI Codex) and all asset-type badges using Simple Icons slugs and inline SVG data URIs where shields.io slug support lags
+- documented source-sync SSRF trust boundary, allowed-origin derivation algorithm, and operator-facing SSRF backstop guidance in `SECURITY.md` and `SOURCE-SYNC-DECOMPOSITION-PLAN.md` for #272
+- audited and updated all stale reference documentation: `Roadmap.md`, `IMPLEMENTATION-PLAN.md`, `FUTURE-IMPROVEMENTS.md`, `COVERAGE-100-ROADMAP.md`, and `SOURCE-SYNC-DECOMPOSITION-PLAN.md` now reflect v2.0.0 execution status, shipped capabilities, and current coverage metrics for #273
 
 ## [1.0.8] - 2026-05-17
 
