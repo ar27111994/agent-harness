@@ -15,11 +15,11 @@
 <p>
   <strong>Hosts:</strong>
   <a href="#supported-hosts"><img alt="VS Code + Copilot" src="https://img.shields.io/badge/VS%20Code%20%2B%20Copilot-007ACC?logo=githubcopilot&logoColor=white" /></a>
-  <a href="#supported-hosts"><img alt="OpenCode" src="https://img.shields.io/badge/OpenCode-111827" /></a>
+  <a href="#supported-hosts"><img alt="OpenCode" src="https://img.shields.io/badge/OpenCode-111827?logo=data:image/svg%2Bxml;base64,PHN2ZyBmaWxsPSJ3aGl0ZSIgcm9sZT0iaW1nIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHRpdGxlPk9wZW5Db2RlPC90aXRsZT48cGF0aCBkPSJNMjIgMjRIMlYwaDIwek0xNyA0LjhIN3YxNC40aDEweiIvPjwvc3ZnPg==" /></a>
   <a href="#supported-hosts"><img alt="Cursor" src="https://img.shields.io/badge/Cursor-000000?logo=cursor&logoColor=white" /></a>
   <a href="#supported-hosts"><img alt="Zed" src="https://img.shields.io/badge/Zed-084CCF?logo=zedindustries&logoColor=white" /></a>
   <a href="#supported-hosts"><img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-D97757?logo=claude&logoColor=white" /></a>
-  <a href="#supported-hosts"><img alt="Pi" src="https://img.shields.io/badge/Pi-FF4F8B" /></a>
+  <a href="#supported-hosts"><img alt="Pi" src="https://img.shields.io/badge/Pi-FF4F8B?logo=data:image/svg%2Bxml;base64,PHN2ZyBmaWxsPSJ3aGl0ZSIgcm9sZT0iaW1nIiB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHRpdGxlPlBpPC90aXRsZT48cGF0aCBkPSJNMCAwdjI0aDZ2LTZoNnYtNkg2VjZoNnY2aDZWMFptMTggMTJ2MTJoNlYxMloiLz48L3N2Zz4=" /></a>
   <a href="#supported-hosts"><img alt="OpenAI Codex" src="https://img.shields.io/badge/OpenAI%20Codex-412991" /></a>
 </p>
 
