@@ -53,6 +53,49 @@ const ACTIVATION_HOSTS = [
 const SHARED_HOST_TARGET = "shared" as const satisfies HostTarget;
 
 /**
+ * Maximum character length of a generated Copilot workspace profile ID.
+ * IDs are derived by joining asset IDs with hyphens and stripping non-slug
+ * characters; truncating at 96 characters keeps them within settings-file
+ * limits while remaining unique for practical asset sets.
+ */
+const COPILOT_PROFILE_ID_MAX_LENGTH = 96;
+
+/**
+ * Number of asset ID segments joined before the profile ID is truncated.
+ * Using the first 12 IDs balances uniqueness against ID length; longer
+ * lists produce IDs that are indistinguishable after truncation anyway.
+ */
+const COPILOT_PROFILE_ID_ASSET_SEGMENT_COUNT = 12;
+
+/**
+ * Per-host activation budgets — maximum number of assets selected for
+ * the runtime activation manifest on each host.
+ *
+ * Copilot VS Code: 60 — bounded by the Copilot chat context window.
+ * OpenCode:       120 — larger context tolerance allows a bigger set.
+ * Default/shared:  40 — conservative floor for hosts with unknown limits.
+ */
+const COPILOT_VSCODE_ACTIVATION_BUDGET = 60;
+const OPENCODE_ACTIVATION_BUDGET = 120;
+const DEFAULT_ACTIVATION_BUDGET = 40;
+
+/**
+ * Maximum number of assets placed in the "focused" activation bucket.
+ * The focused bucket contains the highest-priority intent-matched assets.
+ * Capping at 20 ensures that a single session intent cannot crowd out the
+ * broader set when both buckets are merged.
+ */
+const FOCUSED_ACTIVATION_BUCKET_MAX_SIZE = 20;
+
+/**
+ * Maximum number of fallback skill IDs added to the Copilot workspace profile
+ * manifest when the primary selected set does not contain enough skills.
+ * Limiting to 12 ensures the profile remains focused even when many skills are
+ * installed; beyond this count the marginal utility per additional skill drops.
+ */
+const COPILOT_FALLBACK_SKILL_POOL_LIMIT = 12;
+
+/**
  * Dispatches the activate CLI command group.
  */
 export async function runActivate(
@@ -281,7 +324,7 @@ async function activateHost(
           sessionIntent,
         ),
       )
-      .slice(0, 12)
+      .slice(0, COPILOT_FALLBACK_SKILL_POOL_LIMIT)
       .map((packageManifest) => packageManifest.assetId);
 
     const mergedSkillIds = [
@@ -479,22 +522,22 @@ function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
 
 function buildCopilotProfileId(assetIds: string[]): string {
   return assetIds
-    .slice(0, 12)
+    .slice(0, COPILOT_PROFILE_ID_ASSET_SEGMENT_COUNT)
     .join("-")
     .replace(/[^a-zA-Z0-9_-]+/gu, "-")
-    .slice(0, 96);
+    .slice(0, COPILOT_PROFILE_ID_MAX_LENGTH);
 }
 
 function getActivationBudget(host: ActivationHost): number {
   if (host === "copilot-vscode") {
-    return 60;
+    return COPILOT_VSCODE_ACTIVATION_BUDGET;
   }
 
   if (host === "opencode") {
-    return 120;
+    return OPENCODE_ACTIVATION_BUDGET;
   }
 
-  return 40;
+  return DEFAULT_ACTIVATION_BUDGET;
 }
 
 function compareActivationCandidates(
@@ -661,7 +704,10 @@ function buildTaskModeBuckets(
 
   buckets.set(
     "focused",
-    focusedAssetIds.slice(0, Math.min(20, focusedAssetIds.length)),
+    focusedAssetIds.slice(
+      0,
+      Math.min(FOCUSED_ACTIVATION_BUCKET_MAX_SIZE, focusedAssetIds.length),
+    ),
   );
   buckets.set("broad", [...assetIds]);
 

@@ -117,6 +117,20 @@ const OFFICIAL_UPSTREAM_RESOLUTION_SCHEMA_VERSION = 1;
 const OFFICIAL_UPSTREAM_CACHE_SCHEMA_VERSION = 1;
 
 /**
+ * Source priority assigned to an `official-first-party` authority tier.
+ * 100 is the maximum priority weight; it signals that the source is the
+ * canonical upstream for its asset family with no quality penalty.
+ */
+const OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY = 100;
+
+/**
+ * Source priority assigned to authority tiers below `official-first-party`.
+ * 70 represents a high-quality but non-canonical source — compatible or
+ * officially-adjacent, but not the primary upstream owner.
+ */
+const NON_FIRST_PARTY_SOURCE_PRIORITY = 70;
+
+/**
  * Provides harvest official skill indexes for the lifecycle pipeline.
  */
 export async function harvestOfficialSkillIndexes(
@@ -283,7 +297,10 @@ function parseOfficialIndexEntries(
         sourceId: `official-index:${owner}`,
         authorityTier,
         sourceKind: "docs",
-        sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
+        sourcePriority:
+          authorityTier === "official-first-party"
+            ? OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY
+            : NON_FIRST_PARTY_SOURCE_PRIORITY,
         originUrl,
         publisher: owner,
         publisherVerified: authorityTier === "official-first-party",
@@ -292,7 +309,10 @@ function parseOfficialIndexEntries(
         score: computeTrustScore({
           authorityTier,
           sourceKind: "docs",
-          sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
+          sourcePriority:
+            authorityTier === "official-first-party"
+              ? OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY
+              : NON_FIRST_PARTY_SOURCE_PRIORITY,
           publisherVerified: authorityTier === "official-first-party",
           compatibilityMode,
           installMethod: "official-index-entry",
@@ -300,7 +320,10 @@ function parseOfficialIndexEntries(
         signals: buildTrustSignals({
           authorityTier,
           sourceKind: "docs",
-          sourcePriority: authorityTier === "official-first-party" ? 100 : 70,
+          sourcePriority:
+            authorityTier === "official-first-party"
+              ? OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY
+              : NON_FIRST_PARTY_SOURCE_PRIORITY,
           publisherVerified: authorityTier === "official-first-party",
           compatibilityMode,
           installMethod: "official-index-entry",

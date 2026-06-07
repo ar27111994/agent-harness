@@ -49,6 +49,21 @@ const LOGGING_TEXT_MARKERS = ["logger", "logging", "debugger", "debug"];
 const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
 const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
+
+/**
+ * Maximum number of dependency names extracted from a single manifest file
+ * for use as tooling demand signals.  Capping at 50 prevents very large
+ * lock-files from flooding the signal set with low-signal transitive deps.
+ */
+const MAX_DEPENDENCY_SIGNALS_PER_FILE = 50;
+
+/**
+ * Maximum number of characters read from a text file before lowercasing and
+ * applying technology signatures.  250 000 chars covers virtually all real
+ * source files while bounding memory usage for pathological inputs such as
+ * minified bundles or auto-generated assets.
+ */
+const TEXT_SIGNAL_READ_LIMIT = 250_000;
 const ENV_TEMPLATE_FILE_NAMES = new Set([
   ".env.example",
   ".env.sample",
@@ -901,7 +916,7 @@ function addPackageDependencySignals(
       (dependencyName) =>
         !ignoredPrefixes.some((prefix) => dependencyName.startsWith(prefix)),
     )
-    .slice(0, 50)
+    .slice(0, MAX_DEPENDENCY_SIGNALS_PER_FILE)
     .map((dependencyName) => `${registryKind}:${dependencyName}`);
 
   addSignals(matchedSignals.tooling, normalizedNames);
@@ -915,7 +930,9 @@ function enrichGenericTextSignals(
     return;
   }
 
-  const normalizedContent = content.slice(0, 250_000).toLowerCase();
+  const normalizedContent = content
+    .slice(0, TEXT_SIGNAL_READ_LIMIT)
+    .toLowerCase();
   applyTechnologySignatures(matchedSignals, {
     text: normalizedContent,
   });
