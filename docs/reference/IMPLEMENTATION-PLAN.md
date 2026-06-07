@@ -33,6 +33,37 @@ Validation for this release includes typecheck, lint, format check, build, unit/
 
 Known remaining roadmap work is still tracked below, especially additional native installers beyond VS Code and Cursor, deeper provider-specific OAuth/login automation, broader ecosystem-specific source harvesters, and future package/workspace extraction if the project later outgrows the single-package layout.
 
+## v2.0.0 Execution Status
+
+The `release/v2.0.0` implementation wave extends the stable v1.0.0 baseline with a new host adapter, a complete documentation and README overhaul, expanded operational playbooks, richer discovery and reporting capabilities, and comprehensive coverage hardening. The work is traceable through commits and issue references covering the following areas:
+
+**Codex host adapter.** A project-local Codex host adapter was added, providing project-local workspace and wire-plan projection, a Codex-specific recommendation policy, and a safe-reset flow consistent with the adapter contract established in M6.
+
+**Documentation and README overhaul.** The top-level README was repositioned with a clearer hero statement, a one-command quick-start sequence, concrete lifecycle command outputs, supported-host and asset-kind badges, a demo GIF, and links to operational playbooks. Supporting reference documents were added or updated to match the new framing.
+
+**New operational documentation.** The following operational playbooks were added: workspace evolution guide, scheduled maintenance guide, quarantine review guide, safe-default configuration reference, trust-center reference, v1-to-v2 upgrade guide, release-process guide, and reproducible demo documentation. These complement the existing setup and doctor guidance and give operators end-to-end lifecycle coverage.
+
+**New discovery and reporting capabilities.** The discovery and reporting surface was expanded to include:
+
+- Unknown workspace-signal backlog reports that surface unrecognized signals for triage
+- Source and catalog health doctor commands that diagnose harvester and catalog integrity
+- Candidate source queues that expose pending sources awaiting review or activation
+- Scheduled maintenance bot workflows for automated source hygiene
+- Discover diff summaries that highlight catalog changes across runs
+- Explainability commands that narrate recommendation and classification decisions
+- Experimental environment index metadata attached to workspace outputs
+- Evidence-weighted classification confidence scores surfaced in demand profiles
+
+**Coverage hardening.** The test suite was hardened to meet a 100% statement, branch, function, and line gate, verified both locally and in CI. A reproducible gap ledger is available via the `coverage:gaps` script. Broad behavioral tests were added or extended across the following domains: recommendation, discovery, host-adapter, install, mirror, GitHub harvesting, HTTP utilities, release-script logic, manifest validation, and utility edge paths.
+
+Branch-residual coverage was addressed for: AI enrichment helpers, discovery harvesters, recommendation orchestration, host wiring, install refresh flows, mirror acquisition, HTTP preflight, and source-sync helpers.
+
+Native-host recommendation fixture coverage was verified for Cursor, Zed, Claude Code, and Pi default configurations.
+
+A demand-detection coverage matrix was introduced with targeted stack and vertical signatures and explicit false-positive fixtures to guard detection precision.
+
+Scenario-based recommendation-limit scaling guidance was added with copy-paste CLI examples covering common project-size and host-count combinations.
+
 ## Planning Conventions
 
 ### Priority Scale

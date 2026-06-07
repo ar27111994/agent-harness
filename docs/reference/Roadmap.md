@@ -13,7 +13,7 @@ This document turns the current analysis into concrete gap matrices for the ques
 Scope of the original assessment:
 
 - branch: `feature/opencode-link-wirein`
-- assessment date: 2026-04-19
+- assessment date: 2026-04-19 (v1.0.0 baseline); last updated for v2.0.0: 2026-06-01
 - evidence source: implementation and checked-in configuration at that time
 
 ## v1.0.0 Status Update
@@ -23,6 +23,68 @@ The `release/v1.0.0` execution wave closes the highest-priority roadmap gaps for
 The post-merge hardening wave adds scoped package release identity, deterministic package allowlisting, package entry points and declaration output, mutable state-root support outside the package install directory, safe mirror writes with file-manifest verification, bounded mirror evidence file reads, guarded network reads, static public-provider allowlisting for optional AI enrichment, GitHub/repo mirror-time content acquisition, validated PyPI metadata, lazy `.env`-aware VS Code settings path resolution, explicit recommendation execution in workspace and full rebuild runs, registry-driven recommendation-host enumeration, adapter-derived install bundle discovery, preview-by-default wire mode, non-destructive VS Code/OpenCode managed sections, adapter-owned runtime checks, VS Code native extension install/verify/remove with bounded native commands, asset prerequisite guidance, optional AI enrichment, official upstream allowlisting, mirror diff/explain reporting, isolated CLI, offline workspace, and packed-artifact smoke checks, operational docs/registry/marketplace harvesters, broad deterministic file-family and technology signature packs, `.gitignore` glob/negation handling, focused install-domain modules, recommendation and mirror module seams, domain-specific manifest validators, localized domain type modules, discovery demand/source/reporting seams, package/reference/local/GitHub/official-index catalog harvester seams, and type-aware ESLint guardrails. Broader native installers beyond VS Code and Cursor, richer interactive quarantine review UIs, deeper provider-specific OAuth automation, and future package/workspace extraction remain tracked follow-up work.
 
 The gap matrices below are retained for traceability. Their evidence cells describe the original 2026-04-19 baseline, while the verdict table summarizes the current status.
+
+## v2.0.0 Status Update
+
+The `release/v2.0.0` wave builds directly on the v1.0.0 foundation and closes the remaining high-priority gaps in host coverage, documentation accessibility, operational instrumentation, discovery reporting, and test-coverage governance. The key additions are summarised below.
+
+### Codex host adapter (#229)
+
+Codex joins VS Code/Copilot, OpenCode, Cursor, Zed, Claude Code, and Pi as a fully registered host adapter. The adapter writes a project-local workspace directory and wire manifest, documents its integration boundaries explicitly, and provides a safe reset path so the project-local Codex state can be torn down without affecting other hosts.
+
+### Documentation and README overhaul (#225, #226, #230, #232, #233, #234, #236)
+
+The top-level README was repositioned around the user's outcome rather than the implementation's mechanics. Changes include: a rewritten hero section with concrete value proposition and proof points; a one-command quick-start block that takes a new user from clone to first recommendation without reading further; concrete lifecycle-command outputs showing what each pipeline stage actually produces; command-style conventions unified across all CLI reference pages; supported-host and supported-asset badge rows for at-a-glance coverage; and an animated demo GIF illustrating the full discover → wire flow.
+
+### New operational documentation (#239, #248, #252, #254, #255, #256, #258, #259)
+
+Eight new reference documents were added to `docs/`:
+
+- **Workspace evolution** — describes how the project-local workspace directory grows across pipeline runs and how to inspect or prune it safely.
+- **Maintenance playbook** — step-by-step procedures for routine upkeep: re-harvesting sources, refreshing mirrors, rotating tokens, and pruning stale catalog entries.
+- **Quarantine guide** — explains the quarantine lifecycle for flagged assets, reviewer workflow, and how quarantine decisions are persisted.
+- **Safe-default reference** — catalogues every security-relevant default (network guards, path constraints, manifest size caps, allowlists) and why each exists.
+- **Trust center** — documents the supply-chain trust model, provider allowlists, and how new sources are evaluated before being added to the default registry.
+- **Host support matrix** — a single authoritative table of every registered host adapter, the asset kinds it supports, and any capability gaps.
+- **v1-to-v2 upgrade guide** — explains what changed between v1.0.0 and v2.0.0 at the config, CLI, and workspace-layout levels, with a migration checklist.
+- **Release process** — documents the tagging, changelog, and smoke-check steps used to cut an official release, including the reproducible-demo requirement.
+
+### New discovery and reporting features (#240, #242, #245, #246, #247, #261, #262, #263, #264)
+
+Discovery and reporting gained nine new capabilities:
+
+- **Unknown workspace-signal backlog reports** (#240) — the `doctor` command now emits a ranked backlog of workspace signals that did not match any known stack signature, giving visibility into coverage gaps before they become silent misses.
+- **Source and catalog health doctor reports** (#242) — `doctor` also reports per-source harvest health: last-successful fetch time, error count, and catalog-entry yield, so stale or broken sources are surfaced proactively.
+- **Candidate source queues** (#245) — a structured queue accumulates candidate new sources discovered during harvesting (referenced packages without a configured source, community links found in docs) for human review rather than silent discard.
+- **Scheduled maintenance workflows** (#246) — a GitHub Actions workflow template is provided for periodic source re-harvesting, mirror refresh, and catalog integrity checks on a cron schedule.
+- **Discover diff summaries** (#247) — the `discover` command can emit a structured diff between the current run's demand profile and the previous one, making it easy to see which signals appeared or disappeared.
+- **Explainability commands** (#261) — `explain recommendation <id>` and `explain detection <signal>` subcommands trace exactly which evidence lines produced a given recommendation or detection result, with source file references.
+- **Experimental environment index metadata** (#262) — the workspace index now optionally records environment metadata (Node version, Python version, OS, active host adapters) alongside the demand profile to support cross-environment comparisons.
+- **Evidence-weighted classification confidence** (#263, #264) — stack-detection results now carry a numeric confidence score derived from the count and weight of supporting evidence signals, and a low-confidence threshold can be configured to gate recommendations.
+
+### Coverage hardening (#207)
+
+The test suite now enforces a 100 % statement, branch, function, and line coverage gate in CI. A reproducible gap-reporting step prints the exact uncovered lines in a standard format when the gate fails, making it straightforward to identify and close gaps. Broad behavioral tests were added alongside the coverage gate to ensure that coverage numbers reflect meaningful scenario execution rather than trivially covered stubs.
+
+### Native-host recommendation fixtures for Cursor, Zed, Claude Code, and Pi (#208)
+
+Golden-file recommendation fixtures were added for all four of the hosts that graduated to full adapter status in v1.0.0. Each fixture covers a representative project archetype (TypeScript monorepo, Python data-science project, documentation-only repo, and a multi-language mixed repo) and is run in CI to prevent silent regressions in host-specific recommendation output.
+
+### Demand-detection coverage matrix and false-positive fixtures (#209)
+
+A structured coverage matrix was introduced that maps each file-family and technology-signature pack to its fixture corpus entries. Alongside it, an explicit set of false-positive fixtures was added: repos that should _not_ trigger certain detections, ensuring that broadening the signature packs does not introduce phantom demand signals.
+
+### Scenario-based recommendation-limit scaling guidance (#210)
+
+Documentation and configurable defaults were added for scaling the per-run recommendation limit based on project size and complexity signals. The guidance covers four named scenarios (minimal, standard, large monorepo, and research/data-heavy) with recommended cap values and the reasoning behind them, so operators can tune limits without reverse-engineering internal scoring.
+
+### Branch-residual coverage suites
+
+Residual-branch coverage suites were added across all major domains — discovery, install, mirror, activate, wire, host adapters, catalog harvesting, and CLI command parsing — to ensure that every defensive branch (error paths, empty-input guards, unsupported-host fallbacks) is exercised by at least one named test case.
+
+---
+
+The gap matrices below remain as historical baselines recorded against the 2026-04-19 assessment. The verdict table reflects the cumulative state after both the v1.0.0 and v2.0.0 releases.
 
 ## Overall Verdict
 

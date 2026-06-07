@@ -6,11 +6,13 @@ Issue: [#207](https://github.com/ar27111994/agent-harness/issues/207)
 
 `npm run validate:coverage` now builds the project, runs the coverage-gated test suite, and regenerates the gap ledger for the intended covered runtime surface. The latest verified local Windows run reports:
 
-- statements: `100%` (`37621/37621`)
-- branches: `100%` (`6861/6861`)
-- functions: `100%` (`1121/1121`)
-- lines: `100%` (`37621/37621`)
-- tests: `681/681` passing
+- statements: `100%` (`41681/41681`)
+- branches: `100%` (`7652/7652`)
+- functions: `100%` (`1246/1246`)
+- lines: `100%` (`41681/41681`)
+- tests: `776/776` passing
+
+The v2.0.0 wave added branch-residual coverage suites for AI enrichment, discovery harvesters, recommendation review/policy/selection, host wiring, install refresh, mirror acquisition, HTTP/preflight utilities, and source-sync helpers — raising all four metrics from the v1.0.0 floor to the verified 100% release gate. The Codex host adapter, expanded discovery reporting commands, and scheduled maintenance features added in v2.0.0 are all covered by the suite.
 
 The generated gap ledger is empty: `coverage/coverage-gaps.md` has no uncovered line, function, or branch rows. The checked-in `.c8rc.json` gate is now ratcheted to `100` for statements, branches, functions, and lines. This was reached through source simplification for confirmed dead branches and behavioral coverage for reachable runtime paths, not by broadening runtime exclusions.
 

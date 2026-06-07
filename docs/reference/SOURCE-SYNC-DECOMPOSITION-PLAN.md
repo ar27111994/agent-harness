@@ -1,6 +1,6 @@
 # Source Sync Decomposition Plan
 
-`src/domains/discovery/source-sync.ts` remains intentionally stable for v2.0.0, but it is the next discovery module that should be decomposed. This plan defines the extraction seams so future work can reduce the monolith without behavior drift.
+`src/domains/discovery/source-sync.ts` was intentionally held stable through v2.0.0. Implementation of this decomposition is now tracked by [#270](https://github.com/ar27111994/agent-harness/issues/270) and targets the `release/v2.0.0-open-tickets` branch.
 
 ## Goals
 
@@ -59,7 +59,7 @@ src/domains/discovery/source-sync/
    - Leave `source-sync.ts` as a thin re-export or remove it after imports/tests are migrated.
    - Verification: full `npm run validate:quality`.
 
-## Non-goals for v2.0.0
+## Implementation constraints
 
 - No output schema changes.
 - No new external source volume purely for decomposition.

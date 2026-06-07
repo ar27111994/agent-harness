@@ -2,6 +2,8 @@
 
 This file tracks optional future improvements for `agent-harness` beyond the currently implemented lifecycle.
 
+> **v2.0.0 update (2026-06-01):** The v2.0.0 wave advanced items 5, 6, 7, 8, 9, 11, 12, 16, and 17 (see per-section notes below). Items marked **Implemented** or significantly narrowed in scope by v2.0.0 work are noted inline. All other status labels reflect the post-v2.0.0 assessment baseline.
+
 The project already implements the full supply-chain flow:
 
 1. Discover
@@ -131,7 +133,7 @@ Status labels:
 
 ## 5. Better source classification and evidence-weighted parsing
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: evidence-weighted asset-kind inference and classification confidence scores now emitted by the discovery pipeline — see #264)_
 
 ### Source classification current state
 
@@ -155,7 +157,7 @@ Status labels:
 
 ## 6. Better remote harvesting resilience
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: source/catalog health doctor reports, candidate source queue instrumentation, and operator-facing degraded-mode summaries added — see #242, #245, #261)_
 
 ### Remote harvesting current state
 
@@ -180,7 +182,7 @@ Status labels:
 
 ## 7. Bundle explainability and reasoning reports
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: discover diff summaries and explainability commands for unknown workspace-signal backlog, scheduled maintenance, and discover diff now added — see #240, #247, #262, #263)_
 
 ### Bundle explainability current state
 
@@ -204,7 +206,7 @@ Status labels:
 
 ## 8. Better generation management
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: scheduled maintenance-bot workflows and maintenance command surface added — see #246)_
 
 ### Generation management current state
 
@@ -226,7 +228,7 @@ Status labels:
 
 ## 9. Full diff/report commands across phases
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: `discover diff` summaries added — see #247; the remaining gaps are `mirror diff` rich delta reports and cross-phase change summaries)_
 
 ### Diff and report commands current state
 
@@ -274,7 +276,7 @@ Status labels:
 
 ## 11. Stronger activation planning
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: named activation budget constants added for all host adapter paths; session-intent-aware and dynamic budget pruning remain future work)_
 
 ### Activation planning current state
 
@@ -297,7 +299,7 @@ Status labels:
 
 ## 12. Test suite and validation harness
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: 100% statement/branch/function/line gate now enforced in CI and verified locally at 776 passing tests; branch-residual suites added for all major domains)_
 
 ### Test harness current state
 
@@ -379,7 +381,7 @@ Status labels:
 
 ## 16. Better operating docs
 
-**Status:** Partial
+**Status:** Partial _(v2.0.0: workspace evolution, maintenance, quarantine, safe-default, trust-center, host support matrix, v1-to-v2 upgrade, release-process, and reproducible demo docs added — see #239, #248, #252, #254, #255, #256, #258, #259)_
 
 ### Operating docs current state
 
