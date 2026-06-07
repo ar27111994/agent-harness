@@ -149,6 +149,36 @@ Official docs:
 | `.pi/extensions/` / `.pi/packages/`      | documented      | Synthesized when an asset includes structured host-native config payloads for those documented surfaces |
 | `.pi/agent-harness/`                     | harness-managed | Managed reference tree for non-native assets                                                            |
 
+## OpenAI Codex
+
+Official docs:
+
+- <https://developers.openai.com/codex>
+- <https://developers.openai.com/codex/app>
+- <https://developers.openai.com/codex/guides/agents-md>
+- <https://developers.openai.com/codex/skills>
+- <https://developers.openai.com/codex/plugins>
+- <https://developers.openai.com/codex/mcp>
+- <https://developers.openai.com/codex/hooks>
+- <https://developers.openai.com/codex/config-basic>
+
+| Surface                                                       | Classification     | Notes                                                                                                                                                           |
+| ------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                                                   | documented         | Native Codex instruction surface; harness writes a managed `agent-harness-codex` section                                                                        |
+| `.agents/skills/agent-harness/SKILL.md`                       | documented         | Repo-scoped Open Agent Skill surface; harness materializes a skill summary there                                                                                |
+| `.agents/plugins/agent-harness/`                              | documented         | Repo-local plugin directory; harness writes a `.codex-plugin/plugin.json` bundle                                                                                |
+| `.agents/plugins/marketplace.json`                            | documented         | Repo marketplace index; harness merges an `agent-harness` plugin entry                                                                                          |
+| `.agents/plugins/agent-harness/skills/agent-harness/SKILL.md` | compatibility-path | Plugin-bundled skill copy for Codex app plugin surface compatibility                                                                                            |
+| `.codex/config.toml`                                          | documented         | Synthesized for MCP server entries only when an asset carries a structured Codex-native `text` payload for this path; auth/login remains explicit               |
+| `.codex/hooks.json`                                           | documented         | Synthesized when an asset carries a structured Codex-native `json` hook payload and a merge is required; plugin hooks (`[features].plugin_hooks`) remain opt-in |
+| `.codex/rules/*.rules`                                        | documented         | Synthesized when an asset carries a structured Codex-native payload targeting this path; Starlark-like `prefix_rule` format                                     |
+| `.codex/agent-harness/`                                       | harness-managed    | Managed reference tree for non-native assets (reference packs, non-wired MCP/hook refs)                                                                         |
+| `~/.codex/config.toml` (global)                               | not-synthesized    | Intentionally not written; global Codex config and plugin cache remain the user's responsibility                                                                |
+| `~/.codex/plugins/cache/`                                     | not-synthesized    | Intentionally not written; plugin caches require explicit marketplace install flows                                                                             |
+| Automations / remote connections / worktrees                  | not-synthesized    | App-specific runtime features; not auto-wired by the harness                                                                                                    |
+
+**Lifecycle host note:** The Codex adapter (`id: codex`, aliases `openai-codex` / `codex-app`) reuses the `opencode` lifecycle host for activation and preview because both hosts consume project-local Markdown context, Open Agent Skills, plugin directories, hook JSON, and MCP references through similar file layouts. Reset (`wire codex --reset`) removes the `AGENTS.md` managed section, `.agents/skills/agent-harness`, `.agents/plugins/agent-harness`, the marketplace entry, and empty parent dirs; `.codex/` structured config is cleaned up separately.
+
 ## Discovery-source note for Cursor assets
 
 The checked-in discovery registry already treats the **VS Code Marketplace** as an official marketplace-class source for hosts `copilot-vscode` and `cursor`, so Cursor-targeted extension/plugin/MCP discovery can already flow through that source.
