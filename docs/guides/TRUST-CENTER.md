@@ -44,6 +44,21 @@ Discovery can read configured sources, generated local config roots, registries,
 
 Security non-goal: the harness does not prove that the upstream author is benign. It records evidence, applies safe defaults, and makes review decisions visible.
 
+### Source-sync origin allowlist and SSRF backstop
+
+`source-sync` uses a **self-derived origin allowlist** to restrict outbound fetch calls to the exact hostnames declared in checked-in source definitions. This allowlist is built at request time from the source pack's own `originUrl` fields — it is not a static list and it is not user-configurable at runtime.
+
+How the boundary works:
+
+1. Each source definition in the checked-in source registry declares an `originUrl`.
+2. Before any network call, `source-sync` extracts the origin (scheme + host + port) from those declared URLs and passes it as an explicit allowlist to the shared HTTP guard layer.
+3. The shared HTTP guard layer independently enforces an **SSRF backstop**: it rejects requests that resolve to private IP ranges (RFC 1918, loopback, link-local, multicast), unroutable addresses, or bare IP literals, regardless of what the allowlist says.
+4. If the resolved hostname does not appear in the derived allowlist, the fetch is refused before a TCP connection is opened.
+
+This means that even if a source definition were tampered with to include an attacker-controlled hostname, the HTTP guard's SSRF backstop provides an independent defense against SSRF and internal-network probing.
+
+**Important limitation:** the self-derived allowlist is specific to `source-sync` and its checked-in source pack. It must **not** be reused for other features that accept arbitrary user-provided runtime URLs (for example, custom webhook endpoints, user-supplied proxy URLs, or OAuth callback overrides). Those cases require a separate, separately-reviewed allowlist or must be routed through a dedicated validation layer. See [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for guidance on security patterns contributors must not copy from `source-sync`.
+
 ## Quarantine rules
 
 Quarantine is the hard stop for risky or ambiguous assets. Quarantined assets must not be staged, activated, refreshed into an installed generation, or wired into a workspace until reviewed.
