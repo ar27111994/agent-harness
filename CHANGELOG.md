@@ -29,6 +29,12 @@ All notable changes to this project will be documented in this file.
 
 - improved release synchronization, version-check, GitHub resilience, guarded HTTP, path/file, native wire, install refresh, mirror acquisition, and recommendation validation regression coverage with deterministic tests
 
+### Documentation
+
+- added full Codex surface table (13 rows) to `HOST-SURFACE-AUDIT.md` documenting all managed path segments, config files, and lifecycle hooks for #229
+- surfaced `HARNESS-MAINTENANCE-GUIDE.md` link in README Quick Start so post-wire-in maintenance steps are discoverable for #248
+- added icons to all supported-host badges (VS Code + Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, OpenAI Codex) and all asset-type badges using Simple Icons slugs and inline SVG data URIs where shields.io slug support lags
+
 ## [1.0.8] - 2026-05-17
 
 ### Fixed
