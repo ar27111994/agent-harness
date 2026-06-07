@@ -14,27 +14,27 @@
 
 <p>
   <strong>Hosts:</strong>
-  <a href="#supported-hosts"><img alt="VS Code + Copilot" src="https://img.shields.io/badge/VS%20Code%20%2B%20Copilot-007ACC?logo=visualstudiocode&logoColor=white" /></a>
+  <a href="#supported-hosts"><img alt="VS Code + Copilot" src="https://img.shields.io/badge/VS%20Code%20%2B%20Copilot-007ACC?logo=githubcopilot&logoColor=white" /></a>
   <a href="#supported-hosts"><img alt="OpenCode" src="https://img.shields.io/badge/OpenCode-111827" /></a>
-  <a href="#supported-hosts"><img alt="Cursor" src="https://img.shields.io/badge/Cursor-000000" /></a>
-  <a href="#supported-hosts"><img alt="Zed" src="https://img.shields.io/badge/Zed-084CCF" /></a>
-  <a href="#supported-hosts"><img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-D97757" /></a>
+  <a href="#supported-hosts"><img alt="Cursor" src="https://img.shields.io/badge/Cursor-000000?logo=cursor&logoColor=white" /></a>
+  <a href="#supported-hosts"><img alt="Zed" src="https://img.shields.io/badge/Zed-084CCF?logo=zedindustries&logoColor=white" /></a>
+  <a href="#supported-hosts"><img alt="Claude Code" src="https://img.shields.io/badge/Claude%20Code-D97757?logo=claude&logoColor=white" /></a>
   <a href="#supported-hosts"><img alt="Pi" src="https://img.shields.io/badge/Pi-FF4F8B" /></a>
-  <a href="#supported-hosts"><img alt="OpenAI Codex" src="https://img.shields.io/badge/OpenAI%20Codex-412991?logo=openai&logoColor=white" /></a>
+  <a href="#supported-hosts"><img alt="OpenAI Codex" src="https://img.shields.io/badge/OpenAI%20Codex-412991" /></a>
 </p>
 
 <p>
   <strong>Assets:</strong>
-  <a href="#discovery-and-recommendations"><img alt="skills" src="https://img.shields.io/badge/skills-5B8DEF" /></a>
-  <a href="#discovery-and-recommendations"><img alt="agents" src="https://img.shields.io/badge/agents-7C3AED" /></a>
-  <a href="#discovery-and-recommendations"><img alt="instructions" src="https://img.shields.io/badge/instructions-0F766E" /></a>
-  <a href="#discovery-and-recommendations"><img alt="workflows" src="https://img.shields.io/badge/workflows-F59E0B" /></a>
-  <a href="#discovery-and-recommendations"><img alt="prompt packs" src="https://img.shields.io/badge/prompt%20packs-DB2777" /></a>
-  <a href="#discovery-and-recommendations"><img alt="MCP servers" src="https://img.shields.io/badge/MCP%20servers-2563EB" /></a>
-  <a href="#discovery-and-recommendations"><img alt="plugins" src="https://img.shields.io/badge/plugins-16A34A" /></a>
-  <a href="#discovery-and-recommendations"><img alt="hooks" src="https://img.shields.io/badge/hooks-DC2626" /></a>
-  <a href="#discovery-and-recommendations"><img alt="extensions" src="https://img.shields.io/badge/extensions-0891B2" /></a>
-  <a href="#discovery-and-recommendations"><img alt="reference packs" src="https://img.shields.io/badge/reference%20packs-64748B" /></a>
+  <a href="#discovery-and-recommendations"><img alt="skills" src="https://img.shields.io/badge/skills-5B8DEF?logo=codecademy&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="agents" src="https://img.shields.io/badge/agents-7C3AED?logo=probot&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="instructions" src="https://img.shields.io/badge/instructions-0F766E?logo=markdown&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="workflows" src="https://img.shields.io/badge/workflows-F59E0B?logo=githubactions&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="prompt packs" src="https://img.shields.io/badge/prompt%20packs-DB2777?logo=huggingface&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="MCP servers" src="https://img.shields.io/badge/MCP%20servers-2563EB?logo=docker&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="plugins" src="https://img.shields.io/badge/plugins-16A34A?logo=gradle&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="hooks" src="https://img.shields.io/badge/hooks-DC2626?logo=zap&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="extensions" src="https://img.shields.io/badge/extensions-0891B2?logo=vscodium&logoColor=white" /></a>
+  <a href="#discovery-and-recommendations"><img alt="reference packs" src="https://img.shields.io/badge/reference%20packs-64748B?logo=gitbook&logoColor=white" /></a>
 </p>
 
 `agent-harness` is a reviewable supply chain for reusable AI-agent assets: discover trusted sources, rank workspace-specific recommendations, mirror pinned bundles, stage local files, activate host views, and wire everything into the agent host you already use.
