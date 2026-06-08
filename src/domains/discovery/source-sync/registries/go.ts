@@ -88,9 +88,9 @@ export async function syncGoRegistrySource(
         // Crossed into a new timestamp bucket — resume normally.
         pastTieBreaker = true;
       } else if (packageName === cursorLastSeenPath) {
-        // Found the last-processed entry in the same bucket — the next row
-        // is the first unprocessed one.
-        lastPath = packageName;
+        // Found the last-processed entry in the same bucket — all rows after
+        // this point are new and should be processed.
+        pastTieBreaker = true;
         continue;
       } else {
         // Still inside the already-processed portion of the bucket.

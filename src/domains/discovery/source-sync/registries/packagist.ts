@@ -20,6 +20,9 @@ import {
 } from "../fetching.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
+/** Timeout for the Packagist full package-name snapshot fetch. */
+const PACKAGIST_TIMEOUT_MS = 60_000;
+
 /**
  * Syncs the Packagist (PHP) registry by fetching the full package-name
  * snapshot from the list API in one pass.
@@ -28,7 +31,6 @@ export async function syncPackagistRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const PACKAGIST_TIMEOUT_MS = 60_000;
   const apiUrl =
     source.endpoints.listApi ?? "https://packagist.org/packages/list.json";
   const data = await fetchRequiredJson(apiUrl, getAllowedOrigins(apiUrl), {
