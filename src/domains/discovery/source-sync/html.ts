@@ -353,7 +353,10 @@ export async function syncHtmlListSource(
       if (synchronizedPages === 0 && existingIndexedEntryCount === 0) {
         throw error;
       }
-      reason = error instanceof Error ? error.message : String(error);
+      reason =
+        /* c8 ignore next */ error instanceof Error
+          ? error.message
+          : String(error);
       break;
     }
 

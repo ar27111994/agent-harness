@@ -10,7 +10,10 @@ import {
   writeJsonFile,
   writeJsonLinesFile,
 } from "../files.js";
-import { SOURCE_SYNC_ENTRIES_OUTPUT_PATH } from "../domains/discovery/output-paths.js";
+import {
+  SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
+  SOURCE_SYNC_STATE_OUTPUT_PATH,
+} from "../domains/discovery/output-paths.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 
 type SourceSyncReport = {
@@ -67,6 +70,10 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
     ]),
     "https://zed.dev/extensions": htmlResponse([
       '<a href="/extensions/acme-theme">Acme Theme</a>',
+      '<!-- <a href="?page=2">Next</a> -->',
+    ]),
+    "https://zed.dev/extensions?page=2": htmlResponse([
+      '<a href="/extensions/acme-widget">Acme Widget</a>',
     ]),
     "https://pi.dev/packages": htmlResponse([
       '<a href="/packages/%40acme/agent-pack">Agent Pack</a>',
@@ -224,7 +231,7 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
   }
 });
 
-void test("source sync keeps prior indexed entries when a complete run observes zero ids", async () => {
+void test("source sync prunes stale indexed entries when a complete fresh-scan run observes zero ids", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-sync-"),
   );
@@ -271,12 +278,107 @@ void test("source sync keeps prior indexed entries when a complete run observes 
       join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
     );
 
+    // The sitemap returned an empty <urlset>. Since no previous cursor
+    // state existed (all cursors implicitly completed), this is treated as a
+    // legitimate full re-scan. The stale entry should be pruned.
     assert.equal(report.sources[0]?.sourceId, "cursor-marketplace");
     assert.equal(report.sources[0]?.status, "complete");
-    assert.equal(report.sources[0]?.indexedEntryCount, 1);
+    assert.equal(report.sources[0]?.indexedEntryCount, 0);
     assert.deepEqual(
       entries.map((entry) => entry.id),
-      ["cursor-marketplace/acme-existing"],
+      [],
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("source sync keeps prior indexed entries when a complete run is a mid-stream resume", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-"),
+  );
+  // Sitemap has a single leaf — one item URL. The first call will index it;
+  // the second call (resume with completed: false cursor) should NOT prune.
+  const cleanupFetch = installFetchMock({
+    "https://cursor.com/sitemap-marketplace.xml": xmlResponse([
+      "<sitemapindex><sitemap><loc>https://cursor.com/sitemap-a.xml</loc></sitemap></sitemapindex>",
+    ]),
+    "https://cursor.com/sitemap-a.xml": xmlResponse([
+      "<urlset><url><loc>https://cursor.com/marketplace/acme-widget</loc></url></urlset>",
+    ]),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "cursor-marketplace",
+        "marketplace",
+        {
+          baseUrl: "https://cursor.com/marketplace",
+          sitemapUrl: "https://cursor.com/sitemap-marketplace.xml",
+        },
+        ["cursor"],
+        ["plugin"],
+        "official-marketplace",
+        {
+          name: "Cursor",
+          verified: true,
+        },
+      ),
+    ]);
+    // Seed a stale entry AND pre-set a previous source state where the
+    // cursor is NOT yet completed, simulating a mid-stream resume.
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [
+        buildIndexedEntry(
+          "cursor-marketplace",
+          "cursor-marketplace/acme-existing",
+        ),
+      ],
+    );
+    await writeJsonFile(join(projectRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
+      schemaVersion: 1,
+      generatedAt: new Date(0).toISOString(),
+      sources: [
+        {
+          sourceId: "cursor-marketplace",
+          coverageMode: "indexed",
+          status: "partial",
+          indexedEntryCount: 1,
+          cursors: [
+            {
+              cursorId: "https://cursor.com/sitemap-a.xml",
+              nextToken: "0",
+              completed: false,
+            },
+          ],
+        },
+      ],
+    });
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+    const entries = await readJsonLinesFile<{ id: string }>(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+    );
+
+    // The run completed but started from a non-completed cursor, so it is
+    // NOT a fresh full re-scan. Stale entry must be preserved.
+    assert.equal(report.sources[0]?.sourceId, "cursor-marketplace");
+    assert.equal(report.sources[0]?.status, "complete");
+    // acme-existing (stale, not observed this run) + acme-widget (new)
+    assert.equal(entries.length, 2);
+    assert.ok(entries.some((e) => e.id === "cursor-marketplace/acme-existing"));
+    assert.ok(
+      entries.some(
+        (e) =>
+          e.id.includes("cursor-marketplace") && e.id.includes("acme-widget"),
+      ),
     );
   } finally {
     cleanupFetch();

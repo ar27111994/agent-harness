@@ -136,6 +136,52 @@ void test("source sync helper exports restore legacy cursors and token parsing b
   assert.equal(sourceSyncInternals.stringifyUnknown(Number.NaN), undefined);
   assert.equal(sourceSyncInternals.getErrorMessage(new Error("boom")), "boom");
   assert.equal(sourceSyncInternals.getErrorMessage(404), "404");
+
+  // allPreviousCursorsCompleted
+  assert.equal(
+    sourceSyncInternals.allPreviousCursorsCompleted(undefined),
+    true,
+    "no previous state → treat as fresh scan",
+  );
+  assert.equal(
+    sourceSyncInternals.allPreviousCursorsCompleted({
+      sourceId: "x",
+      coverageMode: "indexed",
+      status: "complete",
+      indexedEntryCount: 0,
+      cursors: [],
+    }),
+    true,
+    "empty cursors array → treat as fresh scan",
+  );
+  assert.equal(
+    sourceSyncInternals.allPreviousCursorsCompleted({
+      sourceId: "x",
+      coverageMode: "indexed",
+      status: "complete",
+      indexedEntryCount: 1,
+      cursors: [
+        { cursorId: "a", completed: true },
+        { cursorId: "b", completed: true },
+      ],
+    }),
+    true,
+    "all cursors completed → fresh scan",
+  );
+  assert.equal(
+    sourceSyncInternals.allPreviousCursorsCompleted({
+      sourceId: "x",
+      coverageMode: "indexed",
+      status: "partial",
+      indexedEntryCount: 1,
+      cursors: [
+        { cursorId: "a", completed: true },
+        { cursorId: "b", completed: false },
+      ],
+    }),
+    false,
+    "any cursor not completed → mid-stream resume",
+  );
 });
 
 void test("source sync helper exports cover non-indexed classification and path parsing branches", () => {
@@ -322,6 +368,7 @@ void test("source sync helper exports cover registry sync edge branches", async 
           last_seq: { unsupported: true },
           results: [
             { id: "deleted-pkg", deleted: true },
+            { missing: "id-field" },
             { id: "missing-metadata" },
             { id: "valid-pkg" },
           ],
@@ -375,6 +422,15 @@ void test("source sync helper exports cover registry sync edge branches", async 
             '{"Path":"github.com/acme/alpha","Timestamp":"2026-05-09T00:00:00Z"}',
             '{"Path":"github.com/acme/beta","Timestamp":"2026-05-09T00:00:00Z"}',
             '{"Path":"github.com/acme/gamma","Timestamp":"2026-05-10T00:00:00Z"}',
+          ].join("\n"),
+        );
+      // New-timestamp-on-first-row: cursor "2026-05-11T00:00:00Z|github.com/acme/omega"
+      // Feed starts at 2026-05-12 (different ts bucket) — pastTieBreaker fires on first row.
+      case "https://index.golang.org/index?since=2026-05-11T00%3A00%3A00Z&limit=50":
+        return textResponse(
+          [
+            '{"Path":"github.com/acme/delta","Timestamp":"2026-05-12T00:00:00Z"}',
+            '{"Path":"github.com/acme/epsilon","Timestamp":"2026-05-12T00:00:00Z"}',
           ].join("\n"),
         );
       case "https://search.maven.org/solrsearch/select?q=*%3A*&rows=50&start=0&wt=json":
@@ -449,6 +505,24 @@ void test("source sync helper exports cover registry sync edge branches", async 
       );
     assert.equal(rubygemsResult.status, "complete");
     assert.equal(rubygemsResult.indexedEntryCount, 0);
+
+    // Missing {page} in template AND no pageUrlForNumber — must throw.
+    await assert.rejects(
+      () =>
+        sourceSyncInternals.syncHtmlPackageRegistrySource(
+          buildSourceDefinition("rubygems-registry", "package-registry", {
+            baseUrl: "https://rubygems.org",
+          }),
+          buildSourceSyncContext(),
+          {
+            pageUrlTemplate: "https://rubygems.org/gems",
+            linkPattern: /\/gems\/[^"'\s<>()?#]+/gu,
+            packageNameFromPath: (url: URL) =>
+              sourceSyncInternals.decodePathSegments(url.pathname)[1],
+          },
+        ),
+      /does not contain "\{page\}"/u,
+    );
 
     const mcpContext = buildSourceSyncContext({
       sourceId: "mcp-registry",
@@ -664,6 +738,78 @@ void test("source sync helper exports cover registry sync edge branches", async 
             buildCatalogId("go-registry:go", "github.com/acme/gamma"),
           ),
           true,
+        );
+
+        // New-timestamp-on-first-row: cursor stored as "2026-05-11T00:00:00Z|github.com/acme/omega"
+        // but the feed jumps straight to a new timestamp (no bucket overlap).
+        // pastTieBreaker must flip on the very first row so it is processed.
+        const goFreshTsContext = buildSourceSyncContext({
+          sourceId: "go-registry",
+          coverageMode: "indexed",
+          status: "partial",
+          indexedEntryCount: 0,
+          cursors: [
+            {
+              cursorId: "index",
+              nextToken: "2026-05-11T00:00:00Z|github.com/acme/omega",
+              completed: false,
+            },
+          ],
+        });
+        const goFreshTsResult = await sourceSyncInternals.syncGoRegistrySource(
+          buildSourceDefinition("go-registry", "package-registry", {
+            baseUrl: "https://pkg.go.dev",
+          }),
+          goFreshTsContext,
+        );
+        assert.equal(goFreshTsResult.status, "partial");
+        // delta and epsilon both at 2026-05-12 — new-timestamp branch fires on first,
+        // then pastTieBreaker stays true for the rest. Both should be indexed.
+        assert.equal(goFreshTsContext.entriesById.size, 2);
+        assert.ok(
+          goFreshTsContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/delta"),
+          ),
+        );
+        assert.ok(
+          goFreshTsContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/epsilon"),
+          ),
+        );
+
+        // Pre-lastSeenPath rows in the same bucket (the else-continue branch):
+        // Use a cursor set to "alpha" but the feed also sends "aardvark" before it.
+        const goPreSeedContext = buildSourceSyncContext({
+          sourceId: "go-registry",
+          coverageMode: "indexed",
+          status: "partial",
+          indexedEntryCount: 0,
+          cursors: [
+            {
+              cursorId: "index",
+              nextToken: "2026-05-09T00:00:00Z|github.com/acme/beta",
+              completed: false,
+            },
+          ],
+        });
+        const goPreSeedResult = await sourceSyncInternals.syncGoRegistrySource(
+          buildSourceDefinition("go-registry", "package-registry", {
+            baseUrl: "https://pkg.go.dev",
+          }),
+          goPreSeedContext,
+        );
+        assert.equal(goPreSeedResult.status, "partial");
+        // alpha comes before beta in the same bucket — hits the else-continue branch.
+        // Only gamma (new ts) should be added.
+        assert.ok(
+          !goPreSeedContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/alpha"),
+          ),
+        );
+        assert.ok(
+          goPreSeedContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/gamma"),
+          ),
         );
 
         const mavenContext = buildSourceSyncContext();

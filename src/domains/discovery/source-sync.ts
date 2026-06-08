@@ -44,6 +44,7 @@ import {
   restoreFiniteCursorState,
   parsePositiveIntegerToken,
   parseNonNegativeIntegerToken,
+  allPreviousCursorsCompleted,
 } from "./source-sync/state.js";
 import {
   fetchRequiredText,
@@ -146,4 +147,5 @@ export const sourceSyncInternals = {
   getNumber,
   stringifyUnknown,
   getErrorMessage,
+  allPreviousCursorsCompleted,
 };

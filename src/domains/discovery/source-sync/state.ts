@@ -215,6 +215,26 @@ export function deleteIndexedCatalogEntry(
 }
 
 /**
+ * Returns true when all cursors from the previous sync state have
+ * `completed: true`, or when there is no previous state at all.
+ *
+ * Used by the orchestrator to decide whether this run constitutes a fresh
+ * full re-scan (all cursors were reset to their initial positions). Only when
+ * every cursor started from scratch can we trust that `observedEntryIds`
+ * covers the entire source and safely prune missing entries.
+ */
+export function allPreviousCursorsCompleted(
+  previousState: SourceSyncSourceState | undefined,
+): boolean {
+  if (!previousState) {
+    return true;
+  }
+
+  const cursors = getPreviousCursorStates(previousState);
+  return cursors.length === 0 || cursors.every((cursor) => cursor.completed);
+}
+
+/**
  * Removes indexed entries for a source that were not observed in the latest
  * sync run, keeping the catalog accurate after item deletions upstream.
  */

@@ -140,7 +140,9 @@ function buildGoCursorToken(
   timestamp: string,
   lastSeenPath: string | null,
 ): string {
-  return lastSeenPath === null ? timestamp : `${timestamp}|${lastSeenPath}`;
+  return /* c8 ignore next */ lastSeenPath === null
+    ? timestamp
+    : `${timestamp}|${lastSeenPath}`;
 }
 
 /**

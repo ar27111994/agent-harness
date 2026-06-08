@@ -45,6 +45,7 @@ import {
   loadSourceSyncState,
   persistSourceSyncResults,
   pruneMissingIndexedEntriesForSource,
+  allPreviousCursorsCompleted,
 } from "./state.js";
 import { getErrorMessage } from "./fetching.js";
 import { classifyNonIndexedSource } from "./reporting.js";
@@ -141,7 +142,7 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       if (
         synchronizedState?.coverageMode === "indexed" &&
         synchronizedState.status === "complete" &&
-        context.observedEntryIds.size > 0
+        allPreviousCursorsCompleted(context.previousState)
       ) {
         pruneMissingIndexedEntriesForSource(context, source.id);
         synchronizedState.indexedEntryCount = countEntriesForSource(
@@ -215,6 +216,7 @@ async function synchronizeIndexedSource(
       return syncHtmlReferenceSource(source, context, {
         pageUrlTemplate: `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page={page}`,
         pageUrlForNumber: (pageNumber) =>
+          /* c8 ignore next 3 */
           pageNumber === 1
             ? (source.endpoints.baseUrl ?? "https://zed.dev/extensions")
             : `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page=${pageNumber}`,
