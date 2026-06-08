@@ -200,6 +200,21 @@ export function upsertIndexedCatalogEntry(
 }
 
 /**
+ * Explicitly removes a single indexed catalog entry by ID, recording the
+ * catalog as dirty so the change is persisted. Used by adapters that receive
+ * explicit delete signals from their upstream feed (e.g. npm changes feed).
+ */
+export function deleteIndexedCatalogEntry(
+  context: SourceSyncContext,
+  entryId: string,
+): void {
+  if (context.entriesById.has(entryId)) {
+    context.entriesById.delete(entryId);
+    context.entriesDirty = true;
+  }
+}
+
+/**
  * Removes indexed entries for a source that were not observed in the latest
  * sync run, keeping the catalog accurate after item deletions upstream.
  */

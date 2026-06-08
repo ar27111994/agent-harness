@@ -13,9 +13,11 @@ import {
   buildPackageRegistryCatalogEntry,
   getPackageRegistryKind,
 } from "../../package-registry-harvester.js";
+import { buildCatalogId } from "../../catalog-utils.js";
 
 import {
   countEntriesForSource,
+  deleteIndexedCatalogEntry,
   getPreviousCursorStates,
   upsertIndexedCatalogEntry,
 } from "../state.js";
@@ -54,10 +56,24 @@ export async function syncNpmRegistrySource(
   const record = asRecord(data);
   const results = Array.isArray(record.results) ? record.results : [];
 
+  const registryKind = getPackageRegistryKind(source);
   for (const result of results) {
     const row = asRecord(result);
     const packageName = getString(row.id);
-    if (!packageName || row.deleted === true) {
+    if (!packageName) {
+      continue;
+    }
+
+    if (row.deleted === true) {
+      // The npm changes feed explicitly signals a package was unpublished.
+      // Remove it from the in-memory index immediately so the catalog stays
+      // accurate without waiting for a prune-on-complete pass (which the
+      // feed-based adapter never reaches).
+      const entryId = buildCatalogId(
+        `${source.id}:${registryKind}`,
+        packageName,
+      );
+      deleteIndexedCatalogEntry(context, entryId);
       continue;
     }
 

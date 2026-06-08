@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { buildCatalogId } from "../domains/discovery/catalog-utils.js";
 import type { SourceSyncSourceState } from "../domains/discovery/source-sync.js";
 import { sourceSyncInternals } from "../domains/discovery/source-sync.js";
 import type {
@@ -366,6 +367,16 @@ void test("source sync helper exports cover registry sync edge branches", async 
             '{"Path":"github.com/acme/go-agent"}',
           ].join("\n"),
         );
+      // Resume mid-bucket: cursor is "2026-05-09T00:00:00Z|github.com/acme/alpha"
+      // The feed returns alpha again + beta at the same timestamp + gamma at new ts.
+      case "https://index.golang.org/index?since=2026-05-09T00%3A00%3A00Z&limit=50":
+        return textResponse(
+          [
+            '{"Path":"github.com/acme/alpha","Timestamp":"2026-05-09T00:00:00Z"}',
+            '{"Path":"github.com/acme/beta","Timestamp":"2026-05-09T00:00:00Z"}',
+            '{"Path":"github.com/acme/gamma","Timestamp":"2026-05-10T00:00:00Z"}',
+          ].join("\n"),
+        );
       case "https://search.maven.org/solrsearch/select?q=*%3A*&rows=50&start=0&wt=json":
         return jsonResponse({
           response: {
@@ -511,6 +522,35 @@ void test("source sync helper exports cover registry sync edge branches", async 
     assert.equal(npmContext.entriesById.size, 1);
     assert.equal(npmContext.entriesById.has("missing-metadata"), false);
 
+    // deleted-pkg: pre-seed the entry then verify the feed's deleted:true removes it
+    const npmDeletedContext = buildSourceSyncContext({
+      sourceId: "npm-registry",
+      coverageMode: "indexed",
+      status: "partial",
+      indexedEntryCount: 1,
+      cursors: [{ cursorId: "changes", nextToken: "7", completed: false }],
+    });
+    const deletedEntryId = buildCatalogId("npm-registry:npm", "deleted-pkg");
+    // Manually seed the entry as if it was indexed in a prior run.
+    npmDeletedContext.entriesById.set(deletedEntryId, {
+      id: deletedEntryId,
+    } as AssetCatalogEntry);
+    assert.equal(npmDeletedContext.entriesById.size, 1);
+    await sourceSyncInternals.syncNpmRegistrySource(
+      buildSourceDefinition("npm-registry", "package-registry", {
+        baseUrl: "https://www.npmjs.com",
+      }),
+      npmDeletedContext,
+    );
+    // deleted-pkg was removed; valid-pkg was added
+    assert.equal(npmDeletedContext.entriesById.has(deletedEntryId), false);
+    assert.equal(
+      npmDeletedContext.entriesById.has(
+        buildCatalogId("npm-registry:npm", "valid-pkg"),
+      ),
+      true,
+    );
+
     await withEnv(
       { AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1" },
       async () => {
@@ -578,8 +618,53 @@ void test("source sync helper exports cover registry sync edge branches", async 
           goContext,
         );
         assert.equal(goResult.status, "partial");
-        assert.equal(goResult.cursors[0]?.nextToken, "1970-01-01T00:00:00Z");
+        assert.equal(
+          goResult.cursors[0]?.nextToken,
+          "1970-01-01T00:00:00Z|github.com/acme/go-agent",
+        );
         assert.equal(goContext.entriesById.size, 1);
+
+        // Tie-breaker resume: cursor stored as "2026-05-09T00:00:00Z|github.com/acme/alpha"
+        // Feed replays alpha + new beta at same ts + gamma at new ts.
+        // Expected: only beta and gamma are added (alpha already processed).
+        const goResumeContext = buildSourceSyncContext({
+          sourceId: "go-registry",
+          coverageMode: "indexed",
+          status: "partial",
+          indexedEntryCount: 1,
+          cursors: [
+            {
+              cursorId: "index",
+              nextToken: "2026-05-09T00:00:00Z|github.com/acme/alpha",
+              completed: false,
+            },
+          ],
+        });
+        const goResumeResult = await sourceSyncInternals.syncGoRegistrySource(
+          buildSourceDefinition("go-registry", "package-registry", {
+            baseUrl: "https://pkg.go.dev",
+          }),
+          goResumeContext,
+        );
+        assert.equal(goResumeResult.status, "partial");
+        assert.equal(
+          goResumeResult.cursors[0]?.nextToken,
+          "2026-05-10T00:00:00Z|github.com/acme/gamma",
+        );
+        // beta and gamma were added; alpha was skipped (already processed)
+        assert.equal(goResumeContext.entriesById.size, 2);
+        assert.equal(
+          goResumeContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/beta"),
+          ),
+          true,
+        );
+        assert.equal(
+          goResumeContext.entriesById.has(
+            buildCatalogId("go-registry:go", "github.com/acme/gamma"),
+          ),
+          true,
+        );
 
         const mavenContext = buildSourceSyncContext();
         const mavenResult = await sourceSyncInternals.syncMavenRegistrySource(

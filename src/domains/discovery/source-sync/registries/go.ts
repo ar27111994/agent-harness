@@ -37,13 +37,15 @@ export async function syncGoRegistrySource(
     nextToken: "1970-01-01T00:00:00Z",
     completed: false,
   };
+
+  const [cursorTimestamp, cursorLastSeenPath] = parseGoCursorToken(
+    previousCursor.nextToken,
+  );
+
   const apiUrl = new URL(
     source.endpoints.indexApi ?? "https://index.golang.org/index",
   );
-  apiUrl.searchParams.set(
-    "since",
-    previousCursor.nextToken ?? "1970-01-01T00:00:00Z",
-  );
+  apiUrl.searchParams.set("since", cursorTimestamp);
   apiUrl.searchParams.set("limit", String(SOURCE_SYNC_BATCH_SIZE));
   const content = await fetchRequiredText(
     apiUrl.toString(),
@@ -65,13 +67,37 @@ export async function syncGoRegistrySource(
         Boolean(line) && isRecord(line),
     );
 
-  let nextToken = previousCursor.nextToken ?? "1970-01-01T00:00:00Z";
+  let lastTimestamp = cursorTimestamp;
+  let lastPath: string | null = cursorLastSeenPath;
+
+  // When resuming mid-timestamp-bucket, skip rows until we pass the last
+  // entry we already processed (identified by its module path).
+  let pastTieBreaker = cursorLastSeenPath === null;
+
   for (const row of rows) {
     const packageName = getString(row.Path);
     if (!packageName) {
       continue;
     }
-    const timestamp = getString(row.Timestamp);
+    const timestamp = getString(row.Timestamp) ?? cursorTimestamp;
+
+    // Advance past the tie-breaker boundary on the first row with a new
+    // timestamp, or once we've seen the stored lastSeenPath in the same bucket.
+    if (!pastTieBreaker) {
+      if (timestamp !== cursorTimestamp) {
+        // Crossed into a new timestamp bucket — resume normally.
+        pastTieBreaker = true;
+      } else if (packageName === cursorLastSeenPath) {
+        // Found the last-processed entry in the same bucket — the next row
+        // is the first unprocessed one.
+        lastPath = packageName;
+        continue;
+      } else {
+        // Still inside the already-processed portion of the bucket.
+        continue;
+      }
+    }
+
     const entry = buildPackageRegistryCatalogEntry(
       source,
       packageName,
@@ -83,9 +109,8 @@ export async function syncGoRegistrySource(
       getPackageRegistryKind(source),
     );
     upsertIndexedCatalogEntry(context, entry);
-    if (timestamp) {
-      nextToken = timestamp;
-    }
+    lastTimestamp = timestamp;
+    lastPath = packageName;
   }
 
   return {
@@ -99,9 +124,37 @@ export async function syncGoRegistrySource(
     cursors: [
       {
         cursorId: "index",
-        nextToken,
+        nextToken: buildGoCursorToken(lastTimestamp, lastPath),
         completed: false,
       },
     ],
   };
+}
+
+/**
+ * Encodes a Go index cursor token as `"timestamp|lastSeenPath"` or plain
+ * `"timestamp"` when no path has been seen yet. This lets us pack a tie-breaker
+ * into the single `nextToken` string without changing the cursor schema.
+ */
+function buildGoCursorToken(
+  timestamp: string,
+  lastSeenPath: string | null,
+): string {
+  return lastSeenPath === null ? timestamp : `${timestamp}|${lastSeenPath}`;
+}
+
+/**
+ * Parses a Go index cursor token produced by {@link buildGoCursorToken}.
+ * Returns `[timestamp, lastSeenPath]` where `lastSeenPath` is `null` for
+ * legacy cursors that only stored a bare timestamp.
+ */
+function parseGoCursorToken(
+  token: string | undefined,
+): [string, string | null] {
+  const raw = token ?? "1970-01-01T00:00:00Z";
+  const pipeIndex = raw.indexOf("|");
+  if (pipeIndex === -1) {
+    return [raw, null];
+  }
+  return [raw.slice(0, pipeIndex), raw.slice(pipeIndex + 1)];
 }
