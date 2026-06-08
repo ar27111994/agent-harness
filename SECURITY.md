@@ -2,11 +2,12 @@
 
 ## Supported versions
 
-Security fixes are currently targeted at the latest stable `1.x` release line on `main`.
+Security fixes are currently targeted at the latest stable `2.x` release line on `main`.
 
 | Version                                | Supported |
 | -------------------------------------- | --------- |
-| `1.x`                                  | Yes       |
+| `2.x`                                  | Yes       |
+| `1.x`                                  | No        |
 | `0.x`                                  | No        |
 | older prereleases / abandoned branches | No        |
 

@@ -32,8 +32,7 @@ export const SOURCE_SYNC_TIMEOUT_MS = 30_000;
 /** Default HTTP headers sent with every source-sync request. */
 export const SOURCE_SYNC_HEADERS = {
   Accept: "application/json,text/html,application/xml,text/plain,*/*",
-  "User-Agent":
-    "agent-harness/1.0 (+https://github.com/ar27111994/agent-harness)",
+  "User-Agent": "agent-harness",
 };
 
 // ─── Fetch wrappers ───────────────────────────────────────────────────────────

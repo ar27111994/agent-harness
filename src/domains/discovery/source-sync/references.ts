@@ -105,17 +105,19 @@ export function buildIndexedReferenceItem(
 ): AssetCatalogEntry {
   const manifestEntry =
     options.manifestEntry ?? buildManifestEntryFromUrl(url) ?? url.toString();
+  const effectiveDisplayName =
+    options.displayName ?? buildDisplayNameFromUrl(url);
   return buildReferenceSourceCatalogEntry(
     source,
     context.demandProfile,
     context.selectionRegistry,
     {
       harvestedItem: {
-        displayName: options.displayName ?? buildDisplayNameFromUrl(url),
+        displayName: effectiveDisplayName,
         originUrl: url.toString(),
         summary:
           options.summary ??
-          `${source.name} indexed item for ${buildDisplayNameFromUrl(url)}`,
+          `${source.name} indexed item for ${effectiveDisplayName}`,
         capabilities: decodePathSegments(url.pathname),
         assetKind: options.assetKind,
         compatibilityMode: options.compatibilityMode,

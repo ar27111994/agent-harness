@@ -82,7 +82,7 @@ Some internal implementations use security-sensitive patterns that are **not saf
 
 ### The `getAllowedOrigins` / self-derived allowlist pattern (source-sync only)
 
-`src/domains/discovery/source-sync.ts` derives an HTTP origin allowlist at request time from checked-in source definitions. This pattern is safe in that specific context because:
+`src/domains/discovery/source-sync/fetching.ts` derives an HTTP origin allowlist at request time from checked-in source definitions. This pattern is safe in that specific context because:
 
 - The input URLs come exclusively from the checked-in source registry (not user input at runtime).
 - The shared HTTP guard layer enforces an independent SSRF backstop that rejects private-IP, loopback, link-local, and bare-IP targets regardless of the allowlist.

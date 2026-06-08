@@ -9,8 +9,10 @@
 
 import { getRuntimeConfig } from "../../../config/runtime.js";
 import type { AssetCatalogEntry, SourceDefinition } from "../../../types.js";
-import { buildPackageRegistryCatalogEntry } from "../package-registry-harvester.js";
-import { getPackageRegistryKind } from "../package-registry-harvester.js";
+import {
+  buildPackageRegistryCatalogEntry,
+  getPackageRegistryKind,
+} from "../package-registry-harvester.js";
 
 import {
   countEntriesForSource,
@@ -241,9 +243,9 @@ export async function syncSitemapSource(
       },
     );
     let nextOffset = parseNonNegativeIntegerToken(previousCursor.nextToken, 0);
-    let completed = previousCursor.completed;
+    let completed = false;
 
-    if (!completed && remainingPageBudget > 0) {
+    if (remainingPageBudget > 0) {
       const xml = await fetchRequiredText(sitemapUrl, allowedOrigins);
       const itemUrls = parseUrlSet(xml, sitemapUrl)
         .filter((url) => isAllowedOriginUrl(url, allowedOrigins))
@@ -305,6 +307,14 @@ export async function syncHtmlListSource(
     rootUrlExclusions?: Set<string>;
   },
 ): Promise<SourceSyncSourceState> {
+  if (
+    options.pageUrlForNumber === undefined &&
+    !pageUrlTemplate.includes("{page}")
+  ) {
+    throw new Error(
+      `syncHtmlListSource: pageUrlTemplate "${pageUrlTemplate}" does not contain "{page}" and no pageUrlForNumber override was provided. Either include "{page}" in the template or supply a pageUrlForNumber function.`,
+    );
+  }
   const previousCursor = restoreFiniteCursorState(
     getPreviousCursorStates(context.previousState)[0],
     {
@@ -318,7 +328,7 @@ export async function syncHtmlListSource(
     source.endpoints.baseUrl,
   );
   let pageNumber = parsePositiveIntegerToken(previousCursor.nextToken, 1);
-  let completed = previousCursor.completed;
+  let completed = false;
   let reason: string | undefined;
   let synchronizedPages = 0;
   const existingIndexedEntryCount = countEntriesForSource(

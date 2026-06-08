@@ -21,11 +21,15 @@ src/domains/discovery/source-sync/
   html.ts                  # sitemap + paginated HTML extraction
   registries/
     npm.ts
-    pypi.ts
+    pypi.ts           # handled inline via syncSitemapPackageRegistrySource
     crates.ts
     vscode-marketplace.ts
     mcp-registry.ts
     nuget.ts
+    go.ts
+    maven.ts
+    packagist.ts
+    clawhub.ts
 ```
 
 ## Extraction order

@@ -46,11 +46,11 @@ Security non-goal: the harness does not prove that the upstream author is benign
 
 ### Source-sync origin allowlist and SSRF backstop
 
-`source-sync` uses a **self-derived origin allowlist** to restrict outbound fetch calls to the exact hostnames declared in checked-in source definitions. This allowlist is built at request time from the source pack's own `originUrl` fields — it is not a static list and it is not user-configurable at runtime.
+`source-sync` uses a **self-derived origin allowlist** to restrict outbound fetch calls to the exact hostnames declared in checked-in source definitions. This allowlist is built at request time from the source pack's own `endpoints` URLs — it is not a static list and it is not user-configurable at runtime.
 
 How the boundary works:
 
-1. Each source definition in the checked-in source registry declares an `originUrl`.
+1. Each source definition in the checked-in source registry declares one or more endpoint URLs under `endpoints`.
 2. Before any network call, `source-sync` extracts the origin (scheme + host + port) from those declared URLs and passes it as an explicit allowlist to the shared HTTP guard layer.
 3. The shared HTTP guard layer independently enforces an **SSRF backstop**: it rejects requests that resolve to private IP ranges (RFC 1918, loopback, link-local, multicast), unroutable addresses, or bare IP literals, regardless of what the allowlist says.
 4. If the resolved hostname does not appear in the derived allowlist, the fetch is refused before a TCP connection is opened.

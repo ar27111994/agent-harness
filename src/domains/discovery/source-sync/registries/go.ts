@@ -25,8 +25,8 @@ import {
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
 /**
- * Syncs the Go module proxy / pkg.go.dev index using sitemap-driven discovery
- * with a paginated HTML fallback.
+ * Syncs the Go module index using the official JSON-lines feed
+ * (`index.golang.org/index`) with a timestamp cursor.
  */
 export async function syncGoRegistrySource(
   source: SourceDefinition,
@@ -71,7 +71,7 @@ export async function syncGoRegistrySource(
     if (!packageName) {
       continue;
     }
-    const timestamp = getString(row.Timestamp) ?? undefined;
+    const timestamp = getString(row.Timestamp);
     const entry = buildPackageRegistryCatalogEntry(
       source,
       packageName,

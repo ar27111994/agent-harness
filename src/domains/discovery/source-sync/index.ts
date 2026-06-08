@@ -140,8 +140,7 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       const synchronizedState = await synchronizeIndexedSource(source, context);
       if (
         synchronizedState?.coverageMode === "indexed" &&
-        synchronizedState.status === "complete" &&
-        context.observedEntryIds.size > 0
+        synchronizedState.status === "complete"
       ) {
         pruneMissingIndexedEntriesForSource(context, source.id);
         synchronizedState.indexedEntryCount = countEntriesForSource(
@@ -213,8 +212,11 @@ async function synchronizeIndexedSource(
       });
     case "zed-extension-registry":
       return syncHtmlReferenceSource(source, context, {
-        pageUrlTemplate:
-          source.endpoints.baseUrl ?? "https://zed.dev/extensions",
+        pageUrlTemplate: `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page={page}`,
+        pageUrlForNumber: (pageNumber) =>
+          pageNumber === 1
+            ? (source.endpoints.baseUrl ?? "https://zed.dev/extensions")
+            : `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page=${pageNumber}`,
         linkPattern: /\/extensions\/[^"'\s<>()?#]+/gu,
         itemAssetKind: "extension",
         itemCompatibilityMode: "native",
