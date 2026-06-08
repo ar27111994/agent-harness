@@ -44,6 +44,7 @@ const magicThresholdFiles = [
   "src/domains/discovery/demand-signals.ts",
   "src/domains/discovery/official-index-harvester.ts",
   "src/domains/discovery/source-sync.ts",
+  "src/domains/discovery/source-sync/**/*.ts",
   "src/install/refresh.ts",
   "src/mirror/acquire.ts",
   "src/recommend/selection.ts",
