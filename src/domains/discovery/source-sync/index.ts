@@ -215,11 +215,10 @@ async function synchronizeIndexedSource(
     case "zed-extension-registry":
       return syncHtmlReferenceSource(source, context, {
         pageUrlTemplate: `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page={page}`,
-        pageUrlForNumber: (pageNumber) =>
-          /* c8 ignore next 3 */
-          pageNumber === 1
-            ? (source.endpoints.baseUrl ?? "https://zed.dev/extensions")
-            : `${source.endpoints.baseUrl ?? "https://zed.dev/extensions"}?page=${pageNumber}`,
+        pageUrlForNumber: (pageNumber) => {
+          const base = source.endpoints.baseUrl ?? "https://zed.dev/extensions";
+          return pageNumber === 1 ? base : `${base}?page=${pageNumber}`;
+        },
         linkPattern: /\/extensions\/[^"'\s<>()?#]+/gu,
         itemAssetKind: "extension",
         itemCompatibilityMode: "native",

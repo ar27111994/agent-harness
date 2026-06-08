@@ -353,10 +353,10 @@ export async function syncHtmlListSource(
       if (synchronizedPages === 0 && existingIndexedEntryCount === 0) {
         throw error;
       }
-      reason =
-        /* c8 ignore next */ error instanceof Error
-          ? error.message
-          : String(error);
+      // fetchTextWithGuards always wraps non-Error rejections; the else arm
+      // is defensive dead-code. c8 ignore covers the unreachable branch.
+      /* c8 ignore next 2 */
+      reason = error instanceof Error ? error.message : String(error);
       break;
     }
 

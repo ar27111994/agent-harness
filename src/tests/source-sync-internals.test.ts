@@ -414,6 +414,10 @@ void test("source sync helper exports cover registry sync edge branches", async 
             '{"Path":"github.com/acme/go-agent"}',
           ].join("\n"),
         );
+      // Empty Go feed: all rows lack a valid Path — lastPath stays null,
+      // buildGoCursorToken is called with null lastSeenPath.
+      case "https://index.golang.org/index-empty?since=1970-01-01T00%3A00%3A00Z&limit=50":
+        return textResponse('{"Timestamp":"2026-05-08T00:00:00Z"}');
       // Resume mid-bucket: cursor is "2026-05-09T00:00:00Z|github.com/acme/alpha"
       // The feed returns alpha again + beta at the same timestamp + gamma at new ts.
       case "https://index.golang.org/index?since=2026-05-09T00%3A00%3A00Z&limit=50":
@@ -697,6 +701,29 @@ void test("source sync helper exports cover registry sync edge branches", async 
           "1970-01-01T00:00:00Z|github.com/acme/go-agent",
         );
         assert.equal(goContext.entriesById.size, 1);
+
+        // Empty Go feed: all rows lack a valid Path → lastPath stays null
+        // → buildGoCursorToken(ts, null) returns plain timestamp token.
+        const goEmptyContext = buildSourceSyncContext({
+          sourceId: "go-registry",
+          coverageMode: "indexed",
+          status: "partial",
+          indexedEntryCount: 0,
+          cursors: [{ cursorId: "index", completed: false }],
+        });
+        const goEmptyResult = await sourceSyncInternals.syncGoRegistrySource(
+          buildSourceDefinition("go-empty", "package-registry", {
+            baseUrl: "https://pkg.go.dev",
+            indexApi: "https://index.golang.org/index-empty",
+          }),
+          goEmptyContext,
+        );
+        assert.equal(goEmptyResult.status, "partial");
+        assert.equal(
+          goEmptyResult.cursors[0]?.nextToken,
+          "1970-01-01T00:00:00Z",
+        );
+        assert.equal(goEmptyContext.entriesById.size, 0);
 
         // Tie-breaker resume: cursor stored as "2026-05-09T00:00:00Z|github.com/acme/alpha"
         // Feed replays alpha + new beta at same ts + gamma at new ts.
