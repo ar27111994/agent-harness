@@ -250,6 +250,17 @@ async function synchronizeIndexedSource(
         itemCompatibilityMode: "adaptable",
         itemInstallMethod: "skills-registry-index",
       });
+    case "ui-skills":
+      return syncSitemapReferenceSource(source, context, {
+        rootSitemapUrl:
+          source.endpoints.sitemapUrl ??
+          "https://www.ui-skills.com/sitemap.xml",
+        itemUrlPredicate: (url) =>
+          /^\/skills\/[^/]+\/[^/]+\/?$/u.test(url.pathname),
+        itemAssetKind: "skill",
+        itemCompatibilityMode: "adaptable",
+        itemInstallMethod: "ui-skills-index",
+      });
     case "clawhub":
       return syncClawHubPlugins(source, context);
     case "mcp-registry":

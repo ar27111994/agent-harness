@@ -54,6 +54,17 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
       "<url><loc>https://skills.sh/agents/security-reviewer</loc></url>",
       "</urlset>",
     ]),
+    "https://www.ui-skills.com/sitemap.xml": xmlResponse([
+      "<urlset>",
+      // topic/author index pages — should be filtered out by itemUrlPredicate
+      "<url><loc>https://www.ui-skills.com/skills/</loc></url>",
+      "<url><loc>https://www.ui-skills.com/skills/topics/</loc></url>",
+      "<url><loc>https://www.ui-skills.com/skills/pbakaus/</loc></url>",
+      // 2-segment skill pages — should be picked up
+      "<url><loc>https://www.ui-skills.com/skills/pbakaus/polish/</loc></url>",
+      "<url><loc>https://www.ui-skills.com/skills/antfu/vite/</loc></url>",
+      "</urlset>",
+    ]),
     "https://clawhub.ai/plugins?sort=downloads": htmlResponse([
       '<a href="/plugins/openclaw/toolbox">Toolbox</a>',
       '<a href="/plugins/openclaw/workflow-kit">Workflow Kit</a>',
@@ -109,6 +120,20 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
         "unverified-community",
         {
           name: "skills.sh",
+          verified: false,
+        },
+      ),
+      buildSource(
+        "ui-skills",
+        "registry",
+        {
+          baseUrl: "https://www.ui-skills.com/skills",
+        },
+        ["copilot-vscode"],
+        ["skill"],
+        "unverified-community",
+        {
+          name: "UI Skills",
           verified: false,
         },
       ),
@@ -216,6 +241,8 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
     assert.equal(byId.get("cursor-marketplace")?.status, "complete");
     assert.equal(byId.get("skills-sh")?.coverageMode, "indexed");
     assert.equal(byId.get("skills-sh")?.status, "complete");
+    assert.equal(byId.get("ui-skills")?.coverageMode, "indexed");
+    assert.equal(byId.get("ui-skills")?.status, "complete");
     assert.equal(byId.get("clawhub")?.coverageMode, "indexed");
     assert.equal(byId.get("clawhub")?.status, "partial");
     assert.equal(byId.get("pypi-registry")?.coverageMode, "indexed");

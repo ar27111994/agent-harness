@@ -14,6 +14,7 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://marketplace.visualstudio.com",
   "https://www.npmjs.com",
   "https://pypi.org",
+  "https://www.ui-skills.com",
 ] as const;
 
 /**

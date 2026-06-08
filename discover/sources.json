@@ -381,6 +381,38 @@
       }
     },
     {
+      "id": "ui-skills",
+      "name": "UI Skills",
+      "kind": "registry",
+      "authorityTier": "unverified-community",
+      "publisher": {
+        "name": "ui-skills.com",
+        "verified": false
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": ["skill"],
+      "discoveryMode": "catalog",
+      "priority": 58,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://www.ui-skills.com/skills",
+        "sitemapUrl": "https://www.ui-skills.com/sitemap.xml"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": false,
+        "allowInstall": false
+      }
+    },
+    {
       "id": "clawhub",
       "name": "ClawHub",
       "kind": "registry",
