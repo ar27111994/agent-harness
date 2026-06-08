@@ -140,7 +140,8 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       const synchronizedState = await synchronizeIndexedSource(source, context);
       if (
         synchronizedState?.coverageMode === "indexed" &&
-        synchronizedState.status === "complete"
+        synchronizedState.status === "complete" &&
+        context.observedEntryIds.size > 0
       ) {
         pruneMissingIndexedEntriesForSource(context, source.id);
         synchronizedState.indexedEntryCount = countEntriesForSource(
