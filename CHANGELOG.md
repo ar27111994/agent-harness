@@ -18,9 +18,12 @@ All notable changes to this project will be documented in this file.
 - native-host recommendation fixture coverage for Cursor, Zed, Claude Code, and Pi defaults for #208
 - demand-detection coverage matrix, targeted stack/vertical signatures, and false-positive fixtures for monorepos, serverless/edge, cross-platform mobile, AI-agent frameworks, commerce/CMS, workflow orchestration, desktop, infrastructure, and related project types for #209
 - scenario-based recommendation-limit scaling guidance and copy-paste `preserve` / `scale` examples for #210
+- ui-skills.com registered as a community skill registry source (`ui-skills`), discovered via flat sitemap with an item-URL predicate filtering to two-segment `/skills/{author}/{name}/` leaf pages; `itemCompatibilityMode: "adaptable"` across all supported hosts
 
 ### Changed
 
+- source-sync prune predicate now uses `allPreviousCursorsCompleted` to determine whether a run constitutes a full re-scan, replacing the previous `observedEntryIds` guard; correctly prunes stale entries on legitimately empty sources while preventing accidental pruning during mid-stream cursor resumes
+- `no-magic-numbers` ESLint rule extended to the full `src/domains/discovery/source-sync/**/*.ts` sub-tree following the decomposition in #270, covering all nine per-registry adapters and shared helpers
 - default workspace troubleshooting docs now include a diagnostic ladder, artifact checklist, anti-vibes evidence requirements, and clearer playbook handoffs for #211
 - coverage thresholds were raised to the verified 100% release floor while keeping runtime exclusions narrow instead of masking uncovered code
 - recommendation policy maps now recognize the newly emitted demand/stack terms so detection, policy quality, and recommendation validation stay aligned
@@ -29,6 +32,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- Go module index cursor now encodes `timestamp|lastSeenPath` (pipe-delimited) instead of a bare timestamp, eliminating the gap-or-duplicate hazard when multiple modules share the same timestamp at a page boundary; legacy bare-timestamp cursors are transparently upgraded on first resume
+- npm changes-feed adapter now calls `deleteIndexedCatalogEntry` for rows with `deleted: true`, immediately removing stale catalog entries instead of leaving them until the never-firing prune-on-complete path
 - improved release synchronization, version-check, GitHub resilience, guarded HTTP, path/file, native wire, install refresh, mirror acquisition, and recommendation validation regression coverage with deterministic tests
 
 ### Documentation
