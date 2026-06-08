@@ -186,8 +186,7 @@ export function getMcpRegistryUpdatedAt(
   return (
     getString(official.updatedAt) ??
     getString(official.publishedAt) ??
-    getString(official.statusChangedAt) ??
-    undefined
+    getString(official.statusChangedAt)
   );
 }
 
