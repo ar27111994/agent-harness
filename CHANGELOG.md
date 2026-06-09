@@ -4,10 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-06-01
+## [2.0.0] - 2026-06-09
 
 ### Added
 
+- `wire opencode --preview` now prints a structured wire-plan summary to stdout before any file is written, listing linked-asset paths count, resolved MCP server identifiers, native-config operations, and contextual notes so operators can review changes before committing (#284)
+- `WirePlanManifest.npmInstallSummary` field documenting the expected OpenCode plugin npm-install footprint (package.json path, declared dependency count, estimated installed-file count derived from the lockfile or a heuristic) so tooling can distinguish OpenCode-managed npm artefacts from reference-pack files wired by agent-harness (#282)
+- `SelectionReport.rejectionSummary` (`Record<string, number>`) tallying catalog rejections by reason, and `SelectionReport.sampleRejected` (up to 10 `{assetId, reason}` samples) surfacing demand-relevance and duplicate-rejection signals for diagnostics (#285)
+- `RecommendationReport.recommendations[]` flat deduplicated array providing a stable programmatic surface over the recommendation set alongside the existing grouped structure (#283)
+- Ecosystem-affinity mismatch penalty (0–40 pts, proportional to confidence) in package-registry source scoring — npm/yarn/pnpm packages receive a penalty when the workspace targets a non-JS ecosystem and vice versa (#278)
+- Non-empty contextual reason strings for every dormant and never-synced source in source-health reports; previously empty-string reasons are replaced by descriptive messages (last-seen age, zero-entry signal, configuration note) (#281)
+- Node CLI framework demand signal: workspaces with `bin` entries and `engines.node` in `package.json` now emit a `node-cli` framework signal used by scoring and policy (#279)
+- Binary files are now prioritised below source files in demand-scan ordering; the CLI emits a warning when the file list is truncated due to the scan cap, naming the cap value and the suppressed count (#280)
+- `.worktrees/` directories are excluded from all recursive scan passes (file discovery, demand detection, and source-sync traversal), preventing accidental cross-worktree signal bleed (#277)
+- Packagist registry source-sync now enforces a hard 500-entry cap per source to prevent runaway catalog inflation from high-volume package namespaces (#286)
+- Five new source packs registered in `discover/source-packs/`:
+  - **official.json** — `anthropics-knowledge-work-plugins-pack`: official Anthropic collection of 11 role-specific knowledge-worker plugins (productivity, sales, legal, finance, bio-research, etc.) bundling domain skills, slash commands, MCP connector manifests, and sub-agents; `official-first-party`, priority 95
+  - **community.json** — `egonex-ai-understand-anything`: multi-platform 6-agent + Tree-sitter codebase-analysis plugin producing interactive knowledge graphs with semantic search, architecture tours, and diff-impact analysis; `unverified-community`, priority 70
+  - **community.json** — `leonxlnx-taste-skill`: 13 portable design-taste SKILL.md files (10 code-gen + 3 image-gen) replacing generic frontend boilerplate with high-quality layout, typography, and motion output (39k+ stars); `trusted-community`, priority 72
+  - **community.json** — `mukul975-anthropic-cybersecurity-skills`: 754 cybersecurity skills across 26 domains mapped to MITRE ATT&CK v19.1, NIST CSF 2.0, MITRE ATLAS v5.4, D3FEND v1.3, and NIST AI RMF 1.0; community-authored, not affiliated with Anthropic; `unverified-community`, priority 70
+  - **community.json** — `imbad0202-academic-research-skills`: full academic research pipeline (research → write → review → finalize) across 4 skill packages with 32+ agents and a 10-stage orchestrator; CC BY-NC 4.0; `unverified-community`, priority 70
 - v2 agent asset supply-chain workflow covering discover, recommend, mirror, stage/install, refresh, activate, host wire-in, and rebuild flows across VS Code + Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, and OpenAI Codex
 - Codex host adapter support with project-local workspace/wire commands, documented boundaries, source compatibility, recommendation policy coverage, and safe reset behavior for #229
 - README hero repositioning, proof points, one-command quick start, concrete lifecycle outputs, command-style conventions, supported-host/asset badges, and a real autoplay demo GIF with a sound-on walkthrough link for #225, #226, #230, #232, #233, #234, and #236
@@ -32,6 +48,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `wire opencode --apply` idempotently writes `.opencode/.gitignore` listing `node_modules`, `package-lock.json`, `bun.lock`, `yarn.lock`, and `pnpm-lock.yaml` before OpenCode starts, ensuring its overlay scanner skips npm install artefacts and eliminating ~800 spurious `OVERLAY:` log lines per run (#282)
 - Go module index cursor now encodes `timestamp|lastSeenPath` (pipe-delimited) instead of a bare timestamp, eliminating the gap-or-duplicate hazard when multiple modules share the same timestamp at a page boundary; legacy bare-timestamp cursors are transparently upgraded on first resume
 - npm changes-feed adapter now calls `deleteIndexedCatalogEntry` for rows with `deleted: true`, immediately removing stale catalog entries instead of leaving them until the never-firing prune-on-complete path
 - improved release synchronization, version-check, GitHub resilience, guarded HTTP, path/file, native wire, install refresh, mirror acquisition, and recommendation validation regression coverage with deterministic tests
