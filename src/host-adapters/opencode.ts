@@ -77,10 +77,11 @@ export async function wireOpenCode(options: {
     "agent-harness",
   );
   const localAgentsPath = join(workspaceRoot, "AGENTS.md");
+  const gitignorePath = join(workspaceRoot, ".opencode", ".gitignore");
   const previousWirePlan = await readValidatedOpenCodeWirePlan(
     join(localContextRoot, "wire-plan.json"),
     localOverlayRoot,
-    [localAgentsPath],
+    [localAgentsPath, gitignorePath],
   );
 
   const preview: WirePreviewManifest = {
@@ -174,8 +175,12 @@ export async function wireOpenCode(options: {
   );
 
   const createdLinkPaths: string[] = [];
+  // Snapshot both AGENTS.md and .opencode/.gitignore before mutating them so
+  // that wire --reset can restore either file to its pre-apply state.
+  // gitignorePath is already declared above (used for allowedTextFilePaths).
   const textFileSnapshots = await captureManagedTextFileSnapshots([
     localAgentsPath,
+    gitignorePath,
   ]);
   let nativeConfigOperations: NativeConfigOperation[] = [];
   try {
@@ -403,6 +408,9 @@ async function buildOpenCodeProspectivePlan(options: {
     linkedAssets,
   });
 
+  // Read npm install summary so preview accurately reflects what --apply reports.
+  const npmInstallSummary = await readOpenCodeNpmInstallSummary(workspaceRoot);
+
   return {
     schemaVersion: 1,
     host: "opencode-project",
@@ -417,6 +425,13 @@ async function buildOpenCodeProspectivePlan(options: {
       "This is a preview of what --apply would do. Nothing has been written.",
       `AGENTS.md target: ${toPosixPath(localAgentsPath)}`,
       `Context root: ${toPosixPath(localContextRoot)}`,
+      ...(npmInstallSummary != null
+        ? [
+            `OpenCode plugin npm install: ${npmInstallSummary.declaredDependencyCount} declared dependencies, ` +
+              `~${npmInstallSummary.estimatedPackageCount} installed packages under ${npmInstallSummary.packageJsonPath}. ` +
+              `These files are written by OpenCode itself (not by wire --apply) and are excluded from overlay scanning via .opencode/.gitignore.`,
+          ]
+        : []),
     ],
   };
 }
