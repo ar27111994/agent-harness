@@ -653,3 +653,69 @@ void test("manifest validators reject invalid wire-plan duplicate paths and merg
     /previousContent is required/u,
   );
 });
+
+void test("assertWirePlanManifest: accepts valid npmInstallSummary", () => {
+  assert.doesNotThrow(() =>
+    assertWirePlanManifest(
+      {
+        schemaVersion: 1,
+        host: "opencode-project",
+        generatedAt: new Date().toISOString(),
+        workspaceRoot: "/ws",
+        runtimeRoot: "/rt",
+        npmInstallSummary: {
+          packageJsonPath: ".opencode/package.json",
+          declaredDependencyCount: 1,
+          estimatedInstalledFileCount: 785,
+        },
+        notes: ["OpenCode plugin npm install documented."],
+      },
+      "wirePlan",
+    ),
+  );
+});
+
+void test("assertWirePlanManifest: rejects npmInstallSummary with missing packageJsonPath", () => {
+  assert.throws(
+    () =>
+      assertWirePlanManifest(
+        {
+          schemaVersion: 1,
+          host: "opencode-project",
+          generatedAt: new Date().toISOString(),
+          workspaceRoot: "/ws",
+          runtimeRoot: "/rt",
+          npmInstallSummary: {
+            declaredDependencyCount: 1,
+            estimatedInstalledFileCount: 10,
+          },
+          notes: [],
+        },
+        "wirePlan",
+      ),
+    /packageJsonPath/u,
+  );
+});
+
+void test("assertWirePlanManifest: rejects npmInstallSummary with non-number counts", () => {
+  assert.throws(
+    () =>
+      assertWirePlanManifest(
+        {
+          schemaVersion: 1,
+          host: "opencode-project",
+          generatedAt: new Date().toISOString(),
+          workspaceRoot: "/ws",
+          runtimeRoot: "/rt",
+          npmInstallSummary: {
+            packageJsonPath: ".opencode/package.json",
+            declaredDependencyCount: "one",
+            estimatedInstalledFileCount: 10,
+          },
+          notes: [],
+        },
+        "wirePlan",
+      ),
+    /declaredDependencyCount/u,
+  );
+});

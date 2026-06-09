@@ -159,6 +159,12 @@ export function assertWirePlanManifest(
       `${context}.textFileSnapshots`,
     );
   }
+  if (record.npmInstallSummary !== undefined) {
+    assertNpmInstallSummary(
+      record.npmInstallSummary,
+      `${context}.npmInstallSummary`,
+    );
+  }
   assertStringArray(record.notes, `${context}.notes`);
 }
 
@@ -180,6 +186,19 @@ function assertTextFileSnapshots(value: unknown, context: string): void {
       assertString(snapshot.content, `${context}[${index}].content`);
     }
   });
+}
+
+function assertNpmInstallSummary(value: unknown, context: string): void {
+  const record = assertRecord(value, context);
+  assertString(record.packageJsonPath, `${context}.packageJsonPath`);
+  assertNumber(
+    record.declaredDependencyCount,
+    `${context}.declaredDependencyCount`,
+  );
+  assertNumber(
+    record.estimatedInstalledFileCount,
+    `${context}.estimatedInstalledFileCount`,
+  );
 }
 
 function assertNativeConfigOperations(value: unknown, context: string): void {

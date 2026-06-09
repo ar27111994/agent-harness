@@ -1091,3 +1091,189 @@ void test("formatWirePlanSummary output ends with newline", () => {
     "must end with newline for clean terminal output",
   );
 });
+
+// ─── ensureOpenCodeOverlayGitignore tests ────────────────────────────────────
+
+import { writeFile, mkdir } from "node:fs/promises";
+
+const { ensureOpenCodeOverlayGitignore, readOpenCodeNpmInstallSummary } =
+  openCodeWireInternals;
+
+const REQUIRED_GITIGNORE_ENTRIES = [
+  "node_modules",
+  "package-lock.json",
+  "bun.lock",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  ".gitignore",
+];
+
+async function makeTmpWorkspace(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "agent-harness-test-"));
+}
+
+void test("ensureOpenCodeOverlayGitignore: creates .gitignore when .opencode/ does not exist", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await ensureOpenCodeOverlayGitignore(workspace);
+    const content = await readFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "utf8",
+    );
+    for (const entry of REQUIRED_GITIGNORE_ENTRIES) {
+      assert.ok(content.includes(entry), `missing entry: ${entry}`);
+    }
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("ensureOpenCodeOverlayGitignore: adds missing entries to existing .gitignore", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "node_modules\n",
+    );
+    await ensureOpenCodeOverlayGitignore(workspace);
+    const content = await readFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "utf8",
+    );
+    for (const entry of REQUIRED_GITIGNORE_ENTRIES) {
+      assert.ok(
+        content.includes(entry),
+        `missing entry after update: ${entry}`,
+      );
+    }
+    // Original entry preserved
+    assert.ok(content.includes("node_modules"));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("ensureOpenCodeOverlayGitignore: is idempotent when all entries already present", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    const full = REQUIRED_GITIGNORE_ENTRIES.join("\n") + "\n";
+    await writeFile(join(workspace, ".opencode", ".gitignore"), full);
+    await ensureOpenCodeOverlayGitignore(workspace);
+    const content = await readFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "utf8",
+    );
+    assert.strictEqual(content, full, "file must be unchanged");
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("ensureOpenCodeOverlayGitignore: preserves existing custom entries", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "# custom\nmy-secret-dir\n",
+    );
+    await ensureOpenCodeOverlayGitignore(workspace);
+    const content = await readFile(
+      join(workspace, ".opencode", ".gitignore"),
+      "utf8",
+    );
+    assert.ok(
+      content.includes("my-secret-dir"),
+      "custom entry must be preserved",
+    );
+    for (const entry of REQUIRED_GITIGNORE_ENTRIES) {
+      assert.ok(content.includes(entry), `missing required entry: ${entry}`);
+    }
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+// ─── readOpenCodeNpmInstallSummary tests ─────────────────────────────────────
+
+void test("readOpenCodeNpmInstallSummary: returns null when no .opencode/package.json", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    const result = await readOpenCodeNpmInstallSummary(workspace);
+    assert.strictEqual(result, null);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("readOpenCodeNpmInstallSummary: returns summary with lockfile package count", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", "package.json"),
+      JSON.stringify({ dependencies: { "@opencode-ai/plugin": "1.4.3" } }),
+    );
+    const lockfile = {
+      lockfileVersion: 3,
+      packages: {
+        "": {},
+        "node_modules/@opencode-ai/plugin": {},
+        "node_modules/zod": {},
+        "node_modules/cross-spawn": {},
+      },
+    };
+    await writeFile(
+      join(workspace, ".opencode", "package-lock.json"),
+      JSON.stringify(lockfile),
+    );
+    const result = await readOpenCodeNpmInstallSummary(workspace);
+    assert.ok(result !== null);
+    assert.strictEqual(result!.declaredDependencyCount, 1);
+    // 4 packages in lockfile minus 1 for root "" entry = 3
+    assert.strictEqual(result!.estimatedInstalledFileCount, 3);
+    assert.ok(result!.packageJsonPath.endsWith(".opencode/package.json"));
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("readOpenCodeNpmInstallSummary: falls back to heuristic when no lockfile", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", "package.json"),
+      JSON.stringify({
+        dependencies: { a: "1.0.0", b: "2.0.0" },
+        devDependencies: { c: "3.0.0" },
+      }),
+    );
+    const result = await readOpenCodeNpmInstallSummary(workspace);
+    assert.ok(result !== null);
+    assert.strictEqual(result!.declaredDependencyCount, 3);
+    // 3 deps × 15 = 45
+    assert.strictEqual(result!.estimatedInstalledFileCount, 45);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("readOpenCodeNpmInstallSummary: handles empty dependencies gracefully", async () => {
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", "package.json"),
+      JSON.stringify({ name: "test" }),
+    );
+    const result = await readOpenCodeNpmInstallSummary(workspace);
+    assert.ok(result !== null);
+    assert.strictEqual(result!.declaredDependencyCount, 0);
+    assert.strictEqual(result!.estimatedInstalledFileCount, 0);
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});

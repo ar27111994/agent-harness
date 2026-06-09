@@ -198,6 +198,14 @@ export async function wireOpenCode(options: {
       linkedAssets,
     });
 
+    // Ensure .opencode/.gitignore lists node_modules (and other npm artefacts)
+    // so that OpenCode's overlay scanner skips them and does not emit OVERLAY:
+    // lines for the ~800 files that npm install writes into .opencode/.
+    await ensureOpenCodeOverlayGitignore(workspaceRoot);
+
+    const npmInstallSummary =
+      await readOpenCodeNpmInstallSummary(workspaceRoot);
+
     const wirePlan: WirePlanManifest = {
       schemaVersion: 1,
       host: "opencode-project",
@@ -208,12 +216,20 @@ export async function wireOpenCode(options: {
       mcpServers: sharedMcpAssetIds,
       nativeConfigOperations,
       textFileSnapshots,
+      ...(npmInstallSummary !== null ? { npmInstallSummary } : {}),
       notes: [
         "Project-local OpenCode overlay written under .opencode/context/project-intelligence/agent-harness.",
         "Documented OpenCode-native asset buckets stay under .opencode/agents, .opencode/skills, .opencode/commands, and .opencode/plugins.",
         "Undocumented asset buckets are staged under the managed context root as harness-owned references.",
         "On Windows, managed directory links are created as junctions for compatibility.",
         "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
+        ...(npmInstallSummary !== null
+          ? [
+              `OpenCode plugin npm install: ${npmInstallSummary!.declaredDependencyCount} declared dependencies, ` +
+                `~${npmInstallSummary!.estimatedInstalledFileCount} installed files under ${npmInstallSummary!.packageJsonPath}. ` +
+                `These files are written by OpenCode itself (not by wire --apply) and are excluded from overlay scanning via .opencode/.gitignore.`,
+            ]
+          : []),
       ],
     };
 
@@ -229,6 +245,106 @@ export async function wireOpenCode(options: {
     await removePath(localContextRoot);
     throw error;
   }
+}
+
+/**
+ * Idempotently writes `.opencode/.gitignore` so OpenCode's overlay scanner
+ * skips npm-install artefacts (node_modules, package-lock.json, etc.).
+ * If the file already exists and already contains all required entries,
+ * it is left untouched.  Otherwise it is created / updated in place.
+ *
+ * This must be called during `wire --apply` so the gitignore is present
+ * before OpenCode starts and begins enumerating its overlay directory.
+ */
+async function ensureOpenCodeOverlayGitignore(
+  workspaceRoot: string,
+): Promise<void> {
+  const REQUIRED_ENTRIES = [
+    "node_modules",
+    "package-lock.json",
+    "bun.lock",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    ".gitignore",
+  ] as const;
+
+  const gitignorePath = join(workspaceRoot, ".opencode", ".gitignore");
+  const existing = (await readTextFileOrNull(gitignorePath)) ?? "";
+  const existingEntries = new Set(
+    existing
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#")),
+  );
+
+  const missing = REQUIRED_ENTRIES.filter(
+    (entry) => !existingEntries.has(entry),
+  );
+  if (missing.length === 0) {
+    return;
+  }
+
+  await ensureDirectory(join(workspaceRoot, ".opencode"));
+
+  const preamble = existing.trimEnd();
+  const additions = missing.join("\n");
+  const next =
+    preamble.length === 0
+      ? additions + "\n"
+      : preamble + "\n" + additions + "\n";
+
+  await writeTextFile(gitignorePath, next);
+}
+
+/**
+ * Reads the optional `.opencode/package.json` and `package-lock.json` to
+ * build a summary of the npm install footprint that OpenCode manages.
+ * Returns `null` when no `.opencode/package.json` exists.
+ */
+async function readOpenCodeNpmInstallSummary(
+  workspaceRoot: string,
+): Promise<WirePlanManifest["npmInstallSummary"] | null> {
+  const packageJsonPath = join(workspaceRoot, ".opencode", "package.json");
+  if (!(await pathEntryExists(packageJsonPath))) {
+    return null;
+  }
+
+  const packageJson = await readJsonFileOrNull<{
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  }>(packageJsonPath);
+
+  if (packageJson === null) {
+    return null;
+  }
+
+  const declaredDependencyCount =
+    Object.keys(packageJson.dependencies ?? {}).length +
+    Object.keys(packageJson.devDependencies ?? {}).length;
+
+  // Prefer package-lock.json package count for accuracy; fall back to a
+  // conservative per-dependency estimate when the lockfile is absent.
+  const lockfilePath = join(workspaceRoot, ".opencode", "package-lock.json");
+  const lockfile = await readJsonFileOrNull<{
+    packages?: Record<string, unknown>;
+  }>(lockfilePath);
+
+  const estimatedInstalledFileCount =
+    lockfile?.packages !== undefined
+      ? // package-lock v2/v3: packages includes the root "" entry, subtract 1
+        Math.max(0, Object.keys(lockfile.packages).length - 1)
+      : // Rough heuristic: each transitive package ~= 15 files on average
+        declaredDependencyCount * 15;
+
+  const relativePackageJsonPath = toPosixPath(
+    relative(workspaceRoot, packageJsonPath),
+  );
+
+  return {
+    packageJsonPath: relativePackageJsonPath,
+    declaredDependencyCount,
+    estimatedInstalledFileCount,
+  };
 }
 
 function buildOpenCodeLinkRoots(localOverlayRoot: string): string[] {
@@ -836,4 +952,6 @@ export const openCodeWireInternals = {
   restoreManagedTextFileSnapshot,
   removeManagedLinksBestEffort,
   toLoggableErrorMessage,
+  ensureOpenCodeOverlayGitignore,
+  readOpenCodeNpmInstallSummary,
 };

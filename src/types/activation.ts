@@ -104,6 +104,24 @@ export interface WirePlanManifest {
   hookFiles?: string[];
   nativeConfigOperations?: NativeConfigOperation[];
   textFileSnapshots?: ManagedTextFileSnapshot[];
+  /**
+   * Documents the npm install step that OpenCode runs inside its overlay
+   * directory (.opencode/) to load plugins. This is performed by OpenCode
+   * itself (not by wire --apply), but is recorded here so users and tooling
+   * can distinguish npm-artefact files from wired reference-pack files when
+   * inspecting the overlay directory or reading OpenCode's OVERLAY log output.
+   */
+  npmInstallSummary?: {
+    /** Workspace-relative path of the package.json driving the install. */
+    packageJsonPath: string;
+    /** Number of top-level dependency declarations in package.json. */
+    declaredDependencyCount: number;
+    /**
+     * Approximate number of files written by npm install (best-effort from
+     * package-lock.json, or a conservative estimate when unavailable).
+     */
+    estimatedInstalledFileCount: number;
+  };
   notes: string[];
 }
 
