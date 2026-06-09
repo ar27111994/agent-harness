@@ -150,11 +150,22 @@ export function buildSourceHealthReport(
                 "populated first; run: agent-harness discover sync --source " +
                 source.id,
             );
+          } else if (
+            source.kind === "docs" ||
+            source.kind === "local-directory" ||
+            source.kind === "local-manifest"
+          ) {
+            reasons.push(
+              `source has never been synced in this state root ` +
+                `(kind: ${source.kind}); this source kind does not support ` +
+                `the discover sync command — check that the source is ` +
+                `configured correctly and that the path or URL is reachable`,
+            );
           } else {
             reasons.push(
               `source has never been synced in this state root ` +
-                `(kind: ${source.kind}); run agent-harness discover sync ` +
-                `--source ${source.id} to populate it`,
+                `(kind: ${source.kind}); run: agent-harness discover sync ` +
+                `--source ${source.id}`,
             );
           }
         } else {

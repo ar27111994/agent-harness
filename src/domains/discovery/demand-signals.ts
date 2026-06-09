@@ -621,7 +621,12 @@ function hasNodeCliBinField(
   if (typeof bin === "string") {
     return bin.trim().length > 0;
   }
-  return Object.keys(bin).length > 0;
+  // Object form: require at least one entry whose value is a non-empty string.
+  // An object with only empty-string values is a malformed manifest and should
+  // not generate a node-cli signal.
+  return Object.values(bin).some(
+    (path) => typeof path === "string" && path.trim().length > 0,
+  );
 }
 
 function addPackageManagerSignal(

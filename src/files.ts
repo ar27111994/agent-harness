@@ -560,7 +560,8 @@ const BINARY_SCAN_DEPRIORITY_EXTENSIONS = new Set([
   ".dat",
   ".db",
   ".sqlite",
-  ".proto",
+  // NOTE: .proto is intentionally NOT in this list — protobuf definitions are
+  // signal-rich source inputs and must not be deprioritised under scan budgets.
   ".pb",
   ".parquet",
   ".pyc",

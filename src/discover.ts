@@ -481,9 +481,27 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   // Build rejectionSummary — stable reason → count covering 100% of rejections.
   const rejectionSummary = buildRejectionSummary(rejectionLog);
 
-  // sampleRejected — up to 20 entries for quick spot-checking.
+  // sampleRejected — stratified sample of up to 20 entries, guaranteeing at
+  // least one entry per distinct rejection reason so all reasons are visible
+  // in the report even when one reason dominates (e.g. thousands of
+  // demand-relevance rejections swamping the first-N slice).
   const SAMPLE_SIZE = 20;
-  const sampleRejected = rejectionLog.slice(0, SAMPLE_SIZE);
+  const sampleRejected: typeof rejectionLog = [];
+  const seenReasons = new Set<string>();
+  // Pass 1: take one representative per reason.
+  for (const entry of rejectionLog) {
+    if (!seenReasons.has(entry.reason)) {
+      seenReasons.add(entry.reason);
+      sampleRejected.push(entry);
+    }
+  }
+  // Pass 2: top up to SAMPLE_SIZE with the earliest un-sampled entries.
+  for (const entry of rejectionLog) {
+    if (sampleRejected.length >= SAMPLE_SIZE) break;
+    if (!sampleRejected.includes(entry)) {
+      sampleRejected.push(entry);
+    }
+  }
 
   const sortedSelectedEntries = selectedEntries.sort(
     compareAssetCatalogEntries,
