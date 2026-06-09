@@ -790,3 +790,20 @@ export const catalogSelectionInternals = {
   matchesTermGroupSet,
   normalizeDemandSignalKeywords,
 };
+
+/**
+ * Builds a rejectionSummary map from a flat rejection log.
+ * Exported for unit testing and reuse.
+ *
+ * @param log - Array of {assetId, reason} entries (one per rejected asset).
+ * @returns A Record mapping each stable reason string to its count.
+ */
+export function buildRejectionSummary(
+  log: ReadonlyArray<{ assetId: string; reason: string }>,
+): Record<string, number> {
+  const summary: Record<string, number> = {};
+  for (const { reason } of log) {
+    summary[reason] = (summary[reason] ?? 0) + 1;
+  }
+  return summary;
+}

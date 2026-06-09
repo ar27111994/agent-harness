@@ -33,6 +33,63 @@ void test("assertSelectionReport accepts valid selection report", () => {
   );
 });
 
+void test("assertSelectionReport accepts report with rejectionSummary and sampleRejected", () => {
+  assert.doesNotThrow(() =>
+    assertSelectionReport(
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        inputCount: 100,
+        selectedCount: 30,
+        rejectedCount: 70,
+        duplicateDecisions: [],
+        rejectionSummary: { "demand-relevance": 60, duplicate: 10 },
+        sampleRejected: [
+          { assetId: "asset-a", reason: "demand-relevance" },
+          { assetId: "asset-b", reason: "duplicate" },
+        ],
+      },
+      "report",
+    ),
+  );
+});
+
+void test("assertSelectionReport rejects non-number values in rejectionSummary", () => {
+  assert.throws(
+    () =>
+      assertSelectionReport(
+        {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          inputCount: 10,
+          selectedCount: 5,
+          rejectedCount: 5,
+          rejectionSummary: { "demand-relevance": "many" },
+        },
+        "report",
+      ),
+    /rejectionSummary/u,
+  );
+});
+
+void test("assertSelectionReport rejects sampleRejected entries missing assetId", () => {
+  assert.throws(
+    () =>
+      assertSelectionReport(
+        {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          inputCount: 10,
+          selectedCount: 5,
+          rejectedCount: 5,
+          sampleRejected: [{ reason: "duplicate" }],
+        },
+        "report",
+      ),
+    /assetId/u,
+  );
+});
+
 void test("assertSelectionReport rejects missing required fields", () => {
   assert.throws(
     () =>

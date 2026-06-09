@@ -82,6 +82,21 @@ export interface SelectionReport {
   selectedCount: number;
   rejectedCount: number;
   duplicateDecisions: SelectionDuplicateDecision[];
+  /**
+   * Aggregate count of rejected assets grouped by rejection reason.
+   * Covers 100% of rejected assets. Reason strings are stable identifiers
+   * (not ephemeral log messages) so they can be used in tests and dashboards.
+   *
+   * Stable reason values:
+   *   - "demand-relevance"  — entry had no term overlap with the demand profile
+   *   - "duplicate"         — entry lost deduplication within its duplicate group
+   */
+  rejectionSummary: Record<string, number>;
+  /**
+   * Up to 20 sample rejected entries with their rejection reason, for spot-
+   * checking without loading the full rejected-catalog.jsonl file.
+   */
+  sampleRejected: Array<{ assetId: string; reason: string }>;
 }
 
 /**
