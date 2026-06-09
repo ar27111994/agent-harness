@@ -954,3 +954,114 @@ function assertUnexpectedSignals(
     }
   }
 }
+
+void test("binary/asset files are deprioritised in scan order so source files exhaust the byte budget first", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-binary-priority-"));
+  try {
+    // Write a source file that adds dart+flutter signals
+    await writeFixtureFile(
+      root,
+      "pubspec.yaml",
+      [
+        "name: interact_note",
+        "dependencies:",
+        "  flutter:",
+        "    sdk: flutter",
+      ].join("\n"),
+    );
+    // Write a large binary-extension file that, if scanned first, would
+    // exhaust the budget before pubspec.yaml is reached.
+    // We use a 1-byte placeholder — the test relies on sort order, not actual size.
+    await writeFixtureFile(root, "assets/splash.png", "FAKE_PNG");
+    await writeFixtureFile(root, "assets/font.ttf", "FAKE_TTF");
+    await writeFixtureFile(root, "assets/icon.ico", "FAKE_ICO");
+
+    // Set a very small budget so that if binary files were scanned first,
+    // the source file would be missed.
+    const previousMaxBytes = process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+    process.env.AGENT_HARNESS_SCAN_MAX_BYTES = "100";
+    clearRuntimeConfigForTests();
+
+    try {
+      const profile = await buildDemandProfile(root);
+      // pubspec.yaml (small) must survive even though binaries exist
+      assert.ok(
+        profile.evidence.some((e) => e.path === "pubspec.yaml"),
+        "pubspec.yaml must be scanned before binary assets",
+      );
+      assert.ok(
+        profile.signals.frameworks.includes("flutter"),
+        "flutter signal must be detected despite binary assets",
+      );
+    } finally {
+      if (previousMaxBytes === undefined) {
+        delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+      } else {
+        process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+      }
+      clearRuntimeConfigForTests();
+    }
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("buildDemandProfile emits a [warn] line on stderr when scan is truncated", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-truncation-warn-"));
+  const previousMaxBytes = process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+  process.env.AGENT_HARNESS_SCAN_MAX_BYTES = "5";
+  clearRuntimeConfigForTests();
+
+  const stderrChunks: string[] = [];
+  const originalWrite = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (
+    chunk: Uint8Array | string,
+    encodingOrCb?: BufferEncoding | ((err?: Error | null) => void),
+    cb?: (err?: Error | null) => void,
+  ): boolean => {
+    if (typeof chunk === "string") {
+      stderrChunks.push(chunk);
+    }
+    if (typeof encodingOrCb === "function") {
+      return originalWrite(chunk, encodingOrCb);
+    }
+    if (encodingOrCb !== undefined) {
+      return originalWrite(chunk, encodingOrCb, cb);
+    }
+    return originalWrite(chunk);
+  };
+
+  try {
+    await writeFixtureFile(
+      root,
+      "pubspec.yaml",
+      "name: interact_note\ndependencies:\n  flutter:\n    sdk: flutter\n",
+    );
+    await buildDemandProfile(root);
+
+    const combined = stderrChunks.join("");
+    assert.ok(
+      combined.includes("[warn]") && combined.includes("truncated"),
+      `expected [warn] truncation message on stderr, got: ${combined}`,
+    );
+  } finally {
+    process.stderr.write = originalWrite;
+    if (previousMaxBytes === undefined) {
+      delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
+    } else {
+      process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+    }
+    clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+async function writeFixtureFile(
+  root: string,
+  relPath: string,
+  content: string,
+): Promise<void> {
+  const full = join(root, relPath);
+  await mkdir(dirname(full), { recursive: true });
+  await writeFile(full, content, "utf8");
+}

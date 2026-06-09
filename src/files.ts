@@ -510,6 +510,84 @@ export function removeManagedSection(options: {
 
 type DirectorySymlinkType = "dir" | "junction";
 
+/**
+ * File extensions that are almost never source-code and are likely to consume
+ * large amounts of the byte budget without contributing any demand signals.
+ * Files with these extensions are sorted *last* within each directory so that
+ * source files are accounted for first.
+ */
+const BINARY_SCAN_DEPRIORITY_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".svg",
+  ".bmp",
+  ".tiff",
+  ".tif",
+  ".ttf",
+  ".otf",
+  ".woff",
+  ".woff2",
+  ".eot",
+  ".mp3",
+  ".mp4",
+  ".wav",
+  ".ogg",
+  ".webm",
+  ".avi",
+  ".mov",
+  ".mkv",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".bz2",
+  ".xz",
+  ".7z",
+  ".rar",
+  ".jar",
+  ".war",
+  ".ear",
+  ".class",
+  ".so",
+  ".dylib",
+  ".dll",
+  ".exe",
+  ".bin",
+  ".dat",
+  ".db",
+  ".sqlite",
+  ".proto",
+  ".pb",
+  ".parquet",
+  ".pyc",
+  ".pyd",
+  ".pyo",
+  ".o",
+  ".a",
+  ".lib",
+  ".node",
+  ".wasm",
+]);
+
+/**
+ * Returns true when the file should be sorted *after* source-code files
+ * during budget accounting so the byte budget is spent on signal-rich
+ * content first.
+ */
+function isLowPriorityForScanBudget(entryPath: string): boolean {
+  const dotIndex = entryPath.lastIndexOf(".");
+  if (dotIndex === -1) {
+    return false;
+  }
+  return BINARY_SCAN_DEPRIORITY_EXTENSIONS.has(
+    entryPath.slice(dotIndex).toLowerCase(),
+  );
+}
+
 interface PendingFileEntry {
   entryPath: string;
   relativeEntryPath: string;
@@ -773,6 +851,14 @@ async function collectFilesFromDirectory(
     ),
   );
 
+  // Sort so source/text files come before binary/asset files, ensuring the
+  // byte budget is spent on signal-rich content first.
+  fileStats.sort((left, right) => {
+    const leftLow = isLowPriorityForScanBudget(left.entryPath) ? 1 : 0;
+    const rightLow = isLowPriorityForScanBudget(right.entryPath) ? 1 : 0;
+    return leftLow - rightLow;
+  });
+
   for (const fileStat of fileStats) {
     telemetry.visitedFiles += 1;
     telemetry.visitedBytes += fileStat.size;
@@ -1004,4 +1090,6 @@ export const filesInternals = {
   globPatternToRegExp,
   compactCollectedFileStats,
   toCollectedFileStat,
+  isLowPriorityForScanBudget,
+  BINARY_SCAN_DEPRIORITY_EXTENSIONS,
 };
