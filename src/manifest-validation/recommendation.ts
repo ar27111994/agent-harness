@@ -29,6 +29,108 @@ import {
 } from "./primitives.js";
 
 /**
+ * Validates a single RecommendationEntry record.
+ * Shared by topByHost and the flat recommendations[] validator so both enforce
+ * the same full shape rather than just {assetId, score}.
+ */
+function assertRecommendationEntry(entry: unknown, context: string): void {
+  const entryRecord = assertRecord(entry, context);
+  assertString(entryRecord.assetId, `${context}.assetId`);
+  assertHostTarget(entryRecord.host, `${context}.host`);
+  assertNumber(entryRecord.rank, `${context}.rank`);
+  // globalRank is optional — present only in the flat recommendations[] list.
+  if (Object.prototype.hasOwnProperty.call(entryRecord, "globalRank")) {
+    assertNumber(entryRecord.globalRank, `${context}.globalRank`);
+  }
+  assertNumber(entryRecord.score, `${context}.score`);
+  assertStringArray(entryRecord.reasons, `${context}.reasons`);
+  if (Object.prototype.hasOwnProperty.call(entryRecord, "assetKind")) {
+    assertLiteral(entryRecord.assetKind, ASSET_KINDS, `${context}.assetKind`);
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      entryRecord,
+      "classificationConfidence",
+    )
+  ) {
+    assertNumber(
+      entryRecord.classificationConfidence,
+      `${context}.classificationConfidence`,
+    );
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(
+      entryRecord,
+      "classificationConfidenceLevel",
+    )
+  ) {
+    assertLiteral(
+      entryRecord.classificationConfidenceLevel,
+      ["strong", "medium", "weak"],
+      `${context}.classificationConfidenceLevel`,
+    );
+  }
+  assertString(entryRecord.sourceId, `${context}.sourceId`);
+  assertString(entryRecord.sourceFamily, `${context}.sourceFamily`);
+  if (Object.prototype.hasOwnProperty.call(entryRecord, "availableLocally")) {
+    assertBoolean(entryRecord.availableLocally, `${context}.availableLocally`);
+  } else {
+    entryRecord.availableLocally = false;
+  }
+  if (
+    Object.prototype.hasOwnProperty.call(entryRecord, "recommendationBasis")
+  ) {
+    assertLiteral(
+      entryRecord.recommendationBasis,
+      ["workspace-fit", "local-availability"],
+      `${context}.recommendationBasis`,
+    );
+  } else {
+    entryRecord.recommendationBasis = "workspace-fit";
+  }
+  assertLiteral(
+    entryRecord.contextSizeClass,
+    [...CONTEXT_COST_CLASSES],
+    `${context}.contextSizeClass`,
+  );
+  assertNumber(
+    entryRecord.estimatedPromptWeight,
+    `${context}.estimatedPromptWeight`,
+  );
+  assertString(entryRecord.selectionStage, `${context}.selectionStage`);
+  assertStringArray(entryRecord.coverageTags, `${context}.coverageTags`);
+  assertStringArray(entryRecord.taskModes, `${context}.taskModes`);
+  assertArray(entryRecord.matchedSignals, `${context}.matchedSignals`).forEach(
+    (signal, signalIndex) => {
+      const signalRecord = assertRecord(
+        signal,
+        `${context}.matchedSignals[${signalIndex}]`,
+      );
+      assertString(
+        signalRecord.term,
+        `${context}.matchedSignals[${signalIndex}].term`,
+      );
+      assertString(
+        signalRecord.signalType,
+        `${context}.matchedSignals[${signalIndex}].signalType`,
+      );
+      assertNumber(
+        signalRecord.weight,
+        `${context}.matchedSignals[${signalIndex}].weight`,
+      );
+      assertNumber(
+        signalRecord.evidenceCount,
+        `${context}.matchedSignals[${signalIndex}].evidenceCount`,
+      );
+    },
+  );
+  assertRecommendationScoreBreakdown(
+    entryRecord.scoreBreakdown,
+    `${context}.scoreBreakdown`,
+  );
+}
+
+/**
  * Validates unknown data as recommendation report.
  */
 export function assertRecommendationReport(
@@ -80,141 +182,9 @@ export function assertRecommendationReport(
   Object.entries(topByHost).forEach(([host, entries]) => {
     assertArray(entries, `${context}.topByHost.${host}`).forEach(
       (entry, index) => {
-        const entryRecord = assertRecord(
+        assertRecommendationEntry(
           entry,
           `${context}.topByHost.${host}[${index}]`,
-        );
-        assertString(
-          entryRecord.assetId,
-          `${context}.topByHost.${host}[${index}].assetId`,
-        );
-        assertHostTarget(
-          entryRecord.host,
-          `${context}.topByHost.${host}[${index}].host`,
-        );
-        assertNumber(
-          entryRecord.rank,
-          `${context}.topByHost.${host}[${index}].rank`,
-        );
-        assertNumber(
-          entryRecord.score,
-          `${context}.topByHost.${host}[${index}].score`,
-        );
-        assertStringArray(
-          entryRecord.reasons,
-          `${context}.topByHost.${host}[${index}].reasons`,
-        );
-        if (Object.prototype.hasOwnProperty.call(entryRecord, "assetKind")) {
-          assertLiteral(
-            entryRecord.assetKind,
-            ASSET_KINDS,
-            `${context}.topByHost.${host}[${index}].assetKind`,
-          );
-        }
-        if (
-          Object.prototype.hasOwnProperty.call(
-            entryRecord,
-            "classificationConfidence",
-          )
-        ) {
-          assertNumber(
-            entryRecord.classificationConfidence,
-            `${context}.topByHost.${host}[${index}].classificationConfidence`,
-          );
-        }
-        if (
-          Object.prototype.hasOwnProperty.call(
-            entryRecord,
-            "classificationConfidenceLevel",
-          )
-        ) {
-          assertLiteral(
-            entryRecord.classificationConfidenceLevel,
-            ["strong", "medium", "weak"],
-            `${context}.topByHost.${host}[${index}].classificationConfidenceLevel`,
-          );
-        }
-        assertString(
-          entryRecord.sourceId,
-          `${context}.topByHost.${host}[${index}].sourceId`,
-        );
-        assertString(
-          entryRecord.sourceFamily,
-          `${context}.topByHost.${host}[${index}].sourceFamily`,
-        );
-        if (
-          Object.prototype.hasOwnProperty.call(entryRecord, "availableLocally")
-        ) {
-          assertBoolean(
-            entryRecord.availableLocally,
-            `${context}.topByHost.${host}[${index}].availableLocally`,
-          );
-        } else {
-          entryRecord.availableLocally = false;
-        }
-        if (
-          Object.prototype.hasOwnProperty.call(
-            entryRecord,
-            "recommendationBasis",
-          )
-        ) {
-          assertLiteral(
-            entryRecord.recommendationBasis,
-            ["workspace-fit", "local-availability"],
-            `${context}.topByHost.${host}[${index}].recommendationBasis`,
-          );
-        } else {
-          entryRecord.recommendationBasis = "workspace-fit";
-        }
-        assertLiteral(
-          entryRecord.contextSizeClass,
-          [...CONTEXT_COST_CLASSES],
-          `${context}.topByHost.${host}[${index}].contextSizeClass`,
-        );
-        assertNumber(
-          entryRecord.estimatedPromptWeight,
-          `${context}.topByHost.${host}[${index}].estimatedPromptWeight`,
-        );
-        assertString(
-          entryRecord.selectionStage,
-          `${context}.topByHost.${host}[${index}].selectionStage`,
-        );
-        assertStringArray(
-          entryRecord.coverageTags,
-          `${context}.topByHost.${host}[${index}].coverageTags`,
-        );
-        assertStringArray(
-          entryRecord.taskModes,
-          `${context}.topByHost.${host}[${index}].taskModes`,
-        );
-        assertArray(
-          entryRecord.matchedSignals,
-          `${context}.topByHost.${host}[${index}].matchedSignals`,
-        ).forEach((signal, signalIndex) => {
-          const signalRecord = assertRecord(
-            signal,
-            `${context}.topByHost.${host}[${index}].matchedSignals[${signalIndex}]`,
-          );
-          assertString(
-            signalRecord.term,
-            `${context}.topByHost.${host}[${index}].matchedSignals[${signalIndex}].term`,
-          );
-          assertString(
-            signalRecord.signalType,
-            `${context}.topByHost.${host}[${index}].matchedSignals[${signalIndex}].signalType`,
-          );
-          assertNumber(
-            signalRecord.weight,
-            `${context}.topByHost.${host}[${index}].matchedSignals[${signalIndex}].weight`,
-          );
-          assertNumber(
-            signalRecord.evidenceCount,
-            `${context}.topByHost.${host}[${index}].matchedSignals[${signalIndex}].evidenceCount`,
-          );
-        });
-        assertRecommendationScoreBreakdown(
-          entryRecord.scoreBreakdown,
-          `${context}.topByHost.${host}[${index}].scoreBreakdown`,
         );
       },
     );
@@ -420,18 +390,9 @@ export function assertRecommendationReport(
     ? assertArray(record.recommendations, `${context}.recommendations`)
     : [];
   rawRecommendations.forEach((entry, index) => {
-    const entryRecord = assertRecord(
-      entry,
-      `${context}.recommendations[${index}]`,
-    );
-    assertString(
-      entryRecord.assetId,
-      `${context}.recommendations[${index}].assetId`,
-    );
-    assertNumber(
-      entryRecord.score,
-      `${context}.recommendations[${index}].score`,
-    );
+    // Use the full entry validator (same shape as topByHost entries) so the
+    // flat recommendations list is held to the same schema as topByHost.
+    assertRecommendationEntry(entry, `${context}.recommendations[${index}]`);
   });
   if (!Object.prototype.hasOwnProperty.call(record, "recommendations")) {
     record.recommendations = [];

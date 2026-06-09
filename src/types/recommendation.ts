@@ -220,7 +220,18 @@ export type RecommendationBasis = "workspace-fit" | "local-availability";
 export interface RecommendationEntry {
   assetId: string;
   host: HostTarget;
+  /**
+   * Per-host rank (1-based position within the host's sorted candidate list).
+   * For the global ordering of the flat `RecommendationReport.recommendations`
+   * array, use `globalRank` instead.
+   */
   rank: number;
+  /**
+   * Global rank (1-based position within the deduplicated, globally-sorted
+   * `RecommendationReport.recommendations` list). Only present on entries in
+   * that flat list; absent on `topByHost` entries where `rank` is authoritative.
+   */
+  globalRank?: number;
   score: number;
   reasons: string[];
   assetKind?: AssetKind;

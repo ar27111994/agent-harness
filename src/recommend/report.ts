@@ -133,9 +133,18 @@ export function buildRecommendationReport(
       }
     }
   }
-  const recommendations = [...bestByAssetId.values()].sort(
-    (a, b) => b.score - a.score,
-  );
+  const recommendations = [...bestByAssetId.values()]
+    .sort(
+      (a, b) =>
+        // Primary: descending score
+        b.score - a.score ||
+        // Stable tie-breaker: ascending assetId so ordering is deterministic
+        // across Map insertion order differences (host iteration order varies).
+        a.assetId.localeCompare(b.assetId),
+    )
+    // Assign a global rank reflecting position in the deduplicated sorted list.
+    // Consumers should use this rather than entry.rank, which is the per-host rank.
+    .map((entry, index) => ({ ...entry, globalRank: index + 1 }));
 
   return {
     schemaVersion: 1,
