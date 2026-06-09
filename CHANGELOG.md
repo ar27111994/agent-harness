@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 - `wire opencode --preview` now prints a structured wire-plan summary to stdout before any file is written, listing linked-asset paths count, resolved MCP server identifiers, native-config operations, and contextual notes so operators can review changes before committing (#284)
 - `WirePlanManifest.npmInstallSummary` field documenting the expected OpenCode plugin npm-install footprint (package.json path, declared dependency count, estimated installed-package count derived from lockfile entries or a fallback estimate) so tooling can distinguish OpenCode-managed npm artefacts from reference-pack files wired by agent-harness (#282)
-- `SelectionReport.rejectionSummary` (`Record<string, number>`) tallying catalog rejections by reason, and `SelectionReport.sampleRejected` (up to 20 `{assetId, reason}` samples) surfacing demand-relevance and duplicate-rejection signals for diagnostics (#285)
+- `SelectionReport.rejectionSummary` (`Record<string, number>`) tallying catalog rejections by reason, and `SelectionReport.sampleRejected` (stratified up-to-20 `{assetId, reason}` entries guaranteeing at least one sample per distinct rejection reason) surfacing demand-relevance and duplicate-rejection signals for diagnostics (#285)
 - `RecommendationReport.recommendations[]` flat deduplicated array providing a stable programmatic surface over the recommendation set alongside the existing grouped structure (#283)
 - Ecosystem-affinity mismatch penalty (flat 40 pts) in package-registry source scoring — assets from a registry whose ecosystem does not match any detected workspace package manager are penalised; no penalty is applied when the workspace has no package-manager signals or the source is not a package registry (#278)
 - Non-empty contextual reason strings for every dormant and never-synced source in source-health reports; previously empty-string reasons are replaced by descriptive messages (last-seen age, zero-entry signal, configuration note) (#281)
@@ -48,7 +48,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
-- `wire opencode --apply` idempotently writes `.opencode/.gitignore` listing `node_modules`, `package-lock.json`, `bun.lock`, `yarn.lock`, and `pnpm-lock.yaml` before OpenCode starts, ensuring its overlay scanner skips npm install artefacts and eliminating ~800 spurious `OVERLAY:` log lines per run (#282)
+- `wire opencode --apply` idempotently writes `.opencode/.gitignore` listing `node_modules`, `package-lock.json`, `bun.lockb`, `yarn.lock`, and `pnpm-lock.yaml` before OpenCode starts, ensuring its overlay scanner skips npm install artefacts and eliminating ~800 spurious `OVERLAY:` log lines per run (#282)
 - Go module index cursor now encodes `timestamp|lastSeenPath` (pipe-delimited) instead of a bare timestamp, eliminating the gap-or-duplicate hazard when multiple modules share the same timestamp at a page boundary; legacy bare-timestamp cursors are transparently upgraded on first resume
 - npm changes-feed adapter now calls `deleteIndexedCatalogEntry` for rows with `deleted: true`, immediately removing stale catalog entries instead of leaving them until the never-firing prune-on-complete path
 - improved release synchronization, version-check, GitHub resilience, guarded HTTP, path/file, native wire, install refresh, mirror acquisition, and recommendation validation regression coverage with deterministic tests
