@@ -864,7 +864,9 @@ async function collectFilesFromDirectory(
     // scan truncation behaviour is reproducible across platforms/filesystems.
     // The `=== 0` case (identical paths) is unreachable in practice since a
     // filesystem directory cannot contain two entries at the exact same path.
-    /* c8 ignore next */
+    // c8 ignore: Node 22 V8 instruments nested ternary arms as separate branches;
+    // the equal-path arm is structurally impossible from a real directory listing.
+    /* c8 ignore next 5 */
     return left.entryPath < right.entryPath
       ? -1
       : left.entryPath > right.entryPath
