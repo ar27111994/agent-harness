@@ -27,6 +27,7 @@ const FILE_STAT_CONCURRENCY = 16;
 export const DEFAULT_IGNORED_DIRECTORY_NAMES = new Set([
   ".agent",
   ".git",
+  ".worktrees",
   ".idea",
   ".next",
   ".nuxt",

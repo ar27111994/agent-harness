@@ -30,6 +30,7 @@ import {
   writeJsonFileWithSnapshot,
   writeJsonLinesFileWithSnapshot,
   writeTextFile,
+  DEFAULT_IGNORED_DIRECTORY_NAMES,
 } from "../files.js";
 import { formatCommandHelp, printCommandHelp } from "../lib/cli-output.js";
 import {
@@ -492,3 +493,36 @@ function restoreEnv(name: string, value: string | undefined): void {
 
   process.env[name] = value;
 }
+
+void test("DEFAULT_IGNORED_DIRECTORY_NAMES includes .worktrees so git worktree checkouts are excluded from all scan passes", async () => {
+  assert.ok(
+    DEFAULT_IGNORED_DIRECTORY_NAMES.has(".worktrees"),
+    "expected .worktrees in DEFAULT_IGNORED_DIRECTORY_NAMES",
+  );
+
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-worktrees-"));
+  try {
+    const scanRoot = join(root, "project");
+    // Create a file that should be found
+    await writeTextFile(join(scanRoot, "src", "index.ts"), "export {};");
+    // Create a file inside a .worktrees subtree that should be skipped
+    await writeTextFile(
+      join(scanRoot, ".worktrees", "feature-branch", "src", "index.ts"),
+      "export {};",
+    );
+
+    const result = await listFilesRecursiveWithTelemetry(scanRoot);
+    const relPaths = result.files.map((f) => toRelativePosixPath(scanRoot, f));
+
+    assert.ok(
+      relPaths.includes("src/index.ts"),
+      "expected src/index.ts to be scanned",
+    );
+    assert.ok(
+      !relPaths.some((p) => p.startsWith(".worktrees/")),
+      "expected .worktrees/ subtree to be excluded",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
