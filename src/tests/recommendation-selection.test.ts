@@ -435,6 +435,7 @@ void test("design-system demand suppresses generic mobile-only assets", () => {
   const demandContext = {
     ...createEmptyDemandContext(),
     demandKeywords: new Set(["penpot"]),
+    packageManagers: new Set<string>(),
   };
 
   const base = buildCandidateRecommendationBase(
@@ -936,6 +937,199 @@ function buildRecommendationsForTest(
   );
 }
 
+// ─── Ecosystem-affinity mismatch penalty tests ───────────────────────────────
+
+/** Policy variant with a nonzero ecosystemMismatchPenalty for penalty tests. */
+function buildEcosystemPolicy(): RecommendationPolicy {
+  const base = buildPolicy();
+  return {
+    ...base,
+    scoring: { ...base.scoring, ecosystemMismatchPenalty: 40 },
+  };
+}
+
+void test("packagist entry receives ecosystem mismatch penalty in npm-only workspace", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: ["javascript", "typescript"],
+          packageManagers: ["npm"],
+          frameworks: [],
+          concerns: [],
+          tooling: ["npm:eslint"],
+        },
+      },
+    ]),
+    policy,
+  );
+  // packagist entry with eslint-like capability (would rank high on token match)
+  const packagistEntry = buildCatalogEntry(
+    "packagist-registry:packagist:vendor%2Feslint-wrapper",
+    "plugin",
+    80,
+    {
+      sourceId: "packagist-registry",
+      sourceKind: "package-registry",
+      capabilities: ["eslint", "lint", "php"],
+    },
+  );
+  const npmEntry = buildCatalogEntry("npm-eslint-plugin", "plugin", 80, {
+    sourceId: "npm-registry",
+    sourceKind: "package-registry",
+    capabilities: ["eslint", "lint", "javascript"],
+  });
+
+  const packagistBase = buildCandidateRecommendationBase(
+    packagistEntry,
+    demandContext,
+    policy,
+  );
+  const npmBase = buildCandidateRecommendationBase(
+    npmEntry,
+    demandContext,
+    policy,
+  );
+
+  assert.ok(
+    packagistBase !== null,
+    "packagist entry should pass gate (not suppressed)",
+  );
+  assert.ok(npmBase !== null, "npm entry should pass gate");
+
+  assert.ok(
+    packagistBase!.breakdown.ecosystemMismatchPenalty > 0,
+    "packagist entry must have a positive ecosystemMismatchPenalty in an npm workspace",
+  );
+  assert.equal(
+    npmBase!.breakdown.ecosystemMismatchPenalty,
+    0,
+    "npm entry must have zero ecosystemMismatchPenalty in an npm workspace",
+  );
+  assert.ok(
+    packagistBase!.breakdown.total < npmBase!.breakdown.total,
+    "packagist entry score must be lower than npm entry score after ecosystem penalty",
+  );
+});
+
+void test("ecosystem mismatch penalty is zero when workspace has no package-manager signals", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "README.md",
+        fileName: "README.md",
+        evidenceStrength: "weak",
+        matchedSignals: {
+          languages: ["markdown"],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const packagistEntry = buildCatalogEntry("packagist-entry", "plugin", 80, {
+    sourceId: "packagist-registry",
+    sourceKind: "package-registry",
+    capabilities: ["php", "composer"],
+  });
+  const base = buildCandidateRecommendationBase(
+    packagistEntry,
+    demandContext,
+    policy,
+  );
+  assert.equal(
+    base?.breakdown.ecosystemMismatchPenalty,
+    0,
+    "must not penalise when workspace has no package-manager signals (brand-new project)",
+  );
+});
+
+void test("ecosystem mismatch penalty is zero for non-package-registry source kinds", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: ["javascript"],
+          packageManagers: ["npm"],
+          frameworks: [],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  // A repo-kind source whose id happens to contain "packagist" should not be penalised
+  const repoEntry = buildCatalogEntry("packagist-docs-repo", "agent", 80, {
+    sourceId: "packagist-docs",
+    sourceKind: "repo",
+    capabilities: ["php", "documentation"],
+  });
+  const base = buildCandidateRecommendationBase(
+    repoEntry,
+    demandContext,
+    policy,
+  );
+  assert.equal(
+    base?.breakdown.ecosystemMismatchPenalty,
+    0,
+    "repo-kind sources must never receive an ecosystem mismatch penalty",
+  );
+});
+
+void test("matching ecosystem incurs zero ecosystem mismatch penalty", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "composer.json",
+        fileName: "composer.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: ["php"],
+          packageManagers: ["composer"],
+          frameworks: [],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const packagistEntry = buildCatalogEntry(
+    "packagist-registry:packagist:vendor%2Ftool",
+    "plugin",
+    80,
+    {
+      sourceId: "packagist-registry",
+      sourceKind: "package-registry",
+      capabilities: ["php", "composer", "tool"],
+    },
+  );
+  const base = buildCandidateRecommendationBase(
+    packagistEntry,
+    demandContext,
+    policy,
+  );
+  assert.equal(
+    base?.breakdown.ecosystemMismatchPenalty,
+    0,
+    "packagist entry must have zero penalty when workspace uses composer",
+  );
+});
+
 function buildPolicy(
   overrides: Partial<RecommendationPolicy["hosts"]["copilot-vscode"]> = {},
 ): RecommendationPolicy {
@@ -983,6 +1177,7 @@ function buildPolicy(
       lowFitPenalty: 0,
       weakDemandPenalty: 0,
       outOfDomainGroupPenalty: 0,
+      ecosystemMismatchPenalty: 0,
       coverageGainWeight: 1,
       sourceDiversityBonus: 1,
       overlapPenalty: 1,
@@ -1126,6 +1321,7 @@ function buildRecommendationEntry(
       costPenalty: 0,
       riskPenalty: 0,
       negativePenalty: 0,
+      ecosystemMismatchPenalty: 0,
       redundancyPenalty: 0,
       budgetPenalty: 0,
       total: 1,
@@ -1140,6 +1336,7 @@ function createEmptyDemandContext() {
     activeDomainGroups: new Set<string>(),
     packageManifestEntries: new Set<string>(),
     demandKeywords: new Set<string>(),
+    packageManagers: new Set<string>(),
   };
 }
 

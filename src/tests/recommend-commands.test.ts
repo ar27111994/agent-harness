@@ -1063,6 +1063,7 @@ function createRecommendationEntry(
       costPenalty: 0,
       riskPenalty: 0,
       negativePenalty: 0,
+      ecosystemMismatchPenalty: 0,
       redundancyPenalty: 0,
       budgetPenalty: 0,
       total: score,

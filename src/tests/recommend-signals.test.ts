@@ -289,6 +289,7 @@ void test("recommend signal weighting preserves zero-weight evidence buckets", (
       activeDomainGroups: new Set<string>(),
       packageManifestEntries: new Set<string>(),
       demandKeywords: new Set(["placeholder"]),
+      packageManagers: new Set<string>(),
     },
     buildPolicy(),
   );
@@ -368,6 +369,7 @@ function buildPolicy(): RecommendationPolicy {
       lowFitPenalty: 5,
       weakDemandPenalty: 5,
       outOfDomainGroupPenalty: 5,
+      ecosystemMismatchPenalty: 0,
       coverageGainWeight: 0,
       sourceDiversityBonus: 0,
       overlapPenalty: 0,

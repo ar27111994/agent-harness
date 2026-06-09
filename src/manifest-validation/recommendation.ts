@@ -586,6 +586,10 @@ function assertRecommendationScoring(value: unknown, context: string): void {
     scoring.outOfDomainGroupPenalty,
     `${context}.outOfDomainGroupPenalty`,
   );
+  assertNumber(
+    scoring.ecosystemMismatchPenalty,
+    `${context}.ecosystemMismatchPenalty`,
+  );
   assertNumber(scoring.coverageGainWeight, `${context}.coverageGainWeight`);
   assertNumber(scoring.sourceDiversityBonus, `${context}.sourceDiversityBonus`);
   assertNumber(scoring.overlapPenalty, `${context}.overlapPenalty`);

@@ -29,6 +29,12 @@ export interface DemandContext {
   activeDomainGroups: Set<string>;
   packageManifestEntries: Set<string>;
   demandKeywords: Set<string>;
+  /**
+   * Normalised set of package-manager family names detected in the workspace
+   * demand profile (e.g. "npm", "pip", "composer"). Used for ecosystem-affinity
+   * penalty computation. Empty when no demand profile is available.
+   */
+  packageManagers: Set<string>;
 }
 
 /**

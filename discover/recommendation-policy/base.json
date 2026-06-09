@@ -56,6 +56,7 @@
     "lowFitPenalty": 8,
     "weakDemandPenalty": 16,
     "outOfDomainGroupPenalty": 18,
+    "ecosystemMismatchPenalty": 40,
     "coverageGainWeight": 2,
     "sourceDiversityBonus": 6,
     "overlapPenalty": 6,

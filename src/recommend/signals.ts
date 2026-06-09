@@ -132,6 +132,13 @@ export function buildDemandContext(
       policy,
       resolvedIntents,
     ),
+    packageManagers: demandProfile
+      ? new Set(
+          demandProfile.evidence.flatMap((ev) =>
+            ev.matchedSignals.packageManagers.map((pm) => pm.toLowerCase()),
+          ),
+        )
+      : new Set<string>(),
   };
 }
 

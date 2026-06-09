@@ -51,6 +51,7 @@ export interface RecommendationScoringPolicy {
   lowFitPenalty: number;
   weakDemandPenalty: number;
   outOfDomainGroupPenalty: number;
+  ecosystemMismatchPenalty: number;
   coverageGainWeight: number;
   sourceDiversityBonus: number;
   overlapPenalty: number;
@@ -201,6 +202,7 @@ export interface RecommendationScoreBreakdown {
   costPenalty: number;
   riskPenalty: number;
   negativePenalty: number;
+  ecosystemMismatchPenalty: number;
   redundancyPenalty: number;
   budgetPenalty: number;
   total: number;
