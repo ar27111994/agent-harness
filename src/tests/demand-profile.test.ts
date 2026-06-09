@@ -976,10 +976,19 @@ void test("binary/asset files are deprioritised in scan order so source files ex
     await writeFixtureFile(root, "assets/font.ttf", "FAKE_TTF");
     await writeFixtureFile(root, "assets/icon.ico", "FAKE_ICO");
 
-    // Set a very small budget so that if binary files were scanned first,
-    // the source file would be missed.
+    // Set a byte budget equal to just enough to read pubspec.yaml (the source
+    // file) but no more — any additional file visit will overflow the budget.
+    // This ensures the scan IS truncated, which validates binary-deprioritisation:
+    // if binaries had been sorted first, pubspec.yaml would never be reached.
+    const pubspecContent = [
+      "name: interact_note",
+      "dependencies:",
+      "  flutter:",
+      "    sdk: flutter",
+    ].join("\n");
+    const tightBudgetBytes = Buffer.byteLength(pubspecContent, "utf8");
     const previousMaxBytes = process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
-    process.env.AGENT_HARNESS_SCAN_MAX_BYTES = "100";
+    process.env.AGENT_HARNESS_SCAN_MAX_BYTES = String(tightBudgetBytes);
     clearRuntimeConfigForTests();
 
     try {
@@ -992,6 +1001,13 @@ void test("binary/asset files are deprioritised in scan order so source files ex
       assert.ok(
         profile.signals.frameworks.includes("flutter"),
         "flutter signal must be detected despite binary assets",
+      );
+      // The 100-byte budget MUST have been hit — if the scan was NOT truncated
+      // it means the budget was not tight enough to validate priority ordering.
+      assert.equal(
+        profile.summary.scanTruncated,
+        true,
+        "scan must be truncated so that binary-deprioritisation is actually exercised",
       );
     } finally {
       if (previousMaxBytes === undefined) {

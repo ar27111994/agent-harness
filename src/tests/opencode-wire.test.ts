@@ -541,6 +541,68 @@ void test("OpenCode preview writes only the preview manifest", async () => {
   }
 });
 
+void test("OpenCode preview includes npmInstallSummary note when .opencode/package.json exists", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+
+    // Write a .opencode/package.json so buildOpenCodeProspectivePlan reads
+    // the npm install summary and includes it in the notes.
+    const opencodeDir = join(fixture.workspaceRoot, ".opencode");
+    await mkdir(opencodeDir, { recursive: true });
+    await writeJsonFile(join(opencodeDir, "package.json"), {
+      dependencies: {
+        "@opencode/some-plugin": "^1.0.0",
+        "another-plugin": "^2.0.0",
+      },
+    });
+    // Write a package-lock.json so the estimatedPackageCount uses lockfile entries.
+    await writeJsonFile(join(opencodeDir, "package-lock.json"), {
+      lockfileVersion: 3,
+      packages: {
+        "": {},
+        "node_modules/@opencode/some-plugin": { version: "1.0.0" },
+        "node_modules/another-plugin": { version: "2.0.0" },
+        "node_modules/transitive-dep": { version: "3.0.0" },
+      },
+    });
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "preview",
+    });
+
+    const wirePlan = await readJsonFile<WirePlanManifest>(
+      join(fixture.projectRoot, "activate", "opencode", "wire-plan.json"),
+    );
+
+    // The prospective wire plan notes must include the npm install summary.
+    const npmNote = wirePlan.notes.find((n) =>
+      n.startsWith("OpenCode plugin npm install:"),
+    );
+    assert.ok(
+      npmNote !== undefined,
+      "wire plan notes must include the npm install summary when package.json exists",
+    );
+    assert.ok(
+      npmNote.includes("2 declared dependencies"),
+      `note must report declared dep count: ${npmNote}`,
+    );
+    assert.ok(
+      npmNote.includes("installed packages"),
+      `note must include installed-packages estimate: ${npmNote}`,
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("OpenCode reset removes AGENTS.md when the managed section was the only content", async () => {
   const fixture = await createOpenCodeFixture();
 
@@ -577,7 +639,6 @@ void test("OpenCode reset removes AGENTS.md when the managed section was the onl
     await fixture.cleanup();
   }
 });
-
 void test("OpenCode wire tolerates malformed shared MCP package state", async () => {
   const fixture = await createOpenCodeFixture();
   const warnings: string[] = [];
