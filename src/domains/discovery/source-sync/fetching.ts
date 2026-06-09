@@ -25,8 +25,17 @@ import type { SourceSyncFetchOptions } from "./types.js";
 export const SOURCE_SYNC_FETCH_MAX_BYTES = 5_000_000;
 /** Maximum bytes read from a large-response source (e.g. full NuGet catalog page). */
 export const SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES = 25_000_000;
-/** Number of items requested per page in paginated registry API calls. */
+
 export const SOURCE_SYNC_BATCH_SIZE = 50;
+
+/**
+ * Maximum number of catalog entries a single package-registry source may
+ * contribute to the indexed catalog.  Aligns the Packagist (PHP) full-snapshot
+ * source with the paginated registries (pypi: 500, cargo: 500, nuget: 500).
+ * Prevents any single registry from dominating catalog composition and
+ * degrading selection rates for unrelated workspaces.
+ */
+export const SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP = 500;
 /** Default HTTP request timeout in milliseconds for source-sync fetches. */
 export const SOURCE_SYNC_TIMEOUT_MS = 30_000;
 /** Default HTTP headers sent with every source-sync request. */

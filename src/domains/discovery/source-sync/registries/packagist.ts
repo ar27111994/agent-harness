@@ -12,6 +12,7 @@ import {
 
 import { countEntriesForSource, upsertIndexedCatalogEntry } from "../state.js";
 import {
+  SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP,
   SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES,
   asRecord,
   fetchRequiredJson,
@@ -41,6 +42,13 @@ export async function syncPackagistRegistrySource(
   const packageNames = normalizeStringArray(record.packageNames);
 
   for (const packageName of packageNames) {
+    if (
+      countEntriesForSource(context.entriesById, source.id) >=
+      SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP
+    ) {
+      break;
+    }
+
     const entry = buildPackageRegistryCatalogEntry(
       source,
       packageName,
