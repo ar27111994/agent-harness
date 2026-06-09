@@ -12,6 +12,7 @@ import {
   writeTextFile,
 } from "../files.js";
 import {
+  formatWirePlanSummary,
   openCodeWireInternals,
   wireOpenCode,
 } from "../host-adapters/opencode.js";
@@ -978,4 +979,115 @@ void test("OpenCode wire internals validate snapshots and restore AGENTS fallbac
   assert.equal(await readTextFileOrNull(agentsPath), null);
 
   assert.equal(openCodeWireInternals.toLoggableErrorMessage("plain"), "plain");
+});
+
+// ─── formatWirePlanSummary tests ─────────────────────────────────────────────
+
+function makeMinimalPlan(
+  overrides: Partial<WirePlanManifest> = {},
+): WirePlanManifest {
+  return {
+    schemaVersion: 1,
+    host: "opencode-project",
+    generatedAt: "2025-01-01T00:00:00.000Z",
+    workspaceRoot: "/workspace",
+    runtimeRoot: "/workspace/.opencode",
+    notes: [],
+    ...overrides,
+  };
+}
+
+void test("formatWirePlanSummary includes header with host and workspace", () => {
+  const summary = formatWirePlanSummary(makeMinimalPlan());
+  assert.ok(summary.includes("wire opencode — plan preview"), "missing header");
+  assert.ok(summary.includes("opencode-project"), "missing host");
+  assert.ok(summary.includes("/workspace"), "missing workspace");
+});
+
+void test("formatWirePlanSummary shows linked path count and entries", () => {
+  const plan = makeMinimalPlan({
+    linkedPaths: [
+      "/workspace/.opencode/agents/tool-a",
+      "/workspace/.opencode/agents/tool-b",
+    ],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(summary.includes("Linked paths (2)"), "wrong linked path count");
+  assert.ok(summary.includes("tool-a"), "missing path entry");
+  assert.ok(summary.includes("tool-b"), "missing path entry");
+});
+
+void test("formatWirePlanSummary shows zero linked paths when absent", () => {
+  const summary = formatWirePlanSummary(makeMinimalPlan({ linkedPaths: [] }));
+  assert.ok(summary.includes("Linked paths (0)"), "wrong count for empty");
+  assert.ok(summary.includes("— none"), "missing '— none' marker");
+});
+
+void test("formatWirePlanSummary shows MCP servers", () => {
+  const plan = makeMinimalPlan({
+    mcpServers: ["shared-mcp-asset-1", "shared-mcp-asset-2"],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(summary.includes("MCP servers (2)"), "wrong MCP count");
+  assert.ok(summary.includes("shared-mcp-asset-1"), "missing MCP entry");
+});
+
+void test("formatWirePlanSummary shows native config operations", () => {
+  const plan = makeMinimalPlan({
+    nativeConfigOperations: [
+      { path: "opencode.json", format: "json", mode: "merge", content: {} },
+    ],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(summary.includes("Native config operations (1)"), "wrong op count");
+  assert.ok(
+    summary.includes("[merge] opencode.json (json)"),
+    "wrong op format",
+  );
+});
+
+void test("formatWirePlanSummary shows text file snapshots with preview", () => {
+  const plan = makeMinimalPlan({
+    textFileSnapshots: [
+      { path: "AGENTS.md", content: "# Agent instructions\nLine 2" },
+    ],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(
+    summary.includes("Text file snapshots (1)"),
+    "wrong snapshot count",
+  );
+  assert.ok(summary.includes("AGENTS.md"), "missing snapshot path");
+  assert.ok(summary.includes("Agent instructions"), "missing snapshot preview");
+});
+
+void test("formatWirePlanSummary shows null snapshot content as (null)", () => {
+  const plan = makeMinimalPlan({
+    textFileSnapshots: [{ path: "AGENTS.md", content: null }],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(summary.includes("(null)"), "missing null marker");
+});
+
+void test("formatWirePlanSummary shows notes section", () => {
+  const plan = makeMinimalPlan({
+    notes: ["This is a preview.", "Nothing has been written."],
+  });
+  const summary = formatWirePlanSummary(plan);
+  assert.ok(summary.includes("Notes:"), "missing notes section");
+  assert.ok(summary.includes("This is a preview."), "missing note text");
+  assert.ok(summary.includes("Nothing has been written."), "missing note text");
+});
+
+void test("formatWirePlanSummary skips notes section when notes is empty", () => {
+  const summary = formatWirePlanSummary(makeMinimalPlan({ notes: [] }));
+  assert.ok(!summary.includes("Notes:"), "notes section should be absent");
+});
+
+void test("formatWirePlanSummary output ends with newline", () => {
+  const summary = formatWirePlanSummary(makeMinimalPlan());
+  assert.ok(
+    summary.endsWith("\n"),
+    "must end with newline for clean terminal output",
+  );
 });

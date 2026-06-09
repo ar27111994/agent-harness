@@ -108,6 +108,15 @@ export async function wireOpenCode(options: {
   );
 
   if (mode === "preview") {
+    const prospectivePlan = await buildOpenCodeProspectivePlan({
+      projectRoot,
+      workspaceRoot,
+      activationRoot,
+      localOverlayRoot,
+      localContextRoot,
+      localAgentsPath,
+    });
+    process.stdout.write(formatWirePlanSummary(prospectivePlan));
     return;
   }
 
@@ -226,6 +235,186 @@ function buildOpenCodeLinkRoots(localOverlayRoot: string): string[] {
   return [...new Set(Object.values(OPENCODE_DIRECTORY_BY_ASSET_KIND))]
     .map((directoryName) => toPosixPath(join(localOverlayRoot, directoryName)))
     .sort((left, right) => left.localeCompare(right));
+}
+
+/**
+ * Computes what `wire opencode --apply` would do without writing anything.
+ *
+ * Reads the activation manifest and shared MCP asset IDs, resolves the linked
+ * assets and native-config payloads, then returns a WirePlanManifest that
+ * describes the prospective operation. Nothing is written to disk.
+ */
+async function buildOpenCodeProspectivePlan(options: {
+  projectRoot: string;
+  workspaceRoot: string;
+  activationRoot: string;
+  localOverlayRoot: string;
+  localContextRoot: string;
+  localAgentsPath: string;
+}): Promise<WirePlanManifest> {
+  const {
+    projectRoot,
+    workspaceRoot,
+    activationRoot,
+    localOverlayRoot,
+    localContextRoot,
+    localAgentsPath,
+  } = options;
+
+  const activationManifest = await readJsonFileOrNull<ActivationManifest>(
+    join(activationRoot, "activation-manifest.json"),
+  );
+  const sharedMcpAssetIds = await readSharedMcpAssetIdsBestEffort(projectRoot);
+
+  const linkedAssets = await resolveOpenCodeLinkedAssets({
+    projectRoot,
+    activationRoot,
+    activationManifest,
+    localOverlayRoot,
+  });
+  const activeAssets = await loadActiveOpenCodeAssets(
+    activationRoot,
+    activationManifest,
+  );
+
+  // Compute native-config operations descriptively (no disk writes).
+  const nativeConfigOperations = buildOpenCodeNativeConfigPreview({
+    workspaceRoot,
+    activeAssets,
+    linkedAssets,
+  });
+
+  return {
+    schemaVersion: 1,
+    host: "opencode-project",
+    generatedAt: new Date().toISOString(),
+    workspaceRoot: toPosixPath(workspaceRoot),
+    runtimeRoot: toPosixPath(localOverlayRoot),
+    linkedPaths: linkedAssets.map((a) => toPosixPath(a.linkPath)),
+    mcpServers: sharedMcpAssetIds,
+    nativeConfigOperations,
+    textFileSnapshots: [],
+    notes: [
+      "This is a preview of what --apply would do. Nothing has been written.",
+      `AGENTS.md target: ${toPosixPath(localAgentsPath)}`,
+      `Context root: ${toPosixPath(localContextRoot)}`,
+    ],
+  };
+}
+
+/**
+ * Computes native-config operation descriptors that `--apply` would produce,
+ * without touching the filesystem. Mirrors the logic of applyOpenCodeNativeConfig.
+ */
+function buildOpenCodeNativeConfigPreview(options: {
+  workspaceRoot: string;
+  activeAssets: AssetCatalogEntry[];
+  linkedAssets: OpenCodeLinkedAsset[];
+}): NativeConfigOperation[] {
+  const instructionPaths = options.linkedAssets
+    .filter((asset) => asset.assetKind === "instruction")
+    .map((asset) =>
+      toWorkspaceRelativeConfigPath(options.workspaceRoot, asset.linkPath),
+    );
+  const payloads = collectHostNativeFilePayloads(
+    options.activeAssets,
+    "opencode",
+  );
+
+  if (instructionPaths.length > 0) {
+    payloads.unshift({
+      path: "opencode.json",
+      format: "json",
+      merge: true,
+      content: { instructions: instructionPaths },
+    });
+  }
+
+  return payloads.map((payload) => {
+    const isJson = payload.format === "json";
+    const merge = isJson && (payload as { merge?: boolean }).merge === true;
+    return {
+      path: payload.path,
+      format: payload.format,
+      mode: (merge ? "merge" : "write") as "merge" | "write",
+      content: payload.content as string | Record<string, unknown>,
+    } satisfies NativeConfigOperation;
+  });
+}
+
+/**
+ * Formats a WirePlanManifest as a human-readable summary string for stdout.
+ *
+ * Outputs:
+ *   - header with host and timestamp
+ *   - linked paths section (count + list)
+ *   - MCP servers section
+ *   - native config operations section
+ *   - text file snapshots section
+ *   - notes section
+ */
+export function formatWirePlanSummary(plan: WirePlanManifest): string {
+  const lines: string[] = [];
+  const hr = "─".repeat(60);
+
+  lines.push(hr);
+  lines.push(`  wire opencode — plan preview`);
+  lines.push(`  host: ${plan.host}  •  generated: ${plan.generatedAt}`);
+  lines.push(`  workspace: ${plan.workspaceRoot}`);
+  lines.push(hr);
+
+  // Linked paths
+  const linkedPaths = plan.linkedPaths ?? [];
+  lines.push(
+    `\n  Linked paths (${linkedPaths.length})${linkedPaths.length === 0 ? " — none" : ":"}`,
+  );
+  for (const p of linkedPaths) {
+    lines.push(`    • ${p}`);
+  }
+
+  // MCP servers
+  const mcpServers = plan.mcpServers ?? [];
+  lines.push(
+    `\n  MCP servers (${mcpServers.length})${mcpServers.length === 0 ? " — none" : ":"}`,
+  );
+  for (const s of mcpServers) {
+    lines.push(`    • ${s}`);
+  }
+
+  // Native config operations
+  const ops = plan.nativeConfigOperations ?? [];
+  lines.push(
+    `\n  Native config operations (${ops.length})${ops.length === 0 ? " — none" : ":"}`,
+  );
+  for (const op of ops) {
+    lines.push(`    • [${op.mode}] ${op.path} (${op.format})`);
+  }
+
+  // Text file snapshots
+  const snapshots = plan.textFileSnapshots ?? [];
+  lines.push(
+    `\n  Text file snapshots (${snapshots.length})${snapshots.length === 0 ? " — none" : ":"}`,
+  );
+  for (const snap of snapshots) {
+    const preview =
+      typeof snap.content === "string"
+        ? snap.content.slice(0, 80).replace(/\n/g, "↵")
+        : "(null)";
+    lines.push(`    • ${snap.path}: ${preview}`);
+  }
+
+  // Notes
+  const notes = plan.notes ?? [];
+  if (notes.length > 0) {
+    lines.push(`\n  Notes:`);
+    for (const note of notes) {
+      lines.push(`    ℹ ${note}`);
+    }
+  }
+
+  lines.push(`\n${hr}\n`);
+
+  return lines.join("\n") + "\n";
 }
 
 async function resolveOpenCodeLinkedAssets(options: {
