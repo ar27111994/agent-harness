@@ -1102,7 +1102,7 @@ const { ensureOpenCodeOverlayGitignore, readOpenCodeNpmInstallSummary } =
 const REQUIRED_GITIGNORE_ENTRIES = [
   "node_modules",
   "package-lock.json",
-  "bun.lock",
+  "bun.lockb",
   "yarn.lock",
   "pnpm-lock.yaml",
   ".gitignore",
@@ -1233,7 +1233,7 @@ void test("readOpenCodeNpmInstallSummary: returns summary with lockfile package 
     assert.ok(result !== null);
     assert.strictEqual(result!.declaredDependencyCount, 1);
     // 4 packages in lockfile minus 1 for root "" entry = 3
-    assert.strictEqual(result!.estimatedInstalledFileCount, 3);
+    assert.strictEqual(result!.estimatedPackageCount, 3);
     assert.ok(result!.packageJsonPath.endsWith(".opencode/package.json"));
   } finally {
     await rm(workspace, { recursive: true, force: true });
@@ -1254,8 +1254,8 @@ void test("readOpenCodeNpmInstallSummary: falls back to heuristic when no lockfi
     const result = await readOpenCodeNpmInstallSummary(workspace);
     assert.ok(result !== null);
     assert.strictEqual(result!.declaredDependencyCount, 3);
-    // 3 deps × 15 = 45
-    assert.strictEqual(result!.estimatedInstalledFileCount, 45);
+    // No lockfile: falls back to declared count (no multiplier — honest estimate)
+    assert.strictEqual(result!.estimatedPackageCount, 3);
   } finally {
     await rm(workspace, { recursive: true, force: true });
   }
@@ -1272,8 +1272,87 @@ void test("readOpenCodeNpmInstallSummary: handles empty dependencies gracefully"
     const result = await readOpenCodeNpmInstallSummary(workspace);
     assert.ok(result !== null);
     assert.strictEqual(result!.declaredDependencyCount, 0);
-    assert.strictEqual(result!.estimatedInstalledFileCount, 0);
+    assert.strictEqual(result!.estimatedPackageCount, 0);
   } finally {
     await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("readOpenCodeNpmInstallSummary: throws when .opencode/package.json contains invalid JSON", async () => {
+  // readJsonFileOrNull re-throws JSON parse errors (it only masks ENOENT).
+  // Verify the function surfaces the parse error rather than silently returning null.
+  const workspace = await makeTmpWorkspace();
+  try {
+    await mkdir(join(workspace, ".opencode"), { recursive: true });
+    await writeFile(
+      join(workspace, ".opencode", "package.json"),
+      "{ this is not valid JSON !!!",
+    );
+    await assert.rejects(
+      () => readOpenCodeNpmInstallSummary(workspace),
+      /Invalid JSON/,
+      "should rethrow JSON parse errors from readJsonFileOrNull",
+    );
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+void test("wireOpenCode: wire-plan notes include npm install summary when .opencode/package.json exists", async () => {
+  // Exercises opencode.ts:226-231 — the npmInstallSummary !== null branch inside
+  // buildOpenCodeWirePlan that appends the npm-install note to the plan notes array.
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+
+    // Pre-create .opencode/package.json so readOpenCodeNpmInstallSummary returns non-null
+    await mkdir(join(fixture.workspaceRoot, ".opencode"), { recursive: true });
+    await writeFile(
+      join(fixture.workspaceRoot, ".opencode", "package.json"),
+      JSON.stringify({
+        dependencies: { "@opencode-ai/test-plugin": "1.0.0" },
+      }),
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+
+    const localContextRoot = join(
+      fixture.workspaceRoot,
+      ".opencode",
+      "context",
+      "project-intelligence",
+      "agent-harness",
+    );
+    const wirePlan = await readJsonFile<WirePlanManifest>(
+      join(localContextRoot, "wire-plan.json"),
+    );
+
+    // The npm-install note should be present when npmInstallSummary is non-null
+    const npmNote = wirePlan.notes?.find((n) =>
+      n.includes("OpenCode plugin npm install"),
+    );
+    assert.ok(
+      npmNote !== undefined,
+      "wire plan should include npm install summary note when .opencode/package.json is present",
+    );
+    assert.ok(
+      npmNote!.includes("1 declared dependencies"),
+      "note should include declared dependency count",
+    );
+    assert.ok(
+      wirePlan.npmInstallSummary !== undefined,
+      "wire plan should include npmInstallSummary when .opencode/package.json is present",
+    );
+  } finally {
+    await fixture.cleanup();
   }
 });

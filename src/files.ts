@@ -856,7 +856,20 @@ async function collectFilesFromDirectory(
   fileStats.sort((left, right) => {
     const leftLow = isLowPriorityForScanBudget(left.entryPath) ? 1 : 0;
     const rightLow = isLowPriorityForScanBudget(right.entryPath) ? 1 : 0;
-    return leftLow - rightLow;
+    const priorityDiff = leftLow - rightLow;
+    if (priorityDiff !== 0) {
+      return priorityDiff;
+    }
+    // Deterministic tie-breaker: stable lexicographic order by path ensures
+    // scan truncation behaviour is reproducible across platforms/filesystems.
+    // The `=== 0` case (identical paths) is unreachable in practice since a
+    // filesystem directory cannot contain two entries at the exact same path.
+    /* c8 ignore next */
+    return left.entryPath < right.entryPath
+      ? -1
+      : left.entryPath > right.entryPath
+        ? 1
+        : 0;
   });
 
   for (const fileStat of fileStats) {

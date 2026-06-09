@@ -586,6 +586,10 @@ function assertRecommendationScoring(value: unknown, context: string): void {
     scoring.outOfDomainGroupPenalty,
     `${context}.outOfDomainGroupPenalty`,
   );
+  // Inject default 0 for pre-v2.0.0 policy files that predate this field
+  if (scoring.ecosystemMismatchPenalty === undefined) {
+    scoring.ecosystemMismatchPenalty = 0;
+  }
   assertNumber(
     scoring.ecosystemMismatchPenalty,
     `${context}.ecosystemMismatchPenalty`,

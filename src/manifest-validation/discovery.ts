@@ -606,8 +606,10 @@ export function assertSelectionReport(
   assertNumber(record.inputCount, `${context}.inputCount`);
   assertNumber(record.selectedCount, `${context}.selectedCount`);
   assertNumber(record.rejectedCount, `${context}.rejectedCount`);
-  // rejectionSummary — optional for backward compat with pre-v2.0.0 reports
-  if (record.rejectionSummary !== undefined) {
+  // rejectionSummary — inject empty default for pre-v2.0.0 reports
+  if (record.rejectionSummary === undefined) {
+    record.rejectionSummary = {};
+  } else {
     const summaryRecord = assertRecord(
       record.rejectionSummary,
       `${context}.rejectionSummary`,
@@ -616,8 +618,10 @@ export function assertSelectionReport(
       assertNumber(count, `${context}.rejectionSummary.${reason}`);
     }
   }
-  // sampleRejected — optional for backward compat
-  if (record.sampleRejected !== undefined) {
+  // sampleRejected — inject empty default for pre-v2.0.0 reports
+  if (record.sampleRejected === undefined) {
+    record.sampleRejected = [];
+  } else {
     const samples = assertArray(
       record.sampleRejected,
       `${context}.sampleRejected`,

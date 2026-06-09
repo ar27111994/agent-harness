@@ -147,8 +147,8 @@ export function buildSourceHealthReport(
             reasons.push(
               "source has never been synced in this state root — " +
                 "repo-kind sources require the GitHub API cache to be " +
-                "populated first (run: agent-harness discover sync --source " +
-                `${source.id})`,
+                "populated first; run: agent-harness discover sync --source " +
+                source.id,
             );
           } else {
             reasons.push(
@@ -165,9 +165,9 @@ export function buildSourceHealthReport(
               "source produced no catalog entries — " +
                 "repo-kind sources depend on the GitHub API cache from the " +
                 "agent-harness state root; running from an isolated workspace " +
-                "state root that lacks this cache will always appear dormant " +
-                "(run: agent-harness discover sync --source " +
-                `${source.id} to refresh)`,
+                "state root that lacks this cache will always appear dormant; " +
+                "run: agent-harness discover sync --source " +
+                source.id,
             );
           } else if (source.kind === "local-directory") {
             reasons.push(

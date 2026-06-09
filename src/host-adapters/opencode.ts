@@ -226,7 +226,7 @@ export async function wireOpenCode(options: {
         ...(npmInstallSummary !== null
           ? [
               `OpenCode plugin npm install: ${npmInstallSummary!.declaredDependencyCount} declared dependencies, ` +
-                `~${npmInstallSummary!.estimatedInstalledFileCount} installed files under ${npmInstallSummary!.packageJsonPath}. ` +
+                `~${npmInstallSummary!.estimatedPackageCount} installed packages under ${npmInstallSummary!.packageJsonPath}. ` +
                 `These files are written by OpenCode itself (not by wire --apply) and are excluded from overlay scanning via .opencode/.gitignore.`,
             ]
           : []),
@@ -262,7 +262,7 @@ async function ensureOpenCodeOverlayGitignore(
   const REQUIRED_ENTRIES = [
     "node_modules",
     "package-lock.json",
-    "bun.lock",
+    "bun.lockb",
     "yarn.lock",
     "pnpm-lock.yaml",
     ".gitignore",
@@ -314,6 +314,9 @@ async function readOpenCodeNpmInstallSummary(
     devDependencies?: Record<string, string>;
   }>(packageJsonPath);
 
+  // readJsonFileOrNull only returns null for ENOENT (already guarded above),
+  // but keep this check as a safety net for future changes to readJsonFileOrNull.
+  /* c8 ignore next 3 */
   if (packageJson === null) {
     return null;
   }
@@ -329,12 +332,12 @@ async function readOpenCodeNpmInstallSummary(
     packages?: Record<string, unknown>;
   }>(lockfilePath);
 
-  const estimatedInstalledFileCount =
+  const estimatedPackageCount =
     lockfile?.packages !== undefined
       ? // package-lock v2/v3: packages includes the root "" entry, subtract 1
         Math.max(0, Object.keys(lockfile.packages).length - 1)
-      : // Rough heuristic: each transitive package ~= 15 files on average
-        declaredDependencyCount * 15;
+      : // Rough heuristic when no lockfile: use declared dependency count
+        declaredDependencyCount;
 
   const relativePackageJsonPath = toPosixPath(
     relative(workspaceRoot, packageJsonPath),
@@ -343,7 +346,7 @@ async function readOpenCodeNpmInstallSummary(
   return {
     packageJsonPath: relativePackageJsonPath,
     declaredDependencyCount,
-    estimatedInstalledFileCount,
+    estimatedPackageCount,
   };
 }
 

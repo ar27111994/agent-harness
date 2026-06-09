@@ -73,6 +73,9 @@ export async function buildDemandProfile(
   };
 
   if (scanResult.telemetry.truncated) {
+    // truncationReason is always set when truncated via listFilesRecursiveWithTelemetry;
+    // the "budget-exceeded" fallback guards against future changes to the telemetry API.
+    /* c8 ignore next */
     const reason = scanResult.telemetry.truncationReason ?? "budget-exceeded";
     const mb = (scanResult.telemetry.visitedBytes / 1_048_576).toFixed(1);
     process.stderr.write(

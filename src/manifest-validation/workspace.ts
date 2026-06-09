@@ -196,8 +196,8 @@ function assertNpmInstallSummary(value: unknown, context: string): void {
     `${context}.declaredDependencyCount`,
   );
   assertNumber(
-    record.estimatedInstalledFileCount,
-    `${context}.estimatedInstalledFileCount`,
+    record.estimatedPackageCount,
+    `${context}.estimatedPackageCount`,
   );
 }
 

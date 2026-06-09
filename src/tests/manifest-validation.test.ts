@@ -666,7 +666,7 @@ void test("assertWirePlanManifest: accepts valid npmInstallSummary", () => {
         npmInstallSummary: {
           packageJsonPath: ".opencode/package.json",
           declaredDependencyCount: 1,
-          estimatedInstalledFileCount: 785,
+          estimatedPackageCount: 785,
         },
         notes: ["OpenCode plugin npm install documented."],
       },
@@ -687,7 +687,7 @@ void test("assertWirePlanManifest: rejects npmInstallSummary with missing packag
           runtimeRoot: "/rt",
           npmInstallSummary: {
             declaredDependencyCount: 1,
-            estimatedInstalledFileCount: 10,
+            estimatedPackageCount: 10,
           },
           notes: [],
         },
@@ -710,7 +710,7 @@ void test("assertWirePlanManifest: rejects npmInstallSummary with non-number cou
           npmInstallSummary: {
             packageJsonPath: ".opencode/package.json",
             declaredDependencyCount: "one",
-            estimatedInstalledFileCount: 10,
+            estimatedPackageCount: 10,
           },
           notes: [],
         },

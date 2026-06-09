@@ -1617,6 +1617,7 @@
     },
     {
       "id": "egonex-ai-understand-anything",
+      "kind": "repo",
       "name": "Understand Anything",
       "repo": "https://github.com/Egonex-AI/Understand-Anything",
       "authorityTier": "unverified-community",
@@ -1635,7 +1636,8 @@
     },
     {
       "id": "leonxlnx-taste-skill",
-      "name": "Taste Skill \u2014 Frontend Design Skills",
+      "kind": "repo",
+      "name": "Taste Skill — Frontend Design Skills",
       "repo": "https://github.com/Leonxlnx/taste-skill",
       "authorityTier": "trusted-community",
       "publisher": "Leonxlnx",
@@ -1647,7 +1649,8 @@
     },
     {
       "id": "mukul975-anthropic-cybersecurity-skills",
-      "name": "Anthropic Cybersecurity Skills (Community)",
+      "kind": "repo",
+      "name": "Cybersecurity Skills by mukul975 (Community)",
       "repo": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
       "authorityTier": "unverified-community",
       "publisher": "mukul975",
@@ -1659,6 +1662,7 @@
     },
     {
       "id": "imbad0202-academic-research-skills",
+      "kind": "repo",
       "name": "Academic Research Skills",
       "repo": "https://github.com/Imbad0202/academic-research-skills",
       "authorityTier": "unverified-community",

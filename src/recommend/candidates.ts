@@ -588,20 +588,42 @@ function isSuppressedBySpecializedDemandGate(
  * a direct set-intersection with `demandContext.packageManagers` works.
  */
 const REGISTRY_ECOSYSTEM_MAP: ReadonlyArray<readonly [string, string]> = [
+  // JavaScript / Node.js — must match "npm", "pnpm", "yarn", "bun" signals
+  ["npmjs", "npm"],
+  ["npm-registry", "npm"],
+  ["npm", "npm"],
+  ["yarn", "yarn"],
+  ["pnpm", "pnpm"],
+  ["bun", "bun"],
+  // PHP
   ["packagist", "composer"],
+  // Python
   ["pypi", "pip"],
-  ["rubygems", "gem"],
+  // Ruby — demand-signals emits "bundler"
+  ["rubygems", "bundler"],
+  // .NET
   ["nuget", "nuget"],
+  // Rust
   ["crates", "cargo"],
   ["cargo", "cargo"],
+  // Dart / Flutter — demand-signals emits "pub"
   ["pub.dev", "pub"],
   ["pub-dev", "pub"],
-  ["hex", "mix"],
+  // Elixir — demand-signals emits "hex"
+  ["hex.pm", "hex"],
+  ["hex", "hex"],
+  // Haskell — demand-signals emits "cabal" (rebar3 for Erlang is separate)
   ["hackage", "cabal"],
-  ["maven", "maven"],
-  ["gradle", "gradle"],
-  ["cocoapods", "pod"],
-  ["swift", "swift"],
+  // JVM — demand-signals emits "maven-gradle"
+  ["maven", "maven-gradle"],
+  ["gradle", "maven-gradle"],
+  // iOS / macOS — demand-signals emits "cocoapods"
+  ["cocoapods", "cocoapods"],
+  // Swift — demand-signals emits "swiftpm"
+  ["swift-package", "swiftpm"],
+  ["swiftpackageindex", "swiftpm"],
+  ["swift", "swiftpm"],
+  // C / C++
   ["conan", "conan"],
   ["vcpkg", "vcpkg"],
 ] as const;

@@ -117,10 +117,11 @@ export interface WirePlanManifest {
     /** Number of top-level dependency declarations in package.json. */
     declaredDependencyCount: number;
     /**
-     * Approximate number of files written by npm install (best-effort from
-     * package-lock.json, or a conservative estimate when unavailable).
+     * Approximate number of packages installed (best-effort from
+     * package-lock.json packages entries, or a conservative estimate when
+     * unavailable). This is a package count, not a filesystem file count.
      */
-    estimatedInstalledFileCount: number;
+    estimatedPackageCount: number;
   };
   notes: string[];
 }
