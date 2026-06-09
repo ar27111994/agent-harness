@@ -218,3 +218,112 @@ async function writeText(filePath: string, content: string): Promise<void> {
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf8");
 }
+
+void test("node-cli framework signal is emitted for package.json with bin field and node engine", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-node-cli-signal-"));
+  try {
+    const pkgPath = join(root, "package.json");
+
+    // Case 1: bin as object + engines.node → should emit node-cli
+    await writeText(
+      pkgPath,
+      JSON.stringify({
+        name: "my-cli-tool",
+        bin: { "my-cli": "./bin/cli.js" },
+        engines: { node: ">=18" },
+      }),
+    );
+    const withBinObject = await collectDemandSignalsForFile(
+      "package.json",
+      pkgPath,
+    );
+    assert.ok(
+      withBinObject.frameworks.includes("node-cli"),
+      "expected node-cli for bin object + engines.node",
+    );
+
+    // Case 2: bin as string + engines.node → should emit node-cli
+    await writeText(
+      pkgPath,
+      JSON.stringify({
+        name: "my-cli-tool",
+        bin: "./bin/cli.js",
+        engines: { node: ">=18" },
+      }),
+    );
+    const withBinString = await collectDemandSignalsForFile(
+      "package.json",
+      pkgPath,
+    );
+    assert.ok(
+      withBinString.frameworks.includes("node-cli"),
+      "expected node-cli for bin string + engines.node",
+    );
+
+    // Case 3: bin present but no engines.node → must NOT emit node-cli
+    await writeText(
+      pkgPath,
+      JSON.stringify({
+        name: "my-lib",
+        bin: { "my-cli": "./bin/cli.js" },
+      }),
+    );
+    const noBinWithoutEngines = await collectDemandSignalsForFile(
+      "package.json",
+      pkgPath,
+    );
+    assert.ok(
+      !noBinWithoutEngines.frameworks.includes("node-cli"),
+      "must not emit node-cli without engines.node",
+    );
+
+    // Case 4: engines.node present but no bin → must NOT emit node-cli
+    await writeText(
+      pkgPath,
+      JSON.stringify({
+        name: "my-lib",
+        engines: { node: ">=18" },
+        dependencies: { express: "^4" },
+      }),
+    );
+    const noCliWithoutBin = await collectDemandSignalsForFile(
+      "package.json",
+      pkgPath,
+    );
+    assert.ok(
+      !noCliWithoutBin.frameworks.includes("node-cli"),
+      "must not emit node-cli without bin field",
+    );
+
+    // Case 5: bin is empty object → must NOT emit node-cli
+    await writeText(
+      pkgPath,
+      JSON.stringify({
+        name: "my-lib",
+        bin: {},
+        engines: { node: ">=18" },
+      }),
+    );
+    const emptyBin = await collectDemandSignalsForFile("package.json", pkgPath);
+    assert.ok(
+      !emptyBin.frameworks.includes("node-cli"),
+      "must not emit node-cli for empty bin object",
+    );
+
+    // Case 6: tooling always includes "node" when engines.node is set
+    await writeText(
+      pkgPath,
+      JSON.stringify({ name: "app", engines: { node: ">=16" } }),
+    );
+    const nodeTooling = await collectDemandSignalsForFile(
+      "package.json",
+      pkgPath,
+    );
+    assert.ok(
+      nodeTooling.tooling.includes("node"),
+      "expected tooling.node for engines.node",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
