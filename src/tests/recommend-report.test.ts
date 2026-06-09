@@ -505,6 +505,84 @@ void test("writeRecommendationReport persists built report from selected catalog
   }
 });
 
+void test("buildRecommendationReport populates recommendations as deduplicated globally-ranked flat list", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  const demandProfile = createDemandProfile();
+  const entries = [
+    createEntry("skill-a", ["backend", "api"]),
+    createEntry("skill-b", ["backend", "testing"]),
+    createEntry("skill-c", ["frontend", "react"]),
+  ];
+
+  const report = buildRecommendationReport(
+    entries,
+    demandProfile,
+    policy,
+    "general",
+  );
+
+  // recommendations must be an array
+  assert.ok(Array.isArray(report.recommendations));
+
+  // every entry in recommendations must have assetId and score
+  for (const rec of report.recommendations) {
+    assert.equal(typeof rec.assetId, "string");
+    assert.equal(typeof rec.score, "number");
+  }
+
+  // all assetIds must be unique (deduplication guarantee)
+  const ids = report.recommendations.map((r) => r.assetId);
+  assert.equal(
+    ids.length,
+    new Set(ids).size,
+    "recommendations must be deduplicated",
+  );
+
+  // recommendations must be sorted by descending score
+  for (let i = 1; i < report.recommendations.length; i++) {
+    assert.ok(
+      report.recommendations[i - 1].score >= report.recommendations[i].score,
+      `recommendations must be sorted descending by score at index ${i}`,
+    );
+  }
+
+  // each assetId that appears in any topByHost list must appear in recommendations
+  const allHostAssetIds = new Set(
+    Object.values(report.topByHost).flatMap((list) =>
+      list.map((e) => e.assetId),
+    ),
+  );
+  for (const id of allHostAssetIds) {
+    assert.ok(
+      ids.includes(id),
+      `assetId ${id} from topByHost is missing from recommendations`,
+    );
+  }
+});
+
+void test("buildRecommendationReport keeps highest-scoring entry when asset appears in multiple hosts", async () => {
+  clearRuntimeConfigForTests();
+  const policy = await loadRecommendationPolicy(process.cwd());
+  // Use a skill that is likely to appear in multiple host lists
+  const entries = [createEntry("shared-skill", ["backend", "api", "testing"])];
+
+  const report = buildRecommendationReport(
+    entries,
+    createDemandProfile(),
+    policy,
+    "general",
+  );
+
+  const ids = report.recommendations.map((r) => r.assetId);
+  // No duplicates even if the same asset appeared in multiple host lists
+  assert.equal(
+    ids.length,
+    new Set(ids).size,
+    "same assetId must not appear twice in recommendations",
+  );
+});
+
 function createDemandProfile(): DemandProfile {
   return {
     schemaVersion: 1,

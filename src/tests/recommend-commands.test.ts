@@ -983,6 +983,10 @@ function createRecommendationReport(): RecommendationReport {
     generatedAt: new Date().toISOString(),
     policyVersion: 1,
     sessionIntent: "general",
+    recommendations: [
+      createRecommendationEntry("asset-a", 1, 91),
+      createRecommendationEntry("asset-b", 2, 80),
+    ],
     topByHost: {
       shared: [],
       "copilot-vscode": [

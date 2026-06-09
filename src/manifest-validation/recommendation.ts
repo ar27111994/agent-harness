@@ -409,6 +409,33 @@ export function assertRecommendationReport(
       );
     },
   );
+
+  // Validate the flat deduplicated recommendations list.
+  // The field is required on new reports; absent on legacy reports loaded
+  // from disk is tolerated with an empty default.
+  const rawRecommendations = Object.prototype.hasOwnProperty.call(
+    record,
+    "recommendations",
+  )
+    ? assertArray(record.recommendations, `${context}.recommendations`)
+    : [];
+  rawRecommendations.forEach((entry, index) => {
+    const entryRecord = assertRecord(
+      entry,
+      `${context}.recommendations[${index}]`,
+    );
+    assertString(
+      entryRecord.assetId,
+      `${context}.recommendations[${index}].assetId`,
+    );
+    assertNumber(
+      entryRecord.score,
+      `${context}.recommendations[${index}].score`,
+    );
+  });
+  if (!Object.prototype.hasOwnProperty.call(record, "recommendations")) {
+    record.recommendations = [];
+  }
 }
 
 /**

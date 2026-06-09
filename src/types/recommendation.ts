@@ -303,6 +303,13 @@ export interface RecommendationReport {
   sessionIntent: SessionIntent;
   /** Full intent list when more than one intent was requested. */
   sessionIntents?: SessionIntent[];
+  /**
+   * Deduplicated, globally-ranked flat list of all recommendations across
+   * every host target, ordered by descending score. Each asset appears at
+   * most once (the highest-scoring entry across hosts is kept when the same
+   * asset surfaces for multiple hosts).
+   */
+  recommendations: RecommendationEntry[];
   topByHost: Record<string, RecommendationEntry[]>;
   hostSummaries: Record<string, RecommendationHostSummary>;
   suggestedBundles: RecommendationSuggestedBundle[];
