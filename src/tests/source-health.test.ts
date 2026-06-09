@@ -92,7 +92,14 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   assert.equal(report.severeCount, 3);
   assert.equal(report.warningCount, 3);
   assert.equal(sourceStatus(report, "active-source"), "active");
-  assert.equal(sourceStatus(report, "dormant-source"), "dormant");
+  // dormant-source has no syncState entry — it was never synced in this
+  // state root, so it should be reported as "never-synced", not "dormant".
+  assert.equal(sourceStatus(report, "dormant-source"), "never-synced");
+  // Reason must be non-empty and mention the source id.
+  assert.ok(
+    (sourceEntry(report, "dormant-source")?.reasons[0]?.length ?? 0) > 0,
+    "never-synced entry must have a non-empty reason",
+  );
   assert.equal(sourceStatus(report, "stale-source"), "stale");
   assert.equal(sourceStatus(report, "failed-source"), "broken");
   assert.equal(sourceStatus(report, "docs-source"), "active");
@@ -222,6 +229,148 @@ function sourceEntry(
 ) {
   return report.sources.find((source) => source.sourceId === sourceId);
 }
+
+void test("dormant sources (synced but zero entries) carry kind-specific non-empty reasons", () => {
+  const syncStateWithEntries: SourceSyncState = {
+    schemaVersion: 1,
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    sources: [
+      {
+        sourceId: "pkg-reg-dormant",
+        coverageMode: "indexed",
+        status: "complete",
+        indexedEntryCount: 0,
+        cursors: [],
+      },
+      {
+        sourceId: "local-dir-dormant",
+        coverageMode: "direct",
+        status: "complete",
+        indexedEntryCount: 0,
+        cursors: [],
+      },
+      {
+        sourceId: "local-manifest-dormant",
+        coverageMode: "direct",
+        status: "complete",
+        indexedEntryCount: 0,
+        cursors: [],
+      },
+      {
+        sourceId: "repo-dormant",
+        coverageMode: "rotating",
+        status: "complete",
+        indexedEntryCount: 0,
+        cursors: [],
+      },
+    ],
+  };
+  const sources = [
+    buildSource("pkg-reg-dormant", { kind: "registry" }),
+    buildSource("local-dir-dormant", { kind: "local-directory" }),
+    buildSource("local-manifest-dormant", { kind: "local-manifest" }),
+    buildSource("repo-dormant", { kind: "repo" }),
+  ];
+
+  const report = buildSourceHealthReport(
+    sources,
+    [],
+    [],
+    [],
+    syncStateWithEntries,
+  );
+
+  for (const id of [
+    "pkg-reg-dormant",
+    "local-dir-dormant",
+    "local-manifest-dormant",
+    "repo-dormant",
+  ]) {
+    const entry = sourceEntry(report, id);
+    assert.equal(
+      entry?.status,
+      "dormant",
+      `${id} should be dormant (synced but zero entries)`,
+    );
+    assert.ok(
+      (entry?.reasons[0]?.length ?? 0) > 0,
+      `${id} dormant entry must have a non-empty reason string`,
+    );
+  }
+
+  // registry-kind reason should mention the source id
+  assert.ok(
+    sourceEntry(report, "pkg-reg-dormant")?.reasons[0]?.includes(
+      "pkg-reg-dormant",
+    ),
+    "registry dormant reason should reference the source id",
+  );
+
+  // local-directory reason should mention path / manifest
+  assert.ok(
+    sourceEntry(report, "local-dir-dormant")
+      ?.reasons[0]?.toLowerCase()
+      .includes("path"),
+    "local-directory dormant reason should mention path",
+  );
+
+  // local-manifest reason should mention manifest file
+  assert.ok(
+    sourceEntry(report, "local-manifest-dormant")
+      ?.reasons[0]?.toLowerCase()
+      .includes("manifest"),
+    "local-manifest dormant reason should mention manifest",
+  );
+
+  // repo-kind dormant reason should mention cache isolation
+  assert.ok(
+    sourceEntry(report, "repo-dormant")
+      ?.reasons[0]?.toLowerCase()
+      .includes("cache"),
+    "repo dormant reason should mention cache isolation",
+  );
+});
+
+void test("never-synced sources carry kind-specific non-empty reasons and differ from dormant", () => {
+  const emptySyncState: SourceSyncState = {
+    schemaVersion: 1,
+    generatedAt: "2026-01-01T00:00:00.000Z",
+    sources: [],
+  };
+  const sources = [
+    buildSource("never-repo", { kind: "repo" }),
+    buildSource("never-registry", { kind: "registry" }),
+    buildSource("never-local-dir", { kind: "local-directory" }),
+  ];
+
+  const report = buildSourceHealthReport(sources, [], [], [], emptySyncState);
+
+  for (const id of ["never-repo", "never-registry", "never-local-dir"]) {
+    const entry = sourceEntry(report, id);
+    assert.equal(
+      entry?.status,
+      "never-synced",
+      `${id} should be never-synced (no sync state entry)`,
+    );
+    assert.ok(
+      (entry?.reasons[0]?.length ?? 0) > 0,
+      `${id} never-synced entry must have a non-empty reason string`,
+    );
+    assert.equal(
+      entry?.severity,
+      "warning",
+      `${id} never-synced entry should carry warning severity`,
+    );
+  }
+
+  // repo-kind never-synced should mention the GitHub API cache
+  assert.ok(
+    sourceEntry(report, "never-repo")
+      ?.reasons[0]?.toLowerCase()
+      .includes("github"),
+    "repo never-synced reason should mention GitHub API cache",
+  );
+});
 
 function buildSource(
   id: string,

@@ -20,6 +20,7 @@ export interface SourceHealthEntry {
   status:
     | "active"
     | "dormant"
+    | "never-synced"
     | "stale"
     | "broken"
     | "ambiguous-trust"
@@ -133,10 +134,61 @@ export function buildSourceHealthReport(
         suggestedAction = "refresh-sync";
         reasons.push(syncState.reason ?? "source sync failed");
       } else if (catalogCount === 0) {
-        status = "dormant";
         severity = "warning";
         suggestedAction = "review-source";
-        reasons.push("source produced no catalog entries in the current run");
+
+        if (syncState === undefined) {
+          // Source has never been synced in this state root at all.
+          // For repo-kind sources this is expected when running from an
+          // isolated workspace state root that does not contain the
+          // pre-populated GitHub API cache.
+          status = "never-synced";
+          if (source.kind === "repo") {
+            reasons.push(
+              "source has never been synced in this state root — " +
+                "repo-kind sources require the GitHub API cache to be " +
+                "populated first (run: agent-harness discover sync --source " +
+                `${source.id})`,
+            );
+          } else {
+            reasons.push(
+              `source has never been synced in this state root ` +
+                `(kind: ${source.kind}); run agent-harness discover sync ` +
+                `--source ${source.id} to populate it`,
+            );
+          }
+        } else {
+          // Source has been synced before but produced zero catalog entries.
+          status = "dormant";
+          if (source.kind === "repo") {
+            reasons.push(
+              "source produced no catalog entries — " +
+                "repo-kind sources depend on the GitHub API cache from the " +
+                "agent-harness state root; running from an isolated workspace " +
+                "state root that lacks this cache will always appear dormant " +
+                "(run: agent-harness discover sync --source " +
+                `${source.id} to refresh)`,
+            );
+          } else if (source.kind === "local-directory") {
+            reasons.push(
+              "local-directory source produced no catalog entries — " +
+                "verify the source path exists and contains agent-harness " +
+                "manifest files",
+            );
+          } else if (source.kind === "local-manifest") {
+            reasons.push(
+              "local-manifest source produced no catalog entries — " +
+                "verify the manifest file path is correct and the file is valid",
+            );
+          } else {
+            // package-registry, docs, and any future kind
+            reasons.push(
+              `${source.kind} source produced no catalog entries on last sync — ` +
+                "verify the source configuration and re-run " +
+                `agent-harness discover sync --source ${source.id}`,
+            );
+          }
+        }
       } else if (selectedCount === 0 && rejectedCount > 0) {
         status = "stale";
         severity = "warning";
