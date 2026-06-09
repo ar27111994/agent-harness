@@ -567,6 +567,19 @@
         ".cursor-plugin/**"
       ],
       "excludePaths": [".github/**"]
+    },
+    {
+      "id": "anthropics-knowledge-work-plugins-pack",
+      "name": "Anthropic Knowledge Work Plugins",
+      "repo": "https://github.com/anthropics/knowledge-work-plugins",
+      "authorityTier": "official-first-party",
+      "publisher": "Anthropic",
+      "publisherVerified": true,
+      "hosts": ["claude-code", "shared"],
+      "assetKinds": ["plugin", "skill", "mcp-server", "agent", "workflow"],
+      "mcpServerPaths": [".mcp.json"],
+      "priority": 95,
+      "enabled": true
     }
   ]
 }

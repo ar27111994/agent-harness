@@ -1614,6 +1614,60 @@
       "assetKinds": ["agent", "instruction", "workflow", "reference-pack"],
       "includePaths": ["README.md", "agents/**", "**/*.md"],
       "excludePaths": [".github/**"]
+    },
+    {
+      "id": "egonex-ai-understand-anything",
+      "name": "Understand Anything",
+      "repo": "https://github.com/Egonex-AI/Understand-Anything",
+      "authorityTier": "unverified-community",
+      "publisher": "Egonex-AI",
+      "publisherVerified": false,
+      "hosts": [
+        "claude-code",
+        "cursor",
+        "copilot-vscode",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["plugin", "agent", "workflow", "hook"],
+      "priority": 70,
+      "enabled": true
+    },
+    {
+      "id": "leonxlnx-taste-skill",
+      "name": "Taste Skill \u2014 Frontend Design Skills",
+      "repo": "https://github.com/Leonxlnx/taste-skill",
+      "authorityTier": "trusted-community",
+      "publisher": "Leonxlnx",
+      "publisherVerified": false,
+      "hosts": ["claude-code", "cursor", "shared"],
+      "assetKinds": ["skill", "prompt-pack"],
+      "priority": 72,
+      "enabled": true
+    },
+    {
+      "id": "mukul975-anthropic-cybersecurity-skills",
+      "name": "Anthropic Cybersecurity Skills (Community)",
+      "repo": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
+      "authorityTier": "unverified-community",
+      "publisher": "mukul975",
+      "publisherVerified": false,
+      "hosts": ["claude-code", "copilot-vscode", "cursor", "shared"],
+      "assetKinds": ["skill", "reference-pack"],
+      "priority": 70,
+      "enabled": true
+    },
+    {
+      "id": "imbad0202-academic-research-skills",
+      "name": "Academic Research Skills",
+      "repo": "https://github.com/Imbad0202/academic-research-skills",
+      "authorityTier": "unverified-community",
+      "publisher": "Imbad0202",
+      "publisherVerified": false,
+      "hosts": ["claude-code"],
+      "assetKinds": ["skill", "agent", "workflow"],
+      "priority": 70,
+      "enabled": true
     }
   ]
 }
