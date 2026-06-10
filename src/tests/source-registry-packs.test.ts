@@ -355,6 +355,83 @@ void test("source registry includes the v2 requested official and community sour
     "https://github.com/msitarzewski/agency-agents",
   );
   assert.ok(agencyAgents?.assetKinds.includes("agent"));
+
+  // ── Five newly registered v2 packs ────────────────────────────────────────
+
+  const knowledgeWorkPlugins = registry.sources.find(
+    (source) => source.id === "anthropics-knowledge-work-plugins-pack",
+  );
+  assert.ok(
+    knowledgeWorkPlugins,
+    "anthropics/knowledge-work-plugins should be registered",
+  );
+  assert.equal(knowledgeWorkPlugins?.authorityTier, "official-first-party");
+  assert.equal(knowledgeWorkPlugins?.publisher?.name, "Anthropic");
+  assert.equal(
+    knowledgeWorkPlugins?.endpoints.repo,
+    "https://github.com/anthropics/knowledge-work-plugins",
+  );
+  assert.ok(knowledgeWorkPlugins?.assetKinds.includes("plugin"));
+  assert.ok(knowledgeWorkPlugins?.hosts.includes("copilot-vscode"));
+
+  const understandAnything = registry.sources.find(
+    (source) => source.id === "egonex-ai-understand-anything",
+  );
+  assert.ok(
+    understandAnything,
+    "Egonex-AI/Understand-Anything should be registered",
+  );
+  assert.equal(understandAnything?.authorityTier, "unverified-community");
+  assert.equal(understandAnything?.publisher?.name, "Egonex-AI");
+  assert.equal(
+    understandAnything?.endpoints.repo,
+    "https://github.com/Egonex-AI/Understand-Anything",
+  );
+  assert.ok(understandAnything?.assetKinds.includes("plugin"));
+
+  const tasteSkill = registry.sources.find(
+    (source) => source.id === "leonxlnx-taste-skill",
+  );
+  assert.ok(tasteSkill, "Leonxlnx/taste-skill should be registered");
+  assert.equal(tasteSkill?.authorityTier, "trusted-community");
+  assert.equal(tasteSkill?.publisher?.name, "Leonxlnx");
+  assert.equal(
+    tasteSkill?.endpoints.repo,
+    "https://github.com/Leonxlnx/taste-skill",
+  );
+  assert.ok(tasteSkill?.assetKinds.includes("skill"));
+  assert.ok(tasteSkill?.hosts.includes("copilot-vscode"));
+
+  const cybersecuritySkills = registry.sources.find(
+    (source) => source.id === "mukul975-anthropic-cybersecurity-skills",
+  );
+  assert.ok(
+    cybersecuritySkills,
+    "mukul975/Anthropic-Cybersecurity-Skills should be registered",
+  );
+  assert.equal(cybersecuritySkills?.authorityTier, "unverified-community");
+  assert.equal(cybersecuritySkills?.publisher?.name, "mukul975");
+  assert.equal(
+    cybersecuritySkills?.endpoints.repo,
+    "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
+  );
+  assert.ok(cybersecuritySkills?.assetKinds.includes("skill"));
+
+  const academicResearch = registry.sources.find(
+    (source) => source.id === "imbad0202-academic-research-skills",
+  );
+  assert.ok(
+    academicResearch,
+    "Imbad0202/academic-research-skills should be registered",
+  );
+  assert.equal(academicResearch?.authorityTier, "unverified-community");
+  assert.equal(academicResearch?.publisher?.name, "Imbad0202");
+  assert.equal(
+    academicResearch?.endpoints.repo,
+    "https://github.com/Imbad0202/academic-research-skills",
+  );
+  assert.ok(academicResearch?.assetKinds.includes("skill"));
+  assert.ok(academicResearch?.hosts.includes("copilot-vscode"));
 });
 
 void test("source registry generates repo sources from packs and dedupes matching repo identities", async () => {
