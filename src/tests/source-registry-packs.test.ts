@@ -388,6 +388,13 @@ void test("source registry includes the v2 requested official and community sour
     "https://github.com/Egonex-AI/Understand-Anything",
   );
   assert.ok(understandAnything?.assetKinds.includes("plugin"));
+  assert.deepEqual(understandAnything?.hosts, [
+    "claude-code",
+    "cursor",
+    "copilot-vscode",
+    "opencode",
+    "shared",
+  ]);
 
   const tasteSkill = registry.sources.find(
     (source) => source.id === "leonxlnx-taste-skill",
@@ -416,6 +423,12 @@ void test("source registry includes the v2 requested official and community sour
     "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
   );
   assert.ok(cybersecuritySkills?.assetKinds.includes("skill"));
+  assert.deepEqual(cybersecuritySkills?.hosts, [
+    "claude-code",
+    "copilot-vscode",
+    "cursor",
+    "shared",
+  ]);
 
   const academicResearch = registry.sources.find(
     (source) => source.id === "imbad0202-academic-research-skills",
