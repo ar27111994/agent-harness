@@ -542,6 +542,9 @@ void test("OpenCode preview writes only the preview manifest", async () => {
 });
 
 void test("OpenCode preview includes npmInstallSummary note when .opencode/package.json exists", async () => {
+  // Exercises buildOpenCodeProspectivePlan's npmInstallSummary != null branch.
+  // The prospective plan is returned in-memory (not written to disk), so we call
+  // buildOpenCodeProspectivePlan via openCodeWireInternals directly.
   const fixture = await createOpenCodeFixture();
 
   try {
@@ -572,18 +575,28 @@ void test("OpenCode preview includes npmInstallSummary note when .opencode/packa
       },
     });
 
-    await wireOpenCode({
-      projectRoot: fixture.projectRoot,
-      workspaceRoot: fixture.workspaceRoot,
-      mode: "preview",
-    });
-
-    const wirePlan = await readJsonFile<WirePlanManifest>(
-      join(fixture.projectRoot, "activate", "opencode", "wire-plan.json"),
+    const activationRoot = join(fixture.projectRoot, "activate", "opencode");
+    const localOverlayRoot = join(fixture.workspaceRoot, ".opencode");
+    const localContextRoot = join(
+      localOverlayRoot,
+      "context",
+      "project-intelligence",
+      "agent-harness",
     );
+    const localAgentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+
+    const prospectivePlan =
+      await openCodeWireInternals.buildOpenCodeProspectivePlan({
+        projectRoot: fixture.projectRoot,
+        workspaceRoot: fixture.workspaceRoot,
+        activationRoot,
+        localOverlayRoot,
+        localContextRoot,
+        localAgentsPath,
+      });
 
     // The prospective wire plan notes must include the npm install summary.
-    const npmNote = wirePlan.notes.find((n) =>
+    const npmNote = prospectivePlan.notes.find((n) =>
       n.startsWith("OpenCode plugin npm install:"),
     );
     assert.ok(

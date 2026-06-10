@@ -972,4 +972,5 @@ export const openCodeWireInternals = {
   toLoggableErrorMessage,
   ensureOpenCodeOverlayGitignore,
   readOpenCodeNpmInstallSummary,
+  buildOpenCodeProspectivePlan,
 };
