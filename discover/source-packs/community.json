@@ -16,7 +16,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Global Chat",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "bitjaru-styleseed",
@@ -33,7 +37,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Styleseed",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "milkomida77-guardian-agent-prompts",
@@ -56,7 +64,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "Guardian Agent Prompts",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "elkidogz-technical-change-skill",
@@ -73,7 +85,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Technical Change",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "rmyndharis-antigravity-skills",
@@ -90,7 +106,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "rmyndharis Antigravity Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "amartelr-antigravity-workspace-manager",
@@ -113,7 +133,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Antigravity Workspace Manager",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "obra-superpowers",
@@ -121,7 +145,14 @@
       "publisher": "obra",
       "priority": 80,
       "kind": "repo",
-      "hosts": ["claude-code", "codex", "opencode", "cursor", "copilot-vscode"],
+      "hosts": [
+        "claude-code",
+        "codex",
+        "opencode",
+        "cursor",
+        "copilot-vscode",
+        "shared"
+      ],
       "assetKinds": [
         "plugin",
         "skill",
@@ -147,7 +178,9 @@
         "hooks/**",
         "docs/superpowers/**"
       ],
-      "excludePaths": ["tests/**", "assets/**", ".github/**"]
+      "excludePaths": ["tests/**", "assets/**", ".github/**"],
+      "authorityTier": "unverified-community",
+      "enabled": true
     },
     {
       "id": "guanyang-antigravity-skills",
@@ -164,7 +197,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "guanyang Antigravity Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "diet103-claude-code-infrastructure-showcase",
@@ -181,7 +218,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Claude Code Infrastructure Showcase",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "rokpiy-auto-commenter",
@@ -204,7 +245,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Auto Commenter",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "chriswiles-claude-code-showcase",
@@ -221,7 +266,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Claude Code Showcase",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "travisvn-awesome-claude-skills",
@@ -238,7 +287,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Awesome Claude Skills (travisvn)",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "dimillian-skills",
@@ -255,7 +308,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Dimillian Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "zebbern-claude-code-guide",
@@ -272,7 +329,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Claude Code Guide",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "alirezarezvani-claude-skills",
@@ -289,7 +350,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "alirezarezvani Claude Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "karanb192-awesome-claude-skills",
@@ -306,7 +371,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Awesome Claude Skills (karanb192)",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "voltagent-awesome-agent-skills",
@@ -329,7 +398,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "VoltAgent Awesome Agent Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "voltagent-awesome-openclaw-skills",
@@ -346,7 +419,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "VoltAgent Awesome OpenClaw Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "voltagent-awesome-claude-code-subagents",
@@ -369,23 +446,31 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "VoltAgent Awesome Claude Code Subagents",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "voltagent-awesome-codex-subagents",
       "repo": "https://github.com/VoltAgent/awesome-codex-subagents",
       "publisher": "VoltAgent",
-      "hosts": ["codex", "opencode", "claude-code"],
+      "hosts": ["codex", "opencode", "claude-code", "copilot-vscode"],
       "assetKinds": ["agent", "instruction", "workflow", "reference-pack"],
       "includePaths": ["**/*.md", "**/*.yaml", "**/*.yml", "**/*.json"],
       "priority": 72,
-      "kind": "repo"
+      "kind": "repo",
+      "name": "VoltAgent Awesome Codex Subagents",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "hashgraph-online-awesome-codex-plugins",
       "repo": "https://github.com/hashgraph-online/awesome-codex-plugins",
       "publisher": "Hashgraph Online",
-      "hosts": ["codex"],
+      "hosts": ["codex", "shared"],
       "assetKinds": ["plugin", "skill", "mcp-server", "hook", "reference-pack"],
       "includePaths": [
         "README.md",
@@ -398,7 +483,11 @@
         "**/*.md"
       ],
       "priority": 72,
-      "kind": "repo"
+      "kind": "repo",
+      "name": "Hashgraph Online Awesome Codex Plugins",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "zircote-claude",
@@ -415,7 +504,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "zircote .claude",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "vibeforge1111-vibeship-spawner-skills",
@@ -438,7 +531,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Vibeship Spawner Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "coreyhaines31-marketingskills",
@@ -455,7 +552,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Marketing Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "agricidaniel-claude-seo",
@@ -472,7 +578,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Claude SEO",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "mrprewsh-seo-aeo-engine",
@@ -489,7 +604,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "SEO AEO Engine",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "jonathimer-devmarketing-skills",
@@ -506,7 +630,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Dev Marketing Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "kepano-obsidian-skills",
@@ -523,7 +656,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Obsidian",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "silverov-yandex-direct-skill",
@@ -540,7 +677,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Yandex Direct",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "vudovn-antigravity-kit",
@@ -557,7 +698,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Antigravity Kit",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "affaan-m-everything-claude-code",
@@ -574,7 +719,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Everything Claude Code",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "whatiskadudoing-fp-ts-skills",
@@ -591,7 +740,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Fp Ts",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "warmskull-idea-darwin",
@@ -608,7 +761,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Idea Darwin",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "webzler-agentmemory",
@@ -623,9 +780,14 @@
         "zed",
         "claude-code",
         "pi",
-        "codex"
+        "codex",
+        "shared"
       ],
-      "assetKinds": ["mcp-server", "reference-pack"]
+      "assetKinds": ["mcp-server", "reference-pack"],
+      "name": "AgentMemory",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "rafsilva85-credit-optimizer-v5",
@@ -648,7 +810,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Credit Optimizer V5",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "wittlesus-cursorrules-pro",
@@ -665,7 +831,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Cursorrules Pro",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "nedcodes-ok-rule-porter",
@@ -682,7 +852,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Rule Porter",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "ssojet-skills",
@@ -699,7 +873,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "SSOJet Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "mojoauth-skills",
@@ -716,7 +894,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "MojoAuth Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "xquik-dev-x-twitter-scraper",
@@ -739,7 +921,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "X Twitter Scraper",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "shmlkv-dna-claude-analysis",
@@ -756,7 +942,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Dna Claude Analysis",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "almogbaku-debug-skill",
@@ -773,7 +963,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Debug",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "uberskillsdev-uberskills",
@@ -790,7 +984,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Uberskills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "christopherlhammer11-ai-tool-use-guardian",
@@ -805,9 +1003,14 @@
         "zed",
         "claude-code",
         "pi",
-        "codex"
+        "codex",
+        "shared"
       ],
-      "assetKinds": ["mcp-server", "reference-pack"]
+      "assetKinds": ["mcp-server", "reference-pack"],
+      "name": "Tool Use Guardian",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "christopherlhammer11-ai-recallmax",
@@ -824,7 +1027,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Recallmax",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "tsilverberg-webapp-uat",
@@ -841,7 +1048,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Webapp Uat",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "wolfe-jam-faf-skills",
@@ -858,7 +1069,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Faf Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "fullstackcrew-alpha-privacy-mask",
@@ -881,7 +1096,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Privacy Mask",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "avdlee-swiftui-agent-skill",
@@ -904,7 +1123,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "Swiftui Agent",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "cloudai-x-threejs-skills",
@@ -921,7 +1144,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Threejs",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "k-dense-ai-claude-scientific-skills",
@@ -938,7 +1165,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "K-Dense AI Claude Scientific Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "notmyself-claude-win11-speckit-update-skill",
@@ -955,7 +1186,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Claude Win11 Speckit Update",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "shadowpr0-beautiful-prose",
@@ -972,7 +1207,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Beautiful Prose",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "shadowpr0-security-bluebook-builder",
@@ -989,7 +1233,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Security Bluebook Builder",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "seanzor-claude-speed-reader",
@@ -1006,7 +1254,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Claude Speed Reader",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "shpigford-skills",
@@ -1023,7 +1275,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Shpigford Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "zhanghandong-makepad-skills",
@@ -1040,7 +1296,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Makepad",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "czlonkowski-n8n-skills",
@@ -1057,7 +1317,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "n8n Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "frmoretto-clarity-gate",
@@ -1074,7 +1338,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Clarity Gate",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "gokapso-agent-skills",
@@ -1097,7 +1365,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "Gokapso Agent Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "huifer-wellally-health",
@@ -1114,7 +1386,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Wellally Health",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "ibelick-ui-skills",
@@ -1131,7 +1407,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "ibelick UI Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "jackjin1997-clawforge",
@@ -1154,7 +1434,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Clawforge",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "jthack-ffuf-claude-skill",
@@ -1171,7 +1455,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "FFUF Claude Skill",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "metcalfsolutions-satori",
@@ -1194,7 +1482,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Satori",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "muratcankoylan-agent-skills-context-engineering",
@@ -1217,7 +1509,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "Agent Skills for Context Engineering",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "robzolkos-skill-rails-upgrade",
@@ -1234,7 +1530,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Rails Upgrade Skill",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "sanjay3290-ai-skills",
@@ -1251,7 +1551,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Ai Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "scarletkc-vexor",
@@ -1274,7 +1578,11 @@
         "workflow",
         "plugin",
         "reference-pack"
-      ]
+      ],
+      "name": "Vexor",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "sstklen-infinite-gratitude",
@@ -1291,7 +1599,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Infinite Gratitude",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "wrsmith108-linear-claude-skill",
@@ -1308,7 +1625,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Linear Claude Skill",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "wrsmith108-varlock-claude-skill",
@@ -1325,7 +1646,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Varlock Claude Skill",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "zarazhangrui-frontend-slides",
@@ -1342,7 +1667,16 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["instruction", "workflow", "prompt-pack", "reference-pack"]
+      "assetKinds": [
+        "instruction",
+        "workflow",
+        "prompt-pack",
+        "reference-pack"
+      ],
+      "name": "Frontend Slides",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "zxkane-aws-skills",
@@ -1359,7 +1693,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Aws Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "urrhb-agentflow",
@@ -1382,7 +1720,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "Agentflow",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "agentphone-ai-skills",
@@ -1399,7 +1741,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "AgentPhone AI Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "uxuiprinciples-agent-skills",
@@ -1422,7 +1768,11 @@
         "instruction",
         "workflow",
         "reference-pack"
-      ]
+      ],
+      "name": "UX UI Principles Agent Skills",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "voidborne-d-humanize-chinese",
@@ -1439,7 +1789,11 @@
         "pi",
         "codex"
       ],
-      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"],
+      "name": "Humanize Chinese",
+      "authorityTier": "unverified-community",
+      "publisherVerified": false,
+      "enabled": true
     },
     {
       "id": "trailofbits-claude-code-config",
@@ -1451,7 +1805,7 @@
       "publisherVerified": true,
       "priority": 78,
       "enabled": true,
-      "hosts": ["claude-code", "codex", "opencode"],
+      "hosts": ["claude-code", "codex", "opencode", "copilot-vscode", "shared"],
       "assetKinds": [
         "instruction",
         "workflow",
@@ -1481,7 +1835,14 @@
       "publisherVerified": false,
       "priority": 74,
       "enabled": true,
-      "hosts": ["claude-code", "cursor", "codex", "opencode", "copilot-vscode"],
+      "hosts": [
+        "claude-code",
+        "cursor",
+        "codex",
+        "opencode",
+        "copilot-vscode",
+        "shared"
+      ],
       "assetKinds": [
         "plugin",
         "skill",
@@ -1522,7 +1883,14 @@
       "publisherVerified": false,
       "priority": 76,
       "enabled": true,
-      "hosts": ["claude-code", "codex", "opencode", "cursor", "copilot-vscode"],
+      "hosts": [
+        "claude-code",
+        "codex",
+        "opencode",
+        "cursor",
+        "copilot-vscode",
+        "shared"
+      ],
       "assetKinds": [
         "skill",
         "agent",
@@ -1642,7 +2010,7 @@
       "authorityTier": "trusted-community",
       "publisher": "Leonxlnx",
       "publisherVerified": false,
-      "hosts": ["claude-code", "cursor", "shared"],
+      "hosts": ["claude-code", "cursor", "shared", "copilot-vscode"],
       "assetKinds": ["skill", "prompt-pack"],
       "priority": 72,
       "enabled": true
@@ -1668,7 +2036,7 @@
       "authorityTier": "unverified-community",
       "publisher": "Imbad0202",
       "publisherVerified": false,
-      "hosts": ["claude-code"],
+      "hosts": ["claude-code", "copilot-vscode"],
       "assetKinds": ["skill", "agent", "workflow"],
       "priority": 70,
       "enabled": true

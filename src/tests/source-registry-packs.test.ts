@@ -50,7 +50,13 @@ void test("source registry includes Codex community source pack entries", async 
   );
 
   assert.ok(codexSubagents);
-  assert.deepEqual(codexSubagents?.hosts, ["codex", "opencode", "claude-code"]);
+  // claude-code plugins are automatically copilot-vscode compatible (PR#287)
+  assert.deepEqual(codexSubagents?.hosts, [
+    "codex",
+    "opencode",
+    "claude-code",
+    "copilot-vscode",
+  ]);
   assert.deepEqual(codexSubagents?.assetKinds, [
     "agent",
     "instruction",
@@ -60,7 +66,10 @@ void test("source registry includes Codex community source pack entries", async 
 
   assert.ok(codexPlugins?.publisher);
   assert.equal(codexPlugins.publisher.name, "Hashgraph Online");
-  assert.deepEqual(codexPlugins?.hosts, ["codex"]);
+  assert.deepEqual(codexPlugins?.hosts, [
+    "codex",
+    "shared", // mcp-server + hook assetKinds → cross-host shared delivery
+  ]);
   assert.deepEqual(codexPlugins?.assetKinds, [
     "plugin",
     "skill",
@@ -106,6 +115,7 @@ void test("source registry includes requested Codex-compatible source pack entri
     "codex",
     "cursor",
     "copilot-vscode",
+    "shared", // hook assetKind → cross-host shared delivery
   ]);
   assert.deepEqual(anthropicClaudeCode?.assetKinds, [
     "plugin",
@@ -126,6 +136,7 @@ void test("source registry includes requested Codex-compatible source pack entri
     "opencode",
     "cursor",
     "copilot-vscode",
+    "shared", // hook assetKind → cross-host shared delivery
   ]);
   assert.deepEqual(trailOfBitsSkills?.includePaths?.slice(0, 4), [
     "README.md",
@@ -140,6 +151,8 @@ void test("source registry includes requested Codex-compatible source pack entri
     "claude-code",
     "codex",
     "opencode",
+    "copilot-vscode", // claude-code ↔ copilot-vscode automatic compat
+    "shared", // hook assetKind → cross-host shared delivery
   ]);
   assert.deepEqual(trailOfBitsConfig?.assetKinds, [
     "instruction",
@@ -156,6 +169,7 @@ void test("source registry includes requested Codex-compatible source pack entri
     "codex",
     "opencode",
     "copilot-vscode",
+    "shared", // mcp-server + hook assetKinds → cross-host shared delivery
   ]);
   assert.deepEqual(gitNexus?.assetKinds, [
     "plugin",
@@ -194,6 +208,7 @@ void test("source registry includes Penpot MCP source pack entries", async () =>
     "pi",
     "shared",
     "codex",
+    "copilot-vscode", // claude-code ↔ copilot-vscode automatic compat
   ]);
   assert.deepEqual(penpotSource?.assetKinds, ["mcp-server", "reference-pack"]);
   assert.equal(
@@ -259,6 +274,7 @@ void test("source registry includes agent-scripts source pack entry", async () =
     "opencode",
     "cursor",
     "copilot-vscode",
+    "shared", // hook assetKind → cross-host shared delivery
   ]);
   assert.deepEqual(agentScripts?.assetKinds, [
     "skill",
