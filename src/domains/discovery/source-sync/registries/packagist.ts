@@ -41,11 +41,15 @@ export async function syncPackagistRegistrySource(
   const record = asRecord(data);
   const packageNames = normalizeStringArray(record.packageNames);
 
+  // Track a local counter rather than calling countEntriesForSource on every
+  // iteration — that function scans the entire entriesById Map (O(n)) each
+  // time, which becomes expensive when the map already holds many entries from
+  // other sources.
+  const startCount = countEntriesForSource(context.entriesById, source.id);
+  let addedCount = 0;
+
   for (const packageName of packageNames) {
-    if (
-      countEntriesForSource(context.entriesById, source.id) >=
-      SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP
-    ) {
+    if (startCount + addedCount >= SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP) {
       break;
     }
 
@@ -60,6 +64,7 @@ export async function syncPackagistRegistrySource(
       getPackageRegistryKind(source),
     );
     upsertIndexedCatalogEntry(context, entry);
+    addedCount += 1;
   }
 
   return {

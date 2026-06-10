@@ -588,12 +588,15 @@ function isSuppressedBySpecializedDemandGate(
  * a direct set-intersection with `demandContext.packageManagers` works.
  */
 const REGISTRY_ECOSYSTEM_MAP: ReadonlyArray<readonly [string, string]> = [
-  // JavaScript / Node.js — must match "npm", "pnpm", "yarn", "bun" signals
+  // JavaScript / Node.js — must match "npm", "pnpm", "yarn", "bun" signals.
+  // NOTE: "pnpm" must appear before any "npm*" entries because "pnpm" is a
+  // substring of "pnpm-registry", while "npm-registry" and "npm" are also
+  // substrings of it — first-match wins, so pnpm entries go first.
+  ["pnpm", "pnpm"],
   ["npmjs", "npm"],
   ["npm-registry", "npm"],
   ["npm", "npm"],
   ["yarn", "yarn"],
-  ["pnpm", "pnpm"],
   ["bun", "bun"],
   // PHP
   ["packagist", "composer"],
