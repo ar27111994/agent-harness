@@ -472,11 +472,12 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
 
   // Derive the flat rejected-entries list from the log so we have a single
   // source of truth (the log) driving both the JSONL output and the report.
+  // Filter directly over catalogEntries using the id set — avoids allocating
+  // a full-catalog [id, entry][] tuple array and a throwaway Map.
   const rejectedEntryIds = new Set(rejectionLog.map((r) => r.assetId));
-  const catalogById = new Map(catalogEntries.map((e) => [e.id, e]));
-  const rejectedEntries = [...rejectedEntryIds]
-    .map((id) => catalogById.get(id))
-    .filter((e): e is AssetCatalogEntry => e !== undefined);
+  const rejectedEntries = catalogEntries.filter((e) =>
+    rejectedEntryIds.has(e.id),
+  );
 
   // Build rejectionSummary — stable reason → count covering 100% of rejections.
   const rejectionSummary = buildRejectionSummary(rejectionLog);

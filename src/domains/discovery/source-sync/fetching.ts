@@ -26,7 +26,8 @@ export const SOURCE_SYNC_FETCH_MAX_BYTES = 5_000_000;
 /** Maximum bytes read from a large-response source (e.g. full NuGet catalog page). */
 export const SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES = 25_000_000;
 
-/** Number of catalog entries processed per batch during source-sync import. */
+/** Number of entries fetched per paginated request (per_page / limit / rows / take)
+ *  across all registries, and the batch window during source-sync import. */
 export const SOURCE_SYNC_BATCH_SIZE = 50;
 
 /**
