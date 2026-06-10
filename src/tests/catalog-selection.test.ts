@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { filterCatalogEntriesByDemandRelevance } from "../domains/discovery/catalog-selection.js";
+import {
+  filterCatalogEntriesByDemandRelevance,
+  buildRejectionSummary,
+} from "../domains/discovery/catalog-selection.js";
 import { interactnoteFullDemandProfile } from "./fixtures/interactnote-full-demand-profile.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
@@ -681,8 +684,6 @@ function createEntry(
 }
 
 // ─── buildRejectionSummary tests ─────────────────────────────────────────────
-
-import { buildRejectionSummary } from "../domains/discovery/catalog-selection.js";
 
 void test("buildRejectionSummary returns empty object for empty log", () => {
   assert.deepEqual(buildRejectionSummary([]), {});

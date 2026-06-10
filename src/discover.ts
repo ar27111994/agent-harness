@@ -488,8 +488,11 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   const SAMPLE_SIZE = 20;
   const sampleRejected: typeof rejectionLog = [];
   const seenReasons = new Set<string>();
-  // Pass 1: take one representative per reason.
+  // Pass 1: take one representative per reason (cap at SAMPLE_SIZE in the
+  // unlikely but possible case where there are more than SAMPLE_SIZE distinct
+  // rejection reasons — prevents the sample from exceeding the intended maximum).
   for (const entry of rejectionLog) {
+    if (sampleRejected.length >= SAMPLE_SIZE) break;
     if (!seenReasons.has(entry.reason)) {
       seenReasons.add(entry.reason);
       sampleRejected.push(entry);

@@ -97,7 +97,11 @@ function assertRecommendationEntry(entry: unknown, context: string): void {
     entryRecord.estimatedPromptWeight,
     `${context}.estimatedPromptWeight`,
   );
-  assertString(entryRecord.selectionStage, `${context}.selectionStage`);
+  assertLiteral(
+    entryRecord.selectionStage,
+    ["top-by-host"],
+    `${context}.selectionStage`,
+  );
   assertStringArray(entryRecord.coverageTags, `${context}.coverageTags`);
   assertStringArray(entryRecord.taskModes, `${context}.taskModes`);
   assertArray(entryRecord.matchedSignals, `${context}.matchedSignals`).forEach(
@@ -833,6 +837,14 @@ function assertRecommendationScoreBreakdown(
   assertNumber(record.costPenalty, `${context}.costPenalty`);
   assertNumber(record.riskPenalty, `${context}.riskPenalty`);
   assertNumber(record.negativePenalty, `${context}.negativePenalty`);
+  // Inject default 0 for pre-v2.0.0 reports that predate this field.
+  if (record.ecosystemMismatchPenalty === undefined) {
+    record.ecosystemMismatchPenalty = 0;
+  }
+  assertNumber(
+    record.ecosystemMismatchPenalty,
+    `${context}.ecosystemMismatchPenalty`,
+  );
   assertNumber(record.redundancyPenalty, `${context}.redundancyPenalty`);
   assertNumber(record.budgetPenalty, `${context}.budgetPenalty`);
   assertNumber(record.total, `${context}.total`);

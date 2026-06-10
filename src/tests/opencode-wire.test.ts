@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -1168,7 +1168,7 @@ void test("formatWirePlanSummary output ends with newline", () => {
 
 // ─── ensureOpenCodeOverlayGitignore tests ────────────────────────────────────
 
-import { writeFile, mkdir } from "node:fs/promises";
+// ─── npm install summary tests ─────────────────────────────────────────────
 
 const { ensureOpenCodeOverlayGitignore, readOpenCodeNpmInstallSummary } =
   openCodeWireInternals;
