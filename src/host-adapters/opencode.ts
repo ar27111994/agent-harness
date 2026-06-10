@@ -131,6 +131,10 @@ export async function wireOpenCode(options: {
       localAgentsPath,
       previousWirePlan?.textFileSnapshots,
     );
+    await restoreManagedTextFileSnapshot(
+      gitignorePath,
+      previousWirePlan?.textFileSnapshots,
+    );
     await removeManagedLinks(getManagedLinkedPaths(previousWirePlan));
     await removePath(localContextRoot);
     return;
@@ -246,6 +250,7 @@ export async function wireOpenCode(options: {
       operations: nativeConfigOperations,
     });
     await restoreManagedTextFileSnapshot(localAgentsPath, textFileSnapshots);
+    await restoreManagedTextFileSnapshot(gitignorePath, textFileSnapshots);
     await removeManagedLinksBestEffort(createdLinkPaths);
     await removePath(localContextRoot);
     throw error;
