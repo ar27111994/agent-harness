@@ -34,7 +34,8 @@ export type AssetKind =
   | "hook"
   | "extension"
   | "prompt-pack"
-  | "reference-pack";
+  | "reference-pack"
+  | "payable-api";
 
 /**
  * Defines the supported built in host target values.

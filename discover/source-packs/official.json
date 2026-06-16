@@ -627,6 +627,124 @@
       "mcpServerPaths": [".mcp.json"],
       "priority": 95,
       "enabled": true
+    },
+    {
+      "id": "gemini-cli-extensions-pack",
+      "name": "Gemini CLI Extensions",
+      "repo": "https://github.com/gemini-cli-extensions",
+      "authorityTier": "official-first-party",
+      "publisher": "Google",
+      "publisherVerified": true,
+      "priority": 95,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "claude-code",
+        "codex",
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "pi"
+      ],
+      "assetKinds": ["skill", "plugin", "mcp-server", "workflow", "instruction"]
+    },
+    {
+      "id": "gemini-cli-extensions-sre-pack",
+      "name": "Gemini CLI Extensions — SRE",
+      "repo": "https://github.com/gemini-cli-extensions/sre",
+      "authorityTier": "official-first-party",
+      "publisher": "Google",
+      "publisherVerified": true,
+      "priority": 93,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "claude-code",
+        "codex",
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "pi"
+      ],
+      "assetKinds": ["skill", "workflow", "instruction"]
+    },
+    {
+      "id": "gemini-cli-extensions-data-agent-kit-pack",
+      "name": "Gemini CLI Extensions — Data Agent Kit",
+      "repo": "https://github.com/gemini-cli-extensions/data-agent-kit-starter-pack",
+      "authorityTier": "official-first-party",
+      "publisher": "Google",
+      "publisherVerified": true,
+      "priority": 93,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "claude-code",
+        "codex",
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "pi"
+      ],
+      "assetKinds": ["skill", "mcp-server", "workflow", "plugin"]
+    },
+    {
+      "id": "nvidia-skills-pack",
+      "name": "NVIDIA Skills",
+      "repo": "https://github.com/NVIDIA/skills",
+      "authorityTier": "official-first-party",
+      "publisher": "NVIDIA",
+      "publisherVerified": true,
+      "priority": 94,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "claude-code",
+        "codex",
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "pi"
+      ],
+      "assetKinds": ["skill", "instruction", "workflow", "reference-pack"]
+    },
+    {
+      "id": "solana-foundation-pay-skills-pack",
+      "name": "Solana Foundation Pay Skills",
+      "repo": "https://github.com/solana-foundation/pay-skills",
+      "authorityTier": "official-first-party",
+      "publisher": "Solana Foundation",
+      "publisherVerified": true,
+      "priority": 88,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": ["shared"],
+      "assetKinds": ["payable-api", "skill", "mcp-server"]
+    },
+    {
+      "id": "gemini-cli-extensions-conductor-pack",
+      "name": "Conductor — AI Planning and Orchestration",
+      "repo": "https://github.com/gemini-cli-extensions/conductor",
+      "authorityTier": "official-first-party",
+      "publisher": "Google",
+      "publisherVerified": true,
+      "priority": 97,
+      "enabled": true,
+      "kind": "repo",
+      "hosts": [
+        "claude-code",
+        "codex",
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "pi"
+      ],
+      "assetKinds": ["skill", "plugin", "workflow", "agent"]
     }
   ]
 }
