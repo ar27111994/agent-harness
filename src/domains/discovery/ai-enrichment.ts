@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { rename, rm, writeFile } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { getRuntimeConfig } from "../../config/runtime.js";
@@ -995,7 +995,6 @@ async function writeJsonFileAtomically(
     `${JSON.stringify(value, null, PRETTY_JSON_INDENT_SPACES)}\n`,
     "utf8",
   );
-  await rm(filePath, { force: true });
   await rename(tempPath, filePath);
 }
 
