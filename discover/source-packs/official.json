@@ -651,7 +651,7 @@
     },
     {
       "id": "gemini-cli-extensions-sre-pack",
-      "name": "Gemini CLI Extensions — SRE",
+      "name": "Gemini CLI Extensions \u2014 SRE",
       "repo": "https://github.com/gemini-cli-extensions/sre",
       "authorityTier": "official-first-party",
       "publisher": "Google",
@@ -672,7 +672,7 @@
     },
     {
       "id": "gemini-cli-extensions-data-agent-kit-pack",
-      "name": "Gemini CLI Extensions — Data Agent Kit",
+      "name": "Gemini CLI Extensions \u2014 Data Agent Kit",
       "repo": "https://github.com/gemini-cli-extensions/data-agent-kit-starter-pack",
       "authorityTier": "official-first-party",
       "publisher": "Google",
@@ -727,7 +727,7 @@
     },
     {
       "id": "gemini-cli-extensions-conductor-pack",
-      "name": "Conductor — AI Planning and Orchestration",
+      "name": "Conductor \u2014 AI Planning and Orchestration",
       "repo": "https://github.com/gemini-cli-extensions/conductor",
       "authorityTier": "official-first-party",
       "publisher": "Google",
@@ -745,6 +745,246 @@
         "pi"
       ],
       "assetKinds": ["skill", "plugin", "workflow", "agent"]
+    },
+    {
+      "id": "awslabs-mcp",
+      "name": "AWS Labs MCP Servers",
+      "repo": "https://github.com/awslabs/mcp",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Amazon Web Services",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 95,
+      "enabled": true
+    },
+    {
+      "id": "mongodb-js-mongodb-mcp-server",
+      "name": "MongoDB MCP Server",
+      "repo": "https://github.com/mongodb-js/mongodb-mcp-server",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "MongoDB",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 93,
+      "enabled": true
+    },
+    {
+      "id": "grafana-mcp-grafana",
+      "name": "Grafana MCP Server",
+      "repo": "https://github.com/grafana/mcp-grafana",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Grafana Labs",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 93,
+      "enabled": true
+    },
+    {
+      "id": "getsentry-sentry-mcp",
+      "name": "Sentry MCP Server",
+      "repo": "https://github.com/getsentry/sentry-mcp",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Sentry",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 92,
+      "enabled": true
+    },
+    {
+      "id": "snyk-snyk-mcp-server",
+      "name": "Snyk MCP Server",
+      "repo": "https://github.com/snyk/snyk-mcp-server",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Snyk",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 92,
+      "enabled": true
+    },
+    {
+      "id": "circleci-public-mcp-server-circleci",
+      "name": "CircleCI MCP Server",
+      "repo": "https://github.com/CircleCI-Public/mcp-server-circleci",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "CircleCI",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 91,
+      "enabled": true
+    },
+    {
+      "id": "datadog-datadog-mcp",
+      "name": "Datadog MCP Server",
+      "repo": "https://github.com/DataDog/datadog-mcp",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Datadog",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 92,
+      "enabled": true
+    },
+    {
+      "id": "redis-mcp-redis",
+      "name": "Redis MCP Server",
+      "repo": "https://github.com/redis/mcp-redis",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Redis",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 92,
+      "enabled": true
+    },
+    {
+      "id": "planetscale-mcp-server-planetscale",
+      "name": "PlanetScale MCP Server",
+      "repo": "https://github.com/planetscale/mcp-server-planetscale",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "PlanetScale",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 91,
+      "enabled": true
+    },
+    {
+      "id": "tursodatabase-turso-mcp",
+      "name": "Turso MCP Server",
+      "repo": "https://github.com/tursodatabase/turso-mcp",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Turso",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 91,
+      "enabled": true
+    },
+    {
+      "id": "supabase-mcp",
+      "name": "Supabase MCP Server",
+      "repo": "https://github.com/supabase-community/supabase-mcp",
+      "kind": "repo",
+      "authorityTier": "official-compatible",
+      "publisher": "Supabase Community",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 90,
+      "enabled": true
+    },
+    {
+      "id": "neon-mcp",
+      "name": "Neon MCP Server (official)",
+      "repo": "https://github.com/neondatabase/mcp-server-neon",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Neon",
+      "publisherVerified": true,
+      "hosts": [
+        "copilot-vscode",
+        "cursor",
+        "claude-code",
+        "zed",
+        "opencode",
+        "shared"
+      ],
+      "assetKinds": ["mcp-server"],
+      "priority": 92,
+      "enabled": true
     }
   ]
 }

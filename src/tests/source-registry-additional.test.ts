@@ -77,6 +77,8 @@ void test("source registry rejects malformed optional source pack fields", async
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
             publisherVerified: "yes",
           },
         ],
@@ -96,6 +98,8 @@ void test("source registry rejects malformed optional source pack fields", async
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
             priority: "high",
           },
         ],
@@ -115,6 +119,8 @@ void test("source registry rejects malformed optional source pack fields", async
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
             enabled: "sometimes",
           },
         ],
@@ -151,6 +157,8 @@ void test("source registry rejects additional malformed optional source pack fie
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
             name: 42,
           },
         ],
@@ -169,6 +177,7 @@ void test("source registry rejects additional malformed optional source pack fie
           {
             id: "broken",
             repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
             assetKinds: ["definitely-not-an-asset-kind"],
           },
         ],
@@ -324,6 +333,66 @@ void test("source registry rejects malformed source pack shapes and required fie
       () => loadSourceRegistry(projectRoot),
       /authorityTier must be one of/u,
     );
+
+    // authorityTier is now REQUIRED — omitting it should throw
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: "broken",
+            repo: "https://github.com/acme/broken",
+            assetKinds: ["skill"],
+            // authorityTier intentionally omitted
+          },
+        ],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /authorityTier is required/u,
+    );
+
+    // assetKinds is now REQUIRED — omitting it should throw
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: "broken",
+            repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            // assetKinds intentionally omitted
+          },
+        ],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /assetKinds is required/u,
+    );
+
+    // assetKinds must be non-empty
+    await writeJsonFile(
+      join(projectRoot, "discover", "source-packs", "broken.json"),
+      {
+        schemaVersion: 1,
+        entries: [
+          {
+            id: "broken",
+            repo: "https://github.com/acme/broken",
+            authorityTier: "unverified-community",
+            assetKinds: [],
+          },
+        ],
+      },
+    );
+    await assert.rejects(
+      () => loadSourceRegistry(projectRoot),
+      /assetKinds must contain at least one value/u,
+    );
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }
@@ -349,10 +418,14 @@ void test("source registry dedupes repositories across ssh and https identities 
           {
             id: "duplicate-repo",
             repo: "git@github.com:acme/toolbox.git",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
           {
             id: "ssh-generated",
             repo: "ssh://git@github.com/acme/new-tool.git/",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
         ],
       },
@@ -397,10 +470,14 @@ void test("source registry generates source pack entries from path-like reposito
             id: "path-like-repo",
             repo: "acme/path-like-tool",
             publisher: "curated-pack",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
           {
             id: "windows-path-repo",
             repo: "acme\\windows-tool",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
         ],
       },

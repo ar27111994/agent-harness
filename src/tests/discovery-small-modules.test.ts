@@ -331,7 +331,12 @@ void test("source index applies default sync coverage and records optional confi
       {
         schemaVersion: 1,
         entries: [
-          { id: "acme-agent-pack", repo: "https://github.com/acme/agent-pack" },
+          {
+            id: "acme-agent-pack",
+            repo: "https://github.com/acme/agent-pack",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
+          },
         ],
       },
     );
@@ -442,10 +447,14 @@ void test("source registry adds unique source-pack repos and skips duplicate rep
           {
             id: "acme-agent-pack",
             repo: "https://github.com/AcmeCorp/agent-pack",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
           {
             id: "duplicate-matt-pack",
             repo: "git@github.com:mattpocock/skills.git",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
           },
         ],
       },
@@ -462,14 +471,7 @@ void test("source registry adds unique source-pack repos and skips duplicate rep
     assert.equal(acmeSource.publisher?.owner, "AcmeCorp");
     assert.equal(acmeSource.publisher?.verified, false);
     assert.deepEqual(acmeSource.hosts, ["copilot-vscode", "opencode"]);
-    assert.deepEqual(acmeSource.assetKinds, [
-      "skill",
-      "agent",
-      "instruction",
-      "workflow",
-      "plugin",
-      "mcp-server",
-    ]);
+    assert.deepEqual(acmeSource.assetKinds, ["skill"]);
     assert.equal(acmeSource.priority, 60);
     assert.equal(acmeSource.enabled, true);
     assert.equal(
@@ -496,6 +498,8 @@ void test("source registry rejects invalid source-pack entry fields", async () =
           {
             id: "broken-pack",
             repo: "https://github.com/acme/broken-pack",
+            authorityTier: "unverified-community",
+            assetKinds: ["skill"],
             enabled: "yes",
           },
         ],

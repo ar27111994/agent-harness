@@ -24,12 +24,15 @@ interface SourcePackShape {
   entries: Array<{
     id: string;
     repo: string;
+    /** Source kind — defaults to "repo" when absent. */
     kind?: SourceDefinition["kind"];
-    authorityTier?: SourceDefinition["authorityTier"];
+    /** Required: authority tier classifying trust level of this source. */
+    authorityTier: SourceDefinition["authorityTier"];
     publisher?: string;
     publisherVerified?: boolean;
     hosts?: HostTarget[];
-    assetKinds?: AssetKind[];
+    /** Required: at least one asset kind must be declared. */
+    assetKinds: AssetKind[];
     includePaths?: string[];
     excludePaths?: string[];
     mcpServerPaths?: string[];
@@ -216,7 +219,7 @@ function assertSourcePackShape(
       ],
       `${context}.entries[${index}].kind`,
     );
-    assertOptionalEnum(
+    assertRequiredEnum(
       entryRecord.authorityTier,
       AUTHORITY_TIERS,
       `${context}.entries[${index}].authorityTier`,
@@ -237,7 +240,7 @@ function assertSourcePackShape(
       entryRecord.hosts,
       `${context}.entries[${index}].hosts`,
     );
-    assertOptionalEnumArray(
+    assertRequiredEnumArray(
       entryRecord.assetKinds,
       ASSET_KINDS,
       `${context}.entries[${index}].assetKinds`,
@@ -362,16 +365,35 @@ function assertOptionalEnum<T extends string>(
   }
 }
 
-function assertOptionalEnumArray<T extends string>(
+function assertRequiredEnum<T extends string>(
   value: unknown,
   allowedValues: readonly T[],
   context: string,
 ): void {
   if (value === undefined) {
-    return;
+    throw new Error(`${context} is required`);
   }
 
-  assertArray(value, context).forEach((entry, index) => {
+  if (typeof value !== "string" || !allowedValues.includes(value as T)) {
+    throw new Error(`${context} must be one of: ${allowedValues.join(", ")}`);
+  }
+}
+
+function assertRequiredEnumArray<T extends string>(
+  value: unknown,
+  allowedValues: readonly T[],
+  context: string,
+): void {
+  if (value === undefined) {
+    throw new Error(`${context} is required`);
+  }
+
+  const items = assertArray(value, context);
+  if (items.length === 0) {
+    throw new Error(`${context} must contain at least one value`);
+  }
+
+  items.forEach((entry, index) => {
     assertOptionalEnum(entry, allowedValues, `${context}[${index}]`);
   });
 }
