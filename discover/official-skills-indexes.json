@@ -8,6 +8,126 @@
       "expectedOwner": "VoltAgent",
       "pinnedRef": "refs/heads/main",
       "description": "Discovery index for official and community agent skills. Official upstream repos remain canonical."
+    },
+    {
+      "id": "punkpeye-awesome-mcp-servers",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/punkpeye/awesome-mcp-servers/main/README.md",
+      "expectedOwner": "punkpeye",
+      "pinnedRef": "refs/heads/main",
+      "description": "Community-curated list of 1,000+ MCP servers. 89k stars, 2,057 contributors. Canonical MCP discovery reference."
+    },
+    {
+      "id": "modelcontextprotocol-servers",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/modelcontextprotocol/servers/main/README.md",
+      "expectedOwner": "modelcontextprotocol",
+      "pinnedRef": "refs/heads/main",
+      "description": "Official Anthropic reference MCP server implementations maintained by the MCP specification team."
+    },
+    {
+      "id": "github-awesome-copilot",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/github/awesome-copilot/main/README.md",
+      "expectedOwner": "github",
+      "pinnedRef": "refs/heads/main",
+      "description": "Official Microsoft repo of community-contributed Copilot agents, instructions, skills, and MCP servers. 35k stars."
+    },
+    {
+      "id": "patrickjs-awesome-cursorrules",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/PatrickJS/awesome-cursorrules/main/README.md",
+      "expectedOwner": "PatrickJS",
+      "pinnedRef": "refs/heads/main",
+      "description": "Curated Cursor .cursor/rules/ (.mdc) files covering 500+ stacks and workflows. Primary Cursor rules discovery index."
+    },
+    {
+      "id": "wong2-awesome-mcp-servers",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/wong2/awesome-mcp-servers/main/README.md",
+      "expectedOwner": "wong2",
+      "pinnedRef": "refs/heads/main",
+      "description": "Alternate curated MCP server list; backend for mcpservers.org. 4.2k stars, 500+ entries."
+    },
+    {
+      "id": "appcypher-awesome-mcp-servers",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/appcypher/awesome-mcp-servers/main/README.md",
+      "expectedOwner": "appcypher",
+      "pinnedRef": "refs/heads/main",
+      "description": "Curated list of MCP servers with detailed capability breakdown — 300+ entries."
+    },
+    {
+      "id": "detailobsessed-awesome-windsurf",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/detailobsessed/awesome-windsurf/main/README.md",
+      "expectedOwner": "detailobsessed",
+      "pinnedRef": "refs/heads/main",
+      "description": "Community Windsurf (Codeium) Cascade flows, rules, and resources. 549 stars."
+    },
+    {
+      "id": "giba0-awesome-zed",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/giba0/awesome-zed/main/README.md",
+      "expectedOwner": "giba0",
+      "pinnedRef": "refs/heads/main",
+      "description": "Community Zed editor extensions, themes, language servers, and workflows. 126 stars."
+    },
+    {
+      "id": "awesome-claude-md",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude.md/main/README.md",
+      "expectedOwner": "hesreallyhim",
+      "pinnedRef": "refs/heads/main",
+      "description": "Curated CLAUDE.md templates, instructions, and skills for Claude Code."
+    },
+    {
+      "id": "awesome-ai-coding-rules",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/sanjeed5/awesome-cursor-rules-mdc/main/README.md",
+      "expectedOwner": "sanjeed5",
+      "pinnedRef": "refs/heads/main",
+      "description": "Cursor MDC rules organized by language and framework stack."
+    },
+    {
+      "id": "mcp-servers-hub",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/mcp-servers/mcp-servers.github.io/main/README.md",
+      "expectedOwner": "mcp-servers",
+      "pinnedRef": "refs/heads/main",
+      "description": "Community hub listing MCP-compatible servers by category (databases, tools, media, cloud, etc.)."
+    },
+    {
+      "id": "awesome-claude-code",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/hesreallyhim/awesome-claude-code/main/README.md",
+      "expectedOwner": "hesreallyhim",
+      "pinnedRef": "refs/heads/main",
+      "description": "Curated Claude Code slash commands, hooks, plugins, and skill templates."
+    },
+    {
+      "id": "awesome-codex-cli",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/e2b-dev/awesome-openai-codex/main/README.md",
+      "expectedOwner": "e2b-dev",
+      "pinnedRef": "refs/heads/main",
+      "description": "Community plugins, tools, and integrations for OpenAI Codex CLI."
+    },
+    {
+      "id": "n8n-mcp-integrations",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/n8n-io/n8n-mcp/main/README.md",
+      "expectedOwner": "n8n-io",
+      "pinnedRef": "refs/heads/main",
+      "description": "Official n8n MCP integration exposing 500+ workflow automation nodes as MCP tools."
+    },
+    {
+      "id": "awesome-openai-skills",
+      "kind": "official-index",
+      "url": "https://raw.githubusercontent.com/openai/awesome-agent-skills/main/README.md",
+      "expectedOwner": "openai",
+      "pinnedRef": "refs/heads/main",
+      "description": "OpenAI curated agent skills, system prompt templates, and tool definitions for Codex and ChatGPT agents."
     }
   ]
 }

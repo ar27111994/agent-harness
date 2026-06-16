@@ -156,6 +156,7 @@ export async function harvestOfficialSkillIndexes(
   const entries: AssetCatalogEntry[] = [];
 
   const seenIds = new Set<string>();
+  const maxItemsPerIndex = getRuntimeConfig().officialIndex.maxItemsPerIndex;
 
   for (const index of indexConfig.indexes) {
     const content = await fetchOfficialIndexContent(index.url);
@@ -168,10 +169,17 @@ export async function harvestOfficialSkillIndexes(
       officialUpstreamAllowlist,
     );
 
+    /** Entries produced from this specific index (for per-index cap tracking). */
+    let indexEntriesAdded = 0;
+
     for (const parsedEntry of parseOfficialIndexEntries(
       content,
       demandProfile,
     )) {
+      // Apply per-index cap when configured (0 = unlimited).
+      if (maxItemsPerIndex > 0 && indexEntriesAdded >= maxItemsPerIndex) {
+        break;
+      }
       const sourceIdParts = parsedEntry.source.sourceId.split(":");
       const owner = sourceIdParts[1]!;
       const manifestEntry = parsedEntry.install.manifestEntry!;
@@ -199,6 +207,7 @@ export async function harvestOfficialSkillIndexes(
 
       seenIds.add(entry.id);
       entries.push(entry);
+      indexEntriesAdded++;
 
       const resolvedRepoSource = resolveOfficialIndexEntryToRepoSource(
         owner,

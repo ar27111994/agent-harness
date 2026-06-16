@@ -9,6 +9,7 @@ import {
   harvestOfficialSkillIndexes,
   officialIndexHarvesterInternals,
 } from "../domains/discovery/official-index-harvester.js";
+import { runtimeConfigInternals } from "../config/runtime.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
 interface OfficialUpstreamResolutionTestReport {
@@ -932,3 +933,102 @@ function buildSourceWithoutPublisher(
   delete source.publisher;
   return source;
 }
+
+void test("official index harvester respects AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX cap", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-official-index-cap-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const previousCapFlag =
+    process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  // Cap at 1 entry per index — only the first parsed entry should appear.
+  process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX = "1";
+  // Invalidate cached config so the new env var is picked up.
+  runtimeConfigInternals.resetCacheForTesting();
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://raw.githubusercontent.com/acme/capped/main/index.md") {
+      return new Response(
+        [
+          "# Alpha",
+          "**[Alpha Skill](https://officialskills.sh/acme/skills/alpha-skill)** - First entry.",
+          "Repo: https://github.com/acme/alpha-skill",
+          "",
+          "# Beta",
+          "**[Beta Skill](https://officialskills.sh/acme/skills/beta-skill)** - Second entry.",
+          "Repo: https://github.com/acme/beta-skill",
+        ].join("\n"),
+        {
+          status: 200,
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        },
+      );
+    }
+
+    throw new Error(`Unexpected fetch in cap test: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    if (previousCapFlag === undefined) {
+      delete process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;
+    } else {
+      process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX =
+        previousCapFlag;
+    }
+    // Restore config cache to pre-test state.
+    runtimeConfigInternals.resetCacheForTesting();
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(
+    join(projectRoot, "discover", "official-skills-indexes.json"),
+    {
+      schemaVersion: 1,
+      indexes: [
+        {
+          id: "acme-capped",
+          kind: "official-index",
+          url: "https://raw.githubusercontent.com/acme/capped/main/index.md",
+          expectedOwner: "acme",
+          pinnedRef: "refs/heads/main",
+        },
+      ],
+    },
+  );
+
+  await writeJsonFile(join(projectRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [],
+  });
+
+  const entries = await harvestOfficialSkillIndexes(projectRoot, null);
+
+  // With cap = 1, only the first entry ("alpha-skill") should be present.
+  // The second entry ("beta-skill") must be absent.
+  const ids = entries.map((e) => e.id);
+  const hasAlpha = ids.some((id) => id.includes("alpha"));
+  const hasBeta = ids.some((id) => id.includes("beta"));
+  assert.ok(
+    hasAlpha,
+    `Expected alpha-skill entry to be present; got ids: ${ids.join(", ")}`,
+  );
+  assert.ok(
+    !hasBeta,
+    `Expected beta-skill entry to be absent (capped); got ids: ${ids.join(", ")}`,
+  );
+});

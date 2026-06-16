@@ -93,6 +93,13 @@ const DISCOVERY_DEFAULTS = {
 const OFFICIAL_INDEX_DEFAULTS = {
   pageMaxBytes: 1_000_000,
   contentMaxBytes: 1_000_000,
+  /**
+   * Maximum number of catalog entries produced per awesome-list index.
+   * 0 means unlimited — appropriate for large community lists (1,000+ entries)
+   * where the catalog writer's deduplication and selection steps provide the
+   * real cap. Set to a positive integer to throttle during development.
+   */
+  maxItemsPerIndex: 0,
 } as const;
 const HOST_COMMAND_DEFAULTS = {
   nativeTimeoutMs: 30_000,
@@ -180,6 +187,8 @@ export interface RuntimeConfig {
   officialIndex: {
     pageMaxBytes: number;
     contentMaxBytes: number;
+    /** Maximum catalog entries per index. 0 = unlimited. */
+    maxItemsPerIndex: number;
   };
   hostCommands: {
     nativeTimeoutMs: number;
@@ -437,6 +446,11 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES,
         OFFICIAL_INDEX_DEFAULTS.contentMaxBytes,
         "AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES",
+      ),
+      maxItemsPerIndex: parseNonNegativeInteger(
+        env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX,
+        OFFICIAL_INDEX_DEFAULTS.maxItemsPerIndex,
+        "AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX",
       ),
     },
     hostCommands: {
@@ -749,3 +763,17 @@ function parseBooleanFlag(
 
   throw new Error(`${envName} must be a boolean when set.`);
 }
+
+/**
+ * Test-only internals for the runtime config module.
+ * These are not part of the public API and should not be used in production code.
+ */
+export const runtimeConfigInternals = {
+  /**
+   * Resets the cached singleton so the next `getRuntimeConfig()` call
+   * re-reads `process.env`. Only use in tests that mutate env vars.
+   */
+  resetCacheForTesting(): void {
+    runtimeConfig = null;
+  },
+};
