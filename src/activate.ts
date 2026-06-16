@@ -440,7 +440,16 @@ async function swapActivationRuntimeRoot(
     await rename(stagingRuntimeRoot, runtimeRoot);
   } catch (error) {
     if (hadRuntimeRoot && !(await pathExists(runtimeRoot))) {
-      await rename(backupRuntimeRoot, runtimeRoot).catch(() => undefined);
+      try {
+        await rename(backupRuntimeRoot, runtimeRoot);
+      } catch (rollbackError) {
+        throw new AggregateError(
+          [error, rollbackError],
+          "Activation failed and the runtime root rollback also failed — " +
+            "the runtime root may be missing. Restore it manually from the " +
+            `backup at '${backupRuntimeRoot}' if present.`,
+        );
+      }
     }
     throw error;
   }
@@ -1047,3 +1056,11 @@ function diffStringSets(
 function formatDiffList(values: string[]): string {
   return values.length > 0 ? values.join(", ") : "none";
 }
+
+/**
+ * Exposes internal activation helpers for focused test coverage.
+ * Not part of the public API.
+ */
+export const activateInternals = {
+  swapActivationRuntimeRoot,
+};
