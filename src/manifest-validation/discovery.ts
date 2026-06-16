@@ -635,6 +635,13 @@ export function assertSelectionReport(
       assertString(sample.reason, `${context}.sampleRejected[${i}].reason`);
     }
   }
+  // sourceDiversityWarning — optional, added in v2.0.0 (#304)
+  if (record.sourceDiversityWarning !== undefined) {
+    assertString(
+      record.sourceDiversityWarning,
+      `${context}.sourceDiversityWarning`,
+    );
+  }
 }
 
 /**

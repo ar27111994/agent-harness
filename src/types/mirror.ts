@@ -90,6 +90,7 @@ export interface SelectionReport {
    * Stable reason values:
    *   - "demand-relevance"  — entry had no term overlap with the demand profile
    *   - "duplicate"         — entry lost deduplication within its duplicate group
+   *   - "source-cap"        — entry was dropped by the per-source entry cap
    */
   rejectionSummary: Record<string, number>;
   /**
@@ -97,6 +98,12 @@ export interface SelectionReport {
    * checking without loading the full rejected-catalog.jsonl file.
    */
   sampleRejected: Array<{ assetId: string; reason: string }>;
+  /**
+   * Human-readable warning emitted when any single source contributes more
+   * than 20% of the selected entries after the per-source cap is applied.
+   * Absent when the selected set is well-diversified.
+   */
+  sourceDiversityWarning?: string;
 }
 
 /**

@@ -470,6 +470,24 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     }
   }
 
+  // Per-source entry cap — prevent a single source from dominating the
+  // selected set. Entries are visited in insertion order (order maintained
+  // by the dedup loop above), so the first N entries per source are kept and
+  // any excess are rejected with reason "source-cap".
+  const MAX_ENTRIES_PER_SOURCE = parseSelectionPositiveIntegerEnv(
+    process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE,
+    200,
+  );
+  const { kept: cappedSelectedEntries, capped: capRejections } =
+    applyPerSourceCap(selectedEntries, MAX_ENTRIES_PER_SOURCE);
+  for (const { assetId } of capRejections) {
+    rejectionLog.push({ assetId, reason: "source-cap" });
+  }
+  const sourceDiversityWarning = computeSourceDiversityWarning(
+    cappedSelectedEntries,
+    MAX_ENTRIES_PER_SOURCE,
+  );
+
   // Derive the flat rejected-entries list from the log so we have a single
   // source of truth (the log) driving both the JSONL output and the report.
   // Filter directly over catalogEntries using the id set — avoids allocating
@@ -507,7 +525,7 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     }
   }
 
-  const sortedSelectedEntries = selectedEntries.sort(
+  const sortedSelectedEntries = cappedSelectedEntries.sort(
     compareAssetCatalogEntries,
   );
   const sortedRejectedEntries = rejectedEntries.sort(
@@ -524,6 +542,7 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     ),
     rejectionSummary,
     sampleRejected,
+    ...(sourceDiversityWarning !== undefined ? { sourceDiversityWarning } : {}),
   };
 
   await writeJsonLinesFile(
@@ -886,3 +905,107 @@ function printDiscoverHelp(): void {
     ],
   });
 }
+
+/**
+ * Parses an env-var value as a positive integer for selection configuration,
+ * falling back to `defaultValue` when the value is absent, empty, or invalid.
+ * Mirrors the same pattern used in `src/setup.ts` for doctor timeout parsing.
+ */
+function parseSelectionPositiveIntegerEnv(
+  value: string | undefined,
+  defaultValue: number,
+): number {
+  if (value === undefined || value.trim() === "") {
+    return defaultValue;
+  }
+  const trimmed = value.trim();
+  const parsed = parseInt(trimmed, 10);
+  // Reject floats ("1.5"), leading-zero octal-lookalikes, and trailing junk
+  // by requiring the re-stringified value to round-trip exactly.
+  return Number.isInteger(parsed) && parsed > 0 && String(parsed) === trimmed
+    ? parsed
+    : defaultValue;
+}
+
+/**
+ * Applies a per-source entry cap to a pre-sorted list of catalog entries.
+ *
+ * Entries are visited in the order provided; the first `maxPerSource` entries
+ * for each `source.sourceId` are kept, and any excess are returned in the
+ * `capped` array so callers can add rejection-log entries.
+ *
+ * @param entries - Pre-sorted selected entries (insertion order preserved).
+ * @param maxPerSource - Maximum entries to retain per unique `source.sourceId`.
+ * @returns `{ kept, capped }` — kept entries in original order; capped entries
+ *   as `{ assetId }` objects suitable for rejection logging.
+ */
+export function applyPerSourceCap(
+  entries: AssetCatalogEntry[],
+  maxPerSource: number,
+): { kept: AssetCatalogEntry[]; capped: Array<{ assetId: string }> } {
+  const sourceCountMap = new Map<string, number>();
+  const kept: AssetCatalogEntry[] = [];
+  const capped: Array<{ assetId: string }> = [];
+  for (const entry of entries) {
+    const sourceId = entry.source.sourceId;
+    const count = sourceCountMap.get(sourceId) ?? 0;
+    if (count >= maxPerSource) {
+      capped.push({ assetId: entry.id });
+    } else {
+      sourceCountMap.set(sourceId, count + 1);
+      kept.push(entry);
+    }
+  }
+  return { kept, capped };
+}
+
+/** Threshold fraction above which a source triggers a diversity warning. */
+const SOURCE_DIVERSITY_WARNING_THRESHOLD = 0.2;
+
+/**
+ * Returns a human-readable warning when any single source contributes more
+ * than 20% of the provided (already-capped) selected entries.  Returns
+ * `undefined` when the set is well-diversified or empty.
+ *
+ * @param cappedEntries - Selected entries after the per-source cap.
+ * @param maxPerSource - The cap value in effect, included in the message so
+ *   the operator knows which knob to turn.
+ */
+export function computeSourceDiversityWarning(
+  cappedEntries: AssetCatalogEntry[],
+  maxPerSource: number,
+): string | undefined {
+  if (cappedEntries.length === 0) {
+    return undefined;
+  }
+  const sourceCounts = new Map<string, number>();
+  for (const entry of cappedEntries) {
+    const id = entry.source.sourceId;
+    sourceCounts.set(id, (sourceCounts.get(id) ?? 0) + 1);
+  }
+  for (const [sourceId, count] of sourceCounts.entries()) {
+    const fraction = count / cappedEntries.length;
+    if (fraction > SOURCE_DIVERSITY_WARNING_THRESHOLD) {
+      const pct = Math.round(fraction * 100);
+      return (
+        `Source "${sourceId}" contributes ${pct}% of selected entries ` +
+        `(${count}/${cappedEntries.length}). ` +
+        `Consider lowering AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE ` +
+        `(currently ${maxPerSource}) to improve diversity.`
+      );
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Exposes narrow discover internals for focused per-source-cap tests.
+ */
+export const discoverInternals = {
+  applyPerSourceCap,
+  computeSourceDiversityWarning,
+  parseSelectionPositiveIntegerEnv: (
+    value: string | undefined,
+    defaultValue: number,
+  ) => parseSelectionPositiveIntegerEnv(value, defaultValue),
+};
