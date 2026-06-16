@@ -28,6 +28,7 @@ interface SelfHostingSelectionReport {
 
 interface SelfHostingRecommendationReport {
   topByHost?: Record<string, unknown[]>;
+  recommendations?: unknown[];
 }
 
 void test("agent-harness can analyze itself as a workspace target", async () => {
@@ -140,6 +141,11 @@ void test("agent-harness can analyze itself as a workspace target", async () => 
       Object.values(recommendationReport.topByHost ?? {}).some(
         (entries) => entries.length > 0,
       ),
+    );
+    // The 'recommendations' key must be present in the written file (#283).
+    assert.ok(
+      Array.isArray(recommendationReport.recommendations),
+      "state/recommendations.json must contain a 'recommendations' array (#283)",
     );
     assert.match(policyStdout, /recommendationLimit/u);
     assert.match(policyStdout, /activationBudget/u);

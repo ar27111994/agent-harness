@@ -498,6 +498,18 @@ void test("writeRecommendationReport persists built report from selected catalog
         await import("node:fs/promises")
       ).readFile(join(projectRoot, "state", "recommendations.json"), "utf8"),
     ) as Record<string, unknown>;
+    // The 'recommendations' key must be present in the written file before any
+    // validator backfill applies. assertRecommendationReport silently adds the
+    // key when absent (legacy shim); checking hasOwnProperty here catches a
+    // write-path regression that the validator alone would not surface (#283).
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(persisted, "recommendations"),
+      "state/recommendations.json must contain a 'recommendations' key (#283)",
+    );
+    assert.ok(
+      Array.isArray(persisted.recommendations),
+      "'recommendations' must be an array (#283)",
+    );
     assertRecommendationReport(persisted, "report");
     assert.equal(persisted.sessionIntent, "backend");
   } finally {

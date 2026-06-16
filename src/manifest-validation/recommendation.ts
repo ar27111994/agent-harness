@@ -386,7 +386,9 @@ export function assertRecommendationReport(
 
   // Validate the flat deduplicated recommendations list.
   // The field is required on new reports; absent on legacy reports loaded
-  // from disk is tolerated with an empty default.
+  // from disk is tolerated with an empty default so activate.ts can read
+  // pre-v2.0.0 state files gracefully. New writes must always include this
+  // key (asserted by write-path tests). See: #283.
   const rawRecommendations = Object.prototype.hasOwnProperty.call(
     record,
     "recommendations",
