@@ -318,3 +318,61 @@ void test("extension install executor exhausts explicit executable candidates be
   assert.equal(result.exitCode, Number.MAX_SAFE_INTEGER);
   assert.equal(typeof result.stderr, "string");
 });
+
+void test("verifyVsCodeExtensionInstalled strips only trailing @version — IDs containing @ are matched correctly", () => {
+  // Extension IDs that contain @ in the publisher/name part should NOT be truncated
+  // e.g. "@scope/pkg@1.0.0" → match ID "@scope/pkg"
+  // Regression: split("@")[0] would yield "" for "@scope/pkg" — matching nothing
+  assert.equal(
+    verifyVsCodeExtensionInstalled(
+      "@scope/my-extension@1.2.3",
+      "@scope/my-extension",
+    ),
+    true,
+    "scoped ID with version should match",
+  );
+
+  // A plain non-scoped ID still works
+  assert.equal(
+    verifyVsCodeExtensionInstalled(
+      "ms-vscode.cpptools@1.0.0",
+      "ms-vscode.cpptools",
+    ),
+    true,
+    "plain ID with version should match",
+  );
+
+  // An ID with multiple @ segments: only the last @version suffix is stripped
+  assert.equal(
+    verifyVsCodeExtensionInstalled(
+      "some-publisher.some@pkg@2.0.0",
+      "some-publisher.some@pkg",
+    ),
+    true,
+    "ID with internal @ should match after stripping only trailing @version",
+  );
+
+  // Non-matching scoped ID
+  assert.equal(
+    verifyVsCodeExtensionInstalled(
+      "@scope/other-extension@1.0.0",
+      "@scope/my-extension",
+    ),
+    false,
+    "different scoped ID should not match",
+  );
+
+  // Extension without a version suffix
+  assert.equal(
+    verifyVsCodeExtensionInstalled("ms-python.python", "ms-python.python"),
+    true,
+    "ID without version should match",
+  );
+
+  // Empty output
+  assert.equal(
+    verifyVsCodeExtensionInstalled("", "github.copilot"),
+    false,
+    "empty output should not match",
+  );
+});
