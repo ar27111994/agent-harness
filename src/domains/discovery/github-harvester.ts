@@ -10,6 +10,7 @@ import type {
   SelectionRegistry,
   SourceDefinition,
 } from "../../types.js";
+import { inferCompatibleHosts } from "../../host-adapters/compatibility-matrix.js";
 import {
   buildAssetStatus,
   buildCandidateRankHint,
@@ -118,6 +119,7 @@ function buildGitHubCatalogEntry(
     assetKind: classification.assetKind,
     hosts,
     compatibilityMode: classification.compatibilityMode,
+    compatibleHosts: inferCompatibleHosts(classification.assetKind, hosts),
     source: {
       sourceId: source.id,
       authorityTier: source.authorityTier,

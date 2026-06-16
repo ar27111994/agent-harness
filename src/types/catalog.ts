@@ -5,6 +5,7 @@ import type {
   HostTarget,
   SourceKind,
 } from "./core.js";
+import type { CompatibleHost } from "../host-adapters/compatibility-matrix.js";
 
 /**
  * Defines the supported host-native payload target values.
@@ -220,6 +221,15 @@ export interface AssetCatalogEntry {
   assetKind: AssetKind;
   hosts: HostTarget[];
   compatibilityMode: CompatibilityMode;
+  /**
+   * Cross-host compatibility entries beyond the primary `hosts` list.
+   * Assets may be auto-populated (e.g. mcp-server → all MCP-capable hosts)
+   * or explicitly set via manifest metadata.
+   * When present, these hosts are also considered during catalog selection
+   * and recommendation, and the wire step emits host-specific instructions
+   * when `installDiffers: true`.
+   */
+  compatibleHosts?: CompatibleHost[];
   source: AssetSourceMetadata;
   trust: AssetTrust;
   capabilities: string[];

@@ -247,6 +247,7 @@ function isEntryCompatibleWithRecommendationHost(
     entry.hosts,
     host,
     entry.assetKind,
+    entry.compatibleHosts,
   );
 }
 

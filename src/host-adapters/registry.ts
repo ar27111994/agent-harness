@@ -9,6 +9,10 @@ import {
   resolveVsCodeExtensionId,
   type ExtensionInstallAction,
 } from "./extension-installer.js";
+import {
+  isHostInCompatibleHosts,
+  type CompatibleHost,
+} from "./compatibility-matrix.js";
 
 export type { WireMode } from "./types.js";
 
@@ -364,6 +368,7 @@ export function isHostCompatibleWithRecommendationHost(
   entryHosts: HostTarget[],
   recommendationHost: HostTarget,
   assetKind: AssetKind,
+  compatibleHosts?: CompatibleHost[],
 ): boolean {
   const adapter = getAdapterForRecommendationHost(recommendationHost);
   if (
@@ -379,7 +384,12 @@ export function isHostCompatibleWithRecommendationHost(
     return true;
   }
 
-  return adapter ? entryHosts.includes(adapter.lifecycleHost) : false;
+  if (adapter ? entryHosts.includes(adapter.lifecycleHost) : false) {
+    return true;
+  }
+
+  // Check cross-host compatibility matrix
+  return isHostInCompatibleHosts(compatibleHosts, recommendationHost);
 }
 
 /**

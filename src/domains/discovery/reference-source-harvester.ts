@@ -8,6 +8,7 @@ import type {
   SelectionRegistry,
   SourceDefinition,
 } from "../../types.js";
+import { inferCompatibleHosts } from "../../host-adapters/compatibility-matrix.js";
 import {
   buildCandidateRankHint,
   buildCatalogId,
@@ -111,6 +112,7 @@ export function buildReferenceSourceCatalogEntry(
     assetKind,
     hosts: source.hosts,
     compatibilityMode,
+    compatibleHosts: inferCompatibleHosts(assetKind, source.hosts),
     source: {
       sourceId: source.id,
       authorityTier: source.authorityTier,
