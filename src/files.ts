@@ -368,7 +368,6 @@ export async function writeJsonLinesFile(
       await appendFile(tempPath, chunk, "utf8");
     }
 
-    await rm(filePath, { force: true });
     await rename(tempPath, filePath);
   } catch (error) {
     await rm(tempPath, { force: true });
