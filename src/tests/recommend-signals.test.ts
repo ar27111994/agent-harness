@@ -391,3 +391,90 @@ function buildPolicy(): RecommendationPolicy {
     synonyms: {},
   };
 }
+
+void test("buildSynonymLookup produces correct alias→canonical map", async () => {
+  const { buildSynonymLookup, normalizePhrase } = await import(
+    "../recommend/signals.js"
+  );
+
+  const policy = buildPolicy();
+  policy.synonyms = {
+    backend: ["api-services", "REST API"],
+    frontend: ["ui", "User Interface"],
+  };
+
+  const lookup = buildSynonymLookup(policy);
+
+  // Canonical keys map to themselves.
+  assert.equal(lookup.get("backend"), "backend");
+  assert.equal(lookup.get("frontend"), "frontend");
+
+  // Each alias normalises to its canonical form.
+  assert.equal(lookup.get(normalizePhrase("api-services")), "backend");
+  assert.equal(lookup.get(normalizePhrase("REST API")), "backend");
+  assert.equal(lookup.get(normalizePhrase("ui")), "frontend");
+  assert.equal(lookup.get(normalizePhrase("User Interface")), "frontend");
+
+  // Unknown terms return undefined.
+  assert.equal(lookup.get("unknown"), undefined);
+});
+
+void test("buildSynonymLookup with precomputed map matches on-demand canonicalization", async () => {
+  const { buildSynonymLookup, buildSearchTerms } = await import(
+    "../recommend/signals.js"
+  );
+
+  const policy = buildPolicy();
+  policy.synonyms = {
+    typescript: ["ts", "TypeScript Language"],
+    javascript: ["js", "node"],
+  };
+
+  const lookup = buildSynonymLookup(policy);
+  const values = ["TS", "js", "TypeScript Language", "node", "other-term"];
+
+  const withLookup = buildSearchTerms(values, policy, lookup);
+  const withoutLookup = buildSearchTerms(values, policy);
+
+  // Both approaches must produce identical term sets.
+  assert.deepEqual(
+    [...withLookup].sort(),
+    [...withoutLookup].sort(),
+    "precomputed lookup must match on-demand canonicalization for all terms",
+  );
+});
+
+void test("buildSearchTerms with precomputed lookup is consistent across many values", async () => {
+  const { buildSynonymLookup, buildSearchTerms } = await import(
+    "../recommend/signals.js"
+  );
+
+  const policy = buildPolicy();
+  policy.synonyms = {
+    testing: ["test", "spec", "e2e", "unit test"],
+    security: ["sec", "auth", "tls", "ssl"],
+    performance: ["perf", "speed", "latency", "throughput"],
+  };
+
+  const lookup = buildSynonymLookup(policy);
+  const values = Array.from({ length: 50 }, (_, i) => `term-${String(i)}`).concat(
+    ["test", "spec", "e2e", "sec", "auth", "perf", "speed", "unknown-123"],
+  );
+
+  const start = Date.now();
+  for (let i = 0; i < 200; i++) {
+    buildSearchTerms(values, policy, lookup);
+  }
+  const elapsed = Date.now() - start;
+
+  // 200 × 58 values with a precomputed lookup must complete well within 500ms.
+  assert.ok(
+    elapsed < 500,
+    `200 iterations over 58 values took ${String(elapsed)}ms — expected < 500ms`,
+  );
+
+  // Results must still match the reference (no-lookup) path.
+  const withLookup = buildSearchTerms(values, policy, lookup);
+  const withoutLookup = buildSearchTerms(values, policy);
+  assert.deepEqual([...withLookup].sort(), [...withoutLookup].sort());
+});

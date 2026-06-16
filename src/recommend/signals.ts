@@ -66,15 +66,16 @@ export function buildDemandContext(
     ? (sessionIntents as readonly SessionIntent[])
     : [sessionIntents as SessionIntent];
   const demandTermMap = new Map<string, DemandTermContext>();
+  const synonymLookup = buildSynonymLookup(policy);
 
   const registerTerm = (
     signalType: RecommendationSignalType,
     rawTerm: string,
     evidenceStrength: DemandEvidenceStrength,
   ): void => {
-    const canonicalTerm = canonicalizePhrase(rawTerm, policy);
+    const canonicalTerm = canonicalizePhrase(rawTerm, policy, synonymLookup);
     const key = `${signalType}:${canonicalTerm}`;
-    const matchTerms = buildSearchTerms([rawTerm], policy);
+    const matchTerms = buildSearchTerms([rawTerm], policy, synonymLookup);
     const existing = demandTermMap.get(key);
 
     if (existing) {
@@ -413,16 +414,49 @@ export function buildDuplicateGroup(
 }
 
 /**
+ * Builds a flat alias→canonical lookup map from a policy's synonym table.
+ *
+ * Building this once per scoring run and passing it to `buildSearchTerms` /
+ * `canonicalizePhrase` reduces synonym canonicalization from O(tokens × synonyms)
+ * to O(tokens) — a significant win when scoring thousands of catalog entries.
+ *
+ * @param policy - The recommendation policy whose synonyms table to index.
+ * @returns A map from each normalised alias (and each normalised canonical key
+ *   itself) to its normalised canonical form.
+ */
+export function buildSynonymLookup(
+  policy: RecommendationPolicy,
+): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const [canonical, aliases] of Object.entries(policy.synonyms)) {
+    const normalizedCanonical = normalizePhrase(canonical);
+    // The canonical key is itself a valid lookup target.
+    lookup.set(normalizedCanonical, normalizedCanonical);
+    for (const alias of aliases) {
+      lookup.set(normalizePhrase(alias), normalizedCanonical);
+    }
+  }
+  return lookup;
+}
+
+/**
  * Builds search terms from the provided inputs.
+ *
+ * @param values - Raw term values to normalise and canonicalise.
+ * @param policy - The active recommendation policy.
+ * @param synonymLookup - Optional precomputed alias→canonical map built by
+ *   `buildSynonymLookup`. Pass this when calling in a hot loop to avoid
+ *   rebuilding it on every invocation.
  */
 export function buildSearchTerms(
   values: string[],
   policy: RecommendationPolicy,
+  synonymLookup?: Map<string, string>,
 ): Set<string> {
   const searchTerms = new Set<string>();
 
   for (const value of values) {
-    const normalizedPhrase = canonicalizePhrase(value, policy);
+    const normalizedPhrase = canonicalizePhrase(value, policy, synonymLookup);
     if (normalizedPhrase) {
       searchTerms.add(normalizedPhrase);
     }
@@ -431,19 +465,35 @@ export function buildSearchTerms(
       .toLowerCase()
       .split(/[^a-z0-9]+/u)
       .filter((part) => part.length > 1)) {
-      searchTerms.add(canonicalizePhrase(token, policy));
+      searchTerms.add(canonicalizePhrase(token, policy, synonymLookup));
     }
   }
 
   return searchTerms;
 }
 
+/**
+ * Canonicalises a phrase against the policy synonym table.
+ *
+ * When `synonymLookup` is provided the lookup is O(1); when omitted a fresh
+ * O(synonyms) scan is performed for backward-compatibility.
+ *
+ * @param value - The raw phrase to canonicalise.
+ * @param policy - The active recommendation policy.
+ * @param synonymLookup - Optional precomputed map from `buildSynonymLookup`.
+ */
 function canonicalizePhrase(
   value: string,
   policy: RecommendationPolicy,
+  synonymLookup?: Map<string, string>,
 ): string {
   const normalizedValue = normalizePhrase(value);
 
+  if (synonymLookup !== undefined) {
+    return synonymLookup.get(normalizedValue) ?? normalizedValue;
+  }
+
+  // Fallback: linear scan (used when no precomputed map is available).
   for (const [canonical, aliases] of Object.entries(policy.synonyms)) {
     const normalizedCanonical = normalizePhrase(canonical);
     if (normalizedCanonical === normalizedValue) {

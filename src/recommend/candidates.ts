@@ -4,6 +4,7 @@ import {
   buildCoverageTags,
   buildDuplicateGroup,
   buildSearchTerms,
+  buildSynonymLookup,
   buildTaskModes,
   collectMatchedSignals,
   computeOutOfDomainPenalty,
@@ -50,20 +51,25 @@ interface MatchQuality {
 export function buildPolicySearchContext(
   policy: RecommendationPolicy,
 ): PolicySearchContext {
-  const genericToolingTerms = buildGenericToolingTerms(policy);
-  const wrapperLikeTerms = buildSearchTerms([...WRAPPER_LIKE_TERMS], policy);
+  const synonymLookup = buildSynonymLookup(policy);
+  const genericToolingTerms = buildGenericToolingTerms(policy, synonymLookup);
+  const wrapperLikeTerms = buildSearchTerms(
+    [...WRAPPER_LIKE_TERMS],
+    policy,
+    synonymLookup,
+  );
   const concernTermSets = new Map<string, Set<string>>();
   const taskModeTermSets = new Map<string, Set<string>>();
   const domainGroupTermSets = new Map<string, Set<string>>();
 
   for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
-    concernTermSets.set(concern, buildSearchTerms(keywords, policy));
+    concernTermSets.set(concern, buildSearchTerms(keywords, policy, synonymLookup));
   }
   for (const [mode, keywords] of Object.entries(policy.taskModeKeywordMap)) {
-    taskModeTermSets.set(mode, buildSearchTerms(keywords, policy));
+    taskModeTermSets.set(mode, buildSearchTerms(keywords, policy, synonymLookup));
   }
   for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
-    domainGroupTermSets.set(group, buildSearchTerms(keywords, policy));
+    domainGroupTermSets.set(group, buildSearchTerms(keywords, policy, synonymLookup));
   }
 
   return {
@@ -103,9 +109,13 @@ export function buildCandidateRecommendationBase(
 ): CandidateRecommendationBase | null {
   const resolvedPolicyContext =
     policyContext ?? buildPolicySearchContext(policy);
+  // Build the synonym lookup once per entry rather than re-scanning the
+  // synonym table on every canonicalizePhrase call inside buildSearchTerms.
+  const synonymLookup = buildSynonymLookup(policy);
   const capabilitySearchTerms = buildSearchTerms(
     [entry.id, entry.displayName, ...entry.capabilities],
     policy,
+    synonymLookup,
   );
   const rawKeywordTerms = buildRawKeywordTerms([
     entry.id,
@@ -125,6 +135,7 @@ export function buildCandidateRecommendationBase(
       entry.evidence.filePath ?? "",
     ],
     policy,
+    synonymLookup,
   );
 
   if (
@@ -373,11 +384,18 @@ function isWrapperLikeAsset(
   return false;
 }
 
-function buildGenericToolingTerms(policy: RecommendationPolicy): Set<string> {
+function buildGenericToolingTerms(
+  policy: RecommendationPolicy,
+  synonymLookup?: Map<string, string>,
+): Set<string> {
   const genericToolingTerms = new Set<string>(GENERIC_CAPABILITY_TERMS);
 
   for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
-    for (const term of buildSearchTerms([concern, ...keywords], policy)) {
+    for (const term of buildSearchTerms(
+      [concern, ...keywords],
+      policy,
+      synonymLookup,
+    )) {
       genericToolingTerms.add(term);
     }
   }
