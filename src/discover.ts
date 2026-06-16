@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import { copyFile, mkdir } from "node:fs/promises";
 
 import { isGitHubRepoSource } from "./github.js";
 import {
@@ -15,7 +16,7 @@ import {
   writeJsonFile,
   writeJsonLinesFile,
 } from "./files.js";
-import { getRuntimeConfig } from "./config/runtime.js";
+import { getRuntimeConfig, clearRuntimeConfig } from "./config/runtime.js";
 import {
   compareSelectionCandidates,
   filterCatalogEntriesByDemandRelevance,
@@ -53,6 +54,7 @@ import {
 } from "./domains/discovery/local-harvesters.js";
 import { loadSourceRegistry } from "./domains/discovery/source-registry.js";
 import {
+  CATALOG_INDEX_OUTPUT_PATH,
   CATALOG_OUTPUT_PATH,
   DEMAND_PROFILE_OUTPUT_PATH,
   REJECTED_CATALOG_OUTPUT_PATH,
@@ -61,6 +63,10 @@ import {
   SELECTED_CATALOG_OUTPUT_PATH,
   SELECTION_REPORT_OUTPUT_PATH,
 } from "./domains/discovery/output-paths.js";
+import {
+  isCatalogIndexFresh,
+  writeCatalogIndexMeta,
+} from "./domains/discovery/catalog-index.js";
 import { harvestOfficialSkillIndexes } from "./domains/discovery/official-index-harvester.js";
 import { harvestPackageRegistrySource } from "./domains/discovery/package-registry-harvester.js";
 import { harvestReferenceSource } from "./domains/discovery/reference-source-harvester.js";
@@ -116,10 +122,71 @@ export async function runDiscover(
       logDiscoverPhase("discover catalog", 1, 1, "Building discovery catalog");
       await generateCatalog(projectRoot);
       return 0;
-    case "sync":
-      logDiscoverPhase("discover sync", 1, 1, "Syncing indexed sources");
-      await syncIndexedSources(projectRoot);
+    case "index": {
+      logDiscoverPhase("discover index", 1, 1, "Building full catalog index");
+      const indexConfig = getRuntimeConfig().discovery;
+      // Override the per-run page limit for the full-index build.
+      // We temporarily raise the well-known env var that syncIndexedSources
+      // honours via getRuntimeConfig(), then restore it in the finally block.
+      const originalMaxPages =
+        process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN;
+      const pageCap = indexConfig.sourceSyncMaxPagesForIndexBuild;
+      process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN = String(
+        pageCap === 0 ? 999_999 : pageCap,
+      );
+      // Reset the config cache so the new env value is picked up.
+      clearRuntimeConfig();
+      try {
+        await syncIndexedSources(projectRoot);
+      } finally {
+        // Restore original env state regardless of success/failure.
+        if (originalMaxPages === undefined) {
+          delete process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN;
+        } else {
+          process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN =
+            originalMaxPages;
+        }
+        // Always reset — callers get a clean config after this command.
+        clearRuntimeConfig();
+      }
+      // Copy the source-sync entries snapshot to catalog-index.jsonl so that
+      // `discover sync` and `discover select` can read it without touching
+      // the internal source-sync state paths.
+      const syncEntriesPath = join(
+        projectRoot,
+        "state",
+        "discover",
+        "source-sync.entries.jsonl",
+      );
+      const indexPath = join(projectRoot, ...CATALOG_INDEX_OUTPUT_PATH);
+      await mkdir(join(projectRoot, "discover", "output"), {
+        recursive: true,
+      });
+      await copyFile(syncEntriesPath, indexPath);
+      // Read back to get the entry count for metadata.
+      const indexedEntries = await readJsonLinesFile<AssetCatalogEntry>(
+        indexPath,
+        (v: unknown) => v as AssetCatalogEntry,
+      );
+      await writeCatalogIndexMeta(projectRoot, indexedEntries.length);
+      process.stdout.write(
+        `[discover index] Catalog index written: ${indexedEntries.length} entries → ${indexPath}\n`,
+      );
       return 0;
+    }
+    case "sync": {
+      const forceFullFlag = rest.includes("--full");
+      if (!forceFullFlag && (await isCatalogIndexFresh(projectRoot))) {
+        process.stdout.write(
+          "[discover sync] Using fresh local catalog index — skipping live harvest.\n" +
+            "  Run 'discover index' or 'discover sync --full' to force a re-harvest.\n",
+        );
+      } else {
+        logDiscoverPhase("discover sync", 1, 1, "Syncing indexed sources");
+        await syncIndexedSources(projectRoot);
+      }
+      return 0;
+    }
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
@@ -837,7 +904,12 @@ function printDiscoverHelp(): void {
       {
         command: "sync",
         description:
-          "Persist indexed discovery results for supported high-volume sources",
+          "Persist indexed discovery results — uses local index when fresh, live harvest otherwise (see 'discover index')",
+      },
+      {
+        command: "index",
+        description:
+          "Build a full offline catalog index by fully paginating all indexed sources (slow, scheduled — run once or in CI)",
       },
       {
         command: "catalog",

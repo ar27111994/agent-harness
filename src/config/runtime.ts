@@ -89,6 +89,19 @@ const DISCOVERY_DEFAULTS = {
   vscodeMarketplaceSyncPageSize: 50,
   sourceSyncMaxPagesPerRun: 10,
   npmMcpSearchQueryLimit: 8,
+  /**
+   * Number of pages to paginate per source when running `discover index`
+   * (the offline full-index build). 0 means unlimited — appropriate for a
+   * scheduled full-index run. The default of 500 gives ~25,000 entries per
+   * source at the typical 50-item page size.
+   */
+  sourceSyncMaxPagesForIndexBuild: 500,
+  /**
+   * Maximum age in days before the local catalog-index.jsonl is considered
+   * stale and `discover sync` will trigger a live re-harvest instead of
+   * using the cached index.
+   */
+  discoveryIndexMaxAgeDays: 7,
 } as const;
 const OFFICIAL_INDEX_DEFAULTS = {
   pageMaxBytes: 1_000_000,
@@ -183,6 +196,13 @@ export interface RuntimeConfig {
     vscodeMarketplaceSyncPageSize: number;
     sourceSyncMaxPagesPerRun: number;
     npmMcpSearchQueryLimit: number;
+    /**
+     * Pages to paginate per source during `discover index` full-index build.
+     * 0 = unlimited.
+     */
+    sourceSyncMaxPagesForIndexBuild: number;
+    /** Days before catalog-index.jsonl is considered stale. */
+    discoveryIndexMaxAgeDays: number;
   };
   officialIndex: {
     pageMaxBytes: number;
@@ -434,6 +454,16 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT,
         DISCOVERY_DEFAULTS.npmMcpSearchQueryLimit,
         "AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT",
+      ),
+      sourceSyncMaxPagesForIndexBuild: parseNonNegativeInteger(
+        env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD,
+        DISCOVERY_DEFAULTS.sourceSyncMaxPagesForIndexBuild,
+        "AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD",
+      ),
+      discoveryIndexMaxAgeDays: parsePositiveInteger(
+        env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS,
+        DISCOVERY_DEFAULTS.discoveryIndexMaxAgeDays,
+        "AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS",
       ),
     },
     officialIndex: {

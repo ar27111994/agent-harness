@@ -191,3 +191,24 @@ export const REMOTE_CATALOG_STATE_OUTPUT_PATH = [
   "discover",
   "remote-catalog.jsonl",
 ];
+
+/**
+ * Defines the full catalog index output path — the offline snapshot produced by
+ * `discover index`. Used as the input for fast, demand-agnostic `discover select`
+ * runs when a fresh index exists.
+ */
+export const CATALOG_INDEX_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "catalog-index.jsonl",
+];
+
+/**
+ * Metadata file written alongside catalog-index.jsonl recording when the index
+ * was last built so staleness checks can avoid reading the full JSONL.
+ */
+export const CATALOG_INDEX_META_OUTPUT_PATH = [
+  "discover",
+  "output",
+  "catalog-index-meta.json",
+];
