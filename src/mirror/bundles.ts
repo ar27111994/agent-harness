@@ -2,12 +2,14 @@ import { join } from "node:path";
 
 import {
   readJsonFile,
+  readJsonFileOrNull,
   readJsonLinesFile,
   toPosixPath,
   writeJsonFile,
 } from "../files.js";
 import {
   assertAssetCatalogEntry,
+  assertBundleLock,
   assertMirrorPolicy,
 } from "../manifest-validation.js";
 import type {
@@ -88,7 +90,12 @@ export async function resolveBundleLocks(
   );
 
   for (const bundlePath of bundlePaths) {
-    const bundleLock = await readJsonFile<BundleLock>(bundlePath);
+    const bundleLock = await readJsonFileOrNull<BundleLock>(bundlePath, assertBundleLock);
+    if (!bundleLock) {
+      // Lock file does not exist yet (e.g. cold checkout before mirror locks).
+      // Nothing to resolve — skip gracefully.
+      continue;
+    }
     const resolvedAssets = bundleLock.assets.map((asset) => ({
       ...asset,
       mirrorId: mirrorIdByAssetId.get(asset.assetId) ?? asset.mirrorId,

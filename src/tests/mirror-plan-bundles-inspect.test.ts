@@ -675,6 +675,27 @@ void test("resolveBundleLocks replaces unresolved mirror ids from the mirror ind
   }
 });
 
+void test("resolveBundleLocks silently skips bundle IDs whose lock files do not exist (cold checkout)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-bundle-locks-cold-"),
+  );
+
+  try {
+    // No lock files are written — mirror/bundles/ does not exist.
+    // resolveBundleLocks must not throw ENOENT.
+    await assert.doesNotReject(
+      resolveBundleLocks(
+        projectRoot,
+        [createMirrorIndexEntry("official-skill")],
+        ["copilot-core", "opencode-global", "shared-mcp"],
+      ),
+      "resolveBundleLocks should not throw when lock files are absent",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("diffMirrorIndex reports added removed and changed assets", async (t) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-mirror-diff-"),
