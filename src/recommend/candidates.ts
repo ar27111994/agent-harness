@@ -63,13 +63,22 @@ export function buildPolicySearchContext(
   const domainGroupTermSets = new Map<string, Set<string>>();
 
   for (const [concern, keywords] of Object.entries(policy.concernKeywordMap)) {
-    concernTermSets.set(concern, buildSearchTerms(keywords, policy, synonymLookup));
+    concernTermSets.set(
+      concern,
+      buildSearchTerms(keywords, policy, synonymLookup),
+    );
   }
   for (const [mode, keywords] of Object.entries(policy.taskModeKeywordMap)) {
-    taskModeTermSets.set(mode, buildSearchTerms(keywords, policy, synonymLookup));
+    taskModeTermSets.set(
+      mode,
+      buildSearchTerms(keywords, policy, synonymLookup),
+    );
   }
   for (const [group, keywords] of Object.entries(policy.domainKeywordGroups)) {
-    domainGroupTermSets.set(group, buildSearchTerms(keywords, policy, synonymLookup));
+    domainGroupTermSets.set(
+      group,
+      buildSearchTerms(keywords, policy, synonymLookup),
+    );
   }
 
   return {
@@ -100,22 +109,27 @@ export function computeEntryPreselectionScore(
 /**
  * Precomputes host-independent recommendation analysis for one catalog entry so
  * large report builds do not repeat the same demand/search work for every host.
+ *
+ * @param synonymLookup - Optional precomputed alias→canonical map built by
+ *   `buildSynonymLookup`. Callers that process many entries should build this
+ *   once and pass it here; omitting it causes a per-entry rebuild.
  */
 export function buildCandidateRecommendationBase(
   entry: AssetCatalogEntry,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
   policyContext?: PolicySearchContext,
+  synonymLookup?: Map<string, string>,
 ): CandidateRecommendationBase | null {
   const resolvedPolicyContext =
     policyContext ?? buildPolicySearchContext(policy);
-  // Build the synonym lookup once per entry rather than re-scanning the
-  // synonym table on every canonicalizePhrase call inside buildSearchTerms.
-  const synonymLookup = buildSynonymLookup(policy);
+  // Use the caller-provided synonym lookup when available; fall back to
+  // building one here only for standalone / test call sites.
+  const resolvedSynonymLookup = synonymLookup ?? buildSynonymLookup(policy);
   const capabilitySearchTerms = buildSearchTerms(
     [entry.id, entry.displayName, ...entry.capabilities],
     policy,
-    synonymLookup,
+    resolvedSynonymLookup,
   );
   const rawKeywordTerms = buildRawKeywordTerms([
     entry.id,
@@ -135,7 +149,7 @@ export function buildCandidateRecommendationBase(
       entry.evidence.filePath ?? "",
     ],
     policy,
-    synonymLookup,
+    resolvedSynonymLookup,
   );
 
   if (
@@ -604,8 +618,12 @@ function isSuppressedBySpecializedDemandGate(
  * Each entry is [sourceIdSubstring, packageManagerFamily]. The first match
  * wins. Families align with the values emitted by demand-signals.ts so that
  * a direct set-intersection with `demandContext.packageManagers` works.
+ *
+ * Order matters: more-specific substrings must come before any substring that
+ * is a prefix of them (e.g. "pnpm" before "npm") so the first match is
+ * correct. The array is iterated left-to-right when building the Map.
  */
-const REGISTRY_ECOSYSTEM_MAP: ReadonlyArray<readonly [string, string]> = [
+const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
   // JavaScript / Node.js — must match "npm", "pnpm", "yarn", "bun" signals.
   // NOTE: "pnpm" must appear before any "npm*" entries because "pnpm" is a
   // substring of "pnpm-registry", while "npm-registry" and "npm" are also
@@ -648,6 +666,21 @@ const REGISTRY_ECOSYSTEM_MAP: ReadonlyArray<readonly [string, string]> = [
   ["conan", "conan"],
   ["vcpkg", "vcpkg"],
 ] as const;
+
+/**
+ * O(1) lookup from source-id substring → package-manager family.
+ *
+ * Because a single source ID may match multiple substrings (e.g. an ID
+ * containing both "pnpm" and "npm"), we cannot index by the source ID
+ * directly. Instead we keep the ordered array for correctness and iterate it
+ * once per call. The array has ~25 entries — iteration is effectively O(1)
+ * relative to catalog size and far cheaper than the previous .find() on every
+ * catalog entry.
+ *
+ * This constant exists solely to make the intent explicit and to allow future
+ * replacement with a smarter index if the entry count grows significantly.
+ */
+const REGISTRY_ECOSYSTEM_MAP = REGISTRY_ECOSYSTEM_ENTRIES;
 
 /**
  * Returns the penalty to apply when an asset's source registry belongs to a

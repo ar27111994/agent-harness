@@ -8,15 +8,16 @@ Execute in the order below unless dependencies say otherwise. Each executor: rea
 
 ## Execution order & status
 
-| Plan | Title | Priority | Effort | Risk | Depends on | Status |
-|------|-------|----------|--------|------|------------|--------|
-| [001](./001-atomic-write-pre-delete.md) | Remove pre-delete step from `writeJsonFileAtomically` | P1 | S | LOW | — | DONE |
-| [002](./002-rollback-failure-surface.md) | Surface rollback failure in `replaceRuntimeRoot` | P1 | S | MED | — | DONE |
-| [003](./003-manifest-path-containment.md) | Path-containment check for `pkg.manifestPath` (SEC) | P1 | S | LOW | — | DONE |
-| [004](./004-extension-id-parsing.md) | Fix extension-ID `split("@")` to strip trailing version only | P2 | S | LOW | — | DONE |
-| [005](./005-refresh-test-cli-stub.md) | Stub VS Code CLI probe in install-refresh tests | P1 | S | LOW | — | DONE (satisfied at baseline — createFakeCodeCli already present at ca36be9) |
-| [006](./006-precompute-synonym-map.md) | Precompute synonym lookup map to fix O(n×m) hot path | P2 | M | LOW | — | DONE |
-| [007](./007-agents-md-contributor-guidance.md) | Add contributor guidance preamble to `AGENTS.md` | P2 | S | LOW | — | DONE |
+| Plan                                           | Title                                                        | Priority | Effort | Risk | Depends on | Status                                                                      |
+| ---------------------------------------------- | ------------------------------------------------------------ | -------- | ------ | ---- | ---------- | --------------------------------------------------------------------------- |
+| [001](./001-atomic-write-pre-delete.md)        | Remove pre-delete step from `writeJsonFileAtomically`        | P1       | S      | LOW  | —          | DONE                                                                        |
+| [002](./002-rollback-failure-surface.md)       | Surface rollback failure in `replaceRuntimeRoot`             | P1       | S      | MED  | —          | DONE                                                                        |
+| [003](./003-manifest-path-containment.md)      | Path-containment check for `pkg.manifestPath` (SEC)          | P1       | S      | LOW  | —          | DONE                                                                        |
+| [004](./004-extension-id-parsing.md)           | Fix extension-ID `split("@")` to strip trailing version only | P2       | S      | LOW  | —          | DONE                                                                        |
+| [005](./005-refresh-test-cli-stub.md)          | Stub VS Code CLI probe in install-refresh tests              | P1       | S      | LOW  | —          | DONE (satisfied at baseline — createFakeCodeCli already present at ca36be9) |
+| [006](./006-precompute-synonym-map.md)         | Precompute synonym lookup map to fix O(n×m) hot path         | P2       | M      | LOW  | —          | DONE                                                                        |
+| [007](./007-agents-md-contributor-guidance.md) | Add contributor guidance preamble to `AGENTS.md`             | P2       | S      | LOW  | —          | DONE                                                                        |
+| [008](./008-recommend-report-perf.md)          | Hoist synonym lookup + fix ecosystem-map scan in report      | P1       | M      | LOW  | 006        | DONE                                                                        |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED: <reason>` | `REJECTED: <rationale>`
 

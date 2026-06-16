@@ -12,7 +12,7 @@ import {
 import { REPORT_FILE_PATH } from "./constants.js";
 import { getRecommendationHosts } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
-import { buildDemandContext } from "./signals.js";
+import { buildDemandContext, buildSynonymLookup } from "./signals.js";
 import {
   buildCandidateRecommendationBase,
   buildPolicySearchContext,
@@ -90,6 +90,10 @@ export function buildRecommendationReport(
   );
   const recommendationHosts = getRecommendationHosts();
   const policyContext = buildPolicySearchContext(policy);
+  // Build once per report run — not once per entry. With 2,000+ entries this
+  // reduces synonym-canonicalization cost from O(entries × synonyms) to O(1)
+  // per entry (a Map.get lookup).
+  const synonymLookup = buildSynonymLookup(policy);
   const candidateBases = entries
     .filter((entry) => entry.compatibilityMode !== "incompatible")
     .map((entry) =>
@@ -98,6 +102,7 @@ export function buildRecommendationReport(
         demandContext,
         policy,
         policyContext,
+        synonymLookup,
       ),
     )
     .filter((base): base is CandidateRecommendationBase => base !== null);
