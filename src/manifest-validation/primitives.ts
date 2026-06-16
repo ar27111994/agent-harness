@@ -53,6 +53,7 @@ export const ASSET_KINDS: AssetKind[] = [
   "prompt-pack",
   "reference-pack",
   "payable-api",
+  "acp-agent",
 ];
 
 /**

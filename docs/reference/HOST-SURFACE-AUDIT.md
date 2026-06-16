@@ -184,3 +184,45 @@ Official docs:
 The checked-in discovery registry already treats the **VS Code Marketplace** as an official marketplace-class source for hosts `copilot-vscode` and `cursor`, so Cursor-targeted extension/plugin/MCP discovery can already flow through that source.
 
 Cursor now has a separate checked-in source entry for its own official marketplace at <https://cursor.com/marketplace> via `discover/sources.json#cursor-marketplace`, while the shared VS Code Marketplace source still covers compatible shared discovery paths.
+
+---
+
+## Host Compatibility Gaps — v2.0.0 audit (#314)
+
+### 1. Cursor — VS Code extension partial compatibility
+
+**Status:** Documented in `support-matrix.ts` `LIMITATIONS_BY_HOST["cursor"]`.
+
+Cursor is a VS Code fork and supports installing extensions from the VS Code Marketplace. Extensions using standard VS Code APIs work; those requiring VS Code-specific runtime features (debugger, notebook APIs) may not. The `vscode-marketplace` source in `discover/sources.json` already lists `cursor` in its hosts array, so marketplace extension recommendations flow to Cursor workspaces automatically.
+
+**Evidence:** <https://cursor.com/help/customization/extensions>
+
+### 2. Windsurf — VS Code extension partial compatibility
+
+**Status:** Documented. Windsurf is a VS Code fork with the same extension compatibility characteristics as Cursor. Windsurf entries in source packs should include `"windsurf"` in the `hosts` array when assets are VS Code extension-compatible.
+
+**Evidence:** <https://docs.windsurf.com/windsurf/cascade/mcp>
+
+### 3. GitHub Copilot CLI / copilot-vscode — Claude Code plugin format partial compatibility
+
+**Status:** Documented in `support-matrix.ts` `LIMITATIONS_BY_HOST["copilot-vscode"]`.
+
+The VS Code agent plugin format (<https://code.visualstudio.com/docs/agent-customization/agent-plugins>) is consumed by both GitHub Copilot and Claude Code. The schema is shared but manifest path conventions differ (`.claude-plugin/plugin.json` vs root `plugin.json`). Assets that ship both layouts are compatible with `copilot-vscode`.
+
+### 4. Cline — `.clinerules` files apply across CLI, VS Code extension, and JetBrains plugin
+
+**Status:** Noted. Cline's `.clinerules` format is surface-agnostic — the same rules file works across the Cline CLI, the VS Code Cline extension, and the JetBrains Cline plugin. Source pack entries targeting Cline content should use `hosts: ["shared"]` or list all three surface IDs when they become registered host targets.
+
+**Evidence:** <https://github.com/cline/cline>
+
+### 5. JetBrains ↔ Zed — ACP (Agent Client Protocol) compatibility
+
+**Status:** Modelled via new `"acp-agent"` `AssetKind` in v2.0.0.
+
+JetBrains and Zed co-developed ACP (<https://www.jetbrains.com/acp/>) for IDE-agent interoperability. Assets typed as `acp-agent` are understood to be cross-compatible between JetBrains and Zed. Source pack entries for ACP agents should use `assetKinds: ["acp-agent"]` and `hosts: ["zed"]` (or both `"zed"` and a JetBrains host ID when one is registered).
+
+### 6. Zed — MCP forwarding to external agents
+
+**Status:** Documented in `support-matrix.ts` `LIMITATIONS_BY_HOST["zed"]`.
+
+Zed forwards MCP servers configured in `.zed/settings.json` to external ACP-based agents in the same session (<https://zed.dev/docs/ai/external-agents>). This means MCP server recommendations for Zed workspaces are also relevant to ACP-agent consumers. The Zed adapter note reflects this forwarding relationship.

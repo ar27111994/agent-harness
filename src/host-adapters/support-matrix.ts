@@ -29,6 +29,7 @@ const LIMITATIONS_BY_HOST: Record<string, string[]> = {
   "copilot-vscode": [
     "Requires a writable VS Code user settings directory for apply/reset.",
     "Marketplace extension install/verify/remove is explicit and never part of wire apply.",
+    "Claude Code plugin format (.claude-plugin/plugin.json) is partially compatible — the schema is shared with VS Code agent plugins but manifest path conventions differ. Agent assets shipping both plugin.json layouts are compatible with copilot-vscode.",
   ],
   opencode: [
     "Uses project-local overlays and does not mutate global OpenCode packages or global MCP settings.",
@@ -38,10 +39,13 @@ const LIMITATIONS_BY_HOST: Record<string, string[]> = {
     "Reuses the Copilot lifecycle store while applying Cursor-specific project files.",
     "Cursor extension install/verify/remove requires the Cursor CLI and explicit native-install operations.",
     "Project plugin registration remains user/host managed.",
+    "VS Code Marketplace extensions are partially compatible with Cursor — extensions that use standard VS Code APIs work, but those relying on VS Code-specific runtime features (e.g. debugger, notebook APIs) may not. Discovery from the vscode-marketplace source applies to cursor workspaces.",
   ],
   zed: [
     "Extension installation remains manual through Zed unless future structured native support is added.",
     "Managed .zed/agent-harness assets are references, not a claim that every asset kind is a native Zed directory.",
+    "Zed forwards MCP servers configured in .zed/settings.json to external ACP-based agents in the same session — MCP server recommendations for Zed workspaces are also relevant to ACP agent consumers.",
+    "ACP-compatible agents (via JetBrains Agent Client Protocol) can be used in Zed when ACP forwarding is configured.",
   ],
   "claude-code": [
     "MCP, hook, and settings synthesis requires explicit structured Claude-native payloads.",

@@ -49,6 +49,7 @@ const OPENCODE_DIRECTORY_BY_ASSET_KIND: Record<AssetKind, string> = {
   "reference-pack":
     "context/project-intelligence/agent-harness/reference-packs",
   "payable-api": "context/project-intelligence/agent-harness/payable-apis",
+  "acp-agent": "context/project-intelligence/agent-harness/acp-agents",
 };
 
 interface OpenCodeLinkedAsset {
