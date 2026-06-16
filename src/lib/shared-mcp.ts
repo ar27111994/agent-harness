@@ -1,10 +1,11 @@
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 
 import { readJsonFile, readJsonFileOrNull } from "../files.js";
 import {
   assertActivationManifest,
   assertInstalledPackageManifest,
 } from "../manifest-validation.js";
+import { isPathWithinRoot } from "./safe-paths.js";
 import type {
   ActivationManifest,
   InstalledBundleManifest,
@@ -26,6 +27,7 @@ export async function readSharedMcpAssetIds(
     return [];
   }
 
+  const installRoot = resolve(join(projectRoot, "install"));
   const activeAssetIds = new Set(sharedActivationManifest.activeAssets);
   const mcpAssetIds = new Set<string>();
 
@@ -47,8 +49,18 @@ export async function readSharedMcpAssetIds(
         continue;
       }
 
+      const resolvedManifestPath = resolve(pkg.manifestPath);
+      if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {
+        console.warn(
+          `Skipping package '${pkg.assetId}': manifestPath '${pkg.manifestPath}' ` +
+            `is outside the install root '${installRoot}${sep}'. ` +
+            "This may indicate a tampered bundle manifest.",
+        );
+        continue;
+      }
+
       const packageManifest = await readJsonFile<InstalledPackageManifest>(
-        pkg.manifestPath,
+        resolvedManifestPath,
         assertInstalledPackageManifest,
       );
       if (packageManifest.assetKind === "mcp-server") {
