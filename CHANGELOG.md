@@ -48,6 +48,22 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- `writeJsonFileAtomically` no longer performs a pre-delete before the atomic rename, closing a window where a crash between `rm` and `rename` could leave a discovery artifact missing entirely (#316)
+- `swapActivationRuntimeRoot` now surfaces rollback failures via `AggregateError` when both the apply and the restore rename fail, preventing the runtime root from being silently left in a missing state (#317)
+- `readSharedMcpAssetIds` validates that `pkg.manifestPath` stays within the install root before reading, closing a path-traversal risk via tampered bundle manifests (#318)
+- Extension-ID parsing in `verifyVsCodeExtensionInstalled` now strips only the trailing `@version` suffix instead of splitting at the first `@`, so scoped extension IDs are no longer truncated (#319)
+- `writeJsonLinesFile` no longer performs a pre-delete before the atomic rename, closing the same window as #316 for all catalog JSONL output files — `catalog.assets.jsonl`, `catalog.selected.jsonl`, and `catalog.rejected.jsonl` (#306)
+- Publisher name for VS Code Marketplace extensions is now resolved from the per-extension `publisher.publisherName` field harvested at sync time rather than the source-level publisher override, so extensions from non-Microsoft publishers are correctly attributed (#300)
+- `install refresh` no longer crashes with ENOENT on a clean checkout: missing `mirror/bundles/*.lock.json` files are now gracefully skipped during `resolveBundleLocks` (#298)
+- `setup doctor` now runs all host-adapter preflights concurrently and enforces a per-adapter wall-clock timeout (default 30 s, configurable via `AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS`), preventing a blocked CLI probe from hanging the entire command (#302)
+- `recommend report` now fails immediately with a clear error when `catalog.selected.jsonl` is absent or empty, instead of hanging for 10+ seconds against an empty dataset; the error message directs users to run `discover full` or `discover select` first (#303)
+- `synonymLookup` map is now built once per recommendation report instead of once per candidate entry, eliminating an O(tokens × synonyms) hot path that caused `recommend report` to stall for 81 s on real 2,000-entry catalogs (#299, #321)
+- Packagist PHP entries no longer rank in the top results for TypeScript/Node workspaces: the ecosystem-affinity mismatch penalty is now doubled (2×) when the workspace has package-manager signals and none match the candidate registry's ecosystem (#278)
+- Per-source entry cap enforced in `discover select`: no single source may contribute more than `AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE` (default 200) entries to the selected catalog; excess entries are logged as `"source-cap"` rejections; a `sourceDiversityWarning` field is emitted when any source still exceeds 20% after capping (#304)
+- `assertRecommendationReport` backfill shim is now documented as a legacy-only compatibility path; fresh report writes are validated for the `recommendations` key before the validator runs, so write-path regressions are immediately visible in tests (#283)
+- Agent coding conventions and contributor guidance added to `CONTRIBUTING.md` (not `AGENTS.md`, which is gitignored) (#322)
+- `docs/guides/TROUBLESHOOTING.md` created, covering host CLI setup, version failures, doctor hang, install ENOENT, concurrent-write safety, and Packagist asset dominance; linked from README (#305)
+
 - `wire opencode --apply` idempotently writes `.opencode/.gitignore` listing `node_modules`, `package-lock.json`, `bun.lockb`, `yarn.lock`, and `pnpm-lock.yaml` before OpenCode starts, ensuring its overlay scanner skips npm install artefacts and eliminating ~800 spurious `OVERLAY:` log lines per run (#282)
 - Go module index cursor now encodes `timestamp|lastSeenPath` (pipe-delimited) instead of a bare timestamp, eliminating the gap-or-duplicate hazard when multiple modules share the same timestamp at a page boundary; legacy bare-timestamp cursors are transparently upgraded on first resume
 - npm changes-feed adapter now calls `deleteIndexedCatalogEntry` for rows with `deleted: true`, immediately removing stale catalog entries instead of leaving them until the never-firing prune-on-complete path
