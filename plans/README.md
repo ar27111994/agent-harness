@@ -16,7 +16,7 @@ Execute in the order below unless dependencies say otherwise. Each executor: rea
 | [004](./004-extension-id-parsing.md) | Fix extension-ID `split("@")` to strip trailing version only | P2 | S | LOW | — | DONE |
 | [005](./005-refresh-test-cli-stub.md) | Stub VS Code CLI probe in install-refresh tests | P1 | S | LOW | — | DONE (satisfied at baseline — createFakeCodeCli already present at ca36be9) |
 | [006](./006-precompute-synonym-map.md) | Precompute synonym lookup map to fix O(n×m) hot path | P2 | M | LOW | — | DONE |
-| [007](./007-agents-md-contributor-guidance.md) | Add contributor guidance preamble to `AGENTS.md` | P2 | S | LOW | — | TODO |
+| [007](./007-agents-md-contributor-guidance.md) | Add contributor guidance preamble to `AGENTS.md` | P2 | S | LOW | — | DONE |
 
 Status values: `TODO` | `IN PROGRESS` | `DONE` | `BLOCKED: <reason>` | `REJECTED: <rationale>`
 
