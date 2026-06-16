@@ -693,6 +693,15 @@ const REGISTRY_ECOSYSTEM_MAP = REGISTRY_ECOSYSTEM_ENTRIES;
  *   language-only project — be conservative and don't penalise).
  * - The source's ecosystem cannot be mapped (unknown / internal registries).
  * - The workspace uses the matching package manager.
+ *
+ * When the workspace has package-manager signals but none of them match the
+ * registry's ecosystem, a **total mismatch** is confirmed and 2× the base
+ * penalty is applied. This prevents wrong-language package-registry entries
+ * from surviving ranking when they happen to share keyword tokens with the
+ * workspace (e.g. PHP Composer packages named after JavaScript tools in an
+ * npm workspace). The doubled penalty ensures that even a demand-cap-saturated
+ * PHP entry (score ≈ 44 before penalty) drops to a negative total while a
+ * correctly-ecosystemed npm entry is unaffected.
  */
 function computeEcosystemMismatchPenalty(
   entry: AssetCatalogEntry,
@@ -716,7 +725,11 @@ function computeEcosystemMismatchPenalty(
   if (demandContext.packageManagers.has(family)) {
     return 0;
   }
-  return penalty;
+  // Total ecosystem mismatch: the workspace has package-manager signals but
+  // none belong to this registry's ecosystem. Double the penalty so wrong-
+  // registry entries cannot crowd out correct-ecosystem results even when
+  // their display names overlap heavily with the workspace's keyword set.
+  return penalty * 2;
 }
 
 function isSuppressedByDependencySelfEcho(
@@ -887,3 +900,10 @@ function isSuppressedForHost(
     searchTerms.has(normalizePhrase(term)),
   );
 }
+
+/**
+ * Exposes narrow candidates internals for focused ecosystem-penalty tests.
+ */
+export const candidatesInternals = {
+  computeEcosystemMismatchPenalty,
+};
