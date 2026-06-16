@@ -10,7 +10,26 @@ import {
   formatPreflightDiagnostics,
   runAdapterPreflight,
   runHostPreflight,
+  type PreflightDiagnostic,
 } from "./lib/preflight.js";
+
+/** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
+const DOCTOR_ADAPTER_TIMEOUT_MS = 5_000;
+
+/**
+ * Parses a positive integer from an environment variable string, falling back
+ * to `defaultValue` when the variable is absent or not a positive integer.
+ */
+function parsePositiveIntegerEnv(
+  value: string | undefined,
+  defaultValue: number,
+): number {
+  if (value === undefined || value.trim() === "") {
+    return defaultValue;
+  }
+  const parsed = parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
+}
 
 /**
  * Dispatches setup and doctor commands for host inventory and readiness checks.
@@ -42,6 +61,11 @@ export async function runSetup(
 /**
  * Prints adapter metadata and preflight diagnostics, returning whether all
  * required checks passed.
+ *
+ * All adapter preflights run concurrently. A per-adapter wall-clock timeout
+ * (default 5 s, env `AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS`) caps the
+ * maximum wall time for any single adapter's check. This prevents a stalling
+ * host CLI (e.g. cursor, zed waiting for IPC) from blocking the entire loop.
  */
 async function runDoctor(
   args: string[],
@@ -60,9 +84,66 @@ async function runDoctor(
     return false;
   }
 
+  const adapterTimeoutMs = parsePositiveIntegerEnv(
+    process.env.AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS,
+    DOCTOR_ADAPTER_TIMEOUT_MS,
+  );
+
+  // Run all adapter preflights concurrently so one stalling CLI does not
+  // block the others. Each adapter is individually guarded by a wall-clock
+  // timeout; if it fires we emit a synthetic timeout diagnostic and continue.
+  const adapterResults = await Promise.allSettled(
+    adapters.map(async (adapter) => {
+      const diagnostics = await Promise.race([
+        (async () => [
+          ...(await runHostPreflight(adapter.lifecycleHost, {
+            requireHostPaths:
+              adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+          })),
+          ...(await runAdapterPreflight(adapter)),
+          ...(projectRoot
+            ? await collectActivatedAssetPrerequisiteDiagnostics(
+                projectRoot,
+                adapter,
+                { missingEnvSeverity: "warning" },
+              )
+            : []),
+        ])(),
+        new Promise<PreflightDiagnostic[]>((resolve) =>
+          setTimeout(
+            () =>
+              resolve([
+                {
+                  severity: "warning",
+                  code: `${adapter.id}-doctor-timeout`,
+                  message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+                  action:
+                    "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
+                },
+              ]),
+            adapterTimeoutMs,
+          ),
+        ),
+      ]);
+      return { adapter, diagnostics };
+    }),
+  );
+
   let hasErrors = false;
 
-  for (const adapter of adapters) {
+  for (const result of adapterResults) {
+    // Promise.allSettled only rejects on uncaught throws. Our inner async
+    // function always resolves (the race resolves either way), so a rejection
+    // here is a genuine internal error — surface it as an error diagnostic.
+    if (result.status === "rejected") {
+      console.log(
+        `\n# (unknown adapter — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
+      );
+      hasErrors = true;
+      continue;
+    }
+
+    const { adapter, diagnostics } = result.value;
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
     console.log(`Recommendation host: ${adapter.recommendationHost}`);
@@ -83,20 +164,6 @@ async function runDoctor(
       );
     }
 
-    const diagnostics = [
-      ...(await runHostPreflight(adapter.lifecycleHost, {
-        requireHostPaths:
-          adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
-      })),
-      ...(await runAdapterPreflight(adapter)),
-      ...(projectRoot
-        ? await collectActivatedAssetPrerequisiteDiagnostics(
-            projectRoot,
-            adapter,
-            { missingEnvSeverity: "warning" },
-          )
-        : []),
-    ];
     if (diagnostics.length > 0) {
       console.log(formatPreflightDiagnostics(diagnostics));
     }
@@ -257,3 +324,90 @@ function printSetupHelp(): void {
     ],
   });
 }
+
+/**
+ * Exposes narrow setup internals for focused concurrency and timeout tests.
+ *
+ * `runDoctorWithAdapters` accepts an explicit adapter list and timeout so tests
+ * can inject a mock adapter with a blocking preflight without touching the
+ * global adapter registry.
+ */
+export const setupInternals = {
+  DOCTOR_ADAPTER_TIMEOUT_MS,
+  parsePositiveIntegerEnv,
+  /** Run the doctor loop over an explicit adapter list with an explicit timeout. */
+  async runDoctorWithAdapters(
+    adapters: HostAdapter[],
+    adapterTimeoutMs: number,
+    projectRoot?: string,
+  ): Promise<{
+    hasErrors: boolean;
+    results: Array<{ adapterId: string; diagnostics: PreflightDiagnostic[] }>;
+  }> {
+    const adapterResults = await Promise.allSettled(
+      adapters.map(async (adapter) => {
+        const diagnostics = await Promise.race([
+          (async () => [
+            ...(await runHostPreflight(adapter.lifecycleHost, {
+              requireHostPaths:
+                adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+            })),
+            ...(await runAdapterPreflight(adapter)),
+            ...(projectRoot
+              ? await collectActivatedAssetPrerequisiteDiagnostics(
+                  projectRoot,
+                  adapter,
+                  { missingEnvSeverity: "warning" },
+                )
+              : []),
+          ])(),
+          new Promise<PreflightDiagnostic[]>((resolve) =>
+            setTimeout(
+              () =>
+                resolve([
+                  {
+                    severity: "warning",
+                    code: `${adapter.id}-doctor-timeout`,
+                    message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+                    action:
+                      "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
+                  },
+                ]),
+              adapterTimeoutMs,
+            ),
+          ),
+        ]);
+        return { adapterId: adapter.id, diagnostics };
+      }),
+    );
+
+    let hasErrors = false;
+    const results: Array<{
+      adapterId: string;
+      diagnostics: PreflightDiagnostic[];
+    }> = [];
+
+    for (const result of adapterResults) {
+      if (result.status === "rejected") {
+        hasErrors = true;
+        results.push({
+          adapterId: "(unknown)",
+          diagnostics: [
+            {
+              severity: "error",
+              code: "internal-error",
+              message: String(result.reason),
+            },
+          ],
+        });
+        continue;
+      }
+      results.push(result.value);
+      if (result.value.diagnostics.some((d) => d.severity === "error")) {
+        hasErrors = true;
+      }
+    }
+
+    return { hasErrors, results };
+  },
+};
