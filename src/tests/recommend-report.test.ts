@@ -9,6 +9,7 @@ import { assertRecommendationReport } from "../manifest-validation.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
 import {
   buildRecommendationReport,
+  CatalogEmptyError,
   writeRecommendationReport,
 } from "../recommend/report.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
@@ -690,3 +691,78 @@ function createEntry(id: string, capabilities: string[]): AssetCatalogEntry {
     },
   };
 }
+
+void test("writeRecommendationReport throws CatalogEmptyError when catalog file is absent", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-report-no-catalog-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    // Intentionally do NOT write catalog.selected.jsonl
+
+    const start = Date.now();
+    await assert.rejects(
+      async () => {
+        await writeRecommendationReport(projectRoot, {
+          policy: await loadRecommendationPolicy(process.cwd()),
+        });
+      },
+      (err: unknown) => {
+        assert.ok(
+          err instanceof CatalogEmptyError,
+          "must be CatalogEmptyError",
+        );
+        assert.ok(
+          err.message.includes("discover full") ||
+            err.message.includes("discover select"),
+          "error message must guide the user to populate the catalog",
+        );
+        assert.ok(
+          typeof err.catalogPath === "string" && err.catalogPath.length > 0,
+          "must expose catalogPath",
+        );
+        return true;
+      },
+    );
+    assert.ok(Date.now() - start < 1000, "fast-fail must complete in < 1 s");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("writeRecommendationReport throws CatalogEmptyError when catalog file is empty", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-report-empty-catalog-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    await writeFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      "",
+      "utf8",
+    );
+
+    const start = Date.now();
+    await assert.rejects(
+      async () => {
+        await writeRecommendationReport(projectRoot, {
+          policy: await loadRecommendationPolicy(process.cwd()),
+        });
+      },
+      (err: unknown) => {
+        assert.ok(
+          err instanceof CatalogEmptyError,
+          "must be CatalogEmptyError",
+        );
+        return true;
+      },
+    );
+    assert.ok(Date.now() - start < 1000, "fast-fail must complete in < 1 s");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});

@@ -32,7 +32,29 @@ import type { CandidateRecommendationBase } from "./model.js";
 import type { RecommendationHost } from "./hosts.js";
 
 /**
+ * Thrown by {@link writeRecommendationReport} when the selected catalog is
+ * absent or empty. The caller should run `discover full` or `discover select`
+ * first to populate the catalog before running `recommend`.
+ */
+export class CatalogEmptyError extends Error {
+  /** Absolute path of the catalog file that was absent or empty. */
+  readonly catalogPath: string;
+
+  constructor(catalogPath: string) {
+    super(
+      `No selected catalog entries found at ${catalogPath}.\n` +
+        `Run 'discover full' or 'discover select' to build the catalog before running 'recommend'.`,
+    );
+    this.name = "CatalogEmptyError";
+    this.catalogPath = catalogPath;
+  }
+}
+
+/**
  * Writes recommendation report to project state.
+ *
+ * @throws {CatalogEmptyError} When `discover/output/catalog.selected.jsonl` is
+ *   absent or empty. Callers must run `discover full` or `discover select` first.
  */
 export async function writeRecommendationReport(
   projectRoot: string,
@@ -42,15 +64,27 @@ export async function writeRecommendationReport(
     sessionIntents?: readonly SessionIntent[];
   } = {},
 ): Promise<RecommendationReport> {
+  // Check catalog first — fail fast before any expensive I/O (policy load,
+  // demand-profile read). An empty or absent catalog means nothing can be
+  // ranked; the user must run discover first.
+  const catalogPath = join(
+    projectRoot,
+    "discover",
+    "output",
+    "catalog.selected.jsonl",
+  );
+  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
+    catalogPath,
+    assertAssetCatalogEntry,
+  );
+  if (selectedEntries.length === 0) {
+    throw new CatalogEmptyError(catalogPath);
+  }
   const resolvedPolicy =
     options.policy ?? (await loadRecommendationPolicy(projectRoot));
   const demandProfile = await readJsonFileOrNull<DemandProfile>(
     join(projectRoot, "discover", "output", "demand-profile.json"),
     assertDemandProfile,
-  );
-  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-    assertAssetCatalogEntry,
   );
   const resolvedIntents = resolveSessionIntents(
     options.sessionIntents ?? options.sessionIntent,

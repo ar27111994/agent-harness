@@ -1256,3 +1256,47 @@ function restoreEnv(name: string, value: string | undefined): void {
 
   process.env[name] = value;
 }
+
+void test("runRecommend report returns exit code 1 and writes to stderr when catalog is absent (#303)", async () => {
+  clearRuntimeConfigForTests();
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-recommend-no-catalog-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
+    // Intentionally do NOT write catalog.selected.jsonl
+
+    const stderrChunks: string[] = [];
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk: unknown, ...rest: unknown[]) => {
+      if (typeof chunk === "string") {
+        stderrChunks.push(chunk);
+      } else if (Buffer.isBuffer(chunk)) {
+        stderrChunks.push(chunk.toString("utf8"));
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (originalStderrWrite as any)(chunk, ...rest);
+    };
+
+    const start = Date.now();
+    let exitCode: number;
+    try {
+      exitCode = await runRecommend([], "", projectRoot);
+    } finally {
+      process.stderr.write = originalStderrWrite;
+    }
+
+    assert.equal(exitCode, 1, "exit code must be 1 when catalog is absent");
+    assert.ok(Date.now() - start < 2000, "command must fast-fail in < 2 s");
+
+    const stderrText = stderrChunks.join("");
+    assert.ok(
+      stderrText.includes("discover full") ||
+        stderrText.includes("discover select"),
+      `stderr must guide user to populate the catalog; got: ${stderrText}`,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});

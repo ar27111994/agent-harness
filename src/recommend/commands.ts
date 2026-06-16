@@ -23,7 +23,7 @@ import {
   resolveRecommendationHost,
 } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
-import { writeRecommendationReport } from "./report.js";
+import { CatalogEmptyError, writeRecommendationReport } from "./report.js";
 import { runRecommendationAiReview } from "./ai-review.js";
 import type { RecommendationHost } from "./hosts.js";
 import type {
@@ -57,10 +57,19 @@ export async function runRecommend(
       console.log(
         `Building recommendation report for intents: ${sessionIntents.join(", ")}`,
       );
-      const deterministicReport = await writeRecommendationReport(projectRoot, {
-        policy,
-        sessionIntents,
-      });
+      let deterministicReport;
+      try {
+        deterministicReport = await writeRecommendationReport(projectRoot, {
+          policy,
+          sessionIntents,
+        });
+      } catch (err) {
+        if (err instanceof CatalogEmptyError) {
+          process.stderr.write(`error: ${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
       const report =
         shouldRunAiReview && policy
           ? (
@@ -104,10 +113,19 @@ export async function runRecommend(
       console.log(
         `Building recommendation report for intents: ${sessionIntents.join(", ")}`,
       );
-      const deterministicReport = await writeRecommendationReport(projectRoot, {
-        policy,
-        sessionIntents,
-      });
+      let deterministicReport;
+      try {
+        deterministicReport = await writeRecommendationReport(projectRoot, {
+          policy,
+          sessionIntents,
+        });
+      } catch (err) {
+        if (err instanceof CatalogEmptyError) {
+          process.stderr.write(`error: ${err.message}\n`);
+          return 1;
+        }
+        throw err;
+      }
       const result = await runRecommendationAiReview({
         projectRoot,
         policy,
