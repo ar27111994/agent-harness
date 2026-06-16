@@ -232,6 +232,116 @@ void test("reference source harvester falls back to metadata when raw content is
   assert.equal(entries[0]?.install.method, "docs-reference");
 });
 
+void test("buildReferenceSourceCatalogEntry uses per-extension publisherName over source-level publisher (#300)", () => {
+  const selectionRegistry = buildSelectionRegistry();
+
+  // Non-Microsoft extension: harvestedItem.publisherName should win
+  const gitLensSource = buildSource("marketplace-reference", "marketplace", {
+    baseUrl: "https://marketplace.visualstudio.com",
+  });
+  const gitLensEntry = buildReferenceSourceCatalogEntry(
+    gitLensSource,
+    buildDemandProfile(),
+    selectionRegistry,
+    {
+      harvestedItem: {
+        displayName: "GitLens",
+        originUrl:
+          "https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens",
+        assetKind: "extension",
+        compatibilityMode: "native",
+        installMethod: "vscode-extension",
+        manifestEntry: "eamodio.gitlens",
+        capabilities: ["git"],
+        summary: "Supercharge Git in VS Code",
+        publisherName: "eamodio",
+      },
+    },
+  );
+
+  // publisherName from harvestedItem must override source.publisher.name ("fixture")
+  assert.equal(
+    gitLensEntry.source.publisher,
+    "eamodio",
+    "non-Microsoft extension should show its own publisher",
+  );
+
+  // Microsoft-owned extension: publisherName is "ms-python", not the marketplace owner
+  const pylanceSource = buildSource("marketplace-reference", "marketplace", {
+    baseUrl: "https://marketplace.visualstudio.com",
+  });
+  const pylanceEntry = buildReferenceSourceCatalogEntry(
+    pylanceSource,
+    buildDemandProfile(),
+    selectionRegistry,
+    {
+      harvestedItem: {
+        displayName: "Pylance",
+        originUrl:
+          "https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-pylance",
+        assetKind: "extension",
+        compatibilityMode: "native",
+        installMethod: "vscode-extension",
+        manifestEntry: "ms-python.vscode-pylance",
+        capabilities: ["python"],
+        summary: "Fast, feature-rich language support for Python",
+        publisherName: "ms-python",
+      },
+    },
+  );
+
+  assert.equal(
+    pylanceEntry.source.publisher,
+    "ms-python",
+    "Microsoft extension should show the extension publisher, not the marketplace owner",
+  );
+
+  // No publisherName: falls back to source.publisher.name
+  const noPublisherNameEntry = buildReferenceSourceCatalogEntry(
+    buildSource("marketplace-reference", "marketplace", {
+      baseUrl: "https://marketplace.visualstudio.com",
+    }),
+    buildDemandProfile(),
+    selectionRegistry,
+    {
+      harvestedItem: {
+        displayName: "Some Extension",
+        originUrl: "https://marketplace.visualstudio.com/items?itemName=x.y",
+        assetKind: "extension",
+        compatibilityMode: "native",
+        installMethod: "vscode-extension",
+        manifestEntry: "x.y",
+        capabilities: [],
+        summary: "An extension",
+        // publisherName intentionally omitted
+      },
+    },
+  );
+
+  // Falls back to source.publisher.name from buildSource helper ("fixture")
+  assert.equal(
+    noPublisherNameEntry.source.publisher,
+    "fixture",
+    "absent publisherName should fall back to source.publisher.name",
+  );
+
+  // No harvestedItem at all: falls back to source.publisher.name
+  const noHarvestEntry = buildReferenceSourceCatalogEntry(
+    buildSource("marketplace-reference", "marketplace", {
+      baseUrl: "https://marketplace.visualstudio.com",
+    }),
+    buildDemandProfile(),
+    selectionRegistry,
+    { originUrl: "https://marketplace.visualstudio.com" },
+  );
+
+  assert.equal(
+    noHarvestEntry.source.publisher,
+    "fixture",
+    "absent harvestedItem should fall back to source.publisher.name",
+  );
+});
+
 function buildSelectionRegistry(): SelectionRegistry {
   return {
     schemaVersion: 1,

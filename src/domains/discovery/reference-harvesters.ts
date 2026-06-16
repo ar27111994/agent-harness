@@ -21,6 +21,13 @@ export interface HarvestedReferenceItem {
   manifestEntry?: string;
   installs?: number;
   lastUpdated?: string;
+  /**
+   * The actual publisher of this item, when available from the harvest source.
+   * Overrides the source-level `publisher.name` when building catalog entries.
+   * For VS Code Marketplace extensions this is the extension publisher (e.g.
+   * `"eamodio"` for GitLens) rather than the marketplace owner (`"Microsoft"`).
+   */
+  publisherName?: string;
 }
 
 const VSCODE_MARKETPLACE_API =
@@ -224,6 +231,7 @@ function normalizeVsCodeMarketplaceExtension(
       manifestEntry: extensionId,
       installs: getMarketplaceStatistic(value, "install"),
       lastUpdated: getString(value.lastUpdated),
+      publisherName: publisher,
     },
   ];
 }

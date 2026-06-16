@@ -113,7 +113,8 @@ export function buildReferenceSourceCatalogEntry(
       sourceKind: source.kind,
       sourcePriority: source.priority,
       originUrl,
-      publisher: source.publisher?.name ?? source.id,
+      publisher:
+        harvestedItem?.publisherName ?? source.publisher?.name ?? source.id,
       publisherVerified: source.publisher?.verified ?? false,
     },
     trust: {
