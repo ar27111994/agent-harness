@@ -95,6 +95,7 @@ The core model is deliberately boring in the best way: one command surface, a ho
 - [AI enrichment playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AI-ENRICHMENT-PLAYBOOK.md)
 - [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md)
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/LOGGING-STRATEGY.md)
+- [Troubleshooting guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/TROUBLESHOOTING.md)
 - [Recommendation policy playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/RECOMMENDATION-POLICY-PLAYBOOK.md)
 - [Workspace evolution control-loop playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/WORKSPACE-EVOLUTION-PLAYBOOK.md)
 - [End-user harness maintenance guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/HARNESS-MAINTENANCE-GUIDE.md)
