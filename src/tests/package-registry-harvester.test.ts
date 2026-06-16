@@ -549,3 +549,75 @@ function jsonResponse(value: unknown): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+void test("package registry catalog entries include evidence.classification for every entry", () => {
+  const selectionRegistry = buildSelectionRegistry();
+
+  // plugin (non-MCP npm package)
+  const pluginEntry = buildPackageRegistryCatalogEntry(
+    buildSource("npm-registry"),
+    "some-lint-plugin",
+    "An eslint plugin",
+    undefined,
+    undefined,
+    null,
+    selectionRegistry,
+    "npm",
+    [],
+  );
+  assert.ok(
+    pluginEntry.evidence.classification != null,
+    "plugin entry must have classification",
+  );
+  assert.equal(pluginEntry.evidence.classification.assetKind, "plugin");
+  assert.ok(
+    pluginEntry.evidence.classification.confidence > 0,
+    "confidence must be positive",
+  );
+  assert.ok(
+    pluginEntry.evidence.classification.evidence.length > 0,
+    "classification evidence array must be non-empty",
+  );
+
+  // mcp-server (package whose name signals MCP)
+  const mcpEntry = buildPackageRegistryCatalogEntry(
+    buildSource("npm-registry"),
+    "@modelcontextprotocol/server-filesystem",
+    "Official MCP filesystem server",
+    undefined,
+    undefined,
+    null,
+    selectionRegistry,
+    "npm",
+    ["mcp"],
+  );
+  assert.ok(
+    mcpEntry.evidence.classification != null,
+    "mcp-server entry must have classification",
+  );
+  assert.equal(mcpEntry.evidence.classification.assetKind, "mcp-server");
+
+  // cargo registry entry
+  const cargoEntry = buildPackageRegistryCatalogEntry(
+    buildSource("cargo-registry"),
+    "serde",
+    "Serialization framework for Rust",
+    undefined,
+    undefined,
+    null,
+    selectionRegistry,
+    "cargo",
+    [],
+  );
+  assert.ok(
+    cargoEntry.evidence.classification != null,
+    "cargo entry must have classification",
+  );
+  assert.equal(cargoEntry.evidence.classification.assetKind, "plugin");
+  assert.ok(
+    (cargoEntry.evidence.classification.evidence[0]?.detail ?? "").includes(
+      "cargo",
+    ),
+    "detail should mention the registry kind",
+  );
+});

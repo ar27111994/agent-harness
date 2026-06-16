@@ -22,6 +22,10 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 import {
+  buildClassificationConfidence,
+  sourceFamilyEvidence,
+} from "./classification-confidence.js";
+import {
   harvestReferenceItems,
   type HarvestedReferenceItem,
 } from "./reference-harvesters.js";
@@ -150,6 +154,14 @@ export function buildReferenceSourceCatalogEntry(
       docsLinked: true,
       lineCount: harvestedContent?.split(/\r?\n/u).length ?? 1,
       rootPath: originUrl,
+      classification: buildClassificationConfidence({
+        assetKind,
+        evidence: [
+          sourceFamilyEvidence(
+            `inferred from ${source.kind} reference source family`,
+          ),
+        ],
+      }),
     },
     maintenance: {
       lastUpdated: harvestedItem?.lastUpdated ?? new Date().toISOString(),

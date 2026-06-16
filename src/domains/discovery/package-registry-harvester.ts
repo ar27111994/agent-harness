@@ -28,6 +28,10 @@ import {
   uniqueStrings,
 } from "./catalog-utils.js";
 import {
+  buildClassificationConfidence,
+  sourceFamilyEvidence,
+} from "./classification-confidence.js";
+import {
   collectNpmMcpSearchQueriesFromDemandProfile,
   collectPackageCandidatesFromDemandProfile,
   type PackageRegistryKind,
@@ -314,6 +318,14 @@ export function buildPackageRegistryCatalogEntry(
       docsLinked: Boolean(repositoryUrl),
       lineCount: 1,
       rootPath: originUrl,
+      classification: buildClassificationConfidence({
+        assetKind,
+        evidence: [
+          sourceFamilyEvidence(
+            `inferred from ${registryKind} package registry source family`,
+          ),
+        ],
+      }),
     },
     maintenance: {
       lastUpdated: lastUpdated ?? new Date(0).toISOString(),

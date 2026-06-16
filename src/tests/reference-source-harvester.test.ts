@@ -404,3 +404,59 @@ function buildSource(
     rules,
   };
 }
+
+void test("reference source catalog entries include evidence.classification for every entry", () => {
+  const repoSource = buildSource("test-repo-source", "repo", {
+    baseUrl: "https://github.com/example/repo",
+  });
+  const docsSource = buildSource("test-docs-source", "docs", {
+    baseUrl: "https://docs.example.com",
+  });
+
+  // Entry built without harvested item (reference-only)
+  const bareEntry = buildReferenceSourceCatalogEntry(
+    repoSource,
+    null,
+    buildSelectionRegistry(),
+  );
+  assert.ok(
+    bareEntry.evidence.classification != null,
+    "bare reference entry must have classification",
+  );
+  assert.equal(bareEntry.evidence.classification.assetKind, "reference-pack");
+  assert.ok(
+    bareEntry.evidence.classification.confidence > 0,
+    "confidence must be positive",
+  );
+
+  // Entry with harvested item that declares a specific assetKind
+  const harvestedEntry = buildReferenceSourceCatalogEntry(
+    docsSource,
+    null,
+    buildSelectionRegistry(),
+    {
+      harvestedItem: {
+        displayName: "Example Skill",
+        originUrl: "https://github.com/example/repo/skill.md",
+        summary: "A harvested skill",
+        capabilities: ["typescript", "skill"],
+        assetKind: "skill",
+        compatibilityMode: "adaptable",
+        installMethod: "docs-summary",
+        manifestEntry: "skill.md",
+        lastUpdated: new Date().toISOString(),
+      },
+    },
+  );
+  assert.ok(
+    harvestedEntry.evidence.classification != null,
+    "harvested entry must have classification",
+  );
+  assert.equal(harvestedEntry.evidence.classification.assetKind, "skill");
+  assert.ok(
+    (harvestedEntry.evidence.classification.evidence[0]?.detail ?? "").includes(
+      "docs",
+    ),
+    "detail should mention the source kind",
+  );
+});
