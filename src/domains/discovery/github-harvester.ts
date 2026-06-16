@@ -101,6 +101,15 @@ function buildGitHubCatalogEntry(
   const contextCost = { sizeClass: "tiny", estimatedPromptWeight: 1 } as const;
   const risk = buildGitHubRisk(classification.assetKind);
   const repoTrust = collectRepositoryTrustEvidence(snapshot);
+  const assetDir = relativePath.includes("/")
+    ? relativePath.slice(0, relativePath.lastIndexOf("/"))
+    : "";
+  const omsSignaturePath = assetDir
+    ? `${assetDir}/skill.oms.sig`
+    : "skill.oms.sig";
+  const hasOmsSignature = snapshot.tree.entries.some(
+    (entry) => entry.path.toLowerCase() === omsSignaturePath.toLowerCase(),
+  );
   const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
 
   return {
@@ -127,7 +136,9 @@ function buildGitHubCatalogEntry(
           publisherVerified: source.publisher?.verified ?? false,
           compatibilityMode: classification.compatibilityMode,
           installMethod: "github-tree-metadata",
-        }) + repoTrust.scoreBonus,
+        }) +
+        repoTrust.scoreBonus +
+        (hasOmsSignature ? 5 : 0),
       signals: [
         ...buildTrustSignals({
           authorityTier: source.authorityTier,
@@ -138,6 +149,7 @@ function buildGitHubCatalogEntry(
           installMethod: "github-tree-metadata",
         }),
         ...repoTrust.signals,
+        ...(hasOmsSignature ? ["oms-signed"] : []),
       ],
     },
     capabilities,
@@ -203,6 +215,11 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
   ) {
     signals.push("tests-present");
     scoreBonus += 2;
+  }
+  // OMS trust anchor: repo ships a root certificate used to verify per-asset signatures
+  if (paths.some((path) => /(^|\/)nv-agent-root-cert\.pem$/u.test(path))) {
+    signals.push("oms-trust-anchor");
+    scoreBonus += 3;
   }
 
   return { scoreBonus, signals };

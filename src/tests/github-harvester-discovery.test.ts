@@ -823,3 +823,136 @@ function jsonResponse(value: unknown): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+void test("github harvester emits oms-signed signal for assets with skill.oms.sig sibling and oms-trust-anchor for repo with root cert", async (context) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url === "https://api.github.com/repos/nvidia/skills") {
+      return jsonResponse({
+        name: "skills",
+        full_name: "nvidia/skills",
+        description: "Official NVIDIA agent skills catalog",
+        default_branch: "main",
+        updated_at: "2026-05-01T00:00:00.000Z",
+        pushed_at: "2026-05-01T00:00:00.000Z",
+        stargazers_count: 88,
+        language: "Markdown",
+        topics: ["skills", "nvidia", "agent"],
+        archived: false,
+        html_url: "https://github.com/nvidia/skills",
+      });
+    }
+
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          // Root cert — marks the whole repo as OMS-anchored
+          { path: "nv-agent-root-cert.pem", type: "blob", sha: "cert-sha" },
+          // Signed skill — has a sibling .oms.sig
+          {
+            path: "skills/cuda-debugger/SKILL.md",
+            type: "blob",
+            sha: "skill-sha",
+          },
+          {
+            path: "skills/cuda-debugger/skill.oms.sig",
+            type: "blob",
+            sha: "sig-sha",
+          },
+          // Unsigned skill — no .oms.sig sibling
+          {
+            path: "skills/model-monitor/SKILL.md",
+            type: "blob",
+            sha: "unsigned-sha",
+          },
+          { path: "LICENSE", type: "blob", sha: "lic-sha" },
+        ],
+      });
+    }
+
+    if (url === "https://api.github.com/repos/nvidia/skills/readme") {
+      return jsonResponse({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 80,
+        html_url: "https://github.com/nvidia/skills/blob/main/README.md",
+        download_url:
+          "https://raw.githubusercontent.com/nvidia/skills/main/README.md",
+      });
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const nvidiaSource = buildSource();
+  nvidiaSource.endpoints.repo = "https://github.com/nvidia/skills";
+
+  const entries = await harvestGitHubRepoSource(
+    nvidiaSource,
+    null,
+    buildSelectionRegistry(),
+    projectRoot,
+  );
+  const byPath = new Map(
+    entries.map((entry) => [entry.install.relativePath, entry]),
+  );
+
+  const signedSkill = byPath.get("skills/cuda-debugger/SKILL.md");
+  const unsignedSkill = byPath.get("skills/model-monitor/SKILL.md");
+
+  assert.ok(signedSkill, "signed SKILL.md should be cataloged");
+  assert.ok(unsignedSkill, "unsigned SKILL.md should be cataloged");
+
+  // Signed asset: both oms-signed (per-asset) and oms-trust-anchor (repo-level)
+  assert.ok(
+    signedSkill.trust.signals.includes("oms-signed"),
+    "signed skill must carry oms-signed signal",
+  );
+  assert.ok(
+    signedSkill.trust.signals.includes("oms-trust-anchor"),
+    "signed skill must carry oms-trust-anchor repo signal",
+  );
+
+  // Unsigned asset: trust-anchor present (repo-level) but no per-asset oms-signed
+  assert.ok(
+    !unsignedSkill.trust.signals.includes("oms-signed"),
+    "unsigned skill must not carry oms-signed signal",
+  );
+  assert.ok(
+    unsignedSkill.trust.signals.includes("oms-trust-anchor"),
+    "unsigned skill still carries oms-trust-anchor from repo-level cert",
+  );
+
+  // Score of signed skill must exceed that of unsigned skill by exactly 5 points
+  assert.equal(
+    signedSkill.trust.score - unsignedSkill.trust.score,
+    5,
+    "oms-signed adds +5 to trust score",
+  );
+});
