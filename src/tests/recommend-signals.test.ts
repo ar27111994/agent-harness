@@ -393,9 +393,8 @@ function buildPolicy(): RecommendationPolicy {
 }
 
 void test("buildSynonymLookup produces correct alias→canonical map", async () => {
-  const { buildSynonymLookup, normalizePhrase } = await import(
-    "../recommend/signals.js"
-  );
+  const { buildSynonymLookup, normalizePhrase } =
+    await import("../recommend/signals.js");
 
   const policy = buildPolicy();
   policy.synonyms = {
@@ -420,9 +419,8 @@ void test("buildSynonymLookup produces correct alias→canonical map", async () 
 });
 
 void test("buildSynonymLookup with precomputed map matches on-demand canonicalization", async () => {
-  const { buildSynonymLookup, buildSearchTerms } = await import(
-    "../recommend/signals.js"
-  );
+  const { buildSynonymLookup, buildSearchTerms } =
+    await import("../recommend/signals.js");
 
   const policy = buildPolicy();
   policy.synonyms = {
@@ -445,9 +443,8 @@ void test("buildSynonymLookup with precomputed map matches on-demand canonicaliz
 });
 
 void test("buildSearchTerms with precomputed lookup is consistent across many values", async () => {
-  const { buildSynonymLookup, buildSearchTerms } = await import(
-    "../recommend/signals.js"
-  );
+  const { buildSynonymLookup, buildSearchTerms } =
+    await import("../recommend/signals.js");
 
   const policy = buildPolicy();
   policy.synonyms = {
@@ -457,9 +454,19 @@ void test("buildSearchTerms with precomputed lookup is consistent across many va
   };
 
   const lookup = buildSynonymLookup(policy);
-  const values = Array.from({ length: 50 }, (_, i) => `term-${String(i)}`).concat(
-    ["test", "spec", "e2e", "sec", "auth", "perf", "speed", "unknown-123"],
-  );
+  const values = Array.from(
+    { length: 50 },
+    (_, i) => `term-${String(i)}`,
+  ).concat([
+    "test",
+    "spec",
+    "e2e",
+    "sec",
+    "auth",
+    "perf",
+    "speed",
+    "unknown-123",
+  ]);
 
   const start = Date.now();
   for (let i = 0; i < 200; i++) {

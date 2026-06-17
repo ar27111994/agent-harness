@@ -221,7 +221,12 @@ export function verifyVsCodeExtensionInstalled(
   const normalizedExtensionId = extensionId.toLowerCase();
   return listExtensionsOutput
     .split(/\r?\n/u)
-    .map((line) => line.trim().replace(/@[^@]+$/u, "").toLowerCase())
+    .map((line) =>
+      line
+        .trim()
+        .replace(/@[^@]+$/u, "")
+        .toLowerCase(),
+    )
     .some((lineExtensionId) => lineExtensionId === normalizedExtensionId);
 }
 

@@ -101,10 +101,7 @@ const GITHUB_TOKEN = process.env["GITHUB_TOKEN"] ?? "";
 
 async function githubSearch(topic: string, page = 1): Promise<GitHubRepo[]> {
   const url = new URL("https://api.github.com/search/repositories");
-  url.searchParams.set(
-    "q",
-    `topic:${topic} stars:>=${MIN_STARS} is:public`,
-  );
+  url.searchParams.set("q", `topic:${topic} stars:>=${MIN_STARS} is:public`);
   url.searchParams.set("sort", "stars");
   url.searchParams.set("order", "desc");
   url.searchParams.set("per_page", "100");
@@ -155,7 +152,8 @@ function inferAuthorityTier(repo: GitHubRepo): string {
   ]);
 
   if (OFFICIAL_ORGS.has(org)) return "official-first-party";
-  if (orgType === "Organization" && stargazers >= 500) return "trusted-community";
+  if (orgType === "Organization" && stargazers >= 500)
+    return "trusted-community";
   if (stargazers >= 100) return "trusted-community";
   return "unverified-community";
 }
@@ -238,7 +236,10 @@ function inferPriority(repo: GitHubRepo): number {
 }
 
 function repoToId(repo: GitHubRepo): string {
-  return `${repo.owner.login.toLowerCase()}-${repo.full_name.split("/")[1]!.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+  return `${repo.owner.login.toLowerCase()}-${repo.full_name
+    .split("/")[1]!
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +295,10 @@ for (const topic of TOPICS) {
 
     candidates.push({
       id,
-      name: repo.full_name.split("/")[1]!.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+      name: repo.full_name
+        .split("/")[1]!
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase()),
       repo: repo.html_url,
       kind: "repo",
       authorityTier: inferAuthorityTier(repo),
@@ -326,7 +330,10 @@ if (isDryRun) {
 
 // Append to community.json
 communityPack.entries.push(...candidates);
-await writeFile(COMMUNITY_PACK_PATH, JSON.stringify(communityPack, null, 2) + "\n");
+await writeFile(
+  COMMUNITY_PACK_PATH,
+  JSON.stringify(communityPack, null, 2) + "\n",
+);
 console.log(
   `\nWrote ${candidates.length} new entries to discover/source-packs/community.json`,
 );

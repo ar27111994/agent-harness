@@ -215,15 +215,15 @@ check — never compare raw strings with `startsWith()`.
 
 ### Key directories
 
-| Path                        | Purpose                                   |
-| --------------------------- | ----------------------------------------- |
-| `src/`                      | TypeScript source                         |
-| `src/domains/discovery/`    | Harvesting, catalog, demand signals       |
-| `src/host-adapters/`        | Per-host wire and extension installers    |
-| `src/recommend/`            | Selection scoring and report generation   |
-| `src/mirror/`               | Artifact download and provenance          |
-| `src/install/`              | Staged install lifecycle                  |
-| `src/activate.ts`           | Runtime root swap and rollback            |
-| `discover/`                 | Source config, policy, and seed JSON      |
-| `docs/`                     | Guides, reference, playbooks              |
-| `plans/`                    | Advisor implementation plans              |
+| Path                     | Purpose                                 |
+| ------------------------ | --------------------------------------- |
+| `src/`                   | TypeScript source                       |
+| `src/domains/discovery/` | Harvesting, catalog, demand signals     |
+| `src/host-adapters/`     | Per-host wire and extension installers  |
+| `src/recommend/`         | Selection scoring and report generation |
+| `src/mirror/`            | Artifact download and provenance        |
+| `src/install/`           | Staged install lifecycle                |
+| `src/activate.ts`        | Runtime root swap and rollback          |
+| `discover/`              | Source config, policy, and seed JSON    |
+| `docs/`                  | Guides, reference, playbooks            |
+| `plans/`                 | Advisor implementation plans            |
