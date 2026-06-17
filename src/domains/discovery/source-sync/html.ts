@@ -7,7 +7,6 @@
  * is NOT in this file; each registry owns its own options construction.
  */
 
-import { getRuntimeConfig } from "../../../config/runtime.js";
 import type { AssetCatalogEntry, SourceDefinition } from "../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
@@ -21,6 +20,7 @@ import {
   parsePositiveIntegerToken,
   restoreFiniteCursorState,
   upsertIndexedCatalogEntry,
+  getEffectiveMaxPagesPerRun,
 } from "./state.js";
 import {
   SOURCE_SYNC_BATCH_SIZE,
@@ -228,8 +228,7 @@ export async function syncSitemapSource(
     nextToken: string;
     completed: boolean;
   }> = [];
-  let remainingPageBudget =
-    getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun;
+  let remainingPageBudget = getEffectiveMaxPagesPerRun(context);
   let status: "complete" | "partial" | "failed" =
     leafSitemapUrls.length > 0 ? "complete" : "failed";
 
@@ -338,8 +337,7 @@ export async function syncHtmlListSource(
 
   for (
     let pageCount = 0;
-    pageCount < getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun &&
-    !completed;
+    pageCount < getEffectiveMaxPagesPerRun(context) && !completed;
     pageCount += 1
   ) {
     const pageUrl =

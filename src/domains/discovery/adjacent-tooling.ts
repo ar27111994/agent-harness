@@ -108,6 +108,22 @@ export const ADJACENT_GEM_BY_SIGNAL: Record<string, string[]> = {
 };
 
 /**
+ * Static dispatch table mapping registry kinds to their adjacent-package
+ * signal maps. Defined at module scope to avoid rebuilding on every call.
+ */
+const ADJACENT_PACKAGES_BY_REGISTRY: Readonly<
+  Record<string, Readonly<Record<string, string[]>>>
+> = {
+  npm: ADJACENT_NPM_BY_SIGNAL,
+  pypi: ADJACENT_PYPI_BY_SIGNAL,
+  cargo: ADJACENT_CARGO_BY_SIGNAL,
+  nuget: ADJACENT_NUGET_BY_SIGNAL,
+  maven: ADJACENT_MAVEN_BY_SIGNAL,
+  packagist: ADJACENT_PACKAGIST_BY_SIGNAL,
+  gem: ADJACENT_GEM_BY_SIGNAL,
+} as const;
+
+/**
  * Returns static adjacent package names for a given registry kind and a set
  * of demand signal tokens.
  *
@@ -117,17 +133,7 @@ export function getAdjacentPackagesForSignals(
   registryKind: PackageRegistryKind,
   signalTokens: Iterable<string>,
 ): string[] {
-  const mapByRegistry: Record<string, Record<string, string[]>> = {
-    npm: ADJACENT_NPM_BY_SIGNAL,
-    pypi: ADJACENT_PYPI_BY_SIGNAL,
-    cargo: ADJACENT_CARGO_BY_SIGNAL,
-    nuget: ADJACENT_NUGET_BY_SIGNAL,
-    maven: ADJACENT_MAVEN_BY_SIGNAL,
-    packagist: ADJACENT_PACKAGIST_BY_SIGNAL,
-    gem: ADJACENT_GEM_BY_SIGNAL,
-  };
-
-  const map = mapByRegistry[registryKind];
+  const map = ADJACENT_PACKAGES_BY_REGISTRY[registryKind];
   if (!map) return [];
 
   const adjacent = new Set<string>();

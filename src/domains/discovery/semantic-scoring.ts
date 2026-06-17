@@ -134,9 +134,16 @@ export function buildDemandQueryText(
  * return `null`/`undefined` and the caller falls back to keyword-overlap gating.
  */
 export class SemanticScorer {
-  /** Whether the optional embedding pipeline is available. */
-  readonly available: boolean;
+  /**
+   * Whether the optional embedding pipeline is available.
+   * Set to `true` by the constructor (embedder override path) or by a
+   * successful `tryInit()` call. Set to `false` when initialisation fails.
+   */
+  get available(): boolean {
+    return this._available;
+  }
 
+  private _available: boolean;
   private readonly minSimilarity: number;
   private embedder: ((text: string) => Promise<Float32Array>) | null = null;
 
@@ -152,11 +159,11 @@ export class SemanticScorer {
     this.minSimilarity = options.minSimilarity ?? FIT_LEVEL_THRESHOLDS.weak;
     if (options.embedderOverride) {
       this.embedder = options.embedderOverride;
-      this.available = true;
+      this._available = true;
     } else {
       // @xenova/transformers is an optional peer dependency — absence is expected.
       // The `available` flag tells callers whether to use semantic paths.
-      this.available = false;
+      this._available = false;
       // We do not attempt the dynamic import here — doing so eagerly would
       // surface errors in environments where the package is absent. Callers
       // that want to try loading the pipeline should use `tryInit()`.
@@ -190,11 +197,10 @@ export class SemanticScorer {
         const output = await pipe(text, { pooling: "mean", normalize: true });
         return output.data;
       };
-      // Mark available after successful init.
-      (this as { available: boolean }).available = true;
+      this._available = true;
     } catch {
       // Package absent or model download failed — graceful fallback.
-      (this as { available: boolean }).available = false;
+      this._available = false;
     }
   }
 

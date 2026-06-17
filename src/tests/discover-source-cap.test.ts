@@ -7,7 +7,7 @@
  * 2. A well-diversified set under the cap passes through unchanged with no
  *    diversity warning.
  * 3. The env-var override (`AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE`) is parsed
- *    correctly and respected by `parseSelectionPositiveIntegerEnv`.
+ *    and surfaced via `getRuntimeConfig().discovery.maxEntriesPerSource`.
  * 4. `sourceDiversityWarning` is returned when any source > 20% of the kept
  *    set, and is absent when all sources ≤ 20%.
  * 5. Both helpers handle edge cases: empty input, single-entry input, and
@@ -18,13 +18,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { discoverInternals } from "../discover.js";
+import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
-const {
-  applyPerSourceCap,
-  computeSourceDiversityWarning,
-  parseSelectionPositiveIntegerEnv,
-} = discoverInternals;
+const { applyPerSourceCap, computeSourceDiversityWarning } = discoverInternals;
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -231,21 +228,37 @@ void test("computeSourceDiversityWarning: returns undefined for empty input", ()
 });
 
 // ---------------------------------------------------------------------------
-// parseSelectionPositiveIntegerEnv — env-var parsing
+// AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE — runtime config env-var parsing
 // ---------------------------------------------------------------------------
 
-void test("parseSelectionPositiveIntegerEnv: valid value parsed correctly", () => {
-  assert.equal(parseSelectionPositiveIntegerEnv("10", 200), 10);
-  assert.equal(parseSelectionPositiveIntegerEnv("1", 200), 1);
-  assert.equal(parseSelectionPositiveIntegerEnv("500", 200), 500);
+void test("AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE: valid value surfaced by getRuntimeConfig", () => {
+  process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE = "50";
+  clearRuntimeConfig();
+  try {
+    assert.equal(getRuntimeConfig().discovery.maxEntriesPerSource, 50);
+  } finally {
+    delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
+    clearRuntimeConfig();
+  }
 });
 
-void test("parseSelectionPositiveIntegerEnv: falls back for missing / empty / invalid", () => {
-  assert.equal(parseSelectionPositiveIntegerEnv(undefined, 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("", 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("   ", 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("0", 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("-5", 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("abc", 200), 200);
-  assert.equal(parseSelectionPositiveIntegerEnv("1.5", 200), 200);
+void test("AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE: falls back to default 200 when unset", () => {
+  delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
+  clearRuntimeConfig();
+  try {
+    assert.equal(getRuntimeConfig().discovery.maxEntriesPerSource, 200);
+  } finally {
+    clearRuntimeConfig();
+  }
+});
+
+void test("AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE: 0 means unlimited (non-negative integer)", () => {
+  process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE = "0";
+  clearRuntimeConfig();
+  try {
+    assert.equal(getRuntimeConfig().discovery.maxEntriesPerSource, 0);
+  } finally {
+    delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
+    clearRuntimeConfig();
+  }
 });

@@ -42,6 +42,7 @@ import {
   type PackageRegistryKind,
 } from "./package-candidates.js";
 import { getAdjacentPackagesForSignals } from "./adjacent-tooling.js";
+import { inferCompatibleHosts } from "../../host-adapters/compatibility-matrix.js";
 import { getRuntimeConfig } from "../../config/runtime.js";
 
 /**
@@ -420,6 +421,7 @@ export function buildPackageRegistryCatalogEntry(
     assetKind,
     hosts,
     compatibilityMode,
+    compatibleHosts: inferCompatibleHosts(assetKind, hosts),
     source: {
       sourceId: source.id,
       authorityTier: source.authorityTier,
@@ -462,7 +464,6 @@ export function buildPackageRegistryCatalogEntry(
       lineCount: 1,
       rootPath: originUrl,
       discoveryMethod: isAdjacent ? "registry-adjacent-search" : "manifest",
-      isAdjacentSuggestion: isAdjacent || undefined,
       classification: buildClassificationConfidence({
         assetKind,
         evidence: [

@@ -4,7 +4,6 @@
  * Owns: NuGet SearchQueryService resolution and paginated package search sync.
  */
 
-import { getRuntimeConfig } from "../../../../config/runtime.js";
 import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
@@ -17,6 +16,7 @@ import {
   parseNonNegativeIntegerToken,
   restoreFiniteCursorState,
   upsertIndexedCatalogEntry,
+  getEffectiveMaxPagesPerRun,
 } from "../state.js";
 import {
   SOURCE_SYNC_BATCH_SIZE,
@@ -56,8 +56,7 @@ export async function syncNuGetRegistrySource(
 
   for (
     let pageCount = 0;
-    pageCount < getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun &&
-    !completed;
+    pageCount < getEffectiveMaxPagesPerRun(context) && !completed;
     pageCount += 1
   ) {
     const queryUrl = new URL(searchQueryServiceUrl);

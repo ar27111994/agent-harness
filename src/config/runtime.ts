@@ -132,6 +132,12 @@ const DISCOVERY_DEFAULTS = {
    * Whether the adjacent-tooling static matrix is enabled. Default true.
    */
   adjacentToolingEnabled: true,
+  /**
+   * Maximum catalog entries to retain per unique source after selection dedup.
+   * Prevents a single high-volume source from dominating the selected set.
+   * 0 means unlimited. Default 200.
+   */
+  maxEntriesPerSource: 200,
 } as const;
 const OFFICIAL_INDEX_DEFAULTS = {
   pageMaxBytes: 1_000_000,
@@ -263,6 +269,11 @@ export interface RuntimeConfig {
      * harvest candidates for matched stack signals.
      */
     adjacentToolingEnabled: boolean;
+    /**
+     * Maximum catalog entries to retain per unique source after selection dedup.
+     * 0 = unlimited.
+     */
+    maxEntriesPerSource: number;
   };
   officialIndex: {
     pageMaxBytes: number;
@@ -559,6 +570,11 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED,
         DISCOVERY_DEFAULTS.adjacentToolingEnabled,
         "AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED",
+      ),
+      maxEntriesPerSource: parseNonNegativeInteger(
+        env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE,
+        DISCOVERY_DEFAULTS.maxEntriesPerSource,
+        "AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE",
       ),
     },
     officialIndex: {

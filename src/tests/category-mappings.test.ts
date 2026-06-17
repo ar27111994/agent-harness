@@ -7,9 +7,8 @@
  * 2. resolveVsCodeCategories deduplicates across multiple signals.
  * 3. resolveVsCodeCategories handles unknown signals gracefully (empty result).
  * 4. resolveVsCodeCategories strips well-known signal prefixes before lookup.
- * 5. resolveMcpTags maps demand tokens to MCP tag strings.
- * 6. VSCODE_SORT_BY and VSCODE_SORT_ORDER constants have the correct values.
- * 7. buildVsCodeMarketplaceRequest passes category as filterType 5 (structural test).
+ * 5. VSCODE_SORT_BY and VSCODE_SORT_ORDER constants have the correct values.
+ * 6. DEMAND_TO_VSCODE_CATEGORIES has broad coverage and non-empty mappings.
  */
 
 import assert from "node:assert/strict";
@@ -17,11 +16,9 @@ import test from "node:test";
 
 import {
   resolveVsCodeCategories,
-  resolveMcpTags,
   VSCODE_SORT_BY,
   VSCODE_SORT_ORDER,
   DEMAND_TO_VSCODE_CATEGORIES,
-  DEMAND_TO_MCP_TAGS,
 } from "../domains/discovery/category-mappings.js";
 
 // ─── resolveVsCodeCategories ─────────────────────────────────────────────────
@@ -74,32 +71,6 @@ void test("resolveVsCodeCategories — testing signal maps to Testing", () => {
   assert.ok(cats.includes("Testing"));
 });
 
-// ─── resolveMcpTags ──────────────────────────────────────────────────────────
-
-void test("resolveMcpTags — maps database signal to database/sql/storage", () => {
-  const tags = resolveMcpTags(["database"]);
-  assert.ok(tags.includes("database"));
-  assert.ok(tags.includes("sql"));
-  assert.ok(tags.includes("storage"));
-});
-
-void test("resolveMcpTags — deduplicates across overlapping signals", () => {
-  // 'web' and 'web' again — should not produce duplicates
-  const tags = resolveMcpTags(["web", "web"]);
-  const webCount = tags.filter((t) => t === "web").length;
-  assert.equal(webCount, 1);
-});
-
-void test("resolveMcpTags — returns empty for unknown signals", () => {
-  const tags = resolveMcpTags(["unknowntag999"]);
-  assert.equal(tags.length, 0);
-});
-
-void test("resolveMcpTags — strips detector: prefix before lookup", () => {
-  const tags = resolveMcpTags(["detector:security"]);
-  assert.ok(tags.includes("security"));
-});
-
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 void test("VSCODE_SORT_BY.InstallCount === 4", () => {
@@ -125,15 +96,6 @@ void test("DEMAND_TO_VSCODE_CATEGORIES — all values are non-empty arrays", () 
     assert.ok(
       Array.isArray(cats) && cats.length > 0,
       `${signal} should map to at least one category`,
-    );
-  }
-});
-
-void test("DEMAND_TO_MCP_TAGS — all values are non-empty arrays", () => {
-  for (const [signal, tags] of Object.entries(DEMAND_TO_MCP_TAGS)) {
-    assert.ok(
-      Array.isArray(tags) && tags.length > 0,
-      `${signal} should map to at least one tag`,
     );
   }
 });

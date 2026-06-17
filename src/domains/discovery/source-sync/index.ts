@@ -100,7 +100,10 @@ export { loadSourceSyncState, getIndexedSourceIds, loadIndexedCatalogEntries };
  * `sourceSyncMaxPagesPerRun` pages per source, and writes the updated state,
  * entries, and report back to disk.
  */
-export async function syncIndexedSources(projectRoot: string): Promise<void> {
+export async function syncIndexedSources(
+  projectRoot: string,
+  options?: { maxPagesPerRun?: number },
+): Promise<void> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
@@ -135,6 +138,9 @@ export async function syncIndexedSources(projectRoot: string): Promise<void> {
       entriesDirty: false,
       previousState,
       observedEntryIds: new Set<string>(),
+      ...(options?.maxPagesPerRun !== undefined
+        ? { maxPagesPerRunOverride: options.maxPagesPerRun }
+        : {}),
     };
 
     try {

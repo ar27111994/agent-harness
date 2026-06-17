@@ -91,47 +91,6 @@ export const VSCODE_SORT_ORDER = {
 export type VsCodeSortOrder =
   (typeof VSCODE_SORT_ORDER)[keyof typeof VSCODE_SORT_ORDER];
 
-// ─── Zed extension categories ────────────────────────────────────────────────
-
-/**
- * Maps demand signal tokens to Zed extension category names.
- * Category names match the filter options on zed.dev/extensions.
- */
-export const DEMAND_TO_ZED_CATEGORIES: Readonly<
-  Record<string, readonly string[]>
-> = {
-  typescript: ["Languages", "Language Servers"],
-  javascript: ["Languages", "Language Servers"],
-  python: ["Languages", "Language Servers"],
-  java: ["Languages", "Language Servers"],
-  rust: ["Languages", "Language Servers"],
-  go: ["Languages", "Language Servers"],
-  ai: ["MCP Servers", "Agent Servers"],
-  mcp: ["MCP Servers", "Agent Servers"],
-  themes: ["Themes", "Icon Themes"],
-  debugging: ["Debug Adapters"],
-  snippets: ["Snippets"],
-};
-
-// ─── MCP registry tags ───────────────────────────────────────────────────────
-
-/**
- * Maps demand signal tokens to MCP registry tag strings.
- * Used when querying MCP registries with `?tag=` or `?category=` params.
- */
-export const DEMAND_TO_MCP_TAGS: Readonly<Record<string, readonly string[]>> = {
-  database: ["database", "sql", "storage"],
-  security: ["security", "auth", "secrets"],
-  testing: ["testing", "ci", "quality"],
-  files: ["filesystem", "files"],
-  web: ["web", "browser", "http"],
-  ai: ["ai", "llm", "agent"],
-  data: ["data", "analytics", "visualization"],
-  git: ["git", "version-control", "scm"],
-  monitoring: ["monitoring", "observability", "logging"],
-  cloud: ["cloud", "aws", "azure", "gcp"],
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
@@ -153,25 +112,4 @@ export function resolveVsCodeCategories(signals: readonly string[]): string[] {
     }
   }
   return [...categories];
-}
-
-/**
- * Resolves the set of MCP tag strings relevant to the given demand signals.
- * Deduplicates the result.
- */
-export function resolveMcpTags(signals: readonly string[]): string[] {
-  const tags = new Set<string>();
-  for (const signal of signals) {
-    const normalized = signal
-      .toLowerCase()
-      .replace(/^(npm|pypi|detector|framework):/u, "")
-      .replace(/[-_.]/gu, "");
-    const mapped = DEMAND_TO_MCP_TAGS[normalized];
-    if (mapped) {
-      for (const tag of mapped) {
-        tags.add(tag);
-      }
-    }
-  }
-  return [...tags];
 }

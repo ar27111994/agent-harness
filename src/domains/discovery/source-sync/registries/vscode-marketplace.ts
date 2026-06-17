@@ -34,8 +34,13 @@ import {
   parsePositiveIntegerToken,
   restoreFiniteCursorState,
   upsertIndexedCatalogEntry,
+  getEffectiveMaxPagesPerRun,
 } from "../state.js";
-import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
+import type {
+  SourceSyncContext,
+  SourceSyncSourceState,
+  SourceSyncCursorState,
+} from "../types.js";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -55,6 +60,92 @@ const CATEGORY_CURSOR_PREFIX = "__cat__";
  * The Marketplace API allows up to 100 per page.
  */
 const SWEEP_PAGE_SIZE = 100;
+
+// ─── Paged sweep helper ───────────────────────────────────────────────────────
+
+/** Options for a single paged sweep over the VS Code Marketplace. */
+interface PagedSweepOptions {
+  /** Cursor ID to look up / persist. */
+  cursorId: string;
+  /** Maximum pages to fetch in this sweep. 0 means skip entirely. */
+  maxPages: number;
+  /** Page size sent to the Marketplace API. */
+  pageSize: number;
+  /** Fetch options forwarded to `fetchVsCodeMarketplaceItemsForQuery`. */
+  fetchOptions?: {
+    sortBy?: number;
+    sortOrder?: number;
+    category?: string;
+  };
+  /** Query string forwarded to `fetchVsCodeMarketplaceItemsForQuery`. */
+  query?: string;
+}
+
+/** Result produced by `runPagedSweep`. */
+interface PagedSweepResult {
+  /** Whether the sweep finished all available pages. */
+  completed: boolean;
+  /** Next page number to resume from (1-indexed). */
+  nextPage: number;
+}
+
+/**
+ * Runs a single paginated sweep over the VS Code Marketplace, upserts entries
+ * into the sync context, and returns cursor state for persistence.
+ *
+ * All three tiers (popularity, category, alphabetical) share this loop:
+ * restore cursor → fetch pages → upsert entries → advance or mark completed.
+ */
+async function runPagedSweep(
+  source: SourceDefinition,
+  context: SourceSyncContext,
+  previousCursors: Map<string, SourceSyncCursorState>,
+  options: PagedSweepOptions,
+): Promise<PagedSweepResult> {
+  if (options.maxPages === 0) {
+    // Sweep is disabled — treat as completed so callers can skip cursor persistence.
+    return { completed: true, nextPage: 1 };
+  }
+
+  const cursorState = restoreFiniteCursorState(
+    previousCursors.get(options.cursorId),
+    { cursorId: options.cursorId, nextToken: "1", completed: false },
+  );
+  let page = parsePositiveIntegerToken(cursorState.nextToken, 1);
+  let completed = cursorState.completed;
+
+  for (
+    let pageCount = 0;
+    pageCount < options.maxPages && !completed;
+    pageCount += 1
+  ) {
+    const items = await fetchVsCodeMarketplaceItemsForQuery(
+      source,
+      options.query ?? "",
+      {
+        ...options.fetchOptions,
+        pageNumber: page,
+        pageSize: options.pageSize,
+      },
+    );
+    for (const item of items) {
+      const entry = buildReferenceSourceCatalogEntry(
+        source,
+        context.demandProfile,
+        context.selectionRegistry,
+        { harvestedItem: item },
+      );
+      upsertIndexedCatalogEntry(context, entry);
+    }
+    if (items.length < options.pageSize) {
+      completed = true;
+    } else {
+      page += 1;
+    }
+  }
+
+  return { completed, nextPage: page };
+}
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
@@ -87,49 +178,29 @@ export async function syncVsCodeMarketplaceSource(
   // ── Tier 1: Popularity sweep ────────────────────────────────────────────
 
   const popularityCursorId = `${POPULARITY_CURSOR_PREFIX}install-count`;
-  const popularityState = restoreFiniteCursorState(
-    previousCursors.get(popularityCursorId),
-    { cursorId: popularityCursorId, nextToken: "1", completed: false },
-  );
-  let popularityPage = parsePositiveIntegerToken(popularityState.nextToken, 1);
-  let popularityCompleted = popularityState.completed;
-
-  for (
-    let pageCount = 0;
-    pageCount < popularitySweepPages && !popularityCompleted;
-    pageCount += 1
-  ) {
-    const items = await fetchVsCodeMarketplaceItemsForQuery(source, "", {
-      pageNumber: popularityPage,
+  const popularitySweep = await runPagedSweep(
+    source,
+    context,
+    previousCursors,
+    {
+      cursorId: popularityCursorId,
+      maxPages: popularitySweepPages,
       pageSize: SWEEP_PAGE_SIZE,
-      sortBy: VSCODE_SORT_BY.InstallCount,
-      sortOrder: VSCODE_SORT_ORDER.Descending,
-    });
-    for (const item of items) {
-      const entry = buildReferenceSourceCatalogEntry(
-        source,
-        context.demandProfile,
-        context.selectionRegistry,
-        { harvestedItem: item },
-      );
-      upsertIndexedCatalogEntry(context, entry);
-    }
-    if (items.length < SWEEP_PAGE_SIZE) {
-      popularityCompleted = true;
-    } else {
-      popularityPage += 1;
-    }
-  }
-
-  if (popularitySweepPages > 0 && !popularityCompleted) {
-    status = "partial";
-  }
+      fetchOptions: {
+        sortBy: VSCODE_SORT_BY.InstallCount,
+        sortOrder: VSCODE_SORT_ORDER.Descending,
+      },
+    },
+  );
 
   if (popularitySweepPages > 0) {
+    if (!popularitySweep.completed) {
+      status = "partial";
+    }
     nextCursors.push({
       cursorId: popularityCursorId,
-      nextToken: String(popularityPage),
-      completed: popularityCompleted,
+      nextToken: String(popularitySweep.nextPage),
+      completed: popularitySweep.completed,
     });
   }
 
@@ -148,49 +219,24 @@ export async function syncVsCodeMarketplaceSource(
 
     for (const category of categories) {
       const catCursorId = `${CATEGORY_CURSOR_PREFIX}${category}`;
-      const catState = restoreFiniteCursorState(
-        previousCursors.get(catCursorId),
-        { cursorId: catCursorId, nextToken: "1", completed: false },
-      );
-      let catPage = parsePositiveIntegerToken(catState.nextToken, 1);
-      let catCompleted = catState.completed;
-
-      for (
-        let pageCount = 0;
-        pageCount < discoveryConfig.sourceSyncMaxPagesPerRun && !catCompleted;
-        pageCount += 1
-      ) {
-        const items = await fetchVsCodeMarketplaceItemsForQuery(source, "", {
-          pageNumber: catPage,
-          pageSize: SWEEP_PAGE_SIZE,
+      const catSweep = await runPagedSweep(source, context, previousCursors, {
+        cursorId: catCursorId,
+        maxPages: getEffectiveMaxPagesPerRun(context),
+        pageSize: SWEEP_PAGE_SIZE,
+        fetchOptions: {
           sortBy: VSCODE_SORT_BY.InstallCount,
           sortOrder: VSCODE_SORT_ORDER.Descending,
           category,
-        });
-        for (const item of items) {
-          const entry = buildReferenceSourceCatalogEntry(
-            source,
-            context.demandProfile,
-            context.selectionRegistry,
-            { harvestedItem: item },
-          );
-          upsertIndexedCatalogEntry(context, entry);
-        }
-        if (items.length < SWEEP_PAGE_SIZE) {
-          catCompleted = true;
-        } else {
-          catPage += 1;
-        }
-      }
+        },
+      });
 
-      if (!catCompleted) {
+      if (!catSweep.completed) {
         status = "partial";
       }
-
       nextCursors.push({
         cursorId: catCursorId,
-        nextToken: String(catPage),
-        completed: catCompleted,
+        nextToken: String(catSweep.nextPage),
+        completed: catSweep.completed,
       });
     }
   }
@@ -203,47 +249,20 @@ export async function syncVsCodeMarketplaceSource(
   );
 
   for (const query of queries) {
-    const queryState = restoreFiniteCursorState(previousCursors.get(query), {
+    const querySweep = await runPagedSweep(source, context, previousCursors, {
       cursorId: query,
-      nextToken: "1",
-      completed: false,
+      maxPages: getEffectiveMaxPagesPerRun(context),
+      pageSize: discoveryConfig.vscodeMarketplaceSyncPageSize,
+      query,
     });
-    let nextPage = parsePositiveIntegerToken(queryState.nextToken, 1);
-    let completed = queryState.completed;
 
-    for (
-      let pageCount = 0;
-      pageCount < discoveryConfig.sourceSyncMaxPagesPerRun && !completed;
-      pageCount += 1
-    ) {
-      const items = await fetchVsCodeMarketplaceItemsForQuery(source, query, {
-        pageNumber: nextPage,
-        pageSize: discoveryConfig.vscodeMarketplaceSyncPageSize,
-      });
-      for (const item of items) {
-        const entry = buildReferenceSourceCatalogEntry(
-          source,
-          context.demandProfile,
-          context.selectionRegistry,
-          { harvestedItem: item },
-        );
-        upsertIndexedCatalogEntry(context, entry);
-      }
-      if (items.length < discoveryConfig.vscodeMarketplaceSyncPageSize) {
-        completed = true;
-      } else {
-        nextPage += 1;
-      }
-    }
-
-    if (!completed) {
+    if (!querySweep.completed) {
       status = "partial";
     }
-
     nextCursors.push({
       cursorId: query,
-      nextToken: String(nextPage),
-      completed,
+      nextToken: String(querySweep.nextPage),
+      completed: querySweep.completed,
     });
   }
 

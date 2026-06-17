@@ -4,7 +4,6 @@
  * Owns: paginated Cargo crates API sync and crate metadata extraction.
  */
 
-import { getRuntimeConfig } from "../../../../config/runtime.js";
 import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
@@ -17,6 +16,7 @@ import {
   parsePositiveIntegerToken,
   restoreFiniteCursorState,
   upsertIndexedCatalogEntry,
+  getEffectiveMaxPagesPerRun,
 } from "../state.js";
 import {
   SOURCE_SYNC_BATCH_SIZE,
@@ -48,8 +48,7 @@ export async function syncCargoRegistrySource(
 
   for (
     let pageCount = 0;
-    pageCount < getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun &&
-    !completed;
+    pageCount < getEffectiveMaxPagesPerRun(context) && !completed;
     pageCount += 1
   ) {
     const apiUrl = new URL(

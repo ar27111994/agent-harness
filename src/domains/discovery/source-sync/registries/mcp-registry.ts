@@ -5,7 +5,6 @@
  * and MCP-specific metadata extraction helpers.
  */
 
-import { getRuntimeConfig } from "../../../../config/runtime.js";
 import type { AssetCatalogEntry, SourceDefinition } from "../../../../types.js";
 import { buildReferenceSourceCatalogEntry } from "../../reference-source-harvester.js";
 import { splitIntoKeywords, uniqueStrings } from "../../catalog-utils.js";
@@ -15,6 +14,7 @@ import {
   getPreviousCursorStates,
   restoreFiniteCursorState,
   upsertIndexedCatalogEntry,
+  getEffectiveMaxPagesPerRun,
 } from "../state.js";
 import {
   asRecord,
@@ -49,8 +49,7 @@ export async function syncMcpRegistrySource(
 
   for (
     let pageCount = 0;
-    pageCount < getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun &&
-    !completed;
+    pageCount < getEffectiveMaxPagesPerRun(context) && !completed;
     pageCount += 1
   ) {
     const requestUrl = new URL(apiUrl);

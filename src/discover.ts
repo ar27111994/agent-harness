@@ -16,7 +16,7 @@ import {
   writeJsonFile,
   writeJsonLinesFile,
 } from "./files.js";
-import { getRuntimeConfig, clearRuntimeConfig } from "./config/runtime.js";
+import { getRuntimeConfig } from "./config/runtime.js";
 import {
   compareSelectionCandidates,
   filterCatalogEntriesByDemandRelevance,
@@ -128,31 +128,12 @@ export async function runDiscover(
       return 0;
     case "index": {
       logDiscoverPhase("discover index", 1, 1, "Building full catalog index");
-      const indexConfig = getRuntimeConfig().discovery;
-      // Override the per-run page limit for the full-index build.
-      // We temporarily raise the well-known env var that syncIndexedSources
-      // honours via getRuntimeConfig(), then restore it in the finally block.
-      const originalMaxPages =
-        process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN;
-      const pageCap = indexConfig.sourceSyncMaxPagesForIndexBuild;
-      process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN = String(
-        pageCap === 0 ? 999_999 : pageCap,
-      );
-      // Reset the config cache so the new env value is picked up.
-      clearRuntimeConfig();
-      try {
-        await syncIndexedSources(projectRoot);
-      } finally {
-        // Restore original env state regardless of success/failure.
-        if (originalMaxPages === undefined) {
-          delete process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN;
-        } else {
-          process.env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN =
-            originalMaxPages;
-        }
-        // Always reset — callers get a clean config after this command.
-        clearRuntimeConfig();
-      }
+      const pageCap =
+        getRuntimeConfig().discovery.sourceSyncMaxPagesForIndexBuild;
+      // Pass the raised page cap directly via the options bag — no env mutation needed.
+      await syncIndexedSources(projectRoot, {
+        maxPagesPerRun: pageCap === 0 ? Infinity : pageCap,
+      });
       // Copy the source-sync entries snapshot to catalog-index.jsonl so that
       // `discover sync` and `discover select` can read it without touching
       // the internal source-sync state paths.
@@ -499,56 +480,12 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     assertDemandProfile,
   );
   const config = getRuntimeConfig();
-  const semanticScorer = new SemanticScorer({
-    minSimilarity: config.discovery.semanticScoringMinSimilarity,
-  });
 
-  let relevanceFilter: {
-    selectedEntries: AssetCatalogEntry[];
-    rejectedEntries: AssetCatalogEntry[];
-  };
-
-  if (config.discovery.semanticScoringEnabled) {
-    await semanticScorer.tryInit();
-    if (semanticScorer.available) {
-      const semanticResult = await semanticScorer.filterAndRank(
-        catalogEntries,
-        demandProfile,
-      );
-      if (semanticResult) {
-        relevanceFilter = {
-          selectedEntries: semanticResult.selected,
-          rejectedEntries: semanticResult.rejected,
-        };
-        console.log(
-          `[semantic-scoring] scored ${catalogEntries.length} entries ` +
-            `(threshold=${config.discovery.semanticScoringMinSimilarity}, ` +
-            `query="${buildDemandQueryText(demandProfile).slice(0, 60)}...")`,
-        );
-      } else {
-        console.warn(
-          "[semantic-scoring] scorer unavailable after init — falling back to keyword gate",
-        );
-        relevanceFilter = filterCatalogEntriesByDemandRelevance(
-          catalogEntries,
-          demandProfile,
-        );
-      }
-    } else {
-      console.warn(
-        "[semantic-scoring] @xenova/transformers not installed — falling back to keyword gate",
-      );
-      relevanceFilter = filterCatalogEntriesByDemandRelevance(
-        catalogEntries,
-        demandProfile,
-      );
-    }
-  } else {
-    relevanceFilter = filterCatalogEntriesByDemandRelevance(
-      catalogEntries,
-      demandProfile,
-    );
-  }
+  const relevanceFilter = await applyRelevanceFilter(
+    catalogEntries,
+    demandProfile,
+    config,
+  );
   const groupedEntries = groupCatalogEntriesForSelection(
     relevanceFilter.selectedEntries,
   );
@@ -592,10 +529,7 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   // selected set. Entries are visited in insertion order (order maintained
   // by the dedup loop above), so the first N entries per source are kept and
   // any excess are rejected with reason "source-cap".
-  const MAX_ENTRIES_PER_SOURCE = parseSelectionPositiveIntegerEnv(
-    process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE,
-    200,
-  );
+  const MAX_ENTRIES_PER_SOURCE = config.discovery.maxEntriesPerSource;
   const { kept: cappedSelectedEntries, capped: capRejections } =
     applyPerSourceCap(selectedEntries, MAX_ENTRIES_PER_SOURCE);
   for (const { assetId } of capRejections) {
@@ -636,10 +570,13 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     }
   }
   // Pass 2: top up to SAMPLE_SIZE with the earliest un-sampled entries.
+  // Use a Set of sampled object references so the membership check stays O(1).
+  const sampledSet = new Set(sampleRejected);
   for (const entry of rejectionLog) {
     if (sampleRejected.length >= SAMPLE_SIZE) break;
-    if (!sampleRejected.includes(entry)) {
+    if (!sampledSet.has(entry)) {
       sampleRejected.push(entry);
+      sampledSet.add(entry);
     }
   }
 
@@ -778,10 +715,9 @@ async function runDiscoveryBreadth(
     projectRoot,
   );
   logDiscoverPhase("discover breadth", 2, 5, "Refreshing source index");
-  await generateSourceIndex(projectRoot);
+  const sourceIndex = await generateSourceIndex(projectRoot);
   logDiscoverPhase("discover breadth", 3, 5, "Syncing indexed sources");
   await syncIndexedSources(projectRoot);
-  const sourceIndex = await generateSourceIndex(projectRoot);
   logDiscoverPhase("discover breadth", 4, 5, "Building discovery catalog");
   const { catalogEntries, enabledSources } = await generateCatalog(projectRoot);
   logDiscoverPhase("discover breadth", 5, 5, "Applying selection rules");
@@ -1030,24 +966,50 @@ function printDiscoverHelp(): void {
 }
 
 /**
- * Parses an env-var value as a positive integer for selection configuration,
- * falling back to `defaultValue` when the value is absent, empty, or invalid.
- * Mirrors the same pattern used in `src/setup.ts` for doctor timeout parsing.
+ * Applies demand-relevance filtering to the catalog, using semantic similarity
+ * scoring when enabled and available, falling back to keyword-overlap gating.
+ *
+ * All scorer branching lives here so `generateSelectionOutputs` stays clean.
  */
-function parseSelectionPositiveIntegerEnv(
-  value: string | undefined,
-  defaultValue: number,
-): number {
-  if (value === undefined || value.trim() === "") {
-    return defaultValue;
+async function applyRelevanceFilter(
+  catalogEntries: AssetCatalogEntry[],
+  demandProfile: DemandProfile | null,
+  config: ReturnType<typeof getRuntimeConfig>,
+): Promise<{
+  selectedEntries: AssetCatalogEntry[];
+  rejectedEntries: AssetCatalogEntry[];
+}> {
+  if (config.discovery.semanticScoringEnabled) {
+    const scorer = new SemanticScorer({
+      minSimilarity: config.discovery.semanticScoringMinSimilarity,
+    });
+    await scorer.tryInit();
+    if (scorer.available) {
+      const semanticResult = await scorer.filterAndRank(
+        catalogEntries,
+        demandProfile,
+      );
+      if (semanticResult) {
+        console.log(
+          `[semantic-scoring] scored ${catalogEntries.length} entries ` +
+            `(threshold=${config.discovery.semanticScoringMinSimilarity}, ` +
+            `query="${buildDemandQueryText(demandProfile).slice(0, 60)}...")`,
+        );
+        return {
+          selectedEntries: semanticResult.selected,
+          rejectedEntries: semanticResult.rejected,
+        };
+      }
+      console.warn(
+        "[semantic-scoring] scorer unavailable after init — falling back to keyword gate",
+      );
+    } else {
+      console.warn(
+        "[semantic-scoring] @xenova/transformers not installed — falling back to keyword gate",
+      );
+    }
   }
-  const trimmed = value.trim();
-  const parsed = parseInt(trimmed, 10);
-  // Reject floats ("1.5"), leading-zero octal-lookalikes, and trailing junk
-  // by requiring the re-stringified value to round-trip exactly.
-  return Number.isInteger(parsed) && parsed > 0 && String(parsed) === trimmed
-    ? parsed
-    : defaultValue;
+  return filterCatalogEntriesByDemandRelevance(catalogEntries, demandProfile);
 }
 
 /**
@@ -1127,8 +1089,4 @@ export function computeSourceDiversityWarning(
 export const discoverInternals = {
   applyPerSourceCap,
   computeSourceDiversityWarning,
-  parseSelectionPositiveIntegerEnv: (
-    value: string | undefined,
-    defaultValue: number,
-  ) => parseSelectionPositiveIntegerEnv(value, defaultValue),
 };

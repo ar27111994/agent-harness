@@ -30,6 +30,7 @@ import type {
   SourceSyncSourceState,
   SourceSyncState,
 } from "./types.js";
+import { getRuntimeConfig } from "../../../config/runtime.js";
 
 // ─── State I/O ────────────────────────────────────────────────────────────────
 
@@ -322,4 +323,18 @@ export function parseNonNegativeIntegerToken(
   return Number.isInteger(parsedValue) && parsedValue >= 0
     ? parsedValue
     : fallback;
+}
+
+/**
+ * Returns the effective max pages per source-sync run for the given context.
+ *
+ * Prefers `context.maxPagesPerRunOverride` when set (used by `discover index`
+ * to raise the cap for a full-index build without mutating `process.env`).
+ * Falls back to the runtime config value.
+ */
+export function getEffectiveMaxPagesPerRun(context: SourceSyncContext): number {
+  return (
+    context.maxPagesPerRunOverride ??
+    getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun
+  );
 }

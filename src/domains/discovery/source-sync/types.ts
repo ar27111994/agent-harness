@@ -69,6 +69,12 @@ export interface SourceSyncContext {
   entriesDirty: boolean;
   previousState: SourceSyncSourceState | undefined;
   observedEntryIds: Set<string>;
+  /**
+   * Optional override for the maximum pages to fetch per run.
+   * When set, takes precedence over `getRuntimeConfig().discovery.sourceSyncMaxPagesPerRun`.
+   * Used by `discover index` to raise the cap without mutating `process.env`.
+   */
+  maxPagesPerRunOverride?: number;
 }
 
 // ─── Fetch options ────────────────────────────────────────────────────────────
