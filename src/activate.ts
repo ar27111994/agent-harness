@@ -448,6 +448,7 @@ async function swapActivationRuntimeRoot(
           "Activation failed and the runtime root rollback also failed — " +
             "the runtime root may be missing. Restore it manually from the " +
             `backup at '${backupRuntimeRoot}' if present.`,
+          { cause: rollbackError },
         );
       }
     }
