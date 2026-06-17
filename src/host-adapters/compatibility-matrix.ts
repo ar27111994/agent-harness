@@ -107,7 +107,7 @@ export function inferCompatibleHosts(
     for (const entry of MCP_COMPATIBLE_HOSTS) {
       // Don't add a host that's already in the primary hosts list
       if (!primaryHosts.includes(entry.host)) {
-        compatible.push(entry);
+        compatible.push({ ...entry });
       }
     }
   }
@@ -115,7 +115,7 @@ export function inferCompatibleHosts(
   if (assetKind === "extension") {
     for (const entry of VSCODE_EXTENSION_COMPATIBLE_HOSTS) {
       if (!primaryHosts.includes(entry.host)) {
-        compatible.push(entry);
+        compatible.push({ ...entry });
       }
     }
   }
@@ -123,7 +123,7 @@ export function inferCompatibleHosts(
   if (assetKind === "acp-agent") {
     for (const entry of ACP_COMPATIBLE_HOSTS) {
       if (!primaryHosts.includes(entry.host)) {
-        compatible.push(entry);
+        compatible.push({ ...entry });
       }
     }
   }

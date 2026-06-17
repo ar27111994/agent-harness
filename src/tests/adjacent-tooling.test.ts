@@ -6,6 +6,10 @@ import {
   ADJACENT_NPM_BY_SIGNAL,
   ADJACENT_PYPI_BY_SIGNAL,
   ADJACENT_CARGO_BY_SIGNAL,
+  ADJACENT_NUGET_BY_SIGNAL,
+  ADJACENT_MAVEN_BY_SIGNAL,
+  ADJACENT_PACKAGIST_BY_SIGNAL,
+  ADJACENT_GEM_BY_SIGNAL,
 } from "../domains/discovery/adjacent-tooling.js";
 
 void test("getAdjacentPackagesForSignals — npm/typescript returns eslint and vitest", () => {
@@ -92,6 +96,42 @@ void test("ADJACENT_CARGO_BY_SIGNAL — all entries are non-empty arrays", () =>
     assert.ok(
       Array.isArray(pkgs) && pkgs.length > 0,
       `cargo signal "${key}" must have at least one package`,
+    );
+  }
+});
+
+void test("ADJACENT_NUGET_BY_SIGNAL — all entries are non-empty arrays", () => {
+  for (const [key, pkgs] of Object.entries(ADJACENT_NUGET_BY_SIGNAL)) {
+    assert.ok(
+      Array.isArray(pkgs) && pkgs.length > 0,
+      `nuget signal "${key}" must have at least one package`,
+    );
+  }
+});
+
+void test("ADJACENT_MAVEN_BY_SIGNAL — all entries are non-empty arrays", () => {
+  for (const [key, pkgs] of Object.entries(ADJACENT_MAVEN_BY_SIGNAL)) {
+    assert.ok(
+      Array.isArray(pkgs) && pkgs.length > 0,
+      `maven signal "${key}" must have at least one package`,
+    );
+  }
+});
+
+void test("ADJACENT_PACKAGIST_BY_SIGNAL — all entries are non-empty arrays", () => {
+  for (const [key, pkgs] of Object.entries(ADJACENT_PACKAGIST_BY_SIGNAL)) {
+    assert.ok(
+      Array.isArray(pkgs) && pkgs.length > 0,
+      `packagist signal "${key}" must have at least one package`,
+    );
+  }
+});
+
+void test("ADJACENT_GEM_BY_SIGNAL — all entries are non-empty arrays", () => {
+  for (const [key, pkgs] of Object.entries(ADJACENT_GEM_BY_SIGNAL)) {
+    assert.ok(
+      Array.isArray(pkgs) && pkgs.length > 0,
+      `gem signal "${key}" must have at least one package`,
     );
   }
 });

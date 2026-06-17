@@ -303,8 +303,9 @@ function buildVsCodeMarketplaceRequest(
   // filterType 10 = full-text search query; filterType 5 = category filter.
   // When a category is supplied we use it instead of a text query so the
   // result set contains every extension in that category.
-  if (category) {
-    criteria.push({ filterType: 5, value: category });
+  const trimmedCategory = category?.trim();
+  if (trimmedCategory) {
+    criteria.push({ filterType: 5, value: trimmedCategory });
   } else {
     criteria.push({ filterType: 10, value: query });
   }

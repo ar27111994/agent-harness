@@ -267,21 +267,24 @@ export class SemanticScorer {
     const queryVec = await this.embed(queryText);
     if (!queryVec) return null;
 
-    const selected: AssetCatalogEntry[] = [];
+    const selected: Array<{ entry: AssetCatalogEntry; score: number }> = [];
     const rejected: AssetCatalogEntry[] = [];
 
     for (const entry of catalogEntries) {
       const result = await this.scoreEntry(entry, queryVec);
       if (!result) {
-        // Cannot score this entry — keep it (conservative).
-        selected.push(entry);
+        // Cannot score this entry — keep it (conservative) with score=0.
+        selected.push({ entry, score: 0 });
         continue;
       }
 
       if (result.score >= this.minSimilarity) {
         selected.push({
-          ...entry,
-          fit: { ...entry.fit, fitLevel: result.fitLevel },
+          entry: {
+            ...entry,
+            fit: { ...entry.fit, fitLevel: result.fitLevel },
+          },
+          score: result.score,
         });
       } else {
         rejected.push({
@@ -291,7 +294,8 @@ export class SemanticScorer {
       }
     }
 
-    // Sort selected entries by score (highest first) for stable downstream ranking.
+    // Sort selected entries: primary key = fitLevel bucket (highest first),
+    // secondary key = cosine similarity score (highest first) within each bucket.
     selected.sort((a, b) => {
       const fitOrder: Record<string, number> = {
         strong: 3,
@@ -299,14 +303,14 @@ export class SemanticScorer {
         weak: 1,
         none: 0,
       };
-      return (
+      const bucketDiff =
         /* c8 ignore next 2 -- fitLevel is a required FitLevel union; ?? branches are unreachable with valid typed values */
-        (fitOrder[b.fit.fitLevel ?? "none"] ?? 0) -
-        (fitOrder[a.fit.fitLevel ?? "none"] ?? 0)
-      );
+        (fitOrder[b.entry.fit.fitLevel ?? "none"] ?? 0) -
+        (fitOrder[a.entry.fit.fitLevel ?? "none"] ?? 0);
+      return bucketDiff !== 0 ? bucketDiff : b.score - a.score;
     });
 
-    return { selected, rejected };
+    return { selected: selected.map((s) => s.entry), rejected };
   }
 
   /** Minimum similarity threshold used by this scorer. */

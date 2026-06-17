@@ -60,17 +60,26 @@ export async function harvestGitHubRepoSource(
       return [];
     }
 
+    // Build a Set of all lower-cased paths once so buildGitHubCatalogEntry can
+    // do O(1) OMS-signature lookups instead of O(n) .some() scans per entry.
+    const omsPathSet = new Set(
+      snapshot.tree.entries.map((entry) => entry.path.toLowerCase()),
+    );
+
     return snapshot.tree.entries
       .filter((entry) => entry.type === "blob")
-      .map((entry) =>
-        buildGitHubCatalogEntry(
+      .map((entry) => {
+        // Pre-compute a lower-cased path set for O(1) OMS-signature lookups
+        // inside buildGitHubCatalogEntry, avoiding an O(n) scan per asset.
+        return buildGitHubCatalogEntry(
           snapshot,
           source,
           entry,
           demandProfile,
           selectionRegistry,
-        ),
-      )
+          omsPathSet,
+        );
+      })
       .filter((entry): entry is AssetCatalogEntry => entry !== null);
   } catch (error) {
     console.warn(
@@ -86,6 +95,7 @@ function buildGitHubCatalogEntry(
   treeEntry: GitHubRepoSnapshot["tree"]["entries"][number],
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
+  omsPathSet: ReadonlySet<string>,
 ): AssetCatalogEntry | null {
   const relativePath = treeEntry.path;
   const classification = classifyGitHubTreePath(relativePath, source);
@@ -108,9 +118,7 @@ function buildGitHubCatalogEntry(
   const omsSignaturePath = assetDir
     ? `${assetDir}/skill.oms.sig`
     : "skill.oms.sig";
-  const hasOmsSignature = snapshot.tree.entries.some(
-    (entry) => entry.path.toLowerCase() === omsSignaturePath.toLowerCase(),
-  );
+  const hasOmsSignature = omsPathSet.has(omsSignaturePath.toLowerCase());
   const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
 
   return {

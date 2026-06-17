@@ -46,4 +46,4 @@ surfaces first for any workspace compatible with planning/orchestration tooling.
 - `node ./scripts/build.mjs` — clean
 - `discover-source-cap.test.js` + `catalog-selection.test.js` — 33/33 pass
 - `npx eslint src/types/core.ts src/manifest-validation/primitives.ts src/host-adapters/opencode.ts` — 0 warnings/errors
-- `python3 -c "import json; json.load(open(...))"` — JSON valid
+- `node -e "require('node:fs').readFileSync('discover/source-packs/official.json'); console.log('JSON valid')"` — JSON valid

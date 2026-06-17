@@ -590,7 +590,7 @@ export async function fetchMavenSearch(
         name:
           typeof d["id"] === "string"
             ? d["id"]
-            : typeof d["a"] === "string"
+            : typeof d["g"] === "string" && typeof d["a"] === "string"
               ? `${d["g"]}:${d["a"]}`
               : "",
         description: undefined,

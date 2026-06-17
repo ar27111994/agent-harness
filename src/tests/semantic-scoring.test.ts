@@ -424,8 +424,11 @@ void test("SemanticScorer — scoreEntry returns null for entry with no embeddab
 });
 
 void test("SemanticScorer — tryInit gracefully handles absent @xenova/transformers (sets available=false)", async () => {
-  // @xenova/transformers is not installed in the test environment.
-  // tryInit() must catch the import error and leave the scorer unavailable.
+  // This test relies on @xenova/transformers not being installed in the test
+  // environment. The SemanticScorer uses a dynamic import that must throw a
+  // MODULE_NOT_FOUND (or equivalent) error so tryInit() marks the scorer
+  // unavailable. If @xenova/transformers were ever added as a dev dependency
+  // this test would need to be refactored to inject a failing loader instead.
   const scorer = new SemanticScorer({});
   assert.equal(scorer.available, false, "unavailable before tryInit");
   await scorer.tryInit(); // should not throw

@@ -382,6 +382,7 @@ void test("discoverAdjacentPackages — live search loop adds new name to adjace
         frameworks: ["react"],
       });
       // maxTerms:1 enables one live-search iteration via npm.
+      // adjacentToolingEnabled:true is required for the live-search block.
       // existingCandidates is empty so the returned name is new → adjacent.add fires.
       const result =
         await packageRegistryHarvesterInternals.discoverAdjacentPackages(
@@ -391,7 +392,7 @@ void test("discoverAdjacentPackages — live search loop adds new name to adjace
           {
             maxTerms: 1,
             maxResultsPerTerm: 5,
-            adjacentToolingEnabled: false, // skip static matrix; test live-search only
+            adjacentToolingEnabled: true,
           },
         );
       // npm searchRegistryByKind returns results via mock — adjacent set should

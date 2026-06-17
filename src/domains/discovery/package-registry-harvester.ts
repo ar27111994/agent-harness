@@ -282,7 +282,7 @@ async function discoverAdjacentPackages(
   }
 
   // 2. Live registry search — use top demand language/framework signals as terms.
-  if (demandProfile && config.maxTerms > 0) {
+  if (config.adjacentToolingEnabled && demandProfile && config.maxTerms > 0) {
     const searchSignals = [
       ...demandProfile.signals.languages,
       ...demandProfile.signals.frameworks,

@@ -226,6 +226,7 @@ export async function harvestOfficialSkillIndexes(
         if (!seenIds.has(resolvedRepoSource.id)) {
           seenIds.add(resolvedRepoSource.id);
           entries.push(resolvedRepoSource);
+          indexEntriesAdded++;
         }
       }
     }

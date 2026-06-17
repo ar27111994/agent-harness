@@ -1034,7 +1034,8 @@ export function applyPerSourceCap(
   for (const entry of entries) {
     const sourceId = entry.source.sourceId;
     const count = sourceCountMap.get(sourceId) ?? 0;
-    if (count >= maxPerSource) {
+    // 0 means unlimited — skip the cap check entirely.
+    if (maxPerSource > 0 && count >= maxPerSource) {
       capped.push({ assetId: entry.id });
     } else {
       sourceCountMap.set(sourceId, count + 1);

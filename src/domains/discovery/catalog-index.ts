@@ -49,6 +49,14 @@ export async function isCatalogIndexFresh(
   let builtAt: Date;
 
   if (meta != null) {
+    // Meta exists but the JSONL snapshot itself may be absent (e.g. deleted
+    // manually). Verify the index file is actually on disk before trusting
+    // the timestamp in meta.
+    try {
+      await stat(indexPath);
+    } catch {
+      return false;
+    }
     builtAt = new Date(meta.builtAt);
   } else {
     // Fall back to JSONL mtime — handles pre-meta indexes.

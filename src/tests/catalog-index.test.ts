@@ -45,6 +45,12 @@ async function writeMetaFile(
     join(projectRoot, "discover", "output", "catalog-index-meta.json"),
     JSON.stringify(meta),
   );
+  // The freshness check now also verifies the JSONL is present when meta exists.
+  // Write an empty JSONL alongside every meta fixture so the stat succeeds.
+  await writeFile(
+    join(projectRoot, "discover", "output", "catalog-index.jsonl"),
+    "",
+  );
 }
 
 async function writeFakeIndexJsonl(

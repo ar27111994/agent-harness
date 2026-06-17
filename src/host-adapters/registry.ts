@@ -371,6 +371,17 @@ export function isHostCompatibleWithRecommendationHost(
   compatibleHosts?: CompatibleHost[],
 ): boolean {
   const adapter = getAdapterForRecommendationHost(recommendationHost);
+
+  // Cross-host compatibility metadata takes precedence over the adapter
+  // capability gate: an entry explicitly listed in compatibleHosts should
+  // surface even when the recommendation host's adapter does not yet declare
+  // the assetKind (e.g. new "acp-agent" kind on a host that predates it).
+  if (isHostInCompatibleHosts(compatibleHosts, recommendationHost)) {
+    return true;
+  }
+
+  // Adapter capability gate: reject when the recommendation host's adapter
+  // exists but doesn't handle this assetKind.
   if (
     adapter &&
     !adapter.capabilities.some(
@@ -388,8 +399,7 @@ export function isHostCompatibleWithRecommendationHost(
     return true;
   }
 
-  // Check cross-host compatibility matrix
-  return isHostInCompatibleHosts(compatibleHosts, recommendationHost);
+  return false;
 }
 
 /**

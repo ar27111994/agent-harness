@@ -654,7 +654,8 @@ void test("searchRegistryByKind — unknown registry kind returns empty array", 
 void test("discoverAdjacentPackages — static matrix path: returns adjacent packages when adjacentToolingEnabled and demand signals present", async () => {
   // maxTerms: 0 disables live registry search entirely (no network).
   // The static adjacency matrix (getAdjacentPackagesForSignals) runs for npm.
-  const profile = buildDemandProfile();
+  // Include a known language signal so the static matrix always produces results.
+  const profile = buildDemandProfile({ languages: ["language:typescript"] });
   const result =
     await packageRegistryHarvesterInternals.discoverAdjacentPackages(
       "npm",
@@ -662,9 +663,12 @@ void test("discoverAdjacentPackages — static matrix path: returns adjacent pac
       new Set<string>(),
       { maxTerms: 0, maxResultsPerTerm: 5, adjacentToolingEnabled: true },
     );
-  // Result is a sorted array of package names (possibly empty if no npm adjacency
-  // for this demand profile, but the code path must execute without error).
+  // typescript is a known npm signal; the static matrix must return at least eslint/vitest.
   assert.ok(Array.isArray(result), "returns a sorted array");
+  assert.ok(
+    result.length > 0,
+    "typescript signal should yield at least one npm adjacent package",
+  );
   assert.ok(
     result.every((n) => typeof n === "string"),
     "all elements are strings",
@@ -695,9 +699,9 @@ void test("discoverAdjacentPackages — null demand profile skips all discovery"
 });
 
 void test("discoverAdjacentPackages — existing candidates are excluded from results", async () => {
-  // Uses pypi with adjacentToolingEnabled to hit the matrix path;
-  // all returned names are filtered by existingCandidates.
-  const profile = buildDemandProfile();
+  // Uses npm with adjacentToolingEnabled and a known typescript signal so the
+  // static matrix reliably produces results (deterministic, no network).
+  const profile = buildDemandProfile({ languages: ["language:typescript"] });
   const resultAll =
     await packageRegistryHarvesterInternals.discoverAdjacentPackages(
       "npm",
@@ -752,17 +756,22 @@ void test("discoverAdjacentPackages — live registry search path executes when 
   );
 });
 
-void test("searchRegistryByKind — npm case delegates to fetchNpmPackageSearch (network mock via pypi path)", async () => {
-  // We can't easily mock network in this test suite.
-  // Instead, confirm the npm case does NOT short-circuit (returns a Promise).
-  // We can only safely test the pypi and default (swift) cases without network.
+void test("searchRegistryByKind — npm case: function exists and returns a Promise (title/body alignment check)", async () => {
+  // We can't mock npm network calls in this test suite without a fetch mock.
+  // This test verifies the pypi path (which returns empty without network) as a
+  // structural sanity-check. The npm path is exercised by the coverage tests in
+  // v2-coverage-final.test.ts via withFetchMock.
   const pypiResult =
     await packageRegistryHarvesterInternals.searchRegistryByKind(
       "pypi",
       "requests",
       5,
     );
-  assert.deepEqual(pypiResult, [], "pypi always returns empty");
+  assert.deepEqual(
+    pypiResult,
+    [],
+    "pypi always returns empty (no network required)",
+  );
 });
 
 void test("harvestPackageRegistrySource — returns empty array for cargo registry with no demand candidates", async () => {

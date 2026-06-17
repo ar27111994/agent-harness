@@ -104,6 +104,16 @@ export async function syncIndexedSources(
   projectRoot: string,
   options?: { maxPagesPerRun?: number },
 ): Promise<void> {
+  if (
+    options?.maxPagesPerRun !== undefined &&
+    (typeof options.maxPagesPerRun !== "number" ||
+      !isFinite(options.maxPagesPerRun) ||
+      options.maxPagesPerRun <= 0)
+  ) {
+    throw new Error(
+      `syncIndexedSources: options.maxPagesPerRun must be a positive number (got ${String(options.maxPagesPerRun)})`,
+    );
+  }
   const sourceRegistry = await loadSourceRegistry(projectRoot);
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),

@@ -246,6 +246,44 @@ void describe("isHostCompatibleWithRecommendationHost — cross-host compat", ()
       "Without compatibleHosts, mcp-server is not cross-host surfaced",
     );
   });
+
+  void it("acp-agent with compatibleHosts is surfaced for a compatible target host", () => {
+    // inferCompatibleHosts for "acp-agent" uses ACP_COMPATIBLE_HOSTS.
+    const entryHosts = ["copilot-vscode"] as HostTarget[];
+    const compatibleHosts = inferCompatibleHosts("acp-agent", entryHosts);
+    // Only run this test if ACP_COMPATIBLE_HOSTS actually contains entries that
+    // differ from the primary host — skip gracefully if the list is empty.
+    const target = compatibleHosts[0]?.host;
+    if (!target) return;
+    const result = isHostCompatibleWithRecommendationHost(
+      entryHosts,
+      target,
+      "acp-agent",
+      compatibleHosts,
+    );
+    assert.strictEqual(
+      result,
+      true,
+      "acp-agent is surfaced for a compatible host via compatibleHosts",
+    );
+  });
+
+  void it("acp-agent with NO compatibleHosts is NOT surfaced for non-primary host", () => {
+    // Use opencode as recommendation host: its lifecycleHost is opencode (not
+    // copilot-vscode), so the lifecycle-host path doesn't fire.
+    // opencode doesn't declare acp-agent capability, so the adapter gate rejects it.
+    const result = isHostCompatibleWithRecommendationHost(
+      ["copilot-vscode"],
+      "opencode",
+      "acp-agent",
+      undefined,
+    );
+    assert.strictEqual(
+      result,
+      false,
+      "Without compatibleHosts, acp-agent is not cross-host surfaced",
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

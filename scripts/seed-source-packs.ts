@@ -115,7 +115,10 @@ async function githubSearch(topic: string, page = 1): Promise<GitHubRepo[]> {
     headers["Authorization"] = `Bearer ${GITHUB_TOKEN}`;
   }
 
-  const response = await fetch(url.toString(), { headers });
+  const response = await fetch(url.toString(), {
+    headers,
+    signal: AbortSignal.timeout(30_000),
+  });
   if (!response.ok) {
     const body = await response.text();
     throw new Error(
@@ -254,6 +257,7 @@ const { values: flags } = parseArgs({
 });
 
 const isDryRun = flags["dry-run"] ?? false;
+const isAutoApprove = flags["auto-approve"] ?? false;
 
 // Load existing IDs to deduplicate
 const communityPack = JSON.parse(
@@ -326,6 +330,22 @@ if (isDryRun) {
   console.log("\n--- DRY RUN: candidates (not written) ---");
   console.log(JSON.stringify(candidates, null, 2));
   process.exit(0);
+}
+
+if (!isAutoApprove) {
+  process.stdout.write(
+    `\nAppend ${candidates.length} candidate(s) to community.json? [y/N] `,
+  );
+  const answer = await new Promise<string>((resolve) => {
+    process.stdin.setEncoding("utf8");
+    process.stdin.once("data", (chunk: string) => {
+      resolve(chunk.trim().toLowerCase());
+    });
+  });
+  if (answer !== "y" && answer !== "yes") {
+    console.log("Aborted.");
+    process.exit(0);
+  }
 }
 
 // Append to community.json
