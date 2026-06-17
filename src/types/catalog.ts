@@ -174,6 +174,17 @@ export interface AssetContextCost {
 export interface AssetFit {
   portfolioFit: number;
   hostFit: number;
+  /**
+   * Human-readable fit level derived from semantic similarity score.
+   * Populated when semantic scoring is enabled; `undefined` when using
+   * keyword-overlap fallback mode.
+   *
+   * - `"strong"` — cosine similarity ≥ 0.75 (high confidence match)
+   * - `"moderate"` — cosine similarity ≥ 0.55 (likely relevant)
+   * - `"weak"` — cosine similarity ≥ 0.35 (marginally relevant, kept)
+   * - `"none"` — similarity below threshold (filtered out)
+   */
+  fitLevel?: "strong" | "moderate" | "weak" | "none";
 }
 
 /**

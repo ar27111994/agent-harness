@@ -102,6 +102,19 @@ const DISCOVERY_DEFAULTS = {
    * using the cached index.
    */
   discoveryIndexMaxAgeDays: 7,
+  /**
+   * Whether semantic similarity scoring via @xenova/transformers is enabled.
+   * When false (default) the existing keyword-overlap demand-relevance gate
+   * is used. When true and the package is installed, cosine similarity
+   * replaces the binary keyword gate and `fit.fitLevel` is populated.
+   */
+  semanticScoringEnabled: false,
+  /**
+   * Minimum cosine similarity (0–1) for an entry to pass the semantic
+   * demand-relevance gate. Default 0.35 ("weak" fit threshold).
+   * Ignored when semantic scoring is disabled.
+   */
+  semanticScoringMinSimilarity: 0.35,
 } as const;
 const OFFICIAL_INDEX_DEFAULTS = {
   pageMaxBytes: 1_000_000,
@@ -203,6 +216,17 @@ export interface RuntimeConfig {
     sourceSyncMaxPagesForIndexBuild: number;
     /** Days before catalog-index.jsonl is considered stale. */
     discoveryIndexMaxAgeDays: number;
+    /**
+     * Whether semantic similarity scoring is enabled.
+     * When true and @xenova/transformers is installed, cosine similarity
+     * replaces the binary keyword-overlap gate.
+     */
+    semanticScoringEnabled: boolean;
+    /**
+     * Minimum cosine similarity threshold for an entry to pass the semantic
+     * demand-relevance gate (0–1). Default 0.35.
+     */
+    semanticScoringMinSimilarity: number;
   };
   officialIndex: {
     pageMaxBytes: number;
@@ -464,6 +488,16 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS,
         DISCOVERY_DEFAULTS.discoveryIndexMaxAgeDays,
         "AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS",
+      ),
+      semanticScoringEnabled: parseBooleanFlag(
+        env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING,
+        DISCOVERY_DEFAULTS.semanticScoringEnabled,
+        "AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING",
+      ),
+      semanticScoringMinSimilarity: parseFloatFraction(
+        env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY,
+        DISCOVERY_DEFAULTS.semanticScoringMinSimilarity,
+        "AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY",
       ),
     },
     officialIndex: {
@@ -792,6 +826,23 @@ function parseBooleanFlag(
   }
 
   throw new Error(`${envName} must be a boolean when set.`);
+}
+
+function parseFloatFraction(
+  value: string | undefined,
+  defaultValue: number,
+  envName: string,
+): number {
+  if (!value || value.trim().length === 0) {
+    return defaultValue;
+  }
+
+  const parsedValue = Number(value.trim());
+  if (Number.isNaN(parsedValue) || parsedValue < 0 || parsedValue > 1) {
+    throw new Error(`${envName} must be a number between 0 and 1 when set.`);
+  }
+
+  return parsedValue;
 }
 
 /**

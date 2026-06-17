@@ -79,6 +79,10 @@ import { writeSourceUtilizationReport } from "./domains/discovery/source-utiliza
 import { writeSourceVerificationReport } from "./domains/discovery/source-verification.js";
 import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
 import {
+  SemanticScorer,
+  buildDemandQueryText,
+} from "./domains/discovery/semantic-scoring.js";
+import {
   assertAssetCatalogEntry,
   assertDemandProfile,
   assertSelectionRegistry,
@@ -494,10 +498,57 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH),
     assertDemandProfile,
   );
-  const relevanceFilter = filterCatalogEntriesByDemandRelevance(
-    catalogEntries,
-    demandProfile,
-  );
+  const config = getRuntimeConfig();
+  const semanticScorer = new SemanticScorer({
+    minSimilarity: config.discovery.semanticScoringMinSimilarity,
+  });
+
+  let relevanceFilter: {
+    selectedEntries: AssetCatalogEntry[];
+    rejectedEntries: AssetCatalogEntry[];
+  };
+
+  if (config.discovery.semanticScoringEnabled) {
+    await semanticScorer.tryInit();
+    if (semanticScorer.available) {
+      const semanticResult = await semanticScorer.filterAndRank(
+        catalogEntries,
+        demandProfile,
+      );
+      if (semanticResult) {
+        relevanceFilter = {
+          selectedEntries: semanticResult.selected,
+          rejectedEntries: semanticResult.rejected,
+        };
+        console.log(
+          `[semantic-scoring] scored ${catalogEntries.length} entries ` +
+            `(threshold=${config.discovery.semanticScoringMinSimilarity}, ` +
+            `query="${buildDemandQueryText(demandProfile).slice(0, 60)}...")`,
+        );
+      } else {
+        console.warn(
+          "[semantic-scoring] scorer unavailable after init — falling back to keyword gate",
+        );
+        relevanceFilter = filterCatalogEntriesByDemandRelevance(
+          catalogEntries,
+          demandProfile,
+        );
+      }
+    } else {
+      console.warn(
+        "[semantic-scoring] @xenova/transformers not installed — falling back to keyword gate",
+      );
+      relevanceFilter = filterCatalogEntriesByDemandRelevance(
+        catalogEntries,
+        demandProfile,
+      );
+    }
+  } else {
+    relevanceFilter = filterCatalogEntriesByDemandRelevance(
+      catalogEntries,
+      demandProfile,
+    );
+  }
   const groupedEntries = groupCatalogEntriesForSelection(
     relevanceFilter.selectedEntries,
   );
