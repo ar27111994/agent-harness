@@ -339,4 +339,3 @@ All notable changes to this project will be documented in this file.
 ### Changed in 0.1.0
 
 - established the project baseline as a Node.js 22+ TypeScript CLI with published `agent-harness`, `agent-harness-vscode`, and `agent-harness-opencode` entrypoints
-<!-- ci-sync -->
