@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ## [2.0.0] - 2026-06-09
 
+### Breaking Changes
+
+- **Demand-scan file ordering changed** — binary files are now deprioritised below source files in demand-scan ordering (previously binary and source files were interleaved lexicographically). Tools or tests that assert a fixed scan order or specific truncation behaviour may need to be updated (#280).
+- **`.worktrees/` directories excluded from all scans** — file discovery, demand detection, and source-sync traversal now skip `.worktrees/` subdirectories. Workspaces that deliberately stored assets inside `.worktrees/` will no longer have them picked up (#277).
+- **Packagist registry enforces a hard 500-entry cap** — Packagist source-sync stops at 500 entries per source. Operators who previously indexed full high-volume Packagist namespaces will observe a reduced catalog for those sources (#286).
+- **`source-health` dormant/never-synced `reason` field is now always populated** — previously the `reason` field on dormant and never-synced entries was an empty string; it now carries a descriptive message. Code that matched on empty-string reason will need to update its checks (#281).
+
 ### Added
 
 - `wire opencode --preview` now prints a structured wire-plan summary to stdout before any file is written, listing linked-asset paths count, resolved MCP server identifiers, native-config operations, and contextual notes so operators can review changes before committing (#284)
