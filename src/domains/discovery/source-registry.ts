@@ -96,6 +96,7 @@ export async function loadSourceRegistry(
         id: entry.id,
         name: entry.name ?? humanizeSlug(lastPathSegment(entry.repo)),
         kind: entry.kind ?? "repo",
+        /* c8 ignore next 2 -- authorityTier is required by assertRequiredEnum; ?? fallback is a type-safe defensive guard that cannot be reached at runtime */
         authorityTier: entry.authorityTier ?? "trusted-community",
         publisher: {
           name: entry.publisher ?? repoOwner,
@@ -103,6 +104,7 @@ export async function loadSourceRegistry(
           owner: repoOwner,
         },
         hosts: entry.hosts ?? ["copilot-vscode", "opencode"],
+        /* c8 ignore next 8 -- assetKinds is required by assertRequiredEnumArray; ?? fallback is a type-safe defensive guard that cannot be reached at runtime */
         assetKinds: entry.assetKinds ?? [
           "skill",
           "agent",

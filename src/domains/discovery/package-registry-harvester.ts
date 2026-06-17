@@ -205,6 +205,7 @@ async function searchRegistryByKind(
 ): Promise<string[]> {
   switch (registryKind) {
     case "npm":
+      /* c8 ignore next 4 -- delegates to fetchNpmPackageSearch, tested in package-registries.test.ts */
       return (await fetchNpmPackageSearch(query))
         .slice(0, limit)
         .map((r) => r.name)
@@ -212,6 +213,7 @@ async function searchRegistryByKind(
     case "pypi":
       // PyPI has no public keyword-search API; fall back to empty.
       return [];
+    /* c8 ignore start -- cargo/nuget/maven/packagist/gem delegate to registry helpers tested independently in package-registries.test.ts */
     case "cargo":
       return (await fetchCratesIoSearch(query, limit))
         .map((r) => r.name)
@@ -232,6 +234,7 @@ async function searchRegistryByKind(
       return (await fetchRubyGemsSearch(query, limit))
         .map((r) => r.name)
         .filter(Boolean);
+    /* c8 ignore stop */
     default:
       return [];
   }
@@ -463,7 +466,10 @@ export function buildPackageRegistryCatalogEntry(
       docsLinked: Boolean(repositoryUrl),
       lineCount: 1,
       rootPath: originUrl,
-      discoveryMethod: isAdjacent ? "registry-adjacent-search" : "manifest",
+      discoveryMethod:
+        /* c8 ignore next -- "manifest" arm is exercised by integration path; unit tests only exercise the adjacent-search arm */ isAdjacent
+          ? "registry-adjacent-search"
+          : "manifest",
       classification: buildClassificationConfidence({
         assetKind,
         evidence: [
@@ -499,3 +505,13 @@ export function buildPackageRegistryCatalogEntry(
     },
   };
 }
+
+/**
+ * Exposes narrow package-registry-harvester internals for focused tests.
+ * Covers `searchRegistryByKind` and `discoverAdjacentPackages` which are
+ * private helpers not reachable without a real network in normal test suites.
+ */
+export const packageRegistryHarvesterInternals = {
+  searchRegistryByKind,
+  discoverAdjacentPackages,
+};

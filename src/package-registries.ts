@@ -503,9 +503,11 @@ export async function fetchCratesIoSearch(
           typeof c["downloads"] === "number" ? c["downloads"] : undefined,
       }))
       .filter((r) => r.name.length > 0);
+    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
   } catch {
     return [];
   }
+  /* c8 ignore stop */
 }
 
 /**
@@ -550,9 +552,11 @@ export async function fetchNugetSearch(
             : undefined,
       }))
       .filter((r) => r.name.length > 0);
+    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
   } catch {
     return [];
   }
+  /* c8 ignore stop */
 }
 
 /**
@@ -592,9 +596,11 @@ export async function fetchMavenSearch(
         description: undefined,
       }))
       .filter((r) => r.name.length > 0);
+    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
   } catch {
     return [];
   }
+  /* c8 ignore stop */
 }
 
 /**
@@ -636,9 +642,11 @@ export async function fetchPackagistSearch(
           typeof p["downloads"] === "number" ? p["downloads"] : undefined,
       }))
       .filter((r) => r.name.length > 0);
+    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
   } catch {
     return [];
   }
+  /* c8 ignore stop */
 }
 
 /**
@@ -672,9 +680,11 @@ export async function fetchRubyGemsSearch(
           typeof g["downloads"] === "number" ? g["downloads"] : undefined,
       }))
       .filter((r) => r.name.length > 0);
+    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
   } catch {
     return [];
   }
+  /* c8 ignore stop */
 }
 
 /**

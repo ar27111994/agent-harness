@@ -313,3 +313,170 @@ void test("semanticScoringInternals — exports the same references as named exp
     buildDemandQueryText,
   );
 });
+
+// ─── Additional coverage for uncovered paths ────────────────────────────────
+
+void test("SemanticScorer — embed returns null when embedder throws", async () => {
+  const scorer = new SemanticScorer({
+    embedderOverride: async () => {
+      throw new Error("embed failure");
+    },
+  });
+  assert.equal(scorer.available, true, "scorer is available (has embedder)");
+  const result = await scorer.embed("some text");
+  assert.equal(result, null, "embed returns null when embedder throws");
+});
+
+void test("SemanticScorer — filterAndRank returns null when embed returns null (embedder throws on call)", async () => {
+  // Scorer has an override but it throws on every call — embed() returns null,
+  // so queryVec is null and filterAndRank returns null.
+  const scorer = new SemanticScorer({
+    minSimilarity: 0.3,
+    embedderOverride: async () => {
+      throw new Error("embed unavailable");
+    },
+  });
+  const entries = [makeEntry({ id: "x" })];
+  const profile = makeDemandProfile({ languages: ["TypeScript"] });
+  const result = await scorer.filterAndRank(entries, profile);
+  assert.equal(
+    result,
+    null,
+    "filterAndRank returns null when embed cannot produce a query vector",
+  );
+});
+
+void test("SemanticScorer — filterAndRank sorts selected entries by fitLevel descending", async () => {
+  // Three entries with different similarity to the query:
+  //   entry-strong  → cosine ≈ 1.0  (strong)
+  //   entry-moderate → cosine ≈ 0.6 (moderate)
+  //   entry-weak     → cosine ≈ 0.4 (weak)
+  // All three exceed the threshold — sort order should be strong > moderate > weak.
+  const scorer = new SemanticScorer({
+    minSimilarity: 0.3, // all three should be selected
+    embedderOverride: async (text: string) => {
+      if (text.includes("query")) return new Float32Array([1, 0, 0, 0]);
+      if (text.includes("strong")) return new Float32Array([1, 0, 0, 0]); // cosine 1.0
+      if (text.includes("moderate")) {
+        // cosine ~0.6 with [1,0,0,0]
+        return new Float32Array([0.6, 0.8, 0, 0]);
+      }
+      // weak: cosine ~0.4 with [1,0,0,0]
+      return new Float32Array([0.4, 0.9165, 0, 0]);
+    },
+  });
+
+  const entries = [
+    makeEntry({
+      id: "entry-weak",
+      displayName: "weak",
+      capabilities: [],
+    }),
+    makeEntry({
+      id: "entry-moderate",
+      displayName: "moderate",
+      capabilities: [],
+    }),
+    makeEntry({
+      id: "entry-strong",
+      displayName: "strong",
+      capabilities: [],
+    }),
+  ];
+  const profile = makeDemandProfile({ languages: ["query"] });
+  const result = await scorer.filterAndRank(entries, profile);
+  assert.ok(result !== null, "result must not be null");
+  assert.equal(result.rejected.length, 0, "all entries should be selected");
+  assert.equal(result.selected.length, 3, "three entries selected");
+  // Sort order: strong first
+  assert.equal(
+    result.selected[0]?.fit.fitLevel,
+    "strong",
+    "first selected entry should be strong",
+  );
+});
+
+void test("SemanticScorer — scoreEntry returns null for entry with no embeddable text", async () => {
+  // An entry whose embed fails (throws) causes scoreEntry to return null,
+  // triggering the conservative pass-through path (lines 274-277).
+  // We need: query embed succeeds, entry embed fails.
+  const scorer = new SemanticScorer({
+    minSimilarity: 0.3,
+    embedderOverride: async (text: string) => {
+      // query text contains "TypeScript" (from demand signals)
+      if (text.includes("TypeScript")) {
+        return new Float32Array([1, 0]);
+      }
+      // entry embed fails
+      throw new Error("entry embed failed");
+    },
+  });
+  const entry = makeEntry({ displayName: "some-tool", capabilities: [] });
+  const profile = makeDemandProfile({ languages: ["TypeScript"] });
+  const result = await scorer.filterAndRank([entry], profile);
+  // When scoreEntry returns null, the entry is kept (conservative pass-through)
+  assert.ok(result !== null, "result must not be null");
+  assert.equal(
+    result.selected.length,
+    1,
+    "entry kept when scoring fails (conservative)",
+  );
+});
+
+void test("SemanticScorer — tryInit gracefully handles absent @xenova/transformers (sets available=false)", async () => {
+  // @xenova/transformers is not installed in the test environment.
+  // tryInit() must catch the import error and leave the scorer unavailable.
+  const scorer = new SemanticScorer({});
+  assert.equal(scorer.available, false, "unavailable before tryInit");
+  await scorer.tryInit(); // should not throw
+  assert.equal(
+    scorer.available,
+    false,
+    "still unavailable after tryInit when package absent",
+  );
+});
+
+void test("SemanticScorer — tryInit is a no-op when embedder is already initialised (line 181-182)", async () => {
+  // A scorer initialised with an embedderOverride already has this.embedder set.
+  // Calling tryInit() again must hit the early-return guard without throwing.
+  const scorer = new SemanticScorer({
+    embedderOverride: async () => new Float32Array([1, 0]),
+  });
+  assert.equal(scorer.available, true, "scorer is available (has embedder)");
+  // Second call must return without error — the early-return branch is hit.
+  await scorer.tryInit();
+  assert.equal(
+    scorer.available,
+    true,
+    "still available after redundant tryInit",
+  );
+});
+
+void test("SemanticScorer — embed returns null when embedder is absent (line 214 true branch)", async () => {
+  // A scorer with no override and no tryInit — embedder is null.
+  // Calling embed() directly exercises the !this.embedder early-return guard.
+  const scorer = new SemanticScorer({});
+  assert.equal(scorer.available, false, "scorer is unavailable");
+  const result = await scorer.embed("some text");
+  assert.equal(result, null, "embed returns null when embedder is absent");
+});
+
+void test("SemanticScorer — scoreEntry returns null for entry with empty embedding text (line 232 true branch)", async () => {
+  // An entry with no displayName, no capabilities, no publisher produces an
+  // empty buildEntryEmbeddingText result, exercising the !text early-return.
+  const scorer = new SemanticScorer({
+    embedderOverride: async () => new Float32Array([1, 0]),
+  });
+  const emptyEntry = makeEntry({
+    displayName: "",
+    capabilities: [],
+    source: { ...makeEntry().source, publisher: "" },
+  });
+  const queryVec = new Float32Array([1, 0]);
+  const result = await scorer.scoreEntry(emptyEntry, queryVec);
+  assert.equal(
+    result,
+    null,
+    "scoreEntry returns null when entry text is empty",
+  );
+});
