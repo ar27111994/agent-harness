@@ -115,6 +115,19 @@ const DISCOVERY_DEFAULTS = {
    * Ignored when semantic scoring is disabled.
    */
   semanticScoringMinSimilarity: 0.35,
+  /**
+   * Max search terms to dispatch per registry search sweep.
+   * Default 10 matches the AC.
+   */
+  registrySearchMaxTerms: 10,
+  /**
+   * Max results per registry search term. Default 50 per AC.
+   */
+  registrySearchMaxResultsPerTerm: 50,
+  /**
+   * Whether the adjacent-tooling static matrix is enabled. Default true.
+   */
+  adjacentToolingEnabled: true,
 } as const;
 const OFFICIAL_INDEX_DEFAULTS = {
   pageMaxBytes: 1_000_000,
@@ -227,6 +240,21 @@ export interface RuntimeConfig {
      * demand-relevance gate (0–1). Default 0.35.
      */
     semanticScoringMinSimilarity: number;
+    /**
+     * Maximum number of search terms to dispatch per registry search sweep.
+     * Higher values improve coverage; lower values reduce API call volume.
+     */
+    registrySearchMaxTerms: number;
+    /**
+     * Maximum results to retrieve per term per registry search call.
+     */
+    registrySearchMaxResultsPerTerm: number;
+    /**
+     * Whether the adjacent-tooling static matrix is enabled.
+     * When true, packages from the adjacent-tooling matrix are added to the
+     * harvest candidates for matched stack signals.
+     */
+    adjacentToolingEnabled: boolean;
   };
   officialIndex: {
     pageMaxBytes: number;
@@ -498,6 +526,21 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY,
         DISCOVERY_DEFAULTS.semanticScoringMinSimilarity,
         "AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY",
+      ),
+      registrySearchMaxTerms: parseNonNegativeInteger(
+        env.AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS,
+        DISCOVERY_DEFAULTS.registrySearchMaxTerms,
+        "AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS",
+      ),
+      registrySearchMaxResultsPerTerm: parseNonNegativeInteger(
+        env.AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM,
+        DISCOVERY_DEFAULTS.registrySearchMaxResultsPerTerm,
+        "AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM",
+      ),
+      adjacentToolingEnabled: parseBooleanFlag(
+        env.AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED,
+        DISCOVERY_DEFAULTS.adjacentToolingEnabled,
+        "AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED",
       ),
     },
     officialIndex: {

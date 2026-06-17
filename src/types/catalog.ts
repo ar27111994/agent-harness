@@ -129,6 +129,19 @@ export interface AssetEvidence {
   dependencies?: string[];
   filePath?: string;
   rootPath?: string;
+  /**
+   * How this entry was discovered.
+   * - `"manifest"` — declared in a workspace manifest (default, implicit).
+   * - `"registry-adjacent-search"` — surfaced via registry search or adjacent-tooling matrix;
+   *   not yet declared in any manifest.
+   */
+  discoveryMethod?: "manifest" | "registry-adjacent-search";
+  /**
+   * True when the entry was found via adjacent-tooling discovery rather than
+   * declared in a workspace manifest. Used by the recommendation report to group
+   * suggestions as "Consider adopting" vs "Already using".
+   */
+  isAdjacentSuggestion?: boolean;
   classification?: {
     assetKind: AssetKind;
     confidence: number;

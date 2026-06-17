@@ -451,6 +451,232 @@ function stripUrlSuffix(value: string): string {
   return value.split(/[?#]/u)[0] as string;
 }
 
+/** Result returned by any registry search (common shape across registries). */
+export interface RegistrySearchResult {
+  name: string;
+  description?: string;
+  downloads?: number;
+}
+
+/**
+ * Searches crates.io by keyword, sorted by download count.
+ * Includes the required `User-Agent: agent-harness/<version>` header per API TOS.
+ */
+export async function fetchCratesIoSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const registriesConfig = getRuntimeConfig().registries;
+  try {
+    const url = new URL("https://crates.io/api/v1/crates");
+    url.searchParams.set("q", normalized);
+    url.searchParams.set("sort", "downloads");
+    url.searchParams.set("per_page", String(Math.min(limit, 100)));
+    const data = await fetchJsonWithGuards(url.toString(), {
+      allowedOrigins: ["https://crates.io"],
+      headers: {
+        Accept: "application/json",
+        "User-Agent":
+          "agent-harness/2.0.0 (github.com/ar27111994/agent-harness)",
+      },
+      maxBytes: registriesConfig.searchMaxBytes,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
+    });
+    if (
+      !data ||
+      typeof data !== "object" ||
+      !Array.isArray((data as Record<string, unknown>)["crates"])
+    )
+      return [];
+    return (
+      (data as Record<string, unknown>)["crates"] as Record<string, unknown>[]
+    )
+      .map((c) => ({
+        name: typeof c["name"] === "string" ? c["name"] : "",
+        description:
+          typeof c["description"] === "string" ? c["description"] : undefined,
+        downloads:
+          typeof c["downloads"] === "number" ? c["downloads"] : undefined,
+      }))
+      .filter((r) => r.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches the NuGet v3 query endpoint, sorted by total downloads.
+ */
+export async function fetchNugetSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const registriesConfig = getRuntimeConfig().registries;
+  try {
+    const url = new URL("https://azuresearch-usnc.nuget.org/query");
+    url.searchParams.set("q", normalized);
+    url.searchParams.set("take", String(Math.min(limit, 100)));
+    url.searchParams.set("sortBy", "totalDownloads");
+    const data = await fetchJsonWithGuards(url.toString(), {
+      allowedOrigins: ["https://azuresearch-usnc.nuget.org"],
+      headers: { Accept: "application/json" },
+      maxBytes: registriesConfig.searchMaxBytes,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
+    });
+    if (
+      !data ||
+      typeof data !== "object" ||
+      !Array.isArray((data as Record<string, unknown>)["data"])
+    )
+      return [];
+    return (
+      (data as Record<string, unknown>)["data"] as Record<string, unknown>[]
+    )
+      .map((p) => ({
+        name: typeof p["id"] === "string" ? p["id"] : "",
+        description:
+          typeof p["description"] === "string" ? p["description"] : undefined,
+        downloads:
+          typeof p["totalDownloads"] === "number"
+            ? p["totalDownloads"]
+            : undefined,
+      }))
+      .filter((r) => r.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches Maven Central via the Solr-backed search endpoint.
+ */
+export async function fetchMavenSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const registriesConfig = getRuntimeConfig().registries;
+  try {
+    const url = new URL("https://search.maven.org/solrsearch/select");
+    url.searchParams.set("q", normalized);
+    url.searchParams.set("rows", String(Math.min(limit, 100)));
+    url.searchParams.set("wt", "json");
+    const data = await fetchJsonWithGuards(url.toString(), {
+      allowedOrigins: ["https://search.maven.org"],
+      headers: { Accept: "application/json" },
+      maxBytes: registriesConfig.searchMaxBytes,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
+    });
+    const response = data as Record<string, unknown> | null;
+    const docs = response?.["response"] as Record<string, unknown> | undefined;
+    if (!docs || !Array.isArray(docs["docs"])) return [];
+    return (docs["docs"] as Record<string, unknown>[])
+      .map((d) => ({
+        name:
+          typeof d["id"] === "string"
+            ? d["id"]
+            : typeof d["a"] === "string"
+              ? `${d["g"]}:${d["a"]}`
+              : "",
+        description: undefined,
+      }))
+      .filter((r) => r.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches Packagist (PHP Composer registry) by keyword.
+ */
+export async function fetchPackagistSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const registriesConfig = getRuntimeConfig().registries;
+  try {
+    const url = new URL("https://packagist.org/search.json");
+    url.searchParams.set("q", normalized);
+    url.searchParams.set("per_page", String(Math.min(limit, 100)));
+    const data = await fetchJsonWithGuards(url.toString(), {
+      allowedOrigins: ["https://packagist.org"],
+      headers: { Accept: "application/json" },
+      maxBytes: registriesConfig.searchMaxBytes,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
+    });
+    if (
+      !data ||
+      typeof data !== "object" ||
+      !Array.isArray((data as Record<string, unknown>)["results"])
+    )
+      return [];
+    return (
+      (data as Record<string, unknown>)["results"] as Record<string, unknown>[]
+    )
+      .map((p) => ({
+        name: typeof p["name"] === "string" ? p["name"] : "",
+        description:
+          typeof p["description"] === "string" ? p["description"] : undefined,
+        downloads:
+          typeof p["downloads"] === "number" ? p["downloads"] : undefined,
+      }))
+      .filter((r) => r.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Searches RubyGems by keyword, sorted by download count.
+ */
+export async function fetchRubyGemsSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const registriesConfig = getRuntimeConfig().registries;
+  try {
+    const url = new URL("https://rubygems.org/api/v1/search.json");
+    url.searchParams.set("query", normalized);
+    url.searchParams.set("per_page", String(Math.min(limit, 50)));
+    const data = await fetchJsonWithGuards(url.toString(), {
+      allowedOrigins: ["https://rubygems.org"],
+      headers: { Accept: "application/json" },
+      maxBytes: registriesConfig.searchMaxBytes,
+      resolveHostname: options.resolveHostname,
+      timeoutMs: registriesConfig.fetchTimeoutMs,
+    });
+    if (!Array.isArray(data)) return [];
+    return (data as Record<string, unknown>[])
+      .map((g) => ({
+        name: typeof g["name"] === "string" ? g["name"] : "",
+        description: typeof g["info"] === "string" ? g["info"] : undefined,
+        downloads:
+          typeof g["downloads"] === "number" ? g["downloads"] : undefined,
+      }))
+      .filter((r) => r.name.length > 0);
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Exposes narrow package-registry internals for focused behavioral coverage.
  */
