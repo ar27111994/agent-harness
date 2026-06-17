@@ -87,6 +87,10 @@ const DISCOVERY_DEFAULTS = {
   vscodeMarketplaceMaxQueries: 4,
   vscodeMarketplaceMaxItemsPerQuery: 6,
   vscodeMarketplaceSyncPageSize: 50,
+  /** Pages to fetch in the popularity-first sweep before alphabetical pagination. */
+  vscodeMarketplacePopularitySweepPages: 10,
+  /** Whether the category-taxonomy sweep is enabled. */
+  vscodeMarketplaceCategorySweepEnabled: true,
   sourceSyncMaxPagesPerRun: 10,
   npmMcpSearchQueryLimit: 8,
   /**
@@ -220,6 +224,10 @@ export interface RuntimeConfig {
     vscodeMarketplaceMaxQueries: number;
     vscodeMarketplaceMaxItemsPerQuery: number;
     vscodeMarketplaceSyncPageSize: number;
+    /** Pages to fetch in the popularity-first sweep. */
+    vscodeMarketplacePopularitySweepPages: number;
+    /** Whether the category-taxonomy sweep is enabled. */
+    vscodeMarketplaceCategorySweepEnabled: boolean;
     sourceSyncMaxPagesPerRun: number;
     npmMcpSearchQueryLimit: number;
     /**
@@ -496,6 +504,16 @@ export function loadRuntimeConfig(env: NodeJS.ProcessEnv): RuntimeConfig {
         env.AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE,
         DISCOVERY_DEFAULTS.vscodeMarketplaceSyncPageSize,
         "AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE",
+      ),
+      vscodeMarketplacePopularitySweepPages: parseNonNegativeInteger(
+        env.AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES,
+        DISCOVERY_DEFAULTS.vscodeMarketplacePopularitySweepPages,
+        "AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES",
+      ),
+      vscodeMarketplaceCategorySweepEnabled: parseBooleanFlag(
+        env.AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED,
+        DISCOVERY_DEFAULTS.vscodeMarketplaceCategorySweepEnabled,
+        "AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED",
       ),
       sourceSyncMaxPagesPerRun: parsePositiveInteger(
         env.AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN,

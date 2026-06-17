@@ -51,12 +51,6 @@ const POPULARITY_CURSOR_PREFIX = "__popularity__";
 const CATEGORY_CURSOR_PREFIX = "__cat__";
 
 /**
- * Number of pages to fetch per popularity-sweep run.
- * 10 pages × 100 = 1,000 most-installed extensions.
- */
-const POPULARITY_SWEEP_PAGES = 10;
-
-/**
  * Page size for the popularity and category sweeps.
  * The Marketplace API allows up to 100 per page.
  */
@@ -75,6 +69,10 @@ export async function syncVsCodeMarketplaceSource(
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
   const discoveryConfig = getRuntimeConfig().discovery;
+  const popularitySweepPages =
+    discoveryConfig.vscodeMarketplacePopularitySweepPages;
+  const categorySweepEnabled =
+    discoveryConfig.vscodeMarketplaceCategorySweepEnabled;
   const previousCursors = new Map(
     getPreviousCursorStates(context.previousState).map((c) => [c.cursorId, c]),
   );
@@ -98,7 +96,7 @@ export async function syncVsCodeMarketplaceSource(
 
   for (
     let pageCount = 0;
-    pageCount < POPULARITY_SWEEP_PAGES && !popularityCompleted;
+    pageCount < popularitySweepPages && !popularityCompleted;
     pageCount += 1
   ) {
     const items = await fetchVsCodeMarketplaceItemsForQuery(source, "", {
@@ -123,74 +121,78 @@ export async function syncVsCodeMarketplaceSource(
     }
   }
 
-  if (!popularityCompleted) {
+  if (popularitySweepPages > 0 && !popularityCompleted) {
     status = "partial";
   }
 
-  nextCursors.push({
-    cursorId: popularityCursorId,
-    nextToken: String(popularityPage),
-    completed: popularityCompleted,
-  });
+  if (popularitySweepPages > 0) {
+    nextCursors.push({
+      cursorId: popularityCursorId,
+      nextToken: String(popularityPage),
+      completed: popularityCompleted,
+    });
+  }
 
   // ── Tier 2: Category sweep ───────────────────────────────────────────────
 
-  const demandSignals = context.demandProfile
-    ? [
-        ...context.demandProfile.signals.languages,
-        ...context.demandProfile.signals.frameworks,
-        ...context.demandProfile.signals.concerns,
-        ...context.demandProfile.signals.tooling,
-      ]
-    : [];
-  const categories = resolveVsCodeCategories(demandSignals);
+  if (categorySweepEnabled) {
+    const demandSignals = context.demandProfile
+      ? [
+          ...context.demandProfile.signals.languages,
+          ...context.demandProfile.signals.frameworks,
+          ...context.demandProfile.signals.concerns,
+          ...context.demandProfile.signals.tooling,
+        ]
+      : [];
+    const categories = resolveVsCodeCategories(demandSignals);
 
-  for (const category of categories) {
-    const catCursorId = `${CATEGORY_CURSOR_PREFIX}${category}`;
-    const catState = restoreFiniteCursorState(
-      previousCursors.get(catCursorId),
-      { cursorId: catCursorId, nextToken: "1", completed: false },
-    );
-    let catPage = parsePositiveIntegerToken(catState.nextToken, 1);
-    let catCompleted = catState.completed;
+    for (const category of categories) {
+      const catCursorId = `${CATEGORY_CURSOR_PREFIX}${category}`;
+      const catState = restoreFiniteCursorState(
+        previousCursors.get(catCursorId),
+        { cursorId: catCursorId, nextToken: "1", completed: false },
+      );
+      let catPage = parsePositiveIntegerToken(catState.nextToken, 1);
+      let catCompleted = catState.completed;
 
-    for (
-      let pageCount = 0;
-      pageCount < discoveryConfig.sourceSyncMaxPagesPerRun && !catCompleted;
-      pageCount += 1
-    ) {
-      const items = await fetchVsCodeMarketplaceItemsForQuery(source, "", {
-        pageNumber: catPage,
-        pageSize: SWEEP_PAGE_SIZE,
-        sortBy: VSCODE_SORT_BY.InstallCount,
-        sortOrder: VSCODE_SORT_ORDER.Descending,
-        category,
+      for (
+        let pageCount = 0;
+        pageCount < discoveryConfig.sourceSyncMaxPagesPerRun && !catCompleted;
+        pageCount += 1
+      ) {
+        const items = await fetchVsCodeMarketplaceItemsForQuery(source, "", {
+          pageNumber: catPage,
+          pageSize: SWEEP_PAGE_SIZE,
+          sortBy: VSCODE_SORT_BY.InstallCount,
+          sortOrder: VSCODE_SORT_ORDER.Descending,
+          category,
+        });
+        for (const item of items) {
+          const entry = buildReferenceSourceCatalogEntry(
+            source,
+            context.demandProfile,
+            context.selectionRegistry,
+            { harvestedItem: item },
+          );
+          upsertIndexedCatalogEntry(context, entry);
+        }
+        if (items.length < SWEEP_PAGE_SIZE) {
+          catCompleted = true;
+        } else {
+          catPage += 1;
+        }
+      }
+
+      if (!catCompleted) {
+        status = "partial";
+      }
+
+      nextCursors.push({
+        cursorId: catCursorId,
+        nextToken: String(catPage),
+        completed: catCompleted,
       });
-      for (const item of items) {
-        const entry = buildReferenceSourceCatalogEntry(
-          source,
-          context.demandProfile,
-          context.selectionRegistry,
-          { harvestedItem: item },
-        );
-        upsertIndexedCatalogEntry(context, entry);
-      }
-      if (items.length < SWEEP_PAGE_SIZE) {
-        catCompleted = true;
-      } else {
-        catPage += 1;
-      }
     }
-
-    if (!catCompleted) {
-      status = "partial";
-    }
-
-    nextCursors.push({
-      cursorId: catCursorId,
-      nextToken: String(catPage),
-      completed: catCompleted,
-    });
   }
 
   // ── Tier 3: Alphabetical demand-query pagination ──────────────────────────

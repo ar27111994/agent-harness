@@ -81,6 +81,8 @@ void test("source sync resumes vscode marketplace cursors across paginated runs"
       {
         AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "1",
         AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES: "0",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED: "false",
         AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1",
       },
       async () => {
@@ -167,6 +169,8 @@ void test("source sync keeps entry files unchanged when vscode marketplace entri
       {
         AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "1",
         AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE: "2",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES: "0",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED: "false",
         AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1",
       },
       async () => {

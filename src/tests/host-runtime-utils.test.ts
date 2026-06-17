@@ -291,16 +291,22 @@ void test("shared MCP asset ids are collected from active shared bundles and mal
 
   const mcpPackageAPath = join(
     projectRoot,
+    "install",
+    "shared",
     "packages",
     "asset-a-mcp.install.json",
   );
   const mcpPackageZPath = join(
     projectRoot,
+    "install",
+    "shared",
     "packages",
     "asset-z-mcp.install.json",
   );
   const pluginPackagePath = join(
     projectRoot,
+    "install",
+    "shared",
     "packages",
     "asset-plugin.install.json",
   );
@@ -346,13 +352,21 @@ void test("shared MCP asset ids are collected from active shared bundles and mal
         mirrorId: "mirror-inactive",
         manifestPath: join(
           projectRoot,
+          "install",
+          "shared",
           "packages",
           "asset-inactive-mcp.install.json",
         ),
       },
     ]),
     writeInstalledPackageManifest(
-      join(projectRoot, "packages", "asset-inactive-mcp.install.json"),
+      join(
+        projectRoot,
+        "install",
+        "shared",
+        "packages",
+        "asset-inactive-mcp.install.json",
+      ),
       {
         assetId: "asset-inactive-mcp",
         assetKind: "mcp-server",

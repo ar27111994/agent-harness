@@ -77,6 +77,7 @@ export const VSCODE_SORT_BY = {
   WeeklyDownloads: 12,
 } as const;
 
+/** Numeric sort-by value for the VS Code Marketplace Gallery API. */
 export type VsCodeSortBy = (typeof VSCODE_SORT_BY)[keyof typeof VSCODE_SORT_BY];
 
 /** Sort order constants for the VS Code Marketplace Gallery API. */
@@ -86,6 +87,7 @@ export const VSCODE_SORT_ORDER = {
   Descending: 2,
 } as const;
 
+/** Numeric sort-order value for the VS Code Marketplace Gallery API. */
 export type VsCodeSortOrder =
   (typeof VSCODE_SORT_ORDER)[keyof typeof VSCODE_SORT_ORDER];
 

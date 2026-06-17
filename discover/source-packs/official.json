@@ -631,7 +631,7 @@
     {
       "id": "gemini-cli-extensions-pack",
       "name": "Gemini CLI Extensions",
-      "repo": "https://github.com/gemini-cli-extensions",
+      "repo": "https://github.com/gemini-cli-extensions/conductor",
       "authorityTier": "official-first-party",
       "publisher": "Google",
       "publisherVerified": true,
