@@ -460,3 +460,39 @@ void test("reference source catalog entries include evidence.classification for 
     "detail should mention the source kind",
   );
 });
+
+void test("buildReferenceSourceCatalogEntry preserves item-level trustSignals (issue #3 — OMS signals)", () => {
+  // Verifies that trust signals populated on the HarvestedReferenceItem
+  // (e.g. "oms-signed", "oms-trust-anchor" from NVIDIA-style source packs)
+  // survive the reference harvester path and appear on the catalog entry's
+  // trust.signals array alongside the base authority-tier signals.
+  const docsSource = buildSource("test-docs-source", "docs", {
+    baseUrl: "https://docs.example.com",
+  });
+  const entry = buildReferenceSourceCatalogEntry(
+    docsSource,
+    null,
+    buildSelectionRegistry(),
+    {
+      harvestedItem: {
+        displayName: "Signed Skill",
+        originUrl: "https://example.com/signed-skill.md",
+        summary: "A skill with OMS signatures",
+        capabilities: ["signed"],
+        assetKind: "skill",
+        compatibilityMode: "adaptable",
+        installMethod: "docs-summary",
+        trustSignals: ["oms-signed", "oms-trust-anchor"],
+      },
+    },
+  );
+
+  assert.ok(
+    entry.trust.signals.includes("oms-signed"),
+    "oms-signed must be present on trust.signals",
+  );
+  assert.ok(
+    entry.trust.signals.includes("oms-trust-anchor"),
+    "oms-trust-anchor must be present on trust.signals",
+  );
+});

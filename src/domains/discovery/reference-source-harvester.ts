@@ -132,14 +132,19 @@ export function buildReferenceSourceCatalogEntry(
         compatibilityMode,
         installMethod,
       }),
-      signals: buildTrustSignals({
-        authorityTier: source.authorityTier,
-        sourceKind: source.kind,
-        sourcePriority: source.priority,
-        publisherVerified: source.publisher?.verified ?? false,
-        compatibilityMode,
-        installMethod,
-      }),
+      signals: uniqueStrings([
+        ...buildTrustSignals({
+          authorityTier: source.authorityTier,
+          sourceKind: source.kind,
+          sourcePriority: source.priority,
+          publisherVerified: source.publisher?.verified ?? false,
+          compatibilityMode,
+          installMethod,
+        }),
+        // Preserve any item-level trust signals (e.g. "oms-signed",
+        // "oms-trust-anchor") that were harvested from the source payload.
+        ...(harvestedItem?.trustSignals ?? []),
+      ]),
     },
     capabilities,
     install: {

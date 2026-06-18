@@ -28,6 +28,13 @@ export interface HarvestedReferenceItem {
    * `"eamodio"` for GitLens) rather than the marketplace owner (`"Microsoft"`).
    */
   publisherName?: string;
+  /**
+   * Additional trust signals for this item (e.g. `"oms-signed"`,
+   * `"oms-trust-anchor"`) harvested from the source payload. These are merged
+   * with the base trust signals derived from the source's authority tier and
+   * kind when building the catalog entry.
+   */
+  trustSignals?: string[];
 }
 
 const VSCODE_MARKETPLACE_API =
@@ -286,7 +293,11 @@ export async function fetchVsCodeMarketplaceItemsForQuery(
     method: "POST",
   });
 
-  return normalizeVsCodeMarketplaceItems(data, query, allowedOrigins);
+  return normalizeVsCodeMarketplaceItems(
+    data,
+    options.category?.trim() ?? query,
+    allowedOrigins,
+  );
 }
 
 function buildVsCodeMarketplaceRequest(

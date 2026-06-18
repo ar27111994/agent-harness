@@ -525,6 +525,20 @@ void test("syncIndexedSources — passes maxPagesPerRun option as context overri
   }
 });
 
+void test("syncIndexedSources — throws for invalid maxPagesPerRun (lines 113-116)", async () => {
+  // Exercises the validation guard in syncIndexedSources when an invalid
+  // maxPagesPerRun is provided. NaN, 0, and negative values must all throw.
+  for (const bad of [NaN, 0, -1, -Infinity]) {
+    await assert.rejects(
+      async () => syncIndexedSources("/nonexistent", { maxPagesPerRun: bad }),
+      (err: unknown) =>
+        err instanceof Error &&
+        err.message.includes("syncIndexedSources: options.maxPagesPerRun"),
+      `expected throw for maxPagesPerRun=${String(bad)}`,
+    );
+  }
+});
+
 // ─── 8. manifest-validation/discovery.ts: sourceDiversityWarning (lines 640-644)
 
 void test("assertSelectionReport — accepts report with sourceDiversityWarning string (lines 640-644)", () => {

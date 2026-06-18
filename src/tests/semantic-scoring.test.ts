@@ -483,3 +483,55 @@ void test("SemanticScorer — scoreEntry returns null for entry with empty embed
     "scoreEntry returns null when entry text is empty",
   );
 });
+
+void test("SemanticScorer — filterAndRank sorts same-bucket entries by score descending (sort tiebreaker)", async () => {
+  // Two entries that will both land in the "moderate" fitLevel bucket
+  // (cosine score ≥ 0.5 and < 0.75). The entry with the higher score must
+  // appear first — this exercises the `b.score - a.score` secondary sort key,
+  // which only fires when bucketDiff === 0 (same fitLevel bucket).
+  //
+  // FIT_LEVEL_THRESHOLDS: strong ≥ 0.75, moderate ≥ 0.5, weak ≥ 0.35.
+  // We pin query=[1,0] and use distinct entry vectors:
+  //   highEntry: [0.65, 0.76] → cos = 0.65 / ||[0.65, 0.76]|| → "moderate"
+  //   lowEntry:  [0.51, 0.86] → cos = 0.51 / ||[0.51, 0.86]|| → "moderate"
+  // Both are "moderate" but highEntry has higher cosine score vs. the query.
+  //
+  // Embedding call order inside filterAndRank:
+  //   1. embed(queryText) → queryVec = [1, 0]
+  //   2. embed("high score entry …") → highVec
+  //   3. embed("low score entry …") → lowVec
+  const queryVec = new Float32Array([1, 0]);
+  const highVec = new Float32Array([0.65, 0.76]);
+  const lowVec = new Float32Array([0.51, 0.86]);
+
+  let callCount = 0;
+  const scorer = new SemanticScorer({
+    embedderOverride: async () => {
+      callCount += 1;
+      if (callCount === 1) return queryVec; // query embed
+      if (callCount === 2) return highVec; // first entry embed
+      return lowVec; // second entry embed
+    },
+    minSimilarity: 0.35,
+  });
+
+  const highEntry = makeEntry({ displayName: "high score entry" });
+  const lowEntry = makeEntry({ displayName: "low score entry" });
+
+  const profile = makeDemandProfile({ languages: ["TypeScript"] });
+  const result = await scorer.filterAndRank([highEntry, lowEntry], profile);
+
+  assert.ok(result !== null, "filterAndRank must return a result");
+  // Both entries must be in the selected set (both above minSimilarity = 0.35).
+  assert.equal(
+    result.selected.length,
+    2,
+    "both moderate-bucket entries selected",
+  );
+  // The higher-scoring entry must come first within the same fitLevel bucket.
+  assert.equal(
+    result.selected[0]?.displayName,
+    "high score entry",
+    "higher-score entry ranked first within the same fitLevel bucket",
+  );
+});

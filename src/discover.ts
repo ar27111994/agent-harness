@@ -131,9 +131,13 @@ export async function runDiscover(
       const pageCap =
         getRuntimeConfig().discovery.sourceSyncMaxPagesForIndexBuild;
       // Pass the raised page cap directly via the options bag — no env mutation needed.
-      await syncIndexedSources(projectRoot, {
-        maxPagesPerRun: pageCap === 0 ? Infinity : pageCap,
-      });
+      // When pageCap is 0 the semantics are "unlimited"; omit the option entirely
+      // (absence = use runtime default) rather than passing Infinity, which the
+      // validation guard correctly rejects as a non-finite number.
+      await syncIndexedSources(
+        projectRoot,
+        pageCap > 0 ? { maxPagesPerRun: pageCap } : undefined,
+      );
       // Copy the source-sync entries snapshot to catalog-index.jsonl so that
       // `discover sync` and `discover select` can read it without touching
       // the internal source-sync state paths.

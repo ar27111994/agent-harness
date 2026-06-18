@@ -219,3 +219,27 @@ void test("assertCatalogIndexMeta — rejects null", () => {
     /Invalid CatalogIndexMeta/,
   );
 });
+
+void test("isCatalogIndexFresh — returns false when meta present but JSONL absent (lines 58-59)", async () => {
+  const root = await makeProjectRoot();
+  try {
+    // Write meta-only (no catalog-index.jsonl) — simulates a state where the
+    // meta file was written but the JSONL snapshot was deleted or never flushed.
+    // isCatalogIndexFresh must stat the JSONL and return false on ENOENT.
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    await writeFile(
+      join(root, "discover", "output", "catalog-index-meta.json"),
+      JSON.stringify({ builtAt: oneHourAgo.toISOString(), entryCount: 5 }),
+    );
+    // Deliberately omit writing catalog-index.jsonl.
+
+    const fresh = await isCatalogIndexFresh(root);
+    assert.equal(
+      fresh,
+      false,
+      "must be false when meta exists but JSONL is missing",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
