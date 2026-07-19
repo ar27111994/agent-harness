@@ -11,6 +11,7 @@ import type {
   SourceDefinition,
 } from "../../types.js";
 import { inferCompatibleHosts } from "../../host-adapters/compatibility-matrix.js";
+import { TRUST_SIGNAL_SCORE_BOOST } from "../../recommend/constants.js";
 import {
   buildAssetStatus,
   buildCandidateRankHint,
@@ -148,7 +149,7 @@ function buildGitHubCatalogEntry(
           installMethod: "github-tree-metadata",
         }) +
         repoTrust.scoreBonus +
-        (hasOmsSignature ? 5 : 0),
+        (hasOmsSignature ? (TRUST_SIGNAL_SCORE_BOOST["oms-signed"] ?? 5) : 0),
       signals: [
         ...buildTrustSignals({
           authorityTier: source.authorityTier,
@@ -229,7 +230,7 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
   // OMS trust anchor: repo ships a root certificate used to verify per-asset signatures
   if (paths.some((path) => /(^|\/)nv-agent-root-cert\.pem$/u.test(path))) {
     signals.push("oms-trust-anchor");
-    scoreBonus += 3;
+    scoreBonus += TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] ?? 3;
   }
 
   return { scoreBonus, signals };
