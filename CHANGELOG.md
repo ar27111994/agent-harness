@@ -42,6 +42,11 @@ All notable changes to this project will be documented in this file.
 - demand-detection coverage matrix, targeted stack/vertical signatures, and false-positive fixtures for monorepos, serverless/edge, cross-platform mobile, AI-agent frameworks, commerce/CMS, workflow orchestration, desktop, infrastructure, and related project types for #209
 - scenario-based recommendation-limit scaling guidance and copy-paste `preserve` / `scale` examples for #210
 - ui-skills.com registered as a community skill registry source (`ui-skills`), discovered via flat sitemap with an item-URL predicate filtering to two-segment `/skills/{author}/{name}/` leaf pages; `itemCompatibilityMode: "adaptable"` across all supported hosts
+- ARD (Agentic Resource Discovery) v0.9 interoperability: `discover ard-export` command publishing `.well-known/ai-catalog.json` with URN identifiers, media-type mapping, trust-manifest derivation, and synthetic representative queries for registry discovery (#325)
+- README ARD section with ecosystem architecture diagram, publisher/consumer role descriptions, and cross-references to implementation tickets (#329)
+- ARD trust-manifest signal consumption: `ard-identity-bound` (+4), `ard-compliance-attested` (+3), `ard-soc2` (+3), `ard-hipaa` (+3), and `ard-signed` (+5) trust-score boosts (#328)
+- ARD registry source adapter consuming `POST /search` endpoints, mapping ARD results to `AssetCatalogEntry` with `SourceKind: "ard-registry"`, federated referral tracking, and semantic-score normalization (#327)
+- ARD ecosystem community submission documentation for ards-project, GitHub Agent Finder, and HuggingFace Discover (#326)
 
 ### Changed
 

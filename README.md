@@ -180,6 +180,59 @@ agent-harness setup hosts
 
 The practical lifecycle is: `discover -> recommend -> mirror -> stage -> activate -> wire`. Official and verified sources are preferred over popularity-only signals, official-first-party sources are demoted when owner/publisher evidence fails verification, mirrored generations are pinned for review, risky candidates route through quarantine, and native/global host installs remain explicit instead of hidden inside `workspace <host>`.
 
+## ARD interoperability
+
+<p>
+  <a href="https://agenticresourcediscovery.org/spec"><img alt="ARD v0.9" src="https://img.shields.io/badge/ARD-v0.9-6366F1?logo=data:image/svg%2Bxml;base64,PHN2ZyBmaWxsPSJ3aGl0ZSIgdmlld0JveD0iMCAwIDI0IDI0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIGQ9Ik0xMiAyTDIgN3YxMGwxMCA1IDEwLTVWN0wxMiAyem0wIDIuMTY0bDcgMy41djcuNjcybC03IDMuNS03LTMuNVY3LjY2NGw3LTMuNXoiLz48L3N2Zz4=" /></a>
+</p>
+
+**Tagline:** _Discover anywhere. Install everywhere._
+
+`agent-harness` is both an **ARD publisher** and an **ARD consumer**, implementing the [Agentic Resource Discovery](https://agenticresourcediscovery.org/spec) v0.9 specification (backed by Google, Microsoft, Hugging Face, GitHub, NVIDIA, and others).
+
+### Publisher — `.well-known/ai-catalog.json`
+
+Every `discover select` or `discover full` run builds a selected asset catalog. Export it as an ARD-compliant catalog so registries can discover agent-harness-curated assets:
+
+```bash
+agent-harness discover ard-export
+# → .well-known/ai-catalog.json
+```
+
+ARD registries crawl `/.well-known/ai-catalog.json` at your domain to index agent-harness assets alongside assets from other publishers. The export maps every `AssetCatalogEntry` to an ARD entry with:
+
+- **URN identifier** (`urn:ai:<publisher>:<namespace>:<name>`) — domain-backed identity
+- **Media type** (`application/mcp-server+json`, `application/ai-skill`, etc.) from AssetKind
+- **Trust manifest** — OMS signatures, publisher verification, compliance attestations
+- **Representative queries** — synthetic natural-language queries for semantic discovery
+
+### Consumer — ARD registry adapter
+
+`agent-harness` can consume ARD-compliant registries as discovery sources via `POST /search`. The registry adapter maps ARD results back to `AssetCatalogEntry` for the full mirror/stage/activate/wire pipeline. See `discover sync` and the `ard-registry` source kind (#327).
+
+### Architecture
+
+```text
+┌──────────────────────────────────────────────────────┐
+│                    ARD Ecosystem                      │
+│                                                       │
+│  ┌──────────┐    ┌───────────┐    ┌───────────────┐  │
+│  │ Catalogs │───▶│ Registries│───▶│ agent-harness │  │
+│  │(publish) │    │ (search)  │    │  (consume)    │  │
+│  └──────────┘    └───────────┘    └───────┬───────┘  │
+│       ▲                                   │          │
+│       │          ┌───────────┐            │          │
+│       └──────────│agent-harness│◀─────────┘          │
+│                  │ (publish)  │                        │
+│                  └───────────┘                        │
+│  Distribution (§3.6): mirror → stage → activate → wire │
+└──────────────────────────────────────────────────────┘
+```
+
+ARD defines **discovery** (catalogs and registries). `agent-harness` handles the **distribution** phase that ARD §3.6 explicitly delegates to backend implementation — mirroring, staging, activation, and host-specific wiring.
+
+**See:** [#325](https://github.com/ar27111994/agent-harness/issues/325) (catalog export), [#327](https://github.com/ar27111994/agent-harness/issues/327) (registry consumer), [#328](https://github.com/ar27111994/agent-harness/issues/328) (trust signals), [#326](https://github.com/ar27111994/agent-harness/issues/326) (community submission).
+
 ## What it produces
 
 When you run the installed CLI from a workspace, mutable lifecycle state is written under `.agent-harness/` by default. Repository-local development keeps the same layout at the repository root so npm scripts and checked-in policy assets continue to work.
