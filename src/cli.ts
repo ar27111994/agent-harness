@@ -257,6 +257,10 @@ function printHelp(): void {
         description: "Write experimental read-only query metadata index",
       },
       {
+        command: "discover ard-export",
+        description: "Export selected catalog to ARD ai-catalog.json format",
+      },
+      {
         command: "mirror locks",
         description: "Generate mirror bundle locks",
       },

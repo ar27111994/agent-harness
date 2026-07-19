@@ -39,6 +39,7 @@ import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.j
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
 import { writeEnvironmentIndex } from "./domains/discovery/environment-index.js";
+import { writeArdCatalog } from "./ard-catalog.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -237,6 +238,9 @@ export async function runDiscover(
       return 0;
     case "environment-index":
       await writeEnvironmentIndex(projectRoot, rest);
+      return 0;
+    case "ard-export":
+      await writeArdCatalog(projectRoot);
       return 0;
     case "inspect":
       await inspectCatalog(projectRoot, rest);
@@ -943,6 +947,11 @@ function printDiscoverHelp(): void {
         command: "environment-index",
         description:
           "Write experimental read-only query metadata to discover/output/environment-index.json",
+      },
+      {
+        command: "ard-export",
+        description:
+          "Export selected catalog to ARD ai-catalog.json format at .well-known/ai-catalog.json",
       },
       {
         command: "enrich",
