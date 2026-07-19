@@ -211,6 +211,13 @@ async function synchronizeIndexedSource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState | null> {
+  // Dispatch by kind for sources where the adapter is kind-driven, not ID-driven.
+  if (source.kind === "ard-registry") {
+    const { syncArdRegistrySource } =
+      await import("./registries/ard-registry.js");
+    return syncArdRegistrySource(source, context);
+  }
+
   switch (source.id) {
     case "vscode-marketplace":
       if (source.kind === "marketplace") {
