@@ -34,6 +34,7 @@ export const SOURCE_KINDS: SourceKind[] = [
   "marketplace",
   "registry",
   "package-registry",
+  "ard-registry",
   "local-manifest",
   "local-directory",
 ];

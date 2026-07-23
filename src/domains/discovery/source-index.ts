@@ -145,7 +145,7 @@ function countHosts(sources: SourceDefinition[]): Record<string, number> {
 
 function defaultCoverageModeForSourceKind(
   kind: SourceDefinition["kind"],
-): "direct" | "rotating" | "sampled" {
+): "direct" | "rotating" | "sampled" | "indexed" {
   if (kind === "repo") {
     return "rotating";
   }
@@ -156,6 +156,10 @@ function defaultCoverageModeForSourceKind(
     kind === "local-manifest"
   ) {
     return "direct";
+  }
+
+  if (kind === "ard-registry") {
+    return "indexed";
   }
 
   return "sampled";

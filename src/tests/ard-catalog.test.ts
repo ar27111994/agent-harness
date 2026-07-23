@@ -465,3 +465,35 @@ void test("committed .well-known/ai-catalog.json conforms to ARD v0.9 schema", a
     );
   }
 });
+
+void test("writeArdCatalog falls back to 0.0.0 version when no package.json", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-nopkg-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    const entry = buildEntry({
+      id: "no-pkg-entry",
+      displayName: "No Package",
+      assetKind: "skill",
+    });
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      JSON.stringify(entry) + "\n",
+      "utf8",
+    );
+
+    // No package.json — version resolution falls back to "0.0.0"
+    const result = await writeArdCatalog(root);
+
+    assert.equal(result.entryCount, 1);
+
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(result.filePath, "utf8");
+    const catalog = JSON.parse(raw) as Record<string, unknown>;
+    assert.equal(catalog["version"], "0.0.0", "falls back to 0.0.0");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
