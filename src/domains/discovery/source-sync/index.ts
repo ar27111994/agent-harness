@@ -274,9 +274,9 @@ async function synchronizeIndexedSource(
     case "skills-sh":
       return syncSitemapReferenceSource(source, context, {
         rootSitemapUrl:
-          source.endpoints.sitemapUrl ?? "https://skills.sh/sitemap.xml",
+          source.endpoints.sitemapUrl ?? "https://www.skills.sh/sitemap.xml",
         leafSitemapPredicate: (url) =>
-          /sitemap-(?:skills(?:-\d+)?|agents(?:-\d+)?)\.xml$/u.test(
+          /sitemap-(?:skills|agents|misc|owners)(?:-\d+)?\.xml$/u.test(
             url.pathname,
           ),
         itemAssetKind: "skill",
