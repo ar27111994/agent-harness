@@ -131,13 +131,16 @@ export async function runDiscover(
       logDiscoverPhase("discover index", 1, 1, "Building full catalog index");
       const pageCap =
         getRuntimeConfig().discovery.sourceSyncMaxPagesForIndexBuild;
-      // Pass the raised page cap directly via the options bag — no env mutation needed.
-      // When pageCap is 0 the semantics are "unlimited"; omit the option entirely
-      // (absence = use runtime default) rather than passing Infinity, which the
-      // validation guard correctly rejects as a non-finite number.
+      // When pageCap is 0, use an unlimited sentinel rather than omitting
+      // the option — omission falls back to the runtime default (10 pages),
+      // defeating the purpose of configuring unlimited index builds.
       await syncIndexedSources(
         projectRoot,
-        pageCap > 0 ? { maxPagesPerRun: pageCap } : undefined,
+        pageCap === 0
+          ? { maxPagesPerRun: Number.MAX_SAFE_INTEGER }
+          : pageCap > 0
+            ? { maxPagesPerRun: pageCap }
+            : undefined,
       );
       // Copy the source-sync entries snapshot to catalog-index.jsonl so that
       // `discover sync` and `discover select` can read it without touching
@@ -534,9 +537,11 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   }
 
   // Per-source entry cap — prevent a single source from dominating the
-  // selected set. Entries are visited in insertion order (order maintained
-  // by the dedup loop above), so the first N entries per source are kept and
-  // any excess are rejected with reason "source-cap".
+  // selected set. Sort by descending source priority first so higher-quality
+  // entries are retained when the cap removes lower-quality same-source entries.
+  selectedEntries.sort(
+    (a, b) => b.source.sourcePriority - a.source.sourcePriority,
+  );
   const MAX_ENTRIES_PER_SOURCE = config.discovery.maxEntriesPerSource;
   const { kept: cappedSelectedEntries, capped: capRejections } =
     applyPerSourceCap(selectedEntries, MAX_ENTRIES_PER_SOURCE);

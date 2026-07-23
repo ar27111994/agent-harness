@@ -159,6 +159,8 @@ export function mapEntryToArd(
       entry.source.authorityTier,
     ],
     trustManifest: deriveArdTrustManifest(entry),
+    // Preserve the agent-harness AssetKind in ARD data for round‑trip import.
+    data: { assetKind: entry.assetKind },
   };
 }
 

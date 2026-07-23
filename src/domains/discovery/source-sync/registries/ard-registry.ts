@@ -163,12 +163,14 @@ export async function syncArdRegistrySource(
       const originUrl =
         getString(result.url) ?? getString(result.source) ?? apiUrl;
 
-      const assetKind = ardTypeToAssetKind(ardType) as
-        | "skill"
-        | "mcp-server"
-        | "agent"
-        | "reference-pack"
-        | "payable-api";
+      // Prefer the round-tripped agent-harness AssetKind from ARD data;
+      // fall back to media-type inference when absent or invalid.
+      const assetKind = (
+        getString(
+          (result.data as Record<string, unknown> | undefined)?.["assetKind"],
+        ) ||
+        ardTypeToAssetKind(ardType)
+      ) as "skill" | "mcp-server" | "agent" | "reference-pack" | "payable-api";
 
       const resultCapabilities = Array.isArray(result.capabilities)
         ? result.capabilities.filter((c): c is string => typeof c === "string")
@@ -292,7 +294,9 @@ export async function syncArdRegistrySource(
   return {
     sourceId: source.id,
     coverageMode: "indexed",
-    status: atCap && !completed ? "partial" : "complete",
+    // Any non-complete stop (cap, maxPages, empty page) is partial.
+    // Only explicitly completed runs return "complete".
+    status: completed ? "complete" : "partial",
     lastSyncedAt: new Date().toISOString(),
     indexedEntryCount: totalIndexed,
     cursors: [

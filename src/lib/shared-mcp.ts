@@ -49,7 +49,7 @@ export async function readSharedMcpAssetIds(
         continue;
       }
 
-      const resolvedManifestPath = resolve(pkg.manifestPath);
+      const resolvedManifestPath = resolve(projectRoot, pkg.manifestPath);
       if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {
         console.warn(
           `Skipping package '${pkg.assetId}': manifestPath '${pkg.manifestPath}' ` +
