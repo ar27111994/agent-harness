@@ -69,7 +69,12 @@ export async function harvestGitHubRepoSource(
           (entry) =>
             entry.type === "blob" && entry.size != null && entry.size > 0,
         )
-        .map((entry) => [entry.path.toLowerCase(), entry.size ?? 0]),
+        .map((entry) => [
+          entry.path.toLowerCase(),
+          // size is guaranteed > 0 by the filter above; ?? 0 is unreachable.
+          /* c8 ignore next */
+          entry.size ?? 0,
+        ]),
     );
 
     return snapshot.tree.entries

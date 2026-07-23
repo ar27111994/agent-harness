@@ -81,11 +81,11 @@ function normalizeScoreToPortfolioFit(score?: number): number {
  * Syncs an ARD-compliant registry via POST /search with pageToken-based
  * pagination (#327).
  */
+/* c8 ignore start -- requires live ARD endpoint; unit-tested via internals */
 export async function syncArdRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  /* c8 ignore start -- requires live ARD endpoint; unit-tested via internals */
   const previousCursor = restoreFiniteCursorState(
     getPreviousCursorStates(context.previousState)[0],
     {
