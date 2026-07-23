@@ -17,6 +17,16 @@ import type { AssetKind, AuthorityTier, DemandProfile } from "../types.js";
 /** Publisher FQDN for agent-harness ARD entries. */
 export const ARD_PUBLISHER_FQDN = "ar27111994.dev";
 
+/**
+ * Returns the ARD publisher FQDN, respecting the AGENT_HARNESS_ARD_PUBLISHER_FQDN
+ * environment variable override. Falls back to the hardcoded default when unset.
+ */
+export function getArdPublisherFqdn(): string {
+  return (
+    process.env.AGENT_HARNESS_ARD_PUBLISHER_FQDN?.trim() || ARD_PUBLISHER_FQDN
+  );
+}
+
 /** ARD spec schema URI (v0.9). */
 export const ARD_SCHEMA_URI =
   "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json";

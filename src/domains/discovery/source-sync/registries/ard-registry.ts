@@ -36,8 +36,8 @@ import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 // Helpers (mapping functions imported from ../../../../ard/types.js)
 // ---------------------------------------------------------------------------
 
-/** Derives trust signals from ARD trustManifest. */
-function deriveArdTrustSignals(tm?: Record<string, unknown>): string[] {
+/** Extracts trust signals from ARD trustManifest (inbound from registry). */
+function extractArdTrustSignals(tm?: Record<string, unknown>): string[] {
   const signals: string[] = [];
   if (!tm) return signals;
 
@@ -176,7 +176,7 @@ export async function syncArdRegistrySource(
         ? result.tags.filter((t): t is string => typeof t === "string")
         : [];
 
-      const trustSignals = deriveArdTrustSignals(
+      const trustSignals = extractArdTrustSignals(
         result.trustManifest as Record<string, unknown> | undefined,
       );
 
@@ -309,7 +309,7 @@ export async function syncArdRegistrySource(
  */
 export const ardRegistryInternals = {
   ardTypeToAssetKind,
-  deriveArdTrustSignals,
+  extractArdTrustSignals,
   computeArdTrustScore,
   normalizeScoreToPortfolioFit,
 };

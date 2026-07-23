@@ -68,6 +68,7 @@ import {
   ARD_SCHEMA_URI,
   ASSET_KIND_TO_ARD_TYPE,
   TRUST_SIGNAL_TO_ATTESTATION,
+  getArdPublisherFqdn,
 } from "./ard/types.js";
 
 // ---------------------------------------------------------------------------
@@ -225,6 +226,7 @@ export async function writeArdCatalog(
         /* c8 ignore next */
         return pkg.version ?? "0.0.0";
       } catch {
+        // package.json read failed (e.g., ENOENT) — fallback to "0.0.0".
         /* c8 ignore next */
         console.warn(
           "ard-catalog: failed to read package.json version, using 0.0.0",
@@ -236,7 +238,7 @@ export async function writeArdCatalog(
   const ardEntries: ArdCatalogEntry[] = [];
   for (const entry of entries) {
     try {
-      ardEntries.push(mapEntryToArd(entry, ARD_PUBLISHER_FQDN, pkgVersion));
+      ardEntries.push(mapEntryToArd(entry, getArdPublisherFqdn(), pkgVersion));
     } catch {
       // Skip entries that fail mapping (malformed data).
       console.warn(`ard-catalog: skipping malformed entry during ARD export`);
@@ -245,7 +247,7 @@ export async function writeArdCatalog(
 
   const catalog: ArdCatalog = {
     $schema: ARD_SCHEMA_URI,
-    publisher: ARD_PUBLISHER_FQDN,
+    publisher: getArdPublisherFqdn(),
     version: pkgVersion,
     generatedAt: new Date().toISOString(),
     entries: ardEntries,
