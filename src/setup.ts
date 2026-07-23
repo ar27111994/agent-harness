@@ -67,6 +67,51 @@ export async function runSetup(
  * maximum wall time for any single adapter's check. This prevents a stalling
  * host CLI (e.g. cursor, zed waiting for IPC) from blocking the entire loop.
  */
+
+/**
+ * Runs preflight checks for a single adapter with a wall-clock timeout.
+ * If the adapter stalls, a synthetic timeout diagnostic is returned instead
+ * of blocking the entire doctor loop. Used by both `runDoctor` and
+ * `runDoctorWithAdapters`.
+ */
+async function runAdapterPreflightWithTimeout(
+  adapter: HostAdapter,
+  adapterTimeoutMs: number,
+  projectRoot?: string,
+): Promise<PreflightDiagnostic[]> {
+  return Promise.race([
+    (async () => [
+      ...(await runHostPreflight(adapter.lifecycleHost, {
+        requireHostPaths:
+          adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+      })),
+      ...(await runAdapterPreflight(adapter)),
+      ...(projectRoot
+        ? await collectActivatedAssetPrerequisiteDiagnostics(
+            projectRoot,
+            adapter,
+            { missingEnvSeverity: "warning" },
+          )
+        : []),
+    ])(),
+    new Promise<PreflightDiagnostic[]>((resolve) =>
+      setTimeout(
+        () =>
+          resolve([
+            {
+              severity: "warning",
+              code: `${adapter.id}-doctor-timeout`,
+              message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+              action:
+                "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
+            },
+          ]),
+        adapterTimeoutMs,
+      ),
+    ),
+  ]);
+}
+
 async function runDoctor(
   args: string[],
   projectRoot: string | undefined,
@@ -93,40 +138,9 @@ async function runDoctor(
   // block the others. Each adapter is individually guarded by a wall-clock
   // timeout; if it fires we emit a synthetic timeout diagnostic and continue.
   const adapterResults = await Promise.allSettled(
-    adapters.map(async (adapter) => {
-      const diagnostics = await Promise.race([
-        (async () => [
-          ...(await runHostPreflight(adapter.lifecycleHost, {
-            requireHostPaths:
-              adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
-          })),
-          ...(await runAdapterPreflight(adapter)),
-          ...(projectRoot
-            ? await collectActivatedAssetPrerequisiteDiagnostics(
-                projectRoot,
-                adapter,
-                { missingEnvSeverity: "warning" },
-              )
-            : []),
-        ])(),
-        new Promise<PreflightDiagnostic[]>((resolve) =>
-          setTimeout(
-            () =>
-              resolve([
-                {
-                  severity: "warning",
-                  code: `${adapter.id}-doctor-timeout`,
-                  message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-                  action:
-                    "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
-                },
-              ]),
-            adapterTimeoutMs,
-          ),
-        ),
-      ]);
-      return { adapter, diagnostics };
-    }),
+    adapters.map(async (adapter) =>
+      runAdapterPreflightWithTimeout(adapter, adapterTimeoutMs, projectRoot),
+    ),
   );
 
   let hasErrors = false;
@@ -144,7 +158,8 @@ async function runDoctor(
       continue;
     }
 
-    const { adapter, diagnostics } = result.value;
+    const adapter = adapters[resultIndex]!;
+    const diagnostics = result.value;
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
     console.log(`Recommendation host: ${adapter.recommendationHost}`);
@@ -346,40 +361,9 @@ export const setupInternals = {
     results: Array<{ adapterId: string; diagnostics: PreflightDiagnostic[] }>;
   }> {
     const adapterResults = await Promise.allSettled(
-      adapters.map(async (adapter) => {
-        const diagnostics = await Promise.race([
-          (async () => [
-            ...(await runHostPreflight(adapter.lifecycleHost, {
-              requireHostPaths:
-                adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
-            })),
-            ...(await runAdapterPreflight(adapter)),
-            ...(projectRoot
-              ? await collectActivatedAssetPrerequisiteDiagnostics(
-                  projectRoot,
-                  adapter,
-                  { missingEnvSeverity: "warning" },
-                )
-              : []),
-          ])(),
-          new Promise<PreflightDiagnostic[]>((resolve) =>
-            setTimeout(
-              () =>
-                resolve([
-                  {
-                    severity: "warning",
-                    code: `${adapter.id}-doctor-timeout`,
-                    message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-                    action:
-                      "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
-                  },
-                ]),
-              adapterTimeoutMs,
-            ),
-          ),
-        ]);
-        return { adapterId: adapter.id, diagnostics };
-      }),
+      adapters.map(async (adapter) =>
+        runAdapterPreflightWithTimeout(adapter, adapterTimeoutMs, projectRoot),
+      ),
     );
 
     let hasErrors = false;
@@ -388,11 +372,12 @@ export const setupInternals = {
       diagnostics: PreflightDiagnostic[];
     }> = [];
 
-    for (const result of adapterResults) {
+    for (const [resultIndex, result] of adapterResults.entries()) {
       if (result.status === "rejected") {
         hasErrors = true;
+        const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
         results.push({
-          adapterId: "(unknown)",
+          adapterId,
           diagnostics: [
             {
               severity: "error",
@@ -403,8 +388,9 @@ export const setupInternals = {
         });
         continue;
       }
-      results.push(result.value);
-      if (result.value.diagnostics.some((d) => d.severity === "error")) {
+      const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
+      results.push({ adapterId, diagnostics: result.value });
+      if (result.value.some((d) => d.severity === "error")) {
         hasErrors = true;
       }
     }

@@ -10,6 +10,30 @@ This is the v2 release checklist for `@ar27111994/agent-harness`. It is intentio
 - Release notes mention upgrade guidance, known limitations, host support boundaries, and trust/quarantine behavior when relevant.
 - No local `.env`, generated state, private config, tarballs, logs, or workspace overlays are staged.
 
+### Regenerate ARD catalog
+
+Before publishing, `.well-known/ai-catalog.json` must be regenerated from the selected catalog. The checked-in file is a static skeleton — shipping it as-is would publish an empty catalog.
+
+```bash
+# Build a selected catalog first (or use an existing one)
+agent-harness discover select
+
+# Regenerate the ARD catalog from discover/output/catalog.selected.jsonl
+agent-harness discover ard-export
+
+# Validate the result
+node -e "
+  const c = require('./.well-known/ai-catalog.json');
+  if (!c.generatedAt || !c.entries.length) {
+    console.error('FAIL: ARD catalog is empty — release blocked.');
+    process.exit(1);
+  }
+  console.log('OK: %d entries, generated %s', c.entries.length, c.generatedAt);
+"
+```
+
+If `generatedAt` is empty or `entries` is empty, the release must **fail** — publishing an empty ARD catalog violates the v0.9 spec. The regeneration step must run against a populated catalog before tagging and publishing.
+
 ## Local release candidate gate
 
 Run from the repository root:

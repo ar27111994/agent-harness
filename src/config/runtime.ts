@@ -932,6 +932,6 @@ export const runtimeConfigInternals = {
    * re-reads `process.env`. Only use in tests that mutate env vars.
    */
   resetCacheForTesting(): void {
-    runtimeConfig = null;
+    clearRuntimeConfig();
   },
 };

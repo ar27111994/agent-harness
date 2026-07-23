@@ -63,6 +63,7 @@ import {
   REMOTE_CATALOG_STATE_OUTPUT_PATH,
   SELECTED_CATALOG_OUTPUT_PATH,
   SELECTION_REPORT_OUTPUT_PATH,
+  SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
 } from "./domains/discovery/output-paths.js";
 import {
   isCatalogIndexFresh,
@@ -147,9 +148,7 @@ export async function runDiscover(
       // the internal source-sync state paths.
       const syncEntriesPath = join(
         projectRoot,
-        "state",
-        "discover",
-        "source-sync.entries.jsonl",
+        ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
       );
       const indexPath = join(projectRoot, ...CATALOG_INDEX_OUTPUT_PATH);
       await mkdir(join(projectRoot, "discover", "output"), {

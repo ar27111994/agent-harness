@@ -464,6 +464,16 @@ void test("committed .well-known/ai-catalog.json conforms to ARD v0.9 schema", a
       "entry.capabilities must be an array",
     );
   }
+
+  // Release gate: if generatedAt is populated (regenerated catalog), entries
+  // must be non-empty. An empty generatedAt signals the development skeleton
+  // which is valid in CI but must be regenerated before publishing.
+  if (typeof catalog["generatedAt"] === "string" && catalog["generatedAt"]) {
+    assert.ok(
+      entries.length > 0,
+      "release gate: generatedAt is populated but entries is empty — regenerate via 'discover ard-export' before publishing",
+    );
+  }
 });
 
 void test("writeArdCatalog falls back to 0.0.0 version when no package.json", async () => {
