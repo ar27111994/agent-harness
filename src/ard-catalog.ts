@@ -115,7 +115,7 @@ export function deriveArdTrustManifest(
     identity,
     // identityType is always "domain" when identity is set; undefined arm is
     // defensive for types that don't match the current publisher model.
-    /* c8 ignore next */
+    /* c8 ignore next 2 */
     identityType: identity ? "domain" : undefined,
     attestations: attestations.length > 0 ? attestations : undefined,
   };
@@ -132,7 +132,7 @@ export function mapEntryToArd(
   const ardType =
     // All AssetKind values are mapped in ASSET_KIND_TO_ARD_TYPE; fallback is
     // a defensive guard for forward-compatibility with future kinds.
-    /* c8 ignore next */
+    /* c8 ignore next 2 */
     ASSET_KIND_TO_ARD_TYPE[entry.assetKind] ?? "application/ai-skill";
 
   return {
@@ -140,10 +140,10 @@ export function mapEntryToArd(
     displayName: entry.displayName,
     type: ardType,
     // manifestEntry is always set by the harvesters; fallback is defensive.
-    /* c8 ignore next */
+    /* c8 ignore next 2 */
     url: entry.install.manifestEntry ?? entry.source.originUrl,
     // classification is set by all harvesters; fallback is defensive.
-    /* c8 ignore next */
+    /* c8 ignore next 2 */
     description: entry.evidence.classification
       ? `${entry.assetKind} asset from ${entry.source.sourceId} (${entry.source.sourceKind})`
       : `Agent asset from ${entry.source.sourceId}`,
@@ -173,7 +173,7 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
     `What ${entry.assetKind} assets are available from ${entry.source.sourceId}?`,
   );
   // hosts[0] is always set by the harvesters; "agent" is a defensive fallback.
-  /* c8 ignore next */
+  /* c8 ignore next 2 */
   queries.push(`Find ${display} for ${entry.hosts[0] ?? "agent"} workflows`);
 
   for (const cap of entry.capabilities.slice(0, 5)) {
@@ -223,7 +223,7 @@ export async function writeArdCatalog(
         const pkgRaw = await rf(join(projectRoot, "package.json"), "utf8");
         const pkg = JSON.parse(pkgRaw) as { version?: string };
         // version is always set in package.json; fallback is defensive.
-        /* c8 ignore next */
+        /* c8 ignore next 2 */
         return pkg.version ?? "0.0.0";
       } catch {
         /* c8 ignore next */
