@@ -94,6 +94,8 @@ The core model is deliberately boring in the best way: one command surface, a ho
 - [Demand detection playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/DEMAND-DETECTION-PLAYBOOK.md)
 - [Demand detection coverage](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/DEMAND-DETECTION-COVERAGE.md)
 - [Source coverage playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/SOURCE-COVERAGE-PLAYBOOK.md)
+- [Catalog breadth guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/CATALOG-BREADTH.md)
+- [Semantic scoring guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SEMANTIC-SCORING.md)
 - [AI enrichment playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AI-ENRICHMENT-PLAYBOOK.md)
 - [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md)
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/LOGGING-STRATEGY.md)

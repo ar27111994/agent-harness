@@ -227,4 +227,5 @@ Do **not** start here when:
 
 - the demand profile itself is wrong -> use [`DEMAND-DETECTION-PLAYBOOK.md`](./DEMAND-DETECTION-PLAYBOOK.md)
 - the candidate pool is already healthy and you only need better ordering -> use [`RECOMMENDATION-POLICY-PLAYBOOK.md`](./RECOMMENDATION-POLICY-PLAYBOOK.md)
+- you want to build a truly comprehensive offline catalog -> see [`CATALOG-BREADTH.md`](../guides/CATALOG-BREADTH.md)
 - you want the recall-first diagnosis entrypoint -> start with [`DISCOVERY-BREADTH-PLAYBOOK.md`](./DISCOVERY-BREADTH-PLAYBOOK.md)

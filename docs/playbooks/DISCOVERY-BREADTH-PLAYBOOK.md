@@ -11,7 +11,7 @@ This is the right guide when:
 
 ## The short answer
 
-Today this is possible, but before this playbook it was **not obvious enough**.
+Run `discover breadth` for a broad demand-driven pass. For a truly comprehensive catalog, build an offline index first with `discover index`, then run per-workspace selection against it. See [CATALOG-BREADTH.md](../guides/CATALOG-BREADTH.md) for the full production-scale guide.
 
 The widest practical pool now has one first-class command: `agent-harness discover breadth`.
 
