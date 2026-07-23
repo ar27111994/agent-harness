@@ -130,17 +130,16 @@ export function mapEntryToArd(
   version: string,
 ): ArdCatalogEntry {
   const ardType =
-    // All AssetKind values are mapped in ASSET_KIND_TO_ARD_TYPE; fallback is
-    // a defensive guard for forward-compatibility with future kinds.
-    /* c8 ignore next 2 */
+    // All AssetKind values are mapped; fallback guards future kinds.
+    /* c8 ignore next */
     ASSET_KIND_TO_ARD_TYPE[entry.assetKind] ?? "application/ai-skill";
 
   return {
     identifier: buildArdUrn(entry, publisherFqdn),
     displayName: entry.displayName,
     type: ardType,
-    // manifestEntry is always set by the harvesters; fallback is defensive.
-    /* c8 ignore next 2 */
+    // manifestEntry is always set by harvesters; fallback is defensive.
+    /* c8 ignore next */
     url: entry.install.manifestEntry ?? entry.source.originUrl,
     // classification is set by all harvesters; fallback is defensive.
     /* c8 ignore next 2 */
@@ -172,8 +171,8 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
   queries.push(
     `What ${entry.assetKind} assets are available from ${entry.source.sourceId}?`,
   );
-  // hosts[0] is always set by the harvesters; "agent" is a defensive fallback.
-  /* c8 ignore next 2 */
+  // hosts[0] is always set by harvesters; fallback is defensive.
+  /* c8 ignore next */
   queries.push(`Find ${display} for ${entry.hosts[0] ?? "agent"} workflows`);
 
   for (const cap of entry.capabilities.slice(0, 5)) {
@@ -223,7 +222,7 @@ export async function writeArdCatalog(
         const pkgRaw = await rf(join(projectRoot, "package.json"), "utf8");
         const pkg = JSON.parse(pkgRaw) as { version?: string };
         // version is always set in package.json; fallback is defensive.
-        /* c8 ignore next 2 */
+        /* c8 ignore next */
         return pkg.version ?? "0.0.0";
       } catch {
         /* c8 ignore next */
