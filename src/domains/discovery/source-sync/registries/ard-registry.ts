@@ -235,6 +235,24 @@ export async function syncArdRegistrySource(
         }
       }
 
+      // Build synthetic representativeQueries for semantic scoring (#327).
+      // When the SemanticScorer is active, these are used as the primary
+      // embedding text, weighted at 1.2× over keyword-derived capabilities.
+      const synthQueries: string[] = [];
+      synthQueries.push(
+        `What ${assetKind} assets are available from ${source.id}?`,
+      );
+      synthQueries.push(
+        `Find ${displayName.toLowerCase()} for agent workflows`,
+      );
+      const MAX_SYNTH_QUERIES = 5;
+      for (const cap of resultCapabilities.slice(0, MAX_SYNTH_QUERIES)) {
+        synthQueries.push(`Install a ${assetKind} for ${cap}`);
+      }
+      if (synthQueries.length > 0) {
+        entry.representativeQueries = synthQueries;
+      }
+
       upsertIndexedCatalogEntry(context, entry);
       totalIndexed++;
       pageIndexed++;

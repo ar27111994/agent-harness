@@ -191,6 +191,37 @@ void test("buildEntryEmbeddingText — empty entry returns empty string", () => 
   assert.equal(text, "");
 });
 
+void test("buildEntryEmbeddingText — uses representativeQueries as primary text when present", () => {
+  const entry = makeEntry({
+    displayName: "ESLint",
+    capabilities: ["code linting"],
+    representativeQueries: [
+      "What is the best linter for TypeScript?",
+      "Find a tool for static analysis in React projects",
+    ],
+  });
+  const text = buildEntryEmbeddingText(entry);
+  // representativeQueries take priority over displayName + capabilities
+  assert.ok(text.includes("What is the best linter for TypeScript?"));
+  assert.ok(text.includes("Find a tool for static analysis"));
+  // displayName and capabilities should be excluded when representativeQueries present
+  assert.ok(
+    !text.includes("code linting"),
+    "capabilities excluded when queries present",
+  );
+});
+
+void test("buildEntryEmbeddingText — falls back to capabilities when representativeQueries is empty array", () => {
+  const entry = makeEntry({
+    displayName: "ESLint",
+    capabilities: ["code linting"],
+    representativeQueries: [],
+  });
+  const text = buildEntryEmbeddingText(entry);
+  assert.ok(text.includes("ESLint"));
+  assert.ok(text.includes("code linting"));
+});
+
 // ─── buildDemandQueryText ────────────────────────────────────────────────────
 
 void test("buildDemandQueryText — null profile returns empty string", () => {
@@ -481,6 +512,47 @@ void test("SemanticScorer — scoreEntry returns null for entry with empty embed
     result,
     null,
     "scoreEntry returns null when entry text is empty",
+  );
+});
+
+void test("SemanticScorer — scoreEntry applies 1.2× weight for entries with representativeQueries (#327)", async () => {
+  const queryVec = new Float32Array([1, 0]);
+  const entryVec = new Float32Array([0.6, 0.8]); // cos = 0.6
+  const withoutQueries = makeEntry({
+    displayName: "normal entry",
+    capabilities: ["testing"],
+  });
+  const withQueries = makeEntry({
+    displayName: "ard entry",
+    capabilities: ["testing"],
+    representativeQueries: [
+      "What is the best testing tool?",
+      "Find testing frameworks for TypeScript",
+    ],
+  });
+
+  const scorer = new SemanticScorer({
+    embedderOverride: async () => {
+      // Entry with representativeQueries gets different embedding text,
+      // but same vector — we want to test the weight, not the text diff.
+      return entryVec;
+    },
+  });
+
+  const resultWithout = await scorer.scoreEntry(withoutQueries, queryVec);
+  const resultWith = await scorer.scoreEntry(withQueries, queryVec);
+
+  assert.ok(resultWithout !== null);
+  assert.ok(resultWith !== null);
+
+  const rawCosine = 0.6;
+  assert.ok(
+    Math.abs(resultWithout.score - rawCosine) < 0.01,
+    "entry without representativeQueries gets unweighted score",
+  );
+  assert.ok(
+    Math.abs(resultWith.score - rawCosine * 1.2) < 0.01,
+    "entry with representativeQueries gets 1.2× weighted score (#327)",
   );
 });
 

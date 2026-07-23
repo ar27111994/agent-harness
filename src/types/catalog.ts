@@ -261,4 +261,10 @@ export interface AssetCatalogEntry {
   status: AssetStatus;
   queryMetadata?: AssetQueryMetadata;
   hostNativeConfig?: AssetHostNativeConfigMap;
+  /**
+   * Natural-language queries representative of what this asset can do.
+   * Used by the ARD semantic scoring path (#327) as the primary embedding
+   * text, weighted at 1.2× over other capability signals.
+   */
+  representativeQueries?: string[];
 }

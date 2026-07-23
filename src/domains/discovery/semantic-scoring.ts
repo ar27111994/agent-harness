@@ -29,6 +29,14 @@ export const FIT_LEVEL_THRESHOLDS = {
   weak: 0.35,
 } as const;
 
+/**
+ * Weight multiplier for entries carrying ARD representativeQueries (#327).
+ * When an entry has ARD-generated natural-language query text, its semantic
+ * similarity score is multiplied by this factor to reflect the higher-quality
+ * embedding signal compared to keyword-derived capability text.
+ */
+export const ARD_REPRESENTATIVE_QUERY_WEIGHT = 1.2;
+
 // ─── Pure math helpers ───────────────────────────────────────────────────────
 
 /**
@@ -78,6 +86,13 @@ export function scoreToFitLevel(score: number): FitLevel {
  * Concatenates display name and capability terms for best semantic coverage.
  */
 export function buildEntryEmbeddingText(entry: AssetCatalogEntry): string {
+  // ARD representativeQueries are the richest semantic signal (#327).
+  // When present, they describe what the asset can do in natural language,
+  // weighted at ARD_REPRESENTATIVE_QUERY_WEIGHT in the similarity score.
+  if (entry.representativeQueries && entry.representativeQueries.length > 0) {
+    return entry.representativeQueries.join(" ");
+  }
+
   const parts: string[] = [];
 
   if (entry.displayName) {
@@ -234,7 +249,15 @@ export class SemanticScorer {
     const entryVec = await this.embed(text);
     if (!entryVec) return null;
 
-    const score = cosineSimilarity(queryVec, entryVec);
+    const rawScore = cosineSimilarity(queryVec, entryVec);
+    // ARD entries with representativeQueries get a 1.2× weight on their
+    // semantic similarity score — their embedding text is higher quality
+    // than keyword-derived capability terms (#327).
+    const hasRepresentativeQueries =
+      entry.representativeQueries && entry.representativeQueries.length > 0;
+    const score = hasRepresentativeQueries
+      ? rawScore * ARD_REPRESENTATIVE_QUERY_WEIGHT
+      : rawScore;
     return { score, fitLevel: scoreToFitLevel(score) };
   }
 
