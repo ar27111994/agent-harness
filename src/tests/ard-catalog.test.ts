@@ -350,3 +350,67 @@ void test("writeArdCatalog handles empty catalog gracefully", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("writeArdCatalog skips malformed entries without crashing", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-malformed-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    // Corrupt entry — missing 'source' will cause mapEntryToArd to throw.
+    const corruptEntry = JSON.stringify({
+      id: "bad-entry",
+      displayName: "Bad",
+      assetKind: "skill",
+    });
+    const validEntry = JSON.stringify({
+      id: "good-entry",
+      displayName: "Good",
+      assetKind: "skill",
+      hosts: ["claude-code"],
+      compatibilityMode: "adaptable",
+      source: {
+        sourceId: "test",
+        authorityTier: "unverified-community",
+        sourceKind: "repo",
+        sourcePriority: 70,
+        originUrl: "https://example.com",
+        publisher: "test",
+        publisherVerified: false,
+      },
+      trust: { score: 50, signals: [] },
+      capabilities: ["test"],
+      install: { method: "test", manifestEntry: "https://example.com" },
+      evidence: {
+        manifestFound: true,
+        readmeFound: true,
+        examplesFound: false,
+        docsLinked: true,
+        lineCount: 1,
+        rootPath: "https://example.com",
+      },
+      maintenance: {
+        lastUpdated: "2026-01-01T00:00:00Z",
+        stars: 0,
+        releaseCadence: "occasional",
+      },
+      risk: { hooks: false, execScripts: false, requiresNetwork: false },
+      contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+      fit: { portfolioFit: 0.5, hostFit: 0.5 },
+      dedupe: { duplicateGroup: null, candidateRankHint: 0 },
+      status: "fresh",
+    });
+
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      corruptEntry + "\n" + validEntry + "\n",
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(root, "2.0.0");
+    assert.equal(result.entryCount, 1, "corrupt entry skipped, valid exported");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -212,6 +212,9 @@ async function synchronizeIndexedSource(
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState | null> {
   // Dispatch by kind for sources where the adapter is kind-driven, not ID-driven.
+  // Requires a real ARD-compliant registry endpoint to exercise; tested indirectly
+  // via the syncArdRegistrySource unit tests in the registries/ard-registry module.
+  /* c8 ignore next 4 */
   if (source.kind === "ard-registry") {
     const { syncArdRegistrySource } =
       await import("./registries/ard-registry.js");
