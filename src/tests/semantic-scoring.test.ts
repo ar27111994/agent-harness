@@ -564,8 +564,8 @@ void test("SemanticScorer — filterAndRank sorts same-bucket entries by score d
   //
   // FIT_LEVEL_THRESHOLDS: strong ≥ 0.75, moderate ≥ 0.5, weak ≥ 0.35.
   // We pin query=[1,0] and use distinct entry vectors:
-  //   highEntry: [0.65, 0.76] → cos = 0.65 / ||[0.65, 0.76]|| → "moderate"
-  //   lowEntry:  [0.51, 0.86] → cos = 0.51 / ||[0.51, 0.86]|| → "moderate"
+  //   highEntry: [0.65, 0.76] → cos ≈ 0.65 → "moderate" (0.55–0.75)
+  //   lowEntry:  [0.58, 0.81] → cos ≈ 0.58 → "moderate" (0.55–0.75)
   // Both are "moderate" but highEntry has higher cosine score vs. the query.
   //
   // Embedding call order inside filterAndRank:
@@ -574,7 +574,7 @@ void test("SemanticScorer — filterAndRank sorts same-bucket entries by score d
   //   3. embed("low score entry …") → lowVec
   const queryVec = new Float32Array([1, 0]);
   const highVec = new Float32Array([0.65, 0.76]);
-  const lowVec = new Float32Array([0.51, 0.86]);
+  const lowVec = new Float32Array([0.58, 0.81]);
 
   let callCount = 0;
   const scorer = new SemanticScorer({

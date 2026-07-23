@@ -170,8 +170,22 @@ export async function runDiscover(
     case "sync": {
       const forceFullFlag = rest.includes("--full");
       if (!forceFullFlag && (await isCatalogIndexFresh(projectRoot))) {
+        // The index is fresh but source-sync state may be stale or empty.
+        // Copy the index snapshot into source-sync.entries.jsonl so downstream
+        // catalog generation reads the correct set of indexed entries.
+        const syncEntriesPath = join(
+          projectRoot,
+          "state",
+          "discover",
+          "source-sync.entries.jsonl",
+        );
+        const indexPath = join(projectRoot, ...CATALOG_INDEX_OUTPUT_PATH);
+        await mkdir(join(projectRoot, "state", "discover"), {
+          recursive: true,
+        });
+        await copyFile(indexPath, syncEntriesPath);
         process.stdout.write(
-          "[discover sync] Using fresh local catalog index — skipping live harvest.\n" +
+          "[discover sync] Using fresh local catalog index — loaded into source-sync state.\n" +
             "  Run 'discover index' or 'discover sync --full' to force a re-harvest.\n",
         );
       } else {

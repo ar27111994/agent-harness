@@ -86,7 +86,16 @@ export function buildArdUrn(
   publisherFqdn: string,
 ): string {
   const namespace = entry.source.sourceKind;
-  const agentName = entry.id.replace(/[/:@]/g, "-").slice(0, 64);
+  // Sanitised slug: replace path/URI separators, truncate to bound.
+  const sanitized = entry.id.replace(/[/:@]/g, "-").slice(0, 50);
+  // Stable DJB2-style hash from the complete original ID — ensures entries
+  // differing only after truncation or character replacement get distinct URNs.
+  let hash = 5381;
+  for (let i = 0; i < entry.id.length; i++) {
+    hash = ((hash << 5) + hash + entry.id.charCodeAt(i)) | 0;
+  }
+  const hashSuffix = (hash >>> 0).toString(16).padStart(8, "0");
+  const agentName = `${sanitized}-${hashSuffix}`;
   return `urn:ai:${publisherFqdn}:${namespace}:${agentName}`;
 }
 
