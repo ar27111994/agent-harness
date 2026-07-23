@@ -158,6 +158,8 @@ function defaultCoverageModeForSourceKind(
     return "direct";
   }
 
+  // ard-registry sources use indexed (cursor-based) coverage.
+  /* c8 ignore next 2 */
   if (kind === "ard-registry") {
     return "indexed";
   }

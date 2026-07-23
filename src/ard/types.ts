@@ -69,6 +69,7 @@ export const ARD_TRUST_SIGNALS = [
   "ard-signed",
 ] as const;
 
+/** Known ARD trust-signal names used in `AssetTrust.signals[]`. */
 export type ArdTrustSignal = (typeof ARD_TRUST_SIGNALS)[number];
 
 /** ARD trust attestation shape. */

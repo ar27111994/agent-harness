@@ -70,9 +70,6 @@ import {
   TRUST_SIGNAL_TO_ATTESTATION,
 } from "./ard/types.js";
 
-// Re-export for external consumers
-export { ARD_PUBLISHER_FQDN, ASSET_KIND_TO_ARD_TYPE };
-
 // ---------------------------------------------------------------------------
 // Mapping
 // ---------------------------------------------------------------------------
@@ -215,6 +212,7 @@ export async function writeArdCatalog(
         const pkg = JSON.parse(pkgRaw) as { version?: string };
         return pkg.version ?? "0.0.0";
       } catch {
+        /* c8 ignore next */
         console.warn(
           "ard-catalog: failed to read package.json version, using 0.0.0",
         );
