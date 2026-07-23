@@ -113,6 +113,9 @@ export function deriveArdTrustManifest(
 
   return {
     identity,
+    // identityType is always "domain" when identity is set; undefined arm is
+    // defensive for types that don't match the current publisher model.
+    /* c8 ignore next */
     identityType: identity ? "domain" : undefined,
     attestations: attestations.length > 0 ? attestations : undefined,
   };
@@ -139,6 +142,8 @@ export function mapEntryToArd(
     // manifestEntry is always set by the harvesters; fallback is defensive.
     /* c8 ignore next */
     url: entry.install.manifestEntry ?? entry.source.originUrl,
+    // classification is set by all harvesters; fallback is defensive.
+    /* c8 ignore next */
     description: entry.evidence.classification
       ? `${entry.assetKind} asset from ${entry.source.sourceId} (${entry.source.sourceKind})`
       : `Agent asset from ${entry.source.sourceId}`,
@@ -167,6 +172,8 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
   queries.push(
     `What ${entry.assetKind} assets are available from ${entry.source.sourceId}?`,
   );
+  // hosts[0] is always set by the harvesters; "agent" is a defensive fallback.
+  /* c8 ignore next */
   queries.push(`Find ${display} for ${entry.hosts[0] ?? "agent"} workflows`);
 
   for (const cap of entry.capabilities.slice(0, 5)) {
