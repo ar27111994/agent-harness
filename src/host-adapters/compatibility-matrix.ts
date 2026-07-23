@@ -70,6 +70,13 @@ export const VSCODE_EXTENSION_COMPATIBLE_HOSTS: CompatibleHost[] = [
       "Cursor supports VS Code Marketplace extensions; extensions using VS Code-specific runtime APIs may not work.",
     installDiffers: true,
   },
+  {
+    host: "windsurf",
+    compatibility: "partial",
+    notes:
+      "Windsurf supports VS Code Marketplace extensions via its VS Code compatibility layer.",
+    installDiffers: true,
+  },
 ];
 
 /**

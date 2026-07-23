@@ -128,10 +128,15 @@ void test("isCatalogIndexFresh — falls back to JSONL mtime when meta absent", 
 
 void test("isCatalogIndexFresh — respects AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS", async (ctx) => {
   const root = await makeProjectRoot();
+  const priorAgeDays = process.env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS;
   process.env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS = "1";
   runtimeConfigInternals.resetCacheForTesting();
   ctx.after(() => {
-    delete process.env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS;
+    if (priorAgeDays === undefined) {
+      delete process.env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS;
+    } else {
+      process.env.AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS = priorAgeDays;
+    }
     runtimeConfigInternals.resetCacheForTesting();
   });
 

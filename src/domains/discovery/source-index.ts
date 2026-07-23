@@ -159,7 +159,6 @@ function defaultCoverageModeForSourceKind(
   }
 
   // ard-registry sources use indexed (cursor-based) coverage.
-  /* c8 ignore next 3 */
   if (kind === "ard-registry") {
     return "indexed";
   }
@@ -181,3 +180,7 @@ function defaultSyncStatusForSourceKind(
 
   return "unsupported";
 }
+
+export const sourceIndexInternals = {
+  defaultCoverageModeForSourceKind,
+} as const;

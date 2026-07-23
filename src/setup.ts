@@ -131,13 +131,14 @@ async function runDoctor(
 
   let hasErrors = false;
 
-  for (const result of adapterResults) {
+  for (const [resultIndex, result] of adapterResults.entries()) {
     // Promise.allSettled only rejects on uncaught throws. Our inner async
     // function always resolves (the race resolves either way), so a rejection
-    // here is a genuine internal error — surface it as an error diagnostic.
+    // here is a genuine internal error — surface it with the adapter identity.
     if (result.status === "rejected") {
+      const adapterId = adapters[resultIndex]?.id ?? "unknown adapter";
       console.log(
-        `\n# (unknown adapter — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
+        `\n# (${adapterId} — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
       );
       hasErrors = true;
       continue;

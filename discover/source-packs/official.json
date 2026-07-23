@@ -726,27 +726,6 @@
       "assetKinds": ["payable-api", "skill", "mcp-server"]
     },
     {
-      "id": "gemini-cli-extensions-conductor-pack",
-      "name": "Conductor \u2014 AI Planning and Orchestration",
-      "repo": "https://github.com/gemini-cli-extensions/conductor",
-      "authorityTier": "official-first-party",
-      "publisher": "Google",
-      "publisherVerified": true,
-      "priority": 97,
-      "enabled": true,
-      "kind": "repo",
-      "hosts": [
-        "claude-code",
-        "codex",
-        "copilot-vscode",
-        "opencode",
-        "cursor",
-        "zed",
-        "pi"
-      ],
-      "assetKinds": ["skill", "plugin", "workflow", "agent"]
-    },
-    {
       "id": "awslabs-mcp",
       "name": "AWS Labs MCP Servers",
       "repo": "https://github.com/awslabs/mcp",

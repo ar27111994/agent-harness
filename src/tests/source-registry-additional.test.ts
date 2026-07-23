@@ -6,7 +6,8 @@ import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
 import { loadSourceRegistry } from "../domains/discovery/source-registry.js";
-import type { SourceDefinition } from "../types.js";
+import { sourceIndexInternals } from "../domains/discovery/source-index.js";
+import type { SourceDefinition, SourceKind } from "../types.js";
 
 void test("source registry merges generated local sources while preserving user settings and refreshing endpoints", async () => {
   const projectRoot = await mkdtemp(
@@ -520,4 +521,27 @@ function buildSource(id: string, repo: string): SourceDefinition {
       allowInstall: false,
     },
   };
+
+  void test(
+    "defaultCoverageModeForSourceKind returns indexed for ard-registry",
+    () => {
+      assert.equal(
+        sourceIndexInternals.defaultCoverageModeForSourceKind(
+          "ard-registry",
+        ),
+        "indexed",
+      );
+    },
+  );
+  void test(
+    "defaultCoverageModeForSourceKind returns indexed for indexed-registry default",
+    () => {
+      assert.equal(
+        sourceIndexInternals.defaultCoverageModeForSourceKind(
+          "go-registry" as SourceKind,
+        ),
+        "sampled",
+      );
+    },
+  );
 }

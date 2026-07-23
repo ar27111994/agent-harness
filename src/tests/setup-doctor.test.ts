@@ -205,22 +205,15 @@ void test("runDoctorWithAdapters: hasErrors is false when all adapters produce o
   assert.equal(results.length, 2);
 });
 
-void test("runDoctorWithAdapters: hasErrors is true when any adapter produces an error diagnostic", async () => {
-  const adapters = [buildNoRuntimeAdapter("error-adapter")];
-  // Override: produce an error by using required=true adapter that has no
-  // runtime — but our helper sets runtime:undefined, so the error only
-  // surfaces via runNativeInstallPreflight, not runAdapterPreflight.
-  // Instead, inject a custom wire that doesn't matter and just check
-  // that the adapter without errors keeps hasErrors=false.
-  //
-  // The AC says "a test verifies that runDoctor with a mock adapter whose
-  // preflight hangs indefinitely still resolves within the timeout budget" —
-  // covered above. Here we verify the error-detection path.
+void test("runDoctorWithAdapters: hasErrors is false when no adapter produces error diagnostics", async () => {
+  // This test verifies the warning-only, no-error path: when adapters
+  // complete without error diagnostics, hasErrors remains false.
   //
   // Build an adapter with a required runtime that is missing: runAdapterPreflight
   // will return a WARNING (not error) for missing optional runtime.
   // To get an error we need a required-runtime adapter — which is only for
   // nativeInstall. So we verify the warning-only path here (hasErrors=false).
+  const adapters = [buildNoRuntimeAdapter("warn-only-adapter")];
   const { hasErrors } = await runDoctorWithAdapters(adapters, 5_000);
   assert.equal(hasErrors, false);
 });
