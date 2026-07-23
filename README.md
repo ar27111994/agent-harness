@@ -377,12 +377,12 @@ agent-harness recommend report --intent frontend
 
 **Production-scale config:** Override conservative defaults for comprehensive coverage:
 
-| Env var | Default | Production | Effect |
-|---------|---------|------------|--------|
-| `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD` | 500 | 0 (unlimited) | Pages per source in index build |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES` | 50 | 200+ | Popularity-sorted VS Code pages |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES` | 4 | 20 | Demand-driven queries |
-| `GITHUB_TOKEN` | (none) | Personal access token | 5,000 req/h vs 60 unauthenticated |
+| Env var                                                   | Default | Production            | Effect                            |
+| --------------------------------------------------------- | ------- | --------------------- | --------------------------------- |
+| `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD`     | 500     | 0 (unlimited)         | Pages per source in index build   |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES` | 50      | 200+                  | Popularity-sorted VS Code pages   |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES`            | 4       | 20                    | Demand-driven queries             |
+| `GITHUB_TOKEN`                                            | (none)  | Personal access token | 5,000 req/h vs 60 unauthenticated |
 
 **Scope:** A full index build with `GITHUB_TOKEN` and unlimited pagination can catalog tens of thousands of assets from VS Code Marketplace (60,000+ extensions), npm (2M+ packages), MCP registry, package registries, GitHub awesome-lists, and community source packs. The per-workspace selection then ranks from this comprehensive pool rather than a limited demand-driven harvest. See `docs/guides/CATALOG-BREADTH.md` for the full guide.
 
