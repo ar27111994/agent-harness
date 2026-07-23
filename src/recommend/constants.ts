@@ -120,29 +120,6 @@ export const GENERIC_CAPABILITY_TERMS = new Set([
 
 /**
  * Per-signal trust-score boosts applied during catalog entry construction.
- * Each signal adds its value to `AssetTrust.score` when the signal is present
- * in `AssetTrust.signals[]`.
- *
- * OMS signals are detected during GitHub source harvest (#315).
- * ARD signals are consumed from `ai-catalog.json` trustManifest entries (#328).
+ * Re-exported from the shared ARD module to avoid duplication.
  */
-export const TRUST_SIGNAL_SCORE_BOOST: Record<string, number> = {
-  /** Asset carries an OMS cryptographic signature (skill.oms.sig). */
-  "oms-signed": 5,
-  /** Repository contains an OMS trust-anchor root certificate. */
-  "oms-trust-anchor": 3,
-  /** Publisher identity verified by the source registry. */
-  "publisher-verified": 2,
-
-  // ARD trust-manifest signals (#328)
-  /** ARD trustManifest.identity present — domain/did/x509/spiffe/oAuth binding. */
-  "ard-identity-bound": 4,
-  /** ARD trustManifest has at least one compliance attestation. */
-  "ard-compliance-attested": 3,
-  /** SOC2 Type 2 compliance attestation present. */
-  "ard-soc2": 3,
-  /** HIPAA compliance audit attestation present. */
-  "ard-hipaa": 3,
-  /** ARD trustManifest carries a detached JWS signature. */
-  "ard-signed": 5,
-};
+export { TRUST_SIGNAL_SCORE_BOOST } from "../ard/types.js";

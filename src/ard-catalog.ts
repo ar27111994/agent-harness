@@ -13,7 +13,7 @@
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { AssetCatalogEntry, AssetKind } from "./types.js";
+import type { AssetCatalogEntry } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // ARD Schema Types (§3)
@@ -63,44 +63,15 @@ export interface ArdCatalog {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** ARD spec schema URI. */
-const ARD_SCHEMA =
-  "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json";
+import {
+  ARD_PUBLISHER_FQDN,
+  ARD_SCHEMA_URI,
+  ASSET_KIND_TO_ARD_TYPE,
+  TRUST_SIGNAL_TO_ATTESTATION,
+} from "./ard/types.js";
 
-/** Publisher FQDN for agent-harness. */
-const PUBLISHER_FQDN = "ar27111994.github.io";
-
-/** ARD type mapping: AssetKind → ARD media type. */
-const ASSET_KIND_TO_ARD_TYPE: Record<AssetKind, string> = {
-  "mcp-server": "application/mcp-server+json",
-  agent: "application/a2a-agent-card+json",
-  skill: "application/ai-skill",
-  plugin: "application/ai-skill+json",
-  "acp-agent": "application/a2a-agent-card+json",
-  extension: "application/openapi+json",
-  "reference-pack": "application/ai-catalog+json",
-  instruction: "application/ai-skill+md",
-  workflow: "application/ai-skill+md",
-  hook: "application/ai-skill+json",
-  "prompt-pack": "application/ai-skill+md",
-  "payable-api": "application/openapi+json",
-};
-
-/** ARD trust attestations derived from agent-harness trust signals. */
-const TRUST_SIGNAL_TO_ATTESTATION: Record<string, ArdAttestation> = {
-  "oms-signed": {
-    type: "OMS-Code-Signature",
-    description: "Asset is OMS-signed via skill.oms.sig",
-  },
-  "oms-trust-anchor": {
-    type: "OMS-Trust-Anchor",
-    description: "Repository contains nv-agent-root-cert.pem trust anchor",
-  },
-  "publisher-verified": {
-    type: "Publisher-Verified",
-    description: "Publisher identity verified by the source registry",
-  },
-};
+// Re-export for external consumers
+export { ARD_PUBLISHER_FQDN, ASSET_KIND_TO_ARD_TYPE };
 
 // ---------------------------------------------------------------------------
 // Mapping
@@ -244,6 +215,9 @@ export async function writeArdCatalog(
         const pkg = JSON.parse(pkgRaw) as { version?: string };
         return pkg.version ?? "0.0.0";
       } catch {
+        console.warn(
+          "ard-catalog: failed to read package.json version, using 0.0.0",
+        );
         return "0.0.0";
       }
     })());
@@ -251,15 +225,16 @@ export async function writeArdCatalog(
   const ardEntries: ArdCatalogEntry[] = [];
   for (const entry of entries) {
     try {
-      ardEntries.push(mapEntryToArd(entry, PUBLISHER_FQDN, pkgVersion));
+      ardEntries.push(mapEntryToArd(entry, ARD_PUBLISHER_FQDN, pkgVersion));
     } catch {
       // Skip entries that fail mapping (malformed data).
+      console.warn(`ard-catalog: skipping malformed entry during ARD export`);
     }
   }
 
   const catalog: ArdCatalog = {
-    $schema: ARD_SCHEMA,
-    publisher: PUBLISHER_FQDN,
+    $schema: ARD_SCHEMA_URI,
+    publisher: ARD_PUBLISHER_FQDN,
     version: pkgVersion,
     generatedAt: new Date().toISOString(),
     entries: ardEntries,
@@ -285,5 +260,5 @@ export const ardCatalogInternals = {
   mapEntryToArd,
   ASSET_KIND_TO_ARD_TYPE,
   TRUST_SIGNAL_TO_ATTESTATION,
-  PUBLISHER_FQDN,
+  ARD_PUBLISHER_FQDN,
 };

@@ -37,7 +37,9 @@
   <a href="#discovery-and-recommendations"><img alt="reference packs" src="https://img.shields.io/badge/reference%20packs-64748B?logo=gitbook&logoColor=white" /></a>
 </p>
 
-`agent-harness` is a reviewable supply chain for reusable AI-agent assets: discover trusted sources, rank workspace-specific recommendations, mirror pinned bundles, stage local files, activate host views, and wire everything into the agent host you already use.
+**Discover anywhere. Install everywhere.**
+
+`agent-harness` is a reviewable supply chain for reusable AI-agent assets: discover trusted sources, rank workspace-specific recommendations, mirror pinned bundles, stage local files, activate host views, and wire everything into the agent host you already use. ARD-compatible (v0.9) as both publisher and consumer.
 
 **Proof points**
 

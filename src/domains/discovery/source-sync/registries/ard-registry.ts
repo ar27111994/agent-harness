@@ -11,7 +11,12 @@
 import type { SourceDefinition } from "../../../../types.js";
 import { buildReferenceSourceCatalogEntry } from "../../reference-source-harvester.js";
 import { splitIntoKeywords, uniqueStrings } from "../../catalog-utils.js";
-import { TRUST_SIGNAL_SCORE_BOOST } from "../../../../recommend/constants.js";
+import {
+  ardTypeToAssetKind,
+  buildArdQueryText,
+  inferAuthorityTierFromArdUrn,
+  TRUST_SIGNAL_SCORE_BOOST,
+} from "../../../../ard/types.js";
 
 import {
   getPreviousCursorStates,
@@ -28,23 +33,8 @@ import { fetchJsonWithGuards } from "../../../../lib/http.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers (mapping functions imported from ../../../../ard/types.js)
 // ---------------------------------------------------------------------------
-
-/** Maps ARD media type to agent-harness AssetKind. */
-function ardTypeToAssetKind(ardType: string): string {
-  const map: Record<string, string> = {
-    "application/mcp-server+json": "mcp-server",
-    "application/a2a-agent-card+json": "agent",
-    "application/ai-skill": "skill",
-    "application/ai-skill+md": "skill",
-    "application/ai-skill+json": "skill",
-    "application/ai-catalog+json": "reference-pack",
-    "application/ai-registry+json": "reference-pack",
-    "application/openapi+json": "payable-api",
-  };
-  return map[ardType] ?? "skill";
-}
 
 /** Derives trust signals from ARD trustManifest. */
 function deriveArdTrustSignals(tm?: Record<string, unknown>): string[] {
@@ -134,9 +124,7 @@ export async function syncArdRegistrySource(
     };
   }
 
-  const queryText =
-    source.endpoints.searchQuery ??
-    "agent skills MCP tools AI coding assistants";
+  const queryText = buildArdQueryText(context.demandProfile);
 
   while (!completed) {
     if (
@@ -234,6 +222,17 @@ export async function syncArdRegistrySource(
         portfolioFit: normalizeScoreToPortfolioFit(rawScore),
       };
 
+      // Infer authority tier from the entry's URN publisher domain
+      if (result.identifier) {
+        const URN_MIN_PARTS = 4;
+        const urnParts = String(result.identifier).split(":");
+        if (urnParts.length >= URN_MIN_PARTS) {
+          const publisherDomain = urnParts[3];
+          entry.source.authorityTier =
+            inferAuthorityTierFromArdUrn(publisherDomain);
+        }
+      }
+
       upsertIndexedCatalogEntry(context, entry);
       totalIndexed++;
       pageIndexed++;
@@ -256,6 +255,7 @@ export async function syncArdRegistrySource(
         );
       } catch {
         // Non-critical — referral persistence is best-effort.
+        console.warn("ard-registry: failed to persist federated referrals");
       }
     }
 

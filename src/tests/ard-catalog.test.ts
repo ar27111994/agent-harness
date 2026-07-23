@@ -24,7 +24,7 @@ import {
 
 import type { AssetCatalogEntry, AssetKind } from "../types.js";
 
-const { ASSET_KIND_TO_ARD_TYPE, PUBLISHER_FQDN } = ardCatalogInternals;
+const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -316,7 +316,7 @@ void test("writeArdCatalog writes valid ARD catalog to .well-known/", async () =
       catalog["$schema"],
       "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
     );
-    assert.equal(catalog["publisher"], PUBLISHER_FQDN);
+    assert.equal(catalog["publisher"], ARD_PUBLISHER_FQDN);
     assert.equal(catalog["version"], "2.0.0");
     const entries = catalog["entries"] as
       | Array<Record<string, unknown>>
