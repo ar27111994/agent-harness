@@ -10,7 +10,7 @@
  * Tickets: #325, #327, #328, #329
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { AssetCatalogEntry, AssetKind } from "./types.js";
@@ -235,7 +235,18 @@ export async function writeArdCatalog(
   const wellKnownDir = join(projectRoot, ".well-known");
 
   const entries = await readJsonLinesFile<AssetCatalogEntry>(catalogPath);
-  const pkgVersion = version ?? "0.0.0";
+  const pkgVersion =
+    version ??
+    (await (async () => {
+      try {
+        const { readFile: rf } = await import("node:fs/promises");
+        const pkgRaw = await rf(join(projectRoot, "package.json"), "utf8");
+        const pkg = JSON.parse(pkgRaw) as { version?: string };
+        return pkg.version ?? "0.0.0";
+      } catch {
+        return "0.0.0";
+      }
+    })());
 
   const ardEntries: ArdCatalogEntry[] = [];
   for (const entry of entries) {
@@ -256,7 +267,11 @@ export async function writeArdCatalog(
 
   await mkdir(wellKnownDir, { recursive: true });
   const filePath = join(wellKnownDir, "ai-catalog.json");
-  await writeFile(filePath, JSON.stringify(catalog, null, 2) + "\n", "utf8");
+  // Atomic write: write to temp file first, then rename. Prevents
+  // a crash from leaving a partial ai-catalog.json on disk.
+  const tempPath = `${filePath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
+  await writeFile(tempPath, JSON.stringify(catalog, null, 2) + "\n", "utf8");
+  await rename(tempPath, filePath);
 
   return { filePath, entryCount: ardEntries.length };
 }
