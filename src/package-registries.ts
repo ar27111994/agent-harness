@@ -3,6 +3,15 @@ import {
   fetchJsonWithGuards,
   type FetchWithGuardsOptions,
 } from "./lib/http.js";
+import { readFileSync } from "node:fs";
+
+const AGENT_HARNESS_VERSION: string = (() => {
+  try {
+    return (JSON.parse(readFileSync("package.json", "utf8")) as { version: string }).version;
+  } catch {
+    return "2.0.0";
+  }
+})();
 
 const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
 const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;
@@ -480,7 +489,7 @@ export async function fetchCratesIoSearch(
       headers: {
         Accept: "application/json",
         "User-Agent":
-          "agent-harness/2.0.0 (github.com/ar27111994/agent-harness)",
+          `agent-harness/${AGENT_HARNESS_VERSION} (github.com/ar27111994/agent-harness)`,
       },
       maxBytes: registriesConfig.searchMaxBytes,
       resolveHostname: options.resolveHostname,

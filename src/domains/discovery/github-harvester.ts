@@ -61,10 +61,15 @@ export async function harvestGitHubRepoSource(
       return [];
     }
 
-    // Build a Set of all lower-cased paths once so buildGitHubCatalogEntry can
-    // do O(1) OMS-signature lookups instead of O(n) .some() scans per entry.
-    const omsPathSet = new Set(
-      snapshot.tree.entries.map((entry) => entry.path.toLowerCase()),
+    // Build a Map of path→size for O(1) OMS-signature lookups with content
+    // verification — dummy files with zero content must not inflate trust.
+    const omsFileSizes = new Map<string, number>(
+      snapshot.tree.entries
+        .filter(
+          (entry) =>
+            entry.type === "blob" && entry.size != null && entry.size > 0,
+        )
+        .map((entry) => [entry.path.toLowerCase(), entry.size ?? 0]),
     );
 
     return snapshot.tree.entries
@@ -78,7 +83,7 @@ export async function harvestGitHubRepoSource(
           entry,
           demandProfile,
           selectionRegistry,
-          omsPathSet,
+          omsFileSizes,
         );
       })
       .filter((entry): entry is AssetCatalogEntry => entry !== null);
@@ -96,7 +101,7 @@ function buildGitHubCatalogEntry(
   treeEntry: GitHubRepoSnapshot["tree"]["entries"][number],
   demandProfile: DemandProfile | null,
   selectionRegistry: SelectionRegistry,
-  omsPathSet: ReadonlySet<string>,
+  omsFileSizes: ReadonlyMap<string, number>,
 ): AssetCatalogEntry | null {
   const relativePath = treeEntry.path;
   const classification = classifyGitHubTreePath(relativePath, source);
@@ -119,7 +124,9 @@ function buildGitHubCatalogEntry(
   const omsSignaturePath = assetDir
     ? `${assetDir}/skill.oms.sig`
     : "skill.oms.sig";
-  const hasOmsSignature = omsPathSet.has(omsSignaturePath.toLowerCase());
+  const omsSigSize = omsFileSizes.get(omsSignaturePath.toLowerCase());
+  // Trust signals must be backed by real content, not empty placeholder files.
+  const hasOmsSignature = omsSigSize != null && omsSigSize > 0;
   const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
 
   return {
