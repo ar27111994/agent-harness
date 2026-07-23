@@ -863,7 +863,12 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
         truncated: false,
         tree: [
           // Root cert — marks the whole repo as OMS-anchored
-          { path: "nv-agent-root-cert.pem", type: "blob", sha: "cert-sha", size: 1024 },
+          {
+            path: "nv-agent-root-cert.pem",
+            type: "blob",
+            sha: "cert-sha",
+            size: 1024,
+          },
           // Signed skill — has a sibling .oms.sig
           {
             path: "skills/cuda-debugger/SKILL.md",

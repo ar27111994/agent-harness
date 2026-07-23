@@ -522,26 +522,18 @@ function buildSource(id: string, repo: string): SourceDefinition {
     },
   };
 
-  void test(
-    "defaultCoverageModeForSourceKind returns indexed for ard-registry",
-    () => {
-      assert.equal(
-        sourceIndexInternals.defaultCoverageModeForSourceKind(
-          "ard-registry",
-        ),
-        "indexed",
-      );
-    },
-  );
-  void test(
-    "defaultCoverageModeForSourceKind returns indexed for indexed-registry default",
-    () => {
-      assert.equal(
-        sourceIndexInternals.defaultCoverageModeForSourceKind(
-          "go-registry" as SourceKind,
-        ),
-        "sampled",
-      );
-    },
-  );
+  void test("defaultCoverageModeForSourceKind returns indexed for ard-registry", () => {
+    assert.equal(
+      sourceIndexInternals.defaultCoverageModeForSourceKind("ard-registry"),
+      "indexed",
+    );
+  });
+  void test("defaultCoverageModeForSourceKind returns indexed for indexed-registry default", () => {
+    assert.equal(
+      sourceIndexInternals.defaultCoverageModeForSourceKind(
+        "go-registry" as SourceKind,
+      ),
+      "sampled",
+    );
+  });
 }

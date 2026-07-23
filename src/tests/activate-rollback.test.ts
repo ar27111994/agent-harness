@@ -122,10 +122,7 @@ void test("swapActivationRuntimeRoot throws AggregateError when both apply and r
       await swapActivationRuntimeRoot(runtimeRoot, stagingRoot);
       assert.fail("Expected swapActivationRuntimeRoot to throw");
     } catch (err) {
-      assert.ok(
-        err instanceof Error,
-        `Expected Error, got ${typeof err}`,
-      );
+      assert.ok(err instanceof Error, `Expected Error, got ${typeof err}`);
       // hadRuntimeRoot was true and runtimeRoot still exists (backup rename
       // never runs — staging is gone before the function is called, so
       // pathExists(runtimeRoot) is still true at line 433 and no backup

@@ -166,12 +166,14 @@ export async function syncArdRegistrySource(
 
       // Prefer the round-tripped agent-harness AssetKind from ARD data;
       // fall back to media-type inference when absent or invalid.
-      const assetKind = (
-        getString(
-          (result.data as Record<string, unknown> | undefined)?.["assetKind"],
-        ) ||
-        ardTypeToAssetKind(ardType)
-      ) as "skill" | "mcp-server" | "agent" | "reference-pack" | "payable-api";
+      const assetKind = (getString(
+        (result.data as Record<string, unknown> | undefined)?.["assetKind"],
+      ) || ardTypeToAssetKind(ardType)) as
+        | "skill"
+        | "mcp-server"
+        | "agent"
+        | "reference-pack"
+        | "payable-api";
 
       const resultCapabilities = Array.isArray(result.capabilities)
         ? result.capabilities.filter((c): c is string => typeof c === "string")

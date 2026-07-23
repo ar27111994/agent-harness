@@ -7,7 +7,9 @@ import { readFileSync } from "node:fs";
 
 const AGENT_HARNESS_VERSION: string = (() => {
   try {
-    return (JSON.parse(readFileSync("package.json", "utf8")) as { version: string }).version;
+    return (
+      JSON.parse(readFileSync("package.json", "utf8")) as { version: string }
+    ).version;
   } catch {
     return "2.0.0";
   }
@@ -488,8 +490,7 @@ export async function fetchCratesIoSearch(
       allowedOrigins: ["https://crates.io"],
       headers: {
         Accept: "application/json",
-        "User-Agent":
-          `agent-harness/${AGENT_HARNESS_VERSION} (github.com/ar27111994/agent-harness)`,
+        "User-Agent": `agent-harness/${AGENT_HARNESS_VERSION} (github.com/ar27111994/agent-harness)`,
       },
       maxBytes: registriesConfig.searchMaxBytes,
       resolveHostname: options.resolveHostname,
