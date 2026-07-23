@@ -281,7 +281,7 @@ void test("writeArdCatalog writes valid ARD catalog to .well-known/", async () =
 
   try {
     // Create minimal selected catalog
-    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    const discoverDir = join(root, "discover", "output");
     await mkdir(discoverDir, { recursive: true });
 
     const entry = buildEntry({
@@ -336,7 +336,7 @@ void test("writeArdCatalog handles empty catalog gracefully", async () => {
   const root = join(tmpdir(), `agent-harness-ard-empty-${randomUUID()}`);
 
   try {
-    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    const discoverDir = join(root, "discover", "output");
     await mkdir(discoverDir, { recursive: true });
 
     // Empty JSONL
@@ -355,7 +355,7 @@ void test("writeArdCatalog skips malformed entries without crashing", async () =
   const root = join(tmpdir(), `agent-harness-ard-malformed-${randomUUID()}`);
 
   try {
-    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    const discoverDir = join(root, "discover", "output");
     await mkdir(discoverDir, { recursive: true });
 
     // Corrupt entry — missing 'source' will cause mapEntryToArd to throw.
@@ -470,7 +470,7 @@ void test("writeArdCatalog falls back to 0.0.0 version when no package.json", as
   const root = join(tmpdir(), `agent-harness-ard-nopkg-${randomUUID()}`);
 
   try {
-    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    const discoverDir = join(root, "discover", "output");
     await mkdir(discoverDir, { recursive: true });
 
     const entry = buildEntry({
@@ -502,7 +502,7 @@ void test("writeArdCatalog resolves version from package.json when present", asy
   const root = join(tmpdir(), `agent-harness-ard-pkgver-${randomUUID()}`);
 
   try {
-    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    const discoverDir = join(root, "discover", "output");
     await mkdir(discoverDir, { recursive: true });
 
     await writeFile(

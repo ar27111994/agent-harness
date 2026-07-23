@@ -207,7 +207,6 @@ export async function writeArdCatalog(
 
   const catalogPath = join(
     projectRoot,
-    ".agent-harness",
     "discover",
     "output",
     "catalog.selected.jsonl",
