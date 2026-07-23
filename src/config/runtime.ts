@@ -88,7 +88,7 @@ const DISCOVERY_DEFAULTS = {
   vscodeMarketplaceMaxItemsPerQuery: 6,
   vscodeMarketplaceSyncPageSize: 50,
   /** Pages to fetch in the popularity-first sweep before alphabetical pagination. */
-  vscodeMarketplacePopularitySweepPages: 10,
+  vscodeMarketplacePopularitySweepPages: 50,
   /** Whether the category-taxonomy sweep is enabled. */
   vscodeMarketplaceCategorySweepEnabled: true,
   sourceSyncMaxPagesPerRun: 10,

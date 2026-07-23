@@ -347,6 +347,43 @@ A packaged CLI keeps checked-in discovery and mirror policy assets read-only and
 - When you run the installed package from another workspace, the default mutable state root is `.agent-harness/` in that workspace.
 - Override the state location with `--state-root <path>` or `AGENT_HARNESS_STATE_ROOT`.
 
+### Building a comprehensive catalog
+
+The default `discover full` builds a demand-driven catalog — fast for per-workspace use but limited in breadth (~11,500 entries from 171 sources). To build a truly comprehensive catalog across millions of available assets, use the two-phase offline index workflow:
+
+**Phase 1 (offline, one-time or CI):** Build the full index across all sources.
+
+```bash
+# Run the offline index build — fully paginates all indexed sources
+agent-harness discover index
+
+# For unlimited pagination (build the complete index):
+AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD=0 agent-harness discover index
+
+# Run on a schedule (daily/weekly CI job recommended)
+```
+
+The `discover index` command paginates 500 pages per source by default (vs 10 for `discover sync`). Set `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD=0` for unlimited. The index is stored as `discover/output/catalog-index.jsonl` and stays fresh for 7 days (`AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS`).
+
+**Phase 2 (per-workspace):** Demand-rank against the local index — zero API calls.
+
+```bash
+# Uses the pre-built index if fresh, falls back to live harvest if stale
+agent-harness discover select
+agent-harness recommend report --intent frontend
+```
+
+**Production-scale config:** Override conservative defaults for comprehensive coverage:
+
+| Env var | Default | Production | Effect |
+|---------|---------|------------|--------|
+| `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD` | 500 | 0 (unlimited) | Pages per source in index build |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES` | 50 | 200+ | Popularity-sorted VS Code pages |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES` | 4 | 20 | Demand-driven queries |
+| `GITHUB_TOKEN` | (none) | Personal access token | 5,000 req/h vs 60 unauthenticated |
+
+**Scope:** A full index build with `GITHUB_TOKEN` and unlimited pagination can catalog tens of thousands of assets from VS Code Marketplace (60,000+ extensions), npm (2M+ packages), MCP registry, package registries, GitHub awesome-lists, and community source packs. The per-workspace selection then ranks from this comprehensive pool rather than a limited demand-driven harvest. See `docs/guides/CATALOG-BREADTH.md` for the full guide.
+
 Examples:
 
 ```bash
