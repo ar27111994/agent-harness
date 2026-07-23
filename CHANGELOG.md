@@ -47,6 +47,11 @@ All notable changes to this project will be documented in this file.
 - ARD trust-manifest signal consumption: `ard-identity-bound` (+4), `ard-compliance-attested` (+3), `ard-soc2` (+3), `ard-hipaa` (+3), and `ard-signed` (+5) trust-score boosts (#328)
 - ARD registry source adapter consuming `POST /search` endpoints, mapping ARD results to `AssetCatalogEntry` with `SourceKind: "ard-registry"`, federated referral tracking, and semantic-score normalization (#327)
 - ARD ecosystem community submission documentation for ards-project, GitHub Agent Finder, and HuggingFace Discover (#326)
+- ARD representativeQueries wired into SemanticScorer — entries with ARD-generated natural-language query text use 1.2× weighted cosine similarity via `ARD_REPRESENTATIVE_QUERY_WEIGHT`; `buildEntryEmbeddingText` prioritizes `representativeQueries` over keyword-derived capability terms when present (#327)
+- ARD publisher FQDN now configurable via `AGENT_HARNESS_ARD_PUBLISHER_FQDN` environment variable with hardcoded default `ar27111994.dev` — production paths use `getArdPublisherFqdn()` getter
+- Comprehensive catalog breadth documentation — new `docs/guides/CATALOG-BREADTH.md` guide with two-phase offline index workflow, production configuration table, source coverage breakdown, scheduled CI workflow template, and catalog size projections; README updated with "Building a comprehensive catalog" section
+- VS Code Marketplace popularity sweep default raised from 10 to 50 pages (2,500 extensions by install count, configurable via `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES`) for offline index builds
+- Fixed skills-sh registry source — sitemap URL updated to `www.skills.sh` (308 redirect) and leaf predicate expanded to match `sitemap-(skills|agents|misc|owners)` patterns (#336)
 
 ### Changed
 
