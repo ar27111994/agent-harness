@@ -15,7 +15,7 @@ import type { AssetKind, AuthorityTier, DemandProfile } from "../types.js";
 // ---------------------------------------------------------------------------
 
 /** Publisher FQDN for agent-harness ARD entries. */
-export const ARD_PUBLISHER_FQDN = "ar27111994.github.io";
+export const ARD_PUBLISHER_FQDN = "ar27111994.dev";
 
 /** ARD spec schema URI (v0.9). */
 export const ARD_SCHEMA_URI =
@@ -171,22 +171,26 @@ const OFFICIAL_FIRST_PARTY_DOMAINS = new Set([
  * Per ARD §4.2.1 — domain is the trust anchor.
  *
  * @param publisherFqdn — the publisher segment of the URN (e.g. "google.com")
- * @returns best-guess AuthorityTier, defaulting to "unverified-community"
+ * @param hasTrustManifest — whether the entry carries an ARD trustManifest
+ * @returns best-guess AuthorityTier
  */
 export function inferAuthorityTierFromArdUrn(
   publisherFqdn: string,
+  hasTrustManifest = false,
 ): AuthorityTier {
   if (OFFICIAL_FIRST_PARTY_DOMAINS.has(publisherFqdn.toLowerCase())) {
     return "official-first-party";
   }
-  // Recognised hosting platforms get "official-marketplace"
+  // Recognised hosting platforms get "trusted-community"
   if (
     publisherFqdn.endsWith(".github.io") ||
     publisherFqdn.endsWith(".gitlab.io")
   ) {
     return "trusted-community";
   }
-  return "unverified-community";
+  // Unknown domains with a trust manifest get elevated to trusted-community;
+  // without one they remain unverified.
+  return hasTrustManifest ? "trusted-community" : "unverified-community";
 }
 
 // ---------------------------------------------------------------------------

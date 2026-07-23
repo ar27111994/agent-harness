@@ -61,14 +61,36 @@ void test("inferAuthorityTierFromArdUrn returns official-first-party for known d
   );
 });
 
-void test("inferAuthorityTierFromArdUrn returns trusted-community for github.io", () => {
+void test("inferAuthorityTierFromArdUrn returns trusted-community for hosting platforms", () => {
   assert.equal(
-    inferAuthorityTierFromArdUrn("ar27111994.github.io"),
+    inferAuthorityTierFromArdUrn("example.github.io"),
     "trusted-community",
   );
   assert.equal(
     inferAuthorityTierFromArdUrn("example.gitlab.io"),
     "trusted-community",
+  );
+});
+
+void test("inferAuthorityTierFromArdUrn elevates unknown domains with trust manifest", () => {
+  assert.equal(
+    inferAuthorityTierFromArdUrn("ar27111994.dev", true),
+    "trusted-community",
+  );
+  assert.equal(
+    inferAuthorityTierFromArdUrn("random-skills.com", true),
+    "trusted-community",
+  );
+});
+
+void test("inferAuthorityTierFromArdUrn returns unverified-community for unknown domains without trust manifest", () => {
+  assert.equal(
+    inferAuthorityTierFromArdUrn("ar27111994.dev"),
+    "unverified-community",
+  );
+  assert.equal(
+    inferAuthorityTierFromArdUrn("random-skills.com"),
+    "unverified-community",
   );
 });
 
@@ -228,5 +250,5 @@ void test("TRUST_SIGNAL_TO_ATTESTATION maps OMS signals", () => {
 // ---------------------------------------------------------------------------
 
 void test("ARD_PUBLISHER_FQDN is set correctly", () => {
-  assert.equal(ARD_PUBLISHER_FQDN, "ar27111994.github.io");
+  assert.equal(ARD_PUBLISHER_FQDN, "ar27111994.dev");
 });

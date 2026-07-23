@@ -214,21 +214,12 @@ ARD registries crawl `/.well-known/ai-catalog.json` at your domain to index agen
 
 ### Architecture
 
-```text
-┌──────────────────────────────────────────────────────┐
-│                    ARD Ecosystem                      │
-│                                                       │
-│  ┌──────────┐    ┌───────────┐    ┌───────────────┐  │
-│  │ Catalogs │───▶│ Registries│───▶│ agent-harness │  │
-│  │(publish) │    │ (search)  │    │  (consume)    │  │
-│  └──────────┘    └───────────┘    └───────┬───────┘  │
-│       ▲                                   │          │
-│       │          ┌───────────┐            │          │
-│       └──────────│agent-harness│◀─────────┘          │
-│                  │ (publish)  │                        │
-│                  └───────────┘                        │
-│  Distribution (§3.6): mirror → stage → activate → wire │
-└──────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    A[agent-harness<br/>Publisher] -->|ai-catalog.json| B[ARD Registries<br/>GitHub Agent Finder<br/>HuggingFace Discover]
+    B -->|POST /search| C[agent-harness<br/>Consumer]
+    C -->|mirror → stage → activate → wire| D[Host IDEs<br/>VS Code, Cursor, Zed,<br/>Claude Code, OpenCode, Pi, Codex]
+    B -->|index| E[End Users<br/>Agent Discovery]
 ```
 
 ARD defines **discovery** (catalogs and registries). `agent-harness` handles the **distribution** phase that ARD §3.6 explicitly delegates to backend implementation — mirroring, staging, activation, and host-specific wiring.

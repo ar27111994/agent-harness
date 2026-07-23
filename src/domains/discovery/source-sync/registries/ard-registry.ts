@@ -228,8 +228,10 @@ export async function syncArdRegistrySource(
         const urnParts = String(result.identifier).split(":");
         if (urnParts.length >= URN_MIN_PARTS) {
           const publisherDomain = urnParts[3];
-          entry.source.authorityTier =
-            inferAuthorityTierFromArdUrn(publisherDomain);
+          entry.source.authorityTier = inferAuthorityTierFromArdUrn(
+            publisherDomain,
+            trustSignals.length > 0,
+          );
         }
       }
 
