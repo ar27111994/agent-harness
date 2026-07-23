@@ -127,12 +127,17 @@ export function mapEntryToArd(
   version: string,
 ): ArdCatalogEntry {
   const ardType =
+    // All AssetKind values are mapped in ASSET_KIND_TO_ARD_TYPE; fallback is
+    // a defensive guard for forward-compatibility with future kinds.
+    /* c8 ignore next */
     ASSET_KIND_TO_ARD_TYPE[entry.assetKind] ?? "application/ai-skill";
 
   return {
     identifier: buildArdUrn(entry, publisherFqdn),
     displayName: entry.displayName,
     type: ardType,
+    // manifestEntry is always set by the harvesters; fallback is defensive.
+    /* c8 ignore next */
     url: entry.install.manifestEntry ?? entry.source.originUrl,
     description: entry.evidence.classification
       ? `${entry.assetKind} asset from ${entry.source.sourceId} (${entry.source.sourceKind})`
@@ -210,6 +215,8 @@ export async function writeArdCatalog(
         const { readFile: rf } = await import("node:fs/promises");
         const pkgRaw = await rf(join(projectRoot, "package.json"), "utf8");
         const pkg = JSON.parse(pkgRaw) as { version?: string };
+        // version is always set in package.json; fallback is defensive.
+        /* c8 ignore next */
         return pkg.version ?? "0.0.0";
       } catch {
         /* c8 ignore next */
