@@ -8,6 +8,20 @@
  *
  * Only include packages with near-universal adoption in their ecosystem.
  * Controversial or niche choices do not belong here.
+ *
+ * ## Maintenance
+ *
+ * This matrix is static and has no automated freshness validation. Packages
+ * can be renamed, deprecated, or superseded. To audit:
+ *
+ * ```bash
+ * # Check a package still resolves in its registry
+ * npm view <name> name 2>/dev/null && echo "OK" || echo "STALE"
+ * cargo search <name> --limit 1 2>/dev/null | head -1
+ * ```
+ *
+ * Scheduled audit cadence: every minor release. Stale entries should be
+ * removed — a missing adjacent suggestion is less harmful than a wrong one.
  */
 
 import type { PackageRegistryKind } from "./package-candidates.js";

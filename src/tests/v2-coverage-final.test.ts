@@ -5,6 +5,23 @@
  * file and line range it covers and explains WHY that path was previously
  * unreachable.
  *
+ * ## Planned split (v2.1.0)
+ *
+ * This file bundles ~30 tests across 8 source modules. Each block should be
+ * moved to the test file closest to the module it covers:
+ *
+ *   - package-registries tests → src/tests/package-registries.test.ts
+ *   - runtime config tests     → src/tests/runtime-config.test.ts
+ *   - discover adjacent tests  → src/tests/discovery-adjacent.test.ts
+ *   - VS Code marketplace tests→ src/tests/reference-harvesters.test.ts
+ *   - sync indexed sources     → src/tests/source-sync-additional.test.ts
+ *   - selection report tests   → src/tests/manifest-validation-discovery.test.ts
+ *   - recommend commands tests → src/tests/recommend-commands.test.ts
+ *
+ * Each test carries its own mock/setup dependencies. Splitting requires
+ * verifying that moved tests still reach the exact coverage gaps they
+ * were built for — V8 source-map precision can shift across file boundaries.
+ *
  * Gaps addressed here:
  *  1. src/package-registries.ts:604-642,648-678
  *     fetchMavenSearch, fetchPackagistSearch, fetchRubyGemsSearch — zero tests

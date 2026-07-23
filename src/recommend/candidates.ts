@@ -676,12 +676,6 @@ const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
  * once per call. The array has ~25 entries — iteration is effectively O(1)
  * relative to catalog size and far cheaper than the previous .find() on every
  * catalog entry.
- *
- * This constant exists solely to make the intent explicit and to allow future
- * replacement with a smarter index if the entry count grows significantly.
- */
-const REGISTRY_ECOSYSTEM_MAP = REGISTRY_ECOSYSTEM_ENTRIES;
-
 /**
  * Returns the penalty to apply when an asset's source registry belongs to a
  * package-manager ecosystem that the workspace does not use.
@@ -715,7 +709,7 @@ function computeEcosystemMismatchPenalty(
     return 0;
   }
   const sourceIdLower = entry.source.sourceId.toLowerCase();
-  const sourceIdMatch = REGISTRY_ECOSYSTEM_MAP.find(([substring]) =>
+  const sourceIdMatch = REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
     sourceIdLower.includes(substring),
   );
   if (!sourceIdMatch) {
