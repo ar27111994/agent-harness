@@ -295,7 +295,6 @@ export async function syncArdRegistrySource(
     }
   }
 
-  const atCap = totalIndexed >= SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP;
   return {
     sourceId: source.id,
     coverageMode: "indexed",
