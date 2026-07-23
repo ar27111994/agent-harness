@@ -1418,6 +1418,48 @@
         "allowMirror": true,
         "allowInstall": true
       }
+    },
+    {
+      "id": "github-agent-finder",
+      "name": "GitHub Agent Finder",
+      "kind": "ard-registry",
+      "authorityTier": "official-first-party",
+      "publisher": { "name": "GitHub", "verified": true },
+      "hosts": ["shared"],
+      "assetKinds": ["skill", "mcp-server", "agent", "plugin"],
+      "discoveryMode": "catalog",
+      "priority": 95,
+      "enabled": false,
+      "endpoints": {
+        "searchUrl": "https://github.com/agentfinder/search",
+        "apiUrl": "https://github.com/agentfinder/search"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
+      "id": "huggingface-discover",
+      "name": "HuggingFace Discover",
+      "kind": "ard-registry",
+      "authorityTier": "official-first-party",
+      "publisher": { "name": "HuggingFace", "verified": true },
+      "hosts": ["shared"],
+      "assetKinds": ["skill", "mcp-server", "agent"],
+      "discoveryMode": "catalog",
+      "priority": 90,
+      "enabled": false,
+      "endpoints": {
+        "searchUrl": "https://huggingface.co/api/discover/search",
+        "apiUrl": "https://huggingface.co/api/discover/search"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
     }
   ]
 }

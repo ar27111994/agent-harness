@@ -211,9 +211,16 @@ async function synchronizeIndexedSource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState | null> {
-  // Dispatch by kind for sources where the adapter is kind-driven, not ID-driven.
-  // Requires a real ARD-compliant registry endpoint to exercise; tested indirectly
-  // via the syncArdRegistrySource unit tests in the registries/ard-registry module.
+  // Design note: the kind-guard + id-switch below are two complementary dispatch
+  // axes, not a smell. The `switch(source.id)` handles well-known sources with
+  // fixed IDs (vscode-marketplace, npm-registry, etc.). The kind-guard catches
+  // sources identified by their `kind` rather than a specific ID — e.g. any
+  // user-configured ARD-compliant registry. Future kind-driven adapters (e.g.
+  // another standards-body registry) follow this pattern: check `source.kind`
+  // before falling through to the id-switch. The two axes never overlap because
+  // kind-guard sources don't appear in the id-switch.
+  // Requires a real ARD endpoint to exercise in integration; unit-tested via
+  // syncArdRegistrySource in registries/ard-registry.ts.
   /* c8 ignore next 4 */
   if (source.kind === "ard-registry") {
     const { syncArdRegistrySource } =

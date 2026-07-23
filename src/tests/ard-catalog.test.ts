@@ -414,3 +414,54 @@ void test("writeArdCatalog skips malformed entries without crashing", async () =
     await rm(root, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// CI conformance validation (#325 — acceptance criteria)
+// ---------------------------------------------------------------------------
+
+void test("committed .well-known/ai-catalog.json conforms to ARD v0.9 schema", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const catalogPath = join(process.cwd(), ".well-known", "ai-catalog.json");
+  const raw = await readFile(catalogPath, "utf8");
+  const catalog = JSON.parse(raw) as Record<string, unknown>;
+
+  // §2 — top-level required fields
+  assert.equal(
+    catalog["$schema"],
+    "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
+    "must reference the ARD v0.9 schema URI",
+  );
+  assert.equal(typeof catalog["publisher"], "string", "publisher is required");
+  assert.equal(typeof catalog["version"], "string", "version is required");
+  assert.ok(Array.isArray(catalog["entries"]), "entries must be an array");
+
+  // Publisher must be a verifiable FQDN (§4.2.1)
+  assert.ok(
+    (catalog["publisher"] as string).includes("."),
+    "publisher must be a valid FQDN",
+  );
+
+  // Each entry must have required fields (§3.3)
+  const entries = catalog["entries"] as Array<Record<string, unknown>>;
+  for (const entry of entries) {
+    assert.equal(
+      typeof entry["identifier"],
+      "string",
+      "entry.identifier is required",
+    );
+    assert.ok(
+      (entry["identifier"] as string).startsWith("urn:ai:"),
+      "entry.identifier must be a valid URN",
+    );
+    assert.equal(
+      typeof entry["displayName"],
+      "string",
+      "entry.displayName is required",
+    );
+    assert.equal(typeof entry["type"], "string", "entry.type is required");
+    assert.ok(
+      Array.isArray(entry["capabilities"]),
+      "entry.capabilities must be an array",
+    );
+  }
+});
