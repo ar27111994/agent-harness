@@ -78,6 +78,8 @@
     "dist/recommend/**/*.js",
     "dist/types/**/*.d.ts",
     "dist/types/**/*.js",
+    "dist/ard/**/*.d.ts",
+    "dist/ard/**/*.js",
     "discover/official-skills-indexes.json",
     "discover/official-upstreams.json",
     "discover/pipeline.json",
