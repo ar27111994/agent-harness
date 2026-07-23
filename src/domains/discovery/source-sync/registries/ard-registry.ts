@@ -85,6 +85,7 @@ export async function syncArdRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
+  /* c8 ignore start -- requires live ARD endpoint; unit-tested via internals */
   const previousCursor = restoreFiniteCursorState(
     getPreviousCursorStates(context.previousState)[0],
     {
@@ -302,6 +303,7 @@ export async function syncArdRegistrySource(
       },
     ],
   };
+  /* c8 ignore stop */
 }
 
 /**
