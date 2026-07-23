@@ -125,6 +125,7 @@ export async function syncArdRegistrySource(
     };
   }
 
+  const allReferrals: unknown[] = [];
   const queryText = buildArdQueryText(context.demandProfile);
 
   while (!completed) {
@@ -263,23 +264,10 @@ export async function syncArdRegistrySource(
 
     totalPages++;
 
-    // Persist referrals for federation
+    // Accumulate referrals across all pages for a single persistence write.
     const referrals = response.referrals;
     if (Array.isArray(referrals) && referrals.length > 0) {
-      const { writeJsonFile } = await import("../../../../files.js");
-      const { join } = await import("node:path");
-      try {
-        await writeJsonFile(
-          join(".agent-harness", "discover", "output", "ard-referrals.json"),
-          {
-            referrals,
-            fetchedAt: new Date().toISOString(),
-          },
-        );
-      } catch {
-        // Non-critical — referral persistence is best-effort.
-        console.warn("ard-registry: failed to persist federated referrals");
-      }
+      allReferrals.push(...referrals);
     }
 
     const nextToken = getString(response.pageToken);
@@ -287,6 +275,23 @@ export async function syncArdRegistrySource(
       pageToken = nextToken;
     } else {
       completed = true;
+    }
+  }
+
+  // Persist all accumulated referrals in one write after pagination completes.
+  if (allReferrals.length > 0) {
+    const { writeJsonFile } = await import("../../../../files.js");
+    const { join } = await import("node:path");
+    try {
+      await writeJsonFile(
+        join(".agent-harness", "discover", "output", "ard-referrals.json"),
+        {
+          referrals: allReferrals,
+          fetchedAt: new Date().toISOString(),
+        },
+      );
+    } catch {
+      console.warn("ard-registry: failed to persist federated referrals");
     }
   }
 
