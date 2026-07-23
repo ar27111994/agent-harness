@@ -497,3 +497,38 @@ void test("writeArdCatalog falls back to 0.0.0 version when no package.json", as
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("writeArdCatalog resolves version from package.json when present", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-pkgver-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, ".agent-harness", "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    await writeFile(
+      join(root, "package.json"),
+      JSON.stringify({ version: "3.0.0-test" }),
+      "utf8",
+    );
+
+    const entry = buildEntry({
+      id: "ver-test",
+      displayName: "Version Test",
+      assetKind: "skill",
+    });
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      JSON.stringify(entry) + "\n",
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(root);
+
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(result.filePath, "utf8");
+    const catalog = JSON.parse(raw) as Record<string, unknown>;
+    assert.equal(catalog["version"], "3.0.0-test");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

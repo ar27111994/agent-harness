@@ -221,7 +221,7 @@ async function synchronizeIndexedSource(
   // kind-guard sources don't appear in the id-switch.
   // Requires a real ARD endpoint to exercise in integration; unit-tested via
   // syncArdRegistrySource in registries/ard-registry.ts.
-  /* c8 ignore next 4 */
+  /* c8 ignore next 5 */
   if (source.kind === "ard-registry") {
     const { syncArdRegistrySource } =
       await import("./registries/ard-registry.js");
