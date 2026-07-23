@@ -30,17 +30,17 @@ The index is stored at `discover/output/catalog-index.jsonl` and stays fresh for
 
 Override these environment variables for comprehensive coverage:
 
-| Env Var | Default | Production | Effect |
-|---------|---------|------------|--------|
-| `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD` | 500 | 0 (unlimited) | Pages per source in offline index build |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES` | 50 | 200+ | Popularity-sorted VS Code extension pages (50/pg) |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES` | 4 | 20 | Demand-driven queries for per-workspace harvest |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY` | 6 | 20 | Results per demand-driven query |
-| `AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE` | 50 | 50 | Items per page in full sync |
-| `AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE` | 200 | 500+ | Per-source selection diversity cap |
-| `AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX` | 0 (unlimited) | 0 | Max items per awesome-list index |
-| `AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS` | 7 | 1–7 | Index staleness threshold |
-| `GITHUB_TOKEN` | (none) | PAT | GitHub API rate limit: 5,000 req/h vs 60 |
+| Env Var                                                   | Default       | Production    | Effect                                            |
+| --------------------------------------------------------- | ------------- | ------------- | ------------------------------------------------- |
+| `AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD`     | 500           | 0 (unlimited) | Pages per source in offline index build           |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES` | 50            | 200+          | Popularity-sorted VS Code extension pages (50/pg) |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES`            | 4             | 20            | Demand-driven queries for per-workspace harvest   |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_ITEMS_PER_QUERY`    | 6             | 20            | Results per demand-driven query                   |
+| `AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE`         | 50            | 50            | Items per page in full sync                       |
+| `AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE`                    | 200           | 500+          | Per-source selection diversity cap                |
+| `AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX`        | 0 (unlimited) | 0             | Max items per awesome-list index                  |
+| `AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS`              | 7             | 1–7           | Index staleness threshold                         |
+| `GITHUB_TOKEN`                                            | (none)        | PAT           | GitHub API rate limit: 5,000 req/h vs 60          |
 
 ## Source Coverage
 
@@ -58,17 +58,17 @@ At 200 popularity pages: 10,000 extensions by install count. The category sweep 
 
 All major registries have indexed source adapters with cursor-based pagination:
 
-| Registry | Adapter | Page Size | Default Cap |
-|----------|---------|-----------|-------------|
-| npm | `npm.ts` | 50 | 500 entries |
-| PyPI | sitemap | — | 500 entries |
-| crates.io | `crates.ts` | 50 | 500 entries |
-| Go modules | `go.ts` | 50 | 500 entries |
-| Maven Central | `maven.ts` | 50 | 500 entries |
-| NuGet | `nuget.ts` | 50 | 500 entries |
-| Packagist (PHP) | `packagist.ts` | 50 | 500 entries |
-| RubyGems | sitemap | — | 500 entries |
-| Swift Package Index | sitemap | — | 500 entries |
+| Registry            | Adapter        | Page Size | Default Cap |
+| ------------------- | -------------- | --------- | ----------- |
+| npm                 | `npm.ts`       | 50        | 500 entries |
+| PyPI                | sitemap        | —         | 500 entries |
+| crates.io           | `crates.ts`    | 50        | 500 entries |
+| Go modules          | `go.ts`        | 50        | 500 entries |
+| Maven Central       | `maven.ts`     | 50        | 500 entries |
+| NuGet               | `nuget.ts`     | 50        | 500 entries |
+| Packagist (PHP)     | `packagist.ts` | 50        | 500 entries |
+| RubyGems            | sitemap        | —         | 500 entries |
+| Swift Package Index | sitemap        | —         | 500 entries |
 
 Each registry caps at `SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP` (500 entries per source). For production, raise `sourceSyncMaxPagesForIndexBuild` to 0 and run the full index build repeatedly over scheduled CI to build up the catalog over multiple runs.
 
@@ -99,7 +99,7 @@ For production, run the index build on a schedule:
 name: Build Catalog Index
 on:
   schedule:
-    - cron: '0 6 * * *'  # daily at 6 AM
+    - cron: "0 6 * * *" # daily at 6 AM
   workflow_dispatch:
 
 jobs:
@@ -108,7 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: '22' }
+        with: { node-version: "22" }
       - run: npm ci
       - run: npm run build
       - name: Build index
@@ -125,13 +125,13 @@ jobs:
 
 ## Estimating Catalog Size
 
-| Source | Entries at default | Entries with unlimited index |
-|--------|-------------------|------------------------------|
-| VS Code Marketplace | 895 | 10,000+ (popularity 200pg) |
-| npm registry | 500 | 500 (hard cap per source) |
-| Other registries | 500 each | 500 each (hard cap) |
-| GitHub awesome-lists | 3,136 | 5,000+ (with GITHUB_TOKEN) |
-| MCP registry | 500 | All published servers |
-| Community sources | 500–1,000 | 2,000+ |
+| Source               | Entries at default | Entries with unlimited index |
+| -------------------- | ------------------ | ---------------------------- |
+| VS Code Marketplace  | 895                | 10,000+ (popularity 200pg)   |
+| npm registry         | 500                | 500 (hard cap per source)    |
+| Other registries     | 500 each           | 500 each (hard cap)          |
+| GitHub awesome-lists | 3,136              | 5,000+ (with GITHUB_TOKEN)   |
+| MCP registry         | 500                | All published servers        |
+| Community sources    | 500–1,000          | 2,000+                       |
 
 **Projected total:** 11,500 (default) → 25,000–50,000 (comprehensive). The hard cap of 500 per package registry is the main bottleneck — raising it requires a source-sync code change (tracked in #296).
