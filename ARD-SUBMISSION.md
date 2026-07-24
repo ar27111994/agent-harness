@@ -6,16 +6,16 @@ This document describes how `agent-harness` participates in the ARD (Agentic Res
 
 ## Publisher Profile
 
-| Field            | Value                                                    |
-| ---------------- | -------------------------------------------------------- |
-| **Project**      | agent-harness                                            |
-| **Publisher**    | ar27111994                                               |
-| **FQDN**         | ar27111994.dev                                     |
-| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json |
-| **Spec version** | ARD v0.9 (https://agenticresourcediscovery.org/spec)     |
-| **URN prefix**   | `urn:ai:ar27111994.dev:*:*`                        |
-| **License**      | MIT                                                      |
-| **Repository**   | https://github.com/ar27111994/agent-harness              |
+| Field            | Value                                                |
+| ---------------- | ---------------------------------------------------- |
+| **Project**      | agent-harness                                        |
+| **Publisher**    | ar27111994                                           |
+| **FQDN**         | ar27111994.dev                                       |
+| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json   |
+| **Spec version** | ARD v0.9 (https://agenticresourcediscovery.org/spec) |
+| **URN prefix**   | `urn:ai:ar27111994.dev:*:*`                          |
+| **License**      | MIT                                                  |
+| **Repository**   | https://github.com/ar27111994/agent-harness          |
 
 ## What agent-harness Publishes
 

@@ -111,23 +111,27 @@ async function runAdapterPreflightWithTimeout(
     ]);
   } catch (err) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
-      return [{
-        severity: "warning",
-        code: `${adapter.id}-doctor-timeout`,
-        message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-        action:
-          "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
-      }];
+      return [
+        {
+          severity: "warning",
+          code: `${adapter.id}-doctor-timeout`,
+          message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+          action:
+            "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+        },
+      ];
     }
     // If signal was already aborted (e.g. during cleanup), return timeout diagnostic.
     if (signal.aborted) {
-      return [{
-        severity: "warning",
-        code: `${adapter.id}-doctor-timeout`,
-        message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-        action:
-          "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
-      }];
+      return [
+        {
+          severity: "warning",
+          code: `${adapter.id}-doctor-timeout`,
+          message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+          action:
+            "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+        },
+      ];
     }
     throw err;
   }
