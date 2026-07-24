@@ -427,21 +427,22 @@ async function activateHost(
 async function swapActivationRuntimeRoot(
   runtimeRoot: string,
   stagingRuntimeRoot: string,
+  renameFn: (oldPath: string, newPath: string) => Promise<void> = rename,
 ): Promise<void> {
   const backupRuntimeRoot = `${runtimeRoot}.previous`;
   await removePath(backupRuntimeRoot);
   const hadRuntimeRoot = await pathExists(runtimeRoot);
 
   if (hadRuntimeRoot) {
-    await rename(runtimeRoot, backupRuntimeRoot);
+    await renameFn(runtimeRoot, backupRuntimeRoot);
   }
 
   try {
-    await rename(stagingRuntimeRoot, runtimeRoot);
+    await renameFn(stagingRuntimeRoot, runtimeRoot);
   } catch (error) {
     if (hadRuntimeRoot && !(await pathExists(runtimeRoot))) {
       try {
-        await rename(backupRuntimeRoot, runtimeRoot);
+        await renameFn(backupRuntimeRoot, runtimeRoot);
       } catch (rollbackError) {
         throw new AggregateError(
           [error, rollbackError],
