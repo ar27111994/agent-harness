@@ -382,8 +382,8 @@ async function verifyOmsBlobs(
         } catch {
           /* c8 ignore start — asset fetch/verify failure is defensive; test uses valid sigs */
           // Asset fetch or verify failed — skip this sig.
-          /* c8 ignore stop */
         }
+        /* c8 ignore stop */
       }
       /* c8 ignore start — no-PEM fallback; test always has a valid PEM cert */
     } else if (!publicKey) {
