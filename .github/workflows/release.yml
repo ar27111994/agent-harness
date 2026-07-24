@@ -7,7 +7,7 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   NODE_VERSION: "24"
@@ -114,6 +114,12 @@ jobs:
             }
             console.log('OK: %d entries, generated %s', c.entries.length, c.generatedAt);
           "
+          # Commit the regenerated catalog so GitHub Pages serves the live version
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add .well-known/ai-catalog.json
+          git commit -m "chore: regenerate ARD catalog for release ${{ github.ref_name }}" || true
+          git push origin HEAD:${{ github.ref_name }}
 
       - name: Verify publish dry run
         if: matrix.os == 'ubuntu-latest' && !(github.event_name == 'workflow_dispatch' && steps.npm-version-published.outputs.value == 'true')
