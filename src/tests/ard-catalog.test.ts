@@ -182,7 +182,7 @@ void test("deriveArdTrustManifest includes domain identity when publisher verifi
   });
 
   const manifest = deriveArdTrustManifest(entry)!;
-  assert.equal(manifest.identity, "domain:verified.com");
+  assert.equal(manifest.identity, "domain:ar27111994.dev");
   assert.equal(manifest.identityType, "domain");
 });
 

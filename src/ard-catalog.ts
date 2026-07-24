@@ -114,10 +114,10 @@ export function deriveArdTrustManifest(
     }
   }
 
+  // Use the publisher FQDN, not the human-readable publisher string.
+  const fqdn = getArdPublisherFqdn();
   const identity =
-    entry.source.publisherVerified && entry.source.publisher
-      ? `domain:${entry.source.publisher}`
-      : undefined;
+    entry.source.publisherVerified && fqdn ? `domain:${fqdn}` : undefined;
 
   if (!identity && attestations.length === 0) return undefined;
 

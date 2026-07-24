@@ -327,10 +327,7 @@ async function verifyOmsBlobs(
         const { createPublicKey } = await import("node:crypto");
         publicKey = createPublicKey(result.value.pemContent);
         pemVerified = true;
-        verified.set(
-          result.value.path.toLowerCase(),
-          result.value.size,
-        );
+        verified.set(result.value.path.toLowerCase(), result.value.size);
       } catch {
         // createPublicKey already validated in Phase 1; defensive.
       }

@@ -904,8 +904,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
 
     // SKILL.md asset content (signed by the OMS sig)
     if (
-      url ===
-      "https://api.github.com/repos/nvidia/skills/git/blobs/skill-sha"
+      url === "https://api.github.com/repos/nvidia/skills/git/blobs/skill-sha"
     ) {
       return textResponse(assetContent);
     }
