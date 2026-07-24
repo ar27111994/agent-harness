@@ -181,9 +181,15 @@ export async function syncArdRegistrySource(
         ? result.tags.filter((t): t is string => typeof t === "string")
         : [];
 
-      const trustSignals = extractArdTrustSignals(
-        result.trustManifest as Record<string, unknown> | undefined,
-      );
+      // Only official-first-party sources may extract trust signals from
+      // self-declared trustManifest fields. Community sources cannot
+      // self-attest identity, compliance, or signatures.
+      const trustSignals =
+        source.authorityTier === "official-first-party"
+          ? extractArdTrustSignals(
+              result.trustManifest as Record<string, unknown> | undefined,
+            )
+          : [];
 
       const entry = buildReferenceSourceCatalogEntry(
         source,
