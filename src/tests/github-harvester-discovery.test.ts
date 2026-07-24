@@ -845,8 +845,20 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
     namedCurve: "prime256v1",
   });
   const pemContent = publicKey.export({ type: "spki", format: "pem" });
+
+  // Asset content that the OMS sig signs (must match the SKILL.md in the tree)
+  const assetContent = [
+    "---",
+    "name: cuda-debugger",
+    "description: CUDA debugging skill",
+    "---",
+    "",
+    "# CUDA Debugger",
+    "Debug CUDA kernels with this skill.",
+  ].join("\n");
+
   const signer = createSign("SHA256");
-  signer.update("oms-sig-content");
+  signer.update(assetContent);
   const sigContent = signer.sign(privateKey, "base64");
 
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
@@ -888,6 +900,14 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
       url === "https://api.github.com/repos/nvidia/skills/git/blobs/sig-sha"
     ) {
       return textResponse(sigContent);
+    }
+
+    // SKILL.md asset content (signed by the OMS sig)
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/blobs/skill-sha"
+    ) {
+      return textResponse(assetContent);
     }
 
     if (
