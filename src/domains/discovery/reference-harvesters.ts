@@ -295,7 +295,7 @@ export async function fetchVsCodeMarketplaceItemsForQuery(
 
   return normalizeVsCodeMarketplaceItems(
     data,
-    options.category?.trim() ?? query,
+    options.category?.trim() || query,
     allowedOrigins,
   );
 }
