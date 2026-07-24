@@ -44,7 +44,7 @@ Submit a PR to https://github.com/ards-project/community adding agent-harness to
 {
   "identifier": "urn:ai:ar27111994.github.io:cli:agent-harness",
   "displayName": "agent-harness",
-  "type": "application/ai-catalog+json",
+  "type": "application/ai-skill",
   "url": "https://ar27111994.github.io/.well-known/ai-catalog.json",
   "description": "AI-agent asset supply-chain: discovers, recommends, mirrors, stages, activates, and wires reusable agent skills, MCP servers, plugins, and agents across 7 host IDEs",
   "capabilities": [

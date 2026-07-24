@@ -136,6 +136,12 @@ export interface AssetEvidence {
    *   not yet declared in any manifest.
    */
   discoveryMethod?: "manifest" | "registry-adjacent-search";
+  /**
+   * True when this entry was suggested by the adjacent-tooling matrix rather
+   * than directly declared in a workspace manifest or harvested from a source.
+   * Set by the package-registry harvester for registry-adjacent discoveries.
+   */
+  isAdjacentSuggestion?: boolean;
   classification?: {
     assetKind: AssetKind;
     confidence: number;

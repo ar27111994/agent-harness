@@ -470,6 +470,7 @@ export function buildPackageRegistryCatalogEntry(
         /* c8 ignore next -- "manifest" arm is exercised by integration path; unit tests only exercise the adjacent-search arm */ isAdjacent
           ? "registry-adjacent-search"
           : "manifest",
+      isAdjacentSuggestion: isAdjacent || undefined,
       classification: buildClassificationConfidence({
         assetKind,
         evidence: [

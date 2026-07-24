@@ -55,7 +55,7 @@ For VS Code / Cursor, use _Check for Updates_ in the application menu.
 **Fixed in v2.0.0 (#302, commit `3f02b7c`).** If you are on an earlier version,
 upgrade to v2.0.0.
 
-Each host adapter now has a per-adapter timeout (default 30 s, overridable via
+Each host adapter now has a per-adapter timeout (default 5 s, overridable via
 `AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS`). If a host CLI probe blocks, the
 doctor emits a timeout warning and continues. If `setup doctor` still hangs after
 upgrading, try:
