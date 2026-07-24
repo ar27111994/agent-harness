@@ -824,6 +824,13 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
+function textResponse(value: string): Response {
+  return new Response(value, {
+    status: 200,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
 void test("github harvester emits oms-signed signal for assets with skill.oms.sig sibling and oms-trust-anchor for repo with root cert", async (context) => {
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
   const originalFetch = globalThis.fetch;
@@ -852,6 +859,24 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
         archived: false,
         html_url: "https://github.com/nvidia/skills",
       });
+    }
+
+    // Blob API — return cryptographically plausible content for OMS files
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/blobs/cert-sha"
+    ) {
+      return textResponse(
+        "-----BEGIN CERTIFICATE-----\nMIID...base64...\n-----END CERTIFICATE-----",
+      );
+    }
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/blobs/sig-sha"
+    ) {
+      return textResponse(
+        "MEUCIG...base64signature...==",
+      );
     }
 
     if (

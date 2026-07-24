@@ -276,7 +276,9 @@ export interface GitHubRepoSnapshot {
       size: number | null;
       sha: string;
     }>;
-  };
+  }
+  /** Set by verifyOmsBlobs when the PEM root cert passes content validation. */
+  pemVerified?: boolean;
 }
 
 /**

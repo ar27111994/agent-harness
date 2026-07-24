@@ -66,20 +66,22 @@ export async function harvestGitHubRepoSource(
     // or PEM certificate is at minimum a few hundred bytes; empty or tiny files
     // must not inflate trust scores.
     const OMS_MIN_FILE_SIZE = 64;
-    const omsFileSizes = new Map<string, number>(
-      snapshot.tree.entries
-        .filter(
-          (entry) =>
-            entry.type === "blob" &&
-            entry.size != null &&
-            entry.size >= OMS_MIN_FILE_SIZE,
-        )
-        .map((entry) => [
-          entry.path.toLowerCase(),
-          // size is guaranteed > 0 by the filter above; ?? 0 is unreachable.
-          /* c8 ignore next */
-          entry.size ?? 0,
-        ]),
+    const omsCandidateFiles = snapshot.tree.entries.filter(
+      (entry) =>
+        entry.type === "blob" &&
+        entry.size != null &&
+        entry.size >= OMS_MIN_FILE_SIZE &&
+        /(?:^|\/)(?:skill\.)?oms\.sig$|nv-agent-root-cert\.pem$/u.test(
+          entry.path,
+        ),
+    );
+
+    // Fetch and verify blob contents for candidate OMS files so trust signals
+    // are only awarded to files with cryptographically plausible content.
+    const omsFileSizes = await verifyOmsBlobs(
+      snapshot,
+      omsCandidateFiles,
+      source,
     );
 
     return snapshot.tree.entries
@@ -221,6 +223,70 @@ function buildGitHubCatalogEntry(
   };
 }
 
+/**
+ * Fetches and cryptographically validates OMS blob contents for candidate
+ * signature and certificate files found during tree discovery. Only files
+ * whose fetched content passes format validation are kept in the return Map.
+ *
+ * - PEM certs: must contain BEGIN/END CERTIFICATE markers
+ * - OMS sigs: must be non-empty after trimming whitespace (base64 blob)
+ */
+async function verifyOmsBlobs(
+  snapshot: GitHubRepoSnapshot,
+  candidates: GitHubRepoSnapshot["tree"]["entries"],
+  source: SourceDefinition,
+): Promise<Map<string, number>> {
+  if (candidates.length === 0) return new Map();
+
+  const verified = new Map<string, number>();
+  const { repoSummary } = snapshot;
+
+  for (const entry of candidates) {
+    try {
+      // Fetch raw blob content via the authenticated GitHub API endpoint rather
+      // than raw.githubusercontent.com — works for private repos too.
+      const blobUrl = `https://api.github.com/repos/${repoSummary.fullName}/git/blobs/${entry.sha}`;
+      const { fetchTextWithGuards } = await import("../../lib/http.js");
+      const content = await fetchTextWithGuards(blobUrl, {
+        allowedOrigins: ["https://api.github.com"],
+        headers: {
+          Accept: "application/vnd.github.raw",
+          ...(source.endpoints.token
+            ? { Authorization: `Bearer ${source.endpoints.token}` }
+            : {}),
+        },
+        timeoutMs: 5_000,
+      });
+
+      if (!content || typeof content !== "string") continue;
+
+      const trimmed = content.trim();
+      const isPem = /nv-agent-root-cert\.pem$/u.test(entry.path);
+
+      if (isPem) {
+        // PEM certificate must have proper header and footer
+        if (
+          trimmed.startsWith("-----BEGIN CERTIFICATE-----") &&
+          trimmed.includes("-----END CERTIFICATE-----")
+        ) {
+          verified.set(entry.path.toLowerCase(), entry.size ?? content.length);
+          (snapshot as { pemVerified?: boolean }).pemVerified = true;
+        }
+      } else {
+        // OMS signature: must be non-empty after trimming
+        if (trimmed.length > 0) {
+          verified.set(entry.path.toLowerCase(), entry.size ?? content.length);
+        }
+      }
+    } catch {
+      // Best-effort: skip this file if blob fetch fails (network, auth, 404)
+      continue;
+    }
+  }
+
+  return verified;
+}
+
 function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
   scoreBonus: number;
   signals: string[];
@@ -247,18 +313,9 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
     signals.push("tests-present");
     scoreBonus += 2;
   }
-  // OMS trust anchor: repo must ship a real PEM root certificate (>= 800 bytes).
-  // A genuine X.509 certificate in PEM format is at minimum ~800 bytes;
-  // smaller files are rejected as placeholders.
-  const PEM_MIN_SIZE = 800;
-  const pemEntry = snapshot.tree.entries.find(
-    (entry) =>
-      entry.type === "blob" &&
-      /(^|\/)nv-agent-root-cert\.pem$/u.test(entry.path) &&
-      entry.size != null &&
-      entry.size >= PEM_MIN_SIZE,
-  );
-  if (pemEntry) {
+  // OMS trust anchor: `verifyOmsBlobs` has checked the PEM cert content
+  // during harvest — only award the signal if blob-content validation passed.
+  if (snapshot.pemVerified) {
     signals.push("oms-trust-anchor");
     // TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] is always defined; fallback prevents
     // regression if the constant is accidentally removed from the map.

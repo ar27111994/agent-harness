@@ -24,7 +24,7 @@ agent-harness discover ard-export
 # Validate the result
 node -e "
   const c = require('./.well-known/ai-catalog.json');
-  if (!c.generatedAt || !c.entries.length) {
+  if (!c.generatedAt || !c.entries || !c.entries.length) {
     console.error('FAIL: ARD catalog is empty — release blocked.');
     process.exit(1);
   }
