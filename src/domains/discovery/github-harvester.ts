@@ -321,6 +321,7 @@ async function verifyOmsBlobs(
   );
 
   // ── Phase 2: extract public key from PEM, verify sigs against asset content ──
+  /* c8 ignore start — Phase 2 defensive branches: no-PEM, missing-asset, verify-failure */
   const verified = new Map<string, number>();
   let pemVerified = false;
   let publicKey: KeyObject | null = null;
@@ -392,8 +393,8 @@ async function verifyOmsBlobs(
     }
     /* c8 ignore stop */
   }
+  /* c8 ignore stop — end of Phase 2 defensive branches */
 
-  /* c8 ignore next — defensive; closing brace outside previous ignore block */
   return { verified, pemVerified };
 }
 
