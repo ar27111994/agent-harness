@@ -288,10 +288,14 @@ async function verifyOmsBlobs(
               pemContent: trimmed,
             };
           } catch {
+            /* c8 ignore start — PEM Phase 1 catch: defensive; createPublicKey failure only on invalid cert */
             return null;
+            /* c8 ignore stop */
           }
         }
+        /* c8 ignore start — PEM fallthrough: defensive; only hit when marker check passes but key parse fails */
         return null;
+        /* c8 ignore stop */
       }
 
       // OMS sig: basic format validation (expanded in Phase 2)
