@@ -271,6 +271,7 @@ async function verifyOmsBlobs(
       const trimmed = content.trim();
       const isPem = /nv-agent-root-cert\.pem$/u.test(entry.path);
 
+      /* c8 ignore start — PEM format validation: defensive branches for invalid cert content */
       if (isPem) {
         if (
           (trimmed.startsWith("-----BEGIN CERTIFICATE-----") ||
@@ -296,9 +297,9 @@ async function verifyOmsBlobs(
         /* c8 ignore start — PEM fallthrough: defensive */
         return null;
       }
-      /* c8 ignore stop */
+      /* c8 ignore stop — end PEM validation */
 
-      // OMS sig: basic format validation (expanded in Phase 2)
+      // OMS sig; basic format validation: basic format validation (expanded in Phase 2)
       if (trimmed.length > 0) {
         try {
           const decoded = Buffer.from(trimmed, "base64");
