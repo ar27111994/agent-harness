@@ -79,12 +79,12 @@ export async function harvestGitHubRepoSource(
 
     // Fetch and verify blob contents for candidate OMS files so trust signals
     // are only awarded to files with cryptographically plausible content.
-    const { verified: omsFileSizes, pemVerified } = await verifyOmsBlobs(
+    const { verified: omsFileSizes, pemParsed } = await verifyOmsBlobs(
       snapshot,
       omsCandidateFiles,
       source,
     );
-    snapshot.pemVerified = pemVerified;
+    snapshot.pemParsed = pemParsed;
 
     return snapshot.tree.entries
       .filter((entry) => entry.type === "blob")
@@ -245,9 +245,8 @@ async function verifyOmsBlobs(
   snapshot: GitHubRepoSnapshot,
   candidates: GitHubRepoSnapshot["tree"]["entries"],
   source: SourceDefinition,
-): Promise<{ verified: Map<string, number>; pemVerified: boolean }> {
-  if (candidates.length === 0)
-    return { verified: new Map(), pemVerified: false };
+): Promise<{ verified: Map<string, number>; pemParsed: boolean }> {
+  if (candidates.length === 0) return { verified: new Map(), pemParsed: false };
 
   const { repoSummary } = snapshot;
   const { fetchTextWithGuards } = await import("../../lib/http.js");
@@ -324,7 +323,7 @@ async function verifyOmsBlobs(
   // ── Phase 2: extract public key from PEM, verify sigs against asset content ──
   /* c8 ignore start — Phase 2 defensive branches: no-PEM, missing-asset, verify-failure */
   const verified = new Map<string, number>();
-  let pemVerified = false;
+  let pemParsed = false;
   let publicKey: KeyObject | null = null;
 
   // Extract public key from the first valid PEM cert
@@ -333,7 +332,7 @@ async function verifyOmsBlobs(
       try {
         const { createPublicKey } = await import("node:crypto");
         publicKey = createPublicKey(result.value.pemContent);
-        pemVerified = true;
+        pemParsed = true;
         verified.set(result.value.path.toLowerCase(), result.value.size);
       } catch {
         /* c8 ignore next 2 — defensive; createPublicKey validated in Phase 1 */
@@ -396,7 +395,7 @@ async function verifyOmsBlobs(
   }
   /* c8 ignore stop — end of Phase 2 defensive branches */
 
-  return { verified, pemVerified };
+  return { verified, pemParsed };
 }
 
 function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
@@ -427,7 +426,7 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
   }
   // OMS trust anchor: `verifyOmsBlobs` has checked the PEM cert content
   // during harvest — only award the signal if blob-content validation passed.
-  if (snapshot.pemVerified) {
+  if (snapshot.pemParsed) {
     signals.push("oms-trust-anchor");
     // TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] is always defined; fallback prevents
     // regression if the constant is accidentally removed from the map.

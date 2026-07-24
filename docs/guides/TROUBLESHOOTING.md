@@ -177,7 +177,7 @@ Before filing, include:
 2. `node --version` and OS
 3. The full command you ran
 4. The full terminal output (stdout + stderr)
-5. The relevant report file (e.g. `state/discover/output/selection-report.json`)
+5. The relevant report file (e.g. `discover/output/selection-report.json`)
    if the issue is discovery-related
 
 File issues at:

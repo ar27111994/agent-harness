@@ -1018,7 +1018,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
   );
 });
 
-void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when pemVerified is false or absent", () => {
+void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when pemParsed is false or absent", () => {
   // Minimal snapshot with PEM-cert blob in tree but no verified flag.
   const snapshot = {
     sourceId: "test",
@@ -1055,36 +1055,36 @@ void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when p
     },
   } as unknown as GitHubRepoSnapshot;
 
-  // Without pemVerified — no PEM trust signal
+  // Without pemParsed — no PEM trust signal
   const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
   const withoutPem = collectRepositoryTrustEvidence(snapshot);
   assert.ok(
     !withoutPem.signals.includes("oms-trust-anchor"),
-    "oms-trust-anchor must not be present when pemVerified is absent",
+    "oms-trust-anchor must not be present when pemParsed is absent",
   );
 
-  // With pemVerified=false — still no PEM trust signal
+  // With pemParsed=false — still no PEM trust signal
   const withFalse = collectRepositoryTrustEvidence({
     ...snapshot,
-    pemVerified: false,
+    pemParsed: false,
   });
   assert.ok(
     !withFalse.signals.includes("oms-trust-anchor"),
-    "oms-trust-anchor must not be present when pemVerified is false",
+    "oms-trust-anchor must not be present when pemParsed is false",
   );
 
-  // With pemVerified=true — trust signal awarded
+  // With pemParsed=true — trust signal awarded
   const withTrue = collectRepositoryTrustEvidence({
     ...snapshot,
-    pemVerified: true,
+    pemParsed: true,
   });
   assert.ok(
     withTrue.signals.includes("oms-trust-anchor"),
-    "oms-trust-anchor must be present when pemVerified is true",
+    "oms-trust-anchor must be present when pemParsed is true",
   );
 });
 
-void test("collectRepositoryTrustEvidence: pemVerified gate", () => {
+void test("collectRepositoryTrustEvidence: pemParsed gate", () => {
   const s = {
     sourceId: "t",
     owner: "f",
@@ -1115,21 +1115,21 @@ void test("collectRepositoryTrustEvidence: pemVerified gate", () => {
   const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
   assert.ok(
     !collectRepositoryTrustEvidence(s).signals.includes("oms-trust-anchor"),
-    "absent when pemVerified missing",
+    "absent when pemParsed missing",
   );
   assert.ok(
     !collectRepositoryTrustEvidence({
       ...s,
-      pemVerified: false,
+      pemParsed: false,
     }).signals.includes("oms-trust-anchor"),
-    "absent when pemVerified false",
+    "absent when pemParsed false",
   );
   assert.ok(
     collectRepositoryTrustEvidence({
       ...s,
-      pemVerified: true,
+      pemParsed: true,
     }).signals.includes("oms-trust-anchor"),
-    "present when pemVerified true",
+    "present when pemParsed true",
   );
 });
 

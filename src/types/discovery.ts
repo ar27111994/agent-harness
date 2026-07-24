@@ -277,8 +277,10 @@ export interface GitHubRepoSnapshot {
       sha: string;
     }>;
   };
-  /** Set by verifyOmsBlobs when the PEM root cert passes content validation. */
-  pemVerified?: boolean;
+  /** Set by verifyOmsBlobs when the PEM key material passes format validation.
+   *  This is a syntactic check only — it does NOT mean the certificate chains
+   *  to a trusted root. Used as one signal among many, not as sole trust basis. */
+  pemParsed?: boolean;
 }
 
 /**
