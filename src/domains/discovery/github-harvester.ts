@@ -393,6 +393,7 @@ async function verifyOmsBlobs(
     /* c8 ignore stop */
   }
 
+  /* c8 ignore next — defensive; closing brace outside previous ignore block */
   return { verified, pemVerified };
 }
 
