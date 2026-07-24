@@ -85,37 +85,52 @@ async function runAdapterPreflightWithTimeout(
   adapterTimeoutMs: number,
   projectRoot?: string,
 ): Promise<PreflightDiagnostic[]> {
-  return Promise.race([
-    (async () => [
-      ...(await runHostPreflight(adapter.lifecycleHost, {
-        requireHostPaths:
-          adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
-      })),
-      ...(await runAdapterPreflight(adapter)),
-      ...(projectRoot
-        ? await collectActivatedAssetPrerequisiteDiagnostics(
-            projectRoot,
-            adapter,
-            { missingEnvSeverity: "warning" },
-          )
-        : []),
-    ])(),
-    new Promise<PreflightDiagnostic[]>((resolve) =>
-      setTimeout(
-        () =>
-          resolve([
-            {
-              severity: "warning",
-              code: `${adapter.id}-doctor-timeout`,
-              message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-              action:
-                "The host CLI may be blocking on IPC. Use --host <id> to check a single adapter, or increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS.",
-            },
-          ]),
-        adapterTimeoutMs,
-      ),
-    ),
-  ]);
+  const signal = AbortSignal.timeout(adapterTimeoutMs);
+  try {
+    return await Promise.race([
+      (async () => [
+        ...(await runHostPreflight(adapter.lifecycleHost, {
+          requireHostPaths:
+            adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
+        })),
+        ...(await runAdapterPreflight(adapter)),
+        ...(projectRoot
+          ? await collectActivatedAssetPrerequisiteDiagnostics(
+              projectRoot,
+              adapter,
+              { missingEnvSeverity: "warning" },
+            )
+          : []),
+      ])(),
+      // Reject when the abort signal fires so Promise.race resolves immediately.
+      new Promise<never>((_, reject) => {
+        signal.addEventListener("abort", () =>
+          reject(signal.reason ?? new DOMException("Timeout", "TimeoutError")),
+        );
+      }),
+    ]);
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      return [{
+        severity: "warning",
+        code: `${adapter.id}-doctor-timeout`,
+        message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+        action:
+          "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+      }];
+    }
+    // If signal was already aborted (e.g. during cleanup), return timeout diagnostic.
+    if (signal.aborted) {
+      return [{
+        severity: "warning",
+        code: `${adapter.id}-doctor-timeout`,
+        message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+        action:
+          "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+      }];
+    }
+    throw err;
+  }
 }
 
 async function runDoctor(
