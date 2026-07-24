@@ -280,7 +280,12 @@ void test("shared MCP asset ids are collected from active shared bundles and mal
     host: "shared",
     generatedAt: new Date().toISOString(),
     activeBundles: ["bundle-z", "bundle-a"],
-    activeAssets: ["asset-z-mcp", "asset-a-mcp", "asset-plugin"],
+    activeAssets: [
+      "asset-z-mcp",
+      "asset-a-mcp",
+      "asset-plugin",
+      "asset-broken",
+    ],
     runtimeRoot: join(projectRoot, "activate", "shared"),
     notes: [],
   };
@@ -334,6 +339,11 @@ void test("shared MCP asset ids are collected from active shared bundles and mal
         assetId: "asset-plugin",
         mirrorId: "mirror-plugin",
         manifestPath: pluginPackagePath,
+      },
+      {
+        assetId: "asset-broken",
+        mirrorId: "mirror-broken",
+        manifestPath: join(projectRoot, "nonexistent", "broken.json"),
       },
     ]),
     writeInstalledBundleManifest(projectRoot, "bundle-a", [

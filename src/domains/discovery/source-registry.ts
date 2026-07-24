@@ -476,3 +476,8 @@ function humanizeSlug(value: string): string {
     .trim()
     .replace(/\b\w/gu, (character) => character.toUpperCase());
 }
+
+/** Exposes source-registry internals for focused unit testing. */
+export const sourceRegistryInternals = {
+  assertRequiredEnumArray,
+} as const;

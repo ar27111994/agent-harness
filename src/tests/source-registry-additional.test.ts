@@ -537,3 +537,17 @@ function buildSource(id: string, repo: string): SourceDefinition {
     );
   });
 }
+
+import { sourceRegistryInternals } from "../domains/discovery/source-registry.js";
+
+void test("assertRequiredEnumArray rejects null elements", () => {
+  const { assertRequiredEnumArray } = sourceRegistryInternals;
+  assert.throws(
+    () => assertRequiredEnumArray([null], ["a", "b"] as const, "test"),
+    /must not be null or undefined/,
+  );
+  assert.throws(
+    () => assertRequiredEnumArray([undefined], ["a", "b"] as const, "test"),
+    /must not be null or undefined/,
+  );
+});
