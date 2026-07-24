@@ -816,3 +816,60 @@ function buildTestAdapter(
     wire: overrides.wire ?? (async () => {}),
   };
 }
+
+void test("readSharedMcpAssetIds resolves symlinked manifests against installRoot", async (context) => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "ah-shared-mcp-symlink-"));
+  context.after(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const activationManifest: ActivationManifest = {
+    schemaVersion: 1,
+    host: "shared",
+    generatedAt: new Date().toISOString(),
+    activeBundles: ["bundle-sym"],
+    activeAssets: ["asset-sym-mcp"],
+    runtimeRoot: join(projectRoot, "activate", "shared"),
+    notes: [],
+  };
+  await writeJsonFile(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+    activationManifest,
+  );
+
+  const realPkgPath = join(
+    projectRoot,
+    "install",
+    "shared",
+    "packages",
+    "asset-sym-mcp.install.json",
+  );
+  await writeInstalledPackageManifest(realPkgPath, {
+    assetId: "asset-sym-mcp",
+    assetKind: "mcp-server",
+  });
+
+  // Create a symlink pointing to the real package manifest
+  const symlinkDir = join(
+    projectRoot,
+    "install",
+    "shared",
+    "packages",
+    "symlinks",
+  );
+  await mkdir(symlinkDir, { recursive: true });
+  const symlinkPath = join(symlinkDir, "asset-sym-mcp.install.json");
+  const { symlink } = await import("node:fs/promises");
+  await symlink(realPkgPath, symlinkPath);
+
+  await writeInstalledBundleManifest(projectRoot, "bundle-sym", [
+    {
+      assetId: "asset-sym-mcp",
+      mirrorId: "mirror-sym",
+      manifestPath: symlinkPath,
+    },
+  ]);
+
+  // readSharedMcpAssetIds should resolve the symlink and include the asset
+  assert.deepEqual(await readSharedMcpAssetIds(projectRoot), ["asset-sym-mcp"]);
+});
