@@ -39,10 +39,10 @@ void test("swapActivationRuntimeRoot — normal path", async () => {
 
     // After swap: staging is now runtime (old runtime removed after success)
     const { readFile } = await import("node:fs/promises");
-    assert.ok(
-      JSON.parse(await readFile(join(runtimeRoot, "new.json"), "utf8")).new,
-      "staging content is now at runtime root",
-    );
+    const parsed = JSON.parse(
+      await readFile(join(runtimeRoot, "new.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepStrictEqual(parsed, { new: true }, "staging content is now at runtime root");
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
@@ -114,10 +114,10 @@ void test("swapActivationRuntimeRoot — no existing runtime root", async () => 
 
     // staging was moved to runtime
     const { readFile } = await import("node:fs/promises");
-    assert.ok(
-      JSON.parse(await readFile(join(runtimeRoot, "new.json"), "utf8")).new,
-      "staging is now at runtime root",
-    );
+    const parsed = JSON.parse(
+      await readFile(join(runtimeRoot, "new.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.deepStrictEqual(parsed, { new: true }, "staging is now at runtime root");
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }

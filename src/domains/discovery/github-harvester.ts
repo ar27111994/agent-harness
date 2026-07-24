@@ -78,11 +78,12 @@ export async function harvestGitHubRepoSource(
 
     // Fetch and verify blob contents for candidate OMS files so trust signals
     // are only awarded to files with cryptographically plausible content.
-    const omsFileSizes = await verifyOmsBlobs(
+    const { verified: omsFileSizes, pemVerified } = await verifyOmsBlobs(
       snapshot,
       omsCandidateFiles,
       source,
     );
+    snapshot.pemVerified = pemVerified;
 
     return snapshot.tree.entries
       .filter((entry) => entry.type === "blob")
@@ -133,10 +134,16 @@ function buildGitHubCatalogEntry(
   const assetDir = relativePath.includes("/")
     ? relativePath.slice(0, relativePath.lastIndexOf("/"))
     : "";
+  // Check both canonical OMS sig filename variants: skill.oms.sig and bare oms.sig.
   const omsSignaturePath = assetDir
     ? `${assetDir}/skill.oms.sig`
     : "skill.oms.sig";
-  const omsSigSize = omsFileSizes.get(omsSignaturePath.toLowerCase());
+  const bareOmsSigPath = assetDir
+    ? `${assetDir}/oms.sig`
+    : "oms.sig";
+  const omsSigSize =
+    omsFileSizes.get(omsSignaturePath.toLowerCase()) ??
+    omsFileSizes.get(bareOmsSigPath.toLowerCase());
   // Trust signals must be backed by real content, not empty placeholder files.
   const hasOmsSignature = omsSigSize != null && omsSigSize > 0;
   const githubFileUrl = `${snapshot.repoSummary.htmlUrl}/blob/${snapshot.repoSummary.defaultBranch}/${relativePath}`;
@@ -224,67 +231,67 @@ function buildGitHubCatalogEntry(
 }
 
 /**
- * Fetches and cryptographically validates OMS blob contents for candidate
- * signature and certificate files found during tree discovery. Only files
- * whose fetched content passes format validation are kept in the return Map.
+ * Fetches and format-checks OMS blob contents for candidate signature and
+ * certificate files found during tree discovery. Only files whose fetched
+ * content passes format validation are kept in the return Map.
+ *
+ * This is a format-level check, not cryptographic verification — it validates
+ * that PEM certs contain the expected marker structure and that sig files are
+ * non-empty, but does not verify signatures against certificates.
  *
  * - PEM certs: must contain BEGIN/END CERTIFICATE markers
- * - OMS sigs: must be non-empty after trimming whitespace (base64 blob)
+ * - OMS sigs: must be non-empty after trimming whitespace
  */
 async function verifyOmsBlobs(
   snapshot: GitHubRepoSnapshot,
   candidates: GitHubRepoSnapshot["tree"]["entries"],
   source: SourceDefinition,
-): Promise<Map<string, number>> {
-  if (candidates.length === 0) return new Map();
+): Promise<{ verified: Map<string, number>; pemVerified: boolean }> {
+  if (candidates.length === 0)
+    return { verified: new Map(), pemVerified: false };
 
-  const verified = new Map<string, number>();
   const { repoSummary } = snapshot;
+  const { fetchTextWithGuards } = await import("../../lib/http.js");
 
-  for (const entry of candidates) {
-    try {
-      // Fetch raw blob content via the authenticated GitHub API endpoint rather
-      // than raw.githubusercontent.com — works for private repos too.
+  const results = await Promise.allSettled(
+    candidates.map(async (entry) => {
       const blobUrl = `https://api.github.com/repos/${repoSummary.fullName}/git/blobs/${entry.sha}`;
-      const { fetchTextWithGuards } = await import("../../lib/http.js");
       const content = await fetchTextWithGuards(blobUrl, {
         allowedOrigins: ["https://api.github.com"],
         headers: {
-          Accept: "application/vnd.github.raw",
+          Accept: "application/vnd.github.raw+json",
           ...(source.endpoints.token
             ? { Authorization: `Bearer ${source.endpoints.token}` }
             : {}),
         },
         timeoutMs: 5_000,
       });
-
-      if (!content || typeof content !== "string") continue;
+      if (!content || typeof content !== "string") return null;
 
       const trimmed = content.trim();
       const isPem = /nv-agent-root-cert\.pem$/u.test(entry.path);
 
       if (isPem) {
-        // PEM certificate must have proper header and footer
-        if (
-          trimmed.startsWith("-----BEGIN CERTIFICATE-----") &&
+        return trimmed.startsWith("-----BEGIN CERTIFICATE-----") &&
           trimmed.includes("-----END CERTIFICATE-----")
-        ) {
-          verified.set(entry.path.toLowerCase(), entry.size ?? content.length);
-          (snapshot as { pemVerified?: boolean }).pemVerified = true;
-        }
-      } else {
-        // OMS signature: must be non-empty after trimming
-        if (trimmed.length > 0) {
-          verified.set(entry.path.toLowerCase(), entry.size ?? content.length);
-        }
+          ? { path: entry.path, size: entry.size ?? content.length, pem: true }
+          : null;
       }
-    } catch {
-      // Best-effort: skip this file if blob fetch fails (network, auth, 404)
-      continue;
+      return trimmed.length > 0
+        ? { path: entry.path, size: entry.size ?? content.length, pem: false }
+        : null;
+    }),
+  );
+
+  const verified = new Map<string, number>();
+  let pemVerified = false;
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value) {
+      verified.set(result.value.path.toLowerCase(), result.value.size);
+      if (result.value.pem) pemVerified = true;
     }
   }
-
-  return verified;
+  return { verified, pemVerified };
 }
 
 function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
@@ -596,3 +603,7 @@ function buildGitHubRisk(assetKind: AssetKind): AssetRisk {
 function toGitHubHarvesterErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+export const githubHarvesterInternals = {
+  collectRepositoryTrustEvidence,
+} as const;

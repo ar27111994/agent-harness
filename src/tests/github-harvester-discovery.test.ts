@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { harvestGitHubRepoSource } from "../domains/discovery/github-harvester.js";
-import type { SelectionRegistry, SourceDefinition } from "../types.js";
+import { harvestGitHubRepoSource, githubHarvesterInternals } from "../domains/discovery/github-harvester.js";
+import type { GitHubRepoSnapshot, SelectionRegistry, SourceDefinition } from "../types.js";
 
 void test("github harvester classifies repository artifacts and carries repository trust evidence", async (context) => {
   const projectRoot = await mkdtemp(
@@ -985,5 +985,66 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
     signedSkill.trust.score - unsignedSkill.trust.score,
     5,
     "oms-signed adds +5 to trust score",
+  );
+});
+
+void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when pemVerified is false or absent", () => {
+  // Minimal snapshot with PEM-cert blob in tree but no verified flag.
+  const snapshot = {
+    sourceId: "test",
+    owner: "fake",
+    repo: "fake",
+    fetchedAt: new Date().toISOString(),
+    repoSummary: {
+      name: "fake",
+      fullName: "fake/fake",
+      description: null,
+      defaultBranch: "main",
+      updatedAt: null,
+      pushedAt: null,
+      stars: 0,
+      language: null,
+      topics: [],
+      archived: false,
+      htmlUrl: "https://github.com/fake/fake",
+    },
+    readme: { path: "README.md", content: "" },
+    tree: {
+      sha: "tree-sha",
+      truncated: false,
+      entries: [
+        { path: "nv-agent-root-cert.pem", type: "blob", size: 1024, sha: "x" },
+        { path: "skills/test/SKILL.md", type: "blob", size: 100, sha: "y" },
+        { path: "skills/test/skill.oms.sig", type: "blob", size: 256, sha: "z" },
+      ],
+    },
+  } as unknown as GitHubRepoSnapshot;
+
+  // Without pemVerified — no PEM trust signal
+  const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
+  const withoutPem = collectRepositoryTrustEvidence(snapshot);
+  assert.ok(
+    !withoutPem.signals.includes("oms-trust-anchor"),
+    "oms-trust-anchor must not be present when pemVerified is absent",
+  );
+
+  // With pemVerified=false — still no PEM trust signal
+  const withFalse = collectRepositoryTrustEvidence({
+    ...snapshot,
+    pemVerified: false,
+  });
+  assert.ok(
+    !withFalse.signals.includes("oms-trust-anchor"),
+    "oms-trust-anchor must not be present when pemVerified is false",
+  );
+
+  // With pemVerified=true — trust signal awarded
+  const withTrue = collectRepositoryTrustEvidence({
+    ...snapshot,
+    pemVerified: true,
+  });
+  assert.ok(
+    withTrue.signals.includes("oms-trust-anchor"),
+    "oms-trust-anchor must be present when pemVerified is true",
   );
 });
