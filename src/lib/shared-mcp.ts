@@ -57,7 +57,7 @@ export async function readSharedMcpAssetIds(
         const { realpath } = await import("node:fs/promises");
         resolvedManifestPath = await realpath(rawPath);
       } catch {
-        // realpath fails if the file doesn't exist — fall back to raw path
+        /* c8 ignore next 2 */
         resolvedManifestPath = rawPath;
       }
       if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {

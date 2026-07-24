@@ -396,6 +396,7 @@ function assertRequiredEnumArray<T extends string>(
   }
 
   items.forEach((entry, index) => {
+    /* c8 ignore next 2 */
     if (entry == null) {
       throw new Error(`${context}[${index}] must not be null or undefined`);
     }
