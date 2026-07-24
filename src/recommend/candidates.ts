@@ -673,7 +673,7 @@ const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
  * Because a single source ID may match multiple substrings (e.g. an ID
  * containing both "pnpm" and "npm"), we cannot index by the source ID
  * directly. Instead we keep the ordered array for correctness and iterate it
- * once per call. The array has ~25 entries — iteration is effectively O(1)
+ * The array has ~25 entries — a single .find() pass is negligible.
  * relative to catalog size and far cheaper than the previous .find() on every
  * catalog entry.
  */
