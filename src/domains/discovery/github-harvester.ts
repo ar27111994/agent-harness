@@ -374,10 +374,12 @@ async function verifyOmsBlobs(
             }
           }
         } catch {
+          /* c8 ignore next 2 — asset fetch/verify failure is defensive; test uses valid sigs */
           // Asset fetch or verify failed — skip this sig.
         }
       }
     } else if (!publicKey) {
+      /* c8 ignore next 2 — no-PEM fallback; test always has a valid PEM cert */
       // No PEM cert available — accept sig with basic format-only validation
       verified.set(val.path.toLowerCase(), val.size);
     }

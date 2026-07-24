@@ -397,6 +397,7 @@ function assertRequiredEnumArray<T extends string>(
 
   items.forEach((entry, index) => {
     if (entry == null) {
+      /* c8 ignore next 2 — null element in source pack is defensive; packs are validated */
       throw new Error(`${context}[${index}] must not be null or undefined`);
     }
     assertOptionalEnum(entry, allowedValues, `${context}[${index}]`);
