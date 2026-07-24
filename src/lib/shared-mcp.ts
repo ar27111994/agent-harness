@@ -49,7 +49,17 @@ export async function readSharedMcpAssetIds(
         continue;
       }
 
-      const resolvedManifestPath = resolve(projectRoot, pkg.manifestPath);
+      // Resolve manifestPath against projectRoot, then resolve symlinks
+      // to prevent symlink escapes outside installRoot.
+      const rawPath = resolve(projectRoot, pkg.manifestPath);
+      let resolvedManifestPath: string;
+      try {
+        const { realpath } = await import("node:fs/promises");
+        resolvedManifestPath = await realpath(rawPath);
+      } catch {
+        // realpath fails if the file doesn't exist — fall back to raw path
+        resolvedManifestPath = rawPath;
+      }
       if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {
         console.warn(
           `Skipping package '${pkg.assetId}': manifestPath '${pkg.manifestPath}' ` +
