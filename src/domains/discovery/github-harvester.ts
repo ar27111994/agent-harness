@@ -270,7 +270,6 @@ async function verifyOmsBlobs(
       const trimmed = content.trim();
       const isPem = /nv-agent-root-cert\.pem$/u.test(entry.path);
 
-      /* c8 ignore start — PEM format validation: defensive branches for invalid cert content */
       if (isPem) {
         if (
           (trimmed.startsWith("-----BEGIN CERTIFICATE-----") ||
@@ -288,15 +287,11 @@ async function verifyOmsBlobs(
               pemContent: trimmed,
             };
           } catch {
-            /* c8 ignore start — PEM Phase 1 catch: defensive */
             return null;
           }
-          /* c8 ignore stop */
         }
-        /* c8 ignore start — PEM fallthrough: defensive */
         return null;
       }
-      /* c8 ignore stop — end PEM validation */
 
       // OMS sig; basic format validation: basic format validation (expanded in Phase 2)
       if (trimmed.length > 0) {
@@ -311,17 +306,14 @@ async function verifyOmsBlobs(
             };
           }
         } catch {
-          /* c8 ignore next 2 */
           // base64 decode failed — defensive, not hit with valid sig.
         }
       }
-      /* c8 ignore next — defensive; hit when sig content is empty after trim */
       return null;
     }),
   );
 
   // ── Phase 2: extract public key from PEM, verify sigs against asset content ──
-  /* c8 ignore start — Phase 2 defensive branches: no-PEM, missing-asset, verify-failure */
   const verified = new Map<string, number>();
   let pemParsed = false;
   let publicKey: KeyObject | null = null;
@@ -335,7 +327,6 @@ async function verifyOmsBlobs(
         pemParsed = true;
         verified.set(result.value.path.toLowerCase(), result.value.size);
       } catch {
-        /* c8 ignore next 2 — defensive; createPublicKey validated in Phase 1 */
         // createPublicKey already validated in Phase 1; defensive.
       }
       break; // Use first valid PEM cert
@@ -381,19 +372,14 @@ async function verifyOmsBlobs(
             }
           }
         } catch {
-          /* c8 ignore start — asset fetch/verify failure is defensive; test uses valid sigs */
           // Asset fetch or verify failed — skip this sig.
         }
-        /* c8 ignore stop */
       }
-      /* c8 ignore start — no-PEM fallback; test always has a valid PEM cert */
     } else if (!publicKey) {
       // No PEM cert available — accept sig with basic format-only validation
       verified.set(val.path.toLowerCase(), val.size);
     }
-    /* c8 ignore stop */
   }
-  /* c8 ignore stop — end of Phase 2 defensive branches */
 
   return { verified, pemParsed };
 }

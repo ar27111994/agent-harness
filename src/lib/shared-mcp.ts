@@ -57,7 +57,6 @@ export async function readSharedMcpAssetIds(
         const { lstat, realpath } = await import("node:fs/promises");
         const stat = await lstat(rawPath);
         if (stat.isSymbolicLink()) {
-          /* c8 ignore next — symlink creation requires admin on Windows; test fixtures don't create symlinks */
           resolvedManifestPath = await realpath(rawPath);
         }
       } catch {

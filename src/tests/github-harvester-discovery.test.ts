@@ -1228,6 +1228,7 @@ void test("malformed OMS files do not grant trust signals", async () => {
 
   const evilSource = buildSource();
   evilSource.endpoints.repo = "https://github.com/evil/skills";
+  evilSource.endpoints.token = "ghp_test-token";
 
   try {
     const entries = await harvestGitHubRepoSource(
