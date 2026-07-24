@@ -10,10 +10,10 @@ This document describes how `agent-harness` participates in the ARD (Agentic Res
 | ---------------- | -------------------------------------------------------- |
 | **Project**      | agent-harness                                            |
 | **Publisher**    | ar27111994                                               |
-| **FQDN**         | ar27111994.github.io                                     |
-| **Catalog URL**  | https://ar27111994.github.io/.well-known/ai-catalog.json |
+| **FQDN**         | ar27111994.dev                                     |
+| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json |
 | **Spec version** | ARD v0.9 (https://agenticresourcediscovery.org/spec)     |
-| **URN prefix**   | `urn:ai:ar27111994.github.io:*:*`                        |
+| **URN prefix**   | `urn:ai:ar27111994.dev:*:*`                        |
 | **License**      | MIT                                                      |
 | **Repository**   | https://github.com/ar27111994/agent-harness              |
 
@@ -42,10 +42,10 @@ Submit a PR to https://github.com/ards-project/community adding agent-harness to
 
 ```json
 {
-  "identifier": "urn:ai:ar27111994.github.io:cli:agent-harness",
+  "identifier": "urn:ai:ar27111994.dev:cli:agent-harness",
   "displayName": "agent-harness",
   "type": "application/ai-skill",
-  "url": "https://ar27111994.github.io/.well-known/ai-catalog.json",
+  "url": "https://ar27111994.dev/.well-known/ai-catalog.json",
   "description": "AI-agent asset supply-chain: discovers, recommends, mirrors, stages, activates, and wires reusable agent skills, MCP servers, plugins, and agents across 7 host IDEs",
   "capabilities": [
     "discovery",
@@ -73,7 +73,7 @@ The catalog validates against the ARD v0.9 schema:
 
 ```bash
 npx ajv-cli validate -s https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json \
-  -d https://ar27111994.github.io/.well-known/ai-catalog.json
+  -d https://ar27111994.dev/.well-known/ai-catalog.json
 ```
 
 ## References
