@@ -1140,43 +1140,87 @@ void test("malformed OMS files do not grant trust signals", async () => {
   process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
 
   globalThis.fetch = async (input: unknown) => {
-    const url = typeof input === "string" ? input
-      : input instanceof URL ? input.toString()
-      : (input as RequestInfo).toString();
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as RequestInfo).toString();
 
     if (url === "https://api.github.com/repos/evil/skills") {
-      return jsonResponse({ name: "skills", full_name: "evil/skills",
-        description: "malformed OMS", default_branch: "main",
-        updated_at: "2026-05-01T00:00:00.000Z", stargazers_count: 5,
-        language: "Markdown", topics: [], archived: false,
-        html_url: "https://github.com/evil/skills" });
+      return jsonResponse({
+        name: "skills",
+        full_name: "evil/skills",
+        description: "malformed OMS",
+        default_branch: "main",
+        updated_at: "2026-05-01T00:00:00.000Z",
+        stargazers_count: 5,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/evil/skills",
+      });
     }
     if (url === "https://api.github.com/repos/evil/skills/readme") {
-      return jsonResponse({ path: "README.md", sha: "readme-sha", size: 200,
-        html_url: "https://github.com/evil/skills/blob/main/README.md" });
+      return jsonResponse({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 200,
+        html_url: "https://github.com/evil/skills/blob/main/README.md",
+      });
     }
-    if (url === "https://api.github.com/repos/evil/skills/git/trees/main?recursive=1") {
-      return jsonResponse({ sha: "tree-sha", truncated: false, tree: [
-        // PEM file with BEGIN/END markers but garbage content — not a real cert
-        { path: "nv-agent-root-cert.pem", type: "blob", size: 1024, sha: "bad-cert-sha" },
-        { path: "skills/a/SKILL.md", type: "blob", size: 100, sha: "a-sha" },
-        // Sig with invalid base64
-        { path: "skills/a/skill.oms.sig", type: "blob", size: 256, sha: "bad-sig-sha" },
-        { path: "skills/b/SKILL.md", type: "blob", size: 100, sha: "b-sha" },
-        // Sig that is whitespace only
-        { path: "skills/b/skill.oms.sig", type: "blob", size: 64, sha: "empty-sig-sha" },
-      ]});
+    if (
+      url ===
+      "https://api.github.com/repos/evil/skills/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          // PEM file with BEGIN/END markers but garbage content — not a real cert
+          {
+            path: "nv-agent-root-cert.pem",
+            type: "blob",
+            size: 1024,
+            sha: "bad-cert-sha",
+          },
+          { path: "skills/a/SKILL.md", type: "blob", size: 100, sha: "a-sha" },
+          // Sig with invalid base64
+          {
+            path: "skills/a/skill.oms.sig",
+            type: "blob",
+            size: 256,
+            sha: "bad-sig-sha",
+          },
+          { path: "skills/b/SKILL.md", type: "blob", size: 100, sha: "b-sha" },
+          // Sig that is whitespace only
+          {
+            path: "skills/b/skill.oms.sig",
+            type: "blob",
+            size: 64,
+            sha: "empty-sig-sha",
+          },
+        ],
+      });
     }
     // Bad cert: has markers but not valid x509
-    if (url === "https://api.github.com/repos/evil/skills/git/blobs/bad-cert-sha") {
-      return textResponse("-----BEGIN CERTIFICATE-----\nnot-a-real-cert!@#\n-----END CERTIFICATE-----");
+    if (
+      url === "https://api.github.com/repos/evil/skills/git/blobs/bad-cert-sha"
+    ) {
+      return textResponse(
+        "-----BEGIN CERTIFICATE-----\nnot-a-real-cert!@#\n-----END CERTIFICATE-----",
+      );
     }
     // Invalid base64 sig
-    if (url === "https://api.github.com/repos/evil/skills/git/blobs/bad-sig-sha") {
+    if (
+      url === "https://api.github.com/repos/evil/skills/git/blobs/bad-sig-sha"
+    ) {
       return textResponse("!!! not valid base64 !!!");
     }
     // Empty/whitespace sig
-    if (url === "https://api.github.com/repos/evil/skills/git/blobs/empty-sig-sha") {
+    if (
+      url === "https://api.github.com/repos/evil/skills/git/blobs/empty-sig-sha"
+    ) {
       return textResponse("   \n  \n   ");
     }
     throw new Error(`unexpected url: ${url}`);
@@ -1187,20 +1231,29 @@ void test("malformed OMS files do not grant trust signals", async () => {
 
   try {
     const entries = await harvestGitHubRepoSource(
-      evilSource, null, buildSelectionRegistry(), projectRoot,
+      evilSource,
+      null,
+      buildSelectionRegistry(),
+      projectRoot,
     );
-    assert.ok(entries.length > 0, "repo produces entries even with malformed OMS");
+    assert.ok(
+      entries.length > 0,
+      "repo produces entries even with malformed OMS",
+    );
 
     // No OMS trust signals should be awarded for malformed files
     for (const entry of entries) {
-      assert.ok(!entry.trust.signals.includes("oms-signed"),
-        `entry ${entry.id}: no oms-signed with malformed sig`);
+      assert.ok(
+        !entry.trust.signals.includes("oms-signed"),
+        `entry ${entry.id}: no oms-signed with malformed sig`,
+      );
     }
     // The repo-level trust should NOT include oms-trust-anchor (bad cert)
     // Entries still get harvested but without OMS trust bonuses
   } finally {
     globalThis.fetch = originalFetch;
-    if (prevMockFlag === undefined) delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    if (prevMockFlag === undefined)
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     else process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = prevMockFlag;
     await rm(projectRoot, { recursive: true, force: true });
   }
