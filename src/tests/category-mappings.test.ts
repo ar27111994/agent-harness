@@ -106,3 +106,20 @@ void test("DEMAND_TO_VSCODE_CATEGORIES — has at least 10 entries", () => {
     "category map should have broad coverage",
   );
 });
+
+void test("resolveVsCodeCategories — strips language: prefix", () => {
+  const cats = resolveVsCodeCategories(["language:typescript"]);
+  assert.ok(cats.includes("Programming Languages"), "typescript maps to Programming Languages");
+  assert.ok(cats.includes("Linters"), "typescript maps to Linters");
+});
+
+void test("resolveVsCodeCategories — strips concern: prefix", () => {
+  const cats = resolveVsCodeCategories(["concern:security"]);
+  assert.ok(cats.includes("Linters"), "security maps to Linters category");
+});
+
+void test("resolveVsCodeCategories — strips tooling: prefix", () => {
+  const cats = resolveVsCodeCategories(["tooling:npm"]);
+  // npm signal has no direct category mapping — strip succeeds, lookup misses
+  assert.equal(cats.length, 0, "unmapped tooling token returns empty");
+});

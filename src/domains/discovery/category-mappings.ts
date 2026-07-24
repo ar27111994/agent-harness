@@ -102,7 +102,7 @@ export function resolveVsCodeCategories(signals: readonly string[]): string[] {
   for (const signal of signals) {
     const normalized = signal
       .toLowerCase()
-      .replace(/^(npm|pypi|detector|framework):/u, "")
+      .replace(/^(language|concern|tooling|npm|pypi|detector|framework):/u, "")
       .replace(/[-_.]/gu, "");
     const mapped = DEMAND_TO_VSCODE_CATEGORIES[normalized];
     if (mapped) {
