@@ -255,9 +255,20 @@ export async function runDiscover(
     case "environment-index":
       await writeEnvironmentIndex(projectRoot, rest);
       return 0;
-    case "ard-export":
-      await writeArdCatalog(projectRoot);
+    case "ard-export": {
+      // Try to resolve a real version from the workspace root (not --state-root)
+      // so the ARD catalog carries the correct publisher version.
+      const { readFile } = await import("node:fs/promises");
+      let pkgVersion: string | undefined;
+      try {
+        const pkgRaw = await readFile("package.json", "utf8");
+        pkgVersion = (JSON.parse(pkgRaw) as { version?: string }).version;
+      } catch {
+        // package.json unavailable — writeArdCatalog will fall back to "0.0.0".
+      }
+      await writeArdCatalog(projectRoot, pkgVersion);
       return 0;
+    }
     case "inspect":
       await inspectCatalog(projectRoot, rest);
       return 0;
