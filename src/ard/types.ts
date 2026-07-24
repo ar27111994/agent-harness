@@ -202,9 +202,12 @@ export function inferAuthorityTierFromArdUrn(
   ) {
     return "trusted-community";
   }
-  // Unknown domains with a trust manifest get elevated to trusted-community;
-  // without one they remain unverified.
-  return hasTrustManifest ? "trusted-community" : "unverified-community";
+  // Unknown domains stay at unverified-community regardless of trust manifest
+  // presence. Self-declared manifests from unknown publishers are NOT sufficient
+  // to elevate authority — the manifest signals contribute to trust scores via
+  // extractArdTrustSignals, but the publisher's authority tier reflects domain
+  // identity, not self-attested claims.
+  return "unverified-community";
 }
 
 // ---------------------------------------------------------------------------

@@ -62,12 +62,17 @@ export async function harvestGitHubRepoSource(
     }
 
     // Build a Map of path→size for O(1) OMS-signature lookups with content
-    // verification — dummy files with zero content must not inflate trust.
+    // verification. Require a minimum size of 64 bytes — a real OMS signature
+    // or PEM certificate is at minimum a few hundred bytes; empty or tiny files
+    // must not inflate trust scores.
+    const OMS_MIN_FILE_SIZE = 64;
     const omsFileSizes = new Map<string, number>(
       snapshot.tree.entries
         .filter(
           (entry) =>
-            entry.type === "blob" && entry.size != null && entry.size > 0,
+            entry.type === "blob" &&
+            entry.size != null &&
+            entry.size >= OMS_MIN_FILE_SIZE,
         )
         .map((entry) => [
           entry.path.toLowerCase(),
@@ -242,8 +247,18 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
     signals.push("tests-present");
     scoreBonus += 2;
   }
-  // OMS trust anchor: repo ships a root certificate used to verify per-asset signatures
-  if (paths.some((path) => /(^|\/)nv-agent-root-cert\.pem$/u.test(path))) {
+  // OMS trust anchor: repo must ship a real PEM root certificate (>= 800 bytes).
+  // A genuine X.509 certificate in PEM format is at minimum ~800 bytes;
+  // smaller files are rejected as placeholders.
+  const PEM_MIN_SIZE = 800;
+  const pemEntry = snapshot.tree.entries.find(
+    (entry) =>
+      entry.type === "blob" &&
+      /(^|\/)nv-agent-root-cert\.pem$/u.test(entry.path) &&
+      entry.size != null &&
+      entry.size >= PEM_MIN_SIZE,
+  );
+  if (pemEntry) {
     signals.push("oms-trust-anchor");
     // TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] is always defined; fallback prevents
     // regression if the constant is accidentally removed from the map.
