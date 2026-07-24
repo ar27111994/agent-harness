@@ -45,7 +45,7 @@ export const ASSET_KIND_TO_ARD_TYPE: Record<AssetKind, string> = {
   skill: "application/ai-skill",
   plugin: "application/ai-skill+json",
   "acp-agent": "application/a2a-agent-card+json",
-  extension: "application/openapi+json",
+  extension: "application/vscode-extension+json",
   "reference-pack": "application/ai-catalog+json",
   instruction: "application/ai-skill+md",
   workflow: "application/ai-skill+md",
@@ -65,6 +65,7 @@ export function ardTypeToAssetKind(ardType: string): AssetKind {
     "application/ai-catalog+json": "reference-pack",
     "application/ai-registry+json": "reference-pack",
     "application/openapi+json": "payable-api",
+    "application/vscode-extension+json": "extension",
   };
   return map[ardType] ?? "skill";
 }

@@ -31,6 +31,10 @@ void test("ardTypeToAssetKind maps known ARD media types", () => {
     "reference-pack",
   );
   assert.equal(ardTypeToAssetKind("application/openapi+json"), "payable-api");
+  assert.equal(
+    ardTypeToAssetKind("application/vscode-extension+json"),
+    "extension",
+  );
 });
 
 void test("ardTypeToAssetKind falls back to skill for unknown types", () => {
@@ -218,6 +222,10 @@ void test("ASSET_KIND_TO_ARD_TYPE covers all core kinds", () => {
   assert.equal(
     ASSET_KIND_TO_ARD_TYPE["payable-api"],
     "application/openapi+json",
+  );
+  assert.equal(
+    ASSET_KIND_TO_ARD_TYPE["extension"],
+    "application/vscode-extension+json",
   );
 });
 

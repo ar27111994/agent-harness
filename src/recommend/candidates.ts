@@ -676,6 +676,7 @@ const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
  * once per call. The array has ~25 entries — iteration is effectively O(1)
  * relative to catalog size and far cheaper than the previous .find() on every
  * catalog entry.
+ */
 /**
  * Returns the penalty to apply when an asset's source registry belongs to a
  * package-manager ecosystem that the workspace does not use.

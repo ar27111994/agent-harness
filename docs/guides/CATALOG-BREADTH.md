@@ -18,7 +18,7 @@ This separates the slow network-bound harvest from the fast per-workspace rankin
 export AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD=0
 
 # Provide a GitHub token for 5,000 req/h (vs 60 unauthenticated)
-export GITHUB_TOKEN=ghp_...
+export GITHUB_TOKEN=<your_personal_access_token>
 
 # Build the full index (can take 30–60 minutes with unlimited pagination)
 agent-harness discover index
