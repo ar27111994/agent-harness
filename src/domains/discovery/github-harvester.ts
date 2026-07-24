@@ -272,14 +272,47 @@ async function verifyOmsBlobs(
       const isPem = /nv-agent-root-cert\.pem$/u.test(entry.path);
 
       if (isPem) {
-        return trimmed.startsWith("-----BEGIN CERTIFICATE-----") &&
-          trimmed.includes("-----END CERTIFICATE-----")
-          ? { path: entry.path, size: entry.size ?? content.length, pem: true }
-          : null;
+        // PEM key material: must parse as a real asymmetric key via
+        // crypto.createPublicKey(), not just contain marker strings.
+        // Accepts both CERTIFICATE and PUBLIC KEY PEM formats.
+        if (
+          (trimmed.startsWith("-----BEGIN CERTIFICATE-----") ||
+            trimmed.startsWith("-----BEGIN PUBLIC KEY-----")) &&
+          (trimmed.includes("-----END CERTIFICATE-----") ||
+            trimmed.includes("-----END PUBLIC KEY-----"))
+        ) {
+          try {
+            const { createPublicKey } = await import("node:crypto");
+            createPublicKey(trimmed);
+            return {
+              path: entry.path,
+              size: entry.size ?? content.length,
+              pem: true,
+            };
+          } catch {
+            // Not a valid x509 certificate — reject.
+            return null;
+          }
+        }
+        return null;
       }
-      return trimmed.length > 0
-        ? { path: entry.path, size: entry.size ?? content.length, pem: false }
-        : null;
+      // OMS signature: must decode as valid base64 yielding ≥32 bytes
+      // (a real cryptographic signature is at minimum 32 bytes).
+      if (trimmed.length > 0) {
+        try {
+          const decoded = Buffer.from(trimmed, "base64");
+          if (decoded.length >= 32) {
+            return {
+              path: entry.path,
+              size: entry.size ?? content.length,
+              pem: false,
+            };
+          }
+        } catch {
+          // base64 decode failed — not valid signature material.
+        }
+      }
+      return null;
     }),
   );
 

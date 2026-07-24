@@ -832,6 +832,16 @@ function textResponse(value: string): Response {
 }
 
 void test("github harvester emits oms-signed signal for assets with skill.oms.sig sibling and oms-trust-anchor for repo with root cert", async (context) => {
+  // Generate real crypto material so blob validation passes.
+  const { generateKeyPairSync, createSign } = await import("node:crypto");
+  const { publicKey, privateKey } = generateKeyPairSync("ec", {
+    namedCurve: "prime256v1",
+  });
+  const pemContent = publicKey.export({ type: "spki", format: "pem" });
+  const signer = createSign("SHA256");
+  signer.update("oms-sig-content");
+  const sigContent = signer.sign(privateKey, "base64");
+
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -866,17 +876,13 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
       url ===
       "https://api.github.com/repos/nvidia/skills/git/blobs/cert-sha"
     ) {
-      return textResponse(
-        "-----BEGIN CERTIFICATE-----\nMIID...base64...\n-----END CERTIFICATE-----",
-      );
+      return textResponse(pemContent);
     }
     if (
       url ===
       "https://api.github.com/repos/nvidia/skills/git/blobs/sig-sha"
     ) {
-      return textResponse(
-        "MEUCIG...base64signature...==",
-      );
+      return textResponse(sigContent);
     }
 
     if (
