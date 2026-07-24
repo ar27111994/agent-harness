@@ -1083,3 +1083,11 @@ void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when p
     "oms-trust-anchor must be present when pemVerified is true",
   );
 });
+
+void test("collectRepositoryTrustEvidence: pemVerified gate", () => {
+  const s = { sourceId:"t",owner:"f",repo:"f",fetchedAt:new Date().toISOString(),repoSummary:{name:"f",fullName:"f/f",description:null,defaultBranch:"main",updatedAt:null,pushedAt:null,stars:0,language:null,topics:[],archived:false,htmlUrl:"https://github.com/f/f"},readme:{path:"README.md",content:""},tree:{sha:"x",truncated:false,entries:[{path:"nv-agent-root-cert.pem",type:"blob",size:1024,sha:"x"}]}} as unknown as GitHubRepoSnapshot;
+  const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
+  assert.ok(!collectRepositoryTrustEvidence(s).signals.includes("oms-trust-anchor"), "absent when pemVerified missing");
+  assert.ok(!collectRepositoryTrustEvidence({...s,pemVerified:false}).signals.includes("oms-trust-anchor"), "absent when pemVerified false");
+  assert.ok(collectRepositoryTrustEvidence({...s,pemVerified:true}).signals.includes("oms-trust-anchor"), "present when pemVerified true");
+});
