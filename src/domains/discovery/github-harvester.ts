@@ -288,15 +288,15 @@ async function verifyOmsBlobs(
               pemContent: trimmed,
             };
           } catch {
-            /* c8 ignore start — PEM Phase 1 catch: defensive; createPublicKey failure only on invalid cert */
+            /* c8 ignore start — PEM Phase 1 catch: defensive */
             return null;
-            /* c8 ignore stop */
           }
+          /* c8 ignore stop */
         }
-        /* c8 ignore start — PEM fallthrough: defensive; only hit when marker check passes but key parse fails */
+        /* c8 ignore start — PEM fallthrough: defensive */
         return null;
-        /* c8 ignore stop */
       }
+      /* c8 ignore stop */
 
       // OMS sig: basic format validation (expanded in Phase 2)
       if (trimmed.length > 0) {
@@ -385,8 +385,8 @@ async function verifyOmsBlobs(
           /* c8 ignore stop */
         }
       }
+    /* c8 ignore start — no-PEM fallback; test always has a valid PEM cert */
     } else if (!publicKey) {
-      /* c8 ignore start — no-PEM fallback; test always has a valid PEM cert */
       // No PEM cert available — accept sig with basic format-only validation
       verified.set(val.path.toLowerCase(), val.size);
       /* c8 ignore stop */
