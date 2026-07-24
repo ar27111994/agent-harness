@@ -389,8 +389,8 @@ async function verifyOmsBlobs(
     } else if (!publicKey) {
       // No PEM cert available — accept sig with basic format-only validation
       verified.set(val.path.toLowerCase(), val.size);
-      /* c8 ignore stop */
     }
+    /* c8 ignore stop */
   }
 
   return { verified, pemVerified };
