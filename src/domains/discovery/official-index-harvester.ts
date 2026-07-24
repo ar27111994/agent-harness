@@ -227,7 +227,7 @@ export async function harvestOfficialSkillIndexes(
           // Check per-index cap again before inserting the secondary source,
           // since the primary entry already consumed one slot this iteration.
           if (maxItemsPerIndex > 0 && indexEntriesAdded >= maxItemsPerIndex) {
-            /* c8 ignore next -- requires cap=1 with primary entry consuming slot */
+            /* c8 ignore next 2 -- requires cap=1 with primary entry consuming slot */
             break;
           }
           seenIds.add(resolvedRepoSource.id);

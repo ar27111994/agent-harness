@@ -310,8 +310,8 @@ export async function syncArdRegistrySource(
       },
     ],
   };
-  /* c8 ignore stop */
 }
+/* c8 ignore stop */
 
 /**
  * Expose internals for unit testing.

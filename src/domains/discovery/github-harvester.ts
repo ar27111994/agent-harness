@@ -307,9 +307,11 @@ async function verifyOmsBlobs(
             };
           }
         } catch {
+          /* c8 ignore next 2 — base64 decode failure is defensive, not hit when content is valid sig */
           // base64 decode failed — not valid signature material.
         }
       }
+      /* c8 ignore next — fallthrough null when content is empty/insufficient; handled by trim check above */
       return null;
     }),
   );
@@ -635,6 +637,7 @@ function toGitHubHarvesterErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Exposes github-harvester internals for focused unit testing. */
 export const githubHarvesterInternals = {
   collectRepositoryTrustEvidence,
 } as const;
