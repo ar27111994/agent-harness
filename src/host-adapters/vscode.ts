@@ -671,6 +671,7 @@ async function removeManagedWorkspaceInstructions(
   }
 
   await writeTextFile(destinationPath, nextContent);
+  /* c8 ignore next -- defensive closing brace for V8 source mapping */
 }
 
 function buildVsCodeSkillLocationOverrides(

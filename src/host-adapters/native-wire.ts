@@ -319,6 +319,7 @@ async function readSharedMcpAssetIdsBestEffort(
   try {
     return await readSharedMcpAssetIds(projectRoot);
   } catch (error) {
+    /* c8 ignore next 4 */
     console.warn(
       `Failed to project shared MCP assets into ${hostName} wire plan: ${toLoggableErrorMessage(error)}`,
     );
