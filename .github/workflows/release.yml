@@ -102,6 +102,19 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm run release:package-smoke
 
+      - name: Regenerate ARD catalog
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          node dist/cli.js discover ard-export
+          node -e "
+            const c = require('./.well-known/ai-catalog.json');
+            if (!c.generatedAt || !c.entries || !c.entries.length) {
+              console.error('FAIL: ARD catalog is empty — release blocked. Run discover ard-export against a populated catalog.');
+              process.exit(1);
+            }
+            console.log('OK: %d entries, generated %s', c.entries.length, c.generatedAt);
+          "
+
       - name: Verify publish dry run
         if: matrix.os == 'ubuntu-latest' && !(github.event_name == 'workflow_dispatch' && steps.npm-version-published.outputs.value == 'true')
         run: npm publish --dry-run --ignore-scripts --access public --tag ${{ steps.npm-dist-tag.outputs.value }}
