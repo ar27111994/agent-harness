@@ -49,16 +49,18 @@ export async function readSharedMcpAssetIds(
         continue;
       }
 
-      // Resolve manifestPath against projectRoot, then resolve symlinks
-      // to prevent symlink escapes outside installRoot.
+      // Resolve manifestPath against projectRoot. For symlinks, also
+      // resolve the real target to prevent escapes outside installRoot.
       const rawPath = resolve(projectRoot, pkg.manifestPath);
-      let resolvedManifestPath: string;
+      let resolvedManifestPath = rawPath;
       try {
-        const { realpath } = await import("node:fs/promises");
-        resolvedManifestPath = await realpath(rawPath);
+        const { lstat, realpath } = await import("node:fs/promises");
+        const stat = await lstat(rawPath);
+        if (stat.isSymbolicLink()) {
+          resolvedManifestPath = await realpath(rawPath);
+        }
       } catch {
-        // realpath fails if the file doesn't exist — fall back to raw path
-        resolvedManifestPath = rawPath;
+        // lstat/realpath fails if the file doesn't exist — use raw path.
       }
       if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {
         console.warn(
