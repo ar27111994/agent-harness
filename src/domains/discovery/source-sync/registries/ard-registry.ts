@@ -14,7 +14,6 @@ import { splitIntoKeywords, uniqueStrings } from "../../catalog-utils.js";
 import {
   ardTypeToAssetKind,
   buildArdQueryText,
-  inferAuthorityTierFromArdUrn,
   TRUST_SIGNAL_SCORE_BOOST,
 } from "../../../../ard/types.js";
 
@@ -228,22 +227,14 @@ export async function syncArdRegistrySource(
         portfolioFit: normalizeScoreToPortfolioFit(rawScore),
       };
 
-      // Infer authority tier from the entry's URN publisher domain
-      if (result.identifier) {
-        const URN_MIN_PARTS = 4;
-        const urnParts = String(result.identifier).split(":");
-        if (urnParts.length >= URN_MIN_PARTS) {
-          const publisherDomain = urnParts[3];
-          entry.source.authorityTier = inferAuthorityTierFromArdUrn(
-            publisherDomain,
-            trustSignals.length > 0,
-          );
-        }
-      }
-
+      // Authority tier is anchored to the source configuration, not the
+      // self-declared URN. Trust signals from the manifest affect scoring
+      // via trust.score/signals but do not override the source's tier.
+      entry.trust = {
+        score: computeArdTrustScore(trustSignals),
+        signals: trustSignals,
+      };
       // Build synthetic representativeQueries for semantic scoring (#327).
-      // When the SemanticScorer is active, these are used as the primary
-      // embedding text, weighted at 1.2× over keyword-derived capabilities.
       const synthQueries: string[] = [];
       synthQueries.push(
         `What ${assetKind} assets are available from ${source.id}?`,

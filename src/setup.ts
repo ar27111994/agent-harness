@@ -27,8 +27,14 @@ function parsePositiveIntegerEnv(
   if (value === undefined || value.trim() === "") {
     return defaultValue;
   }
-  const parsed = parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : defaultValue;
+  const trimmed = value.trim();
+  // Use Number() instead of parseInt() to reject floats like "5.5".
+  const parsed = Number(trimmed);
+  // Also reject hex/octal/scientific notation by checking the string is pure digits.
+  if (/^\d+$/.test(trimmed) && Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return defaultValue;
 }
 
 /**
