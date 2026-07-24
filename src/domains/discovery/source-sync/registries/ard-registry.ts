@@ -233,13 +233,7 @@ export async function syncArdRegistrySource(
         portfolioFit: normalizeScoreToPortfolioFit(rawScore),
       };
 
-      // Authority tier is anchored to the source configuration, not the
-      // self-declared URN. Trust signals from the manifest affect scoring
-      // via trust.score/signals but do not override the source's tier.
-      entry.trust = {
-        score: computeArdTrustScore(trustSignals),
-        signals: trustSignals,
-      };
+      // Normalize semantic score to portfolio fit
       // Build synthetic representativeQueries for semantic scoring (#327).
       const synthQueries: string[] = [];
       synthQueries.push(
