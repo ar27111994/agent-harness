@@ -79,7 +79,7 @@ void test("inferAuthorityTierFromArdUrn returns trusted-community for hosting pl
 void test("inferAuthorityTierFromArdUrn stays at unverified-community for unknown domains regardless of trust manifest", () => {
   // Self-declared manifests from unknown publishers do NOT elevate authority.
   assert.equal(
-    inferAuthorityTierFromArdUrn("random-skills.com", true),
+    inferAuthorityTierFromArdUrn("random-skills.com"),
     "unverified-community",
   );
 });

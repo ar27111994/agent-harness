@@ -185,12 +185,10 @@ const OFFICIAL_FIRST_PARTY_DOMAINS = new Set([
  * Per ARD §4.2.1 — domain is the trust anchor.
  *
  * @param publisherFqdn — the publisher segment of the URN (e.g. "google.com")
- * @param hasTrustManifest — whether the entry carries an ARD trustManifest
  * @returns best-guess AuthorityTier
  */
 export function inferAuthorityTierFromArdUrn(
   publisherFqdn: string,
-  hasTrustManifest = false,
 ): AuthorityTier {
   if (OFFICIAL_FIRST_PARTY_DOMAINS.has(publisherFqdn.toLowerCase())) {
     return "official-first-party";
