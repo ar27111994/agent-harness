@@ -268,7 +268,10 @@ async function discoverAdjacentPackages(
       ...demandProfile.signals.tooling,
       ...demandProfile.signals.concerns,
     ].map((s) =>
-      s.replace(/^(npm|pypi|detector|framework|language|concern|tooling):/u, ""),
+      s.replace(
+        /^(npm|pypi|detector|framework|language|concern|tooling):/u,
+        "",
+      ),
     );
 
     for (const pkg of getAdjacentPackagesForSignals(

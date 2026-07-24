@@ -58,10 +58,10 @@ Catalog entries from adjacent discovery carry:
 
 ## Configuration
 
-| Environment variable                                           | Default | Description                                          |
-| -------------------------------------------------------------- | ------- | ---------------------------------------------------- |
-| `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS`            | `10`    | Max search terms dispatched per registry per harvest |
-| `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM` | `50`    | Max results fetched per search term                  |
+| Environment variable                                           | Default | Description                                                     |
+| -------------------------------------------------------------- | ------- | --------------------------------------------------------------- |
+| `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS`            | `10`    | Max search terms dispatched per registry per harvest            |
+| `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM` | `50`    | Max results fetched per search term                             |
 | `AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED`             | `true`  | Enable/disable adjacent-tooling matrix and live registry search |
 
 ### Disabling adjacent discovery

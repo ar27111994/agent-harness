@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile, rename as fsRename } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  rm,
+  writeFile,
+  rename as fsRename,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -28,7 +34,11 @@ void test("normal path — staging replaces runtime", async () => {
     const parsed = JSON.parse(
       await readFile(join(runtime, "new.json"), "utf8"),
     ) as Record<string, unknown>;
-    assert.deepStrictEqual(parsed, { v: 2 }, "staging content moved to runtime");
+    assert.deepStrictEqual(
+      parsed,
+      { v: 2 },
+      "staging content moved to runtime",
+    );
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
@@ -88,7 +98,9 @@ void test("AggregateError when both apply rename and rollback rename fail", asyn
     async function mockRename(oldPath: string, newPath: string) {
       callCount++;
       if (callCount === 1) return fsRename(oldPath, newPath);
-      const err = new Error(`rename call ${callCount}`) as NodeJS.ErrnoException;
+      const err = new Error(
+        `rename call ${callCount}`,
+      ) as NodeJS.ErrnoException;
       err.code = "ENOENT";
       throw err;
     }

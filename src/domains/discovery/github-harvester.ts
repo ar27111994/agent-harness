@@ -138,9 +138,7 @@ function buildGitHubCatalogEntry(
   const omsSignaturePath = assetDir
     ? `${assetDir}/skill.oms.sig`
     : "skill.oms.sig";
-  const bareOmsSigPath = assetDir
-    ? `${assetDir}/oms.sig`
-    : "oms.sig";
+  const bareOmsSigPath = assetDir ? `${assetDir}/oms.sig` : "oms.sig";
   const omsSigSize =
     omsFileSizes.get(omsSignaturePath.toLowerCase()) ??
     omsFileSizes.get(bareOmsSigPath.toLowerCase());

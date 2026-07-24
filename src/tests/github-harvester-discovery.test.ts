@@ -4,8 +4,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { harvestGitHubRepoSource, githubHarvesterInternals } from "../domains/discovery/github-harvester.js";
-import type { GitHubRepoSnapshot, SelectionRegistry, SourceDefinition } from "../types.js";
+import {
+  harvestGitHubRepoSource,
+  githubHarvesterInternals,
+} from "../domains/discovery/github-harvester.js";
+import type {
+  GitHubRepoSnapshot,
+  SelectionRegistry,
+  SourceDefinition,
+} from "../types.js";
 
 void test("github harvester classifies repository artifacts and carries repository trust evidence", async (context) => {
   const projectRoot = await mkdtemp(
@@ -873,14 +880,12 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
 
     // Blob API — return cryptographically plausible content for OMS files
     if (
-      url ===
-      "https://api.github.com/repos/nvidia/skills/git/blobs/cert-sha"
+      url === "https://api.github.com/repos/nvidia/skills/git/blobs/cert-sha"
     ) {
       return textResponse(pemContent);
     }
     if (
-      url ===
-      "https://api.github.com/repos/nvidia/skills/git/blobs/sig-sha"
+      url === "https://api.github.com/repos/nvidia/skills/git/blobs/sig-sha"
     ) {
       return textResponse(sigContent);
     }
@@ -1021,7 +1026,12 @@ void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when p
       entries: [
         { path: "nv-agent-root-cert.pem", type: "blob", size: 1024, sha: "x" },
         { path: "skills/test/SKILL.md", type: "blob", size: 100, sha: "y" },
-        { path: "skills/test/skill.oms.sig", type: "blob", size: 256, sha: "z" },
+        {
+          path: "skills/test/skill.oms.sig",
+          type: "blob",
+          size: 256,
+          sha: "z",
+        },
       ],
     },
   } as unknown as GitHubRepoSnapshot;
