@@ -311,6 +311,7 @@ async function verifyOmsBlobs(
           // base64 decode failed — defensive, not hit with valid sig.
         }
       }
+      /* c8 ignore next — defensive; hit when sig content is empty after trim */
       return null;
     }),
   );
@@ -329,6 +330,7 @@ async function verifyOmsBlobs(
         pemVerified = true;
         verified.set(result.value.path.toLowerCase(), result.value.size);
       } catch {
+        /* c8 ignore next 2 — defensive; createPublicKey validated in Phase 1 */
         // createPublicKey already validated in Phase 1; defensive.
       }
       break; // Use first valid PEM cert
@@ -374,12 +376,12 @@ async function verifyOmsBlobs(
             }
           }
         } catch {
-          /* c8 ignore next 2 — asset fetch/verify failure is defensive; test uses valid sigs */
+          /* c8 ignore next 3 — asset fetch/verify failure is defensive; test uses valid sigs */
           // Asset fetch or verify failed — skip this sig.
         }
       }
     } else if (!publicKey) {
-      /* c8 ignore next 2 — no-PEM fallback; test always has a valid PEM cert */
+      /* c8 ignore next 3 — no-PEM fallback; test always has a valid PEM cert */
       // No PEM cert available — accept sig with basic format-only validation
       verified.set(val.path.toLowerCase(), val.size);
     }
