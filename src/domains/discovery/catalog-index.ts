@@ -106,6 +106,19 @@ function assertCatalogIndexMeta(
   ) {
     throw new Error(`Invalid CatalogIndexMeta at ${context}`);
   }
+
+  const meta = value as CatalogIndexMeta;
+  // Validate invariants so callers (isCatalogIndexFresh, etc.) can rely on them.
+  if (Number.isNaN(new Date(meta.builtAt).getTime())) {
+    throw new Error(
+      `Invalid CatalogIndexMeta at ${context}: builtAt "${meta.builtAt}" is not a valid date`,
+    );
+  }
+  if (!Number.isFinite(meta.entryCount) || meta.entryCount < 0) {
+    throw new Error(
+      `Invalid CatalogIndexMeta at ${context}: entryCount ${meta.entryCount} is not a finite non-negative number`,
+    );
+  }
 }
 
 /** Exposes narrow catalog-index internals for focused tests. */

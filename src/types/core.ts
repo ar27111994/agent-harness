@@ -37,7 +37,7 @@ export type AssetKind =
   | "prompt-pack"
   | "reference-pack"
   | "payable-api"
-  /** ACP-compatible agent compatible with JetBrains Agent Client Protocol and Zed external-agent forwarding. */
+  /** ACP-compatible agent for JetBrains Agent Client Protocol and Zed external-agent forwarding. */
   | "acp-agent";
 
 /**

@@ -225,6 +225,59 @@ void test("assertCatalogIndexMeta — rejects null", () => {
   );
 });
 
+void test("assertCatalogIndexMeta — rejects invalid builtAt date", () => {
+  assert.throws(
+    () =>
+      catalogIndexInternals.assertCatalogIndexMeta(
+        { builtAt: "not-a-date", entryCount: 0 },
+        "ctx",
+      ),
+    /is not a valid date/,
+  );
+});
+
+void test("assertCatalogIndexMeta — rejects NaN entryCount", () => {
+  assert.throws(
+    () =>
+      catalogIndexInternals.assertCatalogIndexMeta(
+        { builtAt: new Date().toISOString(), entryCount: NaN },
+        "ctx",
+      ),
+    /is not a finite non-negative number/,
+  );
+});
+
+void test("assertCatalogIndexMeta — rejects Infinity entryCount", () => {
+  assert.throws(
+    () =>
+      catalogIndexInternals.assertCatalogIndexMeta(
+        { builtAt: new Date().toISOString(), entryCount: Infinity },
+        "ctx",
+      ),
+    /is not a finite non-negative number/,
+  );
+});
+
+void test("assertCatalogIndexMeta — rejects negative entryCount", () => {
+  assert.throws(
+    () =>
+      catalogIndexInternals.assertCatalogIndexMeta(
+        { builtAt: new Date().toISOString(), entryCount: -1 },
+        "ctx",
+      ),
+    /is not a finite non-negative number/,
+  );
+});
+
+void test("assertCatalogIndexMeta — accepts valid meta", () => {
+  assert.doesNotThrow(() =>
+    catalogIndexInternals.assertCatalogIndexMeta(
+      { builtAt: new Date().toISOString(), entryCount: 42 },
+      "ctx",
+    ),
+  );
+});
+
 void test("isCatalogIndexFresh — returns false when meta present but JSONL absent (lines 58-59)", async () => {
   const root = await makeProjectRoot();
   try {

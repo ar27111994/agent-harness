@@ -58,7 +58,7 @@ export const MCP_COMPATIBLE_HOSTS: CompatibleHost[] = [
 ];
 
 /**
- * VS Code extensions are partially compatible with Cursor and Windsurf.
+ * VS Code extensions are partially compatible with Cursor.
  * Extensions using standard VS Code APIs work; those relying on specific runtime
  * features (debugger, notebook APIs) may not.
  */

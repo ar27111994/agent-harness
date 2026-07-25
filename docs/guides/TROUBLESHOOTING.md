@@ -72,7 +72,7 @@ AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS=60000 agent-harness setup doctor
 **Fixed in v2.0.0 (#303, commit `5aaa726`).** This fast-fail was added so the
 command exits immediately instead of hanging.
 
-**Cause:** `state/discover/output/catalog.selected.jsonl` is absent or empty.
+**Cause:** `discover/output/catalog.selected.jsonl` is absent or empty.
 
 **Fix:** Run discovery first:
 

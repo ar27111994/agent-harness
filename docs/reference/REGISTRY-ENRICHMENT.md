@@ -48,7 +48,6 @@ Catalog entries from adjacent discovery carry:
 {
   "evidence": {
     "discoveryMethod": "registry-adjacent-search",
-    "isAdjacentSuggestion": true,
     "manifestFound": false
   }
 }
@@ -99,4 +98,4 @@ For high-frequency scheduled runs, reduce `AGENT_HARNESS_DISCOVERY_REGISTRY_SEAR
 - `src/package-registries.ts` — `fetchCratesIoSearch`, `fetchNugetSearch`, `fetchMavenSearch`, `fetchPackagistSearch`, `fetchRubyGemsSearch`
 - `src/domains/discovery/package-registry-harvester.ts` — `discoverAdjacentPackages()` + integration into `harvestPackageRegistrySource()`
 - `src/config/runtime.ts` — `discovery.registrySearchMaxTerms`, `discovery.registrySearchMaxResultsPerTerm`, `discovery.adjacentToolingEnabled`
-- `src/types/catalog.ts` — `AssetEvidence.discoveryMethod`, `AssetEvidence.isAdjacentSuggestion`
+- `src/types/catalog.ts` — `AssetEvidence.discoveryMethod`

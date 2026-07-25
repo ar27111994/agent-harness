@@ -668,7 +668,7 @@ const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
 ] as const;
 
 /**
- * O(1) lookup from source-id substring → package-manager family.
+ * Ordered substring scan from source-id → package-manager family.
  *
  * Because a single source ID may match multiple substrings (e.g. an ID
  * containing both "pnpm" and "npm"), we cannot index by the source ID

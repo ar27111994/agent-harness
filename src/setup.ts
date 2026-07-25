@@ -14,7 +14,7 @@ import {
 } from "./lib/preflight.js";
 
 /** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
-const DOCTOR_ADAPTER_TIMEOUT_MS = 5_000;
+const DOCTOR_ADAPTER_TIMEOUT_MS = 30_000;
 
 /**
  * Parses a positive integer from an environment variable string, falling back
