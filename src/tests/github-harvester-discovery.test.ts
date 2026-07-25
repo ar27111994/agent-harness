@@ -861,6 +861,21 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
   signer.update(assetContent);
   const sigContent = signer.sign(privateKey, "base64");
 
+  // Root-level asset content & signature for root path coverage
+  const rootAssetContent = [
+    "---",
+    "name: root-skill",
+    "description: A skill at the repository root",
+    "---",
+    "",
+    "# Root Skill",
+    "Root-level skill with no directory prefix.",
+  ].join("\n");
+
+  const rootSigner = createSign("SHA256");
+  rootSigner.update(rootAssetContent);
+  const rootSigContent = rootSigner.sign(privateKey, "base64");
+
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -908,6 +923,20 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
     ) {
       return textResponse(assetContent);
     }
+    // Root-level SKILL.md asset content
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/blobs/root-skill-sha"
+    ) {
+      return textResponse(rootAssetContent);
+    }
+    // Root-level sig blob
+    if (
+      url ===
+      "https://api.github.com/repos/nvidia/skills/git/blobs/root-sig-sha"
+    ) {
+      return textResponse(rootSigContent);
+    }
 
     if (
       url ===
@@ -923,6 +952,18 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
             type: "blob",
             sha: "cert-sha",
             size: 1024,
+          },
+          // Root-level signed skill — exercises root-path ternaries
+          {
+            path: "SKILL.md",
+            type: "blob",
+            sha: "root-skill-sha",
+          },
+          {
+            path: "skill.oms.sig",
+            type: "blob",
+            sha: "root-sig-sha",
+            size: rootSigContent.length,
           },
           // Signed skill — has a sibling .oms.sig
           {
@@ -1184,6 +1225,13 @@ void test("malformed OMS files do not grant trust signals", async () => {
             size: 1024,
             sha: "bad-cert-sha",
           },
+          // PEM file without BEGIN/END markers — falls through to return null
+          {
+            path: "sub/nv-agent-root-cert.pem",
+            type: "blob",
+            size: 200,
+            sha: "not-a-pem-sha",
+          },
           { path: "skills/a/SKILL.md", type: "blob", size: 100, sha: "a-sha" },
           // Sig with invalid base64
           {
@@ -1200,6 +1248,20 @@ void test("malformed OMS files do not grant trust signals", async () => {
             size: 64,
             sha: "empty-sig-sha",
           },
+          // Sig with valid base64 but decodes to < 32 bytes
+          {
+            path: "skills/d/skill.oms.sig",
+            type: "blob",
+            size: 64,
+            sha: "tiny-sig-sha",
+          },
+          // Sig whose blob fetch fails — exercises the !content guard
+          {
+            path: "skills/e/skill.oms.sig",
+            type: "blob",
+            size: 200,
+            sha: "fetch-fail-sha",
+          },
         ],
       });
     }
@@ -1210,6 +1272,12 @@ void test("malformed OMS files do not grant trust signals", async () => {
       return textResponse(
         "-----BEGIN CERTIFICATE-----\nnot-a-real-cert!@#\n-----END CERTIFICATE-----",
       );
+    }
+    // File matching .pem pattern but no markers — exercises the fallthrough return null
+    if (
+      url === "https://api.github.com/repos/evil/skills/git/blobs/not-a-pem-sha"
+    ) {
+      return textResponse("This is not a PEM file at all.");
     }
     // Invalid base64 sig
     if (
@@ -1222,6 +1290,12 @@ void test("malformed OMS files do not grant trust signals", async () => {
       url === "https://api.github.com/repos/evil/skills/git/blobs/empty-sig-sha"
     ) {
       return textResponse("   \n  \n   ");
+    }
+    // Valid base64 but decodes to < 32 bytes — exercises the length guard
+    if (
+      url === "https://api.github.com/repos/evil/skills/git/blobs/tiny-sig-sha"
+    ) {
+      return textResponse("YQ==");
     }
     throw new Error(`unexpected url: ${url}`);
   };
@@ -1251,6 +1325,142 @@ void test("malformed OMS files do not grant trust signals", async () => {
     }
     // The repo-level trust should NOT include oms-trust-anchor (bad cert)
     // Entries still get harvested but without OMS trust bonuses
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (prevMockFlag === undefined)
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    else process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = prevMockFlag;
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("OMS PKI verification does not award trust when signature does not verify", async () => {
+  // Generate real crypto material so the sig passes Phase 1 format checks
+  const { generateKeyPairSync, createSign } = await import("node:crypto");
+  const { publicKey, privateKey } = generateKeyPairSync("ec", {
+    namedCurve: "prime256v1",
+  });
+  const pemContent = publicKey.export({ type: "spki", format: "pem" });
+
+  // Sign something — content doesn't matter since we'll make the fetch fail
+  const signer = createSign("SHA256");
+  signer.update("some content");
+  const sigContent = signer.sign(privateKey, "base64");
+
+  const projectRoot = await mkdtemp(join(tmpdir(), "ah-oms-pki-fail-"));
+  const originalFetch = globalThis.fetch;
+  const prevMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input: unknown) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as RequestInfo).toString();
+
+    if (url === "https://api.github.com/repos/verify/skills") {
+      return jsonResponse({
+        name: "skills",
+        full_name: "verify/skills",
+        description: "PKI verify test",
+        default_branch: "main",
+        updated_at: "2026-06-01T00:00:00.000Z",
+        pushed_at: "2026-06-01T00:00:00.000Z",
+        stargazers_count: 10,
+        language: "Markdown",
+        topics: [],
+        archived: false,
+        html_url: "https://github.com/verify/skills",
+      });
+    }
+    if (url === "https://api.github.com/repos/verify/skills/readme") {
+      return jsonResponse({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 100,
+        html_url: "https://github.com/verify/skills/blob/main/README.md",
+      });
+    }
+    if (
+      url ===
+      "https://api.github.com/repos/verify/skills/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [
+          // Valid PEM cert
+          {
+            path: "nv-agent-root-cert.pem",
+            type: "blob",
+            size: pemContent.length,
+            sha: "valid-cert-sha",
+          },
+          {
+            path: "skills/c/SKILL.md",
+            type: "blob",
+            size: 200,
+            sha: "skill-c-sha",
+          },
+          // Valid-looking sig (passes Phase 1 base64 check)
+          {
+            path: "skills/c/skill.oms.sig",
+            type: "blob",
+            size: sigContent.length,
+            sha: "sig-c-sha",
+          },
+        ],
+      });
+    }
+    // PEM cert blob — valid
+    if (
+      url ===
+      "https://api.github.com/repos/verify/skills/git/blobs/valid-cert-sha"
+    ) {
+      return textResponse(pemContent);
+    }
+    // OMS sig blob — valid base64, passes Phase 1
+    if (
+      url === "https://api.github.com/repos/verify/skills/git/blobs/sig-c-sha"
+    ) {
+      return textResponse(sigContent);
+    }
+    // SKILL.md blob — return content that DOES NOT match what was signed.
+    // This exercises the `verifier.verify()` false branch (line 375).
+    if (
+      url === "https://api.github.com/repos/verify/skills/git/blobs/skill-c-sha"
+    ) {
+      return textResponse("completely different content that does not verify");
+    }
+    throw new Error(`unexpected url: ${url}`);
+  };
+
+  const source = buildSource();
+  source.endpoints.repo = "https://github.com/verify/skills";
+  source.endpoints.token = "ghp_test-token";
+
+  try {
+    const entries = await harvestGitHubRepoSource(
+      source,
+      null,
+      buildSelectionRegistry(),
+      projectRoot,
+    );
+    assert.ok(
+      entries.length > 0,
+      "repo produces entries despite verify failure",
+    );
+
+    // The PEM cert was validated → oms-trust-anchor should be present
+    // But the sig did not verify (mismatched content) → no oms-signed
+    for (const entry of entries) {
+      assert.ok(
+        !entry.trust.signals.includes("oms-signed"),
+        `entry ${entry.id}: no oms-signed when signature does not verify`,
+      );
+    }
   } finally {
     globalThis.fetch = originalFetch;
     if (prevMockFlag === undefined)

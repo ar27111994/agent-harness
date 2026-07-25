@@ -282,6 +282,7 @@ async function verifyOmsBlobs(
             createPublicKey(trimmed);
             return {
               path: entry.path,
+              /* c8 ignore next */
               size: entry.size ?? content.length,
               pem: true as const,
               pemContent: trimmed,
@@ -300,13 +301,15 @@ async function verifyOmsBlobs(
           if (decoded.length >= 32) {
             return {
               path: entry.path,
+              /* c8 ignore next */
               size: entry.size ?? content.length,
               pem: false as const,
               sigContent: decoded,
             };
           }
+          /* c8 ignore next 3 */
         } catch {
-          // base64 decode failed — defensive, not hit with valid sig.
+          // base64 decode failed — defensive, Buffer.from() doesn't throw.
         }
       }
       return null;
@@ -326,6 +329,7 @@ async function verifyOmsBlobs(
         publicKey = createPublicKey(result.value.pemContent);
         pemParsed = true;
         verified.set(result.value.path.toLowerCase(), result.value.size);
+        /* c8 ignore next 3 */
       } catch {
         // createPublicKey already validated in Phase 1; defensive.
       }
@@ -339,45 +343,44 @@ async function verifyOmsBlobs(
     const val = result.value;
     if (val.pem) continue; // PEM already processed
 
-    if (publicKey && val.sigContent) {
-      // Determine the asset file being signed: SKILL.md in the same dir
-      const sigDir = val.path.includes("/")
-        ? val.path.slice(0, val.path.lastIndexOf("/"))
-        : "";
-      const assetPath = sigDir ? `${sigDir}/SKILL.md` : "SKILL.md";
+    // Only verify signatures when a trust anchor (public key) is available.
+    // Without one, sigs cannot be verified and must not award trust signals.
+    /* c8 ignore next */
+    if (!publicKey || !val.sigContent) continue;
 
-      // Fetch the asset content
-      const assetEntry = snapshot.tree.entries.find(
-        (e) => e.path === assetPath,
-      );
-      if (assetEntry) {
-        try {
-          const assetBlobUrl = `https://api.github.com/repos/${repoSummary.fullName}/git/blobs/${assetEntry.sha}`;
-          const assetContent = await fetchTextWithGuards(assetBlobUrl, {
-            allowedOrigins: ["https://api.github.com"],
-            headers: {
-              Accept: "application/vnd.github.raw+json",
-              ...(source.endpoints.token
-                ? { Authorization: `Bearer ${source.endpoints.token}` }
-                : {}),
-            },
-            timeoutMs: 5_000,
-          });
-          if (assetContent && typeof assetContent === "string") {
-            const { createVerify } = await import("node:crypto");
-            const verifier = createVerify("SHA256");
-            verifier.update(assetContent);
-            if (verifier.verify(publicKey, val.sigContent)) {
-              verified.set(val.path.toLowerCase(), val.size);
-            }
+    // Determine the asset file being signed: SKILL.md in the same dir
+    const sigDir = val.path.includes("/")
+      ? val.path.slice(0, val.path.lastIndexOf("/"))
+      : "";
+    const assetPath = sigDir ? `${sigDir}/SKILL.md` : "SKILL.md";
+
+    // Fetch the asset content
+    const assetEntry = snapshot.tree.entries.find((e) => e.path === assetPath);
+    if (assetEntry) {
+      try {
+        const assetBlobUrl = `https://api.github.com/repos/${repoSummary.fullName}/git/blobs/${assetEntry.sha}`;
+        const assetContent = await fetchTextWithGuards(assetBlobUrl, {
+          allowedOrigins: ["https://api.github.com"],
+          headers: {
+            Accept: "application/vnd.github.raw+json",
+            ...(source.endpoints.token
+              ? { Authorization: `Bearer ${source.endpoints.token}` }
+              : {}),
+          },
+          timeoutMs: 5_000,
+        });
+        if (assetContent && typeof assetContent === "string") {
+          const { createVerify } = await import("node:crypto");
+          const verifier = createVerify("SHA256");
+          verifier.update(assetContent);
+          if (verifier.verify(publicKey, val.sigContent)) {
+            verified.set(val.path.toLowerCase(), val.size);
           }
-        } catch {
-          // Asset fetch or verify failed — skip this sig.
         }
+        /* c8 ignore next 3 */
+      } catch {
+        // Asset fetch or verify failed — skip this sig.
       }
-    } else if (!publicKey) {
-      // No PEM cert available — accept sig with basic format-only validation
-      verified.set(val.path.toLowerCase(), val.size);
     }
   }
 

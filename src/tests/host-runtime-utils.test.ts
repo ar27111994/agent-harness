@@ -873,3 +873,81 @@ void test("readSharedMcpAssetIds resolves symlinked manifests against installRoo
   // readSharedMcpAssetIds should resolve the symlink and include the asset
   assert.deepEqual(await readSharedMcpAssetIds(projectRoot), ["asset-sym-mcp"]);
 });
+
+void test("readSharedMcpAssetIds skips packages whose manifest file is missing (inside install root)", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "ah-shared-mcp-missing-manifest-"),
+  );
+  context.after(async () => {
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  const validPkgPath = join(
+    projectRoot,
+    "install",
+    "shared",
+    "packages",
+    "asset-valid-mcp.install.json",
+  );
+  await writeInstalledPackageManifest(validPkgPath, {
+    assetId: "asset-valid-mcp",
+    assetKind: "mcp-server",
+  });
+
+  // manifestPath inside installRoot but the file does not exist
+  const missingManifestPath = join(
+    projectRoot,
+    "install",
+    "shared",
+    "packages",
+    "nonexistent.install.json",
+  );
+
+  const activationManifest: ActivationManifest = {
+    schemaVersion: 1,
+    host: "shared",
+    generatedAt: new Date().toISOString(),
+    activeBundles: ["bundle-missing-manifest"],
+    activeAssets: ["asset-valid-mcp", "asset-missing"],
+    runtimeRoot: join(projectRoot, "activate", "shared"),
+    notes: [],
+  };
+  await writeJsonFile(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+    activationManifest,
+  );
+
+  await writeInstalledBundleManifest(projectRoot, "bundle-missing-manifest", [
+    {
+      assetId: "asset-valid-mcp",
+      mirrorId: "mirror-valid",
+      manifestPath: validPkgPath,
+    },
+    {
+      assetId: "asset-missing",
+      mirrorId: "mirror-missing",
+      manifestPath: missingManifestPath,
+    },
+  ]);
+
+  const warningMessages: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown) => {
+    warningMessages.push(String(message ?? ""));
+  };
+
+  let result: string[];
+  try {
+    result = await readSharedMcpAssetIds(projectRoot);
+  } finally {
+    console.warn = originalWarn;
+  }
+
+  // The valid MCP package is still returned; the missing one is skipped
+  assert.deepEqual(result, ["asset-valid-mcp"]);
+  assert.equal(warningMessages.length, 1);
+  assert.match(
+    warningMessages[0] ?? "",
+    /Skipping package .*: manifest file not found at/u,
+  );
+});

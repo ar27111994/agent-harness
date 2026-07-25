@@ -1,6 +1,6 @@
 import { join, resolve, sep } from "node:path";
 
-import { readJsonFile, readJsonFileOrNull } from "../files.js";
+import { readJsonFileOrNull } from "../files.js";
 import {
   assertActivationManifest,
   assertInstalledPackageManifest,
@@ -71,10 +71,17 @@ export async function readSharedMcpAssetIds(
         continue;
       }
 
-      const packageManifest = await readJsonFile<InstalledPackageManifest>(
-        resolvedManifestPath,
-        assertInstalledPackageManifest,
-      );
+      const packageManifest =
+        await readJsonFileOrNull<InstalledPackageManifest>(
+          resolvedManifestPath,
+          assertInstalledPackageManifest,
+        );
+      if (!packageManifest) {
+        console.warn(
+          `Skipping package '${pkg.assetId}': manifest file not found at '${pkg.manifestPath}'.`,
+        );
+        continue;
+      }
       if (packageManifest.assetKind === "mcp-server") {
         mcpAssetIds.add(packageManifest.assetId);
       }
