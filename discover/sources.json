@@ -371,8 +371,8 @@
       "priority": 60,
       "enabled": true,
       "endpoints": {
-        "baseUrl": "https://skills.sh",
-        "sitemapUrl": "https://skills.sh/sitemap.xml"
+        "baseUrl": "https://www.skills.sh",
+        "sitemapUrl": "https://www.skills.sh/sitemap.xml"
       },
       "rules": {
         "officialPreferred": true,

@@ -19,6 +19,7 @@ import {
   buildArdUrn,
   deriveArdTrustManifest,
   mapEntryToArd,
+  extractErrorMessage,
   writeArdCatalog,
 } from "../ard-catalog.js";
 
@@ -29,6 +30,12 @@ const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+void test("extractErrorMessage returns message from Error instances", () => {
+  assert.equal(extractErrorMessage(new Error("test error")), "test error");
+  assert.equal(extractErrorMessage(new TypeError("type mismatch")), "type mismatch");
+  assert.equal(extractErrorMessage(new Error("")), "");
+});
 
 type PartialEntry = Partial<AssetCatalogEntry> & {
   id: string;

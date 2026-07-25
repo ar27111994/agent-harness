@@ -38,20 +38,20 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
       "<url><loc>https://cursor.com/marketplace/acme/inspector</loc></url>",
       "</urlset>",
     ]),
-    "https://skills.sh/sitemap.xml": xmlResponse([
+    "https://www.skills.sh/sitemap.xml": xmlResponse([
       "<sitemapindex>",
-      "<sitemap><loc>https://skills.sh/sitemap-skills-1.xml</loc></sitemap>",
-      "<sitemap><loc>https://skills.sh/sitemap-agents.xml</loc></sitemap>",
+      "<sitemap><loc>https://www.skills.sh/sitemap-skills-1.xml</loc></sitemap>",
+      "<sitemap><loc>https://www.skills.sh/sitemap-agents.xml</loc></sitemap>",
       "</sitemapindex>",
     ]),
-    "https://skills.sh/sitemap-skills-1.xml": xmlResponse([
+    "https://www.skills.sh/sitemap-skills-1.xml": xmlResponse([
       "<urlset>",
-      "<url><loc>https://skills.sh/vercel/next-js-deployer</loc></url>",
+      "<url><loc>https://www.skills.sh/vercel/next-js-deployer</loc></url>",
       "</urlset>",
     ]),
-    "https://skills.sh/sitemap-agents.xml": xmlResponse([
+    "https://www.skills.sh/sitemap-agents.xml": xmlResponse([
       "<urlset>",
-      "<url><loc>https://skills.sh/agents/security-reviewer</loc></url>",
+      "<url><loc>https://www.skills.sh/agents/security-reviewer</loc></url>",
       "</urlset>",
     ]),
     "https://www.ui-skills.com/sitemap.xml": xmlResponse([
@@ -112,8 +112,8 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
         "skills-sh",
         "registry",
         {
-          baseUrl: "https://skills.sh",
-          sitemapUrl: "https://skills.sh/sitemap.xml",
+          baseUrl: "https://www.skills.sh",
+          sitemapUrl: "https://www.skills.sh/sitemap.xml",
         },
         ["copilot-vscode"],
         ["skill", "agent"],

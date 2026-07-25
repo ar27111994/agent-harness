@@ -72,15 +72,15 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
   );
   const leafUrls = Array.from({ length: 51 }, (_, index) => {
     const itemNumber = index + 1;
-    return `<url><loc>https://skills.sh/vercel/skill-${itemNumber}</loc></url>`;
+    return `<url><loc>https://www.skills.sh/vercel/skill-${itemNumber}</loc></url>`;
   });
   const cleanupFetch = installFetchMock({
-    "https://skills.sh/sitemap.xml": xmlResponse([
+    "https://www.skills.sh/sitemap.xml": xmlResponse([
       "<sitemapindex>",
-      "<sitemap><loc>https://skills.sh/sitemap-skills-1.xml</loc></sitemap>",
+      "<sitemap><loc>https://www.skills.sh/sitemap-skills-1.xml</loc></sitemap>",
       "</sitemapindex>",
     ]),
-    "https://skills.sh/sitemap-skills-1.xml": xmlResponse([
+    "https://www.skills.sh/sitemap-skills-1.xml": xmlResponse([
       "<urlset>",
       ...leafUrls,
       "</urlset>",
@@ -93,8 +93,8 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
         baseUrl: "https://marketplace.visualstudio.com",
       }),
       buildSource("skills-sh", "registry", {
-        baseUrl: "https://skills.sh",
-        sitemapUrl: "https://skills.sh/sitemap.xml",
+        baseUrl: "https://www.skills.sh",
+        sitemapUrl: "https://www.skills.sh/sitemap.xml",
       }),
     ]);
     await writeJsonFile(join(projectRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
@@ -108,7 +108,7 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
           indexedEntryCount: 0,
           cursors: [
             {
-              cursorId: "https://skills.sh/sitemap-skills-1.xml",
+              cursorId: "https://www.skills.sh/sitemap-skills-1.xml",
               nextToken: "0",
               completed: false,
             },
@@ -141,7 +141,7 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
     assert.equal(skills?.status, "partial");
     assert.equal(
       skills?.cursors[0]?.cursorId,
-      "https://skills.sh/sitemap-skills-1.xml",
+      "https://www.skills.sh/sitemap-skills-1.xml",
     );
     assert.equal(skills?.cursors[0]?.nextToken, "50");
     assert.equal(skills?.cursors[0]?.completed, false);
@@ -169,14 +169,14 @@ void test("source sync indexes default registry endpoints with sparse successful
       '<a href="/packages/agent-helper">Agent Helper</a>',
       { status: 200 },
     ),
-    "https://skills.sh/sitemap.xml": xmlResponse([
+    "https://www.skills.sh/sitemap.xml": xmlResponse([
       "<sitemapindex>",
-      "<sitemap><loc>https://skills.sh/sitemap-skills.xml</loc></sitemap>",
+      "<sitemap><loc>https://www.skills.sh/sitemap-skills.xml</loc></sitemap>",
       "</sitemapindex>",
     ]),
-    "https://skills.sh/sitemap-skills.xml": xmlResponse([
+    "https://www.skills.sh/sitemap-skills.xml": xmlResponse([
       "<urlset>",
-      "<url><loc>https://skills.sh/acme/agent-helper</loc></url>",
+      "<url><loc>https://www.skills.sh/acme/agent-helper</loc></url>",
       "</urlset>",
     ]),
     "https://pypi.org/sitemap.xml": xmlResponse([

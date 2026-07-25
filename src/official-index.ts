@@ -11,6 +11,7 @@ const OFFICIAL_INDEX_ALLOWED_ORIGINS = [
   "https://docs.anthropic.com",
   "https://modelcontextprotocol.io",
   "https://skills.sh",
+  "https://www.skills.sh",
   "https://marketplace.visualstudio.com",
   "https://www.npmjs.com",
   "https://pypi.org",
