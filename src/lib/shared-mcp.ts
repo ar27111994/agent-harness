@@ -28,15 +28,6 @@ export async function readSharedMcpAssetIds(
   }
 
   const installRoot = resolve(join(projectRoot, "install"));
-  // macOS /tmp is a symlink to /private/tmp — resolve installRoot to its
-  // canonical path so isPathWithinRoot comparisons survive realpath.
-  let canonicalInstallRoot = installRoot;
-  try {
-    const { realpath } = await import("node:fs/promises");
-    canonicalInstallRoot = await realpath(installRoot);
-  } catch {
-    // realpath fails if the directory doesn't exist — use unresolved root.
-  }
   const activeAssetIds = new Set(sharedActivationManifest.activeAssets);
   const mcpAssetIds = new Set<string>();
 
@@ -59,19 +50,23 @@ export async function readSharedMcpAssetIds(
       }
 
       // Resolve manifestPath against projectRoot. For symlinks, also
-      // resolve the real target to prevent escapes outside installRoot.
+      // resolve the real target. On macOS /tmp -> /private/tmp, we must
+      // realpath installRoot too so both paths are in the same canonical
+      // form for isPathWithinRoot.
       const rawPath = resolve(projectRoot, pkg.manifestPath);
       let resolvedManifestPath = rawPath;
+      let rootForCheck = installRoot;
       try {
         const { lstat, realpath } = await import("node:fs/promises");
         const stat = await lstat(rawPath);
         if (stat.isSymbolicLink()) {
           resolvedManifestPath = await realpath(rawPath);
+          rootForCheck = await realpath(installRoot);
         }
       } catch {
         // lstat/realpath fails if the file doesn't exist — use raw path.
       }
-      if (!isPathWithinRoot(canonicalInstallRoot, resolvedManifestPath)) {
+      if (!isPathWithinRoot(rootForCheck, resolvedManifestPath)) {
         console.warn(
           `Skipping package '${pkg.assetId}': manifestPath '${pkg.manifestPath}' ` +
             `is outside the install root '${installRoot}${sep}'. ` +
