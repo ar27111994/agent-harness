@@ -5,6 +5,7 @@ import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { buildCatalogId } from "../domains/discovery/catalog-utils.js";
 import type { SourceSyncSourceState } from "../domains/discovery/source-sync.js";
 import { sourceSyncInternals } from "../domains/discovery/source-sync.js";
+import { htmlSyncInternals } from "../domains/discovery/source-sync/html.js";
 import type {
   AssetCatalogEntry,
   SelectionRegistry,
@@ -1397,6 +1398,41 @@ function xmlResponse(lines: string[]): Response {
     headers: { "content-type": "application/xml; charset=utf-8" },
   });
 }
+
+void test("normalizeSitemapCursorId normalizes skills.sh to www.skills.sh", () => {
+  const { normalizeSitemapCursorId } = htmlSyncInternals;
+
+  // skills.sh → www.skills.sh
+  assert.equal(
+    normalizeSitemapCursorId("https://skills.sh/sitemap-skills-1.xml"),
+    "https://www.skills.sh/sitemap-skills-1.xml",
+  );
+
+  // www.skills.sh stays canonical
+  assert.equal(
+    normalizeSitemapCursorId("https://www.skills.sh/sitemap-skills-1.xml"),
+    "https://www.skills.sh/sitemap-skills-1.xml",
+  );
+
+  // Other domains pass through unchanged
+  assert.equal(
+    normalizeSitemapCursorId("https://pypi.org/00.sitemap.xml"),
+    "https://pypi.org/00.sitemap.xml",
+  );
+
+  // Non-URL cursor IDs pass through unchanged
+  assert.equal(normalizeSitemapCursorId("page"), "page");
+  assert.equal(normalizeSitemapCursorId(""), "");
+});
+
+void test("normalizeSitemapCursorId preserves query strings and paths", () => {
+  const { normalizeSitemapCursorId } = htmlSyncInternals;
+
+  assert.equal(
+    normalizeSitemapCursorId("https://skills.sh/sitemap-skills-1.xml?foo=bar"),
+    "https://www.skills.sh/sitemap-skills-1.xml?foo=bar",
+  );
+});
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {

@@ -560,14 +560,28 @@ void test("writeArdCatalog malformed entry error includes asset ID and cause (#3
 
     assert.ok(warnings.length >= 1, "expected at least one warning");
     const warning = warnings.join("\n");
-    // Warning must include the asset ID (CorruptAsset's displayName was set but id was null).
+    // Warning must identify the malformed entry with its exact identity
+    // and a non-empty cause.
     assert.ok(
       warning.includes("ard-catalog: skipping malformed entry"),
       `warning must identify the malformed entry, got: "${warning}"`,
     );
     assert.ok(
-      warning.includes("(") && warning.includes(")"),
-      `warning must include asset identity, got: "${warning}"`,
+      warning.includes("(unknown)"),
+      `warning must report malformed entry identity as "(unknown)", got: "${warning}"`,
+    );
+    // Ensure a non-empty cause is present after the identity.
+    // The format is: "ard-catalog: skipping malformed entry (ID): cause"
+    // When ID is "(unknown)", the output becomes "((unknown)): cause".
+    const causeIndex = warning.indexOf("(unknown)): ");
+    assert.ok(
+      causeIndex !== -1,
+      `warning must include "(unknown)): " prefix before cause, got: "${warning}"`,
+    );
+    const afterPrefix = warning.slice(causeIndex + "(unknown)): ".length);
+    assert.ok(
+      afterPrefix.length > 0,
+      `warning must include a non-empty cause after the identity, got: "${warning}"`,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

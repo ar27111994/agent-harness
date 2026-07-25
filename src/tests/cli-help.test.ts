@@ -1,14 +1,22 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import test from "node:test";
 
 import {
   createIsolatedCliEnvironment,
+  repositoryRoot,
   runBuiltCli,
 } from "./built-cli-harness.js";
+
+/** Reads the expected version from the project package.json. */
+async function readExpectedVersion(): Promise<string> {
+  const raw = await readFile(join(repositoryRoot, "package.json"), "utf8");
+  const pkg = JSON.parse(raw) as { version: string };
+  return pkg.version;
+}
 
 void test("subcommand --help exits without preparing state", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
@@ -74,6 +82,7 @@ void test("subcommand --help exits without preparing state", async () => {
 
 void test("--version prints version and exits 0 without state", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+  const expectedVersion = await readExpectedVersion();
 
   try {
     const { workspaceRoot, env } = await createIsolatedCliEnvironment(
@@ -90,8 +99,7 @@ void test("--version prints version and exits 0 without state", async () => {
       args: ["--version"],
     });
 
-    // Should print a valid semver version string and nothing else
-    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stdout.trim(), expectedVersion);
     assert.equal(stderr, "");
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
@@ -100,6 +108,7 @@ void test("--version prints version and exits 0 without state", async () => {
 
 void test("-V prints version and exits 0 without state", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+  const expectedVersion = await readExpectedVersion();
 
   try {
     const { workspaceRoot, env } = await createIsolatedCliEnvironment(
@@ -116,7 +125,7 @@ void test("-V prints version and exits 0 without state", async () => {
       args: ["-V"],
     });
 
-    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stdout.trim(), expectedVersion);
     assert.equal(stderr, "");
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
@@ -125,6 +134,7 @@ void test("-V prints version and exits 0 without state", async () => {
 
 void test("--version works with --state-root", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+  const expectedVersion = await readExpectedVersion();
 
   try {
     const { workspaceRoot, stateRoot, env } =
@@ -138,7 +148,7 @@ void test("--version works with --state-root", async () => {
       args: ["--version"],
     });
 
-    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stdout.trim(), expectedVersion);
     assert.equal(stderr, "");
   } finally {
     await rm(tempRoot, { force: true, recursive: true });

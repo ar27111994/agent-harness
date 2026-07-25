@@ -369,6 +369,18 @@ async function activateHost(
         .filter((candidate) => candidate.packageManifest.assetKind === "hook")
         .map((candidate) => candidate.packageManifest.assetId),
       selectedSkillIds: mergedSkillIds,
+      selectedPromptPackIds: selectedCandidates
+        .filter(
+          (candidate) =>
+            candidate.packageManifest.assetKind === "prompt-pack",
+        )
+        .map((candidate) => candidate.packageManifest.assetId),
+      selectedReferencePackIds: selectedCandidates
+        .filter(
+          (candidate) =>
+            candidate.packageManifest.assetKind === "reference-pack",
+        )
+        .map((candidate) => candidate.packageManifest.assetId),
       activationBudget,
       sessionIntent,
     };

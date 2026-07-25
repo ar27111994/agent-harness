@@ -70,6 +70,8 @@ export interface CopilotWorkspaceProfileManifest {
   selectedExtensionIds?: string[];
   selectedHookIds?: string[];
   selectedSkillIds?: string[];
+  selectedPromptPackIds?: string[];
+  selectedReferencePackIds?: string[];
   activationBudget: number;
   sessionIntent?: SessionIntent;
 }

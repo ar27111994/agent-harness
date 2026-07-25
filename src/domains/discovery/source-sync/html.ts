@@ -34,6 +34,32 @@ import {
 import { buildIndexedReferenceItem } from "./references.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "./types.js";
 import type { AssetKind, CompatibilityMode } from "../../../types.js";
+
+/**
+ * Normalizes sitemap cursor IDs so hostname changes (e.g. skills.sh →
+ * www.skills.sh) don't cause previously persisted cursor state to be lost.
+ *
+ * Matches skills.sh and www.skills.sh as equivalent — the canonical www
+ * subdomain was adopted to avoid a 308 Permanent Redirect that Node.js
+ * https.request does not follow. Old cursors stored under skills.sh still
+ * resume correctly.
+ */
+function normalizeSitemapCursorId(cursorId: string): string {
+  try {
+    const parsed = new URL(cursorId);
+    if (
+      parsed.hostname === "www.skills.sh" ||
+      parsed.hostname === "skills.sh"
+    ) {
+      parsed.hostname = "www.skills.sh";
+      return parsed.toString();
+    }
+  } catch {
+    // Non-URL cursor IDs pass through unchanged.
+  }
+  return cursorId;
+}
+
 // ─── Sitemap reference source ─────────────────────────────────────────────────
 
 /**
@@ -219,7 +245,7 @@ export async function syncSitemapSource(
   );
   const previousStateByCursor = new Map(
     getPreviousCursorStates(context.previousState).map((cursor) => [
-      cursor.cursorId,
+      normalizeSitemapCursorId(cursor.cursorId),
       cursor,
     ]),
   );
@@ -233,8 +259,9 @@ export async function syncSitemapSource(
     leafSitemapUrls.length > 0 ? "complete" : "failed";
 
   for (const sitemapUrl of leafSitemapUrls) {
+    const normalizedUrl = normalizeSitemapCursorId(sitemapUrl);
     const previousCursor = restoreFiniteCursorState(
-      previousStateByCursor.get(sitemapUrl),
+      previousStateByCursor.get(normalizedUrl),
       {
         cursorId: sitemapUrl,
         nextToken: "0",
@@ -397,3 +424,10 @@ export async function syncHtmlListSource(
     ],
   };
 }
+
+/**
+ * Minimal internals exposed for focused unit tests.
+ */
+export const htmlSyncInternals = {
+  normalizeSitemapCursorId,
+};

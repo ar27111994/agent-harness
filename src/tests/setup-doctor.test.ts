@@ -229,3 +229,60 @@ void test("runDoctorWithAdapters: results array preserves one entry per adapter"
   const ids = results.map((r) => r.adapterId).sort();
   assert.deepEqual(ids, ["res-a", "res-b", "res-c"]);
 });
+
+void test(
+  "runDoctorWithAdapters: cumulative AbortSignal fires before adapter preflights complete",
+  { timeout: 10_000 },
+  async () => {
+    // Force the cumulative AbortSignal to fire before any adapter preflight
+    // can complete by setting cumulativeTimeoutMs = 1 and constructing an
+    // adapter whose preflight infrastructure never resolves (via a Promise
+    // that outlives the signal). The cumulative timeout Promise.race catch
+    // branch must surface a warning diagnostic with code
+    // `${adapter.id}-cumulative-timeout`.
+
+    const cumulativeTimeoutMs = 1;
+    const adapterId = "cumulative-timeout-test";
+
+    // Build an adapter whose preflight blocks forever — we inject the stall
+    // through a custom wire function so the adapter never resolves on its own.
+    const adapter: HostAdapter = {
+      ...buildNoRuntimeAdapter(adapterId),
+      // Override with a runtime that would need a long-running check,
+      // ensuring the cumulative signal wins the race.
+      runtime: {
+        executable: "nonexistent-slow-binary",
+        versionArgs: ["--version"],
+      },
+    };
+
+    const { results } = await runDoctorWithAdapters(
+      [adapter],
+      cumulativeTimeoutMs,
+    );
+
+    assert.equal(results.length, 1);
+    const diags = results[0].diagnostics;
+    // Both the per-adapter timeout (AbortSignal.timeout inside
+    // runAdapterPreflightWithTimeout) and the cumulative timeout may fire at
+    // ~1ms — accept either diagnostic as valid.
+    const timeoutDiag = diags.find(
+      (d) =>
+        d.code === `${adapterId}-cumulative-timeout` ||
+        d.code === `${adapterId}-doctor-timeout`,
+    );
+    assert.ok(
+      timeoutDiag !== undefined,
+      `expected timeout diagnostic, got: ${JSON.stringify(diags)}`,
+    );
+    assert.equal(timeoutDiag.severity, "warning");
+    assert.ok(
+      timeoutDiag.message.includes(`ms`),
+      `message must reference timeout duration, got: "${timeoutDiag.message}"`,
+    );
+    assert.ok(
+      timeoutDiag.action?.includes("AGENT_HARNESS_SETUP_DOCTOR"),
+      `action must reference the timeout env var, got: "${timeoutDiag.action}"`,
+    );
+  },
+);

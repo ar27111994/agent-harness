@@ -54,8 +54,19 @@ export async function runConfigPreflight(): Promise<PreflightDiagnostic[]> {
  */
 export async function runAdapterPreflight(
   adapter: HostAdapter,
+  abortSignal?: AbortSignal,
 ): Promise<PreflightDiagnostic[]> {
-  return runAdapterRuntimePreflight(adapter.runtime, adapter.id, false);
+  // Short-circuit when cumulative timeout has already fired.
+  if (abortSignal?.aborted) {
+    return [
+      {
+        severity: "warning",
+        code: `${adapter.id}-preflight-skipped`,
+        message: "Preflight check skipped — cumulative timeout already expired.",
+      },
+    ];
+  }
+  return runAdapterRuntimePreflight(adapter.runtime, adapter.id, false, abortSignal);
 }
 
 /**
@@ -86,6 +97,7 @@ async function runAdapterRuntimePreflight(
   runtime: HostRuntimeSpec | undefined,
   adapterId: string,
   required: boolean,
+  abortSignal?: AbortSignal,
 ): Promise<PreflightDiagnostic[]> {
   if (!runtime) {
     return required
@@ -122,6 +134,7 @@ async function runAdapterRuntimePreflight(
         failureAction:
           runtime.guidance ??
           "Confirm the host CLI is installed correctly and can report its version.",
+        abortSignal,
       }),
     );
   }
@@ -137,6 +150,7 @@ async function runAdapterRuntimePreflight(
         failureAction:
           runtime.guidance ??
           "Sign in to the host CLI and confirm marketplace/runtime access is available.",
+        abortSignal,
       }),
     );
   }
@@ -340,9 +354,13 @@ interface RuntimeCommandCheckOptions {
 }
 
 async function checkRuntimeCommand(
-  options: RuntimeCommandCheckOptions,
+  options: RuntimeCommandCheckOptions & { abortSignal?: AbortSignal },
 ): Promise<PreflightDiagnostic> {
-  const result = await runRuntimeCommand(options.executable, options.args);
+  const result = await runRuntimeCommand(
+    options.executable,
+    options.args,
+    options.abortSignal,
+  );
   if (result.exitCode === 0) {
     return {
       severity: "info",
@@ -362,7 +380,13 @@ async function checkRuntimeCommand(
 async function runRuntimeCommand(
   executable: string,
   args: string[],
+  abortSignal?: AbortSignal,
 ): Promise<{ exitCode: number | null; message: string }> {
+  // Short-circuit when already aborted — don't spawn at all.
+  if (abortSignal?.aborted) {
+    return { exitCode: null, message: "cancelled by cumulative timeout" };
+  }
+
   const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
   const resolvedExecutable = await resolveRuntimeExecutable(executable);
   const spawnSpec = buildRuntimeCommandSpawnSpec({
@@ -377,6 +401,7 @@ async function runRuntimeCommand(
       shell: false,
       stdio: ["ignore", "ignore", "pipe"],
       windowsHide: true,
+      signal: abortSignal,
     });
     let settled = false;
     let stderr = "";
