@@ -75,6 +75,18 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   assert.equal(vscodeAdapter.runtime?.executable, "code");
   assert.equal(vscodeAdapter.nativeInstall?.assetKind, "extension");
   assert.ok(
+    vscodeAdapter.capabilities.some(
+      (capability) => capability.assetKind === "prompt-pack",
+    ),
+    "copilot-vscode adapter must support prompt-pack (#344)",
+  );
+  assert.ok(
+    vscodeAdapter.capabilities.some(
+      (capability) => capability.assetKind === "reference-pack",
+    ),
+    "copilot-vscode adapter must support reference-pack (#344)",
+  );
+  assert.ok(
     vscodeAdapter.capabilities
       .find((capability) => capability.assetKind === "extension")
       ?.behaviors.includes("native-install"),

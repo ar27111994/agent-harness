@@ -82,6 +82,8 @@ const vscodeCapabilities: HostCapability[] = [
   { assetKind: "workflow", behaviors: ["stage"] },
   { assetKind: "plugin", behaviors: ["stage", "wire"] },
   { assetKind: "hook", behaviors: ["stage", "wire"] },
+  { assetKind: "prompt-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
   {
     assetKind: "extension",
     behaviors: ["stage", "native-install", "runtime-validation"],
