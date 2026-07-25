@@ -138,7 +138,11 @@ function assertSameHostSet(
   expectedHosts: readonly string[],
   message?: string,
 ): void {
-  assert.deepEqual([...actualHosts].sort(), [...expectedHosts].sort(), message);
+  assert.deepEqual(
+    [...actualHosts].sort(),
+    [...expectedHosts].sort(),
+    message ?? "",
+  );
 }
 
 function assertHostHasOfficialDocs(
