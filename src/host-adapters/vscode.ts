@@ -118,11 +118,6 @@ export async function wireVsCode(options: {
   };
 
   if (profileManifest) {
-    await materializeWorkspaceInstructions(
-      workspaceRoot,
-      activationRoot,
-      profileManifest,
-    );
     materializedPaths = await materializeCuratedFolders(
       activationRoot,
       profileManifest,
@@ -136,6 +131,17 @@ export async function wireVsCode(options: {
       },
     );
   }
+
+  // Always materialize workspace instructions so the managed
+  // .github/copilot-instructions.md is created during --apply, matching
+  // the preview's targetPaths. When there are no selected instructions
+  // the file still gets a managed section (empty body) so VS Code/Copilot
+  // recognizes the managed integration point and falls back gracefully.
+  await materializeWorkspaceInstructions(
+    workspaceRoot,
+    activationRoot,
+    profileManifest,
+  );
 
   await writeJsonFile(
     join(generationRoot, "wire-plan.json"),
@@ -241,7 +247,7 @@ async function patchVsCodeUserSettings(paths: {
 async function materializeWorkspaceInstructions(
   workspaceRoot: string,
   activationRoot: string,
-  profileManifest: CopilotWorkspaceProfileManifest,
+  profileManifest: CopilotWorkspaceProfileManifest | null,
 ): Promise<void> {
   const destinationDirectory = join(workspaceRoot, ".github");
   const destinationPath = join(destinationDirectory, "copilot-instructions.md");
@@ -249,7 +255,7 @@ async function materializeWorkspaceInstructions(
 
   const bodyLines: string[] = ["# Agent Harness Copilot instructions", ""];
 
-  for (const instructionId of profileManifest.selectedInstructionIds) {
+  for (const instructionId of profileManifest?.selectedInstructionIds ?? []) {
     const resolvedAsset = await resolveAssetContent({
       activationRoot,
       assetId: instructionId,

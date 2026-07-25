@@ -1132,6 +1132,66 @@ void test("VS Code generation pruning tolerates temp-state filesystem races", as
   }
 });
 
+void test("VS Code wire apply creates copilot-instructions.md even without profile manifest (#346)", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-346-"));
+
+  const previousEnv = rememberEnv([
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "XDG_CONFIG_HOME",
+  ]);
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  process.env.APPDATA = root;
+  process.env.XDG_CONFIG_HOME = root;
+  clearRuntimeConfigForTests();
+
+  context.after(async () => {
+    restoreEnv(previousEnv);
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const projectRoot = join(root, "project");
+  const workspaceRoot = join(root, "workspace");
+  const copilotInstructionsPath = join(
+    workspaceRoot,
+    ".github",
+    "copilot-instructions.md",
+  );
+
+  // No activation root, no profile manifest — simulate a bare wire-in.
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "apply" });
+
+  // File must exist and contain the managed section even without instructions.
+  assert.ok(
+    await pathExists(copilotInstructionsPath),
+    ".github/copilot-instructions.md must be created (#346)",
+  );
+  const content = await readTextFileOrNull(copilotInstructionsPath);
+  assert.ok(content, "file must have content");
+  assert.match(
+    content!,
+    /agent-harness-vscode:begin/u,
+    "must contain managed section markers",
+  );
+  assert.match(
+    content!,
+    /Agent Harness Copilot instructions/u,
+    "must contain header",
+  );
+
+  // Reset should remove the managed content.
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "reset" });
+  const afterReset = await readTextFileOrNull(copilotInstructionsPath);
+  assert.equal(
+    afterReset,
+    null,
+    "copilot-instructions.md should be removed on reset when it only contains managed content",
+  );
+});
+
 function directoryEntry(name: string): Dirent {
   return {
     name,
