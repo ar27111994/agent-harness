@@ -98,6 +98,18 @@ void test("native host adapters are registered with expected lifecycle hosts", (
 
   const opencodeAdapter = resolveHostAdapter("opencode");
   assertWireCapabilities(opencodeAdapter, ALL_ASSET_KINDS);
+  assert.ok(
+    opencodeAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "payable-api",
+    ),
+    "OpenCode adapter must support payable-api (#345)",
+  );
+  assert.ok(
+    opencodeAdapter?.capabilities.some(
+      (capability) => capability.assetKind === "acp-agent",
+    ),
+    "OpenCode adapter must support acp-agent (#345)",
+  );
 
   const piAdapter = resolveHostAdapter("pi");
   assert.ok(piAdapter);

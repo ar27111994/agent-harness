@@ -102,6 +102,8 @@ const opencodeCapabilities: HostCapability[] = [
   { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
   { assetKind: "extension", behaviors: ["stage", "wire"] },
   { assetKind: "mcp-server", behaviors: ["stage", "wire", "auth-assist"] },
+  { assetKind: "payable-api", behaviors: ["stage", "wire"] },
+  { assetKind: "acp-agent", behaviors: ["stage", "wire"] },
 ];
 
 const cursorCapabilities: HostCapability[] = [
