@@ -24,11 +24,7 @@ export type LifecycleHost = "copilot-vscode" | "opencode";
  * Defines the supported host behavior values.
  */
 export type HostBehavior =
-  | "stage"
-  | "wire"
-  | "native-install"
-  | "auth-assist"
-  | "runtime-validation";
+  "stage" | "wire" | "native-install" | "auth-assist" | "runtime-validation";
 
 /**
  * Describes host capability data exchanged by the lifecycle pipeline.

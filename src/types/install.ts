@@ -100,11 +100,7 @@ export interface InstallProgressState {
  * Defines install refresh status values.
  */
 export type InstallRefreshStatus =
-  | "current"
-  | "stale"
-  | "pinned"
-  | "blocked"
-  | "unknown";
+  "current" | "stale" | "pinned" | "blocked" | "unknown";
 
 /**
  * Defines install refresh policy-decision values.

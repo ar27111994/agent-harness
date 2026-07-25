@@ -80,8 +80,4 @@ export type SessionIntent =
  * Defines the supported compatibility mode values.
  */
 export type CompatibilityMode =
-  | "native"
-  | "adaptable"
-  | "partial"
-  | "reference-only"
-  | "incompatible";
+  "native" | "adaptable" | "partial" | "reference-only" | "incompatible";

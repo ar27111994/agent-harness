@@ -11,12 +11,7 @@ import type { CompatibleHost } from "../host-adapters/compatibility-matrix.js";
  * Defines the supported host-native payload target values.
  */
 export type HostNativeConfigTarget =
-  | "opencode"
-  | "cursor"
-  | "zed"
-  | "claude-code"
-  | "pi"
-  | "codex";
+  "opencode" | "cursor" | "zed" | "claude-code" | "pi" | "codex";
 
 /**
  * Describes host-native text file payloads exchanged by the lifecycle pipeline.
@@ -41,8 +36,7 @@ export interface AssetHostNativeJsonFilePayload {
  * Describes a host-native file payload exchanged by the lifecycle pipeline.
  */
 export type AssetHostNativeFilePayload =
-  | AssetHostNativeTextFilePayload
-  | AssetHostNativeJsonFilePayload;
+  AssetHostNativeTextFilePayload | AssetHostNativeJsonFilePayload;
 
 /**
  * Describes one host's structured native-config payloads.

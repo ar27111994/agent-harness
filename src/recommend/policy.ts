@@ -306,8 +306,7 @@ function applyRecommendationHostRuntimeOverrides(
   hostPolicy: RecommendationHostPolicy,
   limitOverride: { value: number; envVar: string } | undefined,
   modeOverride:
-    | { value: RecommendationLimitOverrideMode; envVar: string }
-    | undefined,
+    { value: RecommendationLimitOverrideMode; envVar: string } | undefined,
 ): RecommendationHostPolicy {
   const overrideMode =
     modeOverride?.value ??

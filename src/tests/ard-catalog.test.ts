@@ -319,8 +319,7 @@ void test("writeArdCatalog writes valid ARD catalog to .well-known/", async () =
     assert.equal(catalog["publisher"], ARD_PUBLISHER_FQDN);
     assert.equal(catalog["version"], "2.0.0");
     const entries = catalog["entries"] as
-      | Array<Record<string, unknown>>
-      | undefined;
+      Array<Record<string, unknown>> | undefined;
     assert.ok(Array.isArray(entries));
     assert.ok((entries as Array<Record<string, unknown>>).length > 0);
     assert.equal(

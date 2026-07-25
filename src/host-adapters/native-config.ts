@@ -16,12 +16,7 @@ import type {
 
 type JsonObject = Record<string, unknown>;
 type NativeConfigHost =
-  | "opencode"
-  | "cursor"
-  | "zed"
-  | "claude-code"
-  | "pi"
-  | "codex";
+  "opencode" | "cursor" | "zed" | "claude-code" | "pi" | "codex";
 
 /**
  * Collects structured native-config file payloads for one host.

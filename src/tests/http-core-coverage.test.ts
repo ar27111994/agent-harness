@@ -325,8 +325,7 @@ void test("http guards cover branch-only address and lookup variants", async () 
 void test("pinned http requests preserve sparse status and multi-value headers", async () => {
   const fakeRequest = ((...args: unknown[]) => {
     const callback = args[args.length - 1] as
-      | ((response: IncomingMessage) => void)
-      | undefined;
+      ((response: IncomingMessage) => void) | undefined;
     const responseMessage = Readable.from([Buffer.from("pinned-ok")]);
     Object.assign(responseMessage, {
       headers: {

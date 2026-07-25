@@ -139,11 +139,7 @@ export type SourceCoverageMode = "direct" | "rotating" | "sampled" | "indexed";
  * Defines source sync-status values for discovery reporting.
  */
 export type SourceSyncStatus =
-  | "not-applicable"
-  | "unsupported"
-  | "partial"
-  | "complete"
-  | "failed";
+  "not-applicable" | "unsupported" | "partial" | "complete" | "failed";
 
 /**
  * Describes source index data exchanged by the lifecycle pipeline.
@@ -304,11 +300,7 @@ export type AiEnrichmentTrigger = "manual" | "after-select" | "after-workspace";
  * Describes AI enrichment terminal status data exchanged by the lifecycle pipeline.
  */
 export type AiEnrichmentStatus =
-  | "disabled"
-  | "skipped"
-  | "completed"
-  | "reused"
-  | "failed";
+  "disabled" | "skipped" | "completed" | "reused" | "failed";
 
 /**
  * Describes bounded demand-evidence data included in AI enrichment input artifacts.

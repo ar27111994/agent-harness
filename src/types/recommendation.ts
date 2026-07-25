@@ -465,9 +465,7 @@ export interface RecommendationEvaluationCheck {
  * Describes top-recommendation confidence classes surfaced by fixture evaluation.
  */
 export type RecommendationEvaluationTopConfidence =
-  | "medium-or-strong"
-  | "weak-only"
-  | "none";
+  "medium-or-strong" | "weak-only" | "none";
 
 /**
  * Describes the top recommendation observed for one evaluated host.
