@@ -33,7 +33,10 @@ const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
 
 void test("extractErrorMessage returns message from Error instances", () => {
   assert.equal(extractErrorMessage(new Error("test error")), "test error");
-  assert.equal(extractErrorMessage(new TypeError("type mismatch")), "type mismatch");
+  assert.equal(
+    extractErrorMessage(new TypeError("type mismatch")),
+    "type mismatch",
+  );
   assert.equal(extractErrorMessage(new Error("")), "");
 });
 
@@ -490,11 +493,7 @@ void test("writeArdCatalog empty catalog has valid generatedAt ISO-8601 timestam
     await mkdir(discoverDir, { recursive: true });
 
     // Write an empty catalog file — no entries.
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      "",
-      "utf8",
-    );
+    await writeFile(join(discoverDir, "catalog.selected.jsonl"), "", "utf8");
 
     const result = await writeArdCatalog(root, "2.0.0");
     assert.equal(result.entryCount, 0);
