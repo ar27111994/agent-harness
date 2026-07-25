@@ -16,6 +16,9 @@ import {
 /** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
 const DOCTOR_ADAPTER_TIMEOUT_MS = 30_000;
 
+/** Default cumulative wall-clock timeout for the entire `setup doctor` run (ms). */
+const DOCTOR_CUMULATIVE_TIMEOUT_MS = 15_000;
+
 /**
  * Parses a positive integer from an environment variable string, falling back
  * to `defaultValue` when the variable is absent or not a positive integer.
@@ -159,13 +162,63 @@ async function runDoctor(
     DOCTOR_ADAPTER_TIMEOUT_MS,
   );
 
+  const cumulativeTimeoutMs = parsePositiveIntegerEnv(
+    process.env.AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS,
+    DOCTOR_CUMULATIVE_TIMEOUT_MS,
+  );
+
+  // Print progress immediately so the user sees activity — a hung doctor
+  // that prints nothing for 15+ seconds is indistinguishable from a crash.
+  console.error(
+    `Checking host readiness for ${adapters.length} adapter(s) (timeout: ${cumulativeTimeoutMs}ms)...`,
+  );
+
   // Run all adapter preflights concurrently so one stalling CLI does not
   // block the others. Each adapter is individually guarded by a wall-clock
   // timeout; if it fires we emit a synthetic timeout diagnostic and continue.
+  // A cumulative timeout at the top level prevents the overall run from
+  // hanging indefinitely even when all adapters collectively exceed budget.
+  const cumulativeSignal = AbortSignal.timeout(cumulativeTimeoutMs);
   const adapterResults = await Promise.allSettled(
-    adapters.map(async (adapter) =>
-      runAdapterPreflightWithTimeout(adapter, adapterTimeoutMs, projectRoot),
-    ),
+    adapters.map(async (adapter) => {
+      const adapterLabel = `${adapter.displayName} (${adapter.id})`;
+      console.error(`  Checking ${adapterLabel}...`);
+      try {
+        const result = await Promise.race([
+          runAdapterPreflightWithTimeout(
+            adapter,
+            adapterTimeoutMs,
+            projectRoot,
+          ),
+          // Reject when cumulative timeout fires.
+          new Promise<never>((_, reject) => {
+            cumulativeSignal.addEventListener("abort", () =>
+              reject(
+                cumulativeSignal.reason ??
+                  new DOMException("Timeout", "TimeoutError"),
+              ),
+            );
+          }),
+        ]);
+        return result;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "TimeoutError") {
+          console.error(
+            `    timed out after ${cumulativeTimeoutMs}ms cumulative budget`,
+          );
+          return [
+            {
+              severity: "warning",
+              code: `${adapter.id}-cumulative-timeout`,
+              message: `Preflight check timed out after cumulative timeout of ${cumulativeTimeoutMs}ms.`,
+              action:
+                "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
+            },
+          ] satisfies PreflightDiagnostic[];
+        }
+        throw err;
+      }
+    }),
   );
 
   let hasErrors = false;
@@ -375,6 +428,7 @@ function printSetupHelp(): void {
  */
 export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
+  DOCTOR_CUMULATIVE_TIMEOUT_MS,
   parsePositiveIntegerEnv,
   /** Run the doctor loop over an explicit adapter list with an explicit timeout. */
   async runDoctorWithAdapters(
