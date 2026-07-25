@@ -28,6 +28,15 @@ export async function readSharedMcpAssetIds(
   }
 
   const installRoot = resolve(join(projectRoot, "install"));
+  // macOS /tmp is a symlink to /private/tmp — resolve installRoot to its
+  // canonical path so isPathWithinRoot comparisons survive realpath.
+  let canonicalInstallRoot = installRoot;
+  try {
+    const { realpath } = await import("node:fs/promises");
+    canonicalInstallRoot = await realpath(installRoot);
+  } catch {
+    // realpath fails if the directory doesn't exist — use unresolved root.
+  }
   const activeAssetIds = new Set(sharedActivationManifest.activeAssets);
   const mcpAssetIds = new Set<string>();
 
@@ -62,7 +71,7 @@ export async function readSharedMcpAssetIds(
       } catch {
         // lstat/realpath fails if the file doesn't exist — use raw path.
       }
-      if (!isPathWithinRoot(installRoot, resolvedManifestPath)) {
+      if (!isPathWithinRoot(canonicalInstallRoot, resolvedManifestPath)) {
         console.warn(
           `Skipping package '${pkg.assetId}': manifestPath '${pkg.manifestPath}' ` +
             `is outside the install root '${installRoot}${sep}'. ` +
