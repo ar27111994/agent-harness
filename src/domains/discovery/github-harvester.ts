@@ -131,7 +131,7 @@ function buildGitHubCatalogEntry(
       : classification.hosts;
   const contextCost = { sizeClass: "tiny", estimatedPromptWeight: 1 } as const;
   const risk = buildGitHubRisk(classification.assetKind);
-  const repoTrust = collectRepositoryTrustEvidence(snapshot);
+  const repoTrust = collectRepositoryTrustEvidence(snapshot, source);
   const assetDir = relativePath.includes("/")
     ? relativePath.slice(0, relativePath.lastIndexOf("/"))
     : "";
@@ -387,7 +387,10 @@ async function verifyOmsBlobs(
   return { verified, pemParsed };
 }
 
-function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
+function collectRepositoryTrustEvidence(
+  snapshot: GitHubRepoSnapshot,
+  source: SourceDefinition,
+): {
   scoreBonus: number;
   signals: string[];
 } {
@@ -413,12 +416,16 @@ function collectRepositoryTrustEvidence(snapshot: GitHubRepoSnapshot): {
     signals.push("tests-present");
     scoreBonus += 2;
   }
-  // OMS trust anchor: `verifyOmsBlobs` has checked the PEM cert content
-  // during harvest — only award the signal if blob-content validation passed.
-  if (snapshot.pemParsed) {
+  // OMS trust anchor: pemParsed is a diagnostic format-validation flag.
+  // Award oms-trust-anchor only when the source has sufficient authority
+  // (verified publisher or trusted tier), not on PEM parsing alone.
+  if (
+    snapshot.pemParsed &&
+    (source.authorityTier === "official-first-party" ||
+      source.authorityTier === "trusted-local" ||
+      source.publisher?.verified)
+  ) {
     signals.push("oms-trust-anchor");
-    // TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] is always defined; fallback prevents
-    // regression if the constant is accidentally removed from the map.
     /* c8 ignore next */
     scoreBonus += TRUST_SIGNAL_SCORE_BOOST["oms-trust-anchor"] ?? 3;
   }

@@ -860,7 +860,18 @@ void test("readSharedMcpAssetIds resolves symlinked manifests against installRoo
   await mkdir(symlinkDir, { recursive: true });
   const symlinkPath = join(symlinkDir, "asset-sym-mcp.install.json");
   const { symlink } = await import("node:fs/promises");
-  await symlink(realPkgPath, symlinkPath);
+  try {
+    await symlink(realPkgPath, symlinkPath);
+  } catch (err) {
+    // EPERM on Windows (requires admin), EEXIST — skip symlink verification
+    if (
+      (err as NodeJS.ErrnoException).code === "EPERM" ||
+      (err as NodeJS.ErrnoException).code === "EEXIST"
+    ) {
+      return;
+    }
+    throw err;
+  }
 
   await writeInstalledBundleManifest(projectRoot, "bundle-sym", [
     {

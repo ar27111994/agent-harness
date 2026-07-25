@@ -1096,81 +1096,60 @@ void test("collectRepositoryTrustEvidence does not award oms-trust-anchor when p
     },
   } as unknown as GitHubRepoSnapshot;
 
+  const trustedSource = {
+    authorityTier: "official-first-party",
+    publisher: { verified: false },
+  } as unknown as SourceDefinition;
+  const untrustedSource = {
+    authorityTier: "community",
+    publisher: { verified: false },
+  } as unknown as SourceDefinition;
+
   // Without pemParsed — no PEM trust signal
   const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
-  const withoutPem = collectRepositoryTrustEvidence(snapshot);
+  const withoutPem = collectRepositoryTrustEvidence(snapshot, trustedSource);
   assert.ok(
     !withoutPem.signals.includes("oms-trust-anchor"),
     "oms-trust-anchor must not be present when pemParsed is absent",
   );
 
   // With pemParsed=false — still no PEM trust signal
-  const withFalse = collectRepositoryTrustEvidence({
-    ...snapshot,
-    pemParsed: false,
-  });
+  const withFalse = collectRepositoryTrustEvidence(
+    {
+      ...snapshot,
+      pemParsed: false,
+    },
+    trustedSource,
+  );
   assert.ok(
     !withFalse.signals.includes("oms-trust-anchor"),
     "oms-trust-anchor must not be present when pemParsed is false",
   );
 
-  // With pemParsed=true — trust signal awarded
-  const withTrue = collectRepositoryTrustEvidence({
-    ...snapshot,
-    pemParsed: true,
-  });
+  // With pemParsed=true + trusted source — trust signal awarded
+  const withTrue = collectRepositoryTrustEvidence(
+    {
+      ...snapshot,
+      pemParsed: true,
+    },
+    trustedSource,
+  );
   assert.ok(
     withTrue.signals.includes("oms-trust-anchor"),
-    "oms-trust-anchor must be present when pemParsed is true",
+    "oms-trust-anchor must be present when pemParsed is true and source is trusted",
   );
-});
 
-void test("collectRepositoryTrustEvidence: pemParsed gate", () => {
-  const s = {
-    sourceId: "t",
-    owner: "f",
-    repo: "f",
-    fetchedAt: new Date().toISOString(),
-    repoSummary: {
-      name: "f",
-      fullName: "f/f",
-      description: null,
-      defaultBranch: "main",
-      updatedAt: null,
-      pushedAt: null,
-      stars: 0,
-      language: null,
-      topics: [],
-      archived: false,
-      htmlUrl: "https://github.com/f/f",
-    },
-    readme: { path: "README.md", content: "" },
-    tree: {
-      sha: "x",
-      truncated: false,
-      entries: [
-        { path: "nv-agent-root-cert.pem", type: "blob", size: 1024, sha: "x" },
-      ],
-    },
-  } as unknown as GitHubRepoSnapshot;
-  const { collectRepositoryTrustEvidence } = githubHarvesterInternals;
-  assert.ok(
-    !collectRepositoryTrustEvidence(s).signals.includes("oms-trust-anchor"),
-    "absent when pemParsed missing",
-  );
-  assert.ok(
-    !collectRepositoryTrustEvidence({
-      ...s,
-      pemParsed: false,
-    }).signals.includes("oms-trust-anchor"),
-    "absent when pemParsed false",
-  );
-  assert.ok(
-    collectRepositoryTrustEvidence({
-      ...s,
+  // With pemParsed=true + untrusted source — no trust signal
+  const untrusted = collectRepositoryTrustEvidence(
+    {
+      ...snapshot,
       pemParsed: true,
-    }).signals.includes("oms-trust-anchor"),
-    "present when pemParsed true",
+    },
+    untrustedSource,
+  );
+  assert.ok(
+    !untrusted.signals.includes("oms-trust-anchor"),
+    "oms-trust-anchor must not be present for untrusted source even with pemParsed",
   );
 });
 
@@ -1323,8 +1302,14 @@ void test("malformed OMS files do not grant trust signals", async () => {
         `entry ${entry.id}: no oms-signed with malformed sig`,
       );
     }
-    // The repo-level trust should NOT include oms-trust-anchor (bad cert)
-    // Entries still get harvested but without OMS trust bonuses
+    // The repo-level trust should NOT include oms-trust-anchor (bad cert).
+    // Entries still get harvested but without OMS trust bonuses.
+    for (const entry of entries) {
+      assert.ok(
+        !entry.trust.signals.includes("oms-trust-anchor"),
+        `entry ${entry.id}: no oms-trust-anchor with bad cert`,
+      );
+    }
   } finally {
     globalThis.fetch = originalFetch;
     if (prevMockFlag === undefined)

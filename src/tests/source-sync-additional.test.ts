@@ -276,9 +276,8 @@ void test("source sync indexes default registry endpoints with sparse successful
       report.sources.map((source) => [source.sourceId, source]),
     );
 
-    // Status assertions: accept "complete" or "failed" (flaky external endpoints
-    // can cause install-phase failures even though source sync itself succeeded).
-    const acceptableStatuses = new Set(["complete", "failed"]);
+    // Status assertions: require exact match for every source.
+    // skills.sh is a flaky external endpoint — accept "failed" explicitly.
     for (const [id, expected] of [
       ["cursor-marketplace", "complete"],
       ["zed-extension-registry", "complete"],
@@ -295,8 +294,10 @@ void test("source sync indexes default registry endpoints with sparse successful
       ["packagist-registry", "complete"],
     ] as const) {
       const actual = byId.get(id)?.status ?? "missing";
-      assert.ok(
-        actual === expected || acceptableStatuses.has(actual),
+      if (id === "skills-sh" && actual === "failed") continue;
+      assert.equal(
+        actual,
+        expected,
         `source ${id}: expected "${expected}", got "${actual}"`,
       );
     }

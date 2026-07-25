@@ -233,7 +233,6 @@ export async function syncArdRegistrySource(
         portfolioFit: normalizeScoreToPortfolioFit(rawScore),
       };
 
-      // Normalize semantic score to portfolio fit
       // Build synthetic representativeQueries for semantic scoring (#327).
       const synthQueries: string[] = [];
       synthQueries.push(

@@ -236,6 +236,18 @@ void test("assertCatalogIndexMeta — rejects invalid builtAt date", () => {
   );
 });
 
+void test("assertCatalogIndexMeta — rejects future builtAt", () => {
+  const future = new Date(Date.now() + 86_400_000).toISOString();
+  assert.throws(
+    () =>
+      catalogIndexInternals.assertCatalogIndexMeta(
+        { builtAt: future, entryCount: 0 },
+        "ctx",
+      ),
+    /is in the future/,
+  );
+});
+
 void test("assertCatalogIndexMeta — rejects NaN entryCount", () => {
   assert.throws(
     () =>

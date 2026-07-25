@@ -114,6 +114,12 @@ function assertCatalogIndexMeta(
       `Invalid CatalogIndexMeta at ${context}: builtAt "${meta.builtAt}" is not a valid date`,
     );
   }
+  // Reject future timestamps so isCatalogIndexFresh cannot treat them as fresh.
+  if (new Date(meta.builtAt).getTime() > Date.now()) {
+    throw new Error(
+      `Invalid CatalogIndexMeta at ${context}: builtAt "${meta.builtAt}" is in the future`,
+    );
+  }
   if (!Number.isFinite(meta.entryCount) || meta.entryCount < 0) {
     throw new Error(
       `Invalid CatalogIndexMeta at ${context}: entryCount ${meta.entryCount} is not a finite non-negative number`,

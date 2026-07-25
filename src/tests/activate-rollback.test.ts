@@ -70,15 +70,18 @@ void test("rolls back when staging is missing", async () => {
     await writeFile(join(runtime, "curr.json"), '{"v":1}');
     const staging = join(tmp, "staging");
 
+    let thrown: unknown;
     try {
       await swapActivationRuntimeRoot(runtime, staging);
       assert.fail("Expected throw");
     } catch (err) {
-      assert.ok(
-        err instanceof Error && !(err instanceof AggregateError),
-        "plain Error when rollback succeeds",
-      );
+      thrown = err;
     }
+    assert.ok(thrown instanceof Error, "error was thrown");
+    assert.ok(
+      !(thrown instanceof AggregateError),
+      "plain Error when rollback succeeds",
+    );
   } finally {
     await rm(tmp, { recursive: true, force: true });
   }
