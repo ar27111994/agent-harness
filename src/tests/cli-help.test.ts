@@ -71,3 +71,76 @@ void test("subcommand --help exits without preparing state", async () => {
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
+
+void test("--version prints version and exits 0 without state", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+
+  try {
+    const { workspaceRoot, env } = await createIsolatedCliEnvironment(
+      tempRoot,
+      {
+        createStateRoot: false,
+      },
+    );
+
+    const { stdout, stderr } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      timeout: 15_000,
+      args: ["--version"],
+    });
+
+    // Should print a valid semver version string and nothing else
+    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stderr, "");
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("-V prints version and exits 0 without state", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+
+  try {
+    const { workspaceRoot, env } = await createIsolatedCliEnvironment(
+      tempRoot,
+      {
+        createStateRoot: false,
+      },
+    );
+
+    const { stdout, stderr } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      timeout: 15_000,
+      args: ["-V"],
+    });
+
+    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stderr, "");
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("--version works with --state-root", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-version-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: true });
+
+    const { stdout, stderr } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 15_000,
+      args: ["--version"],
+    });
+
+    assert.match(stdout.trim(), /^\d+\.\d+\.\d+/u);
+    assert.equal(stderr, "");
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});

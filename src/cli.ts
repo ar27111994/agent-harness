@@ -19,6 +19,23 @@ import { runSetup } from "./setup.js";
 import { runWire } from "./wire.js";
 import { prepareStateRoot, resolveStateRoot } from "./lib/state-root.js";
 
+/** Returns the package version from the installed package.json. */
+async function readPackageVersion(): Promise<string> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const { join } = await import("node:path");
+    const pkgPath = join(
+      resolveProjectRoot(fileURLToPath(import.meta.url)),
+      "package.json",
+    );
+    const raw = await readFile(pkgPath, "utf8");
+    const pkg = JSON.parse(raw) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
 const HELP_DEFAULT_DOMAINS = new Set([
   "activate",
   "discover",
@@ -39,6 +56,12 @@ async function main(): Promise<number> {
   const workingDirectory = process.cwd();
   if (isHelpRequest(globalOptions.args)) {
     return runHelpCommand(globalOptions.args, workingDirectory);
+  }
+
+  if (isVersionRequest(globalOptions.args)) {
+    const version = await readPackageVersion();
+    console.log(version);
+    return 0;
   }
 
   const packageRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
@@ -117,6 +140,10 @@ function isHelpRequest(args: string[]): boolean {
     args.includes("-h") ||
     (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0] ?? ""))
   );
+}
+
+function isVersionRequest(args: string[]): boolean {
+  return args.includes("--version") || args.includes("-V");
 }
 
 function runHelpCommand(
