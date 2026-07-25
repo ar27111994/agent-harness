@@ -249,9 +249,19 @@ export async function writeArdCatalog(
   for (const entry of entries) {
     try {
       ardEntries.push(mapEntryToArd(entry, getArdPublisherFqdn(), pkgVersion));
-    } catch {
-      // Skip entries that fail mapping (malformed data).
-      console.warn(`ard-catalog: skipping malformed entry during ARD export`);
+    } catch (err: unknown) {
+      // Skip entries that fail mapping (malformed data), but surface the
+      // specific cause and asset ID so operators can identify and fix the
+      // offending entry.
+      const message =
+        err instanceof Error ? err.message : String(err ?? "unknown error");
+      const assetId =
+        typeof (entry as AssetCatalogEntry)?.id === "string"
+          ? (entry as AssetCatalogEntry).id
+          : "(unknown)";
+      console.warn(
+        `ard-catalog: skipping malformed entry (${assetId}): ${message}`,
+      );
     }
   }
 

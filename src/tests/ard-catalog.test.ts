@@ -475,6 +475,99 @@ void test("committed .well-known/ai-catalog.json conforms to ARD v0.9 schema", a
   }
 });
 
+void test("writeArdCatalog empty catalog has valid generatedAt ISO-8601 timestamp (#342)", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-empty-ts-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    // Write an empty catalog file — no entries.
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      "",
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(root, "2.0.0");
+    assert.equal(result.entryCount, 0);
+
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(result.filePath, "utf8");
+    const catalog = JSON.parse(raw) as Record<string, unknown>;
+
+    // generatedAt must be a valid ISO-8601 timestamp even for empty catalogs.
+    const generatedAt = catalog["generatedAt"] as string;
+    assert.equal(typeof generatedAt, "string");
+    assert.ok(generatedAt.length > 0, "generatedAt must not be empty");
+    const parsed = new Date(generatedAt);
+    assert.ok(
+      !Number.isNaN(parsed.getTime()),
+      `generatedAt must be a valid ISO-8601 timestamp, got "${generatedAt}"`,
+    );
+    assert.ok(
+      parsed.toISOString() === generatedAt,
+      `generatedAt must be in ISO-8601 format, got "${generatedAt}"`,
+    );
+    assert.equal(catalog["version"], "2.0.0");
+    assert.ok(Array.isArray(catalog["entries"]));
+    assert.equal((catalog["entries"] as Array<unknown>).length, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog malformed entry error includes asset ID and cause (#343)", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-err-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    // Build a valid entry alongside a corrupt line.
+    const validEntry = buildEntry({
+      id: "valid-test",
+      displayName: "Valid",
+      assetKind: "skill",
+    });
+    const corrupt = '{"id":null,"displayName":"CorruptAsset"}';
+
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      corrupt + "\n" + JSON.stringify(validEntry) + "\n",
+      "utf8",
+    );
+
+    // Capture console.warn output.
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (message: string) => {
+      warnings.push(message);
+    };
+
+    try {
+      const result = await writeArdCatalog(root, "2.0.0");
+      assert.equal(result.entryCount, 1, "valid entry still exported");
+    } finally {
+      console.warn = origWarn;
+    }
+
+    assert.ok(warnings.length >= 1, "expected at least one warning");
+    const warning = warnings.join("\n");
+    // Warning must include the asset ID (CorruptAsset's displayName was set but id was null).
+    assert.ok(
+      warning.includes("ard-catalog: skipping malformed entry"),
+      `warning must identify the malformed entry, got: "${warning}"`,
+    );
+    assert.ok(
+      warning.includes("(") && warning.includes(")"),
+      `warning must include asset identity, got: "${warning}"`,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 void test("writeArdCatalog falls back to 0.0.0 version when no package.json", async () => {
   const root = join(tmpdir(), `agent-harness-ard-nopkg-${randomUUID()}`);
 
