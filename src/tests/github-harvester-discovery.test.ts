@@ -1013,6 +1013,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
   });
 
   const nvidiaSource = buildSource();
+  nvidiaSource.authorityTier = "official-first-party";
   nvidiaSource.endpoints.repo = "https://github.com/nvidia/skills";
 
   const entries = await harvestGitHubRepoSource(

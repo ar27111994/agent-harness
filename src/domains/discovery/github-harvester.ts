@@ -237,9 +237,11 @@ function buildGitHubCatalogEntry(
  * Verification tiers:
  * 1. PEM certs: parsed via crypto.createPublicKey() — ensures real key material.
  * 2. OMS sigs: decoded as base64, minimum 32 bytes output.
- * 3. Full PKI: signatures verified against the cert's public key + asset content
- *    (SKILL.md in the same directory). A sig file only passes verification when
- *    the signed asset content matches the public key extracted from the PEM cert.
+ * 3. Internal signature check: signatures verified against the cert's public key
+ *    + asset content (SKILL.md in the same directory). This is a consistency
+ *    check only — the PEM is repo-supplied and does NOT constitute a trusted
+ *    PKI anchor. Downstream trust scoring gates oms-trust-anchor on source
+ *    authority, not on this verification alone.
  */
 async function verifyOmsBlobs(
   snapshot: GitHubRepoSnapshot,

@@ -277,9 +277,9 @@ export interface GitHubRepoSnapshot {
       sha: string;
     }>;
   };
-  /** Set by verifyOmsBlobs when the PEM key material passes format validation.
-   *  This is a syntactic check only — it does NOT mean the certificate chains
-   *  to a trusted root. Used as one signal among many, not as sole trust basis. */
+  /** Diagnostic only — set by verifyOmsBlobs when PEM key material passes
+   *   format validation. Does NOT confer trust; downstream trust scoring
+   *   gates oms-trust-anchor on source authority, not on this flag alone. */
   pemParsed?: boolean;
 }
 
