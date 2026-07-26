@@ -109,11 +109,9 @@ async function runAdapterPreflightWithTimeout(
       combined.abort(source.reason);
       return;
     }
-    source.addEventListener(
-      "abort",
-      () => combined.abort(source.reason),
-      { once: true },
-    );
+    source.addEventListener("abort", () => combined.abort(source.reason), {
+      once: true,
+    });
   };
   wireSignal(signal);
   if (cumulativeSignal) {

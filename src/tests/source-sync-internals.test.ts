@@ -1469,7 +1469,10 @@ void test("normalizeSitemapCursorId enables resume from old-host cursor IDs afte
   cursorMap.set(normalizeSitemapCursorId(oldCursor.cursorId), oldCursor);
 
   const found = cursorMap.get(normalizeSitemapCursorId(newSitemapUrl));
-  assert.ok(found !== undefined, "old cursor must be found by normalized lookup");
+  assert.ok(
+    found !== undefined,
+    "old cursor must be found by normalized lookup",
+  );
   assert.equal(found.nextToken, "50", "nextToken must be preserved");
   assert.equal(found.completed, false);
 });
