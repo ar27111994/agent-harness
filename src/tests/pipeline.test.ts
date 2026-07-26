@@ -407,3 +407,32 @@ void test("installBundleBatches rejects bundles that never finish within the bat
     /install batching did not complete for bundle 'copilot-core' within the maximum batch count/u,
   );
 });
+
+// ── #349: pipeline fast-fails when recommend returns non-zero ─────────────
+
+void test("runWorkspacePipeline throws when recommend phase returns non-zero exit code (#349)", async () => {
+  // Simulate a workspace with 0 selected catalog entries — recommend fails.
+  await assert.rejects(
+    runWorkspacePipeline(
+      {
+        projectRoot: "/project",
+        workspaceRoot: "/workspace",
+        targetHost: "copilot-vscode",
+        recommendationHost: "copilot-vscode",
+        sessionIntent: "backend",
+        bundleIds: [],
+      },
+      buildDependencies({
+        runRecommend: async () => 1, // non-zero = failure
+      }),
+    ),
+    (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      return (
+        message.includes("recommend phase failed") &&
+        message.includes("discover full")
+      );
+    },
+    "pipeline should throw a descriptive error when recommend returns non-zero",
+  );
+});

@@ -12,12 +12,13 @@
  *    set, and is absent when all sources ≤ 20%.
  * 5. Both helpers handle edge cases: empty input, single-entry input, and
  *    cap = 1.
+ * 6. `computeAcceptanceRate` (#353) returns correct fractions.
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { discoverInternals } from "../discover.js";
+import { computeAcceptanceRate, discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
@@ -207,9 +208,7 @@ void test("computeSourceDiversityWarning: absent when all sources ≤ 20%", () =
 });
 
 void test("computeSourceDiversityWarning: absent for well-diversified set", () => {
-  // 3 sources × 10 entries: each is 33% — below the 20% threshold per
-  // source is impossible here. Actually with 3 sources at equal weight, each
-  // is 33% which IS > 20%. Use 6 equal sources so each is 16.6% ≤ 20%.
+  // 6 equal sources so each is 16.7% ≤ 20%.
   const entries = [
     ...makeEntries("s-A", 10),
     ...makeEntries("s-B", 10),
@@ -218,7 +217,6 @@ void test("computeSourceDiversityWarning: absent for well-diversified set", () =
     ...makeEntries("s-E", 10),
     ...makeEntries("s-F", 10),
   ];
-  // Each source = 10/60 ≈ 16.7%, which is ≤ 20%
   const warning = computeSourceDiversityWarning(entries, 200);
   assert.equal(warning, undefined, "no warning when no source exceeds 20%");
 });
@@ -261,4 +259,27 @@ void test("AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE: 0 means unlimited (non-negative
     delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
     clearRuntimeConfig();
   }
+});
+
+// ── computeAcceptanceRate (#353) ─────────────────────────────────────────
+
+void test("computeAcceptanceRate: returns 0 when inputCount is 0", () => {
+  assert.equal(computeAcceptanceRate(0, 0), 0);
+});
+
+void test("computeAcceptanceRate: returns 0 when nothing selected", () => {
+  assert.equal(computeAcceptanceRate(100, 0), 0);
+});
+
+void test("computeAcceptanceRate: returns 1 when everything selected", () => {
+  assert.equal(computeAcceptanceRate(100, 100), 1);
+});
+
+void test("computeAcceptanceRate: computes fraction rounded to 4 decimal places", () => {
+  assert.equal(computeAcceptanceRate(100, 37), 0.37);
+  assert.equal(computeAcceptanceRate(100, 3), 0.03);
+  // 800 / 20438 ≈ 0.039143 → rounded to 0.0391
+  assert.equal(computeAcceptanceRate(20438, 800), 0.0391);
+  // 1 / 3 ≈ 0.3333... → rounded to 0.3333
+  assert.equal(computeAcceptanceRate(3, 1), 0.3333);
 });
