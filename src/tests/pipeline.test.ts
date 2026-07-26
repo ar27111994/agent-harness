@@ -69,7 +69,7 @@ function buildDependencies(
     }),
     readJsonFileOrNull: async () => null,
     runDiscover: async () => {},
-    runRecommend: async () => {},
+    runRecommend: async () => 0,
     runMirror: async () => {},
     runInstall: async () => {},
     runActivate: async () => {},
@@ -98,6 +98,7 @@ void test("runWorkspacePipeline executes lifecycle phases in order and forwards 
       },
       runRecommend: async (args) => {
         calls.push(`recommend:${args.join(" ")}`);
+        return 0;
       },
       runMirror: async (args) => {
         calls.push(`mirror:${args.join(" ")}`);
@@ -190,6 +191,7 @@ void test("runWorkspacePipeline falls back to primary intent and default progres
       },
       runRecommend: async (args) => {
         calls.push(`recommend:${args.join(" ")}`);
+        return 0;
       },
       runMirror: async (args) => {
         calls.push(`mirror:${args.join(" ")}`);

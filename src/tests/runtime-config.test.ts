@@ -39,7 +39,7 @@ void test("runtime config preserves existing defaults when new env vars are unse
   assert.equal(config.officialIndex.pageMaxBytes, 1_000_000);
   assert.equal(config.officialIndex.contentMaxBytes, 1_000_000);
   assert.equal(config.hostCommands.nativeTimeoutMs, 30_000);
-  assert.equal(config.hostCommands.preflightTimeoutMs, 10_000);
+  assert.equal(config.hostCommands.preflightTimeoutMs, 15_000);
   assert.equal(config.mirrorLimits.maxOfficialIndexPackageFiles, 1_000);
   assert.equal(config.mirrorLimits.maxGitHubMirrorFileSizeBytes, 1_000_000);
   assert.equal(config.diagnostics.debugEnabled, false);

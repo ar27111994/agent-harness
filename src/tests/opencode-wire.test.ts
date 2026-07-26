@@ -1179,7 +1179,6 @@ const REQUIRED_GITIGNORE_ENTRIES = [
   "bun.lockb",
   "yarn.lock",
   "pnpm-lock.yaml",
-  ".gitignore",
 ];
 
 async function makeTmpWorkspace(): Promise<string> {

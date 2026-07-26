@@ -90,6 +90,7 @@ void test("recommend evaluation summary tracks top-rank quality signals", () => 
       none: 1,
     },
     broadFallbackTopCount: 1,
+    broadFallbackHosts: ["cursor"],
     localAvailabilityTopCount: 1,
     topConfidenceCounts: {
       mediumOrStrong: 2,
