@@ -236,8 +236,9 @@ export async function wireOpenCode(options: {
         "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
         ...(npmInstallSummary !== null
           ? [
-              `OpenCode plugin npm install: ${npmInstallSummary.declaredDependencyCount} declared dependencies, ` +
-                `~${npmInstallSummary.estimatedPackageCount} installed packages under ${npmInstallSummary.packageJsonPath}. ` +
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- TS cannot narrow through spread
+              `OpenCode plugin npm install: ${npmInstallSummary!.declaredDependencyCount} declared dependencies, ` +
+                `~${npmInstallSummary!.estimatedPackageCount} installed packages under ${npmInstallSummary!.packageJsonPath}. ` +
                 `These files are written by OpenCode itself (not by wire --apply) and are excluded from overlay scanning via .opencode/.gitignore.`,
             ]
           : []),
