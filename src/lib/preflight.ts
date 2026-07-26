@@ -346,11 +346,6 @@ async function findExecutableOnPath(
   const accessMode = getExecutableAccessMode(platform);
 
   for (const pathEntry of pathEntries) {
-    // Check for cancellation between PATH entries so long lookups
-    // don't block shutdown.
-    if (isAborted(options.abortSignal)) {
-      return null;
-    }
     for (const extension of extensions) {
       const candidate = joinPath(pathEntry, `${executableName}${extension}`);
       try {
