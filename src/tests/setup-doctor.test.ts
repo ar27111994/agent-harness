@@ -302,9 +302,8 @@ void test("runAdapterPreflight returns skipped diagnostic when AbortSignal is al
 });
 
 void test("runRuntimeCommand returns cancelled when AbortSignal is already aborted", async () => {
-  const { runRuntimeCommand } = (
-    await import("../lib/preflight.js")
-  ).preflightInternals;
+  const { runRuntimeCommand } = (await import("../lib/preflight.js"))
+    .preflightInternals;
 
   const signal = AbortSignal.abort();
   const result = await runRuntimeCommand("echo", ["hello"], signal);

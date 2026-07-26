@@ -371,8 +371,7 @@ async function activateHost(
       selectedSkillIds: mergedSkillIds,
       selectedPromptPackIds: selectedCandidates
         .filter(
-          (candidate) =>
-            candidate.packageManifest.assetKind === "prompt-pack",
+          (candidate) => candidate.packageManifest.assetKind === "prompt-pack",
         )
         .map((candidate) => candidate.packageManifest.assetId),
       selectedReferencePackIds: selectedCandidates

@@ -25,8 +25,7 @@ const DOCTOR_ADAPTER_TIMEOUT_MS = 30_000;
  * budget does not fire before a single adapter can complete its normal (slow)
  * runtime checks.
  */
-const DOCTOR_CUMULATIVE_TIMEOUT_MS =
-  DOCTOR_ADAPTER_TIMEOUT_MS + 2 * 10_000; // = 50_000
+const DOCTOR_CUMULATIVE_TIMEOUT_MS = DOCTOR_ADAPTER_TIMEOUT_MS + 2 * 10_000; // = 50_000
 
 /**
  * Parses a positive integer from an environment variable string, falling back

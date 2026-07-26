@@ -62,11 +62,17 @@ export async function runAdapterPreflight(
       {
         severity: "warning",
         code: `${adapter.id}-preflight-skipped`,
-        message: "Preflight check skipped — cumulative timeout already expired.",
+        message:
+          "Preflight check skipped — cumulative timeout already expired.",
       },
     ];
   }
-  return runAdapterRuntimePreflight(adapter.runtime, adapter.id, false, abortSignal);
+  return runAdapterRuntimePreflight(
+    adapter.runtime,
+    adapter.id,
+    false,
+    abortSignal,
+  );
 }
 
 /**

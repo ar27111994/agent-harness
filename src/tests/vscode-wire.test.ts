@@ -1086,7 +1086,10 @@ void test("materializePromptPackFiles and materializeReferencePackFiles write co
       },
       install: { manifestEntry: "https://example.com/prompts" },
       capabilities: [],
-      maintenance: { lastUpdated: new Date().toISOString(), releaseCadence: "occasional" },
+      maintenance: {
+        lastUpdated: new Date().toISOString(),
+        releaseCadence: "occasional",
+      },
       trust: { signals: [] },
       evidence: {},
       risk: { hooks: false, execScripts: false, requiresNetwork: false },
@@ -1121,7 +1124,10 @@ void test("materializePromptPackFiles and materializeReferencePackFiles write co
       },
       install: { manifestEntry: "https://example.com/ref" },
       capabilities: [],
-      maintenance: { lastUpdated: new Date().toISOString(), releaseCadence: "occasional" },
+      maintenance: {
+        lastUpdated: new Date().toISOString(),
+        releaseCadence: "occasional",
+      },
       trust: { signals: [] },
       evidence: {},
       risk: { hooks: false, execScripts: false, requiresNetwork: false },
