@@ -397,6 +397,11 @@ async function evaluateRecommendationFixtures(
   console.log(
     `  broad fallback tops: ${summary.broadFallbackTopCount}, local-availability tops: ${summary.localAvailabilityTopCount}`,
   );
+  if (summary.broadFallbackHosts.length > 0) {
+    console.log(
+      `  broad fallback hosts: ${summary.broadFallbackHosts.join(", ")}`,
+    );
+  }
 
   return hasFailures ? 1 : 0;
 }

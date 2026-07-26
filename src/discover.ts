@@ -77,6 +77,7 @@ import {
   writeRemoteHarvestState,
 } from "./domains/discovery/remote-state.js";
 import { writeSourceHealthReports } from "./domains/discovery/source-health.js";
+import type { SourceHealthReport } from "./domains/discovery/source-health.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
 import { writeSourceVerificationReport } from "./domains/discovery/source-verification.js";
 import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
@@ -210,6 +211,8 @@ export async function runDiscover(
     }
     case "full": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
+      const quietMode = rest.includes("--quiet");
+      const summaryMode = rest.includes("--summary");
       logDiscoverPhase("discover full", 1, 5, "Scanning workspace demand");
       await generateDemandProfile(workingDirectory, projectRoot);
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
@@ -219,7 +222,8 @@ export async function runDiscover(
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
       logDiscoverPhase("discover full", 5, 5, "Applying selection rules");
-      await generateSelectionOutputs(projectRoot);
+      const result = await generateSelectionOutputs(projectRoot);
+      printSourceHealthSummary(result.sourceHealthReport, { quietMode, summaryMode });
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "after-select",
@@ -501,6 +505,7 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   selectionReport: SelectionReport;
   selectedEntries: AssetCatalogEntry[];
   rejectedEntries: AssetCatalogEntry[];
+  sourceHealthReport: SourceHealthReport;
 }> {
   const selectionRegistry = await readJsonFile<SelectionRegistry>(
     join(projectRoot, "discover", "selections.json"),
@@ -693,7 +698,51 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     selectionReport,
     selectedEntries: sortedSelectedEntries,
     rejectedEntries: sortedRejectedEntries,
+    sourceHealthReport,
   };
+}
+
+/**
+ * Prints a filtered or summarized source health summary based on mode flags.
+ *
+ * - Default (no flags): all output is already printed during generateSelectionOutputs.
+ *   This function prints a compact summary only.
+ * - `--quiet`: suppresses \"none survived selection\" warnings; prints only errors.
+ * - `--summary`: prints aggregate warning breakdown by reason instead of the
+ *   default per-source line.
+ */
+function printSourceHealthSummary(
+  report: SourceHealthReport,
+  options: { quietMode: boolean; summaryMode: boolean },
+): void {
+  if (options.quietMode) {
+    if (report.severeCount > 0) {
+      console.log(
+        `Source health: ${report.severeCount} severe issue(s) require attention (${report.warningCount} warnings suppressed by --quiet).`,
+      );
+    } else {
+      console.log(
+        `Source health: all clear (${report.warningCount} warnings suppressed by --quiet).`,
+      );
+    }
+    return;
+  }
+
+  if (options.summaryMode) {
+    const byReason = new Map<string, number>();
+    for (const source of report.sources) {
+      for (const reason of source.reasons) {
+        byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
+      }
+    }
+    const lines = [...byReason.entries()]
+      .sort(([, a], [, b]) => b - a)
+      .map(([reason, count]) => `  ${count} sources: ${reason}`);
+    console.log(
+      `Source health: ${report.severeCount} severe, ${report.warningCount} warnings — breakdown:` +
+        (lines.length > 0 ? `\n${lines.join("\n")}` : " none"),
+    );
+  }
 }
 
 function parseAiEnrichmentFlags(args: readonly string[]): {
