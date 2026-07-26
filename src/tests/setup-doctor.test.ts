@@ -309,6 +309,7 @@ void test("runAdapterPreflight returns skipped diagnostic when AbortSignal is al
 void test("runRuntimeCommand returns cancelled when AbortSignal is already aborted", async () => {
   const signal = AbortSignal.abort();
   const result = await runRuntimeCommand("echo", ["hello"], signal);
+  assert.equal(result.cancelled, true);
   assert.equal(result.exitCode, null);
   assert.ok(result.message.includes("cancelled"));
 });
@@ -323,6 +324,7 @@ void test("runRuntimeCommand maps in-flight ABORT_ERR to cancelled message", asy
     ["-e", "setTimeout(()=>{},30000)"],
     controller.signal,
   );
+  assert.equal(result.cancelled, true);
   assert.equal(result.exitCode, null);
   assert.ok(
     result.message.includes("cancelled"),
