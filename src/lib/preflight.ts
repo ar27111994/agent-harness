@@ -409,11 +409,10 @@ async function runRuntimeCommand(
   const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
   const resolvedExecutable = await resolveRuntimeExecutable(executable);
 
-  // Re-check after resolution — on Windows resolveRuntimeExecutable awaits
-  // accessPath() for each PATH entry, giving the signal time to fire.
-  // Covered by the spawn signal: passing abortSignal to spawn() causes
-  // Node.js to kill the process immediately when already aborted, so a
-  // dedicated pre-spawn re-check would be redundant.
+  // A mid-resolution abort (e.g. cumulative timeout firing during
+  // resolveRuntimeExecutable on Windows) is handled by the spawn signal:
+  // passing abortSignal to spawn() causes Node.js to kill the process
+  // immediately when already aborted.
   const spawnSpec = buildRuntimeCommandSpawnSpec({
     args,
     executable,

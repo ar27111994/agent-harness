@@ -108,7 +108,10 @@ void test("source sync preserves prior sitemap cursors and classifies unsupporte
           indexedEntryCount: 0,
           cursors: [
             {
-              cursorId: "https://www.skills.sh/sitemap-skills-1.xml",
+              // Seed with old-host cursor ID (skills.sh) to verify
+              // normalizeSitemapCursorId maps it to www.skills.sh and
+              // the resume lookup still finds the persisted state.
+              cursorId: "https://skills.sh/sitemap-skills-1.xml",
               nextToken: "0",
               completed: false,
             },
