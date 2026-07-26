@@ -471,18 +471,18 @@ export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
   DOCTOR_CUMULATIVE_TIMEOUT_MS,
   parsePositiveIntegerEnv,
-  /** Run the doctor loop over an explicit adapter list with an explicit timeout. */
+  /** Run the doctor loop over an explicit adapter list with separate timeouts. */
   async runDoctorWithAdapters(
     adapters: HostAdapter[],
     adapterTimeoutMs: number,
     projectRoot?: string,
+    cumulativeTimeoutMs?: number,
   ): Promise<{
     hasErrors: boolean;
     results: Array<{ adapterId: string; diagnostics: PreflightDiagnostic[] }>;
   }> {
-    // Derive a cumulative signal from the supplied timeout so the test
-    // helper is self-contained — it doesn't need a pre-built signal.
-    const cumulativeSignal = AbortSignal.timeout(adapterTimeoutMs);
+    const effectiveCumulativeMs = cumulativeTimeoutMs ?? adapterTimeoutMs;
+    const cumulativeSignal = AbortSignal.timeout(effectiveCumulativeMs);
     const adapterResults = await Promise.allSettled(
       adapters.map(async (adapter) =>
         runAdapterPreflightWithTimeout(

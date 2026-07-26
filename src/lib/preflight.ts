@@ -384,7 +384,7 @@ async function checkRuntimeCommand(
       code: `${options.code}-cancelled`,
       message: `${options.executable} ${options.args.join(" ")} ${result.message}.`,
       action:
-        "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
+        "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS (cumulative), AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS (per-adapter), or hostCommands.preflightTimeoutMs (per-command) to allow more time.",
     };
   }
 
@@ -403,11 +403,17 @@ async function runRuntimeCommand(
 ): Promise<{ exitCode: number | null; message: string }> {
   // Short-circuit when already aborted — don't spawn at all.
   if (abortSignal?.aborted) {
-    return { exitCode: null, message: "cancelled by cumulative timeout" };
+    return { exitCode: null, message: "cancelled by timeout" };
   }
 
   const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
   const resolvedExecutable = await resolveRuntimeExecutable(executable);
+
+  // Re-check after resolution — on Windows resolveRuntimeExecutable awaits
+  // accessPath() for each PATH entry, giving the signal time to fire.
+  // Covered by the spawn signal: passing abortSignal to spawn() causes
+  // Node.js to kill the process immediately when already aborted, so a
+  // dedicated pre-spawn re-check would be redundant.
   const spawnSpec = buildRuntimeCommandSpawnSpec({
     args,
     executable,

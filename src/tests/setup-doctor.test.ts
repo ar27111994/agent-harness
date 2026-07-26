@@ -355,3 +355,42 @@ void test("checkRuntimeCommand produces cancellation diagnostic when spawn is ab
     `expected cancellation message, got: "${diagnostic.message}"`,
   );
 });
+
+void test("checkRuntimeCommand cancellation diagnostic mentions all three timeout knobs", async () => {
+  const diagnostic = await checkRuntimeCommand({
+    executable: "node",
+    args: ["--version"],
+    code: "test-knobs",
+    failureSeverity: "error",
+    successMessage: "should not appear",
+    failureAction: "should not appear",
+    abortSignal: AbortSignal.abort(),
+  });
+
+  assert.equal(diagnostic.severity, "warning");
+  assert.ok(
+    diagnostic.action?.includes("AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS"),
+    `must mention cumulative timeout, got: "${diagnostic.action}"`,
+  );
+  assert.ok(
+    diagnostic.action?.includes("AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS"),
+    `must mention per-adapter timeout, got: "${diagnostic.action}"`,
+  );
+  assert.ok(
+    diagnostic.action?.includes("hostCommands.preflightTimeoutMs"),
+    `must mention per-command timeout, got: "${diagnostic.action}"`,
+  );
+});
+
+void test("runDoctorWithAdapters accepts separate cumulativeTimeoutMs", async () => {
+  const adapters = [buildNoRuntimeAdapter("sep-cumulative")];
+  const { results, hasErrors } = await runDoctorWithAdapters(
+    adapters,
+    30_000,
+    undefined,
+    5_000,
+  );
+
+  assert.equal(results.length, 1);
+  assert.equal(hasErrors, false);
+});
