@@ -75,8 +75,7 @@ export async function runAdapterPreflight(
       {
         severity: "warning",
         code: `${adapter.id}-preflight-skipped`,
-        message:
-          "Preflight check skipped — cumulative timeout already expired.",
+        message: "Preflight check skipped — timeout already expired.",
       },
     ];
   }

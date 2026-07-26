@@ -246,6 +246,7 @@ void test(
     // `${adapter.id}-cumulative-timeout`.
 
     const cumulativeTimeoutMs = 1;
+    const adapterTimeoutMs = 1;
     const adapterId = "cumulative-timeout-test";
 
     // Build an adapter whose preflight spawns a real long-running process
@@ -261,6 +262,8 @@ void test(
 
     const { results } = await runDoctorWithAdapters(
       [adapter],
+      adapterTimeoutMs,
+      undefined,
       cumulativeTimeoutMs,
     );
 

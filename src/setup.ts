@@ -181,9 +181,9 @@ async function runDoctor(
 
   // Derive the cumulative default from the resolved per-adapter timeout
   // plus headroom for the worst-case sequential runtime preflight budget
-  // (two checks at hostCommands.preflightTimeoutMs each). This ensures
-  // the cumulative timeout scales with any user-configured per-adapter
-  // timeout rather than being pinned to a fixed constant.
+  // (two checks at the default hostCommands.preflightTimeoutMs of 10s each).
+  // This ensures the cumulative timeout scales with any user-configured
+  // per-adapter timeout rather than being pinned to a fixed constant.
   const cumulativeTimeoutMs = parsePositiveIntegerEnv(
     process.env.AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS,
     adapterTimeoutMs + 2 * 10_000,
@@ -232,6 +232,10 @@ async function runDoctor(
                 ),
               { once: true },
             );
+          }).catch((): never => {
+            // Late rejection after Promise.race resolution —
+            // intentionally swallowed to prevent unhandled rejection.
+            return undefined as never;
           }),
         ]);
         return result;
