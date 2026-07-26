@@ -15,18 +15,6 @@ import {
 
 /** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
 const DOCTOR_ADAPTER_TIMEOUT_MS = 30_000;
-
-/**
- * Default cumulative wall-clock timeout for the entire `setup doctor` run (ms).
- *
- * Derived from the per-adapter timeout plus the worst-case sequential runtime
- * preflight budget (two checks at `hostCommands.preflightTimeoutMs` each),
- * giving headroom for concurrent adapter execution. This ensures the cumulative
- * budget does not fire before a single adapter can complete its normal (slow)
- * runtime checks.
- */
-const DOCTOR_CUMULATIVE_TIMEOUT_MS = DOCTOR_ADAPTER_TIMEOUT_MS + 2 * 10_000; // = 50_000
-
 /**
  * Parses a positive integer from an environment variable string, falling back
  * to `defaultValue` when the variable is absent or not a positive integer.
@@ -474,7 +462,6 @@ function printSetupHelp(): void {
  */
 export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
-  DOCTOR_CUMULATIVE_TIMEOUT_MS,
   parsePositiveIntegerEnv,
   /** Run the doctor loop over an explicit adapter list with separate timeouts. */
   async runDoctorWithAdapters(
