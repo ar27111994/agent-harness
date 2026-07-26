@@ -411,14 +411,10 @@ async function checkRuntimeCommand(
 
 /**
  * Returns true when the provided AbortSignal is aborted.
- * Extracted so c8 can ignore both the pre-resolution and
- * post-resolution re-check paths without duplicating logic.
  */
-/* c8 ignore start */
-function isAborted(signal: AbortSignal | undefined): boolean {
+export function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted ?? false;
 }
-/* c8 ignore stop */
 
 async function runRuntimeCommand(
   executable: string,
@@ -626,6 +622,7 @@ export const preflightInternals = {
   findExecutableOnPath,
   getExecutableAccessMode,
   getExecutableSearchExtensions,
+  isAborted,
   quotePowerShellLiteral,
   resolveFoundExecutable,
   resolveRuntimeExecutable,

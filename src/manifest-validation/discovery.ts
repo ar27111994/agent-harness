@@ -606,6 +606,15 @@ export function assertSelectionReport(
   assertNumber(record.inputCount, `${context}.inputCount`);
   assertNumber(record.selectedCount, `${context}.selectedCount`);
   assertNumber(record.rejectedCount, `${context}.rejectedCount`);
+  // acceptanceRate — inject computed default for pre-v2.0.0 reports
+  if (record.acceptanceRate === undefined) {
+    record.acceptanceRate =
+      record.inputCount > 0
+        ? Number((record.selectedCount / record.inputCount).toFixed(4))
+        : 0;
+  } else {
+    assertNumber(record.acceptanceRate, `${context}.acceptanceRate`);
+  }
   // rejectionSummary — inject empty default for pre-v2.0.0 reports
   if (record.rejectionSummary === undefined) {
     record.rejectionSummary = {};

@@ -589,28 +589,25 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   // Build rejectionSummary — stable reason → count covering 100% of rejections.
   const rejectionSummary = buildRejectionSummary(rejectionLog);
 
-  // sampleRejected — stratified sample of up to 20 entries, guaranteeing at
-  // least one entry per distinct rejection reason so all reasons are visible
-  // in the report even when one reason dominates (e.g. thousands of
-  // demand-relevance rejections swamping the first-N slice).
-  const SAMPLE_SIZE = 20;
+  // sampleRejected — stratified sample of up to REJECTION_SAMPLE_SIZE entries,
+  // guaranteeing at least one entry per distinct rejection reason.
   const sampleRejected: typeof rejectionLog = [];
   const seenReasons = new Set<string>();
-  // Pass 1: take one representative per reason (cap at SAMPLE_SIZE in the
-  // unlikely but possible case where there are more than SAMPLE_SIZE distinct
-  // rejection reasons — prevents the sample from exceeding the intended maximum).
+  // Pass 1: take one representative per reason (cap at REJECTION_SAMPLE_SIZE
+  // in the unlikely but possible case where there are more than
+  // REJECTION_SAMPLE_SIZE distinct rejection reasons).
   for (const entry of rejectionLog) {
-    if (sampleRejected.length >= SAMPLE_SIZE) break;
+    if (sampleRejected.length >= REJECTION_SAMPLE_SIZE) break;
     if (!seenReasons.has(entry.reason)) {
       seenReasons.add(entry.reason);
       sampleRejected.push(entry);
     }
   }
-  // Pass 2: top up to SAMPLE_SIZE with the earliest un-sampled entries.
+  // Pass 2: top up to REJECTION_SAMPLE_SIZE with the earliest un-sampled entries.
   // Use a Set of sampled object references so the membership check stays O(1).
   const sampledSet = new Set(sampleRejected);
   for (const entry of rejectionLog) {
-    if (sampleRejected.length >= SAMPLE_SIZE) break;
+    if (sampleRejected.length >= REJECTION_SAMPLE_SIZE) break;
     if (!sampledSet.has(entry)) {
       sampleRejected.push(entry);
       sampledSet.add(entry);
@@ -629,6 +626,10 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
     inputCount: catalogEntries.length,
     selectedCount: sortedSelectedEntries.length,
     rejectedCount: sortedRejectedEntries.length,
+    acceptanceRate: computeAcceptanceRate(
+      catalogEntries.length,
+      sortedSelectedEntries.length,
+    ),
     duplicateDecisions: duplicateDecisions.sort((left, right) =>
       left.duplicateGroup.localeCompare(right.duplicateGroup),
     ),
@@ -1091,6 +1092,12 @@ export function applyPerSourceCap(
 const SOURCE_DIVERSITY_WARNING_THRESHOLD = 0.2;
 
 /**
+ * Maximum number of sample rejected entries in SelectionReport.sampleRejected.
+ * Guarantees at least one entry per distinct rejection reason.
+ */
+const REJECTION_SAMPLE_SIZE = 20;
+
+/**
  * Returns a human-readable warning when any single source contributes more
  * than 20% of the provided (already-capped) selected entries.  Returns
  * `undefined` when the set is well-diversified or empty.
@@ -1127,9 +1134,25 @@ export function computeSourceDiversityWarning(
 }
 
 /**
+ * Computes the acceptance rate as a fraction 0–1.
+ * Returns 0 when inputCount is 0 to avoid division by zero.
+ * Rounded to 4 decimal places for diagnostic use.
+ */
+export function computeAcceptanceRate(
+  inputCount: number,
+  selectedCount: number,
+): number {
+  if (inputCount === 0) {
+    return 0;
+  }
+  return Number((selectedCount / inputCount).toFixed(4));
+}
+
+/**
  * Exposes narrow discover internals for focused per-source-cap tests.
  */
 export const discoverInternals = {
   applyPerSourceCap,
+  computeAcceptanceRate,
   computeSourceDiversityWarning,
 };

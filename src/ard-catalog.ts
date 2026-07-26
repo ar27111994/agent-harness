@@ -14,6 +14,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { AssetCatalogEntry } from "./types.js";
+import type { Options as PrettierOptions } from "prettier";
 
 // ---------------------------------------------------------------------------
 // ARD Schema Types (§3)
@@ -278,10 +279,31 @@ export async function writeArdCatalog(
 
   await mkdir(wellKnownDir, { recursive: true });
   const filePath = join(wellKnownDir, "ai-catalog.json");
+  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
+
+  // Format JSON with Prettier so the output passes `npm run format:check`.
+  // Dynamic import — prettier is a devDependency; we only load it here at
+  // export time so the CLI remains functional without it.
+  let formattedJson = rawJson;
+  try {
+    const prettier = await import("prettier");
+    const options: PrettierOptions = {
+      parser: "json",
+      endOfLine: "lf",
+      trailingComma: "all",
+    };
+    formattedJson = await prettier.format(rawJson, options);
+  } catch {
+    // Prettier unavailable — write unformatted JSON. This happens when the
+    // CLI is used outside a development environment (e.g., after `npm pack`
+    // strips devDependencies). The output is still valid JSON; it just won't
+    // pass `prettier --check`.
+  }
+
   // Atomic write: write to temp file first, then rename. Prevents
   // a crash from leaving a partial ai-catalog.json on disk.
   const tempPath = `${filePath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
-  await writeFile(tempPath, JSON.stringify(catalog, null, 2) + "\n", "utf8");
+  await writeFile(tempPath, formattedJson, "utf8");
   await rename(tempPath, filePath);
 
   return { filePath, entryCount: ardEntries.length };

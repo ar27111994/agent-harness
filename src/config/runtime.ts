@@ -153,7 +153,8 @@ const OFFICIAL_INDEX_DEFAULTS = {
 const HOST_COMMAND_DEFAULTS = {
   nativeTimeoutMs: 30_000,
   nativeMaxBufferBytes: 2_000_000,
-  preflightTimeoutMs: 10_000,
+  /** Per-command preflight timeout. Raised to 15 s to accommodate Pi CLI cold-start. */
+  preflightTimeoutMs: 15_000,
 } as const;
 const MIRROR_LIMIT_DEFAULTS = {
   maxOfficialIndexPackageFiles: 1_000,

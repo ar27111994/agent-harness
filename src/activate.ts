@@ -550,16 +550,13 @@ function buildCopilotProfileId(assetIds: string[]): string {
     .slice(0, COPILOT_PROFILE_ID_MAX_LENGTH);
 }
 
+const ACTIVATION_BUDGET_BY_HOST = new Map<ActivationHost, number>([
+  ["copilot-vscode", COPILOT_VSCODE_ACTIVATION_BUDGET],
+  ["opencode", OPENCODE_ACTIVATION_BUDGET],
+]);
+
 function getActivationBudget(host: ActivationHost): number {
-  if (host === "copilot-vscode") {
-    return COPILOT_VSCODE_ACTIVATION_BUDGET;
-  }
-
-  if (host === "opencode") {
-    return OPENCODE_ACTIVATION_BUDGET;
-  }
-
-  return DEFAULT_ACTIVATION_BUDGET;
+  return ACTIVATION_BUDGET_BY_HOST.get(host) ?? DEFAULT_ACTIVATION_BUDGET;
 }
 
 function compareActivationCandidates(

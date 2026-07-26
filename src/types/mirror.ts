@@ -99,6 +99,11 @@ export interface SelectionReport {
    */
   sampleRejected: Array<{ assetId: string; reason: string }>;
   /**
+   * Acceptance rate as a fraction 0–1 (selectedCount / inputCount).
+   * 0 when inputCount is 0. Rounded to 4 decimal places for diagnostic use.
+   */
+  acceptanceRate: number;
+  /**
    * Human-readable warning emitted when any single source contributes more
    * than 20% of the selected entries after the per-source cap is applied.
    * Absent when the selected set is well-diversified.

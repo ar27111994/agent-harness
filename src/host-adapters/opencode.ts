@@ -236,8 +236,8 @@ export async function wireOpenCode(options: {
         "Shared MCP assets are surfaced in the effective OpenCode wire plan when available.",
         ...(npmInstallSummary !== null
           ? [
-              `OpenCode plugin npm install: ${npmInstallSummary!.declaredDependencyCount} declared dependencies, ` +
-                `~${npmInstallSummary!.estimatedPackageCount} installed packages under ${npmInstallSummary!.packageJsonPath}. ` +
+              `OpenCode plugin npm install: ${npmInstallSummary.declaredDependencyCount} declared dependencies, ` +
+                `~${npmInstallSummary.estimatedPackageCount} installed packages under ${npmInstallSummary.packageJsonPath}. ` +
                 `These files are written by OpenCode itself (not by wire --apply) and are excluded from overlay scanning via .opencode/.gitignore.`,
             ]
           : []),
@@ -271,13 +271,15 @@ export async function wireOpenCode(options: {
 async function ensureOpenCodeOverlayGitignore(
   workspaceRoot: string,
 ): Promise<void> {
+  // Entries to exclude from OpenCode overlay scanning (npm install artefacts).
+  // The .gitignore itself is excluded by the overlay scanner by default — entries
+  // here target package-manager lockfiles and the node_modules directory.
   const REQUIRED_ENTRIES = [
     "node_modules",
     "package-lock.json",
     "bun.lockb",
     "yarn.lock",
     "pnpm-lock.yaml",
-    ".gitignore",
   ] as const;
 
   const gitignorePath = join(workspaceRoot, ".opencode", ".gitignore");
