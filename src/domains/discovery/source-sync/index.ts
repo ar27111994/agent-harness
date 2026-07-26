@@ -92,6 +92,9 @@ export type {
  */
 export { loadSourceSyncState, getIndexedSourceIds, loadIndexedCatalogEntries };
 
+/** Number of consecutive failures before source-health escalates to error. */
+const MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR = 3;
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
 /**
@@ -167,23 +170,48 @@ export async function syncIndexedSources(
         );
       }
       sourceStates.push(
-        synchronizedState ??
-          classifyNonIndexedSource(
-            source,
-            remoteHarvestState.generatedAt,
-            remoteHarvestState.completedSourceIds.includes(source.id),
-          ),
+        (synchronizedState ?? classifyNonIndexedSource(
+          source,
+          remoteHarvestState.generatedAt,
+          remoteHarvestState.completedSourceIds.includes(source.id),
+        )) as SourceSyncSourceState & { consecutiveFailures?: number },
       );
+      // Reset failure counter on successful sync.
+      const lastState = sourceStates[sourceStates.length - 1]!;
+      if (synchronizedState) {
+        lastState.consecutiveFailures = 0;
+      } else {
+        // Non-indexed sources retain their previous failure count (if any).
+        lastState.consecutiveFailures = previousState?.consecutiveFailures;
+      }
       entriesDirty ||= context.entriesDirty;
     } catch (error) {
+      const previousFailures = (previousState?.consecutiveFailures ?? 0) + 1;
+      const errorMessage = getErrorMessage(error);
+
+      // Stale-data fallback: if the previous sync was successful and we have
+      // existing entries, mark as "stale" instead of "failed" on the first few
+      // consecutive failures. The existing catalog data remains usable.
+      const hasPriorSuccess =
+        previousState?.status === "complete" &&
+        previousState?.indexedEntryCount > 0;
+      const shouldFallBackToStale =
+        hasPriorSuccess &&
+        previousFailures <= MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR;
+
       sourceStates.push({
         sourceId: source.id,
         coverageMode: "indexed",
-        status: "failed",
+        status: shouldFallBackToStale ? "stale" : "failed",
         lastSyncedAt: new Date().toISOString(),
-        indexedEntryCount: countEntriesForSource(entriesById, source.id),
-        reason: getErrorMessage(error),
+        indexedEntryCount: shouldFallBackToStale
+          ? (previousState?.indexedEntryCount ?? 0)
+          : countEntriesForSource(entriesById, source.id),
+        reason: shouldFallBackToStale
+          ? `using stale data (${previousFailures} consecutive fetch failure(s): ${errorMessage})`
+          : errorMessage,
         cursors: getPreviousCursorStates(previousState),
+        consecutiveFailures: previousFailures,
       });
       entriesDirty ||= context.entriesDirty;
     }

@@ -48,6 +48,12 @@ export interface SourceSyncSourceState {
   indexedEntryCount: number;
   reason?: string;
   cursors: SourceSyncCursorState[];
+  /**
+   * Number of consecutive sync failures for this source.
+   * Resets to 0 on successful sync. Used by source-health to escalate
+   * severity from warning to error only after persistent failures.
+   */
+  consecutiveFailures?: number;
 }
 
 /**

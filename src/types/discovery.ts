@@ -139,7 +139,7 @@ export type SourceCoverageMode = "direct" | "rotating" | "sampled" | "indexed";
  * Defines source sync-status values for discovery reporting.
  */
 export type SourceSyncStatus =
-  "not-applicable" | "unsupported" | "partial" | "complete" | "failed";
+  "not-applicable" | "unsupported" | "partial" | "complete" | "failed" | "stale";
 
 /**
  * Describes source index data exchanged by the lifecycle pipeline.

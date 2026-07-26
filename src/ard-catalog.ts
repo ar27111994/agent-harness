@@ -293,11 +293,16 @@ export async function writeArdCatalog(
       trailingComma: "all",
     };
     formattedJson = await prettier.format(rawJson, options);
-  } catch {
+  } catch (err: unknown) {
     // Prettier unavailable — write unformatted JSON. This happens when the
     // CLI is used outside a development environment (e.g., after `npm pack`
-    // strips devDependencies). The output is still valid JSON; it just won't
-    // pass `prettier --check`.
+    // strips devDependencies). Log the cause so operators can distinguish
+    // "intentionally unformatted" from "formatting error".
+    const reason =
+      err instanceof Error ? err.message : String(err ?? "unknown error");
+    console.warn(
+      `ard-catalog: Prettier formatting skipped (${reason}). JSON output is valid but may not pass prettier --check.`,
+    );
   }
 
   // Atomic write: write to temp file first, then rename. Prevents
