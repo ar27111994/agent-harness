@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **ard-export Prettier compliance** — `discover ard-export` now formats `.well-known/ai-catalog.json` with Prettier inline, so the output passes `npm run format:check` immediately after generation (#348)
+- **Workspace pipeline silent failure** — `workspace <host>` now exits non-zero and stops at the recommend phase when recommendations cannot be produced, instead of silently continuing through mirror/install/activate with empty output (#349)
+- **`isAborted()` coverage** — removed `/* c8 ignore */` markers; the helper is now exported and tested through the preflight pipeline with aborted `AbortSignal`. 100% coverage maintained without ignore blocks (#355)
+- **Setup doctor Pi cold-start timeout** — raised default `preflightTimeoutMs` from 10 s to 15 s, eliminating spurious timeout warnings on Pi's first invocation (#350)
+- **Source-sync transient-failure resilience** — `fetchRequiredText` and `fetchRequiredJson` now retry up to 3 times with exponential backoff (1 s, 2 s, 4 s) for transient network/server errors. Non-transient errors (SSRF, 4xx client errors) still fail immediately. Prevents sources like swift-package-index from being stuck in permanent error state after a single transient fetch failure (#351)
+- **Broad-fallback host identification** — `recommend evaluate` now lists which specific host IDs produce broad-fallback top recommendations via the new `broadFallbackHosts` field, enabling targeted diagnostic triage (#354)
+- **OpenCode `.gitignore` self-reference** — removed `.gitignore` from `REQUIRED_ENTRIES` in `ensureOpenCodeOverlayGitignore`; replaced with explanatory comment about the intent (npm-install artifact exclusion). Entries now only target lockfiles and `node_modules` (#356 item 2)
+- **OpenCode unnecessary non-null assertion** — removed `!` from `npmInstallSummary!` inside ternary guard that already narrowed the type (#356 item 5)
+
+### Added
+
+- **`--quiet` / `--summary` flags for `discover full`** — `--quiet` suppresses expected "none survived selection" warnings; `--summary` prints aggregate breakdown by reason instead of per-source counts (#352)
+- **`SelectionReport.acceptanceRate`** — computed as `selectedCount / inputCount` (rounded to 4 decimal places); 0 when inputCount is 0. Backfilled for pre-v2.0.0 reports (#353)
+
+### Changed
+
+- **Activation budget lookup** — replaced three sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
+- **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` constant for consistency with other module-level constants (#356 item 6)
+
 ## [2.0.0] - 2026-06-09
 
 ### Breaking Changes
