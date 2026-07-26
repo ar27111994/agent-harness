@@ -8,22 +8,27 @@ All notable changes to this project will be documented in this file.
 
 - **ard-export Prettier compliance** — `discover ard-export` now formats `.well-known/ai-catalog.json` with Prettier inline, so the output passes `npm run format:check` immediately after generation (#348)
 - **Workspace pipeline silent failure** — `workspace <host>` now exits non-zero and stops at the recommend phase when recommendations cannot be produced, instead of silently continuing through mirror/install/activate with empty output (#349)
-- **`isAborted()` coverage** — removed `/* c8 ignore */` markers; the helper is now exported and tested through the preflight pipeline with aborted `AbortSignal`. 100% coverage maintained without ignore blocks (#355)
+- **`isAborted()` coverage** — removed `/* c8 ignore */` markers; the helper is now exported and tested through the preflight pipeline with aborted `AbortSignal` (#355)
 - **Setup doctor Pi cold-start timeout** — raised default `preflightTimeoutMs` from 10 s to 15 s, eliminating spurious timeout warnings on Pi's first invocation (#350)
-- **Source-sync transient-failure resilience** — `fetchRequiredText` and `fetchRequiredJson` now retry up to 3 times with exponential backoff (1 s, 2 s, 4 s) for transient network/server errors. Non-transient errors (SSRF, 4xx client errors) still fail immediately. Prevents sources like swift-package-index from being stuck in permanent error state after a single transient fetch failure (#351)
-- **Broad-fallback host identification** — `recommend evaluate` now lists which specific host IDs produce broad-fallback top recommendations via the new `broadFallbackHosts` field, enabling targeted diagnostic triage (#354)
-- **OpenCode `.gitignore` self-reference** — removed `.gitignore` from `REQUIRED_ENTRIES` in `ensureOpenCodeOverlayGitignore`; replaced with explanatory comment about the intent (npm-install artifact exclusion). Entries now only target lockfiles and `node_modules` (#356 item 2)
-- **OpenCode unnecessary non-null assertion** — removed `!` from `npmInstallSummary!` inside ternary guard that already narrowed the type (#356 item 5)
+- **Source-sync transient-failure resilience** — fetch operations now retry up to 3 times with exponential backoff (1 s, 2 s, 4 s) via shared `fetchWithRetry` wrapper. Non-transient errors distinguished structurally (`NonTransientFetchError` class + HTTP 4xx detection) rather than fragile string-matching. Sources self-heal on next successful sync (#351)
+- **Source-sync stale-data fallback** — when a previously-successful source fails to fetch, existing catalog entries are preserved under `status: "stale"` with `severity: "warning"` for up to 3 consecutive failures; only escalates to `severity: "error"` (`status: "failed"`) after persistent failure. Sources self-heal on next successful sync (#351)
+- **Broad-fallback host identification** — `recommend evaluate` now lists which specific host IDs produce broad-fallback top recommendations via the new `broadFallbackHosts` field (#354)
+- **OpenCode `.gitignore` self-reference** — removed `.gitignore` from `REQUIRED_ENTRIES`; entries now only target lockfiles and `node_modules` (#356 item 2)
+- **OpenCode non-null assertion eliminated** — extracted `buildNpmInstallNotes()` helper with proper `== null` guard, removing the `!` assertion. Uses `!= null` (loose) per AGENTS.md convention to guard both null and undefined (#356 item 5 / S2)
+- **Duplicate retry-loop code eliminated** — extracted shared `fetchWithRetry<T>()` generic, eliminating ~60 lines of copy-pasted retry logic across `fetchRequiredText` / `fetchRequiredJson` (S1)
+- **Error discrimination hardened** — replaced fragile string-matching `isNonTransientError()` with `NonTransientFetchError` class + structured HTTP 4xx status check (J1)
+- **Prettier error visibility** — `ard-catalog` catch block now logs `console.warn` with the error cause when Prettier formatting is skipped, instead of silently swallowing (J2)
 
 ### Added
 
 - **`--quiet` / `--summary` flags for `discover full`** — `--quiet` suppresses expected "none survived selection" warnings; `--summary` prints aggregate breakdown by reason instead of per-source counts (#352)
 - **`SelectionReport.acceptanceRate`** — computed as `selectedCount / inputCount` (rounded to 4 decimal places); 0 when inputCount is 0. Backfilled for pre-v2.0.0 reports (#353)
+- **`SourceSyncStatus` extended** — new `"stale"` variant for sources using fallback data after transient fetch failures
 
 ### Changed
 
-- **Activation budget lookup** — replaced three sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
-- **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` constant for consistency with other module-level constants (#356 item 6)
+- **Activation budget lookup** — replaced sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
+- **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` for consistency (#356 item 6)
 
 ## [2.0.0] - 2026-06-09
 
