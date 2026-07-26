@@ -560,28 +560,72 @@ void test("writeArdCatalog malformed entry error includes asset ID and cause (#3
 
     assert.ok(warnings.length >= 1, "expected at least one warning");
     const warning = warnings.join("\n");
-    // Warning must identify the malformed entry with its exact identity
-    // and a non-empty cause.
+    // Warning must identify the malformed entry with its displayName
+    // (falls back from id → displayName → "(unknown)").
     assert.ok(
       warning.includes("ard-catalog: skipping malformed entry"),
       `warning must identify the malformed entry, got: "${warning}"`,
     );
+    // The fixture has id:null, displayName:"CorruptAsset" → falls back to displayName.
     assert.ok(
-      warning.includes("(unknown)"),
-      `warning must report malformed entry identity as "(unknown)", got: "${warning}"`,
+      warning.includes("CorruptAsset"),
+      `warning must report malformed entry identity as "CorruptAsset", got: "${warning}"`,
     );
     // Ensure a non-empty cause is present after the identity.
-    // The format is: "ard-catalog: skipping malformed entry (ID): cause"
-    // When ID is "(unknown)", the output becomes "((unknown)): cause".
-    const causeIndex = warning.indexOf("(unknown)): ");
+    const causeIndex = warning.indexOf("CorruptAsset): ");
     assert.ok(
       causeIndex !== -1,
-      `warning must include "(unknown)): " prefix before cause, got: "${warning}"`,
+      `warning must include "CorruptAsset): " prefix before cause, got: "${warning}"`,
     );
-    const afterPrefix = warning.slice(causeIndex + "(unknown)): ".length);
+    const afterPrefix = warning.slice(causeIndex + "CorruptAsset): ".length);
     assert.ok(
       afterPrefix.length > 0,
       `warning must include a non-empty cause after the identity, got: "${warning}"`,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog falls back to (unknown) when both id and displayName are missing", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-noidentity-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    // Build a valid entry alongside a completely anonymous corrupt line.
+    const validEntry = buildEntry({
+      id: "valid-entry",
+      displayName: "Valid",
+      assetKind: "skill",
+    });
+    const corrupt = "{}";
+
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      corrupt + "\n" + JSON.stringify(validEntry) + "\n",
+      "utf8",
+    );
+
+    const warnings: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (message: string) => {
+      warnings.push(message);
+    };
+
+    try {
+      const result = await writeArdCatalog(root, "2.0.0");
+      assert.equal(result.entryCount, 1, "valid entry still exported");
+    } finally {
+      console.warn = origWarn;
+    }
+
+    assert.ok(warnings.length >= 1, "expected at least one warning");
+    const warning = warnings.join("\n");
+    assert.ok(
+      warning.includes("(unknown)"),
+      `warning must fall back to "(unknown)" when no id or displayName, got: "${warning}"`,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -254,10 +254,14 @@ export async function writeArdCatalog(
       // specific cause and asset ID so operators can identify and fix the
       // offending entry.
       const message = extractErrorMessage(err);
+      const entryId = (entry as AssetCatalogEntry)?.id;
+      const entryDisplay = (entry as AssetCatalogEntry)?.displayName;
       const assetId =
-        typeof (entry as AssetCatalogEntry)?.id === "string"
-          ? (entry as AssetCatalogEntry).id
-          : "(unknown)";
+        typeof entryId === "string" && entryId.length > 0
+          ? entryId
+          : typeof entryDisplay === "string" && entryDisplay.length > 0
+            ? entryDisplay
+            : "(unknown)";
       console.warn(
         `ard-catalog: skipping malformed entry (${assetId}): ${message}`,
       );
@@ -287,9 +291,9 @@ export async function writeArdCatalog(
  * Extracts a human-readable message from an unknown error value.
  *
  * Separating this from the catch block lets c8 measure branch coverage
- * independently — the Error instance path is always taken in practice
- * (JS engines only throw Error instances), while the fallback is a
- * defensive guard.
+ * independently — the Error instance path covers all standard throws,
+ * while the fallback guards against non-standard throw values (strings,
+ * numbers, or plain objects that JS allows but are rare in practice).
  */
 export function extractErrorMessage(err: unknown): string {
   /* c8 ignore next 3 */

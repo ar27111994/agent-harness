@@ -286,3 +286,28 @@ void test(
     );
   },
 );
+
+void test("runAdapterPreflight returns skipped diagnostic when AbortSignal is already aborted", async () => {
+  const { runAdapterPreflight } = await import("../lib/preflight.js");
+  const adapter = buildNoRuntimeAdapter("pre-aborted");
+  const signal = AbortSignal.abort();
+
+  const diagnostics = await runAdapterPreflight(adapter, signal);
+  assert.ok(diagnostics.length >= 1);
+  const skipped = diagnostics.find(
+    (d) => d.code === "pre-aborted-preflight-skipped",
+  );
+  assert.ok(skipped !== undefined, "expected preflight-skipped diagnostic");
+  assert.equal(skipped.severity, "warning");
+});
+
+void test("runRuntimeCommand returns cancelled when AbortSignal is already aborted", async () => {
+  const { runRuntimeCommand } = (
+    await import("../lib/preflight.js")
+  ).preflightInternals;
+
+  const signal = AbortSignal.abort();
+  const result = await runRuntimeCommand("echo", ["hello"], signal);
+  assert.equal(result.exitCode, null);
+  assert.ok(result.message.includes("cancelled"));
+});

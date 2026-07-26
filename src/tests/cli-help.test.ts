@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
 
 import {

@@ -552,4 +552,5 @@ export const preflightInternals = {
   quotePowerShellLiteral,
   resolveFoundExecutable,
   resolveRuntimeExecutable,
+  runRuntimeCommand,
 };

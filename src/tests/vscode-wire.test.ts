@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import type { Dirent, Stats } from "node:fs";
-import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -1056,6 +1056,106 @@ void test("VS Code wire internals strip managed settings and infer fallback plug
     "plugin.json",
   );
   assert.equal(vscodeWireInternals.toLoggableErrorMessage("plain"), "plain");
+});
+
+void test("materializePromptPackFiles and materializeReferencePackFiles write content and skip missing assets", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-pack-"));
+
+  try {
+    const activationRoot = join(root, "activate", "copilot-vscode");
+    const destRoot = join(root, "output");
+
+    // Write a prompt-pack asset with content.
+    const promptAssetDir = join(
+      activationRoot,
+      sanitizeAssetId("acme-prompt-pack"),
+    );
+    await mkdir(promptAssetDir, { recursive: true });
+    await writeJsonFile(join(promptAssetDir, "asset.json"), {
+      id: "acme-prompt-pack",
+      displayName: "Acme Prompts",
+      assetKind: "prompt-pack",
+      hosts: ["copilot-vscode"],
+      compatibilityMode: "adaptable",
+      source: {
+        sourceId: "test",
+        authorityTier: "unverified-community",
+        sourceKind: "repo",
+        sourcePriority: 50,
+        publisherVerified: false,
+      },
+      install: { manifestEntry: "https://example.com/prompts" },
+      capabilities: [],
+      maintenance: { lastUpdated: new Date().toISOString(), releaseCadence: "occasional" },
+      trust: { signals: [] },
+      evidence: {},
+      risk: { hooks: false, execScripts: false, requiresNetwork: false },
+      contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+      fit: { portfolioFit: 0.5, hostFit: 0.5 },
+      dedupe: { duplicateGroup: null, candidateRankHint: 0 },
+      status: "fresh",
+    });
+    await writeTextFile(
+      join(promptAssetDir, "content.txt"),
+      "# Prompt Pack\n\nSystem prompt: be helpful.",
+    );
+
+    // Write a reference-pack asset with content.
+    const refAssetDir = join(
+      activationRoot,
+      sanitizeAssetId("acme-reference-pack"),
+    );
+    await mkdir(refAssetDir, { recursive: true });
+    await writeJsonFile(join(refAssetDir, "asset.json"), {
+      id: "acme-reference-pack",
+      displayName: "Acme References",
+      assetKind: "reference-pack",
+      hosts: ["copilot-vscode"],
+      compatibilityMode: "adaptable",
+      source: {
+        sourceId: "test",
+        authorityTier: "unverified-community",
+        sourceKind: "repo",
+        sourcePriority: 50,
+        publisherVerified: false,
+      },
+      install: { manifestEntry: "https://example.com/ref" },
+      capabilities: [],
+      maintenance: { lastUpdated: new Date().toISOString(), releaseCadence: "occasional" },
+      trust: { signals: [] },
+      evidence: {},
+      risk: { hooks: false, execScripts: false, requiresNetwork: false },
+      contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+      fit: { portfolioFit: 0.5, hostFit: 0.5 },
+      dedupe: { duplicateGroup: null, candidateRankHint: 0 },
+      status: "fresh",
+    });
+    await writeTextFile(
+      join(refAssetDir, "content.txt"),
+      "# Reference Pack\n\nAPI docs for integration.",
+    );
+
+    // Also include a non-existent asset ID to exercise the skip path.
+    const promptFiles = await vscodeWireInternals.materializePromptPackFiles(
+      ["acme-prompt-pack", "missing-prompt-pack"],
+      activationRoot,
+      join(destRoot, "prompt-packs"),
+    );
+    assert.equal(promptFiles.length, 1);
+    const promptContent = await readTextFileOrNull(promptFiles[0]);
+    assert.ok(promptContent?.includes("be helpful"));
+
+    const refFiles = await vscodeWireInternals.materializeReferencePackFiles(
+      ["acme-reference-pack", "missing-ref-pack"],
+      activationRoot,
+      join(destRoot, "reference-packs"),
+    );
+    assert.equal(refFiles.length, 1);
+    const refContent = await readTextFileOrNull(refFiles[0]);
+    assert.ok(refContent?.includes("API docs"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 void test("VS Code generation pruning tolerates temp-state filesystem races", async () => {
