@@ -314,6 +314,13 @@ void test("runRuntimeCommand returns cancelled when AbortSignal is already abort
   assert.ok(result.message.includes("cancelled"));
 });
 
+void test("runRuntimeCommand returns cancelled:false for successful commands", async () => {
+  // On Windows, echo is a cmd builtin — we use node to ensure cross-platform.
+  const result = await runRuntimeCommand(process.execPath, ["-e", ""]);
+  assert.equal(result.cancelled, false);
+  assert.equal(result.exitCode, 0);
+});
+
 void test("runRuntimeCommand maps in-flight ABORT_ERR to cancelled message", async () => {
   // Abort after a short delay so the process is spawned first.
   const controller = new AbortController();

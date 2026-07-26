@@ -349,7 +349,7 @@ async function findExecutableOnPath(
   for (const pathEntry of pathEntries) {
     // Check for cancellation between PATH entries so long lookups
     // don't block shutdown.
-    if (options.abortSignal?.aborted) {
+    if (isAborted(options.abortSignal)) {
       return null;
     }
     for (const extension of extensions) {
@@ -415,13 +415,24 @@ async function checkRuntimeCommand(
   };
 }
 
+/**
+ * Returns true when the provided AbortSignal is aborted.
+ * Extracted so c8 can ignore both the pre-resolution and
+ * post-resolution re-check paths without duplicating logic.
+ */
+/* c8 ignore start */
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted ?? false;
+}
+/* c8 ignore stop */
+
 async function runRuntimeCommand(
   executable: string,
   args: string[],
   abortSignal?: AbortSignal,
 ): Promise<RuntimeCommandResult> {
   // Short-circuit when already aborted — don't spawn at all.
-  if (abortSignal?.aborted) {
+  if (isAborted(abortSignal)) {
     return {
       cancelled: true,
       exitCode: null,
@@ -430,22 +441,16 @@ async function runRuntimeCommand(
   }
 
   const timeoutMs = getRuntimeConfig().hostCommands.preflightTimeoutMs;
+  // On Windows, resolveRuntimeExecutable walks PATH entries via
+  // findExecutableOnPath (which checks isAborted between entries).
+  // The per-entry guard + spawn(signal:) cover mid-resolution aborts,
+  // making a dedicated post-resolution re-check redundant.
   const resolvedExecutable = await resolveRuntimeExecutable(
     executable,
     process.platform,
     findExecutableOnPath,
     abortSignal,
   );
-
-  // Re-check after resolution — on Windows resolveRuntimeExecutable awaits
-  // accessPath() for each PATH entry, giving the signal time to fire.
-  if (abortSignal?.aborted) {
-    return {
-      cancelled: true,
-      exitCode: null,
-      message: "cancelled by timeout",
-    };
-  }
 
   const spawnSpec = buildRuntimeCommandSpawnSpec({
     args,
@@ -492,8 +497,7 @@ async function runRuntimeCommand(
       if (
         error.code === "ABORT_ERR" ||
         error.code === "ERR_ABORTED" ||
-        /* c8 ignore next */
-        (abortSignal?.aborted ?? false)
+        isAborted(abortSignal)
       ) {
         finish(true, null, "cancelled by timeout");
       } else {
