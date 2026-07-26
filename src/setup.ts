@@ -98,6 +98,28 @@ async function runAdapterPreflightWithTimeout(
   cumulativeSignal?: AbortSignal,
 ): Promise<PreflightDiagnostic[]> {
   const signal = AbortSignal.timeout(adapterTimeoutMs);
+
+  // Create a combined signal that fires when EITHER the per-adapter timeout
+  // or the cumulative timeout fires. This ensures child processes spawned
+  // during preflight checks are actually killed rather than running in the
+  // background after the doctor has already returned a timeout diagnostic.
+  const combined = new AbortController();
+  const wireSignal = (source: AbortSignal): void => {
+    if (source.aborted) {
+      combined.abort(source.reason);
+      return;
+    }
+    source.addEventListener(
+      "abort",
+      () => combined.abort(source.reason),
+      { once: true },
+    );
+  };
+  wireSignal(signal);
+  if (cumulativeSignal) {
+    wireSignal(cumulativeSignal);
+  }
+
   try {
     return await Promise.race([
       (async () => [
@@ -105,7 +127,7 @@ async function runAdapterPreflightWithTimeout(
           requireHostPaths:
             adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
         })),
-        ...(await runAdapterPreflight(adapter, cumulativeSignal)),
+        ...(await runAdapterPreflight(adapter, combined.signal)),
         ...(projectRoot
           ? await collectActivatedAssetPrerequisiteDiagnostics(
               projectRoot,

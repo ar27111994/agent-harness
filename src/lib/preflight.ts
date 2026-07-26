@@ -375,6 +375,19 @@ async function checkRuntimeCommand(
     };
   }
 
+  // Detect abort/cancellation and emit a dedicated diagnostic rather than
+  // generic "host-setup failure" guidance so operators know the check was
+  // skipped intentionally.
+  if (result.message.startsWith("cancelled")) {
+    return {
+      severity: "warning",
+      code: `${options.code}-cancelled`,
+      message: `${options.executable} ${options.args.join(" ")} ${result.message}.`,
+      action:
+        "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
+    };
+  }
+
   return {
     severity: options.failureSeverity,
     code: options.code,
@@ -428,7 +441,21 @@ async function runRuntimeCommand(
       stderr = `${stderr}${chunk.toString("utf8")}`.slice(0, 2_000);
     });
     child.on("error", (error: NodeJS.ErrnoException) => {
-      finish(null, error.code ?? error.message);
+      // Map abort/cancellation errors to a clear message rather than
+      // surfacing the raw "ABORT_ERR" code which is not actionable.
+      // The `abortSignal?.aborted` fallback guards against rare edge cases
+      // where spawn terminates mid-flight without a standard error code
+      // but the signal is nonetheless aborted.
+      if (
+        error.code === "ABORT_ERR" ||
+        error.code === "ERR_ABORTED" ||
+        /* c8 ignore next */
+        (abortSignal?.aborted ?? false)
+      ) {
+        finish(null, "cancelled by timeout");
+      } else {
+        finish(null, error.code ?? error.message);
+      }
     });
     child.on("close", (exitCode) => {
       finish(exitCode, stderr.trim() || `exit code ${String(exitCode)}`);
@@ -552,6 +579,7 @@ export async function checkPathExists(
 export const preflightInternals = {
   buildRuntimeCommandSpawnSpec,
   buildWindowsPowerShellCommand,
+  checkRuntimeCommand,
   findExecutableOnPath,
   getExecutableAccessMode,
   getExecutableSearchExtensions,
