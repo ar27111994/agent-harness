@@ -179,11 +179,11 @@ export async function runWorkspacePipeline(
     "Ranking recommendations",
     dependencies.writeWorkspaceProgress,
   );
-  const recommendExitCode = await dependencies.runRecommend(
+  const recommendExitCode = (await dependencies.runRecommend(
     ["report", ...resolvedIntents.flatMap((intent) => ["--intent", intent])],
     workspaceRoot,
     projectRoot,
-  ) as number;
+  )) as number;
   if (recommendExitCode !== 0) {
     throw new Error(
       "recommend phase failed — no recommendations could be produced. " +

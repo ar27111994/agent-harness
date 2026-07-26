@@ -28295,11 +28295,7 @@
       "type": "application/mcp-server+json",
       "url": "claude-skills-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "claude",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["claude", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find claude-skills-mcp for shared workflows",
@@ -28336,13 +28332,7 @@
       "type": "application/mcp-server+json",
       "url": "claude-slash-commands-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "claude",
-        "slash",
-        "commands",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["claude", "slash", "commands", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find claude-slash-commands-mcp for shared workflows",
@@ -28381,11 +28371,7 @@
       "type": "application/mcp-server+json",
       "url": "click-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "click",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["click", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find click-mcp for shared workflows",
@@ -28422,11 +28408,7 @@
       "type": "application/mcp-server+json",
       "url": "coglog-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "coglog",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["coglog", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find coglog-mcp for shared workflows",
@@ -28463,11 +28445,7 @@
       "type": "application/mcp-server+json",
       "url": "cognee-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "cognee",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["cognee", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find cognee-mcp for shared workflows",
@@ -28504,11 +28482,7 @@
       "type": "application/mcp-server+json",
       "url": "coinmarketcap-mcp",
       "description": "mcp-server asset from pypi-registry (package-registry)",
-      "capabilities": [
-        "coinmarketcap",
-        "mcp",
-        "pypi"
-      ],
+      "capabilities": ["coinmarketcap", "mcp", "pypi"],
       "representativeQueries": [
         "What mcp-server assets are available from pypi-registry?",
         "Find coinmarketcap-mcp for shared workflows",
@@ -28545,11 +28519,7 @@
       "type": "application/ai-skill+json",
       "url": "active_security",
       "description": "plugin asset from rubygems-registry (package-registry)",
-      "capabilities": [
-        "active",
-        "security",
-        "gem"
-      ],
+      "capabilities": ["active", "security", "gem"],
       "representativeQueries": [
         "What plugin assets are available from rubygems-registry?",
         "Find active_security for copilot-vscode workflows",
@@ -28590,13 +28560,7 @@
       "type": "application/ai-skill+json",
       "url": "activerecord-tenant-level-security",
       "description": "plugin asset from rubygems-registry (package-registry)",
-      "capabilities": [
-        "activerecord",
-        "tenant",
-        "level",
-        "security",
-        "gem"
-      ],
+      "capabilities": ["activerecord", "tenant", "level", "security", "gem"],
       "representativeQueries": [
         "What plugin assets are available from rubygems-registry?",
         "Find activerecord-tenant-level-security for copilot-vscode workflows",

@@ -79,10 +79,14 @@ export interface SourceSyncContext {
 
 // ─── Fetch options ────────────────────────────────────────────────────────────
 
-/** Per-request fetch tuning: byte cap and timeout override. */
+/** Per-request fetch tuning: byte cap, timeout, and retry options. */
 export interface SourceSyncFetchOptions {
   maxBytes?: number;
   timeoutMs?: number;
+  /** Max retry attempts for transient fetch failures (default 3). */
+  maxRetries?: number;
+  /** Base backoff delay in ms for exponential retry (default 1 000). */
+  retryBaseDelayMs?: number;
 }
 
 // ─── Reference item options ───────────────────────────────────────────────────

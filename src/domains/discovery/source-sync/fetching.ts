@@ -45,49 +45,114 @@ export const SOURCE_SYNC_HEADERS = {
   Accept: "application/json,text/html,application/xml,text/plain,*/*",
   "User-Agent": "agent-harness",
 };
+/** Maximum retry attempts for transient source-sync fetch failures. */
+export const SOURCE_SYNC_MAX_RETRIES = 3;
+/** Base backoff delay in ms for source-sync retries (exponential: delay × 2ⁿ). */
+export const SOURCE_SYNC_RETRY_BASE_DELAY_MS = 1_000;
 
 // ─── Fetch wrappers ───────────────────────────────────────────────────────────
 
 /**
- * Fetches the URL as plain text, throwing when the response is null or the
- * request fails the SSRF / byte-limit guards in lib/http.ts.
+ * Fetches the URL as plain text with retry-on-transient-failure.
+ * Throws when all retry attempts are exhausted or the request hits a
+ * non-transient failure (SSRF rejection, 4xx client error, etc.).
  */
 export async function fetchRequiredText(
   url: string,
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<string> {
-  const content = await fetchTextWithGuards(url, {
-    allowedOrigins,
-    headers: SOURCE_SYNC_HEADERS,
-    maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-    timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-  });
-  if (content === null) {
-    throw new Error(`Failed to fetch ${url}`);
+  const maxRetries = options.maxRetries ?? SOURCE_SYNC_MAX_RETRIES;
+  const baseDelayMs = options.retryBaseDelayMs ?? SOURCE_SYNC_RETRY_BASE_DELAY_MS;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delayMs = baseDelayMs * 2 ** (attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    try {
+      const content = await fetchTextWithGuards(url, {
+        allowedOrigins,
+        headers: SOURCE_SYNC_HEADERS,
+        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+      });
+      if (content === null) {
+        throw new Error(`Failed to fetch ${url}`);
+      }
+      return content;
+    } catch (err) {
+      lastError = err;
+      // Don't retry on SSRF rejections or client errors (4xx).
+      if (isNonTransientError(err)) {
+        throw err;
+      }
+      // Last attempt — rethrow.
+      if (attempt === maxRetries) {
+        throw err;
+      }
+    }
   }
-  return content;
+  throw lastError;
 }
 
 /**
- * Fetches the URL as parsed JSON, throwing when the response is null or the
- * request fails the SSRF / byte-limit guards in lib/http.ts.
+ * Returns true for errors where retrying is pointless (SSRF rejections,
+ * 4xx client errors, invalid URLs).
+ */
+function isNonTransientError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    msg.includes("ssrf") ||
+    msg.includes("private ip") ||
+    msg.includes("invalid url") ||
+    msg.includes("blocked by policy")
+  );
+}
+
+/**
+ * Fetches the URL as parsed JSON with retry-on-transient-failure.
+ * Throws when all retry attempts are exhausted or the request hits a
+ * non-transient failure.
  */
 export async function fetchRequiredJson(
   url: string,
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<unknown> {
-  const content = await fetchJsonWithGuards(url, {
-    allowedOrigins,
-    headers: SOURCE_SYNC_HEADERS,
-    maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-    timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-  });
-  if (content === null) {
-    throw new Error(`Failed to fetch ${url}`);
+  const maxRetries = options.maxRetries ?? SOURCE_SYNC_MAX_RETRIES;
+  const baseDelayMs = options.retryBaseDelayMs ?? SOURCE_SYNC_RETRY_BASE_DELAY_MS;
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delayMs = baseDelayMs * 2 ** (attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+    try {
+      const content = await fetchJsonWithGuards(url, {
+        allowedOrigins,
+        headers: SOURCE_SYNC_HEADERS,
+        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+      });
+      if (content === null) {
+        throw new Error(`Failed to fetch ${url}`);
+      }
+      return content;
+    } catch (err) {
+      lastError = err;
+      if (isNonTransientError(err)) {
+        throw err;
+      }
+      if (attempt === maxRetries) {
+        throw err;
+      }
+    }
   }
-  return content;
+  throw lastError;
 }
 
 // ─── Allowed-origin construction ──────────────────────────────────────────────
