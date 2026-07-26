@@ -23,6 +23,104 @@ void test("adapter runtime preflight is driven by adapter metadata", async () =>
   );
 });
 
+void test("native install preflight makes missing runtime fatal", async () => {
+  const diagnostics = await runNativeInstallPreflight({
+    ...buildFakeAdapter(),
+    nativeInstall: {
+      assetKind: "extension",
+      collectActions: () => [],
+    },
+  });
+
+  assert.equal(diagnostics[0]?.severity, "error");
+});
+
+void test("native install preflight rejects adapters without native provider", async () => {
+  const diagnostics = await runNativeInstallPreflight(buildFakeAdapter());
+
+  assert.ok(
+    diagnostics.some(
+      (diagnostic) =>
+        diagnostic.code === "fake-host-native-install-unsupported",
+    ),
+  );
+});
+
+void test("adapter runtime preflight builds Windows wrapper spawn specs", () => {
+  const wrapperSpec = preflightInternals.buildRuntimeCommandSpawnSpec({
+    args: ["--version"],
+    executable: "fake-wrapper",
+    platform: "win32",
+    resolvedExecutable: "C:\\Tools\\fake-wrapper.cmd",
+  });
+  assert.equal(wrapperSpec.executable, "powershell.exe");
+  assert.deepEqual(wrapperSpec.args.slice(0, 4), [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+  ]);
+  assert.equal(wrapperSpec.args.at(-1), "& 'fake-wrapper' '--version'");
+
+  assert.deepEqual(
+    preflightInternals.buildRuntimeCommandSpawnSpec({
+      args: ["--version"],
+      executable: "node",
+      platform: "linux",
+      resolvedExecutable: "/usr/bin/node",
+    }),
+    { executable: "/usr/bin/node", args: ["--version"] },
+  );
+  assert.deepEqual(
+    preflightInternals.buildRuntimeCommandSpawnSpec({
+      args: ["--version"],
+      executable: "node",
+      resolvedExecutable: "/usr/bin/node",
+    }),
+    { executable: "/usr/bin/node", args: ["--version"] },
+  );
+});
+
+void test("executable preflight handles empty PATH and default Windows extensions", async () => {
+  const originalPath = process.env.PATH;
+  const originalPathext = process.env.PATHEXT;
+
+  try {
+    delete process.env.PATH;
+    const missing = await checkExecutableOnPath(
+      "definitely-missing-agent-harness-host",
+      "missing-host",
+    );
+    assert.equal(missing.severity, "warning");
+    assert.equal(missing.action?.startsWith("Install the host CLI"), true);
+
+    const found = await preflightInternals.findExecutableOnPath("default-ext", {
+      accessPath: async (candidate) => {
+        if (String(candidate).endsWith("default-ext.CMD")) {
+          return;
+        }
+        throw Object.assign(new Error("missing"), { code: "ENOENT" });
+      },
+      env: { PATH: "C:\\Tools" } as NodeJS.ProcessEnv,
+      platform: "win32",
+    });
+    assert.equal(found, "C:\\Tools\\default-ext.CMD");
+  } finally {
+    if (originalPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = originalPath;
+    }
+    if (originalPathext === undefined) {
+      delete process.env.PATHEXT;
+    } else {
+      process.env.PATHEXT = originalPathext;
+    }
+  }
+});
+
+// ── isAborted coverage (#355) ──────────────────────────────────────────
+
 void test("isAborted: returns false when signal is undefined", () => {
   assert.equal(isAborted(undefined), false);
 });
@@ -58,17 +156,17 @@ void test("runAdapterPreflight returns skipped diagnostic when abort signal is a
 function buildFakeAdapter(): HostAdapter {
   return {
     id: "fake-host",
-    displayName: "Fake IDE",
-    lifecycleHost: "copilot-vscode" as const,
-    recommendationHost: "copilot-vscode" as const,
-    mutatesHostPaths: false,
+    aliases: [],
+    displayName: "Fake Host",
+    lifecycleHost: "opencode",
+    recommendationHost: "opencode",
     defaultBundleIds: [],
+    mutatesHostPaths: false,
     runtime: {
       executable: "definitely-missing-agent-harness-host",
       guidance: "Install the fake host CLI.",
     },
     capabilities: [],
     wire: async () => {},
-    aliases: [],
   };
 }
