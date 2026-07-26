@@ -191,9 +191,14 @@ async function runDoctor(
     DOCTOR_ADAPTER_TIMEOUT_MS,
   );
 
+  // Derive the cumulative default from the resolved per-adapter timeout
+  // plus headroom for the worst-case sequential runtime preflight budget
+  // (two checks at hostCommands.preflightTimeoutMs each). This ensures
+  // the cumulative timeout scales with any user-configured per-adapter
+  // timeout rather than being pinned to a fixed constant.
   const cumulativeTimeoutMs = parsePositiveIntegerEnv(
     process.env.AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS,
-    DOCTOR_CUMULATIVE_TIMEOUT_MS,
+    adapterTimeoutMs + 2 * 10_000,
   );
 
   // Print progress immediately so the user sees activity — a hung doctor
