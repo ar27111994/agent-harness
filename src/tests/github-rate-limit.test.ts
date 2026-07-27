@@ -32,9 +32,8 @@ void test("fetchGitHubJsonOptional returns null on 403 (secondary rate limit)", 
     globalThis.fetch = async () =>
       new Response("rate limited", { status: 403, statusText: "Forbidden" });
 
-    const result = await githubInternals.fetchGitHubJsonOptional(
-      "/repos/octo/repo",
-    );
+    const result =
+      await githubInternals.fetchGitHubJsonOptional("/repos/octo/repo");
     assert.equal(result, null, "403 should return null instead of throwing");
   });
 });
@@ -42,11 +41,13 @@ void test("fetchGitHubJsonOptional returns null on 403 (secondary rate limit)", 
 void test("fetchGitHubJsonOptional returns null on 429 (primary rate limit)", async () => {
   await withFetchRestored(async () => {
     globalThis.fetch = async () =>
-      new Response("rate limited", { status: 429, statusText: "Too Many Requests" });
+      new Response("rate limited", {
+        status: 429,
+        statusText: "Too Many Requests",
+      });
 
-    const result = await githubInternals.fetchGitHubJsonOptional(
-      "/repos/octo/repo",
-    );
+    const result =
+      await githubInternals.fetchGitHubJsonOptional("/repos/octo/repo");
     assert.equal(result, null, "429 should return null instead of throwing");
   });
 });
@@ -68,9 +69,8 @@ void test("fetchGitHubJsonOptional returns null on 404 (unchanged behavior)", as
   await withFetchRestored(async () => {
     globalThis.fetch = async () => new Response("missing", { status: 404 });
 
-    const result = await githubInternals.fetchGitHubJsonOptional(
-      "/repos/octo/repo",
-    );
+    const result =
+      await githubInternals.fetchGitHubJsonOptional("/repos/octo/repo");
     assert.equal(result, null, "404 should return null (existing behavior)");
   });
 });
@@ -78,7 +78,9 @@ void test("fetchGitHubJsonOptional returns null on 404 (unchanged behavior)", as
 // ── Error → cache fallback (lines 425-437 coverage) ─────────────────────
 
 void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", async () => {
-  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-gh-rate-limit-"));
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-gh-rate-limit-"),
+  );
   const cacheDir = join(tempRoot, "state", "remote-cache", "github");
   const { mkdir, writeFile } = await import("node:fs/promises");
   await mkdir(cacheDir, { recursive: true });
@@ -89,11 +91,27 @@ void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", 
     owner: "octocat",
     repo: "hello-world",
     sourceId: "test",
-    repoSummary: { name: "hello-world", fullName: "octocat/hello-world", description: null, defaultBranch: "main", updatedAt: null, pushedAt: null, stars: 0, language: null, topics: [], archived: false, htmlUrl: "https://github.com/octocat/hello-world" },
+    repoSummary: {
+      name: "hello-world",
+      fullName: "octocat/hello-world",
+      description: null,
+      defaultBranch: "main",
+      updatedAt: null,
+      pushedAt: null,
+      stars: 0,
+      language: null,
+      topics: [],
+      archived: false,
+      htmlUrl: "https://github.com/octocat/hello-world",
+    },
     readme: null,
     tree: { sha: "tree-sha", truncated: false, entries: [] },
   };
-  await writeFile(join(cacheDir, "octocat__hello-world.json"), JSON.stringify(snapshot), "utf8");
+  await writeFile(
+    join(cacheDir, "octocat__hello-world.json"),
+    JSON.stringify(snapshot),
+    "utf8",
+  );
 
   await withFetchRestored(async () => {
     // Mock: repo fetch succeeds (200), tree fetch throws (network error).
@@ -101,7 +119,9 @@ void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", 
     globalThis.fetch = (async () => {
       callCount += 1;
       if (callCount === 1) {
-        return new Response(JSON.stringify(snapshot.repoSummary), { status: 200 });
+        return new Response(JSON.stringify(snapshot.repoSummary), {
+          status: 200,
+        });
       }
       throw new Error("network failure");
     }) as typeof globalThis.fetch;
@@ -121,7 +141,11 @@ void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", 
     };
     const result = await fetchGitHubRepoSnapshot(source, tempRoot);
 
-    assert.deepEqual(result, snapshot, "should return cached snapshot on fetch error");
+    assert.deepEqual(
+      result,
+      snapshot,
+      "should return cached snapshot on fetch error",
+    );
   });
 
   // Clean up temp directory.
