@@ -212,7 +212,7 @@ export async function syncIndexedSources(
         status: shouldFallBackToStale ? "stale" : "failed",
         lastSyncedAt: new Date().toISOString(),
         indexedEntryCount: shouldFallBackToStale
-          ? (previousState?.indexedEntryCount ?? 0)
+          ? previousState.indexedEntryCount
           : countEntriesForSource(entriesById, source.id),
         reason: shouldFallBackToStale
           ? `using stale data (${previousFailures} consecutive fetch failure(s): ${errorMessage})`

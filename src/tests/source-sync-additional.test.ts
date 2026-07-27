@@ -66,6 +66,61 @@ void test("source sync marks indexed sources as failed when the first html fetch
   }
 });
 
+void test("source sync handles consecutive failure when prior state is stale", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-stale-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://pi.dev/packages": () => {
+      throw new Error("second consecutive fetch failure");
+    },
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource("pi-packages", "registry", {
+        baseUrl: "https://pi.dev/packages",
+      }),
+    ]);
+
+    await writeJsonFile(join(projectRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
+      schemaVersion: 1,
+      generatedAt: new Date(0).toISOString(),
+      sources: [
+        {
+          sourceId: "pi-packages",
+          coverageMode: "indexed",
+          status: "stale",
+          lastSyncedAt: new Date(0).toISOString(),
+          indexedEntryCount: 5,
+          consecutiveFailures: 1,
+          cursors: [],
+        },
+      ],
+    });
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+    const source = report.sources.find(
+      (entry) => entry.sourceId === "pi-packages",
+    );
+
+    assert.equal(source?.coverageMode, "indexed");
+    assert.equal(source?.status, "stale");
+    assert.equal(source?.indexedEntryCount, 5);
+    assert.match(
+      source?.reason ?? "",
+      /using stale data \(2 consecutive fetch failure\(s\):/u,
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("source sync preserves prior sitemap cursors and classifies unsupported known ids", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-sync-additional-"),
