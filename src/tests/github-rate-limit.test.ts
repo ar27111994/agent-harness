@@ -71,25 +71,22 @@ void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", 
 
   // Mock: repo fetch succeeds (200), tree fetch throws (network error).
   let callCount = 0;
-  globalThis.fetch = async (url: string | URL) => {
+  globalThis.fetch = (async () => {
     callCount += 1;
-    const path = typeof url === "string" ? new URL(url).pathname : new URL(url.toString()).pathname;
     if (callCount === 1) {
       // Repo fetch: return 200.
       return new Response(JSON.stringify(snapshot.repoSummary), { status: 200 });
     }
     // Tree/readme fetch: throw network error.
     throw new Error("network failure");
-  };
+  }) as typeof globalThis.fetch;
 
   // This should fall through the try block → catch → cache fallback.
   const { fetchGitHubRepoSnapshot } = await import("../github.js");
-  const result = await fetchGitHubRepoSnapshot({
-    owner: "octocat",
-    repo: "hello-world",
-    projectRoot: "",
-    sourceId: "test",
-  });
+  const result = await fetchGitHubRepoSnapshot(
+    { owner: "octocat", repo: "hello-world", sourceId: "test" },
+    "",
+  );
 
   assert.deepEqual(result, snapshot, "should return cached snapshot on fetch error");
 
