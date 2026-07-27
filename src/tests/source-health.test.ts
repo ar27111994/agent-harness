@@ -160,10 +160,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     "warning",
   );
   // stale-error-source has 4 consecutive failures → error.
-  assert.equal(
-    sourceEntry(report, "stale-error-source")?.severity,
-    "error",
-  );
+  assert.equal(sourceEntry(report, "stale-error-source")?.severity, "error");
   // stale-no-meta-source has no consecutiveFailures or reason → ?? fallbacks.
   assert.equal(
     sourceEntry(report, "stale-no-meta-source")?.severity,
