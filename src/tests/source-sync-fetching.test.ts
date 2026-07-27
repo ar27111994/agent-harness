@@ -178,3 +178,30 @@ void test("isNonTransientError returns false for Error with string status", () =
   const err = Object.assign(new Error("bad"), { status: "404" });
   assert.equal(isNonTransientError(err), false);
 });
+
+// ── fetchWithRetry transient-retry coverage ──────────────────────────────
+
+import { fetchWithRetry } from "../domains/discovery/source-sync/fetching.js";
+
+void test("fetchWithRetry retries on transient error then succeeds", async () => {
+  let calls = 0;
+  const result = await fetchWithRetry("test://url", async () => {
+    calls += 1;
+    if (calls === 1) throw new Error("transient network error");
+    return "success";
+  }, { maxRetries: 2, retryBaseDelayMs: 1 });
+  assert.equal(result, "success");
+  assert.equal(calls, 2, "should retry once then succeed");
+});
+
+void test("fetchWithRetry throws after exhausting all retries", async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchWithRetry("test://url", async () => {
+      calls += 1;
+      throw new Error("persistent failure");
+    }, { maxRetries: 1, retryBaseDelayMs: 1 }),
+    /persistent failure/,
+  );
+  assert.equal(calls, 2, "should try once + retry once = 2 total");
+});

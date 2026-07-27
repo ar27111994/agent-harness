@@ -118,7 +118,7 @@ export function hasHttpStatus(err: Error): err is Error & { status: number } {
  * immediately without retry. Transient errors retry up to `maxRetries` times
  * with delays of `baseDelayMs × 2ⁿ`.
  */
-async function fetchWithRetry<T>(
+export async function fetchWithRetry<T>(
   url: string,
   fetchFn: () => Promise<T>,
   options: SourceSyncFetchOptions = {},
@@ -139,9 +139,6 @@ async function fetchWithRetry<T>(
       if (isNonTransientError(err)) {
         throw err;
       }
-      // Transient error path — retry on next iteration.
-      // Requires a fetchFn that throws transient errors to exercise fully.
-      /* c8 ignore next 2 */
       if (attempt === maxRetries) {
         throw err;
       }
