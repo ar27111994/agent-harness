@@ -462,7 +462,7 @@ void test("runWorkspacePipeline throws when recommend phase returns non-number (
         }
         return null;
       },
-    }),
+    })),
     /non-number exit code/,
   );
 });
