@@ -538,7 +538,13 @@ function applyDynamicScore(
     total: Math.round(score.total),
   };
   const reasons = [...candidate.reasons];
-  if (score.coverage > 0) {
+  // Only tag as "coverage-gap-fill" when coverage meaningfully contributes
+  // to the total score. Without this threshold, every candidate with even a
+  // trivial coverage bonus gets tagged, causing false broad-fallback detection
+  // in recommend evaluate (e.g. cursor host showing 1 broad fallback top
+  // across 23 hosts when the real fit signal is exact-stack or ecosystem).
+  // Threshold: coverage must contribute ≥10% of the total score.
+  if (score.coverage > 0 && score.coverage >= score.total * 0.1) {
     reasons.push("coverage-gap-fill");
   }
   if (score.diversity > 0) {
