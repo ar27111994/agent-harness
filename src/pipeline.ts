@@ -184,7 +184,7 @@ export async function runWorkspacePipeline(
     workspaceRoot,
     projectRoot,
   );
-  const recommendExitCode = runRecommendResult;
+  const recommendExitCode = recommendResult;
   if (typeof recommendExitCode !== "number") {
     throw new Error(
       "recommend phase returned a non-number exit code — " +
