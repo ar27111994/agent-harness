@@ -91,7 +91,7 @@ void test("updateGitHubSourceHealth writes and reads health state", async () => 
       "fetch-failed-cache-fallback",
     );
   } finally {
-    process.env.AGENT_HARNESS_HOME = undefined;
+    delete process.env.AGENT_HARNESS_HOME;
     clearRuntimeConfig();
     await rm(root, { recursive: true, force: true });
   }
@@ -166,7 +166,7 @@ void test("fetchGitHubRepoSnapshotByRepoUrl falls back to cache when fetch throw
     assert.equal(health.entries["s:o/r"]?.degradedMode, true);
   } finally {
     globalThis.fetch = originalFetch;
-    process.env.AGENT_HARNESS_HOME = undefined;
+    delete process.env.AGENT_HARNESS_HOME;
     process.env.GITHUB_FETCH_MAX_ATTEMPTS = undefined;
     clearRuntimeConfig();
     clearGitHubState();

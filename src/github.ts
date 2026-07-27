@@ -471,6 +471,7 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
   const response = await fetchGitHubResponse(path);
 
   if (response.status === 404) {
+    await response.body?.cancel();
     return null;
   }
 
@@ -485,6 +486,7 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
     if (!isRateLimited()) {
       githubRateLimitResetAt = Date.now() + FALLBACK_RATE_LIMIT_RESET_MS;
     }
+    await response.body?.cancel();
     return null;
   }
 

@@ -119,9 +119,9 @@ void test("mapEntryToArd produces valid JSON that passes Prettier formatting", a
   assert.deepEqual(JSON.parse(rawJson), JSON.parse(formatted));
 });
 
-void test("writeArdCatalog gracefully degrades formatting when Prettier is unavailable", async () => {
-  // Simulate: writeArdCatalog's write path with Prettier unavailable.
-  // The catalog should still be valid JSON even without Prettier.
+void test("ARD catalog JSON output is valid without Prettier formatting", async () => {
+  // The ARD catalog output (JSON.stringify + mapEntryToArd) should
+  // still produce valid JSON even when no formatter is applied.
   const entry = makeFakeEntry();
   const ardEntry = mapEntryToArd(entry, "ar27111994.dev", "2.0.0");
 
