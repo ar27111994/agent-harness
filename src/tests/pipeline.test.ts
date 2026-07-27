@@ -453,16 +453,17 @@ void test("runWorkspacePipeline throws when recommend phase returns non-number (
       buildDependencies({
         runRecommend: async () => undefined as unknown as number,
         readJsonFileOrNull: async <T>(path: string): Promise<T | null> => {
-        if (path.endsWith("acquire-state.json")) {
-          return createAcquireState({
-            mirroredCount: 2,
-            remainingCount: 0,
-            terminal: true,
-          }) as unknown as T;
-        }
-        return null;
-      },
-    })),
+          if (path.endsWith("acquire-state.json")) {
+            return createAcquireState({
+              mirroredCount: 2,
+              remainingCount: 0,
+              terminal: true,
+            }) as unknown as T;
+          }
+          return null;
+        },
+      }),
+    ),
     /non-number exit code/,
   );
 });
