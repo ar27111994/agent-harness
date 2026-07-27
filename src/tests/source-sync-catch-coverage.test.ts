@@ -31,7 +31,7 @@ void test("syncIndexedSources enters catch block on source-sync failure", async 
     await writeJsonFile(join(dd, "sources.json"), { schemaVersion: 1, sources: [] });
     await writeJsonFile(join(dd, "selections.json"), {
       schemaVersion: 1,
-      selectionPolicies: { officialBeatsPopularity: true },
+      selectionPolicies: { officialBeatsPopularity: true, starsAreTieBreakerOnly: false },
       selections: {},
     });
     await writeJsonFile(join(dd, "official-skills-indexes.json"), {
