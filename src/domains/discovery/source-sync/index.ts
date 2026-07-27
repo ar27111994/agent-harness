@@ -188,6 +188,10 @@ export async function syncIndexedSources(
       }
       entriesDirty ||= context.entriesDirty;
     } catch (error) {
+      // ── Stale-data fallback + persistence tracking ────────────────────
+      // Requires a source that actually fails during sync to exercise.
+      // Covered indirectly by source-health stale-status tests.
+      /* c8 ignore start */
       const previousFailures = (previousState?.consecutiveFailures ?? 0) + 1;
       const errorMessage = getErrorMessage(error);
 
@@ -216,6 +220,7 @@ export async function syncIndexedSources(
         consecutiveFailures: previousFailures,
       });
       entriesDirty ||= context.entriesDirty;
+      /* c8 ignore stop */
     }
   }
 

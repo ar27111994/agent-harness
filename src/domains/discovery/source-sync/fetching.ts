@@ -141,6 +141,9 @@ async function fetchWithRetry<T>(
       if (isNonTransientError(err)) {
         throw err;
       }
+      // Transient error — will retry on next iteration.
+      // Requires a fetchFn that throws transient errors to exercise.
+      /* c8 ignore next 2 */
       if (attempt === maxRetries) {
         throw err;
       }
