@@ -6,7 +6,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { ardCatalogInternals, type ArdCatalog } from "../ard-catalog.js";
+import { ardCatalogInternals, type ArdCatalog, type PrettierFormatter } from "../ard-catalog.js";
 import type { AssetCatalogEntry } from "../types.js";
 
 const { mapEntryToArd } = ardCatalogInternals;
@@ -178,8 +178,8 @@ void test("ard-export output passes project Prettier config", async () => {
 // ── #348: Prettier-unavailable coverage ──────────────────────────────────
 
 void test("writeArdCatalog gracefully handles Prettier import failure", async () => {
-  // Inject a failing prettier import to exercise the catch block.
-  const failingImport = async (): Promise<typeof import("prettier")> => {
+  // Inject a failing prettier formatter to exercise the catch block.
+  const failingImport: PrettierFormatter = async () => {
     throw new Error("prettier module not installed");
   };
 

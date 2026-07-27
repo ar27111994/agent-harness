@@ -21,6 +21,7 @@ import {
   mapEntryToArd,
   extractErrorMessage,
   writeArdCatalog,
+  type PrettierFormatter,
 } from "../ard-catalog.js";
 
 import type { AssetCatalogEntry, AssetKind } from "../types.js";
@@ -740,8 +741,8 @@ void test("writeArdCatalog gracefully handles Prettier import failure (#348)", a
   await writeFile(catalogPath, `${JSON.stringify(minimalEntry)}\n`, "utf8");
   await writeFile(pkgPath, JSON.stringify({ version: "2.0.0" }), "utf8");
 
-  // Inject a failing prettier import to exercise the catch block.
-  const failingImport = async (): Promise<typeof import("prettier")> => {
+  // Inject a failing prettier formatter to exercise the catch block.
+  const failingImport: PrettierFormatter = async () => {
     throw new Error("prettier module not installed");
   };
 

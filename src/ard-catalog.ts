@@ -14,7 +14,6 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { AssetCatalogEntry } from "./types.js";
-import type { Options as PrettierOptions } from "prettier";
 
 // ---------------------------------------------------------------------------
 // ARD Schema Types (§3)
@@ -200,6 +199,15 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
 // ---------------------------------------------------------------------------
 
 /**
+ * Formatter function signature for injecting Prettier (or a mock) into
+ * writeArdCatalog for testing the unavailable path.
+ */
+export type PrettierFormatter = (
+  source: string,
+  options: { parser: string; endOfLine: string; trailingComma: string },
+) => Promise<string>;
+
+/**
  * Exports the agent-harness catalog to ARD `ai-catalog.json` format.
  *
  * Reads `discover/output/catalog.selected.jsonl` (the selected catalog) and
@@ -208,14 +216,13 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
  *
  * @param projectRoot - Agent-harness project root.
  * @param version - Package version to stamp on the ARD catalog.
+ * @param formatWithPrettier - Injectable formatter (default: Prettier).
  * @returns Path to the written file and entry count.
  */
 export async function writeArdCatalog(
   projectRoot: string,
   version?: string,
-  /** Injectable prettier import for testing the unavailable path. */
-  importPrettier: () => Promise<typeof import("prettier")> = () =>
-    import("prettier"),
+  formatWithPrettier?: PrettierFormatter,
 ): Promise<{ filePath: string; entryCount: number }> {
   // Use dynamic import for ESM compatibility at runtime
   const { readJsonLinesFile } = await import("./files.js");
@@ -285,17 +292,14 @@ export async function writeArdCatalog(
   const rawJson = JSON.stringify(catalog, null, 2) + "\n";
 
   // Format JSON with Prettier so the output passes `npm run format:check`.
-  // Dynamic import — prettier is a devDependency; we only load it here at
-  // export time so the CLI remains functional without it.
   let formattedJson = rawJson;
   try {
-    const prettier = await importPrettier();
-    const options: PrettierOptions = {
+    const fmt = formatWithPrettier ?? defaultPrettierFormatter;
+    formattedJson = await fmt(rawJson, {
       parser: "json",
       endOfLine: "lf",
       trailingComma: "all",
-    };
-    formattedJson = await prettier.format(rawJson, options);
+    });
   } catch (err: unknown) {
     // Prettier unavailable — write unformatted JSON. This happens when the
     // CLI is used outside a development environment (e.g., after `npm pack`
@@ -315,6 +319,17 @@ export async function writeArdCatalog(
   await rename(tempPath, filePath);
 
   return { filePath, entryCount: ardEntries.length };
+}
+
+/**
+ * Default Prettier formatter using the actual prettier module.
+ */
+async function defaultPrettierFormatter(
+  source: string,
+  options: { parser: string; endOfLine: string; trailingComma: string },
+): Promise<string> {
+  const prettier = await import("prettier");
+  return prettier.format(source, options);
 }
 
 /**
