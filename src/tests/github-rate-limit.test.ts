@@ -49,3 +49,51 @@ void test("fetchGitHubJsonOptional returns null on 404 (unchanged behavior)", as
   );
   assert.equal(result, null, "404 should return null (existing behavior)");
 });
+
+// ── Error → cache fallback (lines 425-437 coverage) ─────────────────────
+
+void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", async () => {
+  // Seed a cached snapshot.
+  const cachePath = "state/remote-cache/github/octocat__hello-world.json";
+  const { mkdir, writeFile, rm } = await import("node:fs/promises");
+  await mkdir("state/remote-cache/github", { recursive: true });
+
+  const snapshot = {
+    fetchedAt: "2026-01-01T00:00:00.000Z",
+    owner: "octocat",
+    repo: "hello-world",
+    sourceId: "test",
+    repoSummary: { name: "hello-world", fullName: "octocat/hello-world", description: null, defaultBranch: "main", updatedAt: null, pushedAt: null, stars: 0, language: null, topics: [], archived: false, htmlUrl: "https://github.com/octocat/hello-world" },
+    readme: null,
+    tree: { sha: "tree-sha", truncated: false, entries: [] },
+  };
+  await writeFile(cachePath, JSON.stringify(snapshot), "utf8");
+
+  // Mock: repo fetch succeeds (200), tree fetch throws (network error).
+  let callCount = 0;
+  globalThis.fetch = async (url: string | URL) => {
+    callCount += 1;
+    const path = typeof url === "string" ? new URL(url).pathname : new URL(url.toString()).pathname;
+    if (callCount === 1) {
+      // Repo fetch: return 200.
+      return new Response(JSON.stringify(snapshot.repoSummary), { status: 200 });
+    }
+    // Tree/readme fetch: throw network error.
+    throw new Error("network failure");
+  };
+
+  // This should fall through the try block → catch → cache fallback.
+  const { fetchGitHubRepoSnapshot } = await import("../github.js");
+  const result = await fetchGitHubRepoSnapshot({
+    owner: "octocat",
+    repo: "hello-world",
+    projectRoot: "",
+    sourceId: "test",
+  });
+
+  assert.deepEqual(result, snapshot, "should return cached snapshot on fetch error");
+
+  // Clean up.
+  globalThis.fetch = undefined as unknown as typeof globalThis.fetch;
+  await rm("state", { recursive: true, force: true });
+});
