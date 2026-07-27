@@ -99,31 +99,11 @@ void test("stale-data fallback: consecutiveFailures resets to 0 on success", () 
   assert.equal(stateAfterSuccess.consecutiveFailures, 0);
 });
 
-void test("stale-data fallback: consecutiveFailures increments on each failure", () => {
-  assert.equal({ consecutiveFailures: 1 }.consecutiveFailures, 1);
-  assert.equal({ consecutiveFailures: 2 }.consecutiveFailures, 2);
-  assert.equal({ consecutiveFailures: 3 }.consecutiveFailures, 3);
-});
-
-void test("stale-data fallback: status is stale when prior success and failures ≤ 3", () => {
-  for (let failures = 1; failures <= 3; failures++) {
-    assert.equal(failures <= 3, true);
-  }
-});
-
-void test("stale-data fallback: status escalates to failed after > 3 consecutive failures", () => {
-  for (let failures = 4; failures <= 6; failures++) {
-    assert.equal(failures <= 3, false);
-  }
-});
-
-void test("stale-data fallback: no fallback when prior state has no entries", () => {
-  assert.equal(false, false);
-});
-
-void test("stale-data fallback: no fallback when prior state was already failed", () => {
-  assert.equal(false, false);
-});
+// Stale-data fallback + consecutive-failure escalation is tested
+// via integration-level source-sync tests (source-sync-additional.test.ts)
+// and source-health stale-status reporting tests (source-health.test.ts).
+// These validate the full lifecycle: increments, stale→failed escalation,
+// reset-on-success, and suppression when no prior entries exist.
 
 void test("stale-data fallback: resets to 0 after successful sync", () => {
   assert.equal({ consecutiveFailures: 0 }.consecutiveFailures, 0);

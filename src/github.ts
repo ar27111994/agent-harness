@@ -303,22 +303,11 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
   const healthKey = `${sourceId}:${owner}/${repo}`;
 
   if (isRateLimited()) {
-    const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
-    await updateGitHubSourceHealth(projectRoot, healthKey, {
+    return fallbackToRateLimitCache(cachePath, projectRoot, healthKey, {
       sourceId,
       owner,
       repo,
-      lastAttemptAt: new Date().toISOString(),
-      degradedMode: cachedSnapshot !== null,
-      degradedReason: cachedSnapshot
-        ? "rate-limited-cache-fallback"
-        : "rate-limited-no-cache",
-      usedCacheLastAttempt: cachedSnapshot !== null,
-      lastError: cachedSnapshot ? null : buildRateLimitMessage(),
-      consecutiveFailures: cachedSnapshot ? 0 : 1,
-      lastFailureAt: cachedSnapshot ? null : new Date().toISOString(),
     });
-    return cachedSnapshot;
   }
 
   try {
@@ -328,22 +317,11 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
     if (!repoResponse) {
       // Distinguish rate-limiting (403/429) from genuine not-found (404).
       if (isRateLimited()) {
-        const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
-        await updateGitHubSourceHealth(projectRoot, healthKey, {
+        return fallbackToRateLimitCache(cachePath, projectRoot, healthKey, {
           sourceId,
           owner,
           repo,
-          lastAttemptAt: new Date().toISOString(),
-          degradedMode: cachedSnapshot !== null,
-          degradedReason: cachedSnapshot
-            ? "rate-limited-cache-fallback"
-            : "rate-limited-no-cache",
-          usedCacheLastAttempt: cachedSnapshot !== null,
-          lastError: cachedSnapshot ? null : buildRateLimitMessage(),
-          consecutiveFailures: cachedSnapshot ? 0 : 1,
-          lastFailureAt: cachedSnapshot ? null : new Date().toISOString(),
         });
-        return cachedSnapshot;
       }
 
       await updateGitHubSourceHealth(projectRoot, healthKey, {
@@ -756,6 +734,32 @@ async function waitForRetry(
   await new Promise((resolve) => {
     setTimeout(resolve, delayMs);
   });
+}
+
+/**
+ * Shared rate-limit cache fallback: reads the cached snapshot (if any),
+ * updates GitHub source health, and returns the cached snapshot.
+ */
+async function fallbackToRateLimitCache(
+  cachePath: string,
+  projectRoot: string,
+  healthKey: string,
+  ids: { sourceId: string; owner: string; repo: string },
+): Promise<GitHubRepoSnapshot | null> {
+  const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
+  await updateGitHubSourceHealth(projectRoot, healthKey, {
+    ...ids,
+    lastAttemptAt: new Date().toISOString(),
+    degradedMode: cachedSnapshot !== null,
+    degradedReason: cachedSnapshot
+      ? "rate-limited-cache-fallback"
+      : "rate-limited-no-cache",
+    usedCacheLastAttempt: cachedSnapshot !== null,
+    lastError: cachedSnapshot ? null : buildRateLimitMessage(),
+    consecutiveFailures: cachedSnapshot ? 0 : 1,
+    lastFailureAt: cachedSnapshot ? null : new Date().toISOString(),
+  });
+  return cachedSnapshot;
 }
 
 function buildRateLimitMessage(): string {
