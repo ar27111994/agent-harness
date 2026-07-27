@@ -707,7 +707,37 @@ void test("writeArdCatalog gracefully handles Prettier import failure (#348)", a
   const pkgPath = join(root, "package.json");
 
   await mkdir(catalogPath.replace("catalog.selected.jsonl", ""), { recursive: true });
-  await writeFile(catalogPath, `${JSON.stringify(makeFakeEntry("test-skill"))}\n`, "utf8");
+  // Write a minimal valid catalog entry as JSONL.
+  const minimalEntry = {
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    hosts: ["shared"],
+    compatibilityMode: "native",
+    source: {
+      sourceId: "test-source",
+      sourceKind: "repo",
+      registryKind: undefined,
+      publisherName: "Test",
+      category: "tools",
+      authorityTier: "trusted-community",
+      sourcePriority: 70,
+      originUrl: "https://example.com",
+      publisher: "Test",
+      publisherVerified: false,
+    },
+    trust: { score: 80, signals: ["test"], breakdown: {} },
+    capabilities: ["testing"],
+    install: { installMethod: "manual" },
+    evidence: { classification: { source: "test", strength: "strong", detail: "test" } },
+    maintenance: { lastUpdated: new Date().toISOString() },
+    dedupe: {},
+    score: 80, demand: 30, authority: 30, popularity: 20, freshness: 0,
+    security: 0, compatibility: 0, tokens: [], ecosystems: [], tags: [],
+    platforms: [], languageSupport: [], description: "", descriptionTokens: [],
+    harvestTimestamp: 0, kind: "skill",
+  };
+  await writeFile(catalogPath, `${JSON.stringify(minimalEntry)}\n`, "utf8");
   await writeFile(pkgPath, JSON.stringify({ version: "2.0.0" }), "utf8");
 
   // Inject a failing prettier import to exercise the catch block.
