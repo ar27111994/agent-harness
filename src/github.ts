@@ -593,11 +593,18 @@ function buildGitHubHeaders(): HeadersInit {
 function captureRateLimit(response: Response): void {
   const remainingHeader = response.headers.get("x-ratelimit-remaining");
   const resetHeader = response.headers.get("x-ratelimit-reset");
+  const retryAfterHeader = response.headers.get("retry-after");
 
   if (remainingHeader === "0" && resetHeader) {
     const resetAtSeconds = Number(resetHeader);
     if (!Number.isNaN(resetAtSeconds)) {
       githubRateLimitResetAt = resetAtSeconds * 1000;
+    }
+  } else if (retryAfterHeader) {
+    // GitHub secondary rate limits use Retry-After instead of x-ratelimit-*.
+    const retryAfterSeconds = Number(retryAfterHeader);
+    if (!Number.isNaN(retryAfterSeconds)) {
+      githubRateLimitResetAt = Date.now() + retryAfterSeconds * 1000;
     }
   }
 }
