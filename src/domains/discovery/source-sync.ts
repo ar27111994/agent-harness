@@ -155,6 +155,6 @@ export const sourceSyncInternals = {
   hasHttpStatus,
   NonTransientFetchError,
   isNonTransientError,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- generic function exported for testing
+   
   fetchWithRetry,
 };

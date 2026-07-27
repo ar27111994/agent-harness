@@ -194,6 +194,18 @@ void test("fetchWithRetry retries on transient error then succeeds", async () =>
   assert.equal(calls, 2, "should retry once then succeed");
 });
 
+void test("fetchWithRetry throws immediately on NonTransientFetchError with no retry", async () => {
+  let calls = 0;
+  await assert.rejects(
+    fetchWithRetry("test://url", async () => {
+      calls += 1;
+      throw new NonTransientFetchError("blocked by policy");
+    }, { maxRetries: 2, retryBaseDelayMs: 1 }),
+    /blocked by policy/,
+  );
+  assert.equal(calls, 1, "non-transient errors should not retry");
+});
+
 void test("fetchWithRetry throws after exhausting all retries", async () => {
   let calls = 0;
   await assert.rejects(
