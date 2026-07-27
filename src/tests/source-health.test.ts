@@ -20,6 +20,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     buildSource("failed-source", { kind: "marketplace" }),
     buildSource("stale-sync-source", { kind: "package-registry" }),
     buildSource("stale-escalated-source", { kind: "package-registry" }),
+    buildSource("stale-error-source", { kind: "package-registry" }),
     buildSource("stale-no-meta-source", { kind: "package-registry" }),
     buildSource("docs-source", { kind: "docs" }),
     buildSource("registry-source", { kind: "registry" }),
@@ -38,6 +39,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     buildEntry("selected", "active-source"),
     buildEntry("stale-sync-selected", "stale-sync-source"),
     buildEntry("stale-esc-selected", "stale-escalated-source"),
+    buildEntry("stale-err-selected", "stale-error-source"),
     buildEntry("stale-nometa-selected", "stale-no-meta-source"),
     buildEntry("docs-selected", "docs-source"),
     buildEntry("registry-selected", "registry-source"),
@@ -50,6 +52,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     ...rejected,
     buildEntry("stale-sync-catalog", "stale-sync-source"),
     buildEntry("stale-esc-catalog", "stale-escalated-source"),
+    buildEntry("stale-err-catalog", "stale-error-source"),
     buildEntry("stale-nometa-catalog", "stale-no-meta-source"),
     buildEntry("active-duplicate-a", "active-source", {
       duplicateGroup: "active-duplicates",
@@ -106,6 +109,15 @@ void test("source health report distinguishes active, dormant, stale, failed, an
         consecutiveFailures: 3,
       },
       {
+        sourceId: "stale-error-source",
+        coverageMode: "indexed",
+        status: "stale",
+        indexedEntryCount: 40,
+        reason: "repeated fetch failure",
+        cursors: [],
+        consecutiveFailures: 4,
+      },
+      {
         sourceId: "stale-no-meta-source",
         coverageMode: "indexed",
         status: "stale",
@@ -125,8 +137,8 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     syncState,
   );
 
-  assert.equal(report.severeCount, 3);
-  assert.equal(report.warningCount, 5);
+  assert.equal(report.severeCount, 4);
+  assert.equal(report.warningCount, 6);
   assert.equal(sourceStatus(report, "active-source"), "active");
   // dormant-source has no syncState entry — it was never synced in this
   // state root, so it should be reported as "never-synced", not "dormant".
@@ -146,6 +158,11 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   assert.equal(
     sourceEntry(report, "stale-escalated-source")?.severity,
     "warning",
+  );
+  // stale-error-source has 4 consecutive failures → error.
+  assert.equal(
+    sourceEntry(report, "stale-error-source")?.severity,
+    "error",
   );
   // stale-no-meta-source has no consecutiveFailures or reason → ?? fallbacks.
   assert.equal(
