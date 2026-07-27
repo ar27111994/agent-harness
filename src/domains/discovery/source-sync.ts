@@ -67,6 +67,7 @@ import {
   getErrorMessage,
   hasHttpStatus,
   NonTransientFetchError,
+  fetchWithRetry,
 } from "./source-sync/fetching.js";
 import {
   buildDisplayNameFromUrl,
