@@ -189,21 +189,21 @@ export async function syncIndexedSources(
       }
       entriesDirty ||= context.entriesDirty;
     } catch (error) {
-      // ── Stale-data fallback + persistence tracking ────────────────────
-      // Requires a source that actually fails during sync to exercise.
-      // Covered indirectly by source-health stale-status tests.
-      /* c8 ignore start */
+      // Stale-data fallback + persistence tracking.
       const previousFailures = (previousState?.consecutiveFailures ?? 0) + 1;
       const errorMessage = getErrorMessage(error);
 
-      // Stale-data fallback: if the previous sync was successful and we have
-      // existing entries, mark as "stale" instead of "failed" on the first few
-      // consecutive failures. The existing catalog data remains usable.
-      const hasPriorSuccess =
-        previousState?.status === "complete" &&
-        previousState?.indexedEntryCount > 0;
+      // Stale-data fallback: if a previous sync had indexed entries, keep
+      // using stale data. Accepts both "complete" (prior success) and
+      // "stale" (prior transient failure with entries) so the fallback
+      // window persists across consecutive failures.
+      const hasPriorEntries =
+        previousState != null &&
+        previousState.indexedEntryCount > 0 &&
+        (previousState.status === "complete" ||
+          previousState.status === "stale");
       const shouldFallBackToStale =
-        hasPriorSuccess &&
+        hasPriorEntries &&
         previousFailures <= MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR;
 
       sourceStates.push({
@@ -221,7 +221,6 @@ export async function syncIndexedSources(
         consecutiveFailures: previousFailures,
       });
       entriesDirty ||= context.entriesDirty;
-      /* c8 ignore stop */
     }
   }
 

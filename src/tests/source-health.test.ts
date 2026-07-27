@@ -125,7 +125,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     syncState,
   );
 
-  assert.equal(report.severeCount, 4);
+  assert.equal(report.severeCount, 3);
   assert.equal(report.warningCount, 5);
   assert.equal(sourceStatus(report, "active-source"), "active");
   // dormant-source has no syncState entry — it was never synced in this
@@ -141,10 +141,11 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   assert.equal(sourceStatus(report, "stale-sync-source"), "stale");
   // stale-sync-source has 1 consecutive failure → warning, not error.
   assert.equal(sourceEntry(report, "stale-sync-source")?.severity, "warning");
-  // stale-escalated-source has 3 consecutive failures → error.
+  // stale-escalated-source has 3 consecutive failures → still warning.
+  // Escalates to error only after > 3 (aligned with MAX = 3).
   assert.equal(
     sourceEntry(report, "stale-escalated-source")?.severity,
-    "error",
+    "warning",
   );
   // stale-no-meta-source has no consecutiveFailures or reason → ?? fallbacks.
   assert.equal(

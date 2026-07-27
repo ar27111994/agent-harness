@@ -733,7 +733,10 @@ function printSourceHealthSummary(
 
   if (options.summaryMode) {
     const byReason = new Map<string, number>();
+    // Aggregate warnings only (exclude errors) — the summary is about
+    // warning noise reduction, not about error diagnosis.
     for (const source of report.sources) {
+      if (source.severity !== "warning") continue;
       for (const reason of source.reasons) {
         byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
       }

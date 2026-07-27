@@ -151,11 +151,13 @@ export async function fetchWithRetry<T>(
 // ─── Public fetch wrappers ─────────────────────────────────────────────────────
 
 /**
- * Throws when `value` is null, indicating a guarded fetch returned no content.
+ * Throws NonTransientFetchError when `value` is null — guarded fetches
+ * return null for all non-OK responses and SSRF/policy rejections, none
+ * of which benefit from retry.
  */
 function requireNonNull<T>(value: T | null, url: string): T {
   if (value === null) {
-    throw new Error(`Failed to fetch ${url}`);
+    throw new NonTransientFetchError(`Failed to fetch ${url}`);
   }
   return value;
 }

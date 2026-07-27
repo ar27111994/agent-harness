@@ -178,6 +178,8 @@ const GITHUB_SCP_REPO_URL_PATTERN =
   /^git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/iu;
 const GITHUB_SSH_REPO_URL_PATTERN =
   /^ssh:\/\/git@github\.com\/([^/]+)\/(.+?)(?:\.git)?\/?$/iu;
+/** Fallback rate-limit reset window (60 s) for 403/429 without headers. */
+const FALLBACK_RATE_LIMIT_RESET_MS = 60_000;
 let githubRateLimitResetAt: number | null = null;
 let githubHealthUpdateLock: Promise<void> = Promise.resolve();
 
@@ -477,6 +479,12 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
   // instead of crashing the entire maintenance pipeline.
   if (response.status === 403 || response.status === 429) {
     captureRateLimit(response);
+    // When rate-limit headers are absent (e.g. permission 403s), set a
+    // fallback reset timestamp so isRateLimited() returns true and callers
+    // use cache fallback instead of treating this as repo-not-found.
+    if (!isRateLimited()) {
+      githubRateLimitResetAt = Date.now() + FALLBACK_RATE_LIMIT_RESET_MS;
+    }
     return null;
   }
 
