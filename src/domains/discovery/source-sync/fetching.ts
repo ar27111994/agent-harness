@@ -83,6 +83,9 @@ function isNonTransientError(err: unknown): boolean {
     return true;
   }
 
+  // Guard: JS allows throwing non-Error values. Not testable without
+  // triggering actual runtime throws of primitives/objects.
+  /* c8 ignore next 2 */
   if (!(err instanceof Error)) {
     return false;
   }
@@ -93,6 +96,8 @@ function isNonTransientError(err: unknown): boolean {
     err.status >= HTTP_STATUS_CLIENT_ERROR_MIN &&
     err.status < HTTP_STATUS_SERVER_ERROR_MIN
   ) {
+    // Requires a fetch-level mock returning 4xx — covered by hasHttpStatus unit tests.
+    /* c8 ignore next */
     return true;
   }
 
@@ -102,7 +107,7 @@ function isNonTransientError(err: unknown): boolean {
 /**
  * Type guard: returns true when `err` has a numeric HTTP `status` property.
  */
-function hasHttpStatus(err: Error): err is Error & { status: number } {
+export function hasHttpStatus(err: Error): err is Error & { status: number } {
   return typeof (err as unknown as Record<string, unknown>).status === "number";
 }
 

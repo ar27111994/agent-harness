@@ -64,6 +64,8 @@ import {
   getNumber,
   stringifyUnknown,
   getErrorMessage,
+  hasHttpStatus,
+  NonTransientFetchError,
 } from "./source-sync/fetching.js";
 import {
   buildDisplayNameFromUrl,
@@ -148,4 +150,6 @@ export const sourceSyncInternals = {
   stringifyUnknown,
   getErrorMessage,
   allPreviousCursorsCompleted,
+  hasHttpStatus,
+  NonTransientFetchError,
 };

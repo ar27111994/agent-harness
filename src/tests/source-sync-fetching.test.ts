@@ -10,6 +10,7 @@ import {
   NonTransientFetchError,
   getAllowedOrigins,
   getAllowedOrigin,
+  hasHttpStatus,
   SOURCE_SYNC_MAX_RETRIES,
   SOURCE_SYNC_RETRY_BASE_DELAY_MS,
   SOURCE_SYNC_FETCH_MAX_BYTES,
@@ -156,4 +157,21 @@ void test("stale-data fallback: resets to 0 after successful sync", () => {
   // After a successful sync, consecutiveFailures must be 0.
   const afterRecovery = { consecutiveFailures: 0 };
   assert.equal(afterRecovery.consecutiveFailures, 0);
+});
+
+// ── hasHttpStatus type guard coverage ────────────────────────────────────
+
+void test("hasHttpStatus returns true when Error has numeric status", () => {
+  const err = Object.assign(new Error("Not Found"), { status: 404 });
+  assert.equal(hasHttpStatus(err), true);
+});
+
+void test("hasHttpStatus returns false when Error has no status", () => {
+  const err = new Error("plain error");
+  assert.equal(hasHttpStatus(err), false);
+});
+
+void test("hasHttpStatus returns false when Error status is not numeric", () => {
+  const err = Object.assign(new Error("bad"), { status: "200" });
+  assert.equal(hasHttpStatus(err), false);
 });
