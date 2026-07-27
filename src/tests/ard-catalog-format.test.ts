@@ -203,5 +203,8 @@ void test("writeArdCatalog gracefully handles Prettier import failure", async ()
   assert.equal(parsed.entries[0]?.displayName, "Test Skill");
 
   // Confirm the mock would throw (catches the error).
-  await assert.rejects(failingImport(), /prettier module not installed/);
+  await assert.rejects(
+    () => failingImport("{}", { parser: "json", endOfLine: "lf", trailingComma: "all" }),
+    /prettier module not installed/,
+  );
 });
