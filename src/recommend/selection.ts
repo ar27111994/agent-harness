@@ -8,6 +8,7 @@ import {
   HOST_PRESELECTION_LIMIT_MULTIPLIER,
   HOST_PRESELECTION_MIN_LIMIT,
   MIN_BUDGET_PENALTY,
+  COVERAGE_GAP_FILL_THRESHOLD,
 } from "./constants.js";
 import {
   buildCandidateRecommendation,
@@ -544,7 +545,10 @@ function applyDynamicScore(
   // in recommend evaluate (e.g. cursor host showing 1 broad fallback top
   // across 23 hosts when the real fit signal is exact-stack or ecosystem).
   // Threshold: coverage must contribute ≥10% of the total score.
-  if (score.coverage > 0 && score.coverage >= score.total * 0.1) {
+  if (
+    score.coverage > 0 &&
+    score.coverage >= score.total * COVERAGE_GAP_FILL_THRESHOLD
+  ) {
     reasons.push("coverage-gap-fill");
   }
   if (score.diversity > 0) {

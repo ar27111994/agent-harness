@@ -174,15 +174,17 @@ export async function syncIndexedSources(
           source,
           remoteHarvestState.generatedAt,
           remoteHarvestState.completedSourceIds.includes(source.id),
-        )) as SourceSyncSourceState & { consecutiveFailures?: number },
+        )) as SourceSyncSourceState,
       );
       // Reset failure counter on successful sync.
-      const lastState = sourceStates[sourceStates.length - 1]!;
-      if (synchronizedState) {
-        lastState.consecutiveFailures = 0;
-      } else {
-        // Non-indexed sources retain their previous failure count (if any).
-        lastState.consecutiveFailures = previousState?.consecutiveFailures;
+      const lastState = sourceStates.at(-1);
+      if (lastState) {
+        if (synchronizedState) {
+          lastState.consecutiveFailures = 0;
+        } else {
+          // Non-indexed sources retain their previous failure count (if any).
+          lastState.consecutiveFailures = previousState?.consecutiveFailures;
+        }
       }
       entriesDirty ||= context.entriesDirty;
     } catch (error) {

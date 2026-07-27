@@ -223,7 +223,12 @@ export async function runDiscover(
       await generateCatalog(projectRoot);
       logDiscoverPhase("discover full", 5, 5, "Applying selection rules");
       const result = await generateSelectionOutputs(projectRoot);
-      printSourceHealthSummary(result.sourceHealthReport, { quietMode, summaryMode });
+      if (quietMode || summaryMode) {
+        printSourceHealthSummary(result.sourceHealthReport, {
+          quietMode,
+          summaryMode,
+        });
+      }
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "after-select",
@@ -704,12 +709,10 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
 
 /**
  * Prints a filtered or summarized source health summary based on mode flags.
+ * Only called when `--quiet` or `--summary` is active on `discover full`.
  *
- * - Default (no flags): all output is already printed during generateSelectionOutputs.
- *   This function prints a compact summary only.
- * - `--quiet`: suppresses \"none survived selection\" warnings; prints only errors.
- * - `--summary`: prints aggregate warning breakdown by reason instead of the
- *   default per-source line.
+ * - `--quiet`: suppresses expected warnings; prints only errors or all-clear.
+ * - `--summary`: prints aggregate warning breakdown by reason.
  */
 function printSourceHealthSummary(
   report: SourceHealthReport,

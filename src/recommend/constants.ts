@@ -92,6 +92,11 @@ export const COVERAGE_OVERLAP_CAP = 2;
  */
 export const COVERAGE_TAG_PRESELECTION_WEIGHT = 4;
 /**
+ * Minimum fraction of total score that coverage gain must represent
+ * before a candidate is tagged with "coverage-gap-fill" (#354).
+ */
+export const COVERAGE_GAP_FILL_THRESHOLD = 0.1;
+/**
  * Defines the duplicate-group overlap multiplier used in redundancy scoring.
  */
 export const DUPLICATE_GROUP_OVERLAP_MULTIPLIER = 2;

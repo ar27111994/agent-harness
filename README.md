@@ -576,6 +576,20 @@ agent-harness discover stats
 agent-harness discover enrich --force
 ```
 
+### Reducing source health noise
+
+`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Two flags help cut through the noise:
+
+- **`--quiet`**: suppress expected warnings; only severe/error conditions are shown
+- **`--summary`**: print aggregate warning counts grouped by reason instead of per-source lines
+
+```bash
+agent-harness discover full --quiet    # only errors, warnings suppressed
+agent-harness discover full --summary  # aggregate breakdown by reason
+```
+
+Default behaviour (no flags) remains unchanged — all warnings are shown for debugging.
+
 `discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
 
 Coverage modes remain explicit instead of silently pretending everything is equivalent:

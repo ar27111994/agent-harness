@@ -82,12 +82,18 @@ function isNonTransientError(err: unknown): boolean {
   }
 
   // HTTP status-code based: 4xx client errors are not transient.
-  const status = (err as unknown as Record<string, unknown>).status;
-  if (typeof status === "number" && status >= 400 && status < 500) {
+  if (hasHttpStatus(err) && err.status >= 400 && err.status < 500) {
     return true;
   }
 
   return false;
+}
+
+/**
+ * Type guard: returns true when `err` has a numeric HTTP `status` property.
+ */
+function hasHttpStatus(err: Error): err is Error & { status: number } {
+  return typeof (err as unknown as Record<string, unknown>).status === "number";
 }
 
 // ─── Shared retry wrapper ──────────────────────────────────────────────────────
@@ -131,6 +137,16 @@ async function fetchWithRetry<T>(
 // ─── Public fetch wrappers ─────────────────────────────────────────────────────
 
 /**
+ * Throws when `value` is null, indicating a guarded fetch returned no content.
+ */
+function requireNonNull<T>(value: T | null, url: string): T {
+  if (value === null) {
+    throw new Error(`Failed to fetch ${url}`);
+  }
+  return value;
+}
+
+/**
  * Fetches the URL as plain text with retry-on-transient-failure.
  * Throws when all retry attempts are exhausted or the request hits a
  * non-transient failure.
@@ -140,18 +156,18 @@ export async function fetchRequiredText(
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<string> {
-  return fetchWithRetry(url, async () => {
-    const content = await fetchTextWithGuards(url, {
-      allowedOrigins,
-      headers: SOURCE_SYNC_HEADERS,
-      maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-      timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-    });
-    if (content === null) {
-      throw new Error(`Failed to fetch ${url}`);
-    }
-    return content;
-  }, options);
+  return fetchWithRetry(url, async () =>
+    requireNonNull(
+      await fetchTextWithGuards(url, {
+        allowedOrigins,
+        headers: SOURCE_SYNC_HEADERS,
+        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+      }),
+      url,
+    ),
+    options,
+  );
 }
 
 /**
@@ -164,18 +180,18 @@ export async function fetchRequiredJson(
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<unknown> {
-  return fetchWithRetry(url, async () => {
-    const content = await fetchJsonWithGuards(url, {
-      allowedOrigins,
-      headers: SOURCE_SYNC_HEADERS,
-      maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-      timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-    });
-    if (content === null) {
-      throw new Error(`Failed to fetch ${url}`);
-    }
-    return content;
-  }, options);
+  return fetchWithRetry(url, async () =>
+    requireNonNull(
+      await fetchJsonWithGuards(url, {
+        allowedOrigins,
+        headers: SOURCE_SYNC_HEADERS,
+        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+      }),
+      url,
+    ),
+    options,
+  );
 }
 
 // ─── Allowed-origin construction ──────────────────────────────────────────────

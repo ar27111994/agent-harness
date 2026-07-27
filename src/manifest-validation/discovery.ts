@@ -603,13 +603,17 @@ export function assertSelectionReport(
   const record = assertRecord(value, context);
   assertNumber(record.schemaVersion, `${context}.schemaVersion`);
   assertString(record.generatedAt, `${context}.generatedAt`);
-  assertNumber(record.inputCount, `${context}.inputCount`);
-  assertNumber(record.selectedCount, `${context}.selectedCount`);
-  assertNumber(record.rejectedCount, `${context}.rejectedCount`);
+  const inputCount = assertNumber(record.inputCount, `${context}.inputCount`);
+  const selectedCount = assertNumber(
+    record.selectedCount,
+    `${context}.selectedCount`,
+  );
+  const rejectedCount = assertNumber(
+    record.rejectedCount,
+    `${context}.rejectedCount`,
+  );
   // acceptanceRate — inject computed default for pre-v2.0.0 reports
   if (record.acceptanceRate === undefined) {
-    const inputCount = record.inputCount as number;
-    const selectedCount = record.selectedCount as number;
     record.acceptanceRate =
       inputCount > 0
         ? Number((selectedCount / inputCount).toFixed(4))
