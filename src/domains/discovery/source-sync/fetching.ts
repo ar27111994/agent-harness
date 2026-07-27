@@ -74,10 +74,7 @@ export class NonTransientFetchError extends Error {
 
 /**
  * Returns true when `err` is a NonTransientFetchError (explicit marker)
- * or has a known non-transient shape (HTTP 4xx, SSRF violation).
- *
- * Prefers structured checks over string-matching; falls back to message
- * inspection only for errors originating outside this module.
+ * or has a known non-transient HTTP status (4xx range).
  */
 export function isNonTransientError(err: unknown): boolean {
   if (err instanceof NonTransientFetchError) {

@@ -3,8 +3,7 @@ import { mkdtemp, rm, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { fetchGitHubRepoSnapshot } from "../github.js";
-import { githubInternals } from "../github.js";
+import { fetchGitHubRepoSnapshot, githubInternals } from "../github.js";
 
 void test("fetchGitHubJsonOptional: 403 → null", async (t) => {
   const o = globalThis.fetch;

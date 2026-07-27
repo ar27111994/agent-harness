@@ -10,6 +10,7 @@ import {
   NonTransientFetchError,
   getAllowedOrigins,
   getAllowedOrigin,
+  fetchWithRetry,
   hasHttpStatus,
   isNonTransientError,
   SOURCE_SYNC_MAX_RETRIES,
@@ -105,10 +106,6 @@ void test("stale-data fallback: consecutiveFailures resets to 0 on success", () 
 // These validate the full lifecycle: increments, stale→failed escalation,
 // reset-on-success, and suppression when no prior entries exist.
 
-void test("stale-data fallback: resets to 0 after successful sync", () => {
-  assert.equal({ consecutiveFailures: 0 }.consecutiveFailures, 0);
-});
-
 // ── hasHttpStatus type guard coverage ────────────────────────────────────
 
 void test("hasHttpStatus returns true when Error has numeric status", () => {
@@ -166,8 +163,6 @@ void test("isNonTransientError returns false for Error with string status", () =
 });
 
 // ── fetchWithRetry transient-retry coverage ──────────────────────────────
-
-import { fetchWithRetry } from "../domains/discovery/source-sync/fetching.js";
 
 void test("fetchWithRetry retries on transient error then succeeds", async () => {
   let calls = 0;
