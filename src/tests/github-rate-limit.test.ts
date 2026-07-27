@@ -83,10 +83,20 @@ void test("fetchGitHubRepoSnapshot falls back to cache when tree fetch throws", 
 
   // This should fall through the try block → catch → cache fallback.
   const { fetchGitHubRepoSnapshot } = await import("../github.js");
-  const result = await fetchGitHubRepoSnapshot(
-    { owner: "octocat", repo: "hello-world", sourceId: "test" },
-    "",
-  );
+  const source = {
+    id: "test",
+    name: "test",
+    kind: "repo" as const,
+    authorityTier: "trusted-community" as const,
+    hosts: ["opencode" as const],
+    assetKinds: ["skill" as const],
+    discoveryMode: "catalog" as const,
+    priority: 70,
+    enabled: true,
+    endpoints: { repo: "https://github.com/octocat/hello-world" },
+    rules: { officialPreferred: true, allowMirror: true, allowInstall: true },
+  };
+  const result = await fetchGitHubRepoSnapshot(source, "");
 
   assert.deepEqual(result, snapshot, "should return cached snapshot on fetch error");
 
