@@ -4,9 +4,6 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 
 import { ardCatalogInternals, type ArdCatalog } from "../ard-catalog.js";
@@ -100,13 +97,8 @@ void test("mapEntryToArd produces valid JSON that passes Prettier formatting", a
 
   // Verify Prettier actually changed the output (proves formatting ran).
   // JSON.stringify with indent=2 doesn't match prettier's output exactly —
-  // trailing commas differ. If they're identical, something is wrong.
-  // We check that the formatted line count differs or trailing commas exist.
-  const rawLines = rawJson.trim().split("\n");
-  const formattedLines = formatted.trim().split("\n");
-  
-  // The formatted output should have trailing commas in arrays/objects
-  // where raw JSON (JSON.stringify) does not.
+  // trailing commas differ. We check that trailing commas exist in the
+  // formatted output.
   assert.ok(
     formatted.includes('"adaptable",') || formatted.includes("},"),
     "formatted JSON should contain trailing commas (Prettier's trailingComma: all)",

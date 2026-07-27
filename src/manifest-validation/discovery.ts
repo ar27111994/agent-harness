@@ -608,7 +608,7 @@ export function assertSelectionReport(
     record.selectedCount,
     `${context}.selectedCount`,
   );
-  const rejectedCount = assertNumber(
+  assertNumber(
     record.rejectedCount,
     `${context}.rejectedCount`,
   );

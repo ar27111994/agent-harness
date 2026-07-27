@@ -49,6 +49,12 @@ export const SOURCE_SYNC_HEADERS = {
 export const SOURCE_SYNC_MAX_RETRIES = 3;
 /** Base backoff delay in ms for source-sync retries (exponential: delay × 2ⁿ). */
 export const SOURCE_SYNC_RETRY_BASE_DELAY_MS = 1_000;
+/** Base of the exponential backoff factor (2ⁿ). */
+const EXPONENTIAL_BACKOFF_BASE = 2;
+/** Minimum HTTP status code for client errors (4xx). */
+const HTTP_STATUS_CLIENT_ERROR_MIN = 400;
+/** Minimum HTTP status code for server errors (5xx). */
+const HTTP_STATUS_SERVER_ERROR_MIN = 500;
 
 // ─── Error classification ─────────────────────────────────────────────────────
 
@@ -82,7 +88,11 @@ function isNonTransientError(err: unknown): boolean {
   }
 
   // HTTP status-code based: 4xx client errors are not transient.
-  if (hasHttpStatus(err) && err.status >= 400 && err.status < 500) {
+  if (
+    hasHttpStatus(err) &&
+    err.status >= HTTP_STATUS_CLIENT_ERROR_MIN &&
+    err.status < HTTP_STATUS_SERVER_ERROR_MIN
+  ) {
     return true;
   }
 
@@ -116,7 +126,7 @@ async function fetchWithRetry<T>(
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) {
-      const delayMs = baseDelayMs * 2 ** (attempt - 1);
+      const delayMs = baseDelayMs * EXPONENTIAL_BACKOFF_BASE ** (attempt - 1);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
     try {

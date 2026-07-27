@@ -8,8 +8,6 @@ import test from "node:test";
 
 import {
   NonTransientFetchError,
-  fetchRequiredText,
-  fetchRequiredJson,
   getAllowedOrigins,
   getAllowedOrigin,
   SOURCE_SYNC_MAX_RETRIES,
@@ -65,8 +63,6 @@ void test("getAllowedOrigins deduplicates origins", () => {
 // ── Retry behavior ─────────────────────────────────────────────────────
 
 void test("fetchRequiredText retries on transient failure then succeeds", async () => {
-  let attempts = 0;
-
   // We can't easily mock the underlying fetch, but we CAN test that
   // the retry constants are correctly configured.
   assert.equal(SOURCE_SYNC_MAX_RETRIES, 3, "default max retries is 3");

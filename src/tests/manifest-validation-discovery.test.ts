@@ -90,6 +90,30 @@ void test("assertSelectionReport rejects sampleRejected entries missing assetId"
   );
 });
 
+void test("assertSelectionReport validates acceptanceRate when already present", () => {
+  // When acceptanceRate is explicitly set (not undefined), the validator
+  // should pass it through without backfilling. Covers the else branch at
+  // discovery.ts:622-623.
+  assert.doesNotThrow(
+    () =>
+      assertSelectionReport(
+        {
+          schemaVersion: 1,
+          generatedAt: new Date().toISOString(),
+          inputCount: 200,
+          selectedCount: 50,
+          rejectedCount: 150,
+          acceptanceRate: 0.25,
+          duplicateDecisions: [],
+          rejectionSummary: { "demand-relevance": 150 },
+          sampleRejected: [],
+        },
+        "report",
+      ),
+    "should accept report with explicit acceptanceRate",
+  );
+});
+
 void test("assertSelectionReport rejects missing required fields", () => {
   assert.throws(
     () =>

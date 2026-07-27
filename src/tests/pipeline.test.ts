@@ -436,3 +436,33 @@ void test("runWorkspacePipeline throws when recommend phase returns non-zero exi
     "pipeline should throw a descriptive error when recommend returns non-zero",
   );
 });
+
+void test("runWorkspacePipeline treats non-number recommend result as exit 0 (#349 edge case)", async () => {
+  // When runRecommend returns a non-number (e.g. void), the pipeline should
+  // treat it as 0 (success) rather than throwing. Covers the false path of
+  // `typeof recommendResult === "number" ? recommendResult : 0`.
+  await runWorkspacePipeline(
+    {
+      projectRoot: "/project",
+      workspaceRoot: "/workspace",
+      targetHost: "copilot-vscode",
+      recommendationHost: "copilot-vscode",
+      sessionIntent: "backend",
+      bundleIds: [],
+    },
+    buildDependencies({
+      runRecommend: async () => undefined as unknown as number, // void → treated as 0
+      readJsonFileOrNull: async <T>(path: string): Promise<T | null> => {
+        if (path.endsWith("acquire-state.json")) {
+          return createAcquireState({
+            mirroredCount: 2,
+            remainingCount: 0,
+            terminal: true,
+          }) as unknown as T;
+        }
+        return null;
+      },
+    }),
+  );
+  // Pipeline should complete without throwing — undefined treated as exit 0.
+});
