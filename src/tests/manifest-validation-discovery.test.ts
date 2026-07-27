@@ -129,7 +129,11 @@ void test("assertSelectionReport backfills acceptanceRate as 0 when inputCount i
     // acceptanceRate is deliberately absent — triggers the undefined branch.
   };
   assertSelectionReport(report, "report");
-  assert.equal(report.acceptanceRate, 0, "should backfill as 0 when inputCount=0");
+  assert.equal(
+    report.acceptanceRate,
+    0,
+    "should backfill as 0 when inputCount=0",
+  );
 });
 
 void test("assertSelectionReport rejects missing required fields", () => {

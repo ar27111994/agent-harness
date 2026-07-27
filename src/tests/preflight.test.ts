@@ -147,10 +147,7 @@ void test("runAdapterPreflight returns skipped diagnostic when abort signal is a
 
   assert.equal(diagnostics.length, 1);
   assert.equal(diagnostics[0]?.severity, "warning");
-  assert.match(
-    diagnostics[0]?.message ?? "",
-    /preflight check skipped/i,
-  );
+  assert.match(diagnostics[0]?.message ?? "", /preflight check skipped/i);
 });
 
 function buildFakeAdapter(): HostAdapter {

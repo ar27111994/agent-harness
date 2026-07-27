@@ -170,11 +170,12 @@ export async function syncIndexedSources(
         );
       }
       sourceStates.push(
-        (synchronizedState ?? classifyNonIndexedSource(
-          source,
-          remoteHarvestState.generatedAt,
-          remoteHarvestState.completedSourceIds.includes(source.id),
-        )) as SourceSyncSourceState,
+        (synchronizedState ??
+          classifyNonIndexedSource(
+            source,
+            remoteHarvestState.generatedAt,
+            remoteHarvestState.completedSourceIds.includes(source.id),
+          )) as SourceSyncSourceState,
       );
       // Reset failure counter on successful sync.
       const lastState = sourceStates.at(-1);

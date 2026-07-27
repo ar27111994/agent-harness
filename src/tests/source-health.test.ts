@@ -142,11 +142,19 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   // stale-sync-source has 1 consecutive failure → warning, not error.
   assert.equal(sourceEntry(report, "stale-sync-source")?.severity, "warning");
   // stale-escalated-source has 3 consecutive failures → error.
-  assert.equal(sourceEntry(report, "stale-escalated-source")?.severity, "error");
+  assert.equal(
+    sourceEntry(report, "stale-escalated-source")?.severity,
+    "error",
+  );
   // stale-no-meta-source has no consecutiveFailures or reason → ?? fallbacks.
-  assert.equal(sourceEntry(report, "stale-no-meta-source")?.severity, "warning");
+  assert.equal(
+    sourceEntry(report, "stale-no-meta-source")?.severity,
+    "warning",
+  );
   assert.ok(
-    sourceEntry(report, "stale-no-meta-source")?.reasons[0]?.includes("stale data"),
+    sourceEntry(report, "stale-no-meta-source")?.reasons[0]?.includes(
+      "stale data",
+    ),
     "should use default reason when syncState.reason is absent",
   );
   assert.equal(sourceStatus(report, "docs-source"), "active");

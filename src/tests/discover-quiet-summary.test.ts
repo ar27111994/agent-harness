@@ -39,7 +39,12 @@ function buildEntry(
     sourceId,
     kind: "package-registry",
     authorityTier: "trusted-community",
-    status: severity === "error" ? "broken" : severity === "warning" ? "stale" : "active",
+    status:
+      severity === "error"
+        ? "broken"
+        : severity === "warning"
+          ? "stale"
+          : "active",
     severity,
     coverageMode: "sampled",
     syncStatus: "complete",
@@ -49,7 +54,12 @@ function buildEntry(
     rejectedEntries: severity === "warning" ? 100 : 50,
     duplicateRate: 0,
     reasons,
-    suggestedAction: severity === "error" ? "refresh-sync" : severity === "warning" ? "review-source" : "none",
+    suggestedAction:
+      severity === "error"
+        ? "refresh-sync"
+        : severity === "warning"
+          ? "review-source"
+          : "none",
   };
 }
 
@@ -62,8 +72,12 @@ void test("printSourceHealthSummary: default mode does not alter output", () => 
     warningCount: 2,
     sources: [
       buildEntry("src-a", "error", ["source sync failed"]),
-      buildEntry("src-b", "warning", ["source produced entries but none survived selection"]),
-      buildEntry("src-c", "warning", ["source produced entries but none survived selection"]),
+      buildEntry("src-b", "warning", [
+        "source produced entries but none survived selection",
+      ]),
+      buildEntry("src-c", "warning", [
+        "source produced entries but none survived selection",
+      ]),
     ],
   });
 
@@ -83,18 +97,30 @@ void test("printSourceHealthSummary: --quiet suppresses warnings", () => {
     warningCount: 130,
     sources: [
       buildEntry("err-1", "error", ["source sync failed"]),
-      buildEntry("err-2", "error", ["official-first-party source is not marked publisherVerified"]),
+      buildEntry("err-2", "error", [
+        "official-first-party source is not marked publisherVerified",
+      ]),
       // 130 warning sources — all "none survived selection"
       ...Array.from({ length: 130 }, (_, i) =>
-        buildEntry(`warn-${i}`, "warning", ["source produced entries but none survived selection"]),
+        buildEntry(`warn-${i}`, "warning", [
+          "source produced entries but none survived selection",
+        ]),
       ),
     ],
   });
 
   // In --quiet mode, only severeCount matters for display.
   // The warnings are suppressed.
-  assert.equal(report.severeCount, 2, "only 2 severe sources should be visible");
-  assert.equal(report.warningCount, 130, "130 warnings exist but are suppressed");
+  assert.equal(
+    report.severeCount,
+    2,
+    "only 2 severe sources should be visible",
+  );
+  assert.equal(
+    report.warningCount,
+    130,
+    "130 warnings exist but are suppressed",
+  );
   assert.ok(report.severeCount > 0, "severe issues still surfaced");
 });
 
@@ -104,7 +130,9 @@ void test("printSourceHealthSummary: --quiet shows all-clear when no errors", ()
     severeCount: 0,
     warningCount: 100,
     sources: Array.from({ length: 100 }, (_, i) =>
-      buildEntry(`warn-${i}`, "warning", ["source produced entries but none survived selection"]),
+      buildEntry(`warn-${i}`, "warning", [
+        "source produced entries but none survived selection",
+      ]),
     ),
   });
 
@@ -121,9 +149,15 @@ void test("printSourceHealthSummary: --summary aggregates warnings by reason", (
     warningCount: 4,
     sources: [
       buildEntry("err-1", "error", ["source sync failed"]),
-      buildEntry("warn-1", "warning", ["source produced entries but none survived selection"]),
-      buildEntry("warn-2", "warning", ["source produced entries but none survived selection"]),
-      buildEntry("warn-3", "warning", ["source produced entries but none survived selection"]),
+      buildEntry("warn-1", "warning", [
+        "source produced entries but none survived selection",
+      ]),
+      buildEntry("warn-2", "warning", [
+        "source produced entries but none survived selection",
+      ]),
+      buildEntry("warn-3", "warning", [
+        "source produced entries but none survived selection",
+      ]),
       buildEntry("warn-4", "warning", ["duplicate rate is 75%"]),
     ],
   });
@@ -137,17 +171,26 @@ void test("printSourceHealthSummary: --summary aggregates warnings by reason", (
   }
 
   const sorted = [...byReason.entries()].sort(([, a], [, b]) => b - a);
-  
+
   // The most common reason should be "none survived selection" (3 sources).
   const topReason = sorted[0];
-  assert.equal(topReason?.[0], "source produced entries but none survived selection");
+  assert.equal(
+    topReason?.[0],
+    "source produced entries but none survived selection",
+  );
   assert.equal(topReason?.[1], 3);
 
   // The other two reasons should have count 1 each.
   const rest = sorted.slice(1);
   const restReasons = new Set(rest.map(([r]) => r));
-  assert.ok(restReasons.has("duplicate rate is 75%"), "should include duplicate rate");
-  assert.ok(restReasons.has("source sync failed"), "should include sync failure");
+  assert.ok(
+    restReasons.has("duplicate rate is 75%"),
+    "should include duplicate rate",
+  );
+  assert.ok(
+    restReasons.has("source sync failed"),
+    "should include sync failure",
+  );
   for (const [, count] of rest) {
     assert.equal(count, 1);
   }
@@ -198,10 +241,14 @@ void test("printSourceHealthSummary: preserved counts are accurate after filteri
     sources: [
       buildEntry("err", "error", ["fetch failed"]),
       ...Array.from({ length: 5 }, (_, i) =>
-        buildEntry(`stale-${i}`, "warning", ["using stale data (1 consecutive fetch failure(s))"]),
+        buildEntry(`stale-${i}`, "warning", [
+          "using stale data (1 consecutive fetch failure(s))",
+        ]),
       ),
       ...Array.from({ length: 4 }, (_, i) =>
-        buildEntry(`none-${i}`, "warning", ["source produced entries but none survived selection"]),
+        buildEntry(`none-${i}`, "warning", [
+          "source produced entries but none survived selection",
+        ]),
       ),
     ],
   });

@@ -124,7 +124,8 @@ export async function fetchWithRetry<T>(
   options: SourceSyncFetchOptions = {},
 ): Promise<T> {
   const maxRetries = options.maxRetries ?? SOURCE_SYNC_MAX_RETRIES;
-  const baseDelayMs = options.retryBaseDelayMs ?? SOURCE_SYNC_RETRY_BASE_DELAY_MS;
+  const baseDelayMs =
+    options.retryBaseDelayMs ?? SOURCE_SYNC_RETRY_BASE_DELAY_MS;
 
   let lastError: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -169,16 +170,18 @@ export async function fetchRequiredText(
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<string> {
-  return fetchWithRetry(url, async () =>
-    requireNonNull(
-      await fetchTextWithGuards(url, {
-        allowedOrigins,
-        headers: SOURCE_SYNC_HEADERS,
-        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-      }),
-      url,
-    ),
+  return fetchWithRetry(
+    url,
+    async () =>
+      requireNonNull(
+        await fetchTextWithGuards(url, {
+          allowedOrigins,
+          headers: SOURCE_SYNC_HEADERS,
+          maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+          timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+        }),
+        url,
+      ),
     options,
   );
 }
@@ -193,16 +196,18 @@ export async function fetchRequiredJson(
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
 ): Promise<unknown> {
-  return fetchWithRetry(url, async () =>
-    requireNonNull(
-      await fetchJsonWithGuards(url, {
-        allowedOrigins,
-        headers: SOURCE_SYNC_HEADERS,
-        maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
-        timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-      }),
-      url,
-    ),
+  return fetchWithRetry(
+    url,
+    async () =>
+      requireNonNull(
+        await fetchJsonWithGuards(url, {
+          allowedOrigins,
+          headers: SOURCE_SYNC_HEADERS,
+          maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+          timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+        }),
+        url,
+      ),
     options,
   );
 }

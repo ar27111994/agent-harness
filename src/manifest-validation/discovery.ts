@@ -608,16 +608,11 @@ export function assertSelectionReport(
     record.selectedCount,
     `${context}.selectedCount`,
   );
-  assertNumber(
-    record.rejectedCount,
-    `${context}.rejectedCount`,
-  );
+  assertNumber(record.rejectedCount, `${context}.rejectedCount`);
   // acceptanceRate — inject computed default for pre-v2.0.0 reports
   if (record.acceptanceRate === undefined) {
     record.acceptanceRate =
-      inputCount > 0
-        ? Number((selectedCount / inputCount).toFixed(4))
-        : 0;
+      inputCount > 0 ? Number((selectedCount / inputCount).toFixed(4)) : 0;
   } else {
     assertNumber(record.acceptanceRate, `${context}.acceptanceRate`);
   }

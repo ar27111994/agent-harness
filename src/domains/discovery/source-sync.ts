@@ -155,6 +155,6 @@ export const sourceSyncInternals = {
   hasHttpStatus,
   NonTransientFetchError,
   isNonTransientError,
-   
+
   fetchWithRetry,
 };

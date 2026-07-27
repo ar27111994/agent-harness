@@ -79,9 +79,7 @@ export function buildRecommendationEvaluationSummary(
       isBroadFallbackTopRecommendation(hostSummary),
     ).length,
     broadFallbackHosts: hostSummaries
-      .filter((hostSummary) =>
-        isBroadFallbackTopRecommendation(hostSummary),
-      )
+      .filter((hostSummary) => isBroadFallbackTopRecommendation(hostSummary))
       .map((hostSummary) => hostSummary.host),
     localAvailabilityTopCount: hostSummaries.filter(
       (hostSummary) =>

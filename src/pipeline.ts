@@ -184,7 +184,8 @@ export async function runWorkspacePipeline(
     workspaceRoot,
     projectRoot,
   );
-  const recommendExitCode = typeof recommendResult === "number" ? recommendResult : 0;
+  const recommendExitCode =
+    typeof recommendResult === "number" ? recommendResult : 0;
   if (recommendExitCode !== 0) {
     throw new Error(
       "recommend phase failed — no recommendations could be produced. " +

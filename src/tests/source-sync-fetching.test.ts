@@ -66,7 +66,10 @@ void test("fetchRequiredText retries on transient failure then succeeds", async 
   assert.equal(SOURCE_SYNC_RETRY_BASE_DELAY_MS, 1_000, "base delay is 1000ms");
   assert.equal(SOURCE_SYNC_FETCH_MAX_BYTES, 5_000_000);
   assert.equal(SOURCE_SYNC_TIMEOUT_MS, 30_000);
-  assert.equal(SOURCE_SYNC_HEADERS.Accept, "application/json,text/html,application/xml,text/plain,*/*");
+  assert.equal(
+    SOURCE_SYNC_HEADERS.Accept,
+    "application/json,text/html,application/xml,text/plain,*/*",
+  );
   assert.equal(SOURCE_SYNC_HEADERS["User-Agent"], "agent-harness");
 });
 
@@ -97,9 +100,9 @@ void test("stale-data fallback: consecutiveFailures resets to 0 on success", () 
 });
 
 void test("stale-data fallback: consecutiveFailures increments on each failure", () => {
-  assert.equal(({ consecutiveFailures: 1 }).consecutiveFailures, 1);
-  assert.equal(({ consecutiveFailures: 2 }).consecutiveFailures, 2);
-  assert.equal(({ consecutiveFailures: 3 }).consecutiveFailures, 3);
+  assert.equal({ consecutiveFailures: 1 }.consecutiveFailures, 1);
+  assert.equal({ consecutiveFailures: 2 }.consecutiveFailures, 2);
+  assert.equal({ consecutiveFailures: 3 }.consecutiveFailures, 3);
 });
 
 void test("stale-data fallback: status is stale when prior success and failures ≤ 3", () => {
@@ -123,7 +126,7 @@ void test("stale-data fallback: no fallback when prior state was already failed"
 });
 
 void test("stale-data fallback: resets to 0 after successful sync", () => {
-  assert.equal(({ consecutiveFailures: 0 }).consecutiveFailures, 0);
+  assert.equal({ consecutiveFailures: 0 }.consecutiveFailures, 0);
 });
 
 // ── hasHttpStatus type guard coverage ────────────────────────────────────
@@ -146,7 +149,10 @@ void test("hasHttpStatus returns false when Error status is not numeric", () => 
 // ── isNonTransientError full branch coverage ─────────────────────────────
 
 void test("isNonTransientError returns true for NonTransientFetchError", () => {
-  assert.equal(isNonTransientError(new NonTransientFetchError("blocked")), true);
+  assert.equal(
+    isNonTransientError(new NonTransientFetchError("blocked")),
+    true,
+  );
 });
 
 void test("isNonTransientError returns true for Error with HTTP 404 status", () => {
@@ -185,11 +191,15 @@ import { fetchWithRetry } from "../domains/discovery/source-sync/fetching.js";
 
 void test("fetchWithRetry retries on transient error then succeeds", async () => {
   let calls = 0;
-  const result = await fetchWithRetry("test://url", async () => {
-    calls += 1;
-    if (calls === 1) throw new Error("transient network error");
-    return "success";
-  }, { maxRetries: 2, retryBaseDelayMs: 1 });
+  const result = await fetchWithRetry(
+    "test://url",
+    async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("transient network error");
+      return "success";
+    },
+    { maxRetries: 2, retryBaseDelayMs: 1 },
+  );
   assert.equal(result, "success");
   assert.equal(calls, 2, "should retry once then succeed");
 });
@@ -197,10 +207,14 @@ void test("fetchWithRetry retries on transient error then succeeds", async () =>
 void test("fetchWithRetry throws immediately on NonTransientFetchError with no retry", async () => {
   let calls = 0;
   await assert.rejects(
-    fetchWithRetry("test://url", async () => {
-      calls += 1;
-      throw new NonTransientFetchError("blocked by policy");
-    }, { maxRetries: 2, retryBaseDelayMs: 1 }),
+    fetchWithRetry(
+      "test://url",
+      async () => {
+        calls += 1;
+        throw new NonTransientFetchError("blocked by policy");
+      },
+      { maxRetries: 2, retryBaseDelayMs: 1 },
+    ),
     /blocked by policy/,
   );
   assert.equal(calls, 1, "non-transient errors should not retry");
@@ -209,10 +223,14 @@ void test("fetchWithRetry throws immediately on NonTransientFetchError with no r
 void test("fetchWithRetry throws after exhausting all retries", async () => {
   let calls = 0;
   await assert.rejects(
-    fetchWithRetry("test://url", async () => {
-      calls += 1;
-      throw new Error("persistent failure");
-    }, { maxRetries: 1, retryBaseDelayMs: 1 }),
+    fetchWithRetry(
+      "test://url",
+      async () => {
+        calls += 1;
+        throw new Error("persistent failure");
+      },
+      { maxRetries: 1, retryBaseDelayMs: 1 },
+    ),
     /persistent failure/,
   );
   assert.equal(calls, 2, "should try once + retry once = 2 total");
