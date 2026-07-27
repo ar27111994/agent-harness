@@ -18,6 +18,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     buildSource("dormant-source"),
     buildSource("stale-source"),
     buildSource("failed-source", { kind: "marketplace" }),
+    buildSource("stale-sync-source", { kind: "package-registry" }),
     buildSource("docs-source", { kind: "docs" }),
     buildSource("registry-source", { kind: "registry" }),
     buildSource("local-directory-source", { kind: "local-directory" }),
@@ -33,6 +34,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   ];
   const selected = [
     buildEntry("selected", "active-source"),
+    buildEntry("stale-sync-selected", "stale-sync-source"),
     buildEntry("docs-selected", "docs-source"),
     buildEntry("registry-selected", "registry-source"),
     buildEntry("local-directory-selected", "local-directory-source"),
@@ -42,6 +44,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   const catalog = [
     ...selected,
     ...rejected,
+    buildEntry("stale-sync-catalog", "stale-sync-source"),
     buildEntry("active-duplicate-a", "active-source", {
       duplicateGroup: "active-duplicates",
     }),
@@ -78,6 +81,15 @@ void test("source health report distinguishes active, dormant, stale, failed, an
         indexedEntryCount: 0,
         cursors: [],
       },
+      {
+        sourceId: "stale-sync-source",
+        coverageMode: "indexed",
+        status: "stale",
+        indexedEntryCount: 50,
+        reason: "transient fetch failure",
+        cursors: [],
+        consecutiveFailures: 1,
+      },
     ],
   };
 
@@ -102,6 +114,9 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   );
   assert.equal(sourceStatus(report, "stale-source"), "stale");
   assert.equal(sourceStatus(report, "failed-source"), "broken");
+  assert.equal(sourceStatus(report, "stale-sync-source"), "stale");
+  // stale-sync-source has 1 consecutive failure → warning, not error.
+  assert.equal(sourceEntry(report, "stale-sync-source")?.severity, "warning");
   assert.equal(sourceStatus(report, "docs-source"), "active");
   assert.equal(sourceStatus(report, "registry-source"), "active");
   assert.equal(sourceEntry(report, "registry-source")?.coverageMode, "sampled");

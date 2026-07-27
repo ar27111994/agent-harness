@@ -114,6 +114,24 @@ void test("assertSelectionReport validates acceptanceRate when already present",
   );
 });
 
+void test("assertSelectionReport backfills acceptanceRate as 0 when inputCount is 0", () => {
+  // When acceptanceRate is undefined AND inputCount is 0, the ternary
+  // `inputCount > 0 ? ... : 0` hits the false branch. Covers line 620.
+  const report = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    inputCount: 0,
+    selectedCount: 0,
+    rejectedCount: 0,
+    duplicateDecisions: [],
+    rejectionSummary: {},
+    sampleRejected: [],
+    // acceptanceRate is deliberately absent — triggers the undefined branch.
+  };
+  assertSelectionReport(report, "report");
+  assert.equal(report.acceptanceRate, 0, "should backfill as 0 when inputCount=0");
+});
+
 void test("assertSelectionReport rejects missing required fields", () => {
   assert.throws(
     () =>
