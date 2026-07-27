@@ -452,6 +452,14 @@ async function fetchGitHubJsonOptional<T>(path: string): Promise<T | null> {
     return null;
   }
 
+  // Rate-limiting: 403 (secondary rate limit) and 429 (primary) are
+  // transient — return null so callers can skip the repo gracefully
+  // instead of crashing the entire maintenance pipeline.
+  if (response.status === 403 || response.status === 429) {
+    captureRateLimit(response);
+    return null;
+  }
+
   if (!response.ok) {
     captureRateLimit(response);
     throw new Error(
