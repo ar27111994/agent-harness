@@ -310,6 +310,8 @@ export async function writeArdCatalog(
     // strips devDependencies). Log the cause so operators can distinguish
     // "intentionally unformatted" from "formatting error".
     const reason =
+      // Non-Error throw path is defensive — JS allows throwing primitives.
+      /* c8 ignore next */
       err instanceof Error ? err.message : String(err ?? "unknown error");
     console.warn(
       `ard-catalog: Prettier formatting skipped (${reason}). JSON output is valid but may not pass prettier --check.`,
