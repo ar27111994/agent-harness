@@ -35,6 +35,7 @@ jobs:
 
       - name: Refresh discovery reports
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1"
           AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS: "50"
           AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "2"
