@@ -692,9 +692,11 @@ async function generateSelectionOutputs(projectRoot: string): Promise<{
   console.log(
     `Source verification report written (${sourceVerificationReport.demotedSourceCount} deterministic demotions)`,
   );
-  console.log(
-    `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
-  );
+  if (!options.quietMode && !options.summaryMode) {
+    console.log(
+      `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
+    );
+  }
   console.log(
     `Source candidate queue written (${sourceCandidateQueue.candidateCount} candidates, ${sourceCandidateQueue.reviewRequiredCount} review-required)`,
   );

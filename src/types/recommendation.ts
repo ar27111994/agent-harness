@@ -507,7 +507,7 @@ export interface RecommendationEvaluationSummary {
   };
   broadFallbackTopCount: number;
   /** Host IDs with broad-fallback top recommendations, for diagnostic triage. */
-  broadFallbackHosts: string[];
+  broadFallbackHosts: HostTarget[];
   localAvailabilityTopCount: number;
   topConfidenceCounts: {
     mediumOrStrong: number;
