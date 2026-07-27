@@ -28,7 +28,7 @@ void test("syncIndexedSources catch block: prior stale state → fallback persis
       }],
     });
     await writeJsonFile(join(dd, "sources.json"), { schemaVersion: 1, sources: [] });
-    await writeJsonFile(join(dd, "selections.json"), { schemaVersion: 1, selections: {} });
+    await writeJsonFile(join(dd, "selections.json"), { schemaVersion: 1, selectionPolicies: {}, selections: {} });
 
     // Prior state: stale with 1 entry.
     await writeJsonFile(join(od, "source-sync.json"), {
