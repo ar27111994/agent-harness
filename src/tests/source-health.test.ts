@@ -126,7 +126,7 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   );
 
   assert.equal(report.severeCount, 3);
-  assert.equal(report.warningCount, 5);
+  assert.equal(report.warningCount, 6);
   assert.equal(sourceStatus(report, "active-source"), "active");
   // dormant-source has no syncState entry — it was never synced in this
   // state root, so it should be reported as "never-synced", not "dormant".
