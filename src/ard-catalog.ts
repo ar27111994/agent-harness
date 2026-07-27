@@ -204,7 +204,11 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
  */
 export type PrettierFormatter = (
   source: string,
-  options: { parser: string; endOfLine: string; trailingComma: "all" | "es5" | "none" },
+  options: {
+    parser: string;
+    endOfLine: "lf" | "crlf" | "cr" | "auto";
+    trailingComma: "all" | "es5" | "none";
+  },
 ) => Promise<string>;
 
 /**
@@ -326,7 +330,11 @@ export async function writeArdCatalog(
  */
 async function defaultPrettierFormatter(
   source: string,
-  options: { parser: string; endOfLine: string; trailingComma: "all" | "es5" | "none" },
+  options: {
+    parser: string;
+    endOfLine: "lf" | "crlf" | "cr" | "auto";
+    trailingComma: "all" | "es5" | "none";
+  },
 ): Promise<string> {
   const prettier = await import("prettier");
   return prettier.format(source, options);
