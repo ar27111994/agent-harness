@@ -213,6 +213,9 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
 export async function writeArdCatalog(
   projectRoot: string,
   version?: string,
+  /** Injectable prettier import for testing the unavailable path. */
+  importPrettier: () => Promise<typeof import("prettier")> = () =>
+    import("prettier"),
 ): Promise<{ filePath: string; entryCount: number }> {
   // Use dynamic import for ESM compatibility at runtime
   const { readJsonLinesFile } = await import("./files.js");
@@ -286,7 +289,7 @@ export async function writeArdCatalog(
   // export time so the CLI remains functional without it.
   let formattedJson = rawJson;
   try {
-    const prettier = await import("prettier");
+    const prettier = await importPrettier();
     const options: PrettierOptions = {
       parser: "json",
       endOfLine: "lf",
