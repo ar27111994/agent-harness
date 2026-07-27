@@ -45,7 +45,8 @@ export const SOURCE_SYNC_HEADERS = {
   Accept: "application/json,text/html,application/xml,text/plain,*/*",
   "User-Agent": "agent-harness",
 };
-/** Maximum retry attempts for transient source-sync fetch failures. */
+/** Maximum retry attempts for transient source-sync fetch failures
+ *  (fetchWithRetry performs 1 initial attempt + up to maxRetries retries). */
 export const SOURCE_SYNC_MAX_RETRIES = 3;
 /** Base backoff delay in ms for source-sync retries (exponential: delay × 2ⁿ). */
 export const SOURCE_SYNC_RETRY_BASE_DELAY_MS = 1_000;
@@ -123,7 +124,7 @@ export async function fetchWithRetry<T>(
   fetchFn: () => Promise<T>,
   options: SourceSyncFetchOptions = {},
 ): Promise<T> {
-  const maxRetries = options.maxRetries ?? SOURCE_SYNC_MAX_RETRIES;
+  const maxRetries = Math.max(0, options.maxRetries ?? SOURCE_SYNC_MAX_RETRIES);
   const baseDelayMs =
     options.retryBaseDelayMs ?? SOURCE_SYNC_RETRY_BASE_DELAY_MS;
 
@@ -151,13 +152,17 @@ export async function fetchWithRetry<T>(
 // ─── Public fetch wrappers ─────────────────────────────────────────────────────
 
 /**
- * Throws NonTransientFetchError when `value` is null — guarded fetches
- * return null for all non-OK responses and SSRF/policy rejections, none
- * of which benefit from retry.
+ * Throws when `value` is null — guarded fetches return null for all
+ * non-OK responses, SSRF rejections, and network errors. Since the
+ * guarded layer doesn't propagate status info, we throw a plain Error
+ * (transient) so fetchWithRetry can retry. The cost of extra retries
+ * on permanent failures (4xx, SSRF) is bounded (~7 s with defaults);
+ * the cost of NOT retrying on transient errors (5xx, timeouts) is
+ * a permanently stale/failed source.
  */
 function requireNonNull<T>(value: T | null, url: string): T {
   if (value === null) {
-    throw new NonTransientFetchError(`Failed to fetch ${url}`);
+    throw new Error(`Failed to fetch ${url}`);
   }
   return value;
 }

@@ -588,7 +588,7 @@ agent-harness discover full --quiet    # only errors, warnings suppressed
 agent-harness discover full --summary  # aggregate breakdown by reason
 ```
 
-Default behaviour (no flags) remains unchanged — all warnings are shown for debugging.
+Default behavior (no flags) remains unchanged — all warnings are shown for debugging.
 
 `discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
 

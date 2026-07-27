@@ -135,14 +135,12 @@ export function buildSourceHealthReport(
         reasons.push(syncState.reason ?? "source sync failed");
       } else if (syncState?.status === "stale") {
         // Transient fetch failure — existing data still usable.
-        // Escalates to "error" only after persistent consecutive failures
-        // (aligned with MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR = 3 in
-        // source-sync/index.ts: status stays "stale" for failures 1–3,
-        // escalates to "failed" at failure 4).
-        const failures = syncState?.consecutiveFailures ?? 0;
+        // Source-sync marks status "stale" only for failures 1–3
+        // (escalates to "failed" at failure 4), so severity is
+        // always "warning" here.
         status = "stale";
-        severity = failures > 3 ? "error" : "warning";
-        suggestedAction = failures > 3 ? "refresh-sync" : "review-source";
+        severity = "warning";
+        suggestedAction = "review-source";
         reasons.push(syncState.reason ?? "source sync is using stale data");
       } else if (catalogCount === 0) {
         severity = "warning";
