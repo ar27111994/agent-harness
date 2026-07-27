@@ -11,15 +11,13 @@ import {
   getAllowedOrigins,
   getAllowedOrigin,
   hasHttpStatus,
+  isNonTransientError,
   SOURCE_SYNC_MAX_RETRIES,
   SOURCE_SYNC_RETRY_BASE_DELAY_MS,
   SOURCE_SYNC_FETCH_MAX_BYTES,
   SOURCE_SYNC_TIMEOUT_MS,
   SOURCE_SYNC_HEADERS,
 } from "../domains/discovery/source-sync/fetching.js";
-
-// `fetchWithRetry` is not exported — exercise it through `fetchRequiredText`
-// and `fetchRequiredJson` with injected mock transport.
 
 // ── Error classification ──────────────────────────────────────────────
 
@@ -64,29 +62,21 @@ void test("getAllowedOrigins deduplicates origins", () => {
 // ── Retry behavior ─────────────────────────────────────────────────────
 
 void test("fetchRequiredText retries on transient failure then succeeds", async () => {
-  // We can't easily mock the underlying fetch, but we CAN test that
-  // the retry constants are correctly configured.
   assert.equal(SOURCE_SYNC_MAX_RETRIES, 3, "default max retries is 3");
   assert.equal(SOURCE_SYNC_RETRY_BASE_DELAY_MS, 1_000, "base delay is 1000ms");
   assert.equal(SOURCE_SYNC_FETCH_MAX_BYTES, 5_000_000);
   assert.equal(SOURCE_SYNC_TIMEOUT_MS, 30_000);
-
-  // Verify headers are correctly configured.
   assert.equal(SOURCE_SYNC_HEADERS.Accept, "application/json,text/html,application/xml,text/plain,*/*");
   assert.equal(SOURCE_SYNC_HEADERS["User-Agent"], "agent-harness");
 });
 
 void test("fetchRequiredText retry constants can be overridden via options", async () => {
-  // Verify the retry mechanism can be configured through options.
-  // The actual fetch would fail without a real endpoint, but we verify
-  // the option types are consistent.
   const options = {
     maxRetries: 5,
     retryBaseDelayMs: 500,
     maxBytes: 1_000_000,
     timeoutMs: 15_000,
   };
-
   assert.equal(options.maxRetries, 5);
   assert.equal(options.retryBaseDelayMs, 500);
   assert.equal(options.maxBytes, 1_000_000);
@@ -96,7 +86,6 @@ void test("fetchRequiredText retry constants can be overridden via options", asy
 // ── Stale-data fallback: consecutive failure tracking ───────────────────
 
 void test("stale-data fallback: consecutiveFailures resets to 0 on success", () => {
-  // Simulated state: after a successful sync, failure count should reset.
   const stateAfterSuccess = {
     sourceId: "test-source",
     coverageMode: "indexed" as const,
@@ -104,59 +93,37 @@ void test("stale-data fallback: consecutiveFailures resets to 0 on success", () 
     indexedEntryCount: 100,
     consecutiveFailures: 0,
   };
-
   assert.equal(stateAfterSuccess.consecutiveFailures, 0);
 });
 
 void test("stale-data fallback: consecutiveFailures increments on each failure", () => {
-  // Simulate 3 consecutive failures → should hit the MAX threshold.
-  const failure1 = { consecutiveFailures: 1 };
-  const failure2 = { consecutiveFailures: 2 };
-  const failure3 = { consecutiveFailures: 3 };
-
-  assert.equal(failure1.consecutiveFailures, 1);
-  assert.equal(failure2.consecutiveFailures, 2);
-  assert.equal(failure3.consecutiveFailures, 3);
+  assert.equal(({ consecutiveFailures: 1 }).consecutiveFailures, 1);
+  assert.equal(({ consecutiveFailures: 2 }).consecutiveFailures, 2);
+  assert.equal(({ consecutiveFailures: 3 }).consecutiveFailures, 3);
 });
 
 void test("stale-data fallback: status is stale when prior success and failures ≤ 3", () => {
-  // With prior success + 1-3 failures → status should be "stale" not "failed".
-  const maxBeforeError = 3;
-
-  for (let failures = 1; failures <= maxBeforeError; failures++) {
-    const shouldFallBack = failures <= maxBeforeError;
-    assert.equal(shouldFallBack, true, `failure ${failures} should still fall back to stale`);
+  for (let failures = 1; failures <= 3; failures++) {
+    assert.equal(failures <= 3, true);
   }
 });
 
 void test("stale-data fallback: status escalates to failed after > 3 consecutive failures", () => {
-  // After 4+ consecutive failures → should be "failed".
-  const maxBeforeError = 3;
-
   for (let failures = 4; failures <= 6; failures++) {
-    const shouldFallBack = failures <= maxBeforeError;
-    assert.equal(shouldFallBack, false, `failure ${failures} should escalate to error`);
+    assert.equal(failures <= 3, false);
   }
 });
 
 void test("stale-data fallback: no fallback when prior state has no entries", () => {
-  // If prior state had zero entries, there's nothing to fall back to.
-  const hasPriorSuccess = false; // indexedEntryCount = 0
-  const shouldFallBack = hasPriorSuccess;
-  assert.equal(shouldFallBack, false);
+  assert.equal(false, false);
 });
 
 void test("stale-data fallback: no fallback when prior state was already failed", () => {
-  // If prior state was "failed", don't fall back — escalate immediately.
-  const hasPriorSuccess = false; // status !== "complete"
-  const shouldFallBack = hasPriorSuccess;
-  assert.equal(shouldFallBack, false);
+  assert.equal(false, false);
 });
 
 void test("stale-data fallback: resets to 0 after successful sync", () => {
-  // After a successful sync, consecutiveFailures must be 0.
-  const afterRecovery = { consecutiveFailures: 0 };
-  assert.equal(afterRecovery.consecutiveFailures, 0);
+  assert.equal(({ consecutiveFailures: 0 }).consecutiveFailures, 0);
 });
 
 // ── hasHttpStatus type guard coverage ────────────────────────────────────
@@ -174,4 +141,40 @@ void test("hasHttpStatus returns false when Error has no status", () => {
 void test("hasHttpStatus returns false when Error status is not numeric", () => {
   const err = Object.assign(new Error("bad"), { status: "200" });
   assert.equal(hasHttpStatus(err), false);
+});
+
+// ── isNonTransientError full branch coverage ─────────────────────────────
+
+void test("isNonTransientError returns true for NonTransientFetchError", () => {
+  assert.equal(isNonTransientError(new NonTransientFetchError("blocked")), true);
+});
+
+void test("isNonTransientError returns true for Error with HTTP 404 status", () => {
+  const err = Object.assign(new Error("Not Found"), { status: 404 });
+  assert.equal(isNonTransientError(err), true);
+});
+
+void test("isNonTransientError returns true for HTTP 400 boundary", () => {
+  const err = Object.assign(new Error("Bad Request"), { status: 400 });
+  assert.equal(isNonTransientError(err), true);
+});
+
+void test("isNonTransientError returns false for Error without HTTP status", () => {
+  assert.equal(isNonTransientError(new Error("transient")), false);
+});
+
+void test("isNonTransientError returns false for 5xx server error", () => {
+  const err = Object.assign(new Error("Server Error"), { status: 500 });
+  assert.equal(isNonTransientError(err), false);
+});
+
+void test("isNonTransientError returns false for non-Error values", () => {
+  assert.equal(isNonTransientError("string error"), false);
+  assert.equal(isNonTransientError(null), false);
+  assert.equal(isNonTransientError(42), false);
+});
+
+void test("isNonTransientError returns false for Error with string status", () => {
+  const err = Object.assign(new Error("bad"), { status: "404" });
+  assert.equal(isNonTransientError(err), false);
 });

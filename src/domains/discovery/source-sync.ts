@@ -49,6 +49,7 @@ import {
 import {
   fetchRequiredText,
   fetchRequiredJson,
+  isNonTransientError,
   resolveSitemapLeafUrls,
   parseSitemapIndex,
   parseUrlSet,
@@ -152,4 +153,5 @@ export const sourceSyncInternals = {
   allPreviousCursorsCompleted,
   hasHttpStatus,
   NonTransientFetchError,
+  isNonTransientError,
 };

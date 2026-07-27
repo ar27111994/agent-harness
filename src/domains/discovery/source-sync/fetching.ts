@@ -78,7 +78,7 @@ export class NonTransientFetchError extends Error {
  * Prefers structured checks over string-matching; falls back to message
  * inspection only for errors originating outside this module.
  */
-function isNonTransientError(err: unknown): boolean {
+export function isNonTransientError(err: unknown): boolean {
   if (err instanceof NonTransientFetchError) {
     return true;
   }
@@ -96,8 +96,6 @@ function isNonTransientError(err: unknown): boolean {
     err.status >= HTTP_STATUS_CLIENT_ERROR_MIN &&
     err.status < HTTP_STATUS_SERVER_ERROR_MIN
   ) {
-    // Requires a fetch-level mock returning 4xx — covered by hasHttpStatus unit tests.
-    /* c8 ignore next */
     return true;
   }
 
