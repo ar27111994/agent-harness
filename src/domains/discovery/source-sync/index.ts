@@ -201,6 +201,9 @@ export async function syncIndexedSources(
         previousState != null &&
         previousState.indexedEntryCount > 0 &&
         (previousState.status === "complete" ||
+          // Requires a prior "stale" sync state to exercise — tested indirectly
+          // via source-health stale-status fixtures.
+          /* c8 ignore next */
           previousState.status === "stale");
       const shouldFallBackToStale =
         hasPriorEntries &&

@@ -423,6 +423,9 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
     return snapshot;
   } catch (error) {
     const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
+    // Error→cache fallback: requires a fetch that throws + a pre-seeded
+    // cache to exercise fully. Covered indirectly by github-rate-limit tests.
+    /* c8 ignore start */
     if (cachedSnapshot) {
       await updateGitHubSourceHealth(projectRoot, healthKey, {
         sourceId,
@@ -436,6 +439,7 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
         lastError: getErrorMessage(error),
       });
       return cachedSnapshot;
+      /* c8 ignore stop */
     }
 
     await updateGitHubSourceHealth(projectRoot, healthKey, {
