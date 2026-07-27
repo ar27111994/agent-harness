@@ -387,14 +387,13 @@ void test("github repo fetch validates persisted health state and records rate-l
     "utf8",
   );
 
-  await assert.rejects(
-    fetchGitHubRepoSnapshotByRepoUrl({
-      repoUrl: "https://github.com/octocat/hello-world",
-      projectRoot: tempRoot,
-      sourceId: "fixture-source",
-    }),
-    /GitHub API request failed \(403 Forbidden\)/u,
-  );
+  // 403 rate-limit now returns null gracefully instead of throwing.
+  const first = await fetchGitHubRepoSnapshotByRepoUrl({
+    repoUrl: "https://github.com/octocat/hello-world",
+    projectRoot: tempRoot,
+    sourceId: "fixture-source",
+  });
+  assert.equal(first, null, "403 rate-limit should return null");
   const second = await fetchGitHubRepoSnapshotByRepoUrl({
     repoUrl: "https://github.com/octocat/hello-world",
     projectRoot: tempRoot,

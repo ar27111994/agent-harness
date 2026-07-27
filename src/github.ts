@@ -324,6 +324,26 @@ async function fetchGitHubRepoSnapshotFromCoordinates(options: {
       `/repos/${owner}/${repo}`,
     );
     if (!repoResponse) {
+      // Distinguish rate-limiting (403/429) from genuine not-found (404).
+      if (isRateLimited()) {
+        const cachedSnapshot = await readGitHubRepoSnapshotCache(cachePath);
+        await updateGitHubSourceHealth(projectRoot, healthKey, {
+          sourceId,
+          owner,
+          repo,
+          lastAttemptAt: new Date().toISOString(),
+          degradedMode: cachedSnapshot !== null,
+          degradedReason: cachedSnapshot
+            ? "rate-limited-cache-fallback"
+            : "rate-limited-no-cache",
+          usedCacheLastAttempt: cachedSnapshot !== null,
+          lastError: cachedSnapshot ? null : buildRateLimitMessage(),
+          consecutiveFailures: cachedSnapshot ? 0 : 1,
+          lastFailureAt: cachedSnapshot ? null : new Date().toISOString(),
+        });
+        return cachedSnapshot;
+      }
+
       await updateGitHubSourceHealth(projectRoot, healthKey, {
         sourceId,
         owner,
