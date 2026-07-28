@@ -593,20 +593,18 @@ function quoteFrontmatterScalar(value: string): string {
   return JSON.stringify(value.replace(/\r\n?/gu, "\n"));
 }
 
+/** Lookup table mapping AssetKind to managed directory names. */
+const ASSET_KIND_DIRECTORY_NAMES: Record<string, string> = {
+  "mcp-server": "mcp-servers",
+  "prompt-pack": "prompt-packs",
+  "reference-pack": "reference-packs",
+};
+
 /**
  * Exposes asset-kind directory-name resolver for per-host adapter use.
  */
 export function directoryNameForAssetKind(assetKind: AssetKind): string {
-  switch (assetKind) {
-    case "mcp-server":
-      return "mcp-servers";
-    case "prompt-pack":
-      return "prompt-packs";
-    case "reference-pack":
-      return "reference-packs";
-    default:
-      return `${assetKind}s`;
-  }
+  return ASSET_KIND_DIRECTORY_NAMES[assetKind] ?? `${assetKind}s`;
 }
 
 /**

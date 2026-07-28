@@ -224,7 +224,7 @@ export async function runDiscover(
       );
     }
     case "full": {
-      if (rest.includes("--help") || rest.includes("-h")) {
+      if (hasHelpFlag) {
         printDiscoverFullHelp();
         return 0;
       }
@@ -264,7 +264,7 @@ export async function runDiscover(
     case "breadth":
     case "recall":
     case "candidate-pool":
-      if (rest.includes("--help") || rest.includes("-h")) {
+      if (hasHelpFlag) {
         printDiscoverBreadthHelp();
         return 0;
       }

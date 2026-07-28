@@ -655,24 +655,22 @@ async function captureManagedTextFileSnapshots(
 /**
  * Exposes text-file snapshot restore for per-host adapter use.
  */
+/** Lookup table mapping AssetKind to managed file names. */
+const ASSET_KIND_FILE_NAMES: Record<string, string> = {
+  skill: "SKILL.md",
+  agent: "agent.md",
+  hook: "hook.md",
+  workflow: "prompt.md",
+  "prompt-pack": "prompt.md",
+  plugin: "plugin.md",
+  "mcp-server": "mcp-server.md",
+};
+
 function fileNameForAssetKind(nativeAsset: NativeAsset): string {
-  switch (nativeAsset.assetKind) {
-    case "skill":
-      return "SKILL.md";
-    case "agent":
-      return "agent.md";
-    case "hook":
-      return "hook.md";
-    case "workflow":
-    case "prompt-pack":
-      return "prompt.md";
-    case "plugin":
-      return "plugin.md";
-    case "mcp-server":
-      return "mcp-server.md";
-    default:
-      return `${sanitizeAssetId(nativeAsset.assetId)}.md`;
-  }
+  return (
+    ASSET_KIND_FILE_NAMES[nativeAsset.assetKind] ??
+    `${sanitizeAssetId(nativeAsset.assetId)}.md`
+  );
 }
 
 /**
