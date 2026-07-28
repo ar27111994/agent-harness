@@ -78,12 +78,58 @@ export async function buildDemandProfile(
     /* c8 ignore next */
     const reason = scanResult.telemetry.truncationReason ?? "budget-exceeded";
     const mb = (scanResult.telemetry.visitedBytes / 1_048_576).toFixed(1);
+
+    // Compute the top directories by file count to help users identify
+    // which directories to add to .agent-harnessignore.
+    const dirCounts = computeDirectoryScanCounts(scanRoot, scannedFiles);
+    const topDirs = dirCounts.slice(0, 5);
+
+    let dirGuidance = "";
+    if (topDirs.length > 0) {
+      const dirLines = topDirs.map(
+        (d) => `    ${d.path} (${d.fileCount} files)`,
+      );
+      dirGuidance = `\n  Top directories by scan count:\n${dirLines.join("\n")}\n`;
+    }
+
+    const ignorePath = `${toPosixPath(scanRoot)}/.agent-harnessignore`;
+    const missedSignalNote =
+      evidence.length > 0
+        ? `\n  Note: ${evidence.length} demand signals were recorded before truncation; additional signals may have been missed.`
+        : "";
+
     process.stderr.write(
       `[warn] Demand-signal scan truncated (reason: ${reason}, scanned ${scannedFiles.length} files / ${mb} MB). ` +
-        `Demand profile may be incomplete. ` +
-        `Add large binary/asset directories (e.g. assets/, images/, build/) to .gitignore or .agent-harnessignore to avoid premature truncation.\n`,
+        `Demand profile may be incomplete.${missedSignalNote}\n` +
+        `${dirGuidance}` +
+        `  To fix:\n` +
+        `    • Create ${ignorePath} and add patterns for large directories\n` +
+        `    • Or increase the limit via AGENT_HARNESS_SCAN_MAX_BYTES (currently ${mb} MB visited)\n` +
+        `    • Run 'discover full' again after excluding unnecessary directories\n`,
     );
   }
 
   return profile;
+}
+
+/**
+ * Computes the top directories by file count from a list of scanned file
+ * paths. Used to generate actionable truncation-warning guidance.
+ */
+function computeDirectoryScanCounts(
+  scanRoot: string,
+  files: string[],
+): Array<{ path: string; fileCount: number }> {
+  const dirCounts = new Map<string, number>();
+
+  for (const filePath of files) {
+    // Extract the immediate parent directory relative to scanRoot.
+    const relative = toRelativePosixPath(scanRoot, filePath);
+    const dir = relative.split("/")[0] ?? ".";
+    dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
+  }
+
+  return [...dirCounts.entries()]
+    .map(([path, fileCount]) => ({ path, fileCount }))
+    .sort((a, b) => b.fileCount - a.fileCount);
 }

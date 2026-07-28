@@ -40,6 +40,7 @@ import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
 import { writeEnvironmentIndex } from "./domains/discovery/environment-index.js";
 import { writeArdCatalog } from "./ard-catalog.js";
+import { ARD_PUBLISHER_FQDN } from "./ard/types.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -286,7 +287,16 @@ export async function runDiscover(
       } catch {
         // package.json unavailable — writeArdCatalog will fall back to "0.0.0".
       }
-      await writeArdCatalog(projectRoot, pkgVersion);
+      const { filePath, entryCount } = await writeArdCatalog(
+        projectRoot,
+        pkgVersion,
+      );
+      const quietMode = rest.includes("--quiet");
+      if (!quietMode) {
+        console.log(
+          `ARD ai-catalog.json written to ${toPosixPath(filePath)} (${entryCount} ${entryCount === 1 ? "entry" : "entries"}, publisher: ${ARD_PUBLISHER_FQDN})`,
+        );
+      }
       return 0;
     }
     case "inspect":
