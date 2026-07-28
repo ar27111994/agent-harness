@@ -197,7 +197,7 @@ export async function runDiscover(
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
-      await generateSelectionOutputs(projectRoot);  // flags not applicable in select mode
+      await generateSelectionOutputs(projectRoot); // flags not applicable in select mode
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "after-select",
@@ -222,7 +222,10 @@ export async function runDiscover(
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
       logDiscoverPhase("discover full", 5, 5, "Applying selection rules");
-      const result = await generateSelectionOutputs(projectRoot, { quietMode, summaryMode });
+      const result = await generateSelectionOutputs(projectRoot, {
+        quietMode,
+        summaryMode,
+      });
       if (quietMode || summaryMode) {
         printSourceHealthSummary(result.sourceHealthReport, {
           quietMode,
