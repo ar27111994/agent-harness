@@ -7,7 +7,9 @@ import test from "node:test";
 import {
   writeTextFile,
   writeJsonLinesFile,
+  writeJsonFile,
   readTextFileOrNull,
+  readJsonFileOrNull,
 } from "../files.js";
 import {
   isPathWithinRoot,
@@ -17,6 +19,7 @@ import {
   resolveAllowedAbsolutePath,
 } from "../lib/safe-paths.js";
 import { ardRegistryInternals } from "../domains/discovery/source-sync/registries/ard-registry.js";
+import { mergeCodexPluginMarketplace } from "../host-adapters/codex-native.js";
 
 const { extractArdTrustSignals, computeArdTrustScore } = ardRegistryInternals;
 
@@ -279,4 +282,119 @@ void test("extractArdTrustSignals returns empty array for undefined", () => {
 
 void test("extractArdTrustSignals returns empty array for empty object", () => {
   assert.deepEqual(extractArdTrustSignals({}), []);
+});
+
+// ── 6. Long-string sanitization stress ─────────────────────────────────
+
+void test("sanitizeMirrorId handles very long input strings", () => {
+  const longInput = "a".repeat(100_000);
+  assert.doesNotThrow(
+    () => sanitizeMirrorId(longInput),
+    "long input should not crash",
+  );
+  const result = sanitizeMirrorId(longInput);
+  assert.ok(result.length > 0, "should return a result for long input");
+});
+
+void test("sanitizeAssetId handles very long input strings", () => {
+  const longInput = "asset-".repeat(20_000);
+  assert.doesNotThrow(
+    () => sanitizeAssetId(longInput),
+    "long input should not crash",
+  );
+  const result = sanitizeAssetId(longInput);
+  assert.ok(result.length > 0, "should return a result for long input");
+});
+
+// ── 8. Codex marketplace dedup filters existing agent-harness plugins ───
+
+void test("mergeCodexPluginMarketplace filters existing agent-harness entry and adds it back", async () => {
+  const root = await mkdtempFixture("codex-mkt");
+  try {
+    const mktPath = join(root, "marketplace.json");
+    // Pre-populate marketplace with an existing agent-harness entry
+    await writeJsonFile(mktPath, {
+      schemaVersion: 1,
+      plugins: [
+        { name: "other-plugin", path: "./other" },
+        { name: "agent-harness", path: "./old-agent-harness" },
+      ],
+    });
+
+    await mergeCodexPluginMarketplace(mktPath);
+
+    const result = await readJsonFileOrNull<{
+      schemaVersion: number;
+      plugins: { name: string; path: string }[];
+    }>(mktPath);
+    assert.ok(result !== null, "marketplace should exist after merge");
+    const names = result.plugins.map((p) => p.name);
+    assert.ok(
+      names.includes("other-plugin"),
+      "non-agent-harness plugins preserved",
+    );
+    assert.ok(
+      names.includes("agent-harness"),
+      "agent-harness re-added with current path",
+    );
+    // The old "old-agent-harness" path should be replaced with "./agent-harness"
+    const ahEntry = result.plugins.find((p) => p.name === "agent-harness");
+    assert.ok(ahEntry !== undefined, "agent-harness entry should exist");
+    assert.equal(
+      ahEntry.path,
+      "./agent-harness",
+      "path should be updated to current",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ── 7. Codex hook source edge cases ───────────────────────────────────
+
+void test("buildCodexHooksManifest handles hooks without files and without manifest dir", async () => {
+  const { buildCodexHooksManifest } =
+    await import("../host-adapters/codex-native.js");
+  // Hook with no file → falls back to assetId
+  const manifestNoFile = buildCodexHooksManifest(
+    [
+      {
+        assetId: "hook-no-file",
+        assetKind: "hook",
+        compatibilityMode: "adaptable",
+        content: "# Hook\n",
+        displayName: "Hook No File",
+      },
+    ],
+    [],
+  );
+  assert.equal(
+    (
+      (manifestNoFile as Record<string, unknown>).hooks as Array<
+        Record<string, unknown>
+      >
+    )[0]?.source,
+    "hook-no-file",
+  );
+  // Hook with file but no manifest dir → returns hookFile as-is
+  const manifestNoDir = buildCodexHooksManifest(
+    [
+      {
+        assetId: "hook-with-file",
+        assetKind: "hook",
+        compatibilityMode: "adaptable",
+        content: "# Hook\n",
+        displayName: "Hook With File",
+      },
+    ],
+    ["/path/to/hook.md"],
+  );
+  assert.equal(
+    (
+      (manifestNoDir as Record<string, unknown>).hooks as Array<
+        Record<string, unknown>
+      >
+    )[0]?.source,
+    "/path/to/hook.md",
+  );
 });
