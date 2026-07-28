@@ -197,7 +197,7 @@ export async function runDiscover(
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
-      await generateSelectionOutputs(projectRoot);
+      await generateSelectionOutputs(projectRoot);  // flags not applicable in select mode
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "after-select",
@@ -222,7 +222,7 @@ export async function runDiscover(
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
       logDiscoverPhase("discover full", 5, 5, "Applying selection rules");
-      const result = await generateSelectionOutputs(projectRoot);
+      const result = await generateSelectionOutputs(projectRoot, { quietMode, summaryMode });
       if (quietMode || summaryMode) {
         printSourceHealthSummary(result.sourceHealthReport, {
           quietMode,
@@ -506,7 +506,10 @@ function appendCatalogEntries(
   }
 }
 
-async function generateSelectionOutputs(projectRoot: string): Promise<{
+async function generateSelectionOutputs(
+  projectRoot: string,
+  options: { quietMode?: boolean; summaryMode?: boolean } = {},
+): Promise<{
   selectionReport: SelectionReport;
   selectedEntries: AssetCatalogEntry[];
   rejectedEntries: AssetCatalogEntry[];
