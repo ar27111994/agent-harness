@@ -257,6 +257,37 @@ void test("mapEntryToArd includes trust manifest when signals present", () => {
   assert.ok(ard.trustManifest!.attestations!.length >= 2);
 });
 
+void test("mapEntryToArd uses originUrl over manifestEntry for url field (#368)", () => {
+  const entry = buildEntry({
+    id: "url-test-skill",
+    displayName: "URL Test",
+    assetKind: "skill",
+    source: {
+      sourceId: "url-src",
+      authorityTier: "unverified-community",
+      sourceKind: "repo",
+      sourcePriority: 70,
+      originUrl: "https://github.com/test/skills/blob/main/SKILL.md",
+      publisher: "TestPub",
+      publisherVerified: false,
+    },
+    install: {
+      method: "repo-reference",
+      // manifestEntry is typically a git hash, NOT a URL
+      manifestEntry: "a94df09f75fba2f11c63103c3e573c729226a6e0",
+    },
+  });
+
+  const ard = mapEntryToArd(entry, "test.io", "2.0.0");
+  // The url must be the resolvable originUrl, not the git hash
+  assert.equal(ard.url, "https://github.com/test/skills/blob/main/SKILL.md");
+  // It must be an https:// URL, not a hash
+  assert.ok(
+    ard.url.startsWith("https://"),
+    "url must be a resolvable https URL",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // ASSET_KIND_TO_ARD_TYPE — coverage
 // ---------------------------------------------------------------------------
