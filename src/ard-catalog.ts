@@ -71,6 +71,9 @@ import {
   getArdPublisherFqdn,
 } from "./ard/types.js";
 
+/** Re-export publisher FQDN helper for external callers. */
+export { getArdPublisherFqdn };
+
 // ---------------------------------------------------------------------------
 // Mapping
 // ---------------------------------------------------------------------------

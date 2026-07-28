@@ -39,8 +39,7 @@ import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.j
 import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
 import { writeEnvironmentIndex } from "./domains/discovery/environment-index.js";
-import { writeArdCatalog } from "./ard-catalog.js";
-import { ARD_PUBLISHER_FQDN } from "./ard/types.js";
+import { writeArdCatalog, getArdPublisherFqdn } from "./ard-catalog.js";
 import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
@@ -294,7 +293,7 @@ export async function runDiscover(
       const quietMode = rest.includes("--quiet");
       if (!quietMode) {
         console.log(
-          `ARD ai-catalog.json written to ${toPosixPath(filePath)} (${entryCount} ${entryCount === 1 ? "entry" : "entries"}, publisher: ${ARD_PUBLISHER_FQDN})`,
+          `ARD ai-catalog.json written to ${toPosixPath(filePath)} (${entryCount} ${entryCount === 1 ? "entry" : "entries"}, publisher: ${getArdPublisherFqdn()})`,
         );
       }
       return 0;

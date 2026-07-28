@@ -1716,7 +1716,7 @@ agent-harness/
 │       ├── FUTURE-IMPROVEMENTS.md
 │       ├── HOST-SURFACE-AUDIT.md
 │       ├── IMPLEMENTATION-PLAN.md
-│       ├── Roadmap.md
+│       ├── ROADMAP.md
 │       └── SOURCE-SYNC-DECOMPOSITION-PLAN.md
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
@@ -1930,7 +1930,7 @@ Known boundaries:
 - [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/RECOMMENDATION-POLICY-PLAYBOOK.md) - how to inspect and tweak ranking policy only after recall looks healthy
 - [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/HOST-SURFACE-AUDIT.md) - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
 - [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md) - vulnerability reporting and supported-version policy
-- [`Roadmap.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/Roadmap.md) - gap analysis and long-range direction
+- [`ROADMAP.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/ROADMAP.md) - gap analysis and long-range direction
 - [`IMPLEMENTATION-PLAN.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/IMPLEMENTATION-PLAN.md) - milestone-oriented execution plan
 - [`FUTURE-IMPROVEMENTS.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/FUTURE-IMPROVEMENTS.md) - follow-up ideas and architectural extensions
 - [`CONTRIBUTING.md`](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md) - contribution workflow and hygiene

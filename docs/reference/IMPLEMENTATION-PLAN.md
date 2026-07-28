@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document converts every gap row in [Roadmap.md](./Roadmap.md) into a concrete implementation plan.
+This document converts every gap row in [ROADMAP.md](./ROADMAP.md) into a concrete implementation plan.
 
 The plan is organized into prioritized milestones and assigns, for every roadmap row:
 
