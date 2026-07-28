@@ -25,20 +25,16 @@ import {
 } from "./native-utils.js";
 import type {
   JsonObject,
-  MaterializedNativeAssets,
   NativeAsset,
+  WireNativeFilesOptions,
 } from "./native-utils.js";
 
 /**
-Writes Codex-native managed files.
+ * Writes Codex-native managed files.
  */
-export async function writeCodexNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
+export async function writeCodexNativeFiles(
+  options: WireNativeFilesOptions,
+): Promise<NativeConfigOperation[]> {
   const managedLines = buildManagedInstructionLines({
     hostName: "OpenAI Codex",
     managedRoot: options.managedRoot,
@@ -124,7 +120,7 @@ export async function writeCodexNativeFiles(options: {
 }
 
 /**
-Merges agent-harness entry into Codex plugin marketplace.
+ * Merges agent-harness entry into Codex plugin marketplace.
  */
 export async function mergeCodexPluginMarketplace(
   filePath: string,
@@ -152,7 +148,7 @@ export async function mergeCodexPluginMarketplace(
 }
 
 /**
-Builds a Codex plugin manifest from native assets.
+ * Builds a Codex plugin manifest from native assets.
  */
 export function buildCodexPluginManifest(
   nativeAssets: NativeAsset[],
@@ -175,7 +171,7 @@ export function buildCodexPluginManifest(
 }
 
 /**
-Builds a Codex hooks manifest from native assets.
+ * Builds a Codex hooks manifest from native assets.
  */
 export function buildCodexHooksManifest(
   nativeAssets: NativeAsset[],

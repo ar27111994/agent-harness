@@ -76,6 +76,17 @@ export interface MaterializedNativeAssets {
 }
 
 /**
+ * Shared options for per-host native file write functions.
+ */
+export interface WireNativeFilesOptions {
+  workspaceRoot: string;
+  managedRoot: string;
+  nativeAssets: NativeAsset[];
+  materializedAssets: MaterializedNativeAssets;
+  mcpServers: string[];
+}
+
+/**
  * Applies host-native structured file payloads.
  */
 export async function applyStructuredNativeConfig(

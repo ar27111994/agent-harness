@@ -14,20 +14,17 @@ import {
 } from "./native-utils.js";
 import type {
   JsonObject,
-  MaterializedNativeAssets,
   NativeAsset,
+  WireNativeFilesOptions,
 } from "./native-utils.js";
 
 /**
+
 Writes Cursor-native managed files.
  */
-export async function writeCursorNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
+export async function writeCursorNativeFiles(
+  options: WireNativeFilesOptions,
+): Promise<NativeConfigOperation[]> {
   const cursorRulePath = join(
     options.workspaceRoot,
     ".cursor",

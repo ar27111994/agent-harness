@@ -18,18 +18,15 @@ import {
   upsertManagedPiSettings,
   upsertManagedSectionFile,
 } from "./native-utils.js";
-import type { MaterializedNativeAssets, NativeAsset } from "./native-utils.js";
+import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
+
 Writes Pi-native managed files.
  */
-export async function writePiNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
+export async function writePiNativeFiles(
+  options: WireNativeFilesOptions,
+): Promise<NativeConfigOperation[]> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Pi",
     managedRoot: options.managedRoot,

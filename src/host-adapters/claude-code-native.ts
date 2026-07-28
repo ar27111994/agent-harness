@@ -16,18 +16,15 @@ import {
   restoreManagedTextFileSnapshot,
   upsertManagedSectionFile,
 } from "./native-utils.js";
-import type { MaterializedNativeAssets, NativeAsset } from "./native-utils.js";
+import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
+
 Writes Claude Code-native managed files.
  */
-export async function writeClaudeCodeNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
+export async function writeClaudeCodeNativeFiles(
+  options: WireNativeFilesOptions,
+): Promise<NativeConfigOperation[]> {
   const managedLines = buildManagedInstructionLines({
     hostName: "Claude Code",
     managedRoot: options.managedRoot,

@@ -134,9 +134,19 @@ void test("trust-scoring handles 100 manifests without memory issues", async () 
 
 // ── 3. Null-byte injection tests ────────────────────────────────────────
 
-void test("sanitizeMirrorId strips null bytes", () => {
+void test("sanitizeMirrorId strips null bytes and replaces with separator", () => {
   const result = sanitizeMirrorId("valid-name\x00hidden");
-  assert.ok(!result.includes("\x00"), "null byte should be stripped");
+  assert.ok(!result.includes("\x00"), "null byte must be stripped");
+  assert.ok(
+    result.startsWith("valid-name"),
+    "prefix before null byte must be preserved",
+  );
+  // The regex replaces non-alphanumeric sequences with '-', so the null
+  // byte acts as a separator between the before and after segments.
+  assert.ok(
+    result.includes("hidden"),
+    "suffix after null byte preserved with separator",
+  );
   assert.ok(result.length > 0, "result not empty");
 });
 

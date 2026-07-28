@@ -14,18 +14,15 @@ import {
   restoreManagedTextFileSnapshot,
   upsertManagedSectionFile,
 } from "./native-utils.js";
-import type { MaterializedNativeAssets, NativeAsset } from "./native-utils.js";
+import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
+
 Writes Zed-native managed files.
  */
-export async function writeZedNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
+export async function writeZedNativeFiles(
+  options: WireNativeFilesOptions,
+): Promise<NativeConfigOperation[]> {
   const rulesPath = join(options.workspaceRoot, ".rules");
   const managedLines = buildManagedInstructionLines({
     hostName: "Zed",
