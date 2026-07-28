@@ -189,11 +189,7 @@ async function explainRecommendation(
 
   // Resolve assetId: prefer --asset flag, then fall back to the first
   // positional arg that is not a known flag (--json, --host, --asset).
-  const resolvedAssetId =
-    assetId ??
-    args.find(
-      (arg) => !arg.startsWith("--") && arg !== "--json" && arg !== "--host",
-    );
+  const resolvedAssetId = assetId ?? args.find((arg) => !arg.startsWith("--"));
 
   if (!resolvedAssetId) {
     const note = json
