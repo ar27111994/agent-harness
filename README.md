@@ -574,6 +574,10 @@ agent-harness discover recall
 agent-harness discover candidate-pool
 agent-harness discover stats
 agent-harness discover enrich --force
+agent-harness discover diff --baseline <state-root>
+agent-harness discover inspect --source <source-id>
+agent-harness discover inspect --id <asset-id>
+agent-harness discover environment-index
 ```
 
 ### Reducing source health noise
@@ -662,6 +666,49 @@ agent-harness workspace cursor --intent frontend --ai-enrich
 
 Use `setup login --provider ai` for configuration guidance. For scenario-based operator guidance, see [`AI-ENRICHMENT-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AI-ENRICHMENT-PLAYBOOK.md).
 
+### Discover diff
+
+Compare discovery outputs against a baseline state root. Useful for validating that an updated source registry or selection policy changed the expected set of catalog entries.
+
+```bash
+agent-harness discover diff --baseline ../agent-harness-v1
+agent-harness discover diff --baseline ../agent-harness-v1 --json
+```
+
+Key flags:
+
+- **`--baseline <path>`** (required) — State root to compare against
+- **`--json`** — Print the diff report as JSON instead of a human-readable summary
+
+The report is written to `discover/output/diff-report.json`.
+
+### Discover inspect
+
+Print catalog entries filtered by `--source` or `--id`. This is a non-mutating lookup into the built catalog.
+
+```bash
+agent-harness discover inspect --source vscode-marketplace
+agent-harness discover inspect --id github/copilot-skills
+agent-harness discover inspect --source npm --limit 10
+```
+
+Key flags:
+
+- **`--source <id>`** — Filter entries by source identifier
+- **`--id <assetId>`** — Filter entries by asset ID
+- **`--limit <n>`** — Maximum results to display (default: 20)
+
+### Discover environment-index
+
+Write an experimental read-only query metadata index for selected catalog assets. This index is designed for future query/retrieval flows and does not change mirror, install, activation, or wire behavior.
+
+```bash
+agent-harness discover environment-index
+agent-harness discover environment-index --json
+```
+
+Output is written to `discover/output/environment-index.json`. The `--json` flag also prints the report to stdout.
+
 ### Recommend
 
 ```bash
@@ -684,6 +731,15 @@ Explain a specific recommendation:
 agent-harness recommend explain --host vscode --asset <asset-id>
 ```
 
+Evaluate golden recommendation fixtures against the current discovery and policy state:
+
+```bash
+agent-harness recommend evaluate
+npm run recommend:evaluate
+```
+
+`recommend evaluate` runs golden recommendation fixtures and prints an aggregate summary with quality signals including top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency. Use it to spot whether a fixture suite is being carried by exact-stack wins, weak-only generic matches, or broad fallback behavior.
+
 Print the merged effective policy for a host:
 
 ```bash
@@ -698,9 +754,73 @@ If the selected candidate pool already looks healthy but the final ranking still
 npm run mirror:plan
 npm run mirror:locks
 npm run mirror:acquire
+agent-harness mirror plan
+agent-harness mirror locks
+agent-harness mirror acquire
 agent-harness mirror diff
 agent-harness mirror explain --asset <asset-id>
+agent-harness mirror explain --mirror <mirror-id>
 ```
+
+**`mirror plan`** builds a mirror readiness plan from current discovery outputs. It summarizes the mirror-eligible candidate pool, applies mirror policy, and writes recommendations to `mirror/audit/mirror-plan.json`.
+
+```bash
+agent-harness mirror plan
+```
+
+The plan includes candidate breakdowns by host and asset kind, the effective mirror policies, and next-action suggestions.
+
+**`mirror locks`** generates initial bundle lock files from selected catalog entries. Each lock file (`mirror/bundles/<bundleId>.lock.json`) defines which assets belong to a mirror bundle before acquisition begins.
+
+```bash
+agent-harness mirror locks
+```
+
+**`mirror acquire`** acquires raw mirror artifacts, writes the mirror index, and resolves bundle locks by downloading or verifying each asset referenced in the lock files. High-risk community assets are routed into quarantine.
+
+```bash
+agent-harness mirror acquire
+```
+
+**`mirror diff`** compares the current mirror index against the previous index snapshot, printing added, removed, and changed assets.
+
+```bash
+agent-harness mirror diff
+```
+
+Previous index state is read from `mirror/index.jsonl.snapshot`; the current index is `mirror/index.jsonl`.
+
+**`mirror explain`** prints the full mirror index entry, raw content preview, and any available manifest for a specific mirrored artifact. Use `--asset` or `--mirror` to identify the target.
+
+```bash
+agent-harness mirror explain --asset my-asset-id
+agent-harness mirror explain --mirror mirror-abc123
+```
+
+Output includes the mirror index entry, raw artifact root path, optional manifest, and a 4000-character content preview.
+
+### Bundle
+
+Bundle commands inspect and explain why assets are present in bundle locks. The `bundle` CLI domain is an alias for `mirror bundle-explain`.
+
+```bash
+agent-harness bundle explain <bundleId>
+agent-harness bundle explain --bundle <bundleId>
+```
+
+**`bundle explain`** explains why assets are present in a given bundle lock. For each asset in the bundle, it shows whether the asset was selected or rejected during catalog selection, its asset kind, compatibility mode, source authority tier, mirror status, and the specific reason for its bundle inclusion.
+
+```bash
+agent-harness bundle explain copilot-vscode-default
+agent-harness bundle explain --bundle opencode-default --json
+```
+
+Key flags:
+
+- **`--bundle <bundleId>`** (or pass the bundle ID as a positional argument) — Bundle lock to explain
+- **`--json`** — Output the full explanation as JSON
+
+The explanation draws on the catalog selection report, mirror index, and rejection log to explain each asset's presence in the bundle.
 
 ### Quarantine review
 
@@ -719,6 +839,7 @@ Mirror acquisition routes high-risk or prompt-injection-like community assets in
 
 ```bash
 npm run install:bundle
+agent-harness stage bundle
 agent-harness install native --host vscode
 agent-harness install native --host vscode --operation verify
 agent-harness install native --host vscode --operation install --apply
@@ -728,6 +849,15 @@ agent-harness install native --host cursor --operation verify
 agent-harness stage refresh --host copilot-vscode
 agent-harness stage refresh --host copilot-vscode --apply
 agent-harness stage refresh --host copilot-vscode --due-only
+agent-harness stage diff
+agent-harness stage diff --host copilot-vscode
+agent-harness stage explain --asset <asset-id>
+agent-harness stage generations list
+agent-harness stage generations list --host opencode
+agent-harness stage generations pin --host copilot-vscode --generation <gen-id> --reason "stable"
+agent-harness stage generations unpin --host copilot-vscode --generation <gen-id>
+agent-harness stage generations prune
+agent-harness stage reset
 npm run install:reconcile
 npm run install:reset
 ```

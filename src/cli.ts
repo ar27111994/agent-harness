@@ -133,21 +133,11 @@ interface GlobalCliOptions {
 }
 
 function isHelpRequest(args: string[]): boolean {
-  // When --help/-h appears alongside a domain AND a subcommand
-  // (depth >= 2), pass through to the domain handler so subcommand-specific
-  // help is shown rather than the parent group index.
-  const helpFlagsSeen = args.includes("--help") || args.includes("-h");
-  if (helpFlagsSeen) {
-    const nonFlagArgs = args.filter((arg) => arg !== "--help" && arg !== "-h");
-    // More than one non-flag arg means domain + subcommand are both present.
-    if (nonFlagArgs.length >= 2) {
-      return false;
-    }
-    return true;
-  }
   return (
     args.length === 0 ||
     args[0] === "help" ||
+    args.includes("--help") ||
+    args.includes("-h") ||
     (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0] ?? ""))
   );
 }
@@ -160,6 +150,49 @@ function runHelpCommand(
   args: string[],
   workingDirectory: string,
 ): Promise<number> {
+  const nonFlagArgs = args.filter(
+    (arg) => arg !== "--help" && arg !== "-h" && arg !== "help",
+  );
+
+  // When --help appears at subcommand depth (e.g., "discover full --help"),
+  // route to the domain handler with the subcommand + "--help" so it can
+  // show subcommand-specific help. Pass empty projectRoot since help-only
+  // commands don't need state.
+  if (nonFlagArgs.length >= 2) {
+    const [domain, subcommand, ...extra] = nonFlagArgs;
+    const domainArgs = [subcommand, "--help", ...extra];
+    switch (domain) {
+      case "discover":
+        return runDiscover(domainArgs, workingDirectory, "");
+      case "recommend":
+        return runRecommend(domainArgs, workingDirectory, "");
+      case "mirror":
+        return runMirror(domainArgs, workingDirectory, "");
+      case "install":
+      case "stage":
+        return runInstall(domainArgs, workingDirectory, "");
+      case "activate":
+        return runActivate(domainArgs, workingDirectory, "");
+      case "quarantine":
+        return runQuarantine(domainArgs, "");
+      case "rebuild":
+        return runRebuild(domainArgs, workingDirectory, "");
+      case "workspace":
+        return runWorkspace(domainArgs, workingDirectory, "");
+      case "wire":
+        return runWire(domainArgs, workingDirectory, "");
+      case "setup":
+      case "doctor":
+        return runSetup(
+          domain === "doctor" ? ["doctor", "--help", ...extra] : domainArgs,
+          "",
+        );
+      default:
+        printHelp();
+        return Promise.resolve(1);
+    }
+  }
+
   const domain = resolveHelpDomain(args);
 
   switch (domain) {

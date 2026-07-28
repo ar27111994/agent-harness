@@ -111,6 +111,20 @@ export async function runDiscover(
 ): Promise<number> {
   const [command = "help", ...rest] = args;
 
+  // Subcommands with dedicated help handlers get routed inside the switch.
+  // For all other subcommands, --help/-h shows the parent discover help.
+  const hasHelpFlag = rest.includes("--help") || rest.includes("-h");
+  const hasSpecificHelp = new Set([
+    "full",
+    "breadth",
+    "recall",
+    "candidate-pool",
+  ]);
+  if (hasHelpFlag && !hasSpecificHelp.has(command)) {
+    printDiscoverHelp();
+    return 0;
+  }
+
   switch (command) {
     case "demand-profile":
       logDiscoverPhase(

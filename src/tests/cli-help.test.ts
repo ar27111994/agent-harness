@@ -154,3 +154,97 @@ void test("--version works with --state-root", async () => {
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
+
+void test("discover full --help shows full-specific help not parent index (#367)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["discover", "full", "--help"],
+    });
+
+    assert.match(stdout, /discover full/u);
+    assert.match(stdout, /Run the complete discovery pipeline/u);
+    assert.match(stdout, /demand-profile.*Scan the working directory/u);
+    assert.match(stdout, /--quiet.*Suppress expected source health warnings/u);
+    assert.doesNotMatch(stdout, /Demand profile written/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("discover breadth --help shows breadth-specific help not parent index (#367)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["discover", "breadth", "--help"],
+    });
+
+    assert.match(stdout, /discover breadth/u);
+    assert.match(stdout, /widest practical discovery pass/u);
+    assert.match(stdout, /recall.*Same as discover breadth/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend explain --help shows explain-specific help (#364)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "explain", "--help"],
+    });
+
+    assert.match(stdout, /recommend explain/u);
+    assert.match(stdout, /--asset.*<assetId>/u);
+    assert.match(stdout, /--json/u);
+    assert.match(stdout, /Explanation states:/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend report --help shows parent recommend help", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "report", "--help"],
+    });
+
+    assert.match(stdout, /recommend commands:/u);
+    assert.match(stdout, /explain.*Explain why an asset/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});

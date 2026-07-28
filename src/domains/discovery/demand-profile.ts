@@ -125,6 +125,9 @@ function computeDirectoryScanCounts(
   for (const filePath of files) {
     // Extract the immediate parent directory relative to scanRoot.
     const relative = toRelativePosixPath(scanRoot, filePath);
+    // Every file path has at least one component; the "." fallback is
+    // defensive against empty-string inputs that c8 flags as a false branch.
+    /* c8 ignore next */
     const dir = relative.split("/")[0] ?? ".";
     dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
   }
