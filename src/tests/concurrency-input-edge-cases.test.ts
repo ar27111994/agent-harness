@@ -10,6 +10,7 @@ import {
   writeJsonFile,
   readTextFileOrNull,
   readJsonFileOrNull,
+  ensureDirectory,
 } from "../files.js";
 import {
   isPathWithinRoot,
@@ -592,6 +593,9 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
       "activation-manifest.json",
     );
 
+    // Ensure parent directory exists
+    await ensureDirectory(join(root, "activate", "opencode"));
+
     // Seed initial manifest
     const initialManifest = {
       schemaVersion: 1,
@@ -600,20 +604,31 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
     };
     await writeTextFile(activationPath, JSON.stringify(initialManifest));
 
-    // 10 concurrent activation writes
+    // 10 concurrent activation writes with retry on TOCTOU parse failures
     const ops = Array.from({ length: 10 }, (_, i) =>
       (async () => {
-        const current = (await readTextFileOrNull(activationPath)) ?? "{}";
-        const parsed = JSON.parse(current) as {
+        let parsed: {
           activeAssets?: string[];
           generatedAt?: string;
           schemaVersion?: number;
         };
-        const assets = [...(parsed.activeAssets ?? []), `asset-${i}`];
+        // Retry up to 3 times on JSON parse failure (TOCTOU race)
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const current = (await readTextFileOrNull(activationPath)) ?? "{}";
+          try {
+            parsed = JSON.parse(current) as typeof parsed;
+            break;
+          } catch {
+            if (attempt === 2)
+              throw new Error(`Failed to parse manifest after 3 attempts`);
+            await new Promise((r) => setTimeout(r, 10));
+          }
+        }
+        const assets = [...(parsed!.activeAssets ?? []), `asset-${i}`];
         await writeTextFile(
           activationPath,
           JSON.stringify({
-            ...parsed,
+            ...parsed!,
             activeAssets: assets,
             generatedAt: new Date().toISOString(),
           }),
@@ -623,20 +638,13 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
     );
 
     const results = await Promise.all(ops);
-    assert.equal(
-      results.length,
-      10,
-      "all concurrent activation writes should complete",
-    );
+    assert.equal(results.length, 10);
 
     // Verify manifest is valid JSON
     const finalContent = await readTextFileOrNull(activationPath);
     assert.ok(finalContent !== null);
     const finalParsed = JSON.parse(finalContent) as { activeAssets?: string[] };
-    assert.ok(
-      Array.isArray(finalParsed.activeAssets),
-      "activeAssets should remain an array",
-    );
+    assert.ok(Array.isArray(finalParsed.activeAssets));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

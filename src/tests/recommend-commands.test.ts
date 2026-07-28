@@ -130,6 +130,13 @@ void test("recommend explain requires an asset id", async () => {
   );
 });
 
+void test("recommend explain --json without --asset shows helpful note", async () => {
+  await assert.rejects(
+    () => runRecommend(["explain", "--json"], process.cwd(), process.cwd()),
+    /recommend explain requires --asset <assetId> \(note: --json is a format flag, not an asset ID\)/u,
+  );
+});
+
 void test("recommend explain renders empty coverage and signal sections as none", async (t) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-recommend-none-"),
