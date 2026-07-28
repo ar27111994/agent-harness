@@ -166,12 +166,23 @@ async function explainRecommendation(
   projectRoot: string,
   args: string[],
 ): Promise<void> {
-  const assetId = getOptionValue(args, "--asset") ?? args[0];
-  const requestedHostRaw = getOptionValue(args, "--host");
+  const assetId = getOptionValue(args, "--asset");
   const json = args.includes("--json");
+  const requestedHostRaw = getOptionValue(args, "--host");
 
-  if (!assetId) {
-    throw new Error("recommend explain requires --asset <assetId>");
+  // Resolve assetId: prefer --asset flag, then fall back to the first
+  // positional arg that is not a known flag (--json, --host, --asset).
+  const resolvedAssetId =
+    assetId ??
+    args.find(
+      (arg) => !arg.startsWith("--") && arg !== "--json" && arg !== "--host",
+    );
+
+  if (!resolvedAssetId) {
+    throw new Error(
+      "recommend explain requires --asset <assetId>" +
+        (json ? " (note: --json is a format flag, not an asset ID)" : ""),
+    );
   }
 
   const report = await readJsonFile<RecommendationReport>(
@@ -199,14 +210,16 @@ async function explainRecommendation(
   );
   const explanations = buildRecommendationExplanations({
     report,
-    assetId,
+    assetId: resolvedAssetId,
     hosts: requestedHost ? [requestedHost] : getRecommendationHosts(),
     selectionReport,
     quarantineReport,
   });
 
   if (json) {
-    console.log(JSON.stringify({ assetId, explanations }, null, 2));
+    console.log(
+      JSON.stringify({ assetId: resolvedAssetId, explanations }, null, 2),
+    );
     return;
   }
 
@@ -249,7 +262,7 @@ async function explainRecommendation(
 
   if (lines.length === 0) {
     console.log(
-      `Asset ${assetId} is not present in the current recommendation report or explainability sidecars.`,
+      `Asset ${resolvedAssetId} is not present in the current recommendation report or explainability sidecars.`,
     );
     return;
   }
@@ -597,6 +610,14 @@ function printRecommendHelp(): void {
         title: "Recommendation options:",
         lines: [
           `--intent <${SESSION_INTENT_CHOICES}> Repeatable; multiple intents are merged additively`,
+        ],
+      },
+      {
+        title: "Explain options:",
+        lines: [
+          "--asset <assetId>  Asset ID to explain (required)",
+          "--host <host>      Scope explanation to a specific host",
+          "--json             Output machine-readable JSON format",
         ],
       },
       {
