@@ -481,3 +481,163 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
     "/path/to/hook.md",
   );
 });
+
+// ── 11. ARD export stress test (500+ entries) ──────────────────────────
+
+void test("mapEntryToArd handles 500+ catalog entries without failure", async () => {
+  const { mapEntryToArd } = await import("../ard-catalog.js");
+  const publisherFqdn = "ar27111994.dev";
+  const version = "1.0.0";
+
+  // Minimal but type-complete AssetCatalogEntry builder
+  const buildEntry = (i: number): Parameters<typeof mapEntryToArd>[0] =>
+    ({
+      id: `asset-${i}`,
+      displayName: `Test Asset ${i}`,
+      assetKind: "skill",
+      hosts: ["claude-code"],
+      compatibilityMode: "adaptable",
+      source: {
+        sourceId: "test-source",
+        authorityTier: "unverified-community",
+        sourceKind: "repo",
+        sourcePriority: 70,
+        originUrl: "https://example.com/test",
+        publisher: "test-publisher",
+        publisherVerified: false,
+      },
+      trust: { score: 50, signals: [] },
+      capabilities: ["test"],
+      install: {
+        method: "repo-reference",
+        manifestEntry: "https://example.com/test/manifest.json",
+      },
+      evidence: {
+        manifestFound: true,
+        readmeFound: true,
+        examplesFound: false,
+        docsLinked: true,
+        lineCount: 10,
+        rootPath: "https://example.com/test",
+        classification: null,
+      },
+      maintenance: {
+        lastUpdated: "2026-01-01T00:00:00Z",
+        stars: 0,
+        releaseCadence: "occasional",
+      },
+      risk: { hooks: false, execScripts: false, requiresNetwork: false },
+      contextCost: {
+        sizeClass: "tiny",
+        estimatedTokens: 100,
+        installSizeBytes: 0,
+      },
+      fit: { relevance: 0.5, freshness: 0.5, ecosystemMatch: 0.5 },
+      taxonomy: { domains: [], concerns: [], tooling: [] },
+      compliance: [],
+      prerequisites: [],
+      dedupe: { groupKey: "none", isPreferred: true },
+      status: "fresh",
+    }) as unknown as Parameters<typeof mapEntryToArd>[0];
+
+  const entries = Array.from({ length: 550 }, (_, i) => buildEntry(i));
+  const results = entries.map((e) => mapEntryToArd(e, publisherFqdn, version));
+
+  assert.equal(
+    results.length,
+    550,
+    "should produce an ARD entry for every input",
+  );
+  for (const entry of results) {
+    assert.ok(
+      typeof entry.identifier === "string",
+      "every entry should have an identifier",
+    );
+    assert.ok(typeof entry.type === "string", "every entry should have a type");
+  }
+});
+
+// ── 12. Unicode real-path canonicalization test ────────────────────────
+
+void test("resolveAllowedRealFilePath canonicalizes Unicode paths via realpath", async () => {
+  const root = await mkdtempFixture("unicode-realpath");
+  try {
+    const workspaceRoot = join(root, "workspace");
+    await mkdir(join(workspaceRoot, "日本語", "サブ"), { recursive: true });
+
+    const targetFile = join(workspaceRoot, "日本語", "サブ", "file.txt");
+    await writeTextFile(targetFile, "unicode content");
+
+    const result = await resolveAllowedRealFilePath(targetFile, [
+      workspaceRoot,
+    ]);
+    assert.ok(
+      result !== null,
+      "Unicode file inside allowed root should resolve",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ── 13. Activation manifest concurrency test ────────────────────────────
+
+void test("concurrent activation manifest writes do not corrupt", async () => {
+  const root = await mkdtempFixture("concurrent-activation");
+  try {
+    const activationPath = join(
+      root,
+      "activate",
+      "opencode",
+      "activation-manifest.json",
+    );
+
+    // Seed initial manifest
+    const initialManifest = {
+      schemaVersion: 1,
+      activeAssets: ["asset-base"],
+      generatedAt: new Date().toISOString(),
+    };
+    await writeTextFile(activationPath, JSON.stringify(initialManifest));
+
+    // 10 concurrent activation writes
+    const ops = Array.from({ length: 10 }, (_, i) =>
+      (async () => {
+        const current = (await readTextFileOrNull(activationPath)) ?? "{}";
+        const parsed = JSON.parse(current) as {
+          activeAssets?: string[];
+          generatedAt?: string;
+          schemaVersion?: number;
+        };
+        const assets = [...(parsed.activeAssets ?? []), `asset-${i}`];
+        await writeTextFile(
+          activationPath,
+          JSON.stringify({
+            ...parsed,
+            activeAssets: assets,
+            generatedAt: new Date().toISOString(),
+          }),
+        );
+        return i;
+      })(),
+    );
+
+    const results = await Promise.all(ops);
+    assert.equal(
+      results.length,
+      10,
+      "all concurrent activation writes should complete",
+    );
+
+    // Verify manifest is valid JSON
+    const finalContent = await readTextFileOrNull(activationPath);
+    assert.ok(finalContent !== null);
+    const finalParsed = JSON.parse(finalContent) as { activeAssets?: string[] };
+    assert.ok(
+      Array.isArray(finalParsed.activeAssets),
+      "activeAssets should remain an array",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
