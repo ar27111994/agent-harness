@@ -11,12 +11,12 @@ import {
   buildPromptTemplate,
   buildSkillFile,
   directoryNameForAssetKind,
-} from "./native-wire.js";
+} from "./native-utils.js";
 import type {
   JsonObject,
   MaterializedNativeAssets,
   NativeAsset,
-} from "./native-wire.js";
+} from "./native-utils.js";
 
 /**
 Writes Cursor-native managed files.

@@ -13,6 +13,7 @@ import type {
 } from "../types.js";
 import {
   applyStructuredNativeConfig,
+  assertJsonObject,
   buildManagedInstructionLines,
   buildNativeAssetContentSections,
   buildSkillFile,
@@ -21,12 +22,12 @@ import {
   removeManagedSectionFile,
   restoreManagedTextFileSnapshot,
   upsertManagedSectionFile,
-} from "./native-wire.js";
+} from "./native-utils.js";
 import type {
   JsonObject,
   MaterializedNativeAssets,
   NativeAsset,
-} from "./native-wire.js";
+} from "./native-utils.js";
 
 /**
 Writes Codex-native managed files.
@@ -220,24 +221,6 @@ function isNamedJsonObject(value: unknown, name: string): boolean {
 
 function coerceJsonObjectArray(value: unknown): JsonObject[] {
   return Array.isArray(value) ? value.filter(isJsonObject) : [];
-}
-
-function assertJsonObject(value: unknown, filePath: string): JsonObject {
-  if (isJsonObject(value)) {
-    return value;
-  }
-
-  throw new Error(
-    `Expected ${toPosixPath(filePath)} to contain a JSON object, but found ${describeJsonValue(value)}.`,
-  );
-}
-
-function describeJsonValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return "array";
-  }
-
-  return value === null ? "null" : typeof value;
 }
 
 /**

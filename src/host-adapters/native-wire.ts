@@ -1,14 +1,12 @@
-import { readdir, rename, rmdir } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { rename } from "node:fs/promises";
+import { join } from "node:path";
 
 import {
   ensureDirectory,
   readJsonFileOrNull,
   readTextFileOrNull,
-  removeManagedSection,
   removePath,
   toPosixPath,
-  upsertManagedSection,
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
@@ -20,16 +18,10 @@ import {
   formatExtensionInstallActions,
   resolveVsCodeExtensionId,
 } from "./extension-installer.js";
-import {
-  applyHostNativeFilePayloads,
-  collectHostNativeFilePayloads,
-  revertNativeConfigOperations,
-} from "./native-config.js";
+import { revertNativeConfigOperations } from "./native-config.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
-  AssetHostNativeConfigMap,
-  AssetKind,
   CopilotWorkspaceProfileManifest,
   ManagedTextFileSnapshot,
   NativeConfigOperation,
@@ -53,6 +45,24 @@ import {
   buildCodexPluginManifest,
   buildCodexHooksManifest,
 } from "./codex-native.js";
+import {
+  buildAssetMarkdown,
+  describeJsonValue,
+  directoryNameForAssetKind,
+  isBenignRemoveDirectoryRace,
+  mergeJsonObjects,
+  mergeStringArraysPreservingOrder,
+  removeEmptyParentDirectories,
+  removeManagedStringArrayEntries,
+  uniqueStrings,
+  validateManagedTextFileSnapshots,
+} from "./native-utils.js";
+import type {
+  LifecycleActivationHost,
+  MaterializedNativeAssets,
+  NativeAsset,
+  NativeHostSpec,
+} from "./native-utils.js";
 
 /**
  * Defines the supported native wire host values.
@@ -62,49 +72,6 @@ export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi" | "codex";
 /**
  * Activation lifecycle host identifier.
  */
-export type LifecycleActivationHost = "copilot-vscode" | "opencode";
-
-/**
- * Native wiring spec for a single AI coding host.
- */
-export interface NativeHostSpec {
-  host: NativeWireHost;
-  displayName: string;
-  activationHost: LifecycleActivationHost;
-  previewHost: WirePreviewManifest["host"];
-  managedRootSegments: string[];
-  targetPathSegments: string[][];
-  notes: string[];
-}
-
-/**
- * Materialized native asset held in activation state.
- */
-export interface NativeAsset {
-  assetId: string;
-  assetKind: AssetKind;
-  displayName: string;
-  compatibilityMode: AssetCatalogEntry["compatibilityMode"];
-  content: string;
-  extensionId?: string;
-  hostNativeConfig?: AssetHostNativeConfigMap;
-}
-
-/**
- * Materialized native asset buckets keyed by kind.
- */
-export interface MaterializedNativeAssets {
-  instructionFiles: string[];
-  agentFiles: string[];
-  skillDirs: string[];
-  pluginDirs: string[];
-  hookFiles: string[];
-  workflowFiles: string[];
-  referenceFiles: string[];
-  extensionIds: string[];
-  mcpServers: string[];
-}
-
 const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
   cursor: {
     host: "cursor",
@@ -525,26 +492,6 @@ async function writeHostNativeFiles(options: {
 /**
  * Applies host-native structured file payloads.
  */
-export async function applyStructuredNativeConfig(
-  workspaceRoot: string,
-  host: "cursor" | "zed" | "claude-code" | "pi" | "codex",
-  options: {
-    nativeAssets: NativeAsset[];
-  },
-): Promise<NativeConfigOperation[]> {
-  const payloads = collectHostNativeFilePayloads(options.nativeAssets, host);
-
-  if (payloads.length === 0) {
-    return [];
-  }
-
-  return applyHostNativeFilePayloads({
-    workspaceRoot,
-    host,
-    payloads,
-  });
-}
-
 function buildNativeWirePlan(options: {
   spec: NativeHostSpec;
   workspaceRoot: string;
@@ -708,497 +655,6 @@ async function captureManagedTextFileSnapshots(
 /**
  * Exposes text-file snapshot restore for per-host adapter use.
  */
-export async function restoreManagedTextFileSnapshot(
-  filePath: string,
-  snapshots: ManagedTextFileSnapshot[] | undefined,
-  fallbackRestore: () => Promise<void>,
-): Promise<void> {
-  const snapshot = snapshots?.find(
-    (entry) => entry.path === toPosixPath(filePath),
-  );
-
-  if (!snapshot) {
-    await fallbackRestore();
-    return;
-  }
-
-  if (snapshot.content === null) {
-    await removePath(filePath);
-    return;
-  }
-
-  await writeTextFile(filePath, snapshot.content);
-}
-
-function validateManagedTextFileSnapshots(
-  wirePlan: WirePlanManifest | null,
-  allowedPaths: string[],
-  context: string,
-): WirePlanManifest | null {
-  if (!wirePlan || wirePlan.textFileSnapshots === undefined) {
-    return wirePlan;
-  }
-
-  const allowedSnapshotPaths = new Set(
-    allowedPaths.map((pathValue) => toPosixPath(pathValue)),
-  );
-  const seenPaths = new Set<string>();
-
-  for (const snapshot of wirePlan.textFileSnapshots) {
-    if (!allowedSnapshotPaths.has(snapshot.path)) {
-      throw new Error(
-        `${toPosixPath(context)} contains textFileSnapshots path outside the managed restore set: ${snapshot.path}`,
-      );
-    }
-
-    if (seenPaths.has(snapshot.path)) {
-      throw new Error(
-        `${toPosixPath(context)} contains duplicate textFileSnapshots entry: ${snapshot.path}`,
-      );
-    }
-
-    seenPaths.add(snapshot.path);
-  }
-
-  return wirePlan;
-}
-
-/**
- * Exposes managed-section upsert for per-host adapter use.
- */
-export async function upsertManagedSectionFile(
-  filePath: string,
-  markerId: string,
-  bodyLines: string[],
-): Promise<void> {
-  const existingContent = (await readTextFileOrNull(filePath)) ?? "";
-  await writeTextFile(
-    filePath,
-    upsertManagedSection({
-      originalContent: existingContent,
-      markerId,
-      bodyLines,
-    }),
-  );
-}
-
-/**
- * Exposes managed-section removal for per-host adapter use.
- */
-export async function removeManagedSectionFile(
-  filePath: string,
-  markerId: string,
-): Promise<void> {
-  const existingContent = await readTextFileOrNull(filePath);
-  if (existingContent === null) {
-    return;
-  }
-
-  const nextContent = removeManagedSection({
-    originalContent: existingContent,
-    markerId,
-  });
-  if (nextContent.trim().length === 0) {
-    await removePath(filePath);
-    return;
-  }
-
-  await writeTextFile(filePath, nextContent);
-}
-
-/**
- * Exposes JSON-file merge for per-host adapter use.
- */
-export async function mergeJsonFile(
-  filePath: string,
-  patch: JsonObject,
-): Promise<void> {
-  const currentValue = await readJsonFileOrNull<unknown>(filePath);
-  const currentObject =
-    currentValue === null ? {} : assertJsonObject(currentValue, filePath);
-  await writeJsonFile(filePath, mergeJsonObjects(currentObject, patch));
-}
-
-/**
- * Ensures an existing host settings file can be safely object-merged.
- */
-export function assertJsonObject(value: unknown, filePath: string): JsonObject {
-  if (isJsonObject(value)) {
-    return value;
-  }
-
-  throw new Error(
-    `Expected ${toPosixPath(filePath)} to contain a JSON object, but found ${describeJsonValue(value)}.`,
-  );
-}
-
-function describeJsonValue(value: unknown): string {
-  if (Array.isArray(value)) {
-    return "array";
-  }
-
-  return value === null ? "null" : typeof value;
-}
-
-/**
- * Exposes managed Zed settings removal for per-host adapter use.
- */
-export async function removeManagedZedSettings(
-  filePath: string,
-  workspaceRoot: string,
-): Promise<void> {
-  const existingValue = await readJsonFileOrNull<unknown>(filePath);
-  const settings = asJsonObject(existingValue);
-  if (!settings) {
-    return;
-  }
-
-  const agent = asJsonObject(settings.agent);
-  const profiles = asJsonObject(agent?.profiles);
-  if (profiles) {
-    delete profiles["agent-harness"];
-  }
-  if (profiles && Object.keys(profiles).length === 0 && agent) {
-    delete agent.profiles;
-  }
-  if (agent && Object.keys(agent).length === 0) {
-    delete settings.agent;
-  }
-
-  await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
-}
-
-/**
- * Exposes managed Pi settings upsert for per-host adapter use.
- */
-export async function upsertManagedPiSettings(filePath: string): Promise<void> {
-  const existingValue = await readJsonFileOrNull<unknown>(filePath);
-  const settings =
-    existingValue === null ? {} : assertJsonObject(existingValue, filePath);
-  delete settings.agentHarness;
-
-  addManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
-  addManagedStringArrayEntries(settings, "prompts", [
-    "prompts/agent-harness.md",
-  ]);
-
-  await writeOrRemoveJsonFile(filePath, settings);
-}
-
-/**
- * Exposes managed Pi settings removal for per-host adapter use.
- */
-export async function removeManagedPiSettings(
-  filePath: string,
-  workspaceRoot: string,
-): Promise<void> {
-  const existingValue = await readJsonFileOrNull<unknown>(filePath);
-  const settings = asJsonObject(existingValue);
-  if (!settings) {
-    return;
-  }
-
-  removeManagedStringArrayEntries(settings, "skills", ["skills/agent-harness"]);
-  removeManagedStringArrayEntries(settings, "prompts", [
-    "prompts/agent-harness.md",
-  ]);
-  delete settings.agentHarness;
-
-  await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
-}
-
-/**
- * Exposes write-or-remove JSON helper for per-host adapter use.
- */
-export async function writeOrRemoveJsonFile(
-  filePath: string,
-  value: JsonObject,
-  cleanupRoot?: string,
-): Promise<void> {
-  if (Object.keys(value).length === 0) {
-    await removePath(filePath);
-    if (cleanupRoot) {
-      await removeEmptyParentDirectories(dirname(filePath), cleanupRoot);
-    }
-    return;
-  }
-
-  await writeJsonFile(filePath, value);
-}
-
-/**
- * Exposes empty-directory cleanup for per-host adapter use.
- */
-export async function removeEmptyParentDirectories(
-  startDirectory: string,
-  stopDirectory: string,
-  removeDirectory: typeof rmdir = rmdir,
-): Promise<void> {
-  const boundary = resolve(stopDirectory);
-  let currentDirectory = resolve(startDirectory);
-  const relativeToBoundary = relative(boundary, currentDirectory);
-
-  if (
-    /^(?:\.\.)(?:[\\/]|$)/u.test(relativeToBoundary) ||
-    isAbsolute(relativeToBoundary)
-  ) {
-    throw new Error(
-      `Expected directory '${toPosixPath(currentDirectory)}' to be within cleanup boundary '${toPosixPath(boundary)}'.`,
-    );
-  }
-
-  while (currentDirectory !== boundary) {
-    let entries: string[];
-    try {
-      entries = await readdir(currentDirectory);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return;
-      }
-      throw error;
-    }
-
-    if (entries.length > 0) {
-      return;
-    }
-
-    try {
-      await removeDirectory(currentDirectory);
-    } catch (error) {
-      if (isBenignRemoveDirectoryRace(error)) {
-        return;
-      }
-      throw error;
-    }
-
-    currentDirectory = dirname(currentDirectory);
-  }
-}
-
-/**
- * Exposes benign race detection for per-host adapter use.
- */
-export function isBenignRemoveDirectoryRace(error: unknown): boolean {
-  const errorCode = (error as NodeJS.ErrnoException).code;
-  return (
-    errorCode === "ENOENT" ||
-    errorCode === "ENOTEMPTY" ||
-    errorCode === "EEXIST"
-  );
-}
-
-/**
- * Exposes managed instruction line builder for per-host adapter use.
- */
-export function buildManagedInstructionLines(options: {
-  hostName: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): string[] {
-  const lines = [
-    `# Agent Harness for ${options.hostName}`,
-    "",
-    "Agent Harness has wired curated project assets into this workspace.",
-    `Managed asset root: ${toPosixPath(options.managedRoot)}`,
-    "",
-    "## Active assets",
-  ];
-
-  if (options.nativeAssets.length === 0) {
-    lines.push("- No active assets were found at wire time.");
-  } else {
-    for (const asset of options.nativeAssets) {
-      lines.push(
-        `- ${asset.displayName} (${asset.assetKind}, ${asset.assetId})`,
-      );
-    }
-  }
-
-  appendMaterializedAssetPathLines(lines, options.materializedAssets);
-
-  if (options.mcpServers.length > 0) {
-    lines.push("", "## MCP references");
-    for (const mcpServer of options.mcpServers) {
-      lines.push(`- ${mcpServer}`);
-    }
-  }
-
-  lines.push(
-    "",
-    "## Usage guidance",
-    "- Prefer the curated assets above when they match the current task.",
-    "- Treat hooks, plugins, extensions, and MCP references as opt-in capabilities that may require host-specific trust or setup.",
-    "- Review managed files before committing project-local host configuration.",
-  );
-
-  return lines;
-}
-
-function appendMaterializedAssetPathLines(
-  lines: string[],
-  materializedAssets: MaterializedNativeAssets,
-): void {
-  const pathGroups = [
-    ["Instruction files", materializedAssets.instructionFiles],
-    ["Agent files", materializedAssets.agentFiles],
-    ["Skill directories", materializedAssets.skillDirs],
-    ["Plugin directories", materializedAssets.pluginDirs],
-    ["Hook files", materializedAssets.hookFiles],
-    ["Workflow and prompt files", materializedAssets.workflowFiles],
-    ["Reference files", materializedAssets.referenceFiles],
-  ] as const;
-  const populatedPathGroups = pathGroups.filter(
-    ([, paths]) => paths.length > 0,
-  );
-
-  if (
-    populatedPathGroups.length === 0 &&
-    materializedAssets.extensionIds.length === 0
-  ) {
-    return;
-  }
-
-  lines.push("", "## Wired asset locations");
-  for (const [heading, paths] of populatedPathGroups) {
-    lines.push("", `### ${heading}`);
-    for (const path of paths) {
-      lines.push(`- ${toPosixPath(path)}`);
-    }
-  }
-
-  if (materializedAssets.extensionIds.length > 0) {
-    lines.push("", "### Extension IDs");
-    for (const extensionId of materializedAssets.extensionIds) {
-      lines.push(`- ${extensionId}`);
-    }
-  }
-}
-
-/**
- * Exposes asset content section builder for per-host adapter use.
- */
-export function buildNativeAssetContentSections(
-  nativeAssets: NativeAsset[],
-  assetKinds: AssetKind[],
-): string[] {
-  const selectedAssets = nativeAssets.filter((nativeAsset) =>
-    assetKinds.includes(nativeAsset.assetKind),
-  );
-
-  if (selectedAssets.length === 0) {
-    return [];
-  }
-
-  const lines = ["", "## Selected asset content"];
-  for (const asset of selectedAssets) {
-    lines.push(
-      "",
-      `### ${asset.displayName}`,
-      "",
-      `- Asset ID: ${asset.assetId}`,
-      `- Asset kind: ${asset.assetKind}`,
-      "",
-      asset.content.trim(),
-    );
-  }
-
-  return lines;
-}
-
-/**
- * Exposes asset markdown builder for per-host adapter use.
- */
-export function buildAssetMarkdown(nativeAsset: NativeAsset): string {
-  return [
-    `# ${nativeAsset.displayName}`,
-    "",
-    `- Asset ID: ${nativeAsset.assetId}`,
-    `- Asset kind: ${nativeAsset.assetKind}`,
-    "",
-    "## Content",
-    "",
-    nativeAsset.content.trim(),
-    "",
-  ].join("\n");
-}
-
-/**
- * Exposes agent-file builder for per-host adapter use.
- */
-export function buildAgentFile(
-  name: string,
-  description: string,
-  bodyLines: string[],
-): string {
-  return [
-    "---",
-    `name: ${quoteFrontmatterScalar(name)}`,
-    `description: ${quoteFrontmatterScalar(description)}`,
-    "---",
-    "",
-    ...bodyLines,
-    "",
-  ].join("\n");
-}
-
-/**
- * Exposes skill-file builder for per-host adapter use.
- */
-export function buildSkillFile(
-  name: string,
-  description: string,
-  bodyLines: string[],
-): string {
-  return [
-    "---",
-    `name: ${quoteFrontmatterScalar(name)}`,
-    `description: ${quoteFrontmatterScalar(description)}`,
-    "---",
-    "",
-    ...bodyLines,
-    "",
-  ].join("\n");
-}
-
-/**
- * Exposes prompt-template builder for per-host adapter use.
- */
-export function buildPromptTemplate(
-  description: string,
-  bodyLines: string[],
-): string {
-  return [
-    "---",
-    `description: ${quoteFrontmatterScalar(description)}`,
-    "---",
-    "",
-    ...bodyLines,
-    "",
-  ].join("\n");
-}
-
-function quoteFrontmatterScalar(value: string): string {
-  return JSON.stringify(value.replace(/\r\n?/gu, "\n"));
-}
-
-/**
- * Exposes asset-kind directory-name resolver for per-host adapter use.
- */
-export function directoryNameForAssetKind(assetKind: AssetKind): string {
-  switch (assetKind) {
-    case "mcp-server":
-      return "mcp-servers";
-    case "prompt-pack":
-      return "prompt-packs";
-    case "reference-pack":
-      return "reference-packs";
-    default:
-      return `${assetKind}s`;
-  }
-}
-
 function fileNameForAssetKind(nativeAsset: NativeAsset): string {
   switch (nativeAsset.assetKind) {
     case "skill":
@@ -1277,112 +733,6 @@ function buildNativeExtensionInstallActionLines(
       host: "cursor",
     }),
   ).map((line) => `Cursor native extension action: ${line}`);
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
-}
-
-/**
- * JSON object type alias.
- */
-export type JsonObject = Record<string, unknown>;
-
-/**
- * Exposes JSON-object merge helper for per-host adapter use.
- */
-export function mergeJsonObjects(
-  base: JsonObject,
-  patch: JsonObject,
-): JsonObject {
-  const merged: JsonObject = { ...base };
-
-  for (const [key, value] of Object.entries(patch)) {
-    const existingValue = merged[key];
-    if (Array.isArray(value)) {
-      merged[key] = uniqueStrings([
-        ...coerceStringArray(existingValue),
-        ...value.filter((entry): entry is string => typeof entry === "string"),
-      ]);
-      continue;
-    }
-
-    if (isJsonObject(value) && isJsonObject(existingValue)) {
-      merged[key] = mergeJsonObjects(existingValue, value);
-      continue;
-    }
-
-    merged[key] = value;
-  }
-
-  return merged;
-}
-
-function asJsonObject(value: unknown): JsonObject | null {
-  return isJsonObject(value) ? value : null;
-}
-
-/**
- * Exposes JSON-object guard for per-host adapter use.
- */
-export function isJsonObject(value: unknown): value is JsonObject {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function coerceStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
-function addManagedStringArrayEntries(
-  settings: JsonObject,
-  key: string,
-  entriesToAdd: readonly string[],
-): void {
-  settings[key] = mergeStringArraysPreservingOrder(
-    coerceStringArray(settings[key]),
-    entriesToAdd,
-  );
-}
-
-function removeManagedStringArrayEntries(
-  settings: JsonObject,
-  key: string,
-  entriesToRemove: readonly string[],
-): void {
-  if (!(key in settings)) {
-    return;
-  }
-
-  const nextValues = coerceStringArray(settings[key]).filter(
-    (entry) => !entriesToRemove.includes(entry),
-  );
-  if (nextValues.length === 0) {
-    delete settings[key];
-    return;
-  }
-
-  settings[key] = nextValues;
-}
-
-function mergeStringArraysPreservingOrder(
-  existingValues: readonly string[],
-  additionalValues: readonly string[],
-): string[] {
-  const mergedValues: string[] = [];
-  const seen = new Set<string>();
-
-  for (const entry of [...existingValues, ...additionalValues]) {
-    if (seen.has(entry)) {
-      continue;
-    }
-
-    seen.add(entry);
-    mergedValues.push(entry);
-  }
-
-  return mergedValues;
 }
 
 /**

@@ -13,8 +13,8 @@ import {
   removeManagedZedSettings,
   restoreManagedTextFileSnapshot,
   upsertManagedSectionFile,
-} from "./native-wire.js";
-import type { MaterializedNativeAssets, NativeAsset } from "./native-wire.js";
+} from "./native-utils.js";
+import type { MaterializedNativeAssets, NativeAsset } from "./native-utils.js";
 
 /**
 Writes Zed-native managed files.

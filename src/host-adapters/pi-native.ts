@@ -17,8 +17,8 @@ import {
   restoreManagedTextFileSnapshot,
   upsertManagedPiSettings,
   upsertManagedSectionFile,
-} from "./native-wire.js";
-import type { MaterializedNativeAssets, NativeAsset } from "./native-wire.js";
+} from "./native-utils.js";
+import type { MaterializedNativeAssets, NativeAsset } from "./native-utils.js";
 
 /**
 Writes Pi-native managed files.
