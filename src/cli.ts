@@ -133,11 +133,21 @@ interface GlobalCliOptions {
 }
 
 function isHelpRequest(args: string[]): boolean {
+  // When --help/-h appears alongside a domain AND a subcommand
+  // (depth >= 2), pass through to the domain handler so subcommand-specific
+  // help is shown rather than the parent group index.
+  const helpFlagsSeen = args.includes("--help") || args.includes("-h");
+  if (helpFlagsSeen) {
+    const nonFlagArgs = args.filter((arg) => arg !== "--help" && arg !== "-h");
+    // More than one non-flag arg means domain + subcommand are both present.
+    if (nonFlagArgs.length >= 2) {
+      return false;
+    }
+    return true;
+  }
   return (
     args.length === 0 ||
     args[0] === "help" ||
-    args.includes("--help") ||
-    args.includes("-h") ||
     (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0] ?? ""))
   );
 }

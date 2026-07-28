@@ -101,6 +101,10 @@ export async function runRecommend(
       return 0;
     }
     case "explain":
+      if (rest.includes("--help") || rest.includes("-h")) {
+        printRecommendExplainHelp();
+        return 0;
+      }
       await explainRecommendation(projectRoot, rest);
       return 0;
     case "evaluate": {
@@ -627,6 +631,45 @@ function printRecommendHelp(): void {
           "--review-limit <n>",
           "--apply",
           "--ai-review (for recommend report)",
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * Prints help for `recommend explain`.
+ */
+function printRecommendExplainHelp(): void {
+  printCommandHelp({
+    heading:
+      "recommend explain — Explain why an asset was selected, rejected, quarantined, or budget-pruned",
+    entries: [
+      {
+        command: "Usage:",
+        description: "",
+      },
+      {
+        command: "  recommend explain --asset <assetId>",
+        description: "Show per-host explanation for the given asset",
+      },
+      {
+        command: "  recommend explain --asset <assetId> --host <host>",
+        description: "Scope explanation to a specific host",
+      },
+      {
+        command: "  recommend explain --asset <assetId> --json",
+        description: "Output machine-readable JSON format",
+      },
+    ],
+    sections: [
+      {
+        title: "Explanation states:",
+        lines: [
+          "selected       Asset appears in the top-N for the host with rank and score breakdown",
+          "rejected       Asset was rejected during discovery selection (e.g., duplicate)",
+          "quarantined    Asset is held in quarantine pending review",
+          "budget-pruned  Asset was ranked but excluded by the activation budget",
         ],
       },
     ],

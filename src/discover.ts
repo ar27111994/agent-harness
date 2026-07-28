@@ -210,6 +210,10 @@ export async function runDiscover(
       );
     }
     case "full": {
+      if (rest.includes("--help") || rest.includes("-h")) {
+        printDiscoverFullHelp();
+        return 0;
+      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
@@ -246,6 +250,10 @@ export async function runDiscover(
     case "breadth":
     case "recall":
     case "candidate-pool":
+      if (rest.includes("--help") || rest.includes("-h")) {
+        printDiscoverBreadthHelp();
+        return 0;
+      }
       await runDiscoveryBreadth(workingDirectory, projectRoot);
       return 0;
     case "enrich":
@@ -1065,6 +1073,110 @@ function printDiscoverHelp(): void {
           "--no-ai-enrich      Explicitly skip enrichment for this select/full run",
           "--force             Bypass cache reuse and automatic policy skips, forcing a new provider call when enrichment runs",
           "--require-ai-enrich Fail the command when enrichment does not complete or reuse successfully",
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * Prints help for `discover full`.
+ */
+function printDiscoverFullHelp(): void {
+  printCommandHelp({
+    heading: "discover full — Run the complete discovery pipeline in one pass",
+    entries: [
+      {
+        command: "Steps executed in order:",
+        description: "",
+      },
+      {
+        command: "  1. demand-profile",
+        description: "Scan the working directory for demand signals",
+      },
+      {
+        command: "  2. sources",
+        description: "Refresh the source index",
+      },
+      {
+        command: "  3. sync",
+        description: "Sync indexed sources to local state",
+      },
+      {
+        command: "  4. catalog",
+        description: "Build the unified asset catalog",
+      },
+      {
+        command: "  5. select",
+        description: "Apply canonical selection rules",
+      },
+    ],
+    sections: [
+      {
+        title: "Options:",
+        lines: [
+          "--ai-enrich         Run AI enrichment after selection",
+          "--no-ai-enrich      Skip AI enrichment",
+          "--quiet             Suppress expected source health warnings",
+          "--summary           Print aggregate warning breakdown by reason",
+        ],
+      },
+      {
+        title: "Outputs:",
+        lines: [
+          "discover/output/demand-profile.json",
+          "discover/output/source-index.json",
+          "discover/output/catalog.assets.jsonl",
+          "discover/output/catalog.selected.jsonl",
+          "discover/output/catalog.rejected.jsonl",
+          "discover/output/selection-report.json",
+        ],
+      },
+    ],
+  });
+}
+
+/**
+ * Prints help for `discover breadth` (aliases: recall, candidate-pool).
+ */
+function printDiscoverBreadthHelp(): void {
+  printCommandHelp({
+    heading:
+      "discover breadth — Run the widest practical discovery pass (aliases: recall, candidate-pool)",
+    entries: [
+      {
+        command: "Description:",
+        description: "",
+      },
+      {
+        command:
+          "  Runs demand-profile followed by a maximally broad discovery",
+        description: "",
+      },
+      {
+        command:
+          "  pass that prioritizes candidate-pool coverage over precision.",
+        description: "",
+      },
+      {
+        command:
+          "  Useful for surveying available assets before narrowing down.",
+        description: "",
+      },
+    ],
+    sections: [
+      {
+        title: "Options:",
+        lines: [
+          "--state-root <path>  Write state under this path",
+          "--ai-enrich          Run AI enrichment after breadth scan",
+        ],
+      },
+      {
+        title: "Aliases:",
+        lines: [
+          "discover recall           Same as discover breadth",
+          "discover candidate-pool   Same as discover breadth",
         ],
       },
     ],
