@@ -196,14 +196,10 @@ async function explainRecommendation(
     );
 
   if (!resolvedAssetId) {
-    let errorMessage = "recommend explain requires --asset <assetId>";
-    if (json) {
-      errorMessage += " (note: --json is a format flag, not an asset ID)";
-    }
-    // c8 flags the else-branch of the json check above as uncovered;
-    // the non-json path is exercised by any --asset-only call.
-    /* c8 ignore next */
-    throw new Error(errorMessage);
+    const note = json
+      ? " (note: --json is a format flag, not an asset ID)"
+      : "";
+    throw new Error(`recommend explain requires --asset <assetId>${note}`);
   }
 
   const report = await readJsonFile<RecommendationReport>(
