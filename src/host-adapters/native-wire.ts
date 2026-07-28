@@ -37,15 +37,37 @@ import type {
   WirePreviewManifest,
 } from "../types.js";
 import type { WireMode } from "./types.js";
+import {
+  writeCursorNativeFiles,
+  resetCursorNativeHost,
+} from "./cursor-native.js";
+import { writeZedNativeFiles, resetZedNativeHost } from "./zed-native.js";
+import {
+  writeClaudeCodeNativeFiles,
+  resetClaudeCodeNativeHost,
+} from "./claude-code-native.js";
+import { writePiNativeFiles, resetPiNativeHost } from "./pi-native.js";
+import {
+  writeCodexNativeFiles,
+  resetCodexNativeHost,
+  buildCodexPluginManifest,
+  buildCodexHooksManifest,
+} from "./codex-native.js";
 
 /**
  * Defines the supported native wire host values.
  */
 export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi" | "codex";
 
-type LifecycleActivationHost = "copilot-vscode" | "opencode";
+/**
+ * Activation lifecycle host identifier.
+ */
+export type LifecycleActivationHost = "copilot-vscode" | "opencode";
 
-interface NativeHostSpec {
+/**
+ * Native wiring spec for a single AI coding host.
+ */
+export interface NativeHostSpec {
   host: NativeWireHost;
   displayName: string;
   activationHost: LifecycleActivationHost;
@@ -55,7 +77,10 @@ interface NativeHostSpec {
   notes: string[];
 }
 
-interface NativeAsset {
+/**
+ * Materialized native asset held in activation state.
+ */
+export interface NativeAsset {
   assetId: string;
   assetKind: AssetKind;
   displayName: string;
@@ -65,7 +90,10 @@ interface NativeAsset {
   hostNativeConfig?: AssetHostNativeConfigMap;
 }
 
-interface MaterializedNativeAssets {
+/**
+ * Materialized native asset buckets keyed by kind.
+ */
+export interface MaterializedNativeAssets {
   instructionFiles: string[];
   agentFiles: string[];
   skillDirs: string[];
@@ -494,533 +522,10 @@ async function writeHostNativeFiles(options: {
   }
 }
 
-async function writeCursorNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
-  const cursorRulePath = join(
-    options.workspaceRoot,
-    ".cursor",
-    "rules",
-    "agent-harness.mdc",
-  );
-  const managedLines = buildManagedInstructionLines({
-    hostName: "Cursor",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
-
-  await writeTextFile(
-    cursorRulePath,
-    [
-      "---",
-      "description: Agent Harness curated project context and reusable agent assets.",
-      "alwaysApply: true",
-      "---",
-      "",
-      ...managedLines,
-    ].join("\n"),
-  );
-  await writeCursorPluginFiles({
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    managedLines,
-  });
-  await writeCursorNativeAgentFiles(
-    options.workspaceRoot,
-    options.nativeAssets,
-  );
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "cursor", {
-    nativeAssets: options.nativeAssets,
-  });
-}
-
-async function writeCursorPluginFiles(options: {
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  managedLines: string[];
-}): Promise<void> {
-  const pluginRoot = join(options.managedRoot, "cursor-plugin");
-  const assetKinds = new Set(
-    options.nativeAssets.map((nativeAsset) => nativeAsset.assetKind),
-  );
-
-  await writeJsonFile(
-    join(pluginRoot, ".cursor-plugin", "plugin.json"),
-    buildCursorPluginManifest(assetKinds),
-  );
-  await writeTextFile(
-    join(pluginRoot, "rules", "agent-harness.mdc"),
-    [
-      "---",
-      "description: Agent Harness curated project context and reusable agent assets.",
-      "alwaysApply: true",
-      "---",
-      "",
-      ...options.managedLines,
-      "",
-    ].join("\n"),
-  );
-
-  for (const nativeAsset of options.nativeAssets) {
-    await writeCursorPluginAsset(pluginRoot, nativeAsset);
-  }
-}
-
-async function writeCursorNativeAgentFiles(
-  workspaceRoot: string,
-  nativeAssets: NativeAsset[],
-): Promise<void> {
-  const cursorAgentsRoot = join(
-    workspaceRoot,
-    ".cursor",
-    "agents",
-    "agent-harness",
-  );
-
-  for (const nativeAsset of nativeAssets) {
-    if (nativeAsset.assetKind !== "agent") {
-      continue;
-    }
-
-    await writeTextFile(
-      join(cursorAgentsRoot, `${sanitizeAssetId(nativeAsset.assetId)}.md`),
-      buildAgentFile(nativeAsset.assetId, nativeAsset.displayName, [
-        nativeAsset.content,
-      ]),
-    );
-  }
-}
-
-function buildCursorPluginManifest(assetKinds: Set<AssetKind>): JsonObject {
-  const manifest: JsonObject = {
-    name: "agent-harness",
-    version: "1.0.0",
-    description: "Curated Agent Harness project assets for Cursor.",
-    rules: "./rules",
-  };
-
-  if (assetKinds.has("skill")) {
-    manifest.skills = "./skills";
-  }
-  if (assetKinds.has("agent")) {
-    manifest.agents = "./agents";
-  }
-  if (assetKinds.has("workflow") || assetKinds.has("prompt-pack")) {
-    manifest.commands = "./commands";
-  }
-
-  return manifest;
-}
-
-async function writeCursorPluginAsset(
-  pluginRoot: string,
-  nativeAsset: NativeAsset,
-): Promise<void> {
-  const assetSlug = sanitizeAssetId(nativeAsset.assetId);
-
-  switch (nativeAsset.assetKind) {
-    case "instruction":
-      await writeTextFile(
-        join(pluginRoot, "rules", `${assetSlug}.mdc`),
-        buildPromptTemplate(nativeAsset.displayName, [nativeAsset.content]),
-      );
-      return;
-    case "agent":
-      await writeTextFile(
-        join(pluginRoot, "agents", `${assetSlug}.md`),
-        buildAgentFile(assetSlug, nativeAsset.displayName, [
-          nativeAsset.content,
-        ]),
-      );
-      return;
-    case "skill":
-      await writeTextFile(
-        join(pluginRoot, "skills", assetSlug, "SKILL.md"),
-        buildSkillFile(assetSlug, nativeAsset.displayName, [
-          nativeAsset.content,
-        ]),
-      );
-      return;
-    case "workflow":
-    case "prompt-pack":
-      await writeTextFile(
-        join(pluginRoot, "commands", `${assetSlug}.md`),
-        buildPromptTemplate(nativeAsset.displayName, [nativeAsset.content]),
-      );
-      return;
-    default:
-      await writeTextFile(
-        join(
-          pluginRoot,
-          "references",
-          directoryNameForAssetKind(nativeAsset.assetKind),
-          `${assetSlug}.md`,
-        ),
-        buildAssetMarkdown(nativeAsset),
-      );
-  }
-}
-
-async function writeZedNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
-  const rulesPath = join(options.workspaceRoot, ".rules");
-  const managedLines = buildManagedInstructionLines({
-    hostName: "Zed",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
-  await upsertManagedSectionFile(rulesPath, "agent-harness-zed", [
-    ...managedLines,
-    ...buildNativeAssetContentSections(options.nativeAssets, ["instruction"]),
-  ]);
-  await mergeJsonFile(join(options.workspaceRoot, ".zed", "settings.json"), {
-    agent: {
-      profiles: {
-        "agent-harness": {
-          name: "Agent Harness",
-          enable_all_context_servers: true,
-        },
-      },
-    },
-  });
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "zed", {
-    nativeAssets: options.nativeAssets,
-  });
-}
-
-async function writeClaudeCodeNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
-  const managedLines = buildManagedInstructionLines({
-    hostName: "Claude Code",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
-
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, "CLAUDE.md"),
-    "agent-harness-claude-code",
-    managedLines,
-  );
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, ".claude", "CLAUDE.md"),
-    "agent-harness-claude-code",
-    managedLines,
-  );
-  await writeTextFile(
-    join(options.workspaceRoot, ".claude", "rules", "agent-harness.md"),
-    [
-      "# Agent Harness Rules",
-      "",
-      ...managedLines,
-      ...buildNativeAssetContentSections(options.nativeAssets, ["instruction"]),
-    ].join("\n"),
-  );
-  await writeTextFile(
-    join(options.workspaceRoot, ".claude", "agents", "agent-harness.md"),
-    buildAgentFile(
-      "agent-harness",
-      "Use curated Agent Harness assets for this project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, ["agent"]),
-      ],
-    ),
-  );
-  await writeTextFile(
-    join(
-      options.workspaceRoot,
-      ".claude",
-      "skills",
-      "agent-harness",
-      "SKILL.md",
-    ),
-    buildSkillFile(
-      "agent-harness",
-      "Use curated Agent Harness assets for this project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
-      ],
-    ),
-  );
-  await writeTextFile(
-    join(options.workspaceRoot, ".claude", "commands", "agent-harness.md"),
-    buildPromptTemplate("Use curated Agent Harness assets for this task.", [
-      ...managedLines,
-      ...buildNativeAssetContentSections(options.nativeAssets, [
-        "prompt-pack",
-        "workflow",
-      ]),
-    ]),
-  );
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "claude-code", {
-    nativeAssets: options.nativeAssets,
-  });
-}
-
-async function writePiNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
-  const managedLines = buildManagedInstructionLines({
-    hostName: "Pi",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
-
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, "AGENTS.md"),
-    "agent-harness-pi",
-    managedLines,
-  );
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, "SYSTEM.md"),
-    "agent-harness-pi",
-    [
-      "Append these Agent Harness project instructions to Pi's default system prompt.",
-      "",
-      ...managedLines,
-    ],
-  );
-  await writeTextFile(
-    join(options.workspaceRoot, ".pi", "skills", "agent-harness", "SKILL.md"),
-    buildSkillFile(
-      "agent-harness",
-      "Use curated Agent Harness assets for this project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
-      ],
-    ),
-  );
-  await writeTextFile(
-    join(options.workspaceRoot, ".pi", "prompts", "agent-harness.md"),
-    buildPromptTemplate("Use curated Agent Harness assets for this task.", [
-      ...managedLines,
-      ...buildNativeAssetContentSections(options.nativeAssets, [
-        "agent",
-        "instruction",
-        "prompt-pack",
-        "workflow",
-      ]),
-    ]),
-  );
-  await upsertManagedPiSettings(
-    join(options.workspaceRoot, ".pi", "settings.json"),
-  );
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "pi", {
-    nativeAssets: options.nativeAssets,
-  });
-}
-
-async function writeCodexNativeFiles(options: {
-  workspaceRoot: string;
-  managedRoot: string;
-  nativeAssets: NativeAsset[];
-  materializedAssets: MaterializedNativeAssets;
-  mcpServers: string[];
-}): Promise<NativeConfigOperation[]> {
-  const managedLines = buildManagedInstructionLines({
-    hostName: "OpenAI Codex",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
-
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, "AGENTS.md"),
-    "agent-harness-codex",
-    [
-      "Use these Agent Harness assets as project-scoped Codex context.",
-      "Do not treat plugin, MCP, hook, or rules references as active integrations unless structured Codex-native config exists in the wire plan.",
-      "",
-      ...managedLines,
-    ],
-  );
-  await writeTextFile(
-    join(
-      options.workspaceRoot,
-      ".agents",
-      "skills",
-      "agent-harness",
-      "SKILL.md",
-    ),
-    buildSkillFile(
-      "agent-harness",
-      "Use curated Agent Harness assets for this Codex project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
-      ],
-    ),
-  );
-  await mergeCodexPluginMarketplace(
-    join(options.workspaceRoot, ".agents", "plugins", "marketplace.json"),
-  );
-  const codexPluginRoot = join(
-    options.workspaceRoot,
-    ".agents",
-    "plugins",
-    "agent-harness",
-  );
-  const codexPluginManifest = buildCodexPluginManifest(options.nativeAssets);
-  await writeJsonFile(
-    join(codexPluginRoot, ".codex-plugin", "plugin.json"),
-    codexPluginManifest,
-  );
-  if (typeof codexPluginManifest.hooks === "string") {
-    await writeJsonFile(
-      join(codexPluginRoot, codexPluginManifest.hooks),
-      buildCodexHooksManifest(
-        options.nativeAssets,
-        options.materializedAssets.hookFiles,
-        join(codexPluginRoot, codexPluginManifest.hooks),
-      ),
-    );
-  }
-  await writeTextFile(
-    join(
-      options.workspaceRoot,
-      ".agents",
-      "plugins",
-      "agent-harness",
-      "skills",
-      "agent-harness",
-      "SKILL.md",
-    ),
-    buildSkillFile(
-      "agent-harness",
-      "Use curated Agent Harness assets from the Codex plugin surface.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, ["skill"]),
-      ],
-    ),
-  );
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "codex", {
-    nativeAssets: options.nativeAssets,
-  });
-}
-
-async function mergeCodexPluginMarketplace(filePath: string): Promise<void> {
-  const marketplace = await readJsonFileOrNull<unknown>(filePath);
-  const marketplaceObject =
-    marketplace === null ? {} : assertJsonObject(marketplace, filePath);
-  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
-    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
-  );
-  await writeJsonFile(filePath, {
-    ...marketplaceObject,
-    schemaVersion:
-      typeof marketplaceObject.schemaVersion === "number"
-        ? marketplaceObject.schemaVersion
-        : 1,
-    plugins: [
-      ...plugins,
-      {
-        name: "agent-harness",
-        path: "./agent-harness",
-      },
-    ],
-  });
-}
-
-function buildCodexPluginManifest(nativeAssets: NativeAsset[]): JsonObject {
-  const assetKinds = new Set(
-    nativeAssets.map((nativeAsset) => nativeAsset.assetKind),
-  );
-  const manifest: JsonObject = {
-    name: "agent-harness",
-    version: "1.0.0",
-    description: "Project-local Agent Harness assets for OpenAI Codex.",
-    skills: "./skills",
-  };
-
-  if (assetKinds.has("hook")) {
-    manifest.hooks = "./hooks/hooks.json";
-  }
-
-  return manifest;
-}
-
-function buildCodexHooksManifest(
-  nativeAssets: NativeAsset[],
-  hookFiles: readonly string[],
-  manifestPath?: string,
-): JsonObject {
-  const manifestDirectory = manifestPath ? dirname(manifestPath) : undefined;
-  const hookAssets = nativeAssets.filter(
-    (nativeAsset) => nativeAsset.assetKind === "hook",
-  );
-  return {
-    schemaVersion: 1,
-    hooks: hookAssets.map((nativeAsset, index) => ({
-      name: nativeAsset.assetId,
-      description: nativeAsset.displayName,
-      source: buildCodexHookSource(
-        hookFiles[index],
-        nativeAsset.assetId,
-        manifestDirectory,
-      ),
-    })),
-  };
-}
-
-function buildCodexHookSource(
-  hookFile: string | undefined,
-  fallback: string,
-  manifestDirectory: string | undefined,
-): string {
-  if (!hookFile) {
-    return fallback;
-  }
-  if (!manifestDirectory) {
-    return hookFile;
-  }
-
-  return toPosixPath(relative(manifestDirectory, hookFile));
-}
-
-function isNamedJsonObject(value: unknown, name: string): boolean {
-  return isJsonObject(value) && value.name === name;
-}
-
-function coerceJsonObjectArray(value: unknown): JsonObject[] {
-  return Array.isArray(value) ? value.filter(isJsonObject) : [];
-}
-
-async function applyStructuredNativeConfig(
+/**
+ * Applies host-native structured file payloads.
+ */
+export async function applyStructuredNativeConfig(
   workspaceRoot: string,
   host: "cursor" | "zed" | "claude-code" | "pi" | "codex",
   options: {
@@ -1103,110 +608,28 @@ async function resetNativeHost(
 
   switch (spec.host) {
     case "cursor":
-      await removePath(
-        join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
-      );
-      await removePath(
-        join(workspaceRoot, ".cursor", "agents", "agent-harness"),
-      );
+      await resetCursorNativeHost(workspaceRoot);
       return;
     case "zed":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, ".rules"),
-        previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, ".rules"),
-            "agent-harness-zed",
-          ),
-      );
-      await removeManagedZedSettings(
-        join(workspaceRoot, ".zed", "settings.json"),
+      await resetZedNativeHost(
         workspaceRoot,
+        previousWirePlan?.textFileSnapshots,
       );
       return;
     case "claude-code":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "CLAUDE.md"),
+      await resetClaudeCodeNativeHost(
+        workspaceRoot,
         previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "CLAUDE.md"),
-            "agent-harness-claude-code",
-          ),
-      );
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, ".claude", "CLAUDE.md"),
-        previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, ".claude", "CLAUDE.md"),
-            "agent-harness-claude-code",
-          ),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "agents", "agent-harness.md"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "skills", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "commands", "agent-harness.md"),
       );
       return;
     case "pi":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "AGENTS.md"),
+      await resetPiNativeHost(
+        workspaceRoot,
         previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "AGENTS.md"),
-            "agent-harness-pi",
-          ),
-      );
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "SYSTEM.md"),
-        previousWirePlan?.textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "SYSTEM.md"),
-            "agent-harness-pi",
-          ),
-      );
-      await removePath(join(workspaceRoot, ".pi", "skills", "agent-harness"));
-      await removePath(
-        join(workspaceRoot, ".pi", "prompts", "agent-harness.md"),
-      );
-      await removeManagedPiSettings(
-        join(workspaceRoot, ".pi", "settings.json"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "extensions"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "packages"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "skills"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "prompts"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi"),
-        workspaceRoot,
       );
       return;
     case "codex":
-      await cleanupCodexNativeFiles(
+      await resetCodexNativeHost(
         workspaceRoot,
         previousWirePlan?.textFileSnapshots,
       );
@@ -1226,169 +649,21 @@ async function cleanupFailedNativeHostApply(
 
   switch (spec.host) {
     case "cursor":
-      await removePath(
-        join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
-      );
-      await removePath(
-        join(workspaceRoot, ".cursor", "agents", "agent-harness"),
-      );
+      await resetCursorNativeHost(workspaceRoot);
       return;
     case "zed":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, ".rules"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, ".rules"),
-            "agent-harness-zed",
-          ),
-      );
-      await removeManagedZedSettings(
-        join(workspaceRoot, ".zed", "settings.json"),
-        workspaceRoot,
-      );
+      await resetZedNativeHost(workspaceRoot, textFileSnapshots);
       return;
     case "claude-code":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "CLAUDE.md"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "CLAUDE.md"),
-            "agent-harness-claude-code",
-          ),
-      );
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, ".claude", "CLAUDE.md"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, ".claude", "CLAUDE.md"),
-            "agent-harness-claude-code",
-          ),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "rules", "agent-harness.md"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "agents", "agent-harness.md"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "skills", "agent-harness"),
-      );
-      await removePath(
-        join(workspaceRoot, ".claude", "commands", "agent-harness.md"),
-      );
+      await resetClaudeCodeNativeHost(workspaceRoot, textFileSnapshots);
       return;
     case "pi":
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "AGENTS.md"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "AGENTS.md"),
-            "agent-harness-pi",
-          ),
-      );
-      await restoreManagedTextFileSnapshot(
-        join(workspaceRoot, "SYSTEM.md"),
-        textFileSnapshots,
-        () =>
-          removeManagedSectionFile(
-            join(workspaceRoot, "SYSTEM.md"),
-            "agent-harness-pi",
-          ),
-      );
-      await removePath(join(workspaceRoot, ".pi", "skills", "agent-harness"));
-      await removePath(
-        join(workspaceRoot, ".pi", "prompts", "agent-harness.md"),
-      );
-      await removeManagedPiSettings(
-        join(workspaceRoot, ".pi", "settings.json"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "extensions"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "packages"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "skills"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi", "prompts"),
-        workspaceRoot,
-      );
-      await removeEmptyParentDirectories(
-        join(workspaceRoot, ".pi"),
-        workspaceRoot,
-      );
+      await resetPiNativeHost(workspaceRoot, textFileSnapshots);
       return;
     case "codex":
-      await cleanupCodexNativeFiles(workspaceRoot, textFileSnapshots);
+      await resetCodexNativeHost(workspaceRoot, textFileSnapshots);
       return;
   }
-}
-
-async function removeCodexPluginMarketplaceEntry(
-  filePath: string,
-): Promise<void> {
-  const marketplace = await readJsonFileOrNull<unknown>(filePath);
-  if (marketplace === null) {
-    return;
-  }
-  const marketplaceObject = assertJsonObject(marketplace, filePath);
-  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
-    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
-  );
-  if (plugins.length === 0) {
-    await removePath(filePath);
-    return;
-  }
-  await writeJsonFile(filePath, {
-    ...marketplaceObject,
-    plugins,
-  });
-}
-
-async function cleanupCodexNativeFiles(
-  workspaceRoot: string,
-  textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
-): Promise<void> {
-  await restoreManagedTextFileSnapshot(
-    join(workspaceRoot, "AGENTS.md"),
-    textFileSnapshots,
-    () =>
-      removeManagedSectionFile(
-        join(workspaceRoot, "AGENTS.md"),
-        "agent-harness-codex",
-      ),
-  );
-  await removePath(join(workspaceRoot, ".agents", "skills", "agent-harness"));
-  await removePath(join(workspaceRoot, ".agents", "plugins", "agent-harness"));
-  await removeCodexPluginMarketplaceEntry(
-    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-  );
-  await removeEmptyParentDirectories(
-    join(workspaceRoot, ".agents", "plugins"),
-    workspaceRoot,
-  );
-  await removeEmptyParentDirectories(
-    join(workspaceRoot, ".agents", "skills"),
-    workspaceRoot,
-  );
-  await removeEmptyParentDirectories(
-    join(workspaceRoot, ".agents"),
-    workspaceRoot,
-  );
-  await removeEmptyParentDirectories(
-    join(workspaceRoot, ".codex"),
-    workspaceRoot,
-  );
 }
 
 function resolveManagedTextFileSnapshotPaths(
@@ -1430,7 +705,10 @@ async function captureManagedTextFileSnapshots(
   return snapshots;
 }
 
-async function restoreManagedTextFileSnapshot(
+/**
+ * Exposes text-file snapshot restore for per-host adapter use.
+ */
+export async function restoreManagedTextFileSnapshot(
   filePath: string,
   snapshots: ManagedTextFileSnapshot[] | undefined,
   fallbackRestore: () => Promise<void>,
@@ -1485,7 +763,10 @@ function validateManagedTextFileSnapshots(
   return wirePlan;
 }
 
-async function upsertManagedSectionFile(
+/**
+ * Exposes managed-section upsert for per-host adapter use.
+ */
+export async function upsertManagedSectionFile(
   filePath: string,
   markerId: string,
   bodyLines: string[],
@@ -1501,7 +782,10 @@ async function upsertManagedSectionFile(
   );
 }
 
-async function removeManagedSectionFile(
+/**
+ * Exposes managed-section removal for per-host adapter use.
+ */
+export async function removeManagedSectionFile(
   filePath: string,
   markerId: string,
 ): Promise<void> {
@@ -1522,7 +806,10 @@ async function removeManagedSectionFile(
   await writeTextFile(filePath, nextContent);
 }
 
-async function mergeJsonFile(
+/**
+ * Exposes JSON-file merge for per-host adapter use.
+ */
+export async function mergeJsonFile(
   filePath: string,
   patch: JsonObject,
 ): Promise<void> {
@@ -1535,7 +822,7 @@ async function mergeJsonFile(
 /**
  * Ensures an existing host settings file can be safely object-merged.
  */
-function assertJsonObject(value: unknown, filePath: string): JsonObject {
+export function assertJsonObject(value: unknown, filePath: string): JsonObject {
   if (isJsonObject(value)) {
     return value;
   }
@@ -1553,7 +840,10 @@ function describeJsonValue(value: unknown): string {
   return value === null ? "null" : typeof value;
 }
 
-async function removeManagedZedSettings(
+/**
+ * Exposes managed Zed settings removal for per-host adapter use.
+ */
+export async function removeManagedZedSettings(
   filePath: string,
   workspaceRoot: string,
 ): Promise<void> {
@@ -1578,7 +868,10 @@ async function removeManagedZedSettings(
   await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
 }
 
-async function upsertManagedPiSettings(filePath: string): Promise<void> {
+/**
+ * Exposes managed Pi settings upsert for per-host adapter use.
+ */
+export async function upsertManagedPiSettings(filePath: string): Promise<void> {
   const existingValue = await readJsonFileOrNull<unknown>(filePath);
   const settings =
     existingValue === null ? {} : assertJsonObject(existingValue, filePath);
@@ -1592,7 +885,10 @@ async function upsertManagedPiSettings(filePath: string): Promise<void> {
   await writeOrRemoveJsonFile(filePath, settings);
 }
 
-async function removeManagedPiSettings(
+/**
+ * Exposes managed Pi settings removal for per-host adapter use.
+ */
+export async function removeManagedPiSettings(
   filePath: string,
   workspaceRoot: string,
 ): Promise<void> {
@@ -1611,7 +907,10 @@ async function removeManagedPiSettings(
   await writeOrRemoveJsonFile(filePath, settings, workspaceRoot);
 }
 
-async function writeOrRemoveJsonFile(
+/**
+ * Exposes write-or-remove JSON helper for per-host adapter use.
+ */
+export async function writeOrRemoveJsonFile(
   filePath: string,
   value: JsonObject,
   cleanupRoot?: string,
@@ -1627,7 +926,10 @@ async function writeOrRemoveJsonFile(
   await writeJsonFile(filePath, value);
 }
 
-async function removeEmptyParentDirectories(
+/**
+ * Exposes empty-directory cleanup for per-host adapter use.
+ */
+export async function removeEmptyParentDirectories(
   startDirectory: string,
   stopDirectory: string,
   removeDirectory: typeof rmdir = rmdir,
@@ -1673,7 +975,10 @@ async function removeEmptyParentDirectories(
   }
 }
 
-function isBenignRemoveDirectoryRace(error: unknown): boolean {
+/**
+ * Exposes benign race detection for per-host adapter use.
+ */
+export function isBenignRemoveDirectoryRace(error: unknown): boolean {
   const errorCode = (error as NodeJS.ErrnoException).code;
   return (
     errorCode === "ENOENT" ||
@@ -1682,7 +987,10 @@ function isBenignRemoveDirectoryRace(error: unknown): boolean {
   );
 }
 
-function buildManagedInstructionLines(options: {
+/**
+ * Exposes managed instruction line builder for per-host adapter use.
+ */
+export function buildManagedInstructionLines(options: {
   hostName: string;
   managedRoot: string;
   nativeAssets: NativeAsset[];
@@ -1768,7 +1076,10 @@ function appendMaterializedAssetPathLines(
   }
 }
 
-function buildNativeAssetContentSections(
+/**
+ * Exposes asset content section builder for per-host adapter use.
+ */
+export function buildNativeAssetContentSections(
   nativeAssets: NativeAsset[],
   assetKinds: AssetKind[],
 ): string[] {
@@ -1796,7 +1107,10 @@ function buildNativeAssetContentSections(
   return lines;
 }
 
-function buildAssetMarkdown(nativeAsset: NativeAsset): string {
+/**
+ * Exposes asset markdown builder for per-host adapter use.
+ */
+export function buildAssetMarkdown(nativeAsset: NativeAsset): string {
   return [
     `# ${nativeAsset.displayName}`,
     "",
@@ -1810,7 +1124,10 @@ function buildAssetMarkdown(nativeAsset: NativeAsset): string {
   ].join("\n");
 }
 
-function buildAgentFile(
+/**
+ * Exposes agent-file builder for per-host adapter use.
+ */
+export function buildAgentFile(
   name: string,
   description: string,
   bodyLines: string[],
@@ -1826,7 +1143,10 @@ function buildAgentFile(
   ].join("\n");
 }
 
-function buildSkillFile(
+/**
+ * Exposes skill-file builder for per-host adapter use.
+ */
+export function buildSkillFile(
   name: string,
   description: string,
   bodyLines: string[],
@@ -1842,7 +1162,13 @@ function buildSkillFile(
   ].join("\n");
 }
 
-function buildPromptTemplate(description: string, bodyLines: string[]): string {
+/**
+ * Exposes prompt-template builder for per-host adapter use.
+ */
+export function buildPromptTemplate(
+  description: string,
+  bodyLines: string[],
+): string {
   return [
     "---",
     `description: ${quoteFrontmatterScalar(description)}`,
@@ -1857,7 +1183,10 @@ function quoteFrontmatterScalar(value: string): string {
   return JSON.stringify(value.replace(/\r\n?/gu, "\n"));
 }
 
-function directoryNameForAssetKind(assetKind: AssetKind): string {
+/**
+ * Exposes asset-kind directory-name resolver for per-host adapter use.
+ */
+export function directoryNameForAssetKind(assetKind: AssetKind): string {
   switch (assetKind) {
     case "mcp-server":
       return "mcp-servers";
@@ -1954,9 +1283,18 @@ function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
-type JsonObject = Record<string, unknown>;
+/**
+ * JSON object type alias.
+ */
+export type JsonObject = Record<string, unknown>;
 
-function mergeJsonObjects(base: JsonObject, patch: JsonObject): JsonObject {
+/**
+ * Exposes JSON-object merge helper for per-host adapter use.
+ */
+export function mergeJsonObjects(
+  base: JsonObject,
+  patch: JsonObject,
+): JsonObject {
   const merged: JsonObject = { ...base };
 
   for (const [key, value] of Object.entries(patch)) {
@@ -1984,7 +1322,10 @@ function asJsonObject(value: unknown): JsonObject | null {
   return isJsonObject(value) ? value : null;
 }
 
-function isJsonObject(value: unknown): value is JsonObject {
+/**
+ * Exposes JSON-object guard for per-host adapter use.
+ */
+export function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
