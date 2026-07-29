@@ -58,8 +58,8 @@ async function searchRegistry(
       `searchRegistry unexpected error for ${adapter.buildUrl(normalized, limit).hostname}: ${error instanceof Error ? error.message : String(error)}`,
     );
     return [];
-    /* c8 ignore stop */
   }
+  /* c8 ignore stop */
 }
 
 /**
