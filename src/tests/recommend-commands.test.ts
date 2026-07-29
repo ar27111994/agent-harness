@@ -1308,13 +1308,18 @@ void test("runRecommend report returns exit code 1 and writes to stderr when cat
   }
 });
 
-
 void test("recommend explain --host with positional asset skips --host value", async () => {
-  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-recommend-host-"));
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-recommend-host-"),
+  );
   try {
     const report = createRecommendationReport();
     await seedRecommendationReport(projectRoot, report);
-    const result = await runRecommend(["explain", "--host", "vscode", "asset-a"], process.cwd(), projectRoot);
+    const result = await runRecommend(
+      ["explain", "--host", "vscode", "asset-a"],
+      process.cwd(),
+      projectRoot,
+    );
     assert.equal(result, 0);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

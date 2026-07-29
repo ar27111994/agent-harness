@@ -654,7 +654,8 @@ void test("restoreManagedSectionFromSnapshot inserts section when file absent", 
     const snapshots: ManagedTextFileSnapshot[] = [
       {
         path: toPosixPath(agentsPath),
-        content: "<!-- agent-harness-pi:begin -->\nrestored\n<!-- agent-harness-pi:end -->\n",
+        content:
+          "<!-- agent-harness-pi:begin -->\nrestored\n<!-- agent-harness-pi:end -->\n",
       },
     ];
     await resetPiNativeHost(fixture.workspaceRoot, snapshots);
