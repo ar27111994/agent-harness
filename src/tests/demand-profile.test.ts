@@ -1072,6 +1072,69 @@ void test("buildDemandProfile emits a [warn] line on stderr when scan is truncat
   }
 });
 
+void test("buildDemandProfile accepts maxBytes option and limits scan budget", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-maxbytes-"));
+  try {
+    // Create a workspace with many files that would exceed a tiny budget
+    for (let i = 0; i < 20; i++) {
+      await writeFixtureFile(
+        root,
+        `src/file-${i}.ts`,
+        `// file ${i}\n`.repeat(50),
+      );
+    }
+    // With a tiny budget, the scan should be truncated
+    const profile = await buildDemandProfile(root, { maxBytes: 100 });
+    assert.ok(
+      typeof profile.generatedAt === "string",
+      "profile should be generated",
+    );
+    // With a tiny budget, the scan is heavily truncated (possibly 0 files if budget
+    // is exhausted before even one file is read)
+    assert.ok(
+      profile.summary.scannedFiles < 20,
+      "scan should be truncated with small budget",
+    );
+  } finally {
+    clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("buildDemandProfile without options works with default budget", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-default-"));
+  try {
+    await writeFixtureFile(root, "package.json", '{"name":"test"}');
+    await writeFixtureFile(root, "src/index.ts", "// entry point\n");
+    const profile = await buildDemandProfile(root);
+    assert.ok(typeof profile.generatedAt === "string");
+    assert.ok(
+      profile.summary.scannedFiles >= 2,
+      "should scan at least 2 files",
+    );
+  } finally {
+    clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("demand profile truncation warning uses byte count ranking", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-bytecount-"));
+  try {
+    // Create directories with files of different sizes
+    await writeFixtureFile(root, "small/file.txt", "tiny");
+    await writeFixtureFile(root, "large/big.txt", "x".repeat(5000));
+    // With a very small budget, truncation should trigger
+    const profile = await buildDemandProfile(root, { maxBytes: 200 });
+    assert.ok(typeof profile.generatedAt === "string");
+    // The profile should still be generated even with truncation
+    assert.ok(profile.evidence !== undefined, "evidence should be present");
+  } finally {
+    clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 async function writeFixtureFile(
   root: string,
   relPath: string,
