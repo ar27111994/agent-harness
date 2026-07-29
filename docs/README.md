@@ -84,7 +84,7 @@ In-depth documents covering the project's strategy, implementation plans, covera
 | [`ROADMAP.md`](./reference/ROADMAP.md)                                               | Gap analysis and long-range direction                                                                                               |
 | [`SOURCE-SYNC-DECOMPOSITION-PLAN.md`](./reference/SOURCE-SYNC-DECOMPOSITION-PLAN.md) | Plan for decomposing source-sync module                                                                                             |
 
-#### Host adapter references
+### Host adapter references
 
 | File                                                       | Description                                                                                 |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |

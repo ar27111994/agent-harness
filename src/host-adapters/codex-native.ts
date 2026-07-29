@@ -21,7 +21,7 @@ import {
   isJsonObject,
   removeEmptyParentDirectories,
   removeManagedSectionFile,
-  restoreManagedTextFileSnapshot,
+  restoreManagedSectionFromSnapshot,
   upsertManagedSectionFile,
 } from "./native-utils.js";
 import type {
@@ -244,9 +244,12 @@ export async function resetCodexNativeHost(
   workspaceRoot: string,
   textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
 ): Promise<void> {
-  await restoreManagedTextFileSnapshot(
+  // Section-scoped snapshot restore: extracts only the agent-harness-codex
+  // managed section from the snapshot, preserving other hosts' sections.
+  await restoreManagedSectionFromSnapshot(
     join(workspaceRoot, "AGENTS.md"),
     textFileSnapshots,
+    "agent-harness-codex",
     () =>
       removeManagedSectionFile(
         join(workspaceRoot, "AGENTS.md"),

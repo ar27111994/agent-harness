@@ -1445,14 +1445,34 @@ void test("writeZedNativeFiles falls back to mergeJsonFile when settings.json st
       mcpServers: [],
     };
     await writeZedNativeFiles(opts);
-    // After mergeJsonFile fallback, "agent" should be an object with profiles
-    const content = JSON.parse(
-      await readFile(join(workspaceRoot, ".zed", "settings.json"), "utf8"),
-    ) as Record<string, unknown>;
+    // After mergeJsonFile fallback, verify the full agent-harness profile
+    // was written and the file uses two-space JSON formatting (the
+    // fallback path via writeJsonFile, distinct from the JSONC-modify
+    // path which preserves original formatting).
+    const raw = await readFile(
+      join(workspaceRoot, ".zed", "settings.json"),
+      "utf8",
+    );
+    const content = JSON.parse(raw) as Record<string, unknown>;
     assert.ok(
       typeof content.agent === "object" && content.agent !== null,
       "agent should be an object after merge fallback",
     );
+    const agent = content.agent as Record<string, unknown>;
+    assert.ok(
+      typeof agent.profiles === "object" && agent.profiles !== null,
+      "agent.profiles should be present",
+    );
+    const profiles = agent.profiles as Record<string, Record<string, unknown>>;
+    assert.equal(profiles["agent-harness"]?.name, "Agent Harness");
+    assert.equal(profiles["agent-harness"]?.enable_all_context_servers, true);
+    // Fallback writes via JSON.stringify(…, null, 2) — verify two-space
+    // formatting with trailing newline.
+    assert.ok(
+      raw.includes('  "agent"'),
+      "fallback output should use two-space indentation",
+    );
+    assert.ok(raw.endsWith("\n"), "fallback output should end with newline");
   } finally {
     await rm(root, { force: true, recursive: true });
   }

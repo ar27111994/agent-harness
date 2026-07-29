@@ -88,7 +88,7 @@ Only `discover-breadth.test.ts` tests with 120K entries. Missing:
 
 - ✅ Null bytes in paths: `sanitizeMirrorId`, `sanitizeAssetId`, `isPathWithinRoot`, `resolveSafeMirrorFilePath`, `resolveAllowedAbsolutePath`
 - ✅ Unicode path traversal: `isPathWithinRoot` with Unicode characters in safe paths
-- ⚠️ Symbolic link handling: Not tested (low-risk on Windows; symlinks uncommon in managed dirs)
+- ⚠️ Symbolic link handling: Two cases now covered — `resolveAllowedRealFilePath` rejects symlink escapes (returns null) and canonicalizes Unicode paths. Edge cases like deeply nested symlink chains remain untested.
 - ⚠️ CLI argument injection: `--asset` values that look like flags not exhaustively fuzzed
 - **Very long strings (DoS):** Asset IDs up to 100K chars not tested for memory/performance impact.
 

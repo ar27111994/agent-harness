@@ -316,6 +316,13 @@ void test("mutating domains show help when --help is passed instead of executing
       discoverFullStdout,
       /demand-profile\s+Scan the working directory/u,
     );
+
+    // Mutating-domain --help must not create any state
+    assert.equal(
+      existsSync(stateRoot),
+      false,
+      "stateRoot must not be created by --help",
+    );
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }

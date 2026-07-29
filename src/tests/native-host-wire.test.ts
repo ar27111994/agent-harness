@@ -1579,12 +1579,24 @@ void test("native wire internals clean failed applies and validate helper edge c
     ),
     false,
   );
-  // Marketplace file is preserved with plugins:[] instead of deleted (#374)
+  // Marketplace file is preserved with plugins:[] instead of deleted (#374).
+  // Verify the preserved content is valid JSON with the expected structure.
+  const mktContent = await readTextFileOrNull(
+    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+  );
+  assert.ok(mktContent !== null, "marketplace.json should be preserved");
+  const mkt = JSON.parse(mktContent) as Record<string, unknown>;
   assert.ok(
-    (await readTextFileOrNull(
-      join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-    )) !== null,
-    "marketplace.json should be preserved after cleanup",
+    Array.isArray(mkt.plugins),
+    "marketplace.json should still have a plugins array",
+  );
+  // No agent-harness entry remains in the filtered plugins
+  const pluginNames = (mkt.plugins as Array<Record<string, unknown>>).map(
+    (p) => p.name,
+  );
+  assert.ok(
+    !pluginNames.includes("agent-harness"),
+    "agent-harness plugin should be removed from marketplace",
   );
 
   const piManagedRoot = join(workspaceRoot, ".pi", "agent-harness");
@@ -1769,6 +1781,29 @@ void test("mergeJsonFile merges patch into existing and new files", async () => 
     await mergeJsonFile(filePath, { key: "updated" });
     const content3 = await readJsonFile<Record<string, unknown>>(filePath);
     assert.deepEqual(content3, { key: "updated", another: "thing" });
+
+    // Merge into file with arrays: patch arrays replace directly
+    const filePath2 = join(root, "array.json");
+    await writeJsonFile(filePath2, {
+      skills: ["security"],
+      settings: { theme: "dark" },
+    });
+    await mergeJsonFile(filePath2, {
+      skills: ["testing", "linting"],
+      settings: { indent: 2 },
+    });
+    const content4 = await readJsonFile<Record<string, unknown>>(filePath2);
+    assert.deepEqual(content4, {
+      skills: ["testing", "linting"],
+      settings: { theme: "dark", indent: 2 },
+    });
+
+    // Merge into empty object works
+    const filePath3 = join(root, "empty.json");
+    await writeJsonFile(filePath3, {});
+    await mergeJsonFile(filePath3, { key: "value" });
+    const content5 = await readJsonFile<Record<string, unknown>>(filePath3);
+    assert.deepEqual(content5, { key: "value" });
   } finally {
     await rm(root, { force: true, recursive: true });
   }
@@ -1881,40 +1916,4 @@ void test("mergeJsonObjects preserves array ordering and non-string entries", ()
     ),
     { mode: "write", count: 1, active: true },
   );
-});
-
-void test("mergeJsonFile handles empty and existing files correctly", async () => {
-  const root = await mkdtemp(join(tmpdir(), "agent-harness-merge-json-file-"));
-  try {
-    // mergeJsonFile into non-existent file: currentValue is null
-    const filePath1 = join(root, "new.json");
-    await mergeJsonFile(filePath1, { env: "test" });
-    const content1 = await readJsonFile<Record<string, unknown>>(filePath1);
-    assert.deepEqual(content1, { env: "test" });
-
-    // mergeJsonFile into existing file with arrays preserved
-    const filePath2 = join(root, "existing.json");
-    await writeJsonFile(filePath2, {
-      skills: ["security"],
-      settings: { theme: "dark" },
-    });
-    await mergeJsonFile(filePath2, {
-      skills: ["testing", "linting"],
-      settings: { indent: 2 },
-    });
-    const content2 = await readJsonFile<Record<string, unknown>>(filePath2);
-    assert.deepEqual(content2, {
-      skills: ["testing", "linting"],
-      settings: { theme: "dark", indent: 2 },
-    });
-
-    // mergeJsonFile into file with empty object works
-    const filePath3 = join(root, "empty.json");
-    await writeJsonFile(filePath3, {});
-    await mergeJsonFile(filePath3, { key: "value" });
-    const content3 = await readJsonFile<Record<string, unknown>>(filePath3);
-    assert.deepEqual(content3, { key: "value" });
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
 });

@@ -197,6 +197,7 @@ function runHelpCommand(
       case "recommend":
         return runRecommend(domainArgs, workingDirectory, "");
       case "mirror":
+      case "bundle":
         return runMirror(domainArgs, workingDirectory, "");
       case "install":
       case "stage":

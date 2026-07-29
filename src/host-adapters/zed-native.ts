@@ -57,14 +57,27 @@ export async function writeZedNativeFiles(
     // Parse as JSONC to preserve comments and trailing commas in user settings
     const rawContent = await readFile(settingsPath, "utf8").catch(() => "{}");
     const errors: ParseError[] = [];
-    // Validate JSONC parse only for error detection; modify operates on raw content
-    parseJsonc(rawContent, errors, {
+    // parseJsonc returns the parsed value; we validate it is an object so
+    // modify() can navigate the path. Non-object roots (arrays, primitives)
+    // cannot hold agent profiles and would be silently corrupted.
+    const parsed: unknown = parseJsonc(rawContent, errors, {
       disallowComments: false,
       allowTrailingComma: true,
     });
     if (errors.length > 0) {
       throw new Error(
         `Zed settings.json contains JSONC parse errors. ` +
+          `Please add the agent-harness profile manually:\n` +
+          `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
+      );
+    }
+    if (
+      parsed === null ||
+      Array.isArray(parsed) ||
+      typeof parsed !== "object"
+    ) {
+      throw new Error(
+        `Zed settings.json is not a JSON object (found ${typeof parsed}). ` +
           `Please add the agent-harness profile manually:\n` +
           `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
       );
