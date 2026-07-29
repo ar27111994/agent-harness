@@ -8,6 +8,7 @@ import {
   pathExists,
   readJsonFile,
   readTextFileOrNull,
+  toPosixPath,
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
@@ -16,12 +17,14 @@ import {
   wireNativeHost,
   type NativeWireHost,
 } from "../host-adapters/native-wire.js";
+import { resetPiNativeHost } from "../host-adapters/pi-native.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
   AssetHostNativeConfigMap,
   CopilotWorkspaceProfileManifest,
+  ManagedTextFileSnapshot,
   WirePlanManifest,
 } from "../types.js";
 
@@ -558,6 +561,70 @@ void test("Codex plugin manifest omits hook registration when hook assets are ab
       skills: "./skills",
     },
   );
+});
+
+void test("restoreManagedSectionFromSnapshot preserves other host sections in AGENTS.md", async () => {
+  const fixture = await createNativeFixture("pi");
+  try {
+    const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+    // Pi section + Codex section coexist, pi reset removes only pi section
+    await writeTextFile(
+      agentsPath,
+      "<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n<!-- agent-harness-codex:begin -->\ncodex\n<!-- agent-harness-codex:end -->\n",
+    );
+    const snapshots: Array<{ path: string; content: string | null }> = [
+      { path: toPosixPath(agentsPath), content: "<!-- agent-harness-codex:begin -->\ncodex\n<!-- agent-harness-codex:end -->\n" },
+    ];
+    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(after.includes("agent-harness-codex:begin"), "codex section preserved");
+    assert.ok(!after.includes("agent-harness-pi:begin"), "pi section removed");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+void test("restoreManagedSectionFromSnapshot null-content snapshot preserves preexisting content", async () => {
+  const fixture = await createNativeFixture("pi");
+  try {
+    const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+    await writeTextFile(
+      agentsPath,
+      "before\n<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n",
+    );
+    const snapshots: Array<{ path: string; content: string | null }> = [
+      { path: toPosixPath(agentsPath), content: null },
+    ];
+    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(!after.includes("agent-harness-pi"));
+    assert.ok(after.includes("before"), "preexisting text survives");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+void test("restoreManagedSectionFromSnapshot restores snapshot section version", async () => {
+  const fixture = await createNativeFixture("pi");
+  try {
+    const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+    await writeTextFile(
+      agentsPath,
+      "<!-- agent-harness-pi:begin -->\nv1\n<!-- agent-harness-pi:end -->\n",
+    );
+    const snapshots: Array<{ path: string; content: string | null }> = [
+      { path: toPosixPath(agentsPath), content: "<!-- agent-harness-pi:begin -->\nv2\n<!-- agent-harness-pi:end -->\n" },
+    ];
+    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(!after.includes("v1"));
+    assert.ok(after.includes("v2"));
+  } finally {
+    await fixture.cleanup();
+  }
 });
 
 void test("native wire skips missing activation assets and falls back to asset metadata when content is absent", async () => {
@@ -1503,13 +1570,17 @@ void test("native wire internals clean failed applies and validate helper edge c
       },
     ],
   );
+  // Section-scoped restore: null-content snapshot means file absent,
+  // but since no pi section exists, the file stays unchanged.
   assert.equal(
     await readTextFileOrNull(join(workspaceRoot, "AGENTS.md")),
-    null,
+    "current agents\n",
   );
+  // Section-scoped restore: snapshot content is searched for pi section;
+  // since none exists, current content is preserved.
   assert.equal(
     await readTextFileOrNull(join(workspaceRoot, "SYSTEM.md")),
-    "system snapshot\n",
+    "current system\n",
   );
   assert.deepEqual(
     await readJsonFile(join(workspaceRoot, ".pi", "settings.json")),
