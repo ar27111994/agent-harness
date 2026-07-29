@@ -14,7 +14,7 @@ import {
   removeEmptyParentDirectories,
   removeManagedPiSettings,
   removeManagedSectionFile,
-  restoreManagedTextFileSnapshot,
+  restoreManagedSectionFromSnapshot,
   upsertManagedPiSettings,
   upsertManagedSectionFile,
 } from "./native-utils.js";
