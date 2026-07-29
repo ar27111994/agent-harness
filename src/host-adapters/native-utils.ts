@@ -135,6 +135,111 @@ export async function restoreManagedTextFileSnapshot(
 }
 
 /**
+ * Restores a managed section from a text-file snapshot, scoped to a single
+ * markerId. Other managed sections in the file are preserved.
+ *
+ * - If a snapshot with non-null content exists: extract the managed section
+ *   from the snapshot and apply only that section to the current file.
+ * - If the snapshot content is null or no snapshot exists: remove the
+ *   managed section from the current file via the fallback.
+ */
+export async function restoreManagedSectionFromSnapshot(
+  filePath: string,
+  snapshots: ManagedTextFileSnapshot[] | undefined,
+  markerId: string,
+  fallbackRemove: () => Promise<void>,
+): Promise<void> {
+  const snapshot = snapshots?.find(
+    (entry) => entry.path === toPosixPath(filePath),
+  );
+
+  if (!snapshot) {
+    await fallbackRemove();
+    return;
+  }
+
+  const currentContent = await readTextFileOrNull(filePath);
+
+  if (snapshot.content === null) {
+    // File didn't exist at snapshot time — just remove the section
+    if (currentContent !== null) {
+      const removed = removeManagedSection({
+        originalContent: currentContent,
+        markerId,
+      });
+      if (removed.trim().length === 0) {
+        await removePath(filePath);
+      } else {
+        await writeTextFile(filePath, removed);
+      }
+    }
+    return;
+  }
+
+  // Snapshot has content — extract the managed section from it and
+  // insert/replace only that section in the current file, preserving
+  // other hosts' sections.
+  const snapshotSection = extractManagedSectionContent(
+    snapshot.content,
+    markerId,
+  );
+
+  if (currentContent === null) {
+    if (snapshotSection !== null) {
+      await writeTextFile(
+        filePath,
+        upsertManagedSection({ originalContent: "", markerId, bodyLines: snapshotSection.split("\n") }),
+      );
+    }
+    return;
+  }
+
+  // Remove the current managed section, insert the snapshot version
+  const removed = removeManagedSection({
+    originalContent: currentContent,
+    markerId,
+  });
+
+  if (snapshotSection === null) {
+    // Section was removed between snapshot and now
+    if (removed.trim().length === 0) {
+      await removePath(filePath);
+    } else {
+      await writeTextFile(filePath, removed);
+    }
+    return;
+  }
+
+  // Insert the snapshot section
+  const restored = upsertManagedSection({
+    originalContent: removed,
+    markerId,
+    bodyLines: snapshotSection.split("\n"),
+  });
+  await writeTextFile(filePath, restored);
+}
+
+/**
+ * Extracts the content of a managed section by markerId from text.
+ * Returns null if no such section exists.
+ */
+function extractManagedSectionContent(
+  text: string,
+  markerId: string,
+): string | null {
+  const beginTag = `${markerId}:begin`;
+  const endTag = `${markerId}:end`;
+  const beginIdx = text.indexOf(beginTag);
+  if (beginIdx === -1) return null;
+  const contentStart = text.indexOf("\n", beginIdx) + 1;
+  const endIdx = text.indexOf(endTag, contentStart);
+  if (endIdx === -1) return null;
+  // Find the line start of the end tag
+  const endLineStart = text.lastIndexOf("\n", endIdx);
+  return text.slice(contentStart, endLineStart === -1 ? endIdx : endLineStart);
+}
+
+/**
  * Validates wire-plan text snapshots are within the managed restore set.
  */
 export function validateManagedTextFileSnapshots(
