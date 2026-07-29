@@ -14,7 +14,7 @@ import {
   removeEmptyParentDirectories,
   removeManagedPiSettings,
   removeManagedSectionFile,
-  restoreManagedSectionFromSnapshot,
+  restoreManagedTextFileSnapshot,
   upsertManagedPiSettings,
   upsertManagedSectionFile,
 } from "./native-utils.js";
@@ -88,23 +88,22 @@ export async function resetPiNativeHost(
   workspaceRoot: string,
   textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
 ): Promise<void> {
-  // Section-scoped snapshot restore: extracts the agent-harness-pi managed
-  // section from the snapshot and applies only that diff to the current file,
-  // preserving other hosts' sections (e.g. agent-harness-codex).
-  await restoreManagedSectionFromSnapshot(
+  // Snapshot-based restore: the snapshot captures the exact file state at
+  // wire time. Restoring from it returns the file to its pre-wire state,
+  // which is correct for single-host reset. The managed section fallback
+  // handles cleanup when no snapshot exists.
+  await restoreManagedTextFileSnapshot(
     join(workspaceRoot, "AGENTS.md"),
     textFileSnapshots,
-    "agent-harness-pi",
     () =>
       removeManagedSectionFile(
         join(workspaceRoot, "AGENTS.md"),
         "agent-harness-pi",
       ),
   );
-  await restoreManagedSectionFromSnapshot(
+  await restoreManagedTextFileSnapshot(
     join(workspaceRoot, "SYSTEM.md"),
     textFileSnapshots,
-    "agent-harness-pi",
     () =>
       removeManagedSectionFile(
         join(workspaceRoot, "SYSTEM.md"),

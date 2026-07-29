@@ -1503,11 +1503,9 @@ void test("native wire internals clean failed applies and validate helper edge c
       },
     ],
   );
-  // Section-scoped restore: null-content snapshot means file was absent
-  // at wire time, but since pi didn't write to AGENTS.md, it stays unchanged.
   assert.equal(
     await readTextFileOrNull(join(workspaceRoot, "AGENTS.md")),
-    "current agents\n",
+    null,
   );
   assert.equal(
     await readTextFileOrNull(join(workspaceRoot, "SYSTEM.md")),
