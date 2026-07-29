@@ -21,7 +21,8 @@ import {
   resolveAllowedRealFilePath,
 } from "../lib/safe-paths.js";
 import { ardRegistryInternals } from "../domains/discovery/source-sync/registries/ard-registry.js";
-import { mergeCodexPluginMarketplace } from "../host-adapters/codex-native.js";
+import { mergeCodexPluginMarketplace, buildCodexHooksManifest } from "../host-adapters/codex-native.js";
+import { mapEntryToArd } from "../ard-catalog.js";
 
 const { extractArdTrustSignals, computeArdTrustScore } = ardRegistryInternals;
 
@@ -129,23 +130,24 @@ void test("sanitizeMirrorId handles only control characters", () => {
 
 void test("isPathWithinRoot handles null-byte paths without crashing", () => {
   const root = resolve("/safe/root");
-  assert.doesNotThrow(() => {
-    isPathWithinRoot(root, join(root, "subdir\x00/etc/passwd"));
-  });
+  // Null bytes in paths should not crash; the function returns a boolean
+  // indicating containment even for malformed paths.
+  const result = isPathWithinRoot(root, join(root, "subdir\x00/etc/passwd"));
+  assert.equal(typeof result, "boolean", "should return boolean for null-byte paths");
 });
 
 void test("resolveSafeMirrorFilePath handles null bytes gracefully", () => {
-  assert.doesNotThrow(() => {
-    const result = resolveSafeMirrorFilePath("/root", "asset\x00evil");
-    assert.ok(typeof result === "string");
-  });
+  const result = resolveSafeMirrorFilePath("/root", "asset\x00evil");
+  assert.ok(typeof result === "string", "should return string");
+  // Resolved path should not contain traversal sequences
+  assert.ok(!result.includes(".."), "result should not escape via traversal");
 });
 
-void test("resolveAllowedAbsolutePath handles null-byte inputs", () => {
+void test("resolveAllowedAbsolutePath rejects invalid null-byte inputs", () => {
   const allowedRoots = [resolve("/workspace")];
-  assert.doesNotThrow(() => {
-    resolveAllowedAbsolutePath("/valid\x00path", allowedRoots);
-  });
+  // Null-byte paths that are malformed should return null
+  const result = resolveAllowedAbsolutePath("/valid\x00path", allowedRoots);
+  assert.equal(result, null, "malformed null-byte path should be rejected");
 });
 
 // ── 4. Unicode path traversal tests ─────────────────────────────────────
@@ -421,9 +423,7 @@ void test("mergeCodexPluginMarketplace filters existing agent-harness entry and 
   }
 });
 
-void test("buildCodexHooksManifest handles hooks without files and without manifest dir", async () => {
-  const { buildCodexHooksManifest } =
-    await import("../host-adapters/codex-native.js");
+void test("buildCodexHooksManifest handles hooks without files and without manifest dir", () => {
   const manifestNoFile = buildCodexHooksManifest(
     [
       {
@@ -444,6 +444,7 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
     )[0]?.source,
     "hook-no-file",
   );
+  // File path without "hooks/" segment cannot be slug-matched; falls back to asset ID
   const manifestNoDir = buildCodexHooksManifest(
     [
       {
@@ -462,14 +463,13 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
         Record<string, unknown>
       >
     )[0]?.source,
-    "/path/to/hook.md",
+    "hook-with-file",
   );
 });
 
 // ── 11. ARD export stress test (500+ entries) ──────────────────────────
 
-void test("mapEntryToArd handles 500+ catalog entries without failure", async () => {
-  const { mapEntryToArd } = await import("../ard-catalog.js");
+void test("mapEntryToArd handles 500+ catalog entries without failure", () => {
   const publisherFqdn = "ar27111994.dev";
   const version = "1.0.0";
 
