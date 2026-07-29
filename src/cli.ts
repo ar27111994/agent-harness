@@ -159,11 +159,10 @@ function runHelpCommand(
   // show subcommand-specific help. Pass empty projectRoot since help-only
   // commands don't need state.
   if (nonFlagArgs.length >= 2) {
-    const [domain, subcommand, ...rest] = nonFlagArgs;
-    // When --help/-h is requested, strip extra arguments and route through
-    // help-only handling to prevent mutating pipelines from executing.
-    const hasHelp = rest.includes("--help") || rest.includes("-h");
-    const domainArgs = hasHelp ? [subcommand, "--help"] : [subcommand, ...rest];
+    const [domain, subcommand, ...extra] = nonFlagArgs;
+    // Always pass --help to the domain handler so it shows subcommand-specific
+    // help. This path is only reached when --help/-h is in process.argv.
+    const domainArgs = [subcommand, "--help", ...extra];
     switch (domain) {
       case "discover":
         return runDiscover(domainArgs, workingDirectory, "");

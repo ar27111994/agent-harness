@@ -785,6 +785,9 @@ void test("Pi and Codex native wire reset removes managed-only files and setting
 
       assert.equal(
         await readTextFileOrNull(join(fixture.workspaceRoot, "AGENTS.md")),
+        // Section-scoped reset removes only the host's managed section,
+        // preserving content from other hosts. The file may be deleted
+        // if empty after section removal.
         null,
       );
       if (host === "pi") {

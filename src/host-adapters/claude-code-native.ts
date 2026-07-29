@@ -12,6 +12,7 @@ import {
   buildNativeAssetContentSections,
   buildPromptTemplate,
   buildSkillFile,
+  removeEmptyParentDirectories,
   removeManagedSectionFile,
   restoreManagedTextFileSnapshot,
   upsertManagedSectionFile,
