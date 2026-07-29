@@ -119,9 +119,10 @@ export async function writeCursorNativeAgentFiles(
       continue;
     }
 
+    const assetSlug = sanitizeAssetId(nativeAsset.assetId);
     await writeTextFile(
-      join(cursorAgentsRoot, `${sanitizeAssetId(nativeAsset.assetId)}.md`),
-      buildAgentFile(nativeAsset.assetId, nativeAsset.displayName, [
+      join(cursorAgentsRoot, `${assetSlug}.md`),
+      buildAgentFile(assetSlug, nativeAsset.displayName, [
         nativeAsset.content,
       ]),
     );

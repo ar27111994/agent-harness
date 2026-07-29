@@ -252,6 +252,11 @@ export function describeJsonValue(value: unknown): string {
 
 /**
  * Exposes managed Zed settings removal for per-host adapter use.
+ *
+ * Tolerates malformed (non-object) settings files by returning without
+ * modification — safe for reset/cleanup paths. The corresponding upsert
+ * path (writeZedNativeFiles) uses mergeJsonFile which rejects non-object
+ * payloads via assertJsonObject.
  */
 export async function removeManagedZedSettings(
   filePath: string,
@@ -626,10 +631,10 @@ export function mergeJsonObjects(
   for (const [key, value] of Object.entries(patch)) {
     const existingValue = merged[key];
     if (Array.isArray(value)) {
-      merged[key] = uniqueStrings([
-        ...coerceStringArray(existingValue),
-        ...value.filter((entry): entry is string => typeof entry === "string"),
-      ]);
+      // Replace with patch array to preserve structured JSON values
+      // and ordering — uniqueStrings/coerceStringArray would drop non-string
+      // entries.
+      merged[key] = value;
       continue;
     }
 

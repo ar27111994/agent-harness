@@ -129,4 +129,25 @@ export async function resetClaudeCodeNativeHost(
   await removePath(
     join(workspaceRoot, ".claude", "commands", "agent-harness.md"),
   );
+  // Clean up empty .claude subdirectories
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".claude", "rules"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".claude", "agents"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".claude", "skills"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".claude", "commands"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".claude"),
+    workspaceRoot,
+  );
 }

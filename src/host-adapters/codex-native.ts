@@ -7,6 +7,7 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
+import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type {
   ManagedTextFileSnapshot,
   NativeConfigOperation,
@@ -182,17 +183,32 @@ export function buildCodexHooksManifest(
   const hookAssets = nativeAssets.filter(
     (nativeAsset) => nativeAsset.assetKind === "hook",
   );
+  // Build a lookup from asset slug to hook file path so sorting
+  // hookFiles cannot mispair manifest entries with the wrong asset.
+  const hookFileBySlug = new Map<string, string>();
+  for (const file of hookFiles) {
+    // Extract the slug from the hook file path (format: .../hooks/<slug>/hook.md)
+    const segments = file.replace(/\\/gu, "/").split("/");
+    const hooksIdx = segments.lastIndexOf("hooks");
+    if (hooksIdx >= 0 && hooksIdx + 1 < segments.length) {
+      hookFileBySlug.set(segments[hooksIdx + 1], file);
+    }
+  }
   return {
     schemaVersion: 1,
-    hooks: hookAssets.map((nativeAsset, index) => ({
-      name: nativeAsset.assetId,
-      description: nativeAsset.displayName,
-      source: buildCodexHookSource(
-        hookFiles[index],
-        nativeAsset.assetId,
-        manifestDirectory,
-      ),
-    })),
+    hooks: hookAssets.map((nativeAsset) => {
+      const assetSlug = sanitizeAssetId(nativeAsset.assetId);
+      const matchedFile = hookFileBySlug.get(assetSlug);
+      return {
+        name: nativeAsset.assetId,
+        description: nativeAsset.displayName,
+        source: buildCodexHookSource(
+          matchedFile,
+          nativeAsset.assetId,
+          manifestDirectory,
+        ),
+      };
+    }),
   };
 }
 
