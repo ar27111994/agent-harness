@@ -1461,11 +1461,11 @@ void test("native wire internals clean failed applies and validate helper edge c
     false,
   );
   // Marketplace file is preserved with plugins:[] instead of deleted (#374)
-  assert.equal(
-    await readJsonFileOrNull(
+  assert.ok(
+    (await readTextFileOrNull(
       join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-    ) !== null,
-    true,
+    )) !== null,
+    "marketplace.json should be preserved after cleanup",
   );
 
   const piManagedRoot = join(workspaceRoot, ".pi", "agent-harness");
