@@ -1723,9 +1723,17 @@ void test("restoreManagedSectionFromSnapshot snapshot path deletes empty file", 
   const fixture = await createNativeFixture("pi");
   try {
     const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
-    await writeTextFile(agentsPath, "<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n");
-    const snapshots = [{ path: toPosixPath(agentsPath), content: "other content" }];
-    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    await writeTextFile(
+      agentsPath,
+      "<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n",
+    );
+    const snapshots = [
+      { path: toPosixPath(agentsPath), content: "other content" },
+    ];
+    await resetPiNativeHost(
+      fixture.workspaceRoot,
+      snapshots as ManagedTextFileSnapshot[],
+    );
     assert.equal(await readTextFileOrNull(agentsPath), null);
   } finally {
     await fixture.cleanup();
@@ -1747,7 +1755,9 @@ void test("buildCodexHooksManifest returns hookFile as source when no manifest d
     ],
     ["/workspace/.codex/hooks/my-hook/hook.md"],
   );
-  const hooks = (result as Record<string, unknown>).hooks as Array<Record<string, unknown>>;
+  const hooks = (result as Record<string, unknown>).hooks as Array<
+    Record<string, unknown>
+  >;
   assert.equal(hooks[0]?.source, "/workspace/.codex/hooks/my-hook/hook.md");
 });
 
