@@ -869,9 +869,12 @@ void test("Pi and Codex native wire reset removes managed-only files and setting
           null,
         );
       } else {
-        assert.equal(
-          await pathExists(join(fixture.workspaceRoot, ".agents")),
-          false,
+        // Marketplace preserved with plugins:[] so .agents directory persists
+        assert.ok(
+          (await readTextFileOrNull(
+            join(fixture.workspaceRoot, ".agents", "plugins", "marketplace.json"),
+          )) !== null,
+          "marketplace.json preserved with plugins:[]",
         );
         assert.equal(
           await pathExists(join(fixture.workspaceRoot, ".codex")),
