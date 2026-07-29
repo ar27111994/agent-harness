@@ -309,7 +309,7 @@ The `selectCandidatesForHost` loop implements argmax by hand (`bestIndex = -1; f
 | Aspect                     | Assessment                                                                                          |
 | -------------------------- | --------------------------------------------------------------------------------------------------- |
 | **TypeScript strict mode** | Fully enforced — no `any`, no `@ts-ignore`, no `// @ts-expect-error` anywhere                       |
-| **Null safety**            | Consistently uses `??` and `\|\|` where appropriate                                                 |
+| **Null safety**            | Consistently uses `??` and `                                                                        |     | ` where appropriate |
 | **Comments**               | Well-documented — most constants and non-trivial functions have JSDoc                               |
 | **Naming conventions**     | Consistent camelCase, clear function/type names                                                     |
 | **File structure**         | Consistent domain-based organization under `src/`                                                   |

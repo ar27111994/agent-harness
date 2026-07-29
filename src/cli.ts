@@ -150,19 +150,47 @@ function runHelpCommand(
   args: string[],
   workingDirectory: string,
 ): Promise<number> {
+  // Determine whether help was explicitly requested (--help / -h in original args).
+  // We need this before filtering because the nonFlagArgs filter removes them.
+  const wasHelpRequested =
+    args.includes("--help") || args.includes("-h") || args[0] === "help";
+
   const nonFlagArgs = args.filter(
     (arg) => arg !== "--help" && arg !== "-h" && arg !== "help",
   );
 
   // When --help appears at subcommand depth (e.g., "discover full --help"),
-  // route to the domain handler with the subcommand + "--help" so it can
-  // show subcommand-specific help. Pass empty projectRoot since help-only
-  // commands don't need state.
+  // route to the domain handler. Only discover and recommend handle --help
+  // internally for subcommand-specific help output. For mutating domains
+  // (mirror, install, activate, quarantine, rebuild, workspace, wire, setup),
+  // we substitute "help" to prevent mutation — the handler then shows its
+  // generic help without executing any phase.
   if (nonFlagArgs.length >= 2) {
     const [domain, subcommand, ...extra] = nonFlagArgs;
-    // Always pass --help to the domain handler so it shows subcommand-specific
-    // help. This path is only reached when --help/-h is in process.argv.
-    const domainArgs = [subcommand, "--help", ...extra];
+    // Mutating domains don't inspect argv for --help — substitute "help" so
+    // they output help instead of executing the subcommand.
+    const MUTATING_DOMAINS = new Set([
+      "mirror",
+      "install",
+      "stage",
+      "activate",
+      "quarantine",
+      "rebuild",
+      "workspace",
+      "wire",
+      "setup",
+      "doctor",
+    ]);
+    const safeSubcommand = wasHelpRequested
+      ? MUTATING_DOMAINS.has(domain)
+        ? "help"
+        : subcommand
+      : subcommand;
+    const domainArgs = [safeSubcommand, ...extra];
+    if (wasHelpRequested && !MUTATING_DOMAINS.has(domain)) {
+      // discover and recommend inspect --help in their args
+      domainArgs.push("--help");
+    }
     switch (domain) {
       case "discover":
         return runDiscover(domainArgs, workingDirectory, "");
@@ -185,10 +213,7 @@ function runHelpCommand(
         return runWire(domainArgs, workingDirectory, "");
       case "setup":
       case "doctor":
-        return runSetup(
-          domain === "doctor" ? ["doctor", "--help", ...extra] : domainArgs,
-          "",
-        );
+        return runSetup(domainArgs, "");
       default:
         printHelp();
         return Promise.resolve(1);

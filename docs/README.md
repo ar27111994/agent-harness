@@ -10,7 +10,8 @@ docs/
 ├── demo/               ← reproducible terminal demo sources and walkthroughs
 ├── guides/             ← how-to guides and reference-style technical docs
 ├── playbooks/          ← scenario-driven workflows for common agent-harness operations
-└── reference/          ← in-depth planning, audit, and architecture documents
+├── reference/          ← in-depth planning, audit, and architecture documents
+│   └── hosts/          ← per-host adapter reference pages
 ```
 
 ---
@@ -83,6 +84,18 @@ In-depth documents covering the project's strategy, implementation plans, covera
 | [`ROADMAP.md`](./reference/ROADMAP.md)                                               | Gap analysis and long-range direction                                                                                               |
 | [`SOURCE-SYNC-DECOMPOSITION-PLAN.md`](./reference/SOURCE-SYNC-DECOMPOSITION-PLAN.md) | Plan for decomposing source-sync module                                                                                             |
 
+#### Host adapter references
+
+| File                                                       | Description                                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [`claude-code.md`](./reference/hosts/claude-code.md)       | Claude Code adapter — supported behavior, managed files, and known limitations              |
+| [`codex.md`](./reference/hosts/codex.md)                   | OpenAI Codex adapter — supported behavior, managed files, and known limitations             |
+| [`cursor.md`](./reference/hosts/cursor.md)                 | Cursor adapter — supported behavior, managed files, and known limitations                   |
+| [`opencode.md`](./reference/hosts/opencode.md)             | OpenCode adapter — supported behavior, managed files, and known limitations                 |
+| [`pi.md`](./reference/hosts/pi.md)                         | Pi adapter — supported behavior, managed files, and known limitations                       |
+| [`vscode-copilot.md`](./reference/hosts/vscode-copilot.md) | VS Code / GitHub Copilot adapter — supported behavior, managed files, and known limitations |
+| [`zed.md`](./reference/hosts/zed.md)                       | Zed adapter — supported behavior, managed files, and known limitations                      |
+
 ---
 
 ## Entry-point documents
@@ -98,7 +111,7 @@ These are the key documents linked from the main README and the most common star
 
 ## Consistency with main README
 
-The main [`README.md`](../README.md) is the single entry point for users. It links to docs in this directory from the [Key Playbooks](#key-playbooks), [Command reference](#command-reference), [Troubleshooting](#troubleshooting), [Security and trust center](#security-and-trust-center), and [Related documentation](#related-documentation) sections.
+The main [`README.md`](../README.md) is the single entry point for users. It links to docs in this directory from the [Key Playbooks](../README.md#key-playbooks), [Command reference](../README.md#command-reference), [Troubleshooting](../README.md#troubleshooting), [Security and trust center](../README.md#security-and-trust-center), and [Related documentation](../README.md#related-documentation) sections.
 
 Documents in this directory follow these conventions:
 

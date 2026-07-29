@@ -2,8 +2,9 @@
 
 Adapter implementation:
 
-- `src/host-adapters/native-wire.ts`
+- `src/host-adapters/cursor-native.ts`
 - registered as `cursor` in `src/host-adapters/registry.ts`
+- reuses shared `src/host-adapters/native-utils.ts` for common wiring behaviors
 
 Cursor is a project-local native adapter. It reuses the VS Code / Copilot lifecycle host for install and activation but ranks assets through its own `cursor` recommendation policy.
 
@@ -46,7 +47,7 @@ Cursor is a project-local native adapter. It reuses the VS Code / Copilot lifecy
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - Cursor native extension installation is explicit through `install native --host cursor --operation <verify|install|remove>` and depends on a compatible `cursor` CLI.
 - `.cursor/agent-harness/` and `.cursor/agent-harness/cursor-plugin/` are staged project-local managed locations; `.cursor/agent-harness/cursor-plugin/` is treated as a compatible plugin bundle, and registering plugin paths remains host/user-managed.

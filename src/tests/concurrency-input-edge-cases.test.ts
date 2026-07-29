@@ -148,7 +148,9 @@ void test("sanitizeMirrorId handles only control characters", () => {
 void test("isPathWithinRoot handles null-byte paths without crashing", () => {
   const root = resolve("/safe/root");
   // Null bytes in paths should not crash; the function returns a boolean
-  // indicating containment even for malformed paths.
+  // indicating containment even for malformed paths. Platform-specific
+  // path normalization means Windows may strip null bytes, producing
+  // true; asserting the absence of a crash is the security invariant.
   const result = isPathWithinRoot(root, join(root, "subdir\x00/etc/passwd"));
   assert.equal(
     typeof result,
@@ -700,9 +702,19 @@ void test("buildCodexHookSource returns hookFile when manifestDirectory undefine
   const assetSlug = sanitizeAssetId(assetId);
   const hookPath = `/tmp/hooks/${assetSlug}/hook.md`;
   const result = buildCodexHooksManifest(
-    [{ assetId, assetKind: "hook", compatibilityMode: "adaptable", content: "# Hook", displayName: "My Hook" }],
+    [
+      {
+        assetId,
+        assetKind: "hook",
+        compatibilityMode: "adaptable",
+        content: "# Hook",
+        displayName: "My Hook",
+      },
+    ],
     [hookPath],
   );
-  const hooks = (result as Record<string, unknown>).hooks as Array<Record<string, unknown>>;
+  const hooks = (result as Record<string, unknown>).hooks as Array<
+    Record<string, unknown>
+  >;
   assert.equal(hooks[0]?.source, hookPath);
 });

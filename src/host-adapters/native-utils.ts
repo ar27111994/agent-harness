@@ -411,6 +411,11 @@ export async function upsertManagedPiSettings(filePath: string): Promise<void> {
 
 /**
  * Exposes managed Pi settings removal for per-host adapter use.
+ *
+ * Tolerates malformed (non-object) settings files by returning without
+ * modification — safe for reset/cleanup paths.  See
+ * removeManagedZedSettings above for the rationale behind the
+ * reset-vs-wiring asymmetry.
  */
 export async function removeManagedPiSettings(
   filePath: string,
@@ -740,10 +745,12 @@ export function mergeJsonObjects(
   for (const [key, value] of Object.entries(patch)) {
     const existingValue = merged[key];
     if (Array.isArray(value)) {
-      merged[key] = uniqueStrings([
-        ...coerceStringArray(existingValue),
-        ...value.filter((entry): entry is string => typeof entry === "string"),
-      ]);
+      // Preserve patch arrays as-is — direct replacement preserves
+      // structured/mixed values, ordering, and non-string entries.
+      // uniqueStrings/coerceStringArray would drop non-string values
+      // and deduplicate/reorder entries, which is incorrect for
+      // general JSON arrays (e.g., manifest configs with objects).
+      merged[key] = value;
       continue;
     }
 

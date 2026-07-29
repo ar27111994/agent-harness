@@ -2,8 +2,9 @@
 
 Adapter implementation:
 
-- `src/host-adapters/native-wire.ts`
+- `src/host-adapters/pi-native.ts`
 - registered as `pi` in `src/host-adapters/registry.ts`
+- reuses shared `src/host-adapters/native-utils.ts` for common wiring behaviors
 
 Pi is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `pi` recommendation policy.
 
@@ -40,7 +41,7 @@ Pi is a project-local native adapter. It reuses the OpenCode-compatible lifecycl
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - Pi does not include `shared-mcp` in its default bundles.
 - `.pi/agent-harness/` remains a harness-managed reference tree for non-native assets.

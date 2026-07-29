@@ -17,6 +17,8 @@ import {
   type HostAdapter,
 } from "../host-adapters/registry.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
+import { writeZedNativeFiles } from "../host-adapters/zed-native.js";
+import type { WireNativeFilesOptions } from "../host-adapters/native-utils.js";
 import type {
   AssetCatalogEntry,
   AssetKind,
@@ -1369,3 +1371,89 @@ function buildAsset(
     ...overrides,
   };
 }
+
+void test("writeZedNativeFiles throws on JSONC parse errors in settings.json", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-zed-jsonc-"));
+  try {
+    const workspaceRoot = join(root, "workspace");
+    const managedRoot = join(workspaceRoot, ".zed", "agent-harness");
+    await mkdir(join(workspaceRoot, ".zed"), { recursive: true });
+    await writeFile(
+      join(workspaceRoot, ".zed", "settings.json"),
+      "{ bad }\n",
+      "utf8",
+    );
+    const opts: WireNativeFilesOptions = {
+      workspaceRoot,
+      managedRoot,
+      nativeAssets: [],
+      materializedAssets: {
+        instructionFiles: [],
+        agentFiles: [],
+        skillDirs: [],
+        pluginDirs: [],
+        hookFiles: [],
+        workflowFiles: [],
+        referenceFiles: [],
+        extensionIds: [],
+        mcpServers: [],
+      },
+      mcpServers: [],
+    };
+    await assert.rejects(writeZedNativeFiles(opts), (err: unknown) => {
+      assert.ok(err instanceof Error);
+      assert.match(
+        err.message,
+        /Zed settings\.json contains JSONC parse errors/u,
+      );
+      return true;
+    });
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("writeZedNativeFiles falls back to mergeJsonFile when settings.json structure is incompatible with JSONC modify", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-zed-fallback-"));
+  try {
+    const workspaceRoot = join(root, "workspace");
+    const managedRoot = join(workspaceRoot, ".zed", "agent-harness");
+    await mkdir(join(workspaceRoot, ".zed"), { recursive: true });
+    // Write settings.json where "agent" is a number, not an object.
+    // jsonc-parser's modify cannot navigate into a number, so it throws,
+    // triggering the catch-block fallback to mergeJsonFile.
+    await writeFile(
+      join(workspaceRoot, ".zed", "settings.json"),
+      JSON.stringify({ agent: 123 }),
+      "utf8",
+    );
+    const opts: WireNativeFilesOptions = {
+      workspaceRoot,
+      managedRoot,
+      nativeAssets: [],
+      materializedAssets: {
+        instructionFiles: [],
+        agentFiles: [],
+        skillDirs: [],
+        pluginDirs: [],
+        hookFiles: [],
+        workflowFiles: [],
+        referenceFiles: [],
+        extensionIds: [],
+        mcpServers: [],
+      },
+      mcpServers: [],
+    };
+    await writeZedNativeFiles(opts);
+    // After mergeJsonFile fallback, "agent" should be an object with profiles
+    const content = JSON.parse(
+      await readFile(join(workspaceRoot, ".zed", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    assert.ok(
+      typeof content.agent === "object" && content.agent !== null,
+      "agent should be an object after merge fallback",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});

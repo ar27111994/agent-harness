@@ -66,7 +66,7 @@ This adapter is intentionally host-specific because OpenCode consumes project-lo
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - The adapter links activated assets into a project-local overlay and reference tree.
 - It does not claim that every harness-managed `.opencode/*` path is a documented native OpenCode auto-discovery surface.

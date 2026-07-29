@@ -2,8 +2,9 @@
 
 Adapter implementation:
 
-- `src/host-adapters/native-wire.ts`
+- `src/host-adapters/claude-code-native.ts`
 - registered as `claude-code` in `src/host-adapters/registry.ts`
+- reuses shared `src/host-adapters/native-utils.ts` for common wiring behaviors
 
 Claude Code is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `claude-code` recommendation policy.
 
@@ -33,7 +34,7 @@ Claude Code is a project-local native adapter. It reuses the OpenCode-compatible
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - MCP and reference assets are still staged as project-readable references by default.
 - The adapter can synthesize Claude Code `.mcp.json` and `.claude/settings*.json` surfaces when an asset includes structured host-native config payloads.

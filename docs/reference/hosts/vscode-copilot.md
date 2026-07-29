@@ -53,7 +53,7 @@ This adapter is intentionally host-specific because VS Code and GitHub Copilot u
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - Applying VS Code wire-in requires the VS Code user settings directory to exist and be writable.
 - The README treats instruction files, skills, plugins, and MCP as the primary documented public contract. Some patched settings remain implementation detail unless a current VS Code settings reference explicitly documents them.

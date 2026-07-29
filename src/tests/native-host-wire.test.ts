@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import test from "node:test";
@@ -18,6 +18,10 @@ import {
   type NativeWireHost,
 } from "../host-adapters/native-wire.js";
 import { resetPiNativeHost } from "../host-adapters/pi-native.js";
+import {
+  mergeJsonFile,
+  restoreManagedSectionFromSnapshot,
+} from "../host-adapters/native-utils.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type {
   ActivationManifest,
@@ -654,7 +658,8 @@ void test("restoreManagedSectionFromSnapshot inserts section when file absent", 
     const snapshots: ManagedTextFileSnapshot[] = [
       {
         path: toPosixPath(agentsPath),
-        content: "<!-- agent-harness-pi:begin -->\nrestored\n<!-- agent-harness-pi:end -->\n",
+        content:
+          "<!-- agent-harness-pi:begin -->\nrestored\n<!-- agent-harness-pi:end -->\n",
       },
     ];
     await resetPiNativeHost(fixture.workspaceRoot, snapshots);
@@ -1667,7 +1672,10 @@ void test("native wire internals clean failed applies and validate helper edge c
       { existing: ["keep", "add", 1], nested: { add: true }, scalar: false },
     ),
     {
-      existing: ["add", "keep"],
+      // Arrays are replaced directly from the patch (preserving order,
+      // structure, and non-string entries) rather than merged via
+      // uniqueStrings which would drop non-strings and reorder.
+      existing: ["keep", "add", 1],
       nested: { keep: true, add: true },
       scalar: false,
     },
@@ -1701,4 +1709,212 @@ void test("native wire internals clean failed applies and validate helper edge c
     ),
     /ENOTDIR|not a directory/u,
   );
+});
+
+void test("restoreManagedSectionFromSnapshot removes file when snapshot section absent and file only contains managed section", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-native-restore-"));
+  try {
+    const agentsPath = join(root, "AGENTS.md");
+    // Write AGENTS.md with ONLY the pi managed section
+    await writeTextFile(
+      agentsPath,
+      "<!-- agent-harness-pi:begin -->\npi content\n<!-- agent-harness-pi:end -->\n",
+    );
+    // Snapshot has content but NO pi managed section markers
+    const snapshots: ManagedTextFileSnapshot[] = [
+      {
+        path: toPosixPath(agentsPath),
+        content: "# No pi section here\n\nJust other host stuff.\n",
+      },
+    ];
+    let fallbackCalled = false;
+    await restoreManagedSectionFromSnapshot(
+      agentsPath,
+      snapshots,
+      "agent-harness-pi",
+      async () => {
+        fallbackCalled = true;
+      },
+    );
+    assert.ok(
+      !fallbackCalled,
+      "fallback should not be called when snapshot exists",
+    );
+    const exists = await pathExists(agentsPath);
+    assert.ok(
+      !exists,
+      "AGENTS.md should be removed when it only contains the managed section",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("mergeJsonFile merges patch into existing and new files", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-merge-json-"));
+  try {
+    const filePath = join(root, "settings.json");
+
+    // Merge into non-existent file — currentValue is null path
+    await mergeJsonFile(filePath, { key: "value" });
+    const content1 = await readJsonFile<Record<string, unknown>>(filePath);
+    assert.deepEqual(content1, { key: "value" });
+
+    // Merge into existing file — currentValue is non-null path
+    await mergeJsonFile(filePath, { another: "thing" });
+    const content2 = await readJsonFile<Record<string, unknown>>(filePath);
+    assert.deepEqual(content2, { key: "value", another: "thing" });
+
+    // Merge overwrites existing keys
+    await mergeJsonFile(filePath, { key: "updated" });
+    const content3 = await readJsonFile<Record<string, unknown>>(filePath);
+    assert.deepEqual(content3, { key: "updated", another: "thing" });
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("restoreManagedSectionFromSnapshot handles snapshot with begin tag but no end tag", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-native-begin-only-"),
+  );
+  try {
+    const agentsPath = join(root, "AGENTS.md");
+    // Current file has the pi section
+    await writeTextFile(
+      agentsPath,
+      "# Before\n<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n",
+    );
+    // Snapshot has begin tag but NO end tag — endIdx === -1 branch
+    const snapshots: ManagedTextFileSnapshot[] = [
+      {
+        path: toPosixPath(agentsPath),
+        content: "# Other\n<!-- agent-harness-pi:begin -->\nbroken content\n",
+      },
+    ];
+    await restoreManagedSectionFromSnapshot(
+      agentsPath,
+      snapshots,
+      "agent-harness-pi",
+      async () => {},
+    );
+    // No end tag → snapshotSection === null → section removed from current
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(!after.includes("agent-harness-pi"));
+    assert.ok(after.includes("# Before"));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("restoreManagedSectionFromSnapshot handles inline begin/end tags without newlines", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-native-inline-"));
+  try {
+    const agentsPath = join(root, "AGENTS.md");
+    // Snapshot has begin and end tags inline on same line — endLineStart === -1 branch
+    const snapshots: ManagedTextFileSnapshot[] = [
+      {
+        path: toPosixPath(agentsPath),
+        content:
+          "<!-- agent-harness-pi:begin -->inline-content<!-- agent-harness-pi:end -->",
+      },
+    ];
+    // No current file — insert from snapshot
+    await restoreManagedSectionFromSnapshot(
+      agentsPath,
+      snapshots,
+      "agent-harness-pi",
+      async () => {},
+    );
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(after.includes("inline-content"));
+    assert.ok(after.includes("agent-harness-pi:begin"));
+    assert.ok(after.includes("agent-harness-pi:end"));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("mergeJsonObjects preserves array ordering and non-string entries", () => {
+  // Arrays are replaced directly from the patch — ordering is preserved
+  // (uniqueStrings would deduplicate/sort) and non-string entries survive
+  // (uniqueStrings would filter them out).
+
+  // Ordering: patch array order is kept, not sorted
+  assert.deepEqual(
+    nativeWireInternals.mergeJsonObjects(
+      { items: ["a", "b"] },
+      { items: ["z", "a", "m", "b"] },
+    ),
+    { items: ["z", "a", "m", "b"] },
+  );
+
+  // Non-string entries preserved (objects, numbers, booleans, null)
+  assert.deepEqual(
+    nativeWireInternals.mergeJsonObjects(
+      { items: ["old"] },
+      {
+        items: [{ name: "structured" }, 42, true, null, "string"],
+      },
+    ),
+    {
+      items: [{ name: "structured" }, 42, true, null, "string"],
+    },
+  );
+
+  // Nested objects still merge recursively
+  assert.deepEqual(
+    nativeWireInternals.mergeJsonObjects(
+      { config: { host: "localhost", port: 3000 } },
+      { config: { host: "production", debug: false } },
+    ),
+    { config: { host: "production", port: 3000, debug: false } },
+  );
+
+  // Scalars are replaced, not merged
+  assert.deepEqual(
+    nativeWireInternals.mergeJsonObjects(
+      { mode: "read", count: 1 },
+      { mode: "write", active: true },
+    ),
+    { mode: "write", count: 1, active: true },
+  );
+});
+
+void test("mergeJsonFile handles empty and existing files correctly", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-merge-json-file-"));
+  try {
+    // mergeJsonFile into non-existent file: currentValue is null
+    const filePath1 = join(root, "new.json");
+    await mergeJsonFile(filePath1, { env: "test" });
+    const content1 = await readJsonFile<Record<string, unknown>>(filePath1);
+    assert.deepEqual(content1, { env: "test" });
+
+    // mergeJsonFile into existing file with arrays preserved
+    const filePath2 = join(root, "existing.json");
+    await writeJsonFile(filePath2, {
+      skills: ["security"],
+      settings: { theme: "dark" },
+    });
+    await mergeJsonFile(filePath2, {
+      skills: ["testing", "linting"],
+      settings: { indent: 2 },
+    });
+    const content2 = await readJsonFile<Record<string, unknown>>(filePath2);
+    assert.deepEqual(content2, {
+      skills: ["testing", "linting"],
+      settings: { theme: "dark", indent: 2 },
+    });
+
+    // mergeJsonFile into file with empty object works
+    const filePath3 = join(root, "empty.json");
+    await writeJsonFile(filePath3, {});
+    await mergeJsonFile(filePath3, { key: "value" });
+    const content3 = await readJsonFile<Record<string, unknown>>(filePath3);
+    assert.deepEqual(content3, { key: "value" });
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });

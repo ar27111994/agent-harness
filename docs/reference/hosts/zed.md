@@ -2,8 +2,9 @@
 
 Adapter implementation:
 
-- `src/host-adapters/native-wire.ts`
+- `src/host-adapters/zed-native.ts`
 - registered as `zed` in `src/host-adapters/registry.ts`
+- reuses shared `src/host-adapters/native-utils.ts` for common wiring behaviors
 
 Zed is a project-local native adapter. It reuses the OpenCode-compatible lifecycle host for install and activation but ranks assets through its own `zed` recommendation policy.
 
@@ -36,7 +37,7 @@ Zed is a project-local native adapter. It reuses the OpenCode-compatible lifecyc
 
 ## Known limitations
 
-Host-specific details only; see [Managed wire-in vs native/global install](../index.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
+Host-specific details only; see [Managed wire-in vs native/global install](../../README.md#managed-wire-in-vs-nativeglobal-install) for the shared invariants:
 
 - The adapter writes project-local context and profile hints.
 - Zed extension installation remains manual through Zed's Extension Gallery or `auto_install_extensions`; extension assets are wired as managed project references unless explicit extension-install intent is provided.

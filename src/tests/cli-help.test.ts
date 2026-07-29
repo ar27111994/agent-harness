@@ -248,3 +248,75 @@ void test("recommend report --help shows parent recommend help", async () => {
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
+
+void test("mutating domains show help when --help is passed instead of executing", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-mutating-help-"),
+  );
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+
+    // mirror plan --help should show mirror help, not execute generateMirrorPlan
+    const { stdout: mirrorStdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["mirror", "plan", "--help"],
+    });
+    assert.match(mirrorStdout, /mirror commands:/u);
+    assert.match(mirrorStdout, /plan\s+Summarize mirror readiness/u);
+    assert.doesNotMatch(mirrorStdout, /Mirror plan written/u);
+
+    // install bundle --help should show install help, not execute
+    const { stdout: installStdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["install", "bundle", "--help"],
+    });
+    assert.match(
+      installStdout,
+      /stage commands \(install is a supported alias\):/u,
+    );
+
+    // activate --help should show activate help
+    const { stdout: activateStdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["activate", "--help"],
+    });
+    assert.match(activateStdout, /activate commands:/u);
+
+    // quarantine --help should show quarantine help
+    const { stdout: quarantineStdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["quarantine", "--help"],
+    });
+    assert.match(quarantineStdout, /quarantine commands:/u);
+
+    // Non-mutating: discover full --help should show subcommand-specific help
+    const { stdout: discoverFullStdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["discover", "full", "--help"],
+    });
+    assert.match(discoverFullStdout, /discover full/u);
+    assert.match(
+      discoverFullStdout,
+      /demand-profile\s+Scan the working directory/u,
+    );
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});

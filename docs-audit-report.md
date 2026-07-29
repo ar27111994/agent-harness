@@ -72,25 +72,25 @@ Well-organized:
 
 The README's "Command reference" section (lines 518-845) is styled as usage examples rather than a complete reference. Several commands present in `--help` are missing or under-documented:
 
-| CLI `--help` command                                                                                                                             | README status                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| `mirror plan`                                                                                                                                    | Only mentioned as npm script, not as CLI command                     |
-| `mirror diff`                                                                                                                                    | Only one-line mention                                                |
-| `mirror explain --mirror <mirrorId>`                                                                                                             | Only documents `--asset` flag                                        |
-| `bundle explain <bundleId>` (top-level)                                                                                                          | Not mentioned at all                                                 |
-| `discover index`                                                                                                                                 | Only in prose (lines 358-388), not in command reference              |
-| `discover inspect`                                                                                                                               | **Not mentioned at all**                                             |
-| `discover enrich`                                                                                                                                | Only in prose, not in command reference                              |
-| `discover recall` / `discover candidate-pool`                                                                                                    | Only in prose aliases                                                |
-| `stage diff`                                                                                                                                     | **Not in README command reference**                                  |
-| `stage explain`                                                                                                                                  | **Not in README command reference**                                  |
-| `stage generations`                                                                                                                              | **Not in README command reference**                                  |
-| `stage reset`                                                                                                                                    | Only as npm script                                                   |
-| `recommend evaluate`                                                                                                                             | Only as npm script                                                   |
-| `recommend policy:print` — In `recommend help` but **not in top-level `--help`**. README mentions it; CLI supports it. Minor top-level help gap. |
-| `setup login`                                                                                                                                    | Only in prose examples, not in formal reference                      |
-| `doctor` (alias)                                                                                                                                 | Not mentioned                                                        |
-| `quarantine list/inspect/approve/reject/pin`                                                                                                     | In README prose (lines 707-714) but not in command reference section |
+| CLI `--help` command                          | README status                                                                                                         |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `mirror plan`                                 | Only mentioned as npm script, not as CLI command                                                                      |
+| `mirror diff`                                 | Only one-line mention                                                                                                 |
+| `mirror explain --mirror <mirrorId>`          | Only documents `--asset` flag                                                                                         |
+| `bundle explain <bundleId>` (top-level)       | Not mentioned at all                                                                                                  |
+| `discover index`                              | Only in prose (lines 358-388), not in command reference                                                               |
+| `discover inspect`                            | **Not mentioned at all**                                                                                              |
+| `discover enrich`                             | Only in prose, not in command reference                                                                               |
+| `discover recall` / `discover candidate-pool` | Only in prose aliases                                                                                                 |
+| `stage diff`                                  | **Not in README command reference**                                                                                   |
+| `stage explain`                               | **Not in README command reference**                                                                                   |
+| `stage generations`                           | **Not in README command reference**                                                                                   |
+| `stage reset`                                 | Only as npm script                                                                                                    |
+| `recommend evaluate`                          | Only as npm script                                                                                                    |
+| `recommend policy:print`                      | In `recommend help` but **not in top-level `--help`**. README mentions it; CLI supports it. Minor top-level help gap. |
+| `setup login`                                 | Only in prose examples, not in formal reference                                                                       |
+| `doctor` (alias)                              | Not mentioned                                                                                                         |
+| `quarantine list/inspect/approve/reject/pin`  | In README prose (lines 707-714) but not in command reference section                                                  |
 
 ### README Redundancy & Organization
 
@@ -113,7 +113,7 @@ The README's "Command reference" section (lines 518-845) is styled as usage exam
 
 ### Structural gaps
 
-- **No `docs/README.md`** — there is no index or navigation for the 27 docs across 4 subdirectories. Users must scroll through `docs/` or rely on README links to discover them.
+- ~~**No `docs/README.md`** — FIXED: `docs/README.md` index now exists with full navigation across all 4 subdirectories.~~
 - **No CLI cheat sheet or quick-reference card** — a concise one-page command summary would help newcomers.
 - **No "Creating a new host adapter" guide** — the developer docs describe contributing in general but lack a step-by-step for adding a new host adapter.
 - **No schema documentation** — 10+ JSON schema files exist in `discover/schema/` and `mirror/schema/` with no human-readable explanation of their structure/purpose.
@@ -146,7 +146,7 @@ The README's "Command reference" section (lines 518-845) is styled as usage exam
 ### docs/ directory itself
 
 - **Inconsistent naming:** `V2-CONTRACT.md` vs `V2-CONTRACT.md` (caps) alongside `SOURCE-SYNC-DECOMPOSITION-PLAN.md` — some use title case, others all-caps slug style.
-- **No categorization metadata** — playbooks/guides/reference split is clear, but a `docs/README.md` index would help.
+- **No categorization metadata** — playbooks/guides/reference split is clear; a `docs/README.md` index (now present) addresses this.
 - **RECOMMENDATION-POLICY-PLAYBOOK.md** references `policy:print` which is not in `--help` — dead link at point-of-use.
 
 ### JSDoc discoverability
@@ -165,7 +165,7 @@ The README's "Command reference" section (lines 518-845) is styled as usage exam
 | 2   | `discover inspect` in `--help` but zero documentation anywhere                                                   | Medium                     | Add README entry + docs snippet                              |
 | 3   | `bundle explain` as top-level command in `--help` but not in README                                              | Medium                     | Document in README "Mirror" section                          |
 | 4   | `stage diff`, `stage explain`, `stage generations` undocumented                                                  | Medium                     | Add to README "Stage / Install" section                      |
-| 5   | No `docs/README.md` index                                                                                        | Medium                     | Create directory index                                       |
+| 5   | ~~No `docs/README.md` index~~ — FIXED                                                                            | ~~Medium~~                 | ✅ Directory index created                                   |
 | 6   | README absolute GitHub URLs break on fork/offline                                                                | Low                        | Convert to relative paths                                    |
 | 7   | README is 1,948 lines — content could be split                                                                   | Low                        | Consider splitting host wire-in details into a dedicated doc |
 | 8   | No adapter developer guide                                                                                       | Low                        | Create `docs/guides/ADAPTER-DEVELOPMENT.md`                  |
@@ -176,14 +176,14 @@ The README's "Command reference" section (lines 518-845) is styled as usage exam
 
 ## 6. OVERALL ASSESSMENT
 
-| Category                | Rating | Notes                                                   |
-| ----------------------- | ------ | ------------------------------------------------------- |
-| README completeness     | ★★★★☆  | Very comprehensive; slightly bloated                    |
-| docs/ organization      | ★★★★☆  | Well-structured; missing index file                     |
-| `--help` accuracy       | ★★★★☆  | Commands are correct; some undocumented in README       |
-| CHANGELOG quality       | ★★★★★  | Excellent — detailed, referenced, structured            |
-| JSDoc on public exports | ★★★★★  | Excellent on types, good on dispatchers                 |
-| Discoverability         | ★★★☆☆  | No docs index, no man page, no `--help`→docs cross-refs |
-| Missing docs            | ★★★☆☆  | A few command holes; nothing critical missing           |
+| Category                | Rating          | Notes                                                   |
+| ----------------------- | --------------- | ------------------------------------------------------- |
+| README completeness     | ★★★★☆           | Very comprehensive; slightly bloated                    |
+| docs/ organization      | ★★★★☆ (was 4/5) | Well-structured; index file now present                 |
+| `--help` accuracy       | ★★★★☆           | Commands are correct; some undocumented in README       |
+| CHANGELOG quality       | ★★★★★           | Excellent — detailed, referenced, structured            |
+| JSDoc on public exports | ★★★★★           | Excellent on types, good on dispatchers                 |
+| Discoverability         | ★★★☆☆           | No docs index, no man page, no `--help`→docs cross-refs |
+| Missing docs            | ★★★☆☆           | A few command holes; nothing critical missing           |
 
 **Bottom line:** The project has unusually thorough documentation for a v2.0.0 CLI tool. The main gaps are: (a) a few CLI commands undocumented in the README, (b) no `docs/` index, (c) a potentially dead `policy:print` reference, and (d) absolute URL breakage risk. None of these are blocking — the documentation quality is well above average for this project maturity.
