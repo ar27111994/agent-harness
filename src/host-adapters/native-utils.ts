@@ -235,7 +235,18 @@ function extractManagedSectionContent(
   const endTag = `${markerId}:end`;
   const beginIdx = text.indexOf(beginTag);
   if (beginIdx === -1) return null;
-  const contentStart = text.indexOf("\n", beginIdx) + 1;
+
+  // The begin marker is `<!-- markerId:begin -->`.  Find the closing `-->`
+  // so we skip the entire comment, not just the tag substring.
+  const beginCommentEnd = text.indexOf("-->", beginIdx);
+  if (beginCommentEnd === -1) return null;
+
+  // contentStart is the position after the `-->` plus any whitespace/newline.
+  const afterBegin = beginCommentEnd + 3;
+  const newlineAfterBegin = text.indexOf("\n", afterBegin);
+  const contentStart =
+    newlineAfterBegin === -1 ? afterBegin : newlineAfterBegin + 1;
+
   const endIdx = text.indexOf(endTag, contentStart);
   if (endIdx === -1) return null;
   // Find the line start of the end tag

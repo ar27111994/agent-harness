@@ -1867,6 +1867,50 @@ void test("restoreManagedSectionFromSnapshot handles inline begin/end tags witho
     assert.ok(after.includes("inline-content"));
     assert.ok(after.includes("agent-harness-pi:begin"));
     assert.ok(after.includes("agent-harness-pi:end"));
+    // The begin marker must appear exactly once — the old bug included the
+    // begin marker in the extracted section, causing duplication on restore.
+    const beginCount = after.split("agent-harness-pi:begin").length - 1;
+    assert.equal(
+      beginCount,
+      1,
+      "begin marker must appear exactly once (not duplicated)",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("restoreManagedSectionFromSnapshot handles malformed begin marker without closing -->", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-native-malformed-begin-"),
+  );
+  try {
+    const agentsPath = join(root, "AGENTS.md");
+    // Current file has the pi section
+    await writeTextFile(
+      agentsPath,
+      "# Before\n<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n",
+    );
+    // Snapshot has begin tag but NO closing --> — beginCommentEnd === -1 path
+    const snapshots: ManagedTextFileSnapshot[] = [
+      {
+        path: toPosixPath(agentsPath),
+        content:
+          "<!-- agent-harness-pi:begin broken marker with no closing comment\n",
+      },
+    ];
+    await restoreManagedSectionFromSnapshot(
+      agentsPath,
+      snapshots,
+      "agent-harness-pi",
+      async () => {},
+    );
+    // Malformed begin marker → extractManagedSectionContent returns null →
+    // falls through to section removal
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(!after.includes("agent-harness-pi"));
+    assert.ok(after.includes("# Before"));
   } finally {
     await rm(root, { force: true, recursive: true });
   }
