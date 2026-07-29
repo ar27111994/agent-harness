@@ -186,7 +186,7 @@ function runHelpCommand(
       case "setup":
       case "doctor":
         return runSetup(
-          domain === "doctor" ? ["doctor", "--help", ...rest] : domainArgs,
+          domain === "doctor" ? ["doctor", "--help", ...extra] : domainArgs,
           "",
         );
       default:
