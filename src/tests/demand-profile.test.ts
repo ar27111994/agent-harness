@@ -10,6 +10,7 @@ import {
   shouldInspectFile,
 } from "../domains/discovery/demand-signals.js";
 import { buildDemandProfile } from "../discover.js";
+import { demandProfileInternals } from "../domains/discovery/demand-profile.js";
 import type { DemandSignalSet } from "../types.js";
 
 interface DemandProfileRepoFixture {
@@ -1131,6 +1132,30 @@ void test("demand profile truncation warning uses byte count ranking", async () 
     assert.ok(profile.evidence !== undefined, "evidence should be present");
   } finally {
     clearRuntimeConfigForTests();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("computeDirectoryByteCounts skips files that fail to stat", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-statfail-"));
+  try {
+    // Create a real file that can be statted, and include a path that doesn't exist
+    await writeFixtureFile(root, "real/file.txt", "real content");
+    const nonexistentPath = join(root, "gone", "deleted.txt");
+    const files = [join(root, "real", "file.txt"), nonexistentPath];
+    const result = await demandProfileInternals.computeDirectoryByteCounts(
+      root,
+      files,
+    );
+    assert.ok(
+      result.length >= 1,
+      "should return at least one entry for real files",
+    );
+    assert.ok(
+      result.every((e) => e.bytes >= 0),
+      "all byte counts should be non-negative",
+    );
+  } finally {
     await rm(root, { force: true, recursive: true });
   }
 });

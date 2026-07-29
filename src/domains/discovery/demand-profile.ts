@@ -147,3 +147,5 @@ async function computeDirectoryByteCounts(
     .map(([path, bytes]) => ({ path, bytes }))
     .sort((a, b) => b.bytes - a.bytes);
 }
+
+export const demandProfileInternals = { computeDirectoryByteCounts };
