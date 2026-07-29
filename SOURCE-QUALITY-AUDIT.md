@@ -9,7 +9,9 @@
 
 ## SUMMARY
 
-The codebase is well-structured, strictly typed, and written with clear conventions. It passes full TypeScript strict-mode compilation. The most significant issues are **massive DRY violations** in `package-registries.ts`, **large monolithic files** violating SRP, **repeated bare error-swallowing (`catch {}`)** patterns, and **redundant identical capability array declarations**.
+The codebase is well-structured, strictly typed, and written with clear conventions. It passes full TypeScript strict-mode compilation.
+
+> **Note:** This audit was performed pre-refactor (prior to PR #376). Findings about duplicated registry searchers and the `native-wire.ts` monolith have been addressed: `searchRegistry()` was extracted as a shared abstraction (#373), and `native-wire.ts` was split into 5 per-host adapter files + `native-utils.ts` (#374).
 
 ---
 
@@ -307,7 +309,7 @@ The `selectCandidatesForHost` loop implements argmax by hand (`bestIndex = -1; f
 | Aspect                     | Assessment                                                                                          |
 | -------------------------- | --------------------------------------------------------------------------------------------------- |
 | **TypeScript strict mode** | Fully enforced — no `any`, no `@ts-ignore`, no `// @ts-expect-error` anywhere                       |
-| **Null safety**            | Consistently uses `??` and `                                                                        |     | ` where appropriate |
+| **Null safety**            | Consistently uses `??` and `\|\|` where appropriate |
 | **Comments**               | Well-documented — most constants and non-trivial functions have JSDoc                               |
 | **Naming conventions**     | Consistent camelCase, clear function/type names                                                     |
 | **File structure**         | Consistent domain-based organization under `src/`                                                   |

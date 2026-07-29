@@ -50,6 +50,14 @@ void test("concurrent write operations to shared state do not crash", async () =
     const finalState = await readTextFileOrNull(statePath);
     assert.ok(finalState !== null);
     assert.ok(finalState.length > 0);
+    // Parse JSONL and verify every line is a complete valid record
+    const lines = finalState.trim().split("\n");
+    assert.ok(lines.length > 0, "should have at least one JSONL line");
+    for (const line of lines) {
+      const record = JSON.parse(line) as { index: number; ts: number };
+      assert.ok(typeof record.index === "number", "each record should have an index");
+      assert.ok(typeof record.ts === "number", "each record should have a timestamp");
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }
