@@ -1718,3 +1718,54 @@ void test("native wire internals clean failed applies and validate helper edge c
     /ENOTDIR|not a directory/u,
   );
 });
+
+void test("restoreManagedSectionFromSnapshot snapshot path deletes empty file", async () => {
+  const fixture = await createNativeFixture("pi");
+  try {
+    const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+    await writeTextFile(agentsPath, "<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n");
+    const snapshots = [{ path: toPosixPath(agentsPath), content: "other content" }];
+    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    assert.equal(await readTextFileOrNull(agentsPath), null);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+void test("buildCodexHooksManifest returns hookFile as source when no manifest directory", () => {
+  const { buildCodexHooksManifest } = nativeWireInternals;
+  // Hook file path with hooks/slug pattern — no manifestPath → manifestDirectory undefined
+  const result = buildCodexHooksManifest(
+    [
+      {
+        assetId: "my-hook",
+        assetKind: "hook",
+        compatibilityMode: "adaptable",
+        content: "# Hook\n",
+        displayName: "My Hook",
+      },
+    ],
+    ["/workspace/.codex/hooks/my-hook/hook.md"],
+  );
+  const hooks = (result as Record<string, unknown>).hooks as Array<Record<string, unknown>>;
+  assert.equal(hooks[0]?.source, "/workspace/.codex/hooks/my-hook/hook.md");
+});
+
+void test("zed native wire tolerates malformed JSON in settings", async () => {
+  // Write invalid JSON to settings.json — zed write should fail gracefully
+  const fixture = await createNativeFixture("zed");
+  try {
+    const settingsPath = join(fixture.workspaceRoot, ".zed", "settings.json");
+    await writeTextFile(settingsPath, "{ invalid json /// comments");
+    await wireNativeHost("zed", {
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+    // Should not crash; settings are applied via JSONC or fallback
+    const after = await readTextFileOrNull(settingsPath);
+    assert.ok(after !== null);
+  } finally {
+    await fixture.cleanup();
+  }
+});
