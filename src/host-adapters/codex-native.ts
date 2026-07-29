@@ -287,7 +287,8 @@ async function removeCodexPluginMarketplaceEntry(
     : [];
   // Preserve non-object entries and filter out agent-harness
   const plugins = rawPlugins.filter(
-    (plugin) => !(isJsonObject(plugin) && isNamedJsonObject(plugin, "agent-harness")),
+    (plugin) =>
+      !(isJsonObject(plugin) && isNamedJsonObject(plugin, "agent-harness")),
   );
   // Always preserve the file with all top-level keys intact
   await writeJsonFile(filePath, {

@@ -1013,15 +1013,15 @@ Adapter compliance coverage lives in `src/tests/host-adapters.test.ts`, `src/tes
 
 Each host has a dedicated reference page covering adapter source, supported behavior, managed files, documented surfaces, and known limitations:
 
-| Host                         | Adapter source                     | Lifecycle host   | Details                                                                            |
-| ---------------------------- | ---------------------------------- | ---------------- | ---------------------------------------------------------------------------------- |
-| **VS Code / GitHub Copilot** | `src/host-adapters/vscode.ts`      | `copilot-vscode` | [docs/reference/hosts/vscode-copilot.md](./docs/reference/hosts/vscode-copilot.md) |
-| **OpenCode**                 | `src/host-adapters/opencode.ts`    | `opencode`       | [docs/reference/hosts/opencode.md](./docs/reference/hosts/opencode.md)             |
-| **Cursor**                   | `src/host-adapters/cursor-native.ts` | `copilot-vscode` | [docs/reference/hosts/cursor.md](./docs/reference/hosts/cursor.md)                 |
-| **Zed**                      | `src/host-adapters/zed-native.ts` | `opencode`       | [docs/reference/hosts/zed.md](./docs/reference/hosts/zed.md)                       |
+| Host                         | Adapter source                            | Lifecycle host   | Details                                                                            |
+| ---------------------------- | ----------------------------------------- | ---------------- | ---------------------------------------------------------------------------------- |
+| **VS Code / GitHub Copilot** | `src/host-adapters/vscode.ts`             | `copilot-vscode` | [docs/reference/hosts/vscode-copilot.md](./docs/reference/hosts/vscode-copilot.md) |
+| **OpenCode**                 | `src/host-adapters/opencode.ts`           | `opencode`       | [docs/reference/hosts/opencode.md](./docs/reference/hosts/opencode.md)             |
+| **Cursor**                   | `src/host-adapters/cursor-native.ts`      | `copilot-vscode` | [docs/reference/hosts/cursor.md](./docs/reference/hosts/cursor.md)                 |
+| **Zed**                      | `src/host-adapters/zed-native.ts`         | `opencode`       | [docs/reference/hosts/zed.md](./docs/reference/hosts/zed.md)                       |
 | **Claude Code**              | `src/host-adapters/claude-code-native.ts` | `opencode`       | [docs/reference/hosts/claude-code.md](./docs/reference/hosts/claude-code.md)       |
-| **OpenAI Codex**             | `src/host-adapters/codex-native.ts` | `opencode`       | [docs/reference/hosts/codex.md](./docs/reference/hosts/codex.md)                   |
-| **Pi**                       | `src/host-adapters/pi-native.ts` | `opencode`       | [docs/reference/hosts/pi.md](./docs/reference/hosts/pi.md)                         |
+| **OpenAI Codex**             | `src/host-adapters/codex-native.ts`       | `opencode`       | [docs/reference/hosts/codex.md](./docs/reference/hosts/codex.md)                   |
+| **Pi**                       | `src/host-adapters/pi-native.ts`          | `opencode`       | [docs/reference/hosts/pi.md](./docs/reference/hosts/pi.md)                         |
 
 For the v2 host support matrix including lifecycle coverage, native install/verify/remove, project-local wiring, and known limitations, see the [v2 host support matrix](#v2-host-support-matrix) above. For full per-host detail including adapter implementation files, managed project-local locations, documented native surfaces, and host-specific boundaries, see the linked reference pages.
 

@@ -573,12 +573,22 @@ void test("restoreManagedSectionFromSnapshot preserves other host sections in AG
       "<!-- agent-harness-pi:begin -->\npi\n<!-- agent-harness-pi:end -->\n<!-- agent-harness-codex:begin -->\ncodex\n<!-- agent-harness-codex:end -->\n",
     );
     const snapshots: Array<{ path: string; content: string | null }> = [
-      { path: toPosixPath(agentsPath), content: "<!-- agent-harness-codex:begin -->\ncodex\n<!-- agent-harness-codex:end -->\n" },
+      {
+        path: toPosixPath(agentsPath),
+        content:
+          "<!-- agent-harness-codex:begin -->\ncodex\n<!-- agent-harness-codex:end -->\n",
+      },
     ];
-    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    await resetPiNativeHost(
+      fixture.workspaceRoot,
+      snapshots as ManagedTextFileSnapshot[],
+    );
     const after = await readTextFileOrNull(agentsPath);
     assert.ok(after !== null);
-    assert.ok(after.includes("agent-harness-codex:begin"), "codex section preserved");
+    assert.ok(
+      after.includes("agent-harness-codex:begin"),
+      "codex section preserved",
+    );
     assert.ok(!after.includes("agent-harness-pi:begin"), "pi section removed");
   } finally {
     await fixture.cleanup();
@@ -596,7 +606,10 @@ void test("restoreManagedSectionFromSnapshot null-content snapshot preserves pre
     const snapshots: Array<{ path: string; content: string | null }> = [
       { path: toPosixPath(agentsPath), content: null },
     ];
-    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    await resetPiNativeHost(
+      fixture.workspaceRoot,
+      snapshots as ManagedTextFileSnapshot[],
+    );
     const after = await readTextFileOrNull(agentsPath);
     assert.ok(after !== null);
     assert.ok(!after.includes("agent-harness-pi"));
@@ -615,9 +628,16 @@ void test("restoreManagedSectionFromSnapshot restores snapshot section version",
       "<!-- agent-harness-pi:begin -->\nv1\n<!-- agent-harness-pi:end -->\n",
     );
     const snapshots: Array<{ path: string; content: string | null }> = [
-      { path: toPosixPath(agentsPath), content: "<!-- agent-harness-pi:begin -->\nv2\n<!-- agent-harness-pi:end -->\n" },
+      {
+        path: toPosixPath(agentsPath),
+        content:
+          "<!-- agent-harness-pi:begin -->\nv2\n<!-- agent-harness-pi:end -->\n",
+      },
     ];
-    await resetPiNativeHost(fixture.workspaceRoot, snapshots as ManagedTextFileSnapshot[]);
+    await resetPiNativeHost(
+      fixture.workspaceRoot,
+      snapshots as ManagedTextFileSnapshot[],
+    );
     const after = await readTextFileOrNull(agentsPath);
     assert.ok(after !== null);
     assert.ok(!after.includes("v1"));
@@ -872,7 +892,12 @@ void test("Pi and Codex native wire reset removes managed-only files and setting
         // Marketplace preserved with plugins:[] so .agents directory persists
         assert.ok(
           (await readTextFileOrNull(
-            join(fixture.workspaceRoot, ".agents", "plugins", "marketplace.json"),
+            join(
+              fixture.workspaceRoot,
+              ".agents",
+              "plugins",
+              "marketplace.json",
+            ),
           )) !== null,
           "marketplace.json preserved with plugins:[]",
         );

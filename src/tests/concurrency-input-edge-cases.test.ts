@@ -21,7 +21,10 @@ import {
   resolveAllowedRealFilePath,
 } from "../lib/safe-paths.js";
 import { ardRegistryInternals } from "../domains/discovery/source-sync/registries/ard-registry.js";
-import { mergeCodexPluginMarketplace, buildCodexHooksManifest } from "../host-adapters/codex-native.js";
+import {
+  mergeCodexPluginMarketplace,
+  buildCodexHooksManifest,
+} from "../host-adapters/codex-native.js";
 import { mapEntryToArd } from "../ard-catalog.js";
 
 const { extractArdTrustSignals, computeArdTrustScore } = ardRegistryInternals;
@@ -55,8 +58,14 @@ void test("concurrent write operations to shared state do not crash", async () =
     assert.ok(lines.length > 0, "should have at least one JSONL line");
     for (const line of lines) {
       const record = JSON.parse(line) as { index: number; ts: number };
-      assert.ok(typeof record.index === "number", "each record should have an index");
-      assert.ok(typeof record.ts === "number", "each record should have a timestamp");
+      assert.ok(
+        typeof record.index === "number",
+        "each record should have an index",
+      );
+      assert.ok(
+        typeof record.ts === "number",
+        "each record should have a timestamp",
+      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -141,7 +150,11 @@ void test("isPathWithinRoot handles null-byte paths without crashing", () => {
   // Null bytes in paths should not crash; the function returns a boolean
   // indicating containment even for malformed paths.
   const result = isPathWithinRoot(root, join(root, "subdir\x00/etc/passwd"));
-  assert.equal(typeof result, "boolean", "should return boolean for null-byte paths");
+  assert.equal(
+    typeof result,
+    "boolean",
+    "should return boolean for null-byte paths",
+  );
 });
 
 void test("resolveSafeMirrorFilePath handles null bytes gracefully", () => {

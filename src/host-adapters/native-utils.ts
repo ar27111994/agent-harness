@@ -188,7 +188,11 @@ export async function restoreManagedSectionFromSnapshot(
     if (snapshotSection !== null) {
       await writeTextFile(
         filePath,
-        upsertManagedSection({ originalContent: "", markerId, bodyLines: snapshotSection.split("\n") }),
+        upsertManagedSection({
+          originalContent: "",
+          markerId,
+          bodyLines: snapshotSection.split("\n"),
+        }),
       );
     }
     return;
