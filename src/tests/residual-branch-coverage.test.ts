@@ -523,7 +523,7 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
           {
             name: "hook-without-file",
             description: "Hook Without File",
-            source: join(root, "hook.md"),
+            source: "hook-without-file",
           },
           {
             name: "hook-with-file",

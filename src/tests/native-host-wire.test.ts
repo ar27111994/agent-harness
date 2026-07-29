@@ -647,6 +647,25 @@ void test("restoreManagedSectionFromSnapshot restores snapshot section version",
   }
 });
 
+void test("restoreManagedSectionFromSnapshot inserts section when file absent", async () => {
+  const fixture = await createNativeFixture("pi");
+  try {
+    const agentsPath = join(fixture.workspaceRoot, "AGENTS.md");
+    const snapshots: ManagedTextFileSnapshot[] = [
+      {
+        path: toPosixPath(agentsPath),
+        content: "<!-- agent-harness-pi:begin -->\nrestored\n<!-- agent-harness-pi:end -->\n",
+      },
+    ];
+    await resetPiNativeHost(fixture.workspaceRoot, snapshots);
+    const after = await readTextFileOrNull(agentsPath);
+    assert.ok(after !== null);
+    assert.ok(after.includes("restored"));
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("native wire skips missing activation assets and falls back to asset metadata when content is absent", async () => {
   const fixture = await createNativeFixture("cursor");
 
