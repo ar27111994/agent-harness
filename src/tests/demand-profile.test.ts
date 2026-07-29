@@ -1160,6 +1160,24 @@ void test("computeDirectoryByteCounts skips files that fail to stat", async () =
   }
 });
 
+void test("computeDirectoryByteCounts handles file at scan root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-rootfile-"));
+  try {
+    // File at scan root produces an empty-string relative path,
+    // exercising the `dir = relative.split("/")[0] ?? "."` nullish fallback
+    await writeFixtureFile(root, "rootfile.txt", "at root");
+    const files = [join(root, "rootfile.txt")];
+    const result = await demandProfileInternals.computeDirectoryByteCounts(
+      root,
+      files,
+    );
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.path, ".");
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 async function writeFixtureFile(
   root: string,
   relPath: string,

@@ -132,6 +132,7 @@ async function computeDirectoryByteCounts(
 
   for (const filePath of files) {
     const relative = toRelativePosixPath(scanRoot, filePath);
+    /* c8 ignore next -- String.split always returns at least [\"\"], so ?? \".\" is provably unreachable */
     const dir = relative.split("/")[0] ?? ".";
     let size = 0;
     try {
@@ -148,4 +149,5 @@ async function computeDirectoryByteCounts(
     .sort((a, b) => b.bytes - a.bytes);
 }
 
+/** Exposes internals for behavioral coverage. */
 export const demandProfileInternals = { computeDirectoryByteCounts };
