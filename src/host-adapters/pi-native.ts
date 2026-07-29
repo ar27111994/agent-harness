@@ -88,10 +88,12 @@ export async function resetPiNativeHost(
   workspaceRoot: string,
   textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
 ): Promise<void> {
-  // Snapshot-based restore preserves the file state recorded at wire time.
-  // Other hosts sharing AGENTS.md/SYSTEM.md (e.g. agent-harness-codex) may
-  // have sections that were present at snapshot time; restoring from the
-  // full snapshot preserves those alongside pi section removal.
+  // Snapshot-based restore is correct for single-host reset: it restores
+  // the file to its state before pi was wired. In multi-host scenarios where
+  // another host writes to the same file after pi is wired, the snapshot
+  // (taken at pi wire time) would not include that host's sections. Full
+  // multi-host safety would require section-scoped diff-and-restore, which
+  // is deferred until snapshot infrastructure supports per-section diffs.
   await restoreManagedTextFileSnapshot(
     join(workspaceRoot, "AGENTS.md"),
     textFileSnapshots,
