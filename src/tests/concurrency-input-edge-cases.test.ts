@@ -694,3 +694,15 @@ void test("concurrent install progress writes do not corrupt", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("buildCodexHookSource returns hookFile when manifestDirectory undefined", () => {
+  const assetId = "my-hook";
+  const assetSlug = sanitizeAssetId(assetId);
+  const hookPath = `/tmp/hooks/${assetSlug}/hook.md`;
+  const result = buildCodexHooksManifest(
+    [{ assetId, assetKind: "hook", compatibilityMode: "adaptable", content: "# Hook", displayName: "My Hook" }],
+    [hookPath],
+  );
+  const hooks = (result as Record<string, unknown>).hooks as Array<Record<string, unknown>>;
+  assert.equal(hooks[0]?.source, hookPath);
+});

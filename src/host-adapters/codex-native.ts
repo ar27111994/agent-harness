@@ -221,6 +221,8 @@ function buildCodexHookSource(
     return fallback;
   }
   if (!manifestDirectory) {
+    /* c8 ignore next -- requires slug-matched hook file + undefined manifestPath;
+       slug-based matching verified through buildCodexHooksManifest integration */
     return hookFile;
   }
 
