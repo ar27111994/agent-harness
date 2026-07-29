@@ -88,15 +88,27 @@ export async function resetPiNativeHost(
   workspaceRoot: string,
   textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
 ): Promise<void> {
-  // Remove only the agent-harness-pi managed section to preserve other
-  // hosts' sections (e.g., agent-harness-codex) in shared files.
-  await removeManagedSectionFile(
+  // Snapshot-based restore preserves the file state recorded at wire time.
+  // Other hosts sharing AGENTS.md/SYSTEM.md (e.g. agent-harness-codex) may
+  // have sections that were present at snapshot time; restoring from the
+  // full snapshot preserves those alongside pi section removal.
+  await restoreManagedTextFileSnapshot(
     join(workspaceRoot, "AGENTS.md"),
-    "agent-harness-pi",
+    textFileSnapshots,
+    () =>
+      removeManagedSectionFile(
+        join(workspaceRoot, "AGENTS.md"),
+        "agent-harness-pi",
+      ),
   );
-  await removeManagedSectionFile(
+  await restoreManagedTextFileSnapshot(
     join(workspaceRoot, "SYSTEM.md"),
-    "agent-harness-pi",
+    textFileSnapshots,
+    () =>
+      removeManagedSectionFile(
+        join(workspaceRoot, "SYSTEM.md"),
+        "agent-harness-pi",
+      ),
   );
   await removePath(join(workspaceRoot, ".pi", "skills", "agent-harness"));
   await removePath(join(workspaceRoot, ".pi", "prompts", "agent-harness.md"));
