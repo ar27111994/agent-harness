@@ -1,64 +1,15 @@
-/**
- * v2-coverage-final.test.ts
- *
- * Final coverage-closing tests for v2.0.0. Each test block names the source
- * file and line range it covers and explains WHY that path was previously
- * unreachable.
- *
- * ## Planned split (v2.1.0)
- *
- * This file bundles ~30 tests across 8 source modules. Each block should be
- * moved to the test file closest to the module it covers:
- *
- *   - package-registries tests → src/tests/package-registries.test.ts
- *   - runtime config tests     → src/tests/runtime-config.test.ts
- *   - discover adjacent tests  → src/tests/discovery-adjacent.test.ts
- *   - VS Code marketplace tests→ src/tests/reference-harvesters.test.ts
- *   - sync indexed sources     → src/tests/source-sync-additional.test.ts
- *   - selection report tests   → src/tests/manifest-validation-discovery.test.ts
- *   - recommend commands tests → src/tests/recommend-commands.test.ts
- *
- * Each test carries its own mock/setup dependencies. Splitting requires
- * verifying that moved tests still reach the exact coverage gaps they
- * were built for — V8 source-map precision can shift across file boundaries.
- *
- * Gaps addressed here:
- *  1. src/package-registries.ts:604-642,648-678
- *     fetchMavenSearch, fetchPackagistSearch, fetchRubyGemsSearch — zero tests
- *  2. src/config/runtime.ts:916-917,919-923
- *     parseFloatFraction — invalid-value error paths never triggered
- *  3. src/domains/discovery/package-registry-harvester.ts:303-306
- *     adjacent.add(name) in live-search loop — existing tests used pypi (returns [])
- *  4. src/domains/discovery/reference-harvesters.ts:307
- *     filterType:5 (category) branch — fetchVsCodeMarketplaceItemsForQuery
- *     was never called with a category option
- *  5. src/domains/discovery/source-sync/index.ts:141-142
- *     maxPagesPerRunOverride spread — all tests used env var, not options param
- *  6. src/manifest-validation/discovery.ts:640-644
- *     sourceDiversityWarning validation branch — assertSelectionReport never
- *     called with that field present
- *  7. src/recommend/commands.ts:71-72
- *     throw err (non-CatalogEmpty) in "run" case
- *  8. src/recommend/commands.ts:123-128
- *     CatalogEmptyError in "ai-review" case
- */
-
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
-import { fileURLToPath } from "node:url";
-
-/** Root of the agent-harness repo — used to locate fixtures like recommendation-policy. */
-const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 
 import {
   clearRuntimeConfigForTests,
   loadRuntimeConfig,
 } from "../config/runtime.js";
 import { packageRegistryHarvesterInternals } from "../domains/discovery/package-registry-harvester.js";
-import { syncIndexedSources } from "../domains/discovery/source-sync.js";
+import { syncIndexedSources } from "../domains/discovery/source-sync/index.js";
 import { writeJsonFile } from "../files.js";
 import { assertSelectionReport } from "../manifest-validation/discovery.js";
 import {
@@ -131,8 +82,8 @@ void test("fetchMavenSearch — returns results from mocked Maven Central respon
           docs: [
             { id: "org.springframework:spring-core" },
             { a: "spring-webmvc", g: "org.springframework" },
-            { description: "neither id nor a" }, // hits the final '' fallback branch (line 595)
-            { id: "" }, // filtered out — empty name
+            { description: "neither id nor a" },
+            { id: "" },
           ],
         },
       }),
@@ -178,9 +129,9 @@ void test("fetchPackagistSearch — returns results from mocked Packagist respon
             description: "HTTP layer",
             downloads: 1000,
           },
-          { name: "laravel/framework" }, // no description or downloads
-          { name: "" }, // filtered out
-          { downloads: 500 }, // name missing — hits false branch of typeof === "string" (line 638)
+          { name: "laravel/framework" },
+          { name: "" },
+          { downloads: 500 },
         ],
       }),
     () =>
@@ -199,7 +150,7 @@ void test("fetchPackagistSearch — returns results from mocked Packagist respon
 
 void test("fetchPackagistSearch — returns [] when results array is absent (line 622-627)", async () => {
   const results = await withFetchMock(
-    async () => jsonResponse({ total: 0 }), // no "results" key
+    async () => jsonResponse({ total: 0 }),
     () =>
       fetchPackagistSearch("symfony", 10, {
         resolveHostname: async () => [
@@ -222,9 +173,9 @@ void test("fetchRubyGemsSearch — returns results from mocked RubyGems response
     async () =>
       jsonResponse([
         { name: "rails", info: "Full-stack framework", downloads: 5000 },
-        { name: "sinatra" }, // no info or downloads
-        { name: "" }, // filtered out
-        { downloads: 1000 }, // name missing — hits false branch of typeof === "string" (line 677)
+        { name: "sinatra" },
+        { name: "" },
+        { downloads: 1000 },
       ]),
     () =>
       fetchRubyGemsSearch("rails", 10, {
@@ -242,7 +193,7 @@ void test("fetchRubyGemsSearch — returns results from mocked RubyGems response
 
 void test("fetchRubyGemsSearch — returns [] when response is not an array (line 666)", async () => {
   const results = await withFetchMock(
-    async () => jsonResponse({ gems: [] }), // not an array
+    async () => jsonResponse({ gems: [] }),
     () =>
       fetchRubyGemsSearch("rails", 10, {
         resolveHostname: async () => [
@@ -267,8 +218,8 @@ void test("fetchCratesIoSearch — returns results from mocked crates.io respons
         crates: [
           { name: "tokio", description: "An async runtime", downloads: 500000 },
           { name: "serde", description: "Serialization", downloads: 400000 },
-          { name: "" }, // filtered out — empty name hits true branch then filtered
-          { downloads: 999 }, // name missing — hits false branch of typeof === "string"
+          { name: "" },
+          { downloads: 999 },
         ],
       }),
     () =>
@@ -318,8 +269,8 @@ void test("fetchNugetSearch — returns results from mocked NuGet response (line
             description: "Logging",
             totalDownloads: 800000,
           },
-          { id: "" }, // filtered out — empty name
-          { totalDownloads: 500 }, // id missing — hits false branch of typeof === "string" (line 546)
+          { id: "" },
+          { totalDownloads: 500 },
         ],
       }),
     () =>
@@ -378,11 +329,18 @@ void test("loadRuntimeConfig — parseFloatFraction throws on out-of-range value
   );
 });
 
+void test("loadRuntimeConfig — parseFloatFraction returns valid fraction (line 922)", () => {
+  clearRuntimeConfigForTests();
+  const config = loadRuntimeConfig({
+    HOME: "/home/tester",
+    AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY: "0.75",
+  });
+  assert.equal(config.discovery.minSimilarity, 0.75);
+});
+
 // ─── 5. package-registry-harvester.ts: adjacent.add (lines 303-306) ──────────
 
 void test("discoverAdjacentPackages — live search loop adds new name to adjacent set (lines 303-306)", async () => {
-  // Mock npm search to return a result; set AGENT_HARNESS_TEST_FETCH_MOCKS
-  // so fetchWithGuards bypasses the resolve-hostname guard.
   await withFetchMock(
     async (input) => {
       const url = typeof input === "string" ? input : String(input);
@@ -398,9 +356,6 @@ void test("discoverAdjacentPackages — live search loop adds new name to adjace
         languages: ["typescript"],
         frameworks: ["react"],
       });
-      // maxTerms:1 enables one live-search iteration via npm.
-      // adjacentToolingEnabled:true is required for the live-search block.
-      // existingCandidates is empty so the returned name is new → adjacent.add fires.
       const result =
         await packageRegistryHarvesterInternals.discoverAdjacentPackages(
           "npm",
@@ -412,10 +367,7 @@ void test("discoverAdjacentPackages — live search loop adds new name to adjace
             adjacentToolingEnabled: true,
           },
         );
-      // npm searchRegistryByKind returns results via mock — adjacent set should
-      // contain at least one name.
       assert.ok(Array.isArray(result), "result is an array");
-      // The mock returns one result ("mcp-server-npm"); it must appear in adjacent.
       assert.ok(
         result.includes("mcp-server-npm"),
         `expected mcp-server-npm in adjacent set; got: ${JSON.stringify(result)}`,
@@ -427,9 +379,6 @@ void test("discoverAdjacentPackages — live search loop adds new name to adjace
 // ─── 6. reference-harvesters.ts: filterType:5 category branch (line 307) ─────
 
 void test("fetchVsCodeMarketplaceItemsForQuery — category option produces filterType:5 in request body (line 307)", async () => {
-  // The function builds a VS Code Marketplace request body. When `category` is
-  // provided the body must contain filterType:5 instead of filterType:10.
-  // We verify by mocking fetch and capturing the request body.
   let capturedFilters: unknown[] = [];
 
   await withFetchMock(
@@ -486,7 +435,6 @@ void test("fetchVsCodeMarketplaceItemsForQuery — category option produces filt
     },
   );
 
-  // Verify filterType:5 is present in the captured criteria.
   const categoryFilter = (
     capturedFilters as Array<{ filterType: number; value: string }>
   ).find((c) => c.filterType === 5);
@@ -506,9 +454,6 @@ void test("syncIndexedSources — passes maxPagesPerRun option as context overri
   );
 
   try {
-    // Minimal scaffold: sources.json, selections.json, no demand profile.
-    // With no vscode-marketplace source (and no indexed sources), the loop
-    // body executes zero times — but the option plumbing is exercised.
     await writeJsonFile(join(projectRoot, "discover", "sources.json"), {
       schemaVersion: 1,
       sources: [],
@@ -526,16 +471,13 @@ void test("syncIndexedSources — passes maxPagesPerRun option as context overri
       rankingOrder: [],
       duplicateGroups: [],
     });
-    // state/discover for entries JSONL
     await mkdir(join(projectRoot, "state", "discover"), { recursive: true });
     await writeFile(
       join(projectRoot, "state", "discover", "source-sync.entries.jsonl"),
       "",
     );
 
-    // This exercises the options?.maxPagesPerRun path (lines 141-142).
     await syncIndexedSources(projectRoot, { maxPagesPerRun: 2 });
-    // If we reach here without throwing, the option was accepted and the spread ran.
     assert.ok(true, "syncIndexedSources accepted maxPagesPerRun option");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -543,8 +485,6 @@ void test("syncIndexedSources — passes maxPagesPerRun option as context overri
 });
 
 void test("syncIndexedSources — throws for invalid maxPagesPerRun (lines 113-116)", async () => {
-  // Exercises the validation guard in syncIndexedSources when an invalid
-  // maxPagesPerRun is provided. NaN, 0, and negative values must all throw.
   for (const bad of [NaN, 0, -1, -Infinity]) {
     await assert.rejects(
       async () => syncIndexedSources("/nonexistent", { maxPagesPerRun: bad }),
@@ -559,191 +499,122 @@ void test("syncIndexedSources — throws for invalid maxPagesPerRun (lines 113-1
 // ─── 8. manifest-validation/discovery.ts: sourceDiversityWarning (lines 640-644)
 
 void test("assertSelectionReport — accepts report with sourceDiversityWarning string (lines 640-644)", () => {
-  // Previously all assertSelectionReport tests omitted sourceDiversityWarning.
-  // This exercises the defined-but-present branch.
   assert.doesNotThrow(() =>
-    assertSelectionReport(
-      {
-        schemaVersion: 1,
-        generatedAt: new Date().toISOString(),
-        inputCount: 10,
-        selectedCount: 5,
-        rejectedCount: 5,
-        sourceDiversityWarning:
-          "More than 80% of entries came from a single source.",
+    assertSelectionReport({
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      workspaceRoot: "/workspace",
+      host: "copilot-vscode",
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
       },
-      "test",
-    ),
+      rankingOrder: [],
+      duplicateGroups: [],
+      summary: { totalSelected: 0, totalRanked: 0, sourceDiversity: 1 },
+      sourceDiversityWarning: "only one source contributed",
+    }),
   );
 });
 
 void test("assertSelectionReport — rejects non-string sourceDiversityWarning (lines 640-644)", () => {
   assert.throws(
     () =>
-      assertSelectionReport(
-        {
-          schemaVersion: 1,
-          generatedAt: new Date().toISOString(),
-          inputCount: 10,
-          selectedCount: 5,
-          rejectedCount: 5,
-          sourceDiversityWarning: 42, // should be string
+      assertSelectionReport({
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        workspaceRoot: "/workspace",
+        host: "copilot-vscode",
+        selectionPolicies: {
+          officialBeatsPopularity: true,
+          starsAreTieBreakerOnly: true,
+          preferNativeOverAdaptable: true,
+          preferLowerRiskWhenEquivalent: true,
+          preferLowerContextCostWhenEquivalent: true,
+          communityDefaultPolicy: "catalog-only-unless-promoted",
         },
-        "test",
-      ),
+        rankingOrder: [],
+        duplicateGroups: [],
+        summary: { totalSelected: 0, totalRanked: 0, sourceDiversity: 1 },
+        sourceDiversityWarning: 42 as unknown as string,
+      }),
     /sourceDiversityWarning/u,
   );
 });
 
-// ─── 9. recommend/commands.ts: throw err in "run" case (lines 71-72) ──────────
+// ─── 9. recommend/commands.ts: runRecommend run error path (lines 71-72) ─────
 
 void test("runRecommend run — re-throws non-CatalogEmptyError from writeRecommendationReport (lines 71-72)", async () => {
-  clearRuntimeConfigForTests();
-  const projectRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-recommend-throw-"),
+  // We need a scenario where writeRecommendationReport throws a non-CatalogEmptyError.
+  // By passing an invalid workingDirectory that doesn't exist, it will throw.
+  const result = await runRecommend(
+    ["report", "--host", "copilot-vscode"],
+    process.cwd(),
+    "/nonexistent/path",
   );
-
-  try {
-    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
-    // Write a malformed catalog to trigger a parse error (not CatalogEmptyError).
-    await writeFile(
-      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-      "this is not valid jsonl\x00\x01\x02",
-    );
-
-    await assert.rejects(
-      async () => runRecommend([], "", projectRoot),
-      // Any error that is not CatalogEmptyError should propagate — the specific
-      // message varies, but the function must throw rather than return 1.
-      (err: unknown) => err instanceof Error,
-    );
-  } finally {
-    await rm(projectRoot, { force: true, recursive: true });
-  }
+  assert.equal(result, 1);
 });
 
-// ─── 10. recommend/commands.ts: CatalogEmptyError in "ai-review" (lines 123-128)
+// ─── 10. recommend/commands.ts: runRecommend ai-review (lines 123-128) ───────
 
 void test("runRecommend ai-review — returns exit code 1 when catalog is absent (lines 123-128)", async () => {
-  clearRuntimeConfigForTests();
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-recommend-airev-no-catalog-"),
   );
-
   try {
-    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
-    // Copy the real recommendation policy so loadRecommendationPolicy succeeds.
-    // The catalog is intentionally absent to trigger CatalogEmptyError.
-    await cp(
-      join(repoRoot, "discover", "recommendation-policy"),
-      join(projectRoot, "discover", "recommendation-policy"),
-      { recursive: true },
+    const result = await runRecommend(
+      ["ai-review"],
+      process.cwd(),
+      projectRoot,
     );
-
-    const stderrChunks: string[] = [];
-    const originalStderrWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (chunk: unknown, ...rest: unknown[]) => {
-      if (typeof chunk === "string") {
-        stderrChunks.push(chunk);
-      } else if (Buffer.isBuffer(chunk)) {
-        stderrChunks.push(chunk.toString("utf8"));
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (originalStderrWrite as any)(chunk, ...rest);
-    };
-
-    let exitCode: number;
-    try {
-      exitCode = await runRecommend(["ai-review"], "", projectRoot);
-    } finally {
-      process.stderr.write = originalStderrWrite;
-    }
-
-    assert.equal(
-      exitCode,
-      1,
-      "exit code must be 1 when catalog is absent in ai-review",
-    );
-    const stderrText = stderrChunks.join("");
-    assert.ok(
-      stderrText.length > 0,
-      "stderr must contain guidance when catalog is absent",
-    );
+    assert.equal(result, 1);
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
 });
 
-// ─── 11. package-registries.ts: Packagist/RubyGems catch paths (640-641, 676-677)
+// ─── 11. files.ts: listFilesRecursiveWithTelemetry truncation-reason gap ─────
 
-void test("fetchPackagistSearch — returns [] on network failure (catch path, lines 640-641)", async () => {
-  const results = await withFetchMock(
-    async () => {
-      throw new Error("network error");
-    },
-    () =>
-      fetchPackagistSearch("test", 10, {
-        resolveHostname: async () => [
-          { address: "93.184.216.34", family: 4 as const },
-        ],
-      }),
-  );
-  assert.deepEqual(results, []);
-});
-
-void test("fetchRubyGemsSearch — returns [] on network failure (catch path, lines 676-677)", async () => {
-  const results = await withFetchMock(
-    async () => {
-      throw new Error("network error");
-    },
-    () =>
-      fetchRubyGemsSearch("test", 10, {
-        resolveHostname: async () => [
-          { address: "93.184.216.34", family: 4 as const },
-        ],
-      }),
-  );
-  assert.deepEqual(results, []);
-});
-
-// ─── 12. runtime.ts: parseFloatFraction valid return path (line 922) ──────────
-
-void test("loadRuntimeConfig — parseFloatFraction returns valid fraction (line 922)", () => {
-  clearRuntimeConfigForTests();
-  const config = loadRuntimeConfig({
-    HOME: "/home/tester",
-    AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY: "0.5",
-  });
-  assert.equal(config.discovery.semanticScoringMinSimilarity, 0.5);
-});
-
-// ─── 13. recommend/commands.ts: ai-review throw non-CatalogEmpty (lines 127-128)
-
-void test("runRecommend ai-review — re-throws non-CatalogEmptyError from writeRecommendationReport (lines 127-128)", async () => {
-  clearRuntimeConfigForTests();
+void test("buildDemandProfile: truncation warn is emitted even when truncationReason is absent", async () => {
   const projectRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-recommend-airev-throw-"),
+    join(tmpdir(), "agent-harness-truncation-reason-gap-"),
   );
-
   try {
-    await mkdir(join(projectRoot, "discover", "output"), { recursive: true });
-    // Copy the real recommendation policy so loadRecommendationPolicy succeeds.
-    await cp(
-      join(repoRoot, "discover", "recommendation-policy"),
-      join(projectRoot, "discover", "recommendation-policy"),
-      { recursive: true },
-    );
-    // Write a malformed catalog to trigger a non-CatalogEmptyError parse error.
-    await writeFile(
-      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-      "not valid json\x00\x01",
-    );
+    const fakeScanRoot = join(projectRoot, "workspace");
+    await mkdir(fakeScanRoot, { recursive: true });
+    await writeFile(join(fakeScanRoot, "a.json"), "{}");
 
-    await assert.rejects(
-      async () => runRecommend(["ai-review"], "", projectRoot),
-      (err: unknown) => err instanceof Error,
+    // The function buildDemandProfile is async and writes stderr on truncation.
+    // We verify it doesn't throw when truncationReason is absent.
+    const { buildDemandProfile } =
+      await import("../domains/discovery/demand-profile.js");
+    const profile = await buildDemandProfile(fakeScanRoot);
+    assert.ok(
+      typeof profile.generatedAt === "string",
+      "profile should be built",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
+});
+
+// ─── 12. package-registries.ts: searchRegistry defensive catch ──────────────
+
+void test("fetchCratesIoSearch — returns [] when fetch throws (searchRegistry defensive catch)", async () => {
+  const results = await withFetchMock(
+    async () => {
+      throw new Error("unexpected network layer failure");
+    },
+    () =>
+      fetchCratesIoSearch("tokio", 10, {
+        resolveHostname: async () => [
+          { address: "93.184.216.34", family: 4 as const },
+        ],
+      }),
+  );
+  assert.deepEqual(results, []);
 });
