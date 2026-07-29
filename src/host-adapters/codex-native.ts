@@ -266,13 +266,14 @@ async function removeCodexPluginMarketplaceEntry(
     return;
   }
   const marketplaceObject = assertJsonObject(marketplace, filePath);
-  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
-    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
+  const rawPlugins = Array.isArray(marketplaceObject.plugins)
+    ? marketplaceObject.plugins
+    : [];
+  // Preserve non-object entries and filter out agent-harness
+  const plugins = rawPlugins.filter(
+    (plugin) => !(isJsonObject(plugin) && isNamedJsonObject(plugin, "agent-harness")),
   );
-  if (plugins.length === 0) {
-    await removePath(filePath);
-    return;
-  }
+  // Always preserve the file with all top-level keys intact
   await writeJsonFile(filePath, {
     ...marketplaceObject,
     plugins,
