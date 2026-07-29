@@ -747,3 +747,16 @@ void test("runRecommend ai-review — re-throws non-CatalogEmptyError from write
     await rm(projectRoot, { force: true, recursive: true });
   }
 });
+
+void test("fetchCratesIoSearch returns [] when fetch throws (searchRegistry defensive catch)", async () => {
+  const results = await withFetchMock(
+    async () => {
+      throw new Error("unexpected network layer failure");
+    },
+    () =>
+      fetchCratesIoSearch("tokio", 10, {
+        resolveHostname: async () => [{ address: "93.184.216.34", family: 4 }],
+      }),
+  );
+  assert.deepEqual(results, []);
+});
