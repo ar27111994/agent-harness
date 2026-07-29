@@ -83,7 +83,7 @@ void test("Cursor native wire apply/reset materializes assets and restores merge
       ),
       [
         "---",
-        `name: ${JSON.stringify("cursor.agent")}`,
+        `name: ${JSON.stringify(sanitizeAssetId("cursor.agent"))}`,
         `description: ${JSON.stringify("Cursor Agent")}`,
         "---",
         "",
@@ -1460,11 +1460,12 @@ void test("native wire internals clean failed applies and validate helper edge c
     ),
     false,
   );
+  // Marketplace file is preserved with plugins:[] instead of deleted (#374)
   assert.equal(
-    await pathExists(
+    await readJsonFileOrNull(
       join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-    ),
-    false,
+    ) !== null,
+    true,
   );
 
   const piManagedRoot = join(workspaceRoot, ".pi", "agent-harness");

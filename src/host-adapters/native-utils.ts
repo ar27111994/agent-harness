@@ -631,10 +631,10 @@ export function mergeJsonObjects(
   for (const [key, value] of Object.entries(patch)) {
     const existingValue = merged[key];
     if (Array.isArray(value)) {
-      // Replace with patch array to preserve structured JSON values
-      // and ordering — uniqueStrings/coerceStringArray would drop non-string
-      // entries.
-      merged[key] = value;
+      merged[key] = uniqueStrings([
+        ...coerceStringArray(existingValue),
+        ...value.filter((entry): entry is string => typeof entry === "string"),
+      ]);
       continue;
     }
 
