@@ -748,7 +748,7 @@ void test("runRecommend ai-review — re-throws non-CatalogEmptyError from write
   }
 });
 
-void test("fetchCratesIoSearch returns [] when fetch throws (searchRegistry defensive catch)", async () => {
+void test("fetchCratesIoSearch returns [] on non-2xx HTTP response (searchRegistry defensive catch)", async () => {
   // Return a 500 response — fetchTextWithGuards returns null on non-2xx,
   // fetchJsonWithGuards returns null, then extractResults(null) throws,
   // triggering the searchRegistry catch block.
