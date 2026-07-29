@@ -1148,7 +1148,6 @@ function printDiscoverFullHelp(): void {
           "--no-ai-enrich      Skip AI enrichment",
           "--quiet             Suppress expected source health warnings",
           "--summary           Print aggregate warning breakdown by reason",
-          "--max-scan-bytes N   Override the demand scan byte budget (default: 48 MB)",
         ],
       },
       {
