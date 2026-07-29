@@ -188,8 +188,15 @@ async function explainRecommendation(
   const requestedHostRaw = getOptionValue(args, "--host");
 
   // Resolve assetId: prefer --asset flag, then fall back to the first
-  // positional arg that is not a known flag (--json, --host, --asset).
-  const resolvedAssetId = assetId ?? args.find((arg) => !arg.startsWith("--"));
+  // positional arg that is not consumed by a value-taking flag (--host).
+  const valueFlagIndices = new Set<number>();
+  for (const flag of ["--host", "--asset"]) {
+    const idx = args.indexOf(flag);
+    if (idx >= 0 && idx + 1 < args.length) valueFlagIndices.add(idx + 1);
+  }
+  const resolvedAssetId =
+    assetId ??
+    args.find((arg, i) => !arg.startsWith("--") && !valueFlagIndices.has(i));
 
   if (!resolvedAssetId) {
     const note = json

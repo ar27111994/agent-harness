@@ -232,10 +232,21 @@ export async function runDiscover(
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
       const maxBytesIndex = rest.indexOf("--max-scan-bytes");
-      const maxBytes =
-        maxBytesIndex >= 0 && maxBytesIndex + 1 < rest.length
-          ? Number(rest[maxBytesIndex + 1])
-          : undefined;
+      let maxBytes: number | undefined;
+      if (maxBytesIndex >= 0 && maxBytesIndex + 1 < rest.length) {
+        const raw = rest[maxBytesIndex + 1];
+        const parsed = Number(raw);
+        if (
+          !Number.isFinite(parsed) ||
+          parsed <= 0 ||
+          !Number.isSafeInteger(parsed)
+        ) {
+          throw new Error(
+            `discover full --max-scan-bytes requires a positive safe integer (got: ${JSON.stringify(raw)})`,
+          );
+        }
+        maxBytes = parsed;
+      }
       logDiscoverPhase("discover full", 1, 5, "Scanning workspace demand");
       await generateDemandProfile(workingDirectory, projectRoot, maxBytes);
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");

@@ -132,8 +132,9 @@ async function computeDirectoryByteCounts(
 
   for (const filePath of files) {
     const relative = toRelativePosixPath(scanRoot, filePath);
-    /* c8 ignore next -- String.split always returns at least [\"\"], so ?? \".\" is provably unreachable */
-    const dir = relative.split("/")[0] ?? ".";
+    // Map root-level files to "." for directory grouping
+    const firstSegment = relative.split("/")[0];
+    const dir = firstSegment === relative ? "." : firstSegment;
     let size = 0;
     try {
       const s = await stat(filePath);

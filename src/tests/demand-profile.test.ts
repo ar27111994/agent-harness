@@ -1171,8 +1171,8 @@ void test("computeDirectoryByteCounts handles file at scan root", async () => {
       files,
     );
     assert.equal(result.length, 1);
-    // The relative path for a file at scan root is the filename itself
-    assert.equal(result[0]?.path, "rootfile.txt");
+    // Root-level files map to "." for directory grouping
+    assert.equal(result[0]?.path, ".");
   } finally {
     await rm(root, { force: true, recursive: true });
   }
