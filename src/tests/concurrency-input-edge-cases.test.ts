@@ -279,11 +279,9 @@ void test("resolveAllowedRealFilePath rejects symlink escapes from allowed roots
     const externalFile = join(externalDir, "secret.txt");
     await writeTextFile(externalFile, "sensitive data");
 
-    // Create symlink inside workspace pointing outside
     const symlinkPath = join(workspaceRoot, "escape-link");
     await symlink(externalFile, symlinkPath);
 
-    // resolveAllowedRealFilePath returns null for symlinks
     const result = await resolveAllowedRealFilePath(symlinkPath, [
       workspaceRoot,
     ]);
@@ -301,7 +299,6 @@ void test("concurrent quarantine review log writes do not corrupt", async () => 
     const reviewsPath = join(root, "reviews.jsonl");
     await writeTextFile(reviewsPath, "");
 
-    // Simulate concurrent quarantine review writes
     const ops = Array.from({ length: 15 }, (_, i) =>
       (async () => {
         const current = (await readTextFileOrNull(reviewsPath)) ?? "";
@@ -322,7 +319,6 @@ void test("concurrent quarantine review log writes do not corrupt", async () => 
     const results = await Promise.all(ops);
     assert.equal(results.length, 15);
 
-    // Verify log is readable and has entries
     const finalContent = await readTextFileOrNull(reviewsPath);
     assert.ok(finalContent !== null);
     assert.ok(finalContent.length > 0);
@@ -358,7 +354,6 @@ void test("concurrent mirror index reads survive writes", async () => {
 // ── 9. OMS chain tampering integration test ────────────────────────────
 
 void test("OMS trust chain detects tampered manifests via missing identity", () => {
-  // Legitimate manifest with identity bound
   const legitSignals = extractArdTrustSignals({
     identity: {
       type: "VerifiedPublisher",
@@ -366,18 +361,13 @@ void test("OMS trust chain detects tampered manifests via missing identity", () 
     },
     signature: { alg: "RS256", sig: "valid-base64" },
   });
-  const legitScore = computeArdTrustScore(legitSignals);
-  assert.ok(legitScore > 0, "legitimate manifest should have positive score");
+  assert.ok(computeArdTrustScore(legitSignals) > 0);
 
-  // Tampered manifest: identity field removed
   const tamperedSignals = extractArdTrustSignals({
     signature: { alg: "RS256", sig: "valid-base64" },
-    // No identity — chain broken
   });
-  const tamperedScore = computeArdTrustScore(tamperedSignals);
   assert.ok(
-    tamperedScore < legitScore,
-    "tampered manifest should score lower than legitimate",
+    computeArdTrustScore(tamperedSignals) < computeArdTrustScore(legitSignals),
   );
 });
 
@@ -392,8 +382,6 @@ void test("OMS trust chain: stripping attestations reduces score", () => {
       ],
     }),
   );
-
-  // Attestations stripped
   const stripped = computeArdTrustScore(
     extractArdTrustSignals({
       identity: { type: "VerifiedPublisher", value: "pub@example.com" },
@@ -401,11 +389,7 @@ void test("OMS trust chain: stripping attestations reduces score", () => {
       attestations: [],
     }),
   );
-
-  assert.ok(
-    stripped < full || stripped <= full,
-    `stripped (${stripped}) should not exceed full (${full})`,
-  );
+  assert.ok(stripped <= full);
 });
 
 // ── 10. Codex marketplace dedup / hook source edge cases ────────────────
@@ -431,8 +415,7 @@ void test("mergeCodexPluginMarketplace filters existing agent-harness entry and 
     assert.ok(names.includes("other-plugin"));
     assert.ok(names.includes("agent-harness"));
     const ahEntry = result.plugins.find((p) => p.name === "agent-harness");
-    assert.ok(ahEntry !== undefined);
-    assert.equal(ahEntry.path, "./agent-harness");
+    assert.equal(ahEntry?.path, "./agent-harness");
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -490,7 +473,6 @@ void test("mapEntryToArd handles 500+ catalog entries without failure", async ()
   const publisherFqdn = "ar27111994.dev";
   const version = "1.0.0";
 
-  // Minimal but type-complete AssetCatalogEntry builder
   const buildEntry = (i: number): Parameters<typeof mapEntryToArd>[0] =>
     ({
       id: `asset-${i}`,
@@ -544,17 +526,10 @@ void test("mapEntryToArd handles 500+ catalog entries without failure", async ()
   const entries = Array.from({ length: 550 }, (_, i) => buildEntry(i));
   const results = entries.map((e) => mapEntryToArd(e, publisherFqdn, version));
 
-  assert.equal(
-    results.length,
-    550,
-    "should produce an ARD entry for every input",
-  );
+  assert.equal(results.length, 550);
   for (const entry of results) {
-    assert.ok(
-      typeof entry.identifier === "string",
-      "every entry should have an identifier",
-    );
-    assert.ok(typeof entry.type === "string", "every entry should have a type");
+    assert.ok(typeof entry.identifier === "string");
+    assert.ok(typeof entry.type === "string");
   }
 });
 
@@ -592,11 +567,8 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
       "opencode",
       "activation-manifest.json",
     );
-
-    // Ensure parent directory exists
     await ensureDirectory(join(root, "activate", "opencode"));
 
-    // Seed initial manifest
     const initialManifest = {
       schemaVersion: 1,
       activeAssets: ["asset-base"],
@@ -604,31 +576,33 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
     };
     await writeTextFile(activationPath, JSON.stringify(initialManifest));
 
-    // 10 concurrent activation writes with retry on TOCTOU parse failures
     const ops = Array.from({ length: 10 }, (_, i) =>
       (async () => {
-        let parsed: {
-          activeAssets?: string[];
-          generatedAt?: string;
-          schemaVersion?: number;
-        };
-        // Retry up to 3 times on JSON parse failure (TOCTOU race)
+        let parsed:
+          | {
+              activeAssets?: string[];
+              generatedAt?: string;
+              schemaVersion?: number;
+            }
+          | undefined;
         for (let attempt = 0; attempt < 3; attempt++) {
           const current = (await readTextFileOrNull(activationPath)) ?? "{}";
           try {
-            parsed = JSON.parse(current) as typeof parsed;
+            parsed = JSON.parse(current) as NonNullable<typeof parsed>;
             break;
           } catch {
             if (attempt === 2)
-              throw new Error(`Failed to parse manifest after 3 attempts`);
+              throw new Error("Failed to parse manifest after 3 attempts");
             await new Promise((r) => setTimeout(r, 10));
           }
         }
-        const assets = [...(parsed!.activeAssets ?? []), `asset-${i}`];
+        if (!parsed)
+          throw new Error("unreachable: parsed not set after retry loop");
+        const assets = [...(parsed.activeAssets ?? []), `asset-${i}`];
         await writeTextFile(
           activationPath,
           JSON.stringify({
-            ...parsed!,
+            ...parsed,
             activeAssets: assets,
             generatedAt: new Date().toISOString(),
           }),
@@ -640,11 +614,57 @@ void test("concurrent activation manifest writes do not corrupt", async () => {
     const results = await Promise.all(ops);
     assert.equal(results.length, 10);
 
-    // Verify manifest is valid JSON
     const finalContent = await readTextFileOrNull(activationPath);
     assert.ok(finalContent !== null);
     const finalParsed = JSON.parse(finalContent) as { activeAssets?: string[] };
     assert.ok(Array.isArray(finalParsed.activeAssets));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+// ── 14. Install progress concurrency test ──────────────────────────────
+
+void test("concurrent install progress writes do not corrupt", async () => {
+  const root = await mkdtempFixture("concurrent-install");
+  try {
+    const installDir = join(root, "install");
+    await mkdir(installDir, { recursive: true });
+    const progressPath = join(installDir, "progress.json");
+
+    await writeTextFile(
+      progressPath,
+      JSON.stringify({ steps: [{ id: "base", status: "pending" }] }),
+    );
+
+    const ops = Array.from({ length: 12 }, (_, i) =>
+      (async () => {
+        const current = (await readTextFileOrNull(progressPath)) ?? "{}";
+        const steps = ((): { id: string; status: string }[] => {
+          try {
+            const parsed = JSON.parse(current) as {
+              steps?: { id: string; status: string }[];
+            };
+            return [
+              ...(parsed.steps ?? []),
+              { id: `step-${i}`, status: "done" },
+            ];
+          } catch {
+            return [{ id: `step-${i}`, status: "done" }];
+          }
+        })();
+        await writeTextFile(progressPath, JSON.stringify({ steps }));
+        return i;
+      })(),
+    );
+
+    const results = await Promise.all(ops);
+    assert.equal(results.length, 12);
+
+    const finalContent = await readTextFileOrNull(progressPath);
+    assert.ok(finalContent !== null);
+    const finalParsed = JSON.parse(finalContent) as { steps?: unknown[] };
+    assert.ok(Array.isArray(finalParsed.steps));
   } finally {
     await rm(root, { recursive: true, force: true });
   }
