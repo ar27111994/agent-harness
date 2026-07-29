@@ -50,10 +50,10 @@ async function searchRegistry(
       timeoutMs: registriesConfig.fetchTimeoutMs,
     });
     return adapter.extractResults(data).filter((r) => r.name.length > 0);
-  } catch (error) {
     /* c8 ignore start -- fetchJsonWithGuards catches all errors and returns null;
        all adapters' extractResults handle null gracefully returning [].
        This is a provably unreachable defensive guard. */
+  } catch (error) {
     console.warn(
       `searchRegistry unexpected error for ${adapter.buildUrl(normalized, limit).hostname}: ${error instanceof Error ? error.message : String(error)}`,
     );
