@@ -231,8 +231,13 @@ export async function runDiscover(
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
+      const maxBytesIndex = rest.indexOf("--max-scan-bytes");
+      const maxBytes =
+        maxBytesIndex >= 0 && maxBytesIndex + 1 < rest.length
+          ? Number(rest[maxBytesIndex + 1])
+          : undefined;
       logDiscoverPhase("discover full", 1, 5, "Scanning workspace demand");
-      await generateDemandProfile(workingDirectory, projectRoot);
+      await generateDemandProfile(workingDirectory, projectRoot, maxBytes);
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
       await generateSourceIndex(projectRoot);
       logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
@@ -327,8 +332,9 @@ export async function runDiscover(
 async function generateDemandProfile(
   scanRoot: string,
   projectRoot: string,
+  maxBytes?: number,
 ): Promise<DemandProfile> {
-  const demandProfile = await buildDemandProfile(scanRoot);
+  const demandProfile = await buildDemandProfile(scanRoot, { maxBytes });
   const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH);
   await writeJsonFile(outputPath, demandProfile);
 

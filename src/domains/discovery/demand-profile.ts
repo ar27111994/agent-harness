@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { stat } from "node:fs/promises";
 
 import {
   listFilesRecursiveWithTelemetry,
@@ -23,8 +24,14 @@ import {
  */
 export async function buildDemandProfile(
   scanRoot: string,
+  options: { maxBytes?: number } = {},
 ): Promise<DemandProfile> {
-  const scanResult = await listFilesRecursiveWithTelemetry(scanRoot);
+  const budgetOptions = options.maxBytes ? { maxBytes: options.maxBytes } : {};
+  const scanResult = await listFilesRecursiveWithTelemetry(
+    scanRoot,
+    undefined,
+    budgetOptions,
+  );
   const scannedFiles = scanResult.files;
   const evidence: DemandEvidence[] = [];
   const aggregateSignals = createEmptySignalSet();
@@ -79,17 +86,16 @@ export async function buildDemandProfile(
     const reason = scanResult.telemetry.truncationReason ?? "budget-exceeded";
     const mb = (scanResult.telemetry.visitedBytes / 1_048_576).toFixed(1);
 
-    // Compute the top directories by scanned file count to help users
-    // identify which directories to add to .agent-harnessignore.
-    const dirCounts = computeDirectoryScanCounts(scanRoot, scannedFiles);
+    // Compute top directories by byte count for actionable guidance
+    const dirCounts = await computeDirectoryByteCounts(scanRoot, scannedFiles);
     const topDirs = dirCounts.slice(0, 5);
 
     let dirGuidance = "";
     if (topDirs.length > 0) {
       const dirLines = topDirs.map(
-        (d) => `    ${d.path} (${d.scannedFiles} files scanned)`,
+        (d) => `    ${d.path} (${(d.bytes / 1_048_576).toFixed(1)} MB)`,
       );
-      dirGuidance = `\n  Top directories by scan count:\n${dirLines.join("\n")}\n`;
+      dirGuidance = `\n  Top directories by scan bytes:\n${dirLines.join("\n")}\n`;
     }
 
     const ignorePath = `${toPosixPath(scanRoot)}/.agent-harnessignore`;
@@ -104,7 +110,7 @@ export async function buildDemandProfile(
         `${dirGuidance}` +
         `  To fix:\n` +
         `    • Create ${ignorePath} and add patterns for large directories\n` +
-        `    • Or increase the limit via AGENT_HARNESS_SCAN_MAX_BYTES (currently ${mb} MB visited)\n` +
+        `    • Or increase the limit via --max-scan-bytes (or AGENT_HARNESS_SCAN_MAX_BYTES env var, currently ${mb} MB visited)\n` +
         `    • Run 'discover full' again after excluding unnecessary directories\n`,
     );
   }
@@ -113,23 +119,31 @@ export async function buildDemandProfile(
 }
 
 /**
- * Computes the top directories by file count from a list of scanned file
- * paths. Used to generate actionable truncation-warning guidance.
+ * Computes the top directories by byte count from a list of scanned file
+ * paths. Stats each file to measure actual bytes consumed per top-level
+ * directory. Files that cannot be statted (deleted mid-scan) are skipped.
+ * Used to generate actionable truncation-warning guidance.
  */
-function computeDirectoryScanCounts(
+async function computeDirectoryByteCounts(
   scanRoot: string,
   files: string[],
-): Array<{ path: string; scannedFiles: number }> {
-  const dirCounts = new Map<string, number>();
+): Promise<Array<{ path: string; bytes: number }>> {
+  const dirBytes = new Map<string, number>();
 
   for (const filePath of files) {
     const relative = toRelativePosixPath(scanRoot, filePath);
-    /* c8 ignore next */
     const dir = relative.split("/")[0] ?? ".";
-    dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
+    let size = 0;
+    try {
+      const s = await stat(filePath);
+      size = s.size;
+    } catch {
+      // File may have been deleted between scan and stat — skip
+    }
+    dirBytes.set(dir, (dirBytes.get(dir) ?? 0) + size);
   }
 
-  return [...dirCounts.entries()]
-    .map(([path, scannedFiles]) => ({ path, scannedFiles }))
-    .sort((a, b) => b.scannedFiles - a.scannedFiles);
+  return [...dirBytes.entries()]
+    .map(([path, bytes]) => ({ path, bytes }))
+    .sort((a, b) => b.bytes - a.bytes);
 }
