@@ -50,11 +50,12 @@ async function searchRegistry(
       timeoutMs: registriesConfig.fetchTimeoutMs,
     });
     return adapter.extractResults(data).filter((r) => r.name.length > 0);
-    /* c8 ignore start -- fetchJsonWithGuards catches internally and returns null; outer catch is an unreachable defensive guard */
-  } catch {
+  } catch (error) {
+    console.warn(
+      `searchRegistry unexpected error for ${adapter.buildUrl(normalized, limit).hostname}: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return [];
   }
-  /* c8 ignore stop */
 }
 
 /**

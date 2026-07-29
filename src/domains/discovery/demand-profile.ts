@@ -79,15 +79,15 @@ export async function buildDemandProfile(
     const reason = scanResult.telemetry.truncationReason ?? "budget-exceeded";
     const mb = (scanResult.telemetry.visitedBytes / 1_048_576).toFixed(1);
 
-    // Compute the top directories by file count to help users identify
-    // which directories to add to .agent-harnessignore.
+    // Compute the top directories by scanned file count to help users
+    // identify which directories to add to .agent-harnessignore.
     const dirCounts = computeDirectoryScanCounts(scanRoot, scannedFiles);
     const topDirs = dirCounts.slice(0, 5);
 
     let dirGuidance = "";
     if (topDirs.length > 0) {
       const dirLines = topDirs.map(
-        (d) => `    ${d.path} (${d.fileCount} files)`,
+        (d) => `    ${d.path} (${d.scannedFiles} files scanned)`,
       );
       dirGuidance = `\n  Top directories by scan count:\n${dirLines.join("\n")}\n`;
     }
@@ -119,20 +119,17 @@ export async function buildDemandProfile(
 function computeDirectoryScanCounts(
   scanRoot: string,
   files: string[],
-): Array<{ path: string; fileCount: number }> {
+): Array<{ path: string; scannedFiles: number }> {
   const dirCounts = new Map<string, number>();
 
   for (const filePath of files) {
-    // Extract the immediate parent directory relative to scanRoot.
     const relative = toRelativePosixPath(scanRoot, filePath);
-    // Every file path has at least one component; the "." fallback is
-    // defensive against empty-string inputs that c8 flags as a false branch.
     /* c8 ignore next */
     const dir = relative.split("/")[0] ?? ".";
     dirCounts.set(dir, (dirCounts.get(dir) ?? 0) + 1);
   }
 
   return [...dirCounts.entries()]
-    .map(([path, fileCount]) => ({ path, fileCount }))
-    .sort((a, b) => b.fileCount - a.fileCount);
+    .map(([path, scannedFiles]) => ({ path, scannedFiles }))
+    .sort((a, b) => b.scannedFiles - a.scannedFiles);
 }
