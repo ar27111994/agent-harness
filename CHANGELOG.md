@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-06-09
+
+### Breaking Changes
+
+- **Demand-scan file ordering changed** — binary files are now deprioritised below source files in demand-scan ordering (previously binary and source files were interleaved lexicographically). Tools or tests that assert a fixed scan order or specific truncation behaviour may need to be updated (#280).
+- **`.worktrees/` directories excluded from all scans** — file discovery, demand detection, and source-sync traversal now skip `.worktrees/` subdirectories. Workspaces that deliberately stored assets inside `.worktrees/` will no longer have them picked up (#277).
+- **Packagist registry enforces a hard 500-entry cap** — Packagist source-sync stops at 500 entries per source. Operators who previously indexed full high-volume Packagist namespaces will observe a reduced catalog for those sources (#286).
+- **`source-health` dormant/never-synced `reason` field is now always populated** — previously the `reason` field on dormant and never-synced entries was an empty string; it now carries a descriptive message. Code that matched on empty-string reason will need to update its checks (#281).
+
 ### Fixed
 
 - **ard-export Prettier compliance** — `discover ard-export` now formats `.well-known/ai-catalog.json` with Prettier inline, so the output passes `npm run format:check` immediately after generation (#348)
@@ -18,26 +27,6 @@ All notable changes to this project will be documented in this file.
 - **Duplicate retry-loop code eliminated** — extracted shared `fetchWithRetry<T>()` generic, eliminating ~60 lines of copy-pasted retry logic across `fetchRequiredText` / `fetchRequiredJson` (S1)
 - **Error discrimination hardened** — replaced fragile string-matching `isNonTransientError()` with `NonTransientFetchError` class + structured HTTP 4xx status check (J1)
 - **Prettier error visibility** — `ard-catalog` catch block now logs `console.warn` with the error cause when Prettier formatting is skipped, instead of silently swallowing (J2)
-
-### Added
-
-- **`--quiet` / `--summary` flags for `discover full`** — `--quiet` suppresses expected "none survived selection" warnings; `--summary` prints aggregate breakdown by reason instead of per-source counts (#352)
-- **`SelectionReport.acceptanceRate`** — computed as `selectedCount / inputCount` (rounded to 4 decimal places); 0 when inputCount is 0. Backfilled for pre-v2.0.0 reports (#353)
-- **`SourceSyncStatus` extended** — new `"stale"` variant for sources using fallback data after transient fetch failures
-
-### Changed
-
-- **Activation budget lookup** — replaced sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
-- **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` for consistency (#356 item 6)
-
-## [2.0.0] - 2026-06-09
-
-### Breaking Changes
-
-- **Demand-scan file ordering changed** — binary files are now deprioritised below source files in demand-scan ordering (previously binary and source files were interleaved lexicographically). Tools or tests that assert a fixed scan order or specific truncation behaviour may need to be updated (#280).
-- **`.worktrees/` directories excluded from all scans** — file discovery, demand detection, and source-sync traversal now skip `.worktrees/` subdirectories. Workspaces that deliberately stored assets inside `.worktrees/` will no longer have them picked up (#277).
-- **Packagist registry enforces a hard 500-entry cap** — Packagist source-sync stops at 500 entries per source. Operators who previously indexed full high-volume Packagist namespaces will observe a reduced catalog for those sources (#286).
-- **`source-health` dormant/never-synced `reason` field is now always populated** — previously the `reason` field on dormant and never-synced entries was an empty string; it now carries a descriptive message. Code that matched on empty-string reason will need to update its checks (#281).
 
 ### Added
 
@@ -78,6 +67,9 @@ All notable changes to this project will be documented in this file.
 - Comprehensive catalog breadth documentation — new `docs/guides/CATALOG-BREADTH.md` guide with two-phase offline index workflow, production configuration table, source coverage breakdown, scheduled CI workflow template, and catalog size projections; README updated with "Building a comprehensive catalog" section
 - VS Code Marketplace popularity sweep default raised from 10 to 50 pages (2,500 extensions by install count, configurable via `AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES`) for offline index builds
 - Fixed skills-sh registry source — sitemap URL updated to `www.skills.sh` (308 redirect) and leaf predicate expanded to match `sitemap-(skills|agents|misc|owners)` patterns (#336)
+- **`--quiet` / `--summary` flags for `discover full`** — `--quiet` suppresses expected "none survived selection" warnings; `--summary` prints aggregate breakdown by reason instead of per-source counts (#352)
+- **`SelectionReport.acceptanceRate`** — computed as `selectedCount / inputCount` (rounded to 4 decimal places); 0 when inputCount is 0. Backfilled for pre-v2.0.0 reports (#353)
+- **`SourceSyncStatus` extended** — new `"stale"` variant for sources using fallback data after transient fetch failures
 
 ### Changed
 
@@ -88,6 +80,8 @@ All notable changes to this project will be documented in this file.
 - recommendation policy maps now recognize the newly emitted demand/stack terms so detection, policy quality, and recommendation validation stay aligned
 - `source-sync.ts` (1,916 lines) decomposed into 16 focused sub-modules under `src/domains/discovery/source-sync/` — shared types, state I/O, fetching, HTML engines, references, reporting, orchestrator, and 9 per-registry adapters — with `source-sync.ts` retained as a thin re-export barrel so all existing import paths are unchanged for #270
 - `no-magic-numbers` ESLint rule expanded to `activate.ts`, `official-index-harvester.ts`, and `demand-signals.ts`; 11 new named constants extracted (`COPILOT_PROFILE_ID_MAX_LENGTH`, `COPILOT_VSCODE_ACTIVATION_BUDGET`, `OPENCODE_ACTIVATION_BUDGET`, `DEFAULT_ACTIVATION_BUDGET`, `FOCUSED_ACTIVATION_BUCKET_MAX_SIZE`, `COPILOT_FALLBACK_SKILL_POOL_LIMIT`, `COPILOT_PROFILE_ID_ASSET_SEGMENT_COUNT`, `OFFICIAL_FIRST_PARTY_SOURCE_PRIORITY`, `NON_FIRST_PARTY_SOURCE_PRIORITY`, `MAX_DEPENDENCY_SIGNALS_PER_FILE`, `TEXT_SIGNAL_READ_LIMIT`) for #271
+- **Activation budget lookup** — replaced sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
+- **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` for consistency (#356 item 6)
 
 ### Fixed
 
