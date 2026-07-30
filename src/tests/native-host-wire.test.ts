@@ -798,7 +798,7 @@ void test("Zed native wire rolls back partial apply when host settings are not a
         workspaceRoot: fixture.workspaceRoot,
         mode: "apply",
       }),
-      /Expected .*\.zed\/settings\.json to contain a JSON object, but found array/u,
+      /Zed settings\.json is not a JSON object \(found array\)/u,
     );
 
     assert.equal(

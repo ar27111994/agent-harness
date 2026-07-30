@@ -1516,6 +1516,45 @@ void test("writeZedNativeFiles propagates non-ENOENT read errors instead of fall
   }
 });
 
+void test("writeZedNativeFiles throws on primitive-string settings.json root", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-zed-primitive-"));
+  try {
+    const workspaceRoot = join(root, "workspace");
+    const managedRoot = join(workspaceRoot, ".zed", "agent-harness");
+    await mkdir(join(workspaceRoot, ".zed"), { recursive: true });
+    // Write a JSON string literal as root — not an object or array
+    await writeFile(
+      join(workspaceRoot, ".zed", "settings.json"),
+      '"just a string"',
+      "utf8",
+    );
+    const opts: WireNativeFilesOptions = {
+      workspaceRoot,
+      managedRoot,
+      nativeAssets: [],
+      materializedAssets: {
+        instructionFiles: [],
+        agentFiles: [],
+        skillDirs: [],
+        pluginDirs: [],
+        hookFiles: [],
+        hookContentPathByAssetId: {},
+        workflowFiles: [],
+        referenceFiles: [],
+        extensionIds: [],
+        mcpServers: [],
+      },
+      mcpServers: [],
+    };
+    await assert.rejects(
+      writeZedNativeFiles(opts),
+      /not a JSON object \(found string\)/u,
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 void test("upsertManagedPiSettings no-ops when all managed entries already exist", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-pi-exists-"));
   try {

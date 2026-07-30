@@ -78,8 +78,9 @@ export async function writeZedNativeFiles(
     );
   }
   if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
+    const found = Array.isArray(parsed) ? "array" : typeof parsed;
     throw new Error(
-      `Zed settings.json is not a JSON object (found ${typeof parsed}). ` +
+      `Zed settings.json is not a JSON object (found ${found}). ` +
         `Please add the agent-harness profile manually:\n` +
         `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
     );
