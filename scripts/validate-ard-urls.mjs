@@ -116,5 +116,4 @@ export function runCliIfDirect(guardValue, options) {
   return undefined;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 runCliIfDirect(isDirectExecution);
