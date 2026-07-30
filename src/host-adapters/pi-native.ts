@@ -21,8 +21,7 @@ import {
 import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
-
-Writes Pi-native managed files.
+ * Writes Pi-native managed files.
  */
 export async function writePiNativeFiles(
   options: WireNativeFilesOptions,

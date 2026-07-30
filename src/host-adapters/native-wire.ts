@@ -61,13 +61,12 @@ import type {
   LifecycleActivationHost,
   MaterializedNativeAssets,
   NativeAsset,
+  NativeHost,
   NativeHostSpec,
 } from "./native-utils.js";
 
-/**
- * Defines the supported native wire host values.
- */
-export type NativeWireHost = "cursor" | "zed" | "claude-code" | "pi" | "codex";
+/** Re-export NativeHost for consumers that reference the wire-layer host type. */
+export type NativeWireHost = NativeHost;
 
 /**
  * Activation lifecycle host identifier.
@@ -401,6 +400,7 @@ async function materializeNativeAssets(
     skillDirs: [],
     pluginDirs: [],
     hookFiles: [],
+    hookContentPathByAssetId: {},
     workflowFiles: [],
     referenceFiles: [],
     extensionIds: [],
@@ -438,6 +438,8 @@ async function materializeNativeAssets(
         break;
       case "hook":
         materializedAssets.hookFiles.push(contentPath);
+        materializedAssets.hookContentPathByAssetId[nativeAsset.assetId] =
+          contentPath;
         break;
       case "workflow":
       case "prompt-pack":
@@ -652,9 +654,6 @@ async function captureManagedTextFileSnapshots(
   return snapshots;
 }
 
-/**
- * Exposes text-file snapshot restore for per-host adapter use.
- */
 /** Lookup table mapping AssetKind to managed file names. */
 const ASSET_KIND_FILE_NAMES: Record<string, string> = {
   skill: "SKILL.md",
@@ -709,6 +708,7 @@ function sortMaterializedAssets(
     skillDirs: [...materializedAssets.skillDirs].sort(),
     pluginDirs: [...materializedAssets.pluginDirs].sort(),
     hookFiles: [...materializedAssets.hookFiles].sort(),
+    hookContentPathByAssetId: materializedAssets.hookContentPathByAssetId,
     workflowFiles: [...materializedAssets.workflowFiles].sort(),
     referenceFiles: [...materializedAssets.referenceFiles].sort(),
     extensionIds: uniqueStrings(materializedAssets.extensionIds),

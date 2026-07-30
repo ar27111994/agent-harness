@@ -11,6 +11,7 @@ import {
   buildPromptTemplate,
   buildSkillFile,
   directoryNameForAssetKind,
+  removeEmptyParentDirectories,
 } from "./native-utils.js";
 import type {
   JsonObject,
@@ -19,8 +20,7 @@ import type {
 } from "./native-utils.js";
 
 /**
-
-Writes Cursor-native managed files.
+ * Writes Cursor-native managed files.
  */
 export async function writeCursorNativeFiles(
   options: WireNativeFilesOptions,
@@ -66,7 +66,7 @@ export async function writeCursorNativeFiles(
 }
 
 /**
-Stages Cursor plugin-compatible assets.
+ * Stages Cursor plugin-compatible assets.
  */
 export async function writeCursorPluginFiles(options: {
   managedRoot: string;
@@ -101,7 +101,7 @@ export async function writeCursorPluginFiles(options: {
 }
 
 /**
-Writes Cursor native agent markdown files.
+ * Writes Cursor native agent markdown files.
  */
 export async function writeCursorNativeAgentFiles(
   workspaceRoot: string,
@@ -128,7 +128,7 @@ export async function writeCursorNativeAgentFiles(
 }
 
 /**
-Builds a Cursor plugin manifest from asset kinds.
+ * Builds a Cursor plugin manifest from asset kinds.
  */
 export function buildCursorPluginManifest(
   assetKinds: Set<AssetKind>,
@@ -211,5 +211,17 @@ export async function resetCursorNativeHost(
   await removePath(
     join(workspaceRoot, ".cursor", "rules", "agent-harness.mdc"),
   );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".cursor", "rules"),
+    workspaceRoot,
+  );
   await removePath(join(workspaceRoot, ".cursor", "agents", "agent-harness"));
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".cursor", "agents"),
+    workspaceRoot,
+  );
+  await removeEmptyParentDirectories(
+    join(workspaceRoot, ".cursor"),
+    workspaceRoot,
+  );
 }

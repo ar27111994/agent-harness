@@ -18,6 +18,7 @@ import {
 } from "../host-adapters/registry.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { writeZedNativeFiles } from "../host-adapters/zed-native.js";
+import { upsertManagedPiSettings } from "../host-adapters/native-utils.js";
 import type { WireNativeFilesOptions } from "../host-adapters/native-utils.js";
 import type {
   AssetCatalogEntry,
@@ -1393,6 +1394,7 @@ void test("writeZedNativeFiles throws on JSONC parse errors in settings.json", a
         skillDirs: [],
         pluginDirs: [],
         hookFiles: [],
+        hookContentPathByAssetId: {},
         workflowFiles: [],
         referenceFiles: [],
         extensionIds: [],
@@ -1437,6 +1439,7 @@ void test("writeZedNativeFiles falls back to mergeJsonFile when settings.json st
         skillDirs: [],
         pluginDirs: [],
         hookFiles: [],
+        hookContentPathByAssetId: {},
         workflowFiles: [],
         referenceFiles: [],
         extensionIds: [],
@@ -1473,6 +1476,93 @@ void test("writeZedNativeFiles falls back to mergeJsonFile when settings.json st
       "fallback output should use two-space indentation",
     );
     assert.ok(raw.endsWith("\n"), "fallback output should end with newline");
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("writeZedNativeFiles propagates non-ENOENT read errors instead of falling back to merge", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-zed-eisdir-"));
+  try {
+    const workspaceRoot = join(root, "workspace");
+    const managedRoot = join(workspaceRoot, ".zed", "agent-harness");
+    // Create .zed/settings.json as a directory — readFile on a directory
+    // returns EISDIR, not ENOENT, so the catch fallback must propagate.
+    await mkdir(join(workspaceRoot, ".zed", "settings.json"), {
+      recursive: true,
+    });
+    const opts: WireNativeFilesOptions = {
+      workspaceRoot,
+      managedRoot,
+      nativeAssets: [],
+      materializedAssets: {
+        instructionFiles: [],
+        agentFiles: [],
+        skillDirs: [],
+        pluginDirs: [],
+        hookFiles: [],
+        hookContentPathByAssetId: {},
+        workflowFiles: [],
+        referenceFiles: [],
+        extensionIds: [],
+        mcpServers: [],
+      },
+      mcpServers: [],
+    };
+    await assert.rejects(writeZedNativeFiles(opts));
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("upsertManagedPiSettings no-ops when all managed entries already exist", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-pi-exists-"));
+  try {
+    const settingsPath = join(root, ".pi", "settings.json");
+    await mkdir(dirname(settingsPath), { recursive: true });
+    // Pre-populate with the managed entries already present
+    await writeFile(
+      settingsPath,
+      JSON.stringify({
+        skills: ["skills/agent-harness"],
+        prompts: ["prompts/agent-harness.md"],
+      }),
+      "utf8",
+    );
+    await upsertManagedPiSettings(settingsPath);
+    const updated = JSON.parse(await readFile(settingsPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(updated.skills, ["skills/agent-harness"]);
+    assert.deepEqual(updated.prompts, ["prompts/agent-harness.md"]);
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("removeManagedPiSettings handles non-string and non-array entries gracefully", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-pi-nonarray-"));
+  try {
+    const settingsPath = join(root, ".pi", "settings.json");
+    await mkdir(dirname(settingsPath), { recursive: true });
+    // skills is a non-array value — coerceStringArray must handle this
+    await writeFile(
+      settingsPath,
+      JSON.stringify({
+        skills: "not-an-array",
+        prompts: true,
+      }),
+      "utf8",
+    );
+    const { removeManagedPiSettings } =
+      await import("../host-adapters/native-utils.js");
+    await removeManagedPiSettings(settingsPath, root);
+    // File should be removed: both "skills" and "prompts" were non-array
+    // values so coerceStringArray returned [], removing both keys, leaving
+    // an empty object which writeOrRemoveJsonFile deletes.
+    const raw = await readFile(settingsPath, "utf8").catch(() => null);
+    assert.equal(raw, null, "file should be removed when all keys are empty");
   } finally {
     await rm(root, { force: true, recursive: true });
   }

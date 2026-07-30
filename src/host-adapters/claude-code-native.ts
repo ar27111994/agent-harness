@@ -20,8 +20,7 @@ import {
 import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
-
-Writes Claude Code-native managed files.
+ * Writes Claude Code-native managed files.
  */
 export async function writeClaudeCodeNativeFiles(
   options: WireNativeFilesOptions,

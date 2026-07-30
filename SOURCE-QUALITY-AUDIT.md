@@ -35,7 +35,7 @@ The codebase is well-structured, strictly typed, and written with clear conventi
 
 | File                          | Count  | Pattern                                                                                                                                                             |
 | ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/package-registries.ts`   | **12** | All 6 registry searchers (npmSearch, pypiSearch, cratesSearch, nugetSearch, mavenSearch, packagistSearch, rubygemsSearch) each have 1–2 bare catches returning `[]` |
+| `src/package-registries.ts`   | **12** | All 7 registry searchers (npmSearch, pypiSearch, cratesSearch, nugetSearch, mavenSearch, packagistSearch, rubygemsSearch) each have 1–2 bare catches returning `[]` |
 | `src/files.ts`                | 3      | `pathExists`, `pathEntryExists`, `ensureCleanDirectory` — acceptable (existence checks)                                                                             |
 | `src/github.ts`               | 2      | Catch-and-continue in GitHub URL construction                                                                                                                       |
 | `src/official-index.ts`       | 1      | Catch-return-null                                                                                                                                                   |
@@ -137,13 +137,15 @@ These are path segment indices from `github.com/OWNER/REPO/blob/REF/path`. Named
 
 ## 5. DRY VIOLATIONS
 
-### 5.1 [CRITICAL] Registry search functions — 6× near-identical copies
+### 5.1 ~~[CRITICAL]~~ Registry search functions — addressed via `searchRegistry()` extraction
 
 **File:** `src/package-registries.ts`
 
-Functions `fetchNpmSearch`, `fetchPypiSearch`, `fetchCratesSearch`, `fetchNugetSearch`, `fetchMavenSearch`, `fetchPackagistSearch`, `fetchRubyGemsSearch` all follow **exactly the same structure**:
+> **Status:** The shared `searchRegistry` higher-order function was extracted in PR #373, eliminating ~80% of the duplication. The 7 registry adapters now delegate to this common abstraction. This section is retained for historical context.
 
-```
+Functions `fetchNpmSearch`, `fetchPypiSearch`, `fetchCratesSearch`, `fetchNugetSearch`, `fetchMavenSearch`, `fetchPackagistSearch`, `fetchRubyGemsSearch` were originally 7 near-identical copies following exactly the same structure:
+
+```text
 1.  normalize query, exit early if empty
 2.  getRuntimeConfig().registries
 3.  try {
@@ -156,7 +158,7 @@ Functions `fetchNpmSearch`, `fetchPypiSearch`, `fetchCratesSearch`, `fetchNugetS
 10. } catch { return []; }
 ```
 
-**Impact:** ~250 lines of near-identical code. A common `searchRegistry` higher-order function or a registry adapter pattern could eliminate 80% of the duplication. Each is also individually untestable in isolation (same mocking needed 7×).
+**Impact (pre-refactor):** ~250 lines of near-identical code across 7 functions. Each was individually untestable in isolation (same mocking needed 7×). Now addressed — see status note above.
 
 ### 5.2 [HIGH] Capability arrays (registry.ts lines 78–149)
 

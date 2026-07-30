@@ -429,6 +429,7 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             schemaVersion: 2,
             plugins: [
               { name: "existing", path: "./existing" },
+              "ignored malformed entry",
               { name: "agent-harness", path: "./agent-harness" },
             ],
           },
@@ -1556,7 +1557,15 @@ void test("native wire internals clean failed applies and validate helper edge c
   );
   await writeTextFile(
     join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-    "{}\n",
+    JSON.stringify({
+      schemaVersion: 1,
+      plugins: [
+        { name: "agent-harness", path: "./agent-harness" },
+        "non-object-entry",
+        42,
+        { name: "third-party-plugin", version: "2.0" },
+      ],
+    }),
   );
   await nativeWireInternals.cleanupFailedNativeHostApply(
     nativeWireInternals.nativeHostSpecs.codex,
@@ -1579,8 +1588,9 @@ void test("native wire internals clean failed applies and validate helper edge c
     ),
     false,
   );
-  // Marketplace file is preserved with plugins:[] instead of deleted (#374).
-  // Verify the preserved content is valid JSON with the expected structure.
+  // Marketplace file is preserved with non-object entries intact (#374).
+  // Verify the preserved content has the expected structure and retains
+  // non-object values from the original plugins array.
   const mktContent = await readTextFileOrNull(
     join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
   );
@@ -1591,13 +1601,55 @@ void test("native wire internals clean failed applies and validate helper edge c
     "marketplace.json should still have a plugins array",
   );
   // No agent-harness entry remains in the filtered plugins
-  const pluginNames = (mkt.plugins as Array<Record<string, unknown>>).map(
-    (p) => p.name,
-  );
+  const plugins = mkt.plugins as Array<unknown>;
+  const pluginNames = plugins
+    .filter(
+      (p): p is Record<string, unknown> => typeof p === "object" && p !== null,
+    )
+    .map((p) => p.name);
   assert.ok(
     !pluginNames.includes("agent-harness"),
     "agent-harness plugin should be removed from marketplace",
   );
+  // Non-object entries must survive the filter
+  assert.ok(
+    plugins.includes("non-object-entry"),
+    "non-object string entry should be preserved in plugins",
+  );
+  assert.ok(
+    plugins.includes(42),
+    "non-object number entry should be preserved in plugins",
+  );
+  // Third-party plugin should still be present
+  assert.ok(
+    pluginNames.includes("third-party-plugin"),
+    "third-party-plugin should survive agent-harness removal",
+  );
+
+  // Test non-array plugins field: marketplace with plugins as a string
+  // should be handled gracefully without throwing.
+  await writeTextFile(
+    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+    JSON.stringify({ schemaVersion: 1, plugins: "not-an-array" }),
+  );
+  // create a minimal wire-plan so cleanup can find the managed root
+  await writeTextFile(join(codexManagedRoot, "wire-plan.json"), "{}\n");
+  await nativeWireInternals.cleanupFailedNativeHostApply(
+    nativeWireInternals.nativeHostSpecs.codex,
+    workspaceRoot,
+    codexManagedRoot,
+    codexActivationRoot,
+    [],
+  );
+  const afterNonArray = await readTextFileOrNull(
+    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+  );
+  assert.ok(
+    afterNonArray !== null,
+    "marketplace.json preserved with non-array plugins",
+  );
+  const nonArrayMkt = JSON.parse(afterNonArray) as Record<string, unknown>;
+  assert.deepEqual(nonArrayMkt.plugins, []);
 
   const piManagedRoot = join(workspaceRoot, ".pi", "agent-harness");
   const piActivationRoot = join(root, "project", "activate", "pi");

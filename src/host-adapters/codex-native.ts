@@ -7,7 +7,6 @@ import {
   writeJsonFile,
   writeTextFile,
 } from "../files.js";
-import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type {
   ManagedTextFileSnapshot,
   NativeConfigOperation,
@@ -91,6 +90,7 @@ export async function writeCodexNativeFiles(
       buildCodexHooksManifest(
         options.nativeAssets,
         options.materializedAssets.hookFiles,
+        options.materializedAssets.hookContentPathByAssetId,
         join(codexPluginRoot, codexPluginManifest.hooks),
       ),
     );
@@ -129,7 +129,11 @@ export async function mergeCodexPluginMarketplace(
   const marketplace = await readJsonFileOrNull<unknown>(filePath);
   const marketplaceObject =
     marketplace === null ? {} : assertJsonObject(marketplace, filePath);
-  const plugins = coerceJsonObjectArray(marketplaceObject.plugins).filter(
+  const rawPlugins = Array.isArray(marketplaceObject.plugins)
+    ? marketplaceObject.plugins
+    : [];
+  // Preserve non-object entries and filter out agent-harness
+  const plugins: unknown[] = rawPlugins.filter(
     (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
   );
   await writeJsonFile(filePath, {
@@ -177,28 +181,19 @@ export function buildCodexPluginManifest(
 export function buildCodexHooksManifest(
   nativeAssets: NativeAsset[],
   hookFiles: readonly string[],
+  hookContentPathByAssetId: Record<string, string>,
   manifestPath?: string,
 ): JsonObject {
   const manifestDirectory = manifestPath ? dirname(manifestPath) : undefined;
   const hookAssets = nativeAssets.filter(
     (nativeAsset) => nativeAsset.assetKind === "hook",
   );
-  // Build a lookup from asset slug to hook file path so sorting
-  // hookFiles cannot mispair manifest entries with the wrong asset.
-  const hookFileBySlug = new Map<string, string>();
-  for (const file of hookFiles) {
-    // Extract the slug from the hook file path (format: .../hooks/<slug>/hook.md)
-    const segments = file.replace(/\\/gu, "/").split("/");
-    const hooksIdx = segments.lastIndexOf("hooks");
-    if (hooksIdx >= 0 && hooksIdx + 1 < segments.length) {
-      hookFileBySlug.set(segments[hooksIdx + 1], file);
-    }
-  }
+  // Resolve each hook asset's content path from the materialized-assets map,
+  // avoiding dependency on the native-wire directory layout.
   return {
     schemaVersion: 1,
     hooks: hookAssets.map((nativeAsset) => {
-      const assetSlug = sanitizeAssetId(nativeAsset.assetId);
-      const matchedFile = hookFileBySlug.get(assetSlug);
+      const matchedFile = hookContentPathByAssetId[nativeAsset.assetId];
       return {
         name: nativeAsset.assetId,
         description: nativeAsset.displayName,
@@ -231,10 +226,6 @@ function buildCodexHookSource(
 
 function isNamedJsonObject(value: unknown, name: string): boolean {
   return isJsonObject(value) && value.name === name;
-}
-
-function coerceJsonObjectArray(value: unknown): JsonObject[] {
-  return Array.isArray(value) ? value.filter(isJsonObject) : [];
 }
 
 /**
@@ -292,8 +283,7 @@ async function removeCodexPluginMarketplaceEntry(
     : [];
   // Preserve non-object entries and filter out agent-harness
   const plugins = rawPlugins.filter(
-    (plugin) =>
-      !(isJsonObject(plugin) && isNamedJsonObject(plugin, "agent-harness")),
+    (plugin) => !isNamedJsonObject(plugin, "agent-harness"),
   );
   // Always preserve the file with all top-level keys intact
   await writeJsonFile(filePath, {

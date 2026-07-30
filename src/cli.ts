@@ -180,6 +180,7 @@ function runHelpCommand(
       "wire",
       "setup",
       "doctor",
+      "bundle",
     ]);
     const safeSubcommand = wasHelpRequested
       ? MUTATING_DOMAINS.has(domain)

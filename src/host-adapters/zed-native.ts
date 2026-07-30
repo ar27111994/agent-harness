@@ -24,8 +24,7 @@ import {
 import type { WireNativeFilesOptions } from "./native-utils.js";
 
 /**
-
-Writes Zed-native managed files.
+ * Writes Zed-native managed files.
  */
 export async function writeZedNativeFiles(
   options: WireNativeFilesOptions,
@@ -55,7 +54,15 @@ export async function writeZedNativeFiles(
   };
   try {
     // Parse as JSONC to preserve comments and trailing commas in user settings
-    const rawContent = await readFile(settingsPath, "utf8").catch(() => "{}");
+    const rawContent = await readFile(settingsPath, "utf8").catch((error) => {
+      if (
+        error instanceof Error &&
+        (error as NodeJS.ErrnoException).code === "ENOENT"
+      ) {
+        return "{}";
+      }
+      throw error;
+    });
     const errors: ParseError[] = [];
     // parseJsonc returns the parsed value; we validate it is an object so
     // modify() can navigate the path. Non-object roots (arrays, primitives)
@@ -90,13 +97,20 @@ export async function writeZedNativeFiles(
     );
     await writeFile(settingsPath, applyEdits(rawContent, edits), "utf8");
   } catch (error) {
+    // JSONC parse errors are already thrown explicitly with manual-setup
+    // instructions. Non-object-root and writeFile/permission errors must
+    // also propagate — falling back to mergeJsonFile in those cases would
+    // silently overwrite the file and discard the actionable error message.
     if (
       error instanceof Error &&
       error.message.includes("JSONC parse errors")
     ) {
       throw error;
     }
-    // Fall back to plain JSON merge for files without JSONC content
+    // Fall back to plain JSON merge only when the file exists and parses
+    // successfully but modify() / applyEdits cannot produce a valid result
+    // (e.g. the file is structurally valid JSON that jsonc-parser accepted
+    // but modify() could not navigate). This is a narrow defensive fallback.
     await mergeJsonFile(settingsPath, zedProfilePatch);
   }
 

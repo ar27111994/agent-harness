@@ -16,17 +16,17 @@ The suite is not merely exercising code paths — it validates real behavior wit
 
 ## 1. Strengths (What's Done Well)
 
-| Dimension             | Rating | Notes                                                                                                                                                      |
-| --------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Test isolation        | ★★★★★  | Every test uses `mkdtemp` + try/finally cleanup. No cross-test state leakage.                                                                              |
-| Behavioral validation | ★★★★★  | Tests verify file contents, exit codes, JSON structure, rendered output, not just "didn't crash".                                                          |
-| Edge case coverage    | ★★★★☆  | Empty inputs, malformed data, boundary values, schema mismatches, missing files all well-covered.                                                          |
-| Error handling        | ★★★★☆  | `assert.rejects` used extensively for expected failures; schema validation tested.                                                                         |
-| Security boundaries   | ★★★★★  | Path traversal prevention, wire-plan snapshot escape prevention, MCP path containment, pinned DNS lookups — all with working tests.                        |
-| Test naming           | ★★★★☆  | Descriptive names (e.g., `"recommendation policy rejects mismatched base override schemas"`). Minor inconsistency in `void test(...)` vs just `test(...)`. |
-| Integration testing   | ★★★★☆  | Real CLI subprocess execution (`runBuiltCli`), real file I/O, real Prettier formatting checks.                                                             |
-| Data-driven tests     | ★★★★☆  | Tables of test cases used in source-registry, recommendation-policy, preflight tests.                                                                      |
-| 100% coverage         | ★★★★★  | Achieved without sacrificing quality — the coverage is genuine, not inflated by shallow tests.                                                             |
+| Dimension             | Rating | Notes                                                                                                                                                       |
+| --------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Test isolation        | ★★★★☆  | ~70% of tests use `mkdtemp` + try/finally cleanup. The remaining 30% rely on module-level state reset or are pure-function tests that don't need isolation. |
+| Behavioral validation | ★★★★★  | Tests verify file contents, exit codes, JSON structure, rendered output, not just "didn't crash".                                                           |
+| Edge case coverage    | ★★★★☆  | Empty inputs, malformed data, boundary values, schema mismatches, missing files all well-covered.                                                           |
+| Error handling        | ★★★★☆  | `assert.rejects` used extensively for expected failures; schema validation tested.                                                                          |
+| Security boundaries   | ★★★★★  | Path traversal prevention, wire-plan snapshot escape prevention, MCP path containment, pinned DNS lookups — all with working tests.                         |
+| Test naming           | ★★★★☆  | Descriptive names (e.g., `"recommendation policy rejects mismatched base override schemas"`). Minor inconsistency in `void test(...)` vs just `test(...)`.  |
+| Integration testing   | ★★★★☆  | Real CLI subprocess execution (`runBuiltCli`), real file I/O, real Prettier formatting checks.                                                              |
+| Data-driven tests     | ★★★★☆  | Tables of test cases used in source-registry, recommendation-policy, preflight tests.                                                                       |
+| 100% coverage         | ★★★★★  | Achieved without sacrificing quality — the coverage is genuine, not inflated by shallow tests.                                                              |
 
 ---
 
@@ -234,7 +234,7 @@ This is cosmetic but inconsistent.
 | Weak tests (docs/minimal validation)                   | ~12 (9%)   |
 | Non-standard test files (not proper `test()` wrappers) | 2 (1.5%)   |
 | Security/input-sanitization tests                      | ~15 files  |
-| Concurrency tests                                      | **0**      |
+| Concurrency tests                                      | 1 file     |
 | Stress/large-input tests                               | **1 file** |
 | Files with per-test isolation (tmpdir)                 | ~70%       |
 | Files using `t.after()` for cleanup                    | ~30%       |

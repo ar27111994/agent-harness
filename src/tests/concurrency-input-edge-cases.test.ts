@@ -26,6 +26,7 @@ import {
   buildCodexHooksManifest,
 } from "../host-adapters/codex-native.js";
 import { mapEntryToArd } from "../ard-catalog.js";
+import { buildEntry } from "./test-helpers.js";
 
 const { extractArdTrustSignals, computeArdTrustScore } = ardRegistryInternals;
 
@@ -458,6 +459,7 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
       },
     ],
     [],
+    {},
   );
   assert.equal(
     (
@@ -467,7 +469,7 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
     )[0]?.source,
     "hook-no-file",
   );
-  // File path without "hooks/" segment cannot be slug-matched; falls back to asset ID
+  // File without matching content path entry falls back to asset ID
   const manifestNoDir = buildCodexHooksManifest(
     [
       {
@@ -479,6 +481,7 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
       },
     ],
     ["/path/to/hook.md"],
+    {},
   );
   assert.equal(
     (
@@ -496,57 +499,13 @@ void test("mapEntryToArd handles 500+ catalog entries without failure", () => {
   const publisherFqdn = "ar27111994.dev";
   const version = "1.0.0";
 
-  const buildEntry = (i: number): Parameters<typeof mapEntryToArd>[0] =>
-    ({
+  const entries = Array.from({ length: 550 }, (_, i) =>
+    buildEntry({
       id: `asset-${i}`,
       displayName: `Test Asset ${i}`,
       assetKind: "skill",
-      hosts: ["claude-code"],
-      compatibilityMode: "adaptable",
-      source: {
-        sourceId: "test-source",
-        authorityTier: "unverified-community",
-        sourceKind: "repo",
-        sourcePriority: 70,
-        originUrl: "https://example.com/test",
-        publisher: "test-publisher",
-        publisherVerified: false,
-      },
-      trust: { score: 50, signals: [] },
-      capabilities: ["test"],
-      install: {
-        method: "repo-reference",
-        manifestEntry: "https://example.com/test/manifest.json",
-      },
-      evidence: {
-        manifestFound: true,
-        readmeFound: true,
-        examplesFound: false,
-        docsLinked: true,
-        lineCount: 10,
-        rootPath: "https://example.com/test",
-        classification: null,
-      },
-      maintenance: {
-        lastUpdated: "2026-01-01T00:00:00Z",
-        stars: 0,
-        releaseCadence: "occasional",
-      },
-      risk: { hooks: false, execScripts: false, requiresNetwork: false },
-      contextCost: {
-        sizeClass: "tiny",
-        estimatedTokens: 100,
-        installSizeBytes: 0,
-      },
-      fit: { relevance: 0.5, freshness: 0.5, ecosystemMatch: 0.5 },
-      taxonomy: { domains: [], concerns: [], tooling: [] },
-      compliance: [],
-      prerequisites: [],
-      dedupe: { groupKey: "none", isPreferred: true },
-      status: "fresh",
-    }) as unknown as Parameters<typeof mapEntryToArd>[0];
-
-  const entries = Array.from({ length: 550 }, (_, i) => buildEntry(i));
+    }),
+  );
   const results = entries.map((e) => mapEntryToArd(e, publisherFqdn, version));
 
   assert.equal(results.length, 550);
@@ -712,6 +671,7 @@ void test("buildCodexHookSource returns hookFile when manifestDirectory undefine
       },
     ],
     [hookPath],
+    { [assetId]: hookPath },
   );
   const hooks = (result as Record<string, unknown>).hooks as Array<
     Record<string, unknown>

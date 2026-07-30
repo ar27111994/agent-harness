@@ -516,6 +516,7 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
           },
         ],
         [join(root, "hook.md")],
+        { "hook-with-file": join(root, "hook.md") },
       ),
       {
         schemaVersion: 1,
@@ -528,7 +529,7 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
           {
             name: "hook-with-file",
             description: "Hook With File",
-            source: "hook-with-file",
+            source: join(root, "hook.md"),
           },
         ],
       },

@@ -233,7 +233,10 @@ export async function runDiscover(
       const summaryMode = rest.includes("--summary");
       const maxBytesIndex = rest.indexOf("--max-scan-bytes");
       let maxBytes: number | undefined;
-      if (maxBytesIndex >= 0 && maxBytesIndex + 1 < rest.length) {
+      if (maxBytesIndex >= 0) {
+        if (maxBytesIndex + 1 >= rest.length) {
+          throw new Error("discover full --max-scan-bytes requires a value");
+        }
         const raw = rest[maxBytesIndex + 1];
         const parsed = Number(raw);
         if (

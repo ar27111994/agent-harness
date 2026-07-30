@@ -26,7 +26,8 @@ export async function buildDemandProfile(
   scanRoot: string,
   options: { maxBytes?: number } = {},
 ): Promise<DemandProfile> {
-  const budgetOptions = options.maxBytes ? { maxBytes: options.maxBytes } : {};
+  const budgetOptions =
+    options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {};
   const scanResult = await listFilesRecursiveWithTelemetry(
     scanRoot,
     undefined,
@@ -129,20 +130,26 @@ async function computeDirectoryByteCounts(
   files: string[],
 ): Promise<Array<{ path: string; bytes: number }>> {
   const dirBytes = new Map<string, number>();
+  const CONCURRENCY = 8;
 
-  for (const filePath of files) {
-    const relative = toRelativePosixPath(scanRoot, filePath);
-    // Map root-level files to "." for directory grouping
-    const firstSegment = relative.split("/")[0];
-    const dir = firstSegment === relative ? "." : firstSegment;
-    let size = 0;
-    try {
-      const s = await stat(filePath);
-      size = s.size;
-    } catch {
-      // File may have been deleted between scan and stat — skip
+  for (let i = 0; i < files.length; i += CONCURRENCY) {
+    const batch = files.slice(i, i + CONCURRENCY);
+    const results = await Promise.allSettled(
+      batch.map(async (filePath) => {
+        const relative = toRelativePosixPath(scanRoot, filePath);
+        const firstSegment = relative.split("/")[0];
+        const dir = firstSegment === relative ? "." : firstSegment;
+        const s = await stat(filePath);
+        return { dir, size: s.size };
+      }),
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        const { dir, size } = result.value;
+        dirBytes.set(dir, (dirBytes.get(dir) ?? 0) + size);
+      }
+      // Files that fail to stat (deleted mid-scan) are skipped
     }
-    dirBytes.set(dir, (dirBytes.get(dir) ?? 0) + size);
   }
 
   return [...dirBytes.entries()]

@@ -1128,8 +1128,23 @@ void test("demand profile truncation warning uses byte count ranking", async () 
     // With a very small budget, truncation should trigger
     const profile = await buildDemandProfile(root, { maxBytes: 200 });
     assert.ok(typeof profile.generatedAt === "string");
-    // The profile should still be generated even with truncation
-    assert.ok(profile.evidence !== undefined, "evidence should be present");
+    // Verify truncation ranks large directory ahead of small by byte count.
+    // The truncation warning writes top directories (by bytes) to stderr;
+    // computeDirectoryByteCounts is called to provide this ranking.
+    const dirCounts = await demandProfileInternals.computeDirectoryByteCounts(
+      root,
+      [join(root, "large", "big.txt"), join(root, "small", "file.txt")],
+    );
+    assert.ok(dirCounts.length >= 2, "should have entries for both dirs");
+    // large/ should rank first (5000 bytes) before small/ (4 bytes)
+    const largeIdx = dirCounts.findIndex((d) => d.path === "large");
+    const smallIdx = dirCounts.findIndex((d) => d.path === "small");
+    assert.ok(largeIdx >= 0, "large dir should be in ranking");
+    assert.ok(smallIdx >= 0, "small dir should be in ranking");
+    assert.ok(
+      largeIdx < smallIdx,
+      `large dir (${dirCounts[largeIdx]?.bytes} bytes) should rank before small dir (${dirCounts[smallIdx]?.bytes} bytes)`,
+    );
   } finally {
     clearRuntimeConfigForTests();
     await rm(root, { force: true, recursive: true });

@@ -4,7 +4,7 @@ This directory contains project documentation organized into four categories. Ea
 
 ## Directory structure
 
-```
+```text
 docs/
 ├── README.md           ← this file — category overview and navigation
 ├── demo/               ← reproducible terminal demo sources and walkthroughs

@@ -1465,15 +1465,20 @@ agent-harness/
 │   │   ├── discovery/
 │   │   └── wire/
 │   ├── host-adapters/
+│   │   ├── claude-code-native.ts
+│   │   ├── codex-native.ts
+│   │   ├── cursor-native.ts
 │   │   ├── extension-installer.ts
 │   │   ├── native-config.ts
 │   │   ├── native-utils.ts
 │   │   ├── native-wire.ts
 │   │   ├── opencode.ts
+│   │   ├── pi-native.ts
 │   │   ├── registry.ts
 │   │   ├── types.ts
 │   │   ├── vscode-settings.ts
-│   │   └── vscode.ts
+│   │   ├── vscode.ts
+│   │   └── zed-native.ts
 │   ├── install/
 │   ├── lib/
 │   ├── manifest-validation/

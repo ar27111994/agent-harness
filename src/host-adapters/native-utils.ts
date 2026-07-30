@@ -37,8 +37,11 @@ export type LifecycleActivationHost = "copilot-vscode" | "opencode";
 /**
  * Native wiring spec for a single AI coding host.
  */
+export type NativeHost = "cursor" | "zed" | "claude-code" | "pi" | "codex";
+
+/** Specifies the runtime configuration for a native host adapter. */
 export interface NativeHostSpec {
-  host: "cursor" | "zed" | "claude-code" | "pi" | "codex";
+  host: NativeHost;
   displayName: string;
   activationHost: LifecycleActivationHost;
   previewHost: string;
@@ -69,6 +72,8 @@ export interface MaterializedNativeAssets {
   skillDirs: string[];
   pluginDirs: string[];
   hookFiles: string[];
+  /** Maps assetId to its materialized content path for hook manifest resolution. */
+  hookContentPathByAssetId: Record<string, string>;
   workflowFiles: string[];
   referenceFiles: string[];
   extensionIds: string[];
@@ -91,7 +96,7 @@ export interface WireNativeFilesOptions {
  */
 export async function applyStructuredNativeConfig(
   workspaceRoot: string,
-  host: "cursor" | "zed" | "claude-code" | "pi" | "codex",
+  host: NativeHost,
   options: {
     nativeAssets: NativeAsset[];
   },
@@ -244,11 +249,18 @@ function extractManagedSectionContent(
   // contentStart is the position after the `-->` plus any whitespace/newline.
   const afterBegin = beginCommentEnd + 3;
   const newlineAfterBegin = text.indexOf("\n", afterBegin);
-  const contentStart =
-    newlineAfterBegin === -1 ? afterBegin : newlineAfterBegin + 1;
 
-  const endIdx = text.indexOf(endTag, contentStart);
+  const endIdx = text.indexOf(endTag, afterBegin);
   if (endIdx === -1) return null;
+  // If the end tag appears before any newline (inline markers on one line),
+  // extract content directly between the comment close and the end tag.
+  // Otherwise skip past the newline to avoid including leading whitespace
+  // from the comment line in the extracted content.
+  const contentStart =
+    newlineAfterBegin === -1 || endIdx < newlineAfterBegin
+      ? afterBegin
+      : newlineAfterBegin + 1;
+
   // Find the line start of the end tag
   const endLineStart = text.lastIndexOf("\n", endIdx);
   return text.slice(contentStart, endLineStart === -1 ? endIdx : endLineStart);
@@ -665,9 +677,9 @@ export function buildAssetMarkdown(nativeAsset: NativeAsset): string {
 }
 
 /**
- * Exposes agent-file builder for per-host adapter use.
+ * Builds a frontmatter-prefixed markdown file with a name and description.
  */
-export function buildAgentFile(
+function buildManagedFrontmatterFile(
   name: string,
   description: string,
   bodyLines: string[],
@@ -684,6 +696,17 @@ export function buildAgentFile(
 }
 
 /**
+ * Exposes agent-file builder for per-host adapter use.
+ */
+export function buildAgentFile(
+  name: string,
+  description: string,
+  bodyLines: string[],
+): string {
+  return buildManagedFrontmatterFile(name, description, bodyLines);
+}
+
+/**
  * Exposes skill-file builder for per-host adapter use.
  */
 export function buildSkillFile(
@@ -691,15 +714,7 @@ export function buildSkillFile(
   description: string,
   bodyLines: string[],
 ): string {
-  return [
-    "---",
-    `name: ${quoteFrontmatterScalar(name)}`,
-    `description: ${quoteFrontmatterScalar(description)}`,
-    "---",
-    "",
-    ...bodyLines,
-    "",
-  ].join("\n");
+  return buildManagedFrontmatterFile(name, description, bodyLines);
 }
 
 /**
@@ -798,10 +813,18 @@ function addManagedStringArrayEntries(
   key: string,
   entriesToAdd: readonly string[],
 ): void {
-  settings[key] = mergeStringArraysPreservingOrder(
-    coerceStringArray(settings[key]),
-    entriesToAdd,
+  const current: unknown[] = settings[key] as unknown[];
+  if (!Array.isArray(current)) {
+    settings[key] = [...entriesToAdd];
+    return;
+  }
+  const existingStrings = new Set(
+    current.filter((e): e is string => typeof e === "string"),
   );
+  const newEntries = entriesToAdd.filter((e) => !existingStrings.has(e));
+  if (newEntries.length > 0) {
+    settings[key] = [...current, ...newEntries];
+  }
 }
 
 /**
