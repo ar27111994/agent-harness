@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -472,6 +472,38 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
       false,
       "stateRoot must not be created by --help",
     );
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("discover full --no-sync skips source sync and prints warning (#382)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-nosync-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: true });
+
+    await writeFile(
+      join(workspaceRoot, "package.json"),
+      JSON.stringify({ name: "test-nosync", version: "1.0.0" }),
+      "utf8",
+    );
+
+    const { stdout, stderr, exitCode } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 120_000,
+      args: ["discover", "full", "--no-sync"],
+    });
+
+    assert.ok(
+      stderr.includes("--no-sync: skipping source sync") ||
+        stdout.includes("--no-sync: skipping source sync"),
+      "must print --no-sync warning",
+    );
+    assert.equal(exitCode, 0, "discover full --no-sync must exit 0");
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
