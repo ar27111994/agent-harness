@@ -378,6 +378,94 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
     assert.match(activateReset, /Remove activation outputs/u);
     assert.doesNotMatch(activateReset, /activate commands:/u);
 
+    // quarantine list --help should show list-specific help
+    const { stdout: quarantineList } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["quarantine", "list", "--help"],
+    });
+    assert.match(quarantineList, /quarantine list/u);
+    assert.match(quarantineList, /List quarantined mirror artifacts/u);
+
+    // quarantine approve --help should show approve-specific help
+    const { stdout: quarantineApprove } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["quarantine", "approve", "--help"],
+    });
+    assert.match(quarantineApprove, /quarantine approve/u);
+    assert.match(quarantineApprove, /Approve a quarantined artifact/u);
+
+    // rebuild clean --help should show clean-specific help
+    const { stdout: rebuildClean } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["rebuild", "clean", "--help"],
+    });
+    assert.match(rebuildClean, /rebuild clean/u);
+    assert.match(rebuildClean, /Remove all generated state/u);
+
+    // rebuild full --help should show full-specific help
+    const { stdout: rebuildFull } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["rebuild", "full", "--help"],
+    });
+    assert.match(rebuildFull, /rebuild full/u);
+    assert.match(rebuildFull, /Full clean rebuild from sources/u);
+
+    // workspace opencode --help should show host-specific help
+    const { stdout: workspaceOc } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["workspace", "opencode", "--help"],
+    });
+    assert.match(workspaceOc, /workspace opencode/u);
+    assert.match(workspaceOc, /Run full pipeline for OpenCode/u);
+
+    // wire cursor --help should show host-specific help
+    const { stdout: wireCursor } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["wire", "cursor", "--help"],
+    });
+    assert.match(wireCursor, /wire cursor/u);
+    assert.match(wireCursor, /Wire activated assets into Cursor/u);
+
+    // setup doctor --help should show doctor-specific help
+    const { stdout: setupDoctor } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["setup", "doctor", "--help"],
+    });
+    assert.match(setupDoctor, /setup doctor/u);
+    assert.match(setupDoctor, /Check host CLI readiness/u);
+
+    // setup hosts --help should show hosts-specific help
+    const { stdout: setupHosts } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["setup", "hosts", "--help"],
+    });
+    assert.match(setupHosts, /setup hosts/u);
+    assert.match(setupHosts, /List registered host adapters/u);
+
     // Subcommand --help must not create any state
     assert.equal(
       existsSync(stateRoot),
