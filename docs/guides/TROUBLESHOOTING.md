@@ -169,6 +169,42 @@ Two fixes address this:
 
 ---
 
+## Windows git-bash (MSYS) — doubled drive letter in module path
+
+**Symptom:** On Windows with git-bash or MSYS2, running the CLI from source fails:
+
+```
+Error: Cannot find module 'C:\c\Projects\agent-harness\dist\cli.js'
+```
+
+The path shows `C:\c\...` (doubled drive letter) instead of `C:\...`.
+
+**Root cause:** MSYS/bash auto-converts `/c/Projects/...` to `C:/Projects/...`,
+but Node's module resolver can re-apply the drive letter prefix, producing the
+broken `C:\c\...` path.
+
+**Fix:** Use one of these workarounds:
+
+1. **Native Windows path** (recommended):
+
+   ```bash
+   node "C:\Projects\agent-harness\dist\cli.js" --version
+   ```
+
+2. **cygpath conversion** (for scripts):
+
+   ```bash
+   node "$(cygpath -w /c/Projects/agent-harness/dist/cli.js)" --version
+   ```
+
+3. **Global npm install** (for persistent use):
+   ```bash
+   npm install -g @ar27111994/agent-harness
+   agent-harness --version
+   ```
+
+---
+
 ## Filing an issue
 
 Before filing, include:

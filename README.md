@@ -109,6 +109,7 @@ The core model is deliberately boring in the best way: one command surface, a ho
 - [v1 to v2 upgrade guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/V1-TO-V2-UPGRADE.md)
 - [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/MAINTENANCE-WORKFLOW.md)
 - [Release process](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/RELEASE-PROCESS.md)
+- [CLI cheat sheet](https://github.com/ar27111994/agent-harness/blob/main/docs/cheatsheet.md) — quick reference for common workflows
 
 ## What this project does
 
@@ -281,6 +282,14 @@ npm install
 ```bash
 npm run build
 ```
+
+> **Windows git-bash (MSYS) users:** Use native Windows paths when invoking the CLI.
+> MSYS path translation (`/c/Projects/...` → `C:\c\Projects\...`) can produce a
+> doubled drive letter (`C:\c\...`). Use `"C:\Projects\agent-harness\dist\cli.js"`
+> or `node "$(cygpath -w /c/Projects/agent-harness/dist/cli.js)"`. For persistent
+> use, add the project to your `PATH` via native Windows syntax or use
+> `npx @ar27111994/agent-harness` from the npm global install. See
+> [Troubleshooting](docs/guides/TROUBLESHOOTING.md) for more Windows-specific guidance.
 
 ### Optional local environment
 
