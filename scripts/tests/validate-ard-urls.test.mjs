@@ -2,12 +2,12 @@
  * Tests for scripts/validate-ard-urls.mjs (#380).
  */
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 
-import { validateArdUrls } from "../validate-ard-urls.mjs";
+import { main, validateArdUrls } from "../validate-ard-urls.mjs";
 
 async function withTempDir(fn) {
   const dir = await mkdtemp(join(tmpdir(), "ard-urls-test-"));
@@ -166,8 +166,8 @@ void test("validateArdUrls reports hash and name/non-http counts", async () => {
       { identifier: "e", url: "SomePlainName", type: "app/ai-skill" },
     ]);
     const result = validateArdUrls(path);
-    assert.ok(result.ok); // 3/5 = 60%? No, 3/5 = 60% < 80%... Hmm.
-    // 3 HTTP, 1 hash, 1 name => 3/5=60%, below threshold
+    // 3 HTTP, 1 hash, 1 name => 3/5 = 60%, below 80% threshold
+    assert.ok(!result.ok, "3/5=60% should fail the 80% threshold");
     assert.equal(result.stats.total, 5);
     assert.equal(result.stats.httpCount, 3);
     assert.equal(result.stats.hashCount, 1);
@@ -203,5 +203,76 @@ void test("validateArdUrls passes with 100% HTTP URLs at scale", async () => {
     assert.equal(result.stats.total, 100);
     assert.equal(result.stats.httpCount, 100);
     assert.equal(result.stats.fraction, 1.0);
+  });
+});
+
+void test("validateArdUrls fails when entries is not an array", async () => {
+  await withTempDir(async (dir) => {
+    const rawPath = join(dir, "ai-catalog.json");
+    await writeFile(
+      rawPath,
+      JSON.stringify({
+        $schema: "https://example.com/schema.json",
+        publisher: "test",
+        version: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        entries: { not: "an array" },
+      }) + "\n",
+      "utf8",
+    );
+    const result = validateArdUrls(rawPath);
+    assert.ok(!result.ok);
+    assert.ok(
+      result.errors.some((e) => e.includes("missing or has no entries array")),
+    );
+  });
+});
+
+void test("validateArdUrls main function succeeds with valid catalog", async () => {
+  await withTempDir(async (dir) => {
+    const wellKnown = join(dir, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    await writeFile(
+      join(wellKnown, "ai-catalog.json"),
+      JSON.stringify({
+        $schema: "https://example.com/schema.json",
+        publisher: "test",
+        version: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        entries: [
+          {
+            identifier: "a",
+            url: "https://github.com/test/SKILL.md",
+            type: "app/ai-skill",
+          },
+          {
+            identifier: "b",
+            url: "https://github.com/test2/SKILL.md",
+            type: "app/ai-skill",
+          },
+          {
+            identifier: "c",
+            url: "https://github.com/test3/SKILL.md",
+            type: "app/ai-skill",
+          },
+          {
+            identifier: "d",
+            url: "https://github.com/test4/SKILL.md",
+            type: "app/ai-skill",
+          },
+          {
+            identifier: "e",
+            url: "https://github.com/test5/SKILL.md",
+            type: "app/ai-skill",
+          },
+        ],
+      }) + "\n",
+      "utf8",
+    );
+
+    const result = main({ cwd: dir });
+    assert.ok(result.ok);
+    assert.equal(result.stats.total, 5);
+    assert.equal(result.stats.httpCount, 5);
   });
 });
