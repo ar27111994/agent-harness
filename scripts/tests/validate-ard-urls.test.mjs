@@ -364,3 +364,14 @@ void test("runCliIfDirect returns undefined when guard is false", () => {
   const result = runCliIfDirect(false);
   assert.equal(result, undefined);
 });
+
+void test("main uses process.cwd fallback when no cwd option provided", async () => {
+  // Verify that main() can be called without options — exercises the
+  // `options.cwd ?? process.cwd()` fallback path at line 86.
+  // This relies on the project's own .well-known/ai-catalog.json being valid.
+  const result = main();
+  // The project catalog should be valid (>=80% HTTP URLs)
+  assert.ok(result.ok);
+  assert.ok(result.stats.total > 0);
+  assert.ok(result.stats.fraction >= 0.8);
+});

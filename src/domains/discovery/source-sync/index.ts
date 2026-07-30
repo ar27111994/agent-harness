@@ -207,14 +207,13 @@ export async function syncIndexedSources(
       // Per-source completion: report sync duration (#382).
       const syncDuration = Date.now() - syncStart;
       if (totalSources > 1) {
+        const statusMap: Record<string, string> = {
+          complete: "done",
+          failed: "failed",
+        };
         const statusLabel =
-          synchronizedState?.status === "complete"
-            ? "done"
-            : synchronizedState?.status === "failed"
-              ? "failed"
-              : synchronizedState
-                ? synchronizedState.status
-                : "skipped";
+          statusMap[synchronizedState?.status ?? ""] ??
+          (synchronizedState ? synchronizedState.status : "skipped");
         process.stderr.write(`${statusLabel} (${syncDuration}ms)\n`);
       }
     } catch (error) {
