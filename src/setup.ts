@@ -3,6 +3,11 @@ import {
   resolveHostAdapter,
   type HostAdapter,
 } from "./host-adapters/registry.js";
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue } from "./lib/cli-options.js";
@@ -46,7 +51,7 @@ export async function runSetup(
   const [command = "doctor", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printSetupSubcommandHelp(command);
     return 0;
   }
@@ -433,7 +438,7 @@ function printHosts(): void {
  * Prints help for a specific setup subcommand (#383).
  */
 function printSetupSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     doctor: {
       heading: "setup doctor — Check host CLI readiness",
       lines: [
@@ -468,16 +473,7 @@ function printSetupSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printSetupHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printSetupHelp);
 }
 
 function printSetupHelp(): void {

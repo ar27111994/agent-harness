@@ -12,6 +12,11 @@ import {
   toPosixPath,
   writeJsonFile,
 } from "./files.js";
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
@@ -106,7 +111,7 @@ export async function runActivate(
   const [command = "help", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printActivateSubcommandHelp(command);
     return 0;
   }
@@ -540,7 +545,7 @@ function printActivateHelp(): void {
  * Prints help for a specific activate subcommand (#383).
  */
 function printActivateSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     host: {
       heading: "activate host — Materialize active host views",
       lines: [
@@ -595,16 +600,7 @@ function printActivateSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printActivateHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printActivateHelp);
 }
 
 function getDefaultBundleIdsForHost(host: ActivationHost): string[] {

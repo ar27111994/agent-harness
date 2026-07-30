@@ -7,6 +7,11 @@ import {
 import { manageNativeInstall } from "./install/native.js";
 import { manageInstallRefresh } from "./install/refresh.js";
 import { reconcileInstallState, resetInstallState } from "./install/state.js";
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
 /**
@@ -20,7 +25,7 @@ export async function runInstall(
   const [command = "help", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printInstallSubcommandHelp(command);
     return 0;
   }
@@ -126,7 +131,7 @@ function printInstallHelp(): void {
  * Prints help for a specific install/stage subcommand (#383).
  */
 function printInstallSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     bundle: {
       heading: "stage bundle — Stage mirrored assets from bundle locks",
       lines: [
@@ -173,14 +178,5 @@ function printInstallSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printInstallHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printInstallHelp);
 }

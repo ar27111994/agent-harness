@@ -230,6 +230,6 @@ matrix, native config generation, and testing — with a worked Windsurf example
 | `src/mirror/` | Artifact download and provenance |
 | `src/install/` | Staged install lifecycle |
 | `src/activate.ts` | Runtime root swap and rollback |
-| `discover/` | Source config, policy, and seed JSON |
+| `discover/` | Source config, policy, and seed JSON — see [discover/README.md](./discover/README.md) for schema layout |
 | `docs/` | Guides, reference, playbooks |
 | `plans/` | Advisor implementation plans |

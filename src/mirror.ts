@@ -6,6 +6,11 @@ import {
   explainMirrorArtifact,
 } from "./mirror/inspect.js";
 import { generateMirrorPlan } from "./mirror/plan.js";
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
 /**
@@ -31,7 +36,7 @@ export async function runMirror(
   const [command = "help", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printMirrorSubcommandHelp(command);
     return 0;
   }
@@ -113,7 +118,7 @@ function printMirrorHelp(): void {
  * Prints help for a specific mirror subcommand (#383).
  */
 function printMirrorSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     locks: {
       heading: "mirror locks — Generate bundle lock files",
       lines: [
@@ -169,14 +174,5 @@ function printMirrorSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printMirrorHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printMirrorHelp);
 }

@@ -1,5 +1,10 @@
 import { join } from "node:path";
 
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
@@ -31,7 +36,7 @@ export async function runRebuild(
   const [command = "help", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printRebuildSubcommandHelp(command);
     return 0;
   }
@@ -155,7 +160,7 @@ async function discoverBundleIds(projectRoot: string): Promise<string[]> {
  * Prints help for a specific rebuild subcommand (#383).
  */
 function printRebuildSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     clean: {
       heading: "rebuild clean — Remove all generated state",
       lines: [
@@ -180,16 +185,7 @@ function printRebuildSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printRebuildHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printRebuildHelp);
 }
 
 function printRebuildHelp(): void {

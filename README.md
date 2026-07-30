@@ -96,6 +96,7 @@ The core model is deliberately boring in the best way: one command surface, a ho
 - [Source coverage playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/SOURCE-COVERAGE-PLAYBOOK.md)
 - [Catalog breadth guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/CATALOG-BREADTH.md)
 - [Semantic scoring guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SEMANTIC-SCORING.md)
+- [Source pack seeder guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SOURCE-PACK-SEEDER.md)
 - [AI enrichment playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AI-ENRICHMENT-PLAYBOOK.md)
 - [Asset update playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md)
 - [Logging strategy](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/LOGGING-STRATEGY.md)
@@ -109,6 +110,7 @@ The core model is deliberately boring in the best way: one command surface, a ho
 - [v1 to v2 upgrade guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/V1-TO-V2-UPGRADE.md)
 - [Scheduled maintenance workflow](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/MAINTENANCE-WORKFLOW.md)
 - [Release process](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/RELEASE-PROCESS.md)
+- [Adapter development guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/ADAPTER-DEVELOPMENT.md) — creating new host adapters
 - [CLI cheat sheet](https://github.com/ar27111994/agent-harness/blob/main/docs/cheatsheet.md) — quick reference for common workflows
 
 ## What this project does

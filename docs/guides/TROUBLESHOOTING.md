@@ -169,6 +169,32 @@ Two fixes address this:
 
 ---
 
+## Expected run durations
+
+Some commands are inherently slow due to network I/O and processing volume. The
+following durations are normal and do not indicate a hang or failure:
+
+| Command                     | Expected Duration | Notes                                   |
+| --------------------------- | ----------------- | --------------------------------------- |
+| `discover full` (first run) | 5–10 minutes      | Source sync iterates 70+ remote sources |
+| `discover sync`             | 2–5 minutes       | Subsequent runs use cached local index  |
+| `discover index`            | 10–30 minutes     | Full pagination of all indexed sources  |
+| `test:self-hosting`         | 2–3 minutes       | Runs full pipeline on the repo itself   |
+| `npm run validate:release`  | 5–15 minutes      | All quality gates + smoke tests         |
+
+For `discover full`, the sync phase prints per-source progress to stderr (e.g.
+`[discover sync] 3/12 — npm …`). Use `--no-sync` to skip source sync for
+local-only discovery. CI pipelines should set `timeout-minutes: 30` or higher.
+
+For `test:self-hosting`, the test timeout is configured in the CI quality
+workflow. If running locally, use:
+
+```bash
+node --test --test-timeout=300000 dist/tests/self-hosting.js
+```
+
+---
+
 ## Windows git-bash (MSYS) — doubled drive letter in module path
 
 **Symptom:** On Windows with git-bash or MSYS2, running the CLI from source fails:

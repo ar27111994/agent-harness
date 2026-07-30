@@ -1,6 +1,11 @@
 import { join } from "node:path";
 
 import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
+import {
   readJsonFileOrNull,
   readJsonLinesFile,
   readTextFileOrNull,
@@ -43,7 +48,7 @@ export async function runQuarantine(
   const [command = "help", ...rest] = args;
 
   // Detect --help flag and show subcommand-specific help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printQuarantineSubcommandHelp(command);
     return 0;
   }
@@ -487,7 +492,7 @@ async function readMirrorIndex(
  * Prints help for a specific quarantine subcommand (#383).
  */
 function printQuarantineSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     list: {
       heading: "quarantine list — List quarantined mirror artifacts",
       lines: [
@@ -546,16 +551,7 @@ function printQuarantineSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else {
-    printQuarantineHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, printQuarantineHelp);
 }
 
 function printQuarantineHelp(): void {

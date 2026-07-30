@@ -6,6 +6,7 @@ import {
   inspectCatalog,
   printCatalogStats,
 } from "./domains/discovery/catalog-inspection.js";
+import { hasHelpFlag, type SubcommandHelpEntry } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
 import {
@@ -113,7 +114,7 @@ export async function runDiscover(
 
   // Subcommands with dedicated help handlers get routed inside the switch.
   // For all other subcommands, --help/-h shows the parent discover help.
-  const hasHelpFlag = rest.includes("--help") || rest.includes("-h");
+  const helpRequested = hasHelpFlag(rest);
   const hasSpecificHelp = new Set([
     "full",
     "breadth",
@@ -131,13 +132,13 @@ export async function runDiscover(
     "diff",
     "environment-index",
   ]);
-  if (hasHelpFlag && !hasSpecificHelp.has(command)) {
+  if (helpRequested && !hasSpecificHelp.has(command)) {
     printDiscoverHelp();
     return 0;
   }
 
   // Subcommand-specific help: print targeted help instead of executing.
-  if (hasHelpFlag && hasSpecificHelp.has(command)) {
+  if (helpRequested && hasSpecificHelp.has(command)) {
     printDiscoverSubcommandHelp(command);
     return 0;
   }
@@ -241,7 +242,7 @@ export async function runDiscover(
       );
     }
     case "full": {
-      if (hasHelpFlag) {
+      if (helpRequested) {
         printDiscoverFullHelp();
         return 0;
       }
@@ -307,7 +308,7 @@ export async function runDiscover(
     case "breadth":
     case "recall":
     case "candidate-pool":
-      if (hasHelpFlag) {
+      if (helpRequested) {
         printDiscoverBreadthHelp();
         return 0;
       }
@@ -1054,7 +1055,7 @@ function assessDiscoveryBreadth(input: {
  * Prints help for a specific discover subcommand.
  */
 function printDiscoverSubcommandHelp(subcommand: string): void {
-  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
     sources: {
       heading: "discover sources — Refresh the discovery source index",
       lines: [
