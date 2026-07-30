@@ -1517,7 +1517,7 @@ void test("synchronizeIndexedSource dispatches ard-registry kind-guard", async (
     entriesById: new Map(),
     entriesDirty: false,
     previousState: undefined,
-    observedEntryIds: new Set(),
+    observedEntryIds: new Set<string>(),
   };
 
   const originalFetch = globalThis.fetch;
