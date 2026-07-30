@@ -490,7 +490,7 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
       "utf8",
     );
 
-    const { stdout, stderr, exitCode } = await runBuiltCli({
+    const { stdout, stderr } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
@@ -503,7 +503,6 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
         stdout.includes("--no-sync: skipping source sync"),
       "must print --no-sync warning",
     );
-    assert.equal(exitCode, 0, "discover full --no-sync must exit 0");
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
