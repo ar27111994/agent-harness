@@ -52,43 +52,43 @@ export async function writeZedNativeFiles(
       },
     },
   };
-  try {
-    // Parse as JSONC to preserve comments and trailing commas in user settings
-    const rawContent = await readFile(settingsPath, "utf8").catch((error) => {
-      if (
-        error instanceof Error &&
-        (error as NodeJS.ErrnoException).code === "ENOENT"
-      ) {
-        return "{}";
-      }
-      throw error;
-    });
-    const errors: ParseError[] = [];
-    // parseJsonc returns the parsed value; we validate it is an object so
-    // modify() can navigate the path. Non-object roots (arrays, primitives)
-    // cannot hold agent profiles and would be silently corrupted.
-    const parsed: unknown = parseJsonc(rawContent, errors, {
-      disallowComments: false,
-      allowTrailingComma: true,
-    });
-    if (errors.length > 0) {
-      throw new Error(
-        `Zed settings.json contains JSONC parse errors. ` +
-          `Please add the agent-harness profile manually:\n` +
-          `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
-      );
-    }
+  // Parse as JSONC to preserve comments and trailing commas in user settings
+  const rawContent = await readFile(settingsPath, "utf8").catch((error) => {
     if (
-      parsed === null ||
-      Array.isArray(parsed) ||
-      typeof parsed !== "object"
+      error instanceof Error &&
+      (error as NodeJS.ErrnoException).code === "ENOENT"
     ) {
-      throw new Error(
-        `Zed settings.json is not a JSON object (found ${typeof parsed}). ` +
-          `Please add the agent-harness profile manually:\n` +
-          `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
-      );
+      return "{}";
     }
+    throw error;
+  });
+  const parseErrors: ParseError[] = [];
+  // parseJsonc returns the parsed value; we validate it is an object so
+  // modify() can navigate the path. Non-object roots (arrays, primitives)
+  // cannot hold agent profiles and would be silently corrupted.
+  const parsed: unknown = parseJsonc(rawContent, parseErrors, {
+    disallowComments: false,
+    allowTrailingComma: true,
+  });
+  if (parseErrors.length > 0) {
+    throw new Error(
+      `Zed settings.json contains JSONC parse errors. ` +
+        `Please add the agent-harness profile manually:\n` +
+        `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
+    );
+  }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error(
+      `Zed settings.json is not a JSON object (found ${typeof parsed}). ` +
+        `Please add the agent-harness profile manually:\n` +
+        `  "agent": { "profiles": { "agent-harness": { "name": "Agent Harness", "enable_all_context_servers": true } } }`,
+    );
+  }
+  // Try JSONC modify first. If modify() or writeFile fails (e.g. the file
+  // has a valid JSON structure but modify cannot navigate the target path),
+  // fall back to a plain JSON merge. Validation errors (parse errors,
+  // non-object roots) are already thrown above and propagate to the caller.
+  try {
     const edits = modify(
       rawContent,
       ["agent", "profiles", "agent-harness"],
@@ -96,21 +96,7 @@ export async function writeZedNativeFiles(
       { formattingOptions: { insertSpaces: true, tabSize: 2 } },
     );
     await writeFile(settingsPath, applyEdits(rawContent, edits), "utf8");
-  } catch (error) {
-    // JSONC parse errors are already thrown explicitly with manual-setup
-    // instructions. Non-object-root and writeFile/permission errors must
-    // also propagate — falling back to mergeJsonFile in those cases would
-    // silently overwrite the file and discard the actionable error message.
-    if (
-      error instanceof Error &&
-      error.message.includes("JSONC parse errors")
-    ) {
-      throw error;
-    }
-    // Fall back to plain JSON merge only when the file exists and parses
-    // successfully but modify() / applyEdits cannot produce a valid result
-    // (e.g. the file is structurally valid JSON that jsonc-parser accepted
-    // but modify() could not navigate). This is a narrow defensive fallback.
+  } catch {
     await mergeJsonFile(settingsPath, zedProfilePatch);
   }
 

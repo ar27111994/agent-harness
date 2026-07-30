@@ -19,6 +19,7 @@ import {
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { writeZedNativeFiles } from "../host-adapters/zed-native.js";
 import { upsertManagedPiSettings } from "../host-adapters/native-utils.js";
+import { mergeCodexPluginMarketplace } from "../host-adapters/codex-native.js";
 import type { WireNativeFilesOptions } from "../host-adapters/native-utils.js";
 import type {
   AssetCatalogEntry,
@@ -1563,6 +1564,18 @@ void test("removeManagedPiSettings handles non-string and non-array entries grac
     // an empty object which writeOrRemoveJsonFile deletes.
     const raw = await readFile(settingsPath, "utf8").catch(() => null);
     assert.equal(raw, null, "file should be removed when all keys are empty");
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("mergeCodexPluginMarketplace throws on non-object marketplace file", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-codex-nonobj-"));
+  try {
+    const mktPath = join(root, "marketplace.json");
+    // Write a marketplace file as an array — not a JSON object
+    await writeFile(mktPath, JSON.stringify([1, 2, 3]), "utf8");
+    await assert.rejects(mergeCodexPluginMarketplace(mktPath));
   } finally {
     await rm(root, { force: true, recursive: true });
   }
