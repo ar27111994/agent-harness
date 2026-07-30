@@ -19,6 +19,12 @@ export async function runInstall(
 ): Promise<number> {
   const [command = "help", ...rest] = args;
 
+  // Detect --help flag and show subcommand-specific help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printInstallSubcommandHelp(command);
+    return 0;
+  }
+
   switch (command) {
     case "bundle":
       await installBundles(projectRoot, rest);
@@ -114,4 +120,67 @@ function printInstallHelp(): void {
       },
     ],
   });
+}
+
+/**
+ * Prints help for a specific install/stage subcommand (#383).
+ */
+function printInstallSubcommandHelp(subcommand: string): void {
+  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+    bundle: {
+      heading: "stage bundle — Stage mirrored assets from bundle locks",
+      lines: [
+        "Usage: agent-harness stage bundle [--batch-size <n>] [--host <host>]",
+        "",
+        "Stages mirrored assets from bundle lock files into lifecycle-host",
+        "package stores. Reads mirror/bundles/*.lock.json and writes staged",
+        "assets to the install directory.",
+        "",
+        "Options:",
+        "  --host <host>        Target host (default: all bundles)",
+        "  --batch-size <n>     Max assets per batch (default: 250)",
+        "",
+        "Alias: install bundle",
+      ],
+    },
+    refresh: {
+      heading: "stage refresh — Refresh staged install state",
+      lines: [
+        "Usage: agent-harness stage refresh [--host <host>] [--apply]",
+        "",
+        "Refreshes staged install state by checking mirror bundles for updates.",
+        "Reports stale assets and optionally applies updates.",
+        "",
+        "Options:",
+        "  --host <host>     Target host",
+        "  --apply           Apply eligible stale bundle refreshes",
+        "  --due-only        Skip unless refresh interval says a check is due",
+        "  --no-mirror-refresh  Skip explicit mirror refresh step",
+      ],
+    },
+    native: {
+      heading: "stage native — Host-native install operations",
+      lines: [
+        "Usage: agent-harness stage native --host <host> --operation <op> [--apply]",
+        "",
+        "Manages host-native installs (VS Code extensions, npm packages, etc.).",
+        "",
+        "Options:",
+        "  --host <host>                           Target host",
+        "  --operation <plan|install|verify|remove>  Operation to perform",
+        "  --apply                                 Required for mutating operations",
+      ],
+    },
+  };
+
+  const help = helpTexts[subcommand];
+  if (help) {
+    printCommandHelp({
+      heading: help.heading,
+      entries: [],
+      sections: [{ title: "", lines: help.lines }],
+    });
+  } else {
+    printInstallHelp();
+  }
 }

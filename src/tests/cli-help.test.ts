@@ -249,75 +249,137 @@ void test("recommend report --help shows parent recommend help", async () => {
   }
 });
 
-void test("mutating domains show help when --help is passed instead of executing", async () => {
+void test("subcommand --help shows subcommand-specific help distinct from parent (#383)", async () => {
   const tempRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-mutating-help-"),
+    join(tmpdir(), "agent-harness-subcommand-help-"),
   );
 
   try {
     const { workspaceRoot, stateRoot, env } =
       await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
 
-    // mirror plan --help should show mirror help, not execute generateMirrorPlan
-    const { stdout: mirrorStdout } = await runBuiltCli({
+    // mirror locks --help should show locks-specific help, not parent mirror index
+    const { stdout: mirrorLocks } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["mirror", "locks", "--help"],
+    });
+    assert.match(mirrorLocks, /mirror locks/u);
+    assert.match(mirrorLocks, /Generate bundle lock files/u);
+    assert.doesNotMatch(mirrorLocks, /mirror commands:/u);
+    assert.doesNotMatch(mirrorLocks, /Mirror locks generated/u);
+
+    // mirror plan --help should show plan-specific help
+    const { stdout: mirrorPlan } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
       args: ["mirror", "plan", "--help"],
     });
-    assert.match(mirrorStdout, /mirror commands:/u);
-    assert.match(mirrorStdout, /plan\s+Summarize mirror readiness/u);
-    assert.doesNotMatch(mirrorStdout, /Mirror plan written/u);
+    assert.match(mirrorPlan, /mirror plan/u);
+    assert.match(mirrorPlan, /Summarize mirror readiness/u);
+    assert.doesNotMatch(mirrorPlan, /mirror commands:/u);
 
-    // install bundle --help should show install help, not execute
-    const { stdout: installStdout } = await runBuiltCli({
+    // stage bundle --help should show bundle-specific help
+    const { stdout: stageBundle } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["install", "bundle", "--help"],
+      args: ["stage", "bundle", "--help"],
     });
-    assert.match(
-      installStdout,
-      /stage commands \(install is a supported alias\):/u,
-    );
+    assert.match(stageBundle, /stage bundle/u);
+    assert.match(stageBundle, /Stage mirrored assets from bundle locks/u);
+    assert.doesNotMatch(stageBundle, /stage commands/u);
 
-    // activate --help should show activate help
-    const { stdout: activateStdout } = await runBuiltCli({
+    // activate host --help should show host-specific help
+    const { stdout: activateHost } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["activate", "--help"],
+      args: ["activate", "host", "--help"],
     });
-    assert.match(activateStdout, /activate commands:/u);
+    assert.match(activateHost, /activate host/u);
+    assert.match(activateHost, /Materialize active host views/u);
+    assert.doesNotMatch(activateHost, /activate commands:/u);
 
-    // quarantine --help should show quarantine help
-    const { stdout: quarantineStdout } = await runBuiltCli({
+    // discover sources --help should show sources-specific help
+    const { stdout: discoverSources } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["quarantine", "--help"],
+      args: ["discover", "sources", "--help"],
     });
-    assert.match(quarantineStdout, /quarantine commands:/u);
+    assert.match(discoverSources, /discover sources/u);
+    assert.match(discoverSources, /Refresh the discovery source index/u);
+    assert.doesNotMatch(discoverSources, /discover commands:/u);
 
-    // Non-mutating: discover full --help should show subcommand-specific help
-    const { stdout: discoverFullStdout } = await runBuiltCli({
+    // discover demand-profile --help should show demand-profile-specific help
+    const { stdout: discoverDemand } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["discover", "full", "--help"],
+      args: ["discover", "demand-profile", "--help"],
     });
-    assert.match(discoverFullStdout, /discover full/u);
-    assert.match(
-      discoverFullStdout,
-      /demand-profile\s+Scan the working directory/u,
-    );
+    assert.match(discoverDemand, /discover demand-profile/u);
+    assert.match(discoverDemand, /Scan workspace for demand signals/u);
+    assert.doesNotMatch(discoverDemand, /discover commands:/u);
 
-    // Mutating-domain --help must not create any state
+    // discover sync --help should show sync-specific help
+    const { stdout: discoverSync } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["discover", "sync", "--help"],
+    });
+    assert.match(discoverSync, /discover sync/u);
+    assert.match(discoverSync, /Synchronize discovered sources/u);
+    assert.doesNotMatch(discoverSync, /discover commands:/u);
+
+    // install refresh --help should show refresh-specific help
+    const { stdout: stageRefresh } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["stage", "refresh", "--help"],
+    });
+    assert.match(stageRefresh, /stage refresh/u);
+    assert.match(stageRefresh, /Refresh staged install state/u);
+    assert.doesNotMatch(stageRefresh, /stage commands/u);
+
+    // activate diff --help should show diff-specific help
+    const { stdout: activateDiff } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["activate", "diff", "--help"],
+    });
+    assert.match(activateDiff, /activate diff/u);
+    assert.match(activateDiff, /Compare activation states/u);
+    assert.doesNotMatch(activateDiff, /activate commands:/u);
+
+    // activate reset --help should show reset-specific help
+    const { stdout: activateReset } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["activate", "reset", "--help"],
+    });
+    assert.match(activateReset, /activate reset/u);
+    assert.match(activateReset, /Remove activation outputs/u);
+    assert.doesNotMatch(activateReset, /activate commands:/u);
+
+    // Subcommand --help must not create any state
     assert.equal(
       existsSync(stateRoot),
       false,

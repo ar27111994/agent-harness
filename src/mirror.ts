@@ -30,6 +30,12 @@ export async function runMirror(
 ): Promise<number> {
   const [command = "help", ...rest] = args;
 
+  // Detect --help flag and show subcommand-specific help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printMirrorSubcommandHelp(command);
+    return 0;
+  }
+
   switch (command) {
     case "plan":
       await generateMirrorPlan(projectRoot);
@@ -101,4 +107,76 @@ function printMirrorHelp(): void {
       },
     ],
   });
+}
+
+/**
+ * Prints help for a specific mirror subcommand (#383).
+ */
+function printMirrorSubcommandHelp(subcommand: string): void {
+  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+    locks: {
+      heading: "mirror locks — Generate bundle lock files",
+      lines: [
+        "Usage: agent-harness mirror locks",
+        "",
+        "Generates lock files for each mirror bundle in mirror/bundles/.",
+        "Lock files record the exact asset set and versions pinned for",
+        "reproducible mirror acquisition.",
+        "",
+        "Output: mirror/bundles/*.lock.json",
+      ],
+    },
+    plan: {
+      heading: "mirror plan — Summarize mirror readiness",
+      lines: [
+        "Usage: agent-harness mirror plan",
+        "",
+        "Summarizes mirror readiness by cross-referencing selected catalog",
+        "entries against existing mirrors and bundle locks.",
+        "",
+        "Output: mirror/audit/mirror-plan.json",
+      ],
+    },
+    acquire: {
+      heading: "mirror acquire — Download mirror artifacts",
+      lines: [
+        "Usage: agent-harness mirror acquire [--batch-size <n>]",
+        "",
+        "Acquires raw mirror artifacts, writes the mirror index, and resolves",
+        "bundle locks for all bundles.",
+        "",
+        "Options:",
+        "  --batch-size <n>   Max artifacts per batch (default: 120)",
+      ],
+    },
+    diff: {
+      heading: "mirror diff — Compare mirror indices",
+      lines: [
+        "Usage: agent-harness mirror diff",
+        "",
+        "Compares the current mirror index against the previous snapshot,",
+        "reporting added, removed, and changed artifacts.",
+      ],
+    },
+    explain: {
+      heading: "mirror explain — Explain a mirrored artifact",
+      lines: [
+        "Usage: agent-harness mirror explain --asset <assetId>",
+        "       agent-harness mirror explain --mirror <mirrorId>",
+        "",
+        "Prints provenance information for a specific mirrored artifact.",
+      ],
+    },
+  };
+
+  const help = helpTexts[subcommand];
+  if (help) {
+    printCommandHelp({
+      heading: help.heading,
+      entries: [],
+      sections: [{ title: "", lines: help.lines }],
+    });
+  } else {
+    printMirrorHelp();
+  }
 }

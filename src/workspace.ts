@@ -45,6 +45,12 @@ export async function runWorkspace(
       : parseSessionIntent(undefined);
   const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
 
+  // Detect --help flag and show target-specific or parent help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printWorkspaceSubcommandHelp(target);
+    return 0;
+  }
+
   if (target === "help") {
     printWorkspaceHelp();
     return 0;
@@ -116,6 +122,40 @@ export async function runWorkspace(
       requireSuccess: aiEnrichmentFlags.requireSuccess,
     }),
   );
+}
+
+/**
+ * Prints help for a specific workspace target or parent help (#383).
+ */
+function printWorkspaceSubcommandHelp(target: string): void {
+  const hostAdapter = resolveHostAdapter(target);
+  if (hostAdapter) {
+    printCommandHelp({
+      heading: `workspace ${getPreferredHostCommand(hostAdapter.id)} — Run full pipeline for ${hostAdapter.displayName}`,
+      entries: [],
+      sections: [
+        {
+          title: "",
+          lines: [
+            `Usage: agent-harness workspace ${getPreferredHostCommand(hostAdapter.id)} [--intent <intent>]`,
+            "",
+            `Runs the complete discover → recommend → mirror → stage → activate →`,
+            `wire pipeline for ${hostAdapter.displayName}. All lifecycle state is`,
+            `written under the configured state root.`,
+            "",
+            "Options:",
+            "  --intent <intent>           Session intent (general, frontend, backend, etc.)",
+            "  --state-root <path>         Override state directory",
+            "  --no-dotenv                 Skip .env file loading",
+            `  --ai-enrich                Request AI enrichment`,
+            `  --no-ai-enrich             Skip AI enrichment`,
+          ],
+        },
+      ],
+    });
+  } else {
+    printWorkspaceHelp();
+  }
 }
 
 function printWorkspaceHelp(): void {

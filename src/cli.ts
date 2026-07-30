@@ -167,29 +167,12 @@ function runHelpCommand(
   // generic help without executing any phase.
   if (nonFlagArgs.length >= 2) {
     const [domain, subcommand, ...extra] = nonFlagArgs;
-    // Mutating domains don't inspect argv for --help — substitute "help" so
-    // they output help instead of executing the subcommand.
-    const MUTATING_DOMAINS = new Set([
-      "mirror",
-      "install",
-      "stage",
-      "activate",
-      "quarantine",
-      "rebuild",
-      "workspace",
-      "wire",
-      "setup",
-      "doctor",
-      "bundle",
-    ]);
-    const safeSubcommand = wasHelpRequested
-      ? MUTATING_DOMAINS.has(domain)
-        ? "help"
-        : subcommand
-      : subcommand;
-    const domainArgs = [safeSubcommand, ...extra];
-    if (wasHelpRequested && !MUTATING_DOMAINS.has(domain)) {
-      // discover and recommend inspect --help in their args
+    // Preserve the original subcommand so domain handlers can show
+    // subcommand-specific help. Mutating domains receive the subcommand +
+    // --help flag — handlers must detect --help and show help text instead
+    // of executing the subcommand (#383).
+    const domainArgs = [subcommand, ...extra];
+    if (wasHelpRequested) {
       domainArgs.push("--help");
     }
     switch (domain) {

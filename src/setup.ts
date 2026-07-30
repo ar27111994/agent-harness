@@ -45,6 +45,12 @@ export async function runSetup(
 ): Promise<number> {
   const [command = "doctor", ...rest] = args;
 
+  // Detect --help flag and show subcommand-specific help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printSetupSubcommandHelp(command);
+    return 0;
+  }
+
   switch (command) {
     case "doctor":
       return (await runDoctor(rest, projectRoot)) ? 0 : 1;
@@ -420,6 +426,57 @@ function printHosts(): void {
     console.log(
       `${adapter.id}\t${adapter.displayName}\taliases=${adapter.aliases.join(",")}\tlifecycle=${adapter.lifecycleHost}\trecommendation=${adapter.recommendationHost}\tbundles=${adapter.defaultBundleIds.join(",")}\twire=${wireKinds.join(",")}\tnativeInstall=${nativeInstallKinds.join(",") || "none"}\truntime=${adapter.runtime?.executable ?? "none"}\truntimeChecks=${runtimeChecks.join(",") || "none"}`,
     );
+  }
+}
+
+/**
+ * Prints help for a specific setup subcommand (#383).
+ */
+function printSetupSubcommandHelp(subcommand: string): void {
+  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+    doctor: {
+      heading: "setup doctor — Check host CLI readiness",
+      lines: [
+        "Usage: agent-harness setup doctor [--host <host>]",
+        "",
+        "Checks whether the required host CLIs are installed and accessible on",
+        "PATH. Runs adapter preflights concurrently with per-adapter timeouts.",
+        "",
+        "Options:",
+        "  --host <host>   Limit check to a specific host adapter",
+        "",
+        "Env: AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS (default: 5000)",
+      ],
+    },
+    hosts: {
+      heading: "setup hosts — List registered host adapters",
+      lines: [
+        "Usage: agent-harness setup hosts",
+        "",
+        "Lists all registered host adapters with their lifecycle hosts,",
+        "wire hosts, and supported asset kinds.",
+      ],
+    },
+    login: {
+      heading: "setup login — Interactive host login",
+      lines: [
+        "Usage: agent-harness setup login [--host <host>]",
+        "",
+        "Guides you through interactive login for host-specific",
+        "authentication (API keys, OAuth, CLI auth).",
+      ],
+    },
+  };
+
+  const help = helpTexts[subcommand];
+  if (help) {
+    printCommandHelp({
+      heading: help.heading,
+      entries: [],
+      sections: [{ title: "", lines: help.lines }],
+    });
+  } else {
+    printSetupHelp();
   }
 }
 

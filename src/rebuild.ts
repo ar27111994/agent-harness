@@ -28,7 +28,13 @@ export async function runRebuild(
   workingDirectory: string,
   projectRoot: string,
 ): Promise<number> {
-  const [command = "help"] = args;
+  const [command = "help", ...rest] = args;
+
+  // Detect --help flag and show subcommand-specific help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printRebuildSubcommandHelp(command);
+    return 0;
+  }
 
   switch (command) {
     case "clean":
@@ -143,6 +149,47 @@ async function discoverBundleIds(projectRoot: string): Promise<string[]> {
   }
 
   return bundleIds;
+}
+
+/**
+ * Prints help for a specific rebuild subcommand (#383).
+ */
+function printRebuildSubcommandHelp(subcommand: string): void {
+  const helpTexts: Record<string, { heading: string; lines: string[] }> = {
+    clean: {
+      heading: "rebuild clean — Remove all generated state",
+      lines: [
+        "Usage: agent-harness rebuild clean",
+        "",
+        "Removes all generated lifecycle state (state/, install/, activate/,",
+        "coverage/, mirror/bundles/, discover/output/) while preserving",
+        "configuration files (discover/sources.json, discover/selections.json).",
+      ],
+    },
+    full: {
+      heading: "rebuild full — Full clean rebuild from sources",
+      lines: [
+        "Usage: agent-harness rebuild full",
+        "",
+        "Performs a complete rebuild: clean → discover demand-profile → sources →",
+        "catalog → select → recommend report → mirror plan → mirror locks →",
+        "mirror acquire → install bundle → install reconcile → activate host.",
+        "",
+        "This is equivalent to running the full pipeline from scratch.",
+      ],
+    },
+  };
+
+  const help = helpTexts[subcommand];
+  if (help) {
+    printCommandHelp({
+      heading: help.heading,
+      entries: [],
+      sections: [{ title: "", lines: help.lines }],
+    });
+  } else {
+    printRebuildHelp();
+  }
 }
 
 function printRebuildHelp(): void {

@@ -32,6 +32,12 @@ export async function runWire(
   const [target = "help", ...rest] = args;
   const mode = getWireMode(rest);
 
+  // Detect --help flag and show target-specific or parent help (#383).
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printWireSubcommandHelp(target);
+    return 0;
+  }
+
   if (target === "help") {
     printWireHelp();
     return 0;
@@ -99,6 +105,37 @@ export function getWireMode(args: string[]): "preview" | "apply" | "reset" {
   }
 
   return "preview";
+}
+
+/**
+ * Prints help for a specific wire target or parent help (#383).
+ */
+function printWireSubcommandHelp(target: string): void {
+  const hostAdapter = resolveHostAdapter(target);
+  if (hostAdapter) {
+    printCommandHelp({
+      heading: `wire ${getPreferredHostCommand(hostAdapter.id)} — Wire activated assets into ${hostAdapter.displayName}`,
+      entries: [],
+      sections: [
+        {
+          title: "",
+          lines: [
+            `Usage: agent-harness wire ${getPreferredHostCommand(hostAdapter.id)} [--preview|--apply]`,
+            "",
+            `Wires activated assets into a ${hostAdapter.displayName} workspace.`,
+            `By default runs in preview mode (no files are written).`,
+            "",
+            "Options:",
+            "  --preview          Preview the wire plan without applying (default)",
+            "  --apply            Apply the wire plan to the workspace",
+            "  --state-root <path>  Override state directory",
+          ],
+        },
+      ],
+    });
+  } else {
+    printWireHelp();
+  }
 }
 
 function printWireHelp(): void {
