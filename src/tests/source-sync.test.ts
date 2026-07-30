@@ -226,7 +226,25 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
       ),
     ]);
 
-    await syncIndexedSources(projectRoot);
+    const stderrLines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => {
+      stderrLines.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await syncIndexedSources(projectRoot);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    assert.ok(
+      stderrLines.length > 0,
+      "must write per-source progress to stderr",
+    );
+    assert.ok(
+      stderrLines.some((l) => l.includes("[discover sync]")),
+      "progress must contain [discover sync] prefix",
+    );
 
     const report = await readJsonFile<SourceSyncReport>(
       join(projectRoot, "discover", "output", "source-sync.json"),
