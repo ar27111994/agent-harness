@@ -4,7 +4,7 @@ The published product demo video is live on YouTube: **[youtu.be/u1OmcS97iOg](ht
 
 For the full v2 before/after walkthrough, expected artifacts, and quarantine/security talking points, see [`v2-opencode-walkthrough.md`](./v2-opencode-walkthrough.md).
 
-Issue #232 tracks adding a short public terminal demo near the README hero. The repo keeps this reproducible script so the recording can be regenerated without exposing a private workstation.
+The terminal demo is live — see the README hero autoplay GIF and the sound-on YouTube walkthrough linked above. The v2.0.0 release shipped this demo (originally tracked as #232).
 
 ## Recording contract
 

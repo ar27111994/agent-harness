@@ -1368,6 +1368,10 @@ AGENT_HARNESS_INSTALL_BATCH_SIZE=250
 AGENT_HARNESS_SCAN_MAX_DEPTH=14
 AGENT_HARNESS_SCAN_MAX_FILES=20000
 AGENT_HARNESS_SCAN_MAX_BYTES=50000000
+AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE=200
+AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS=5000
+AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS=7
+AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD=500
 ```
 
 The runtime config exposes diagnostics as a boolean flag at `diagnostics.debugEnabled`; there is no full log-level hierarchy today. The current `AGENT_HARNESS_DEBUG` env var maps directly to `diagnostics.debugEnabled`, so diagnostics can be controlled either through that env var or by reading the resolved runtime config object.
@@ -1502,11 +1506,15 @@ agent-harness/
 ├── docs/
 │   ├── demo/
 │   ├── guides/
+│   │   ├── CATALOG-BREADTH.md
 │   │   ├── HARNESS-MAINTENANCE-GUIDE.md
 │   │   ├── LOGGING-STRATEGY.md
 │   │   ├── MAINTENANCE-WORKFLOW.md
 │   │   ├── RELEASE-PROCESS.md
 │   │   ├── SAFE-DEFAULTS.md
+│   │   ├── SEMANTIC-SCORING.md
+│   │   ├── SOURCE-PACK-SEEDER.md
+│   │   ├── TROUBLESHOOTING.md
 │   │   ├── TRUST-CENTER.md
 │   │   ├── V1-TO-V2-UPGRADE.md
 │   │   └── V2-CONTRACT.md

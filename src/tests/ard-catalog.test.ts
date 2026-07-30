@@ -24,7 +24,7 @@ import {
   type PrettierFormatter,
 } from "../ard-catalog.js";
 
-import type { AssetKind } from "../types.js";
+import type { AssetKind, SourceKind } from "../types.js";
 import { buildEntry } from "./test-helpers.js";
 
 const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
@@ -222,6 +222,110 @@ void test("mapEntryToArd uses originUrl over manifestEntry for url field (#368)"
     ard.url.startsWith("https://"),
     "url must be a resolvable https URL",
   );
+});
+
+void test("mapEntryToArd produces HTTP urls for all harvestable source kinds (#380)", () => {
+  // Each source kind that can be harvested should produce a resolvable URL.
+  const sourceKinds: Array<{
+    kind: SourceKind;
+    originUrl: string;
+    manifestEntry: string;
+  }> = [
+    {
+      kind: "repo",
+      originUrl: "https://github.com/user/repo/blob/main/SKILL.md",
+      manifestEntry: "a94df09f75fba2f11c63103c3e573c729226a6e0",
+    },
+    {
+      kind: "package-registry",
+      originUrl: "https://www.npmjs.com/package/example-pkg",
+      manifestEntry: "example-pkg",
+    },
+    {
+      kind: "registry",
+      originUrl:
+        "https://raw.githubusercontent.com/official-skills/main/SKILL.md",
+      manifestEntry: "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
+    },
+    {
+      kind: "local-directory",
+      originUrl: "file:///home/user/projects/local-skill.md",
+      manifestEntry: "e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
+    },
+    {
+      kind: "ard-registry",
+      originUrl: "https://publisher.example.com/.well-known/ai-catalog.json",
+      manifestEntry: "f1e2d3c4b5a6f7e8d9c0b1a2",
+    },
+  ];
+
+  for (const { kind, originUrl, manifestEntry } of sourceKinds) {
+    const entry = buildEntry({
+      id: `test-${kind}`,
+      displayName: `Test ${kind}`,
+      assetKind: "skill",
+      source: {
+        sourceId: `src-${kind}`,
+        authorityTier: "unverified-community",
+        sourceKind: kind,
+        sourcePriority: 70,
+        originUrl,
+        publisher: "TestPub",
+        publisherVerified: false,
+      },
+      install: {
+        method: "repo-reference",
+        manifestEntry,
+      },
+    });
+
+    const ard = mapEntryToArd(entry, "test.io", "2.0.0");
+    // For non-local kinds, the URL must be the originUrl (an HTTP URL).
+    if (kind !== "local-directory") {
+      assert.equal(
+        ard.url,
+        originUrl,
+        `${kind}: url must be the originUrl, not the manifestEntry hash`,
+      );
+      assert.ok(
+        ard.url!.startsWith("https://"),
+        `${kind}: url must be a resolvable https URL, got ${ard.url?.slice(0, 50)}`,
+      );
+    } else {
+      // file:// URLs are acceptable for local directories.
+      assert.ok(
+        ard.url!.startsWith("file://"),
+        `${kind}: local directory url must be a file:// URL`,
+      );
+    }
+  }
+});
+
+void test("mapEntryToArd preserves empty originUrl (does not fall back to manifestEntry for empty string)", () => {
+  const entry = buildEntry({
+    id: "empty-origin",
+    displayName: "Empty Origin",
+    assetKind: "skill",
+    source: {
+      sourceId: "empty-src",
+      authorityTier: "unverified-community",
+      sourceKind: "repo",
+      sourcePriority: 70,
+      originUrl: "",
+      publisher: "TestPub",
+      publisherVerified: false,
+    },
+    install: {
+      method: "repo-reference",
+      manifestEntry: "abc123def456",
+    },
+  });
+
+  const ard = mapEntryToArd(entry, "test.io", "2.0.0");
+  // ?? only falls back for null/undefined, not empty string.
+  // An empty-string originUrl is a data-quality issue that should be
+  // caught by the harvest pipeline, not silently papered over.
+  assert.equal(ard.url, "");
 });
 
 // ---------------------------------------------------------------------------
