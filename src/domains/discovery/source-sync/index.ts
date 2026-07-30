@@ -90,7 +90,12 @@ export type {
  * Re-exported state helpers from the source-sync sub-module tree.
  * Imported here so external callers can use a single import path.
  */
-export { loadSourceSyncState, getIndexedSourceIds, loadIndexedCatalogEntries };
+export {
+  loadSourceSyncState,
+  getIndexedSourceIds,
+  loadIndexedCatalogEntries,
+  synchronizeIndexedSource,
+};
 
 /** Number of consecutive failures before source-health escalates to error. */
 const MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR = 3;
@@ -282,9 +287,6 @@ async function synchronizeIndexedSource(
   // another standards-body registry) follow this pattern: check `source.kind`
   // before falling through to the id-switch. The two axes never overlap because
   // kind-guard sources don't appear in the id-switch.
-  // Requires a real ARD endpoint to exercise in integration; unit-tested via
-  // syncArdRegistrySource in registries/ard-registry.ts.
-  /* c8 ignore next 5 */
   if (source.kind === "ard-registry") {
     const { syncArdRegistrySource } =
       await import("./registries/ard-registry.js");

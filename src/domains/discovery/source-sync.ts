@@ -28,7 +28,11 @@ export {
   loadSourceSyncState,
   getIndexedSourceIds,
   loadIndexedCatalogEntries,
+  synchronizeIndexedSource,
 } from "./source-sync/index.js";
+
+// Import for local use in sourceSyncInternals (re-export above is for consumers).
+import { synchronizeIndexedSource } from "./source-sync/index.js";
 
 // ─── Test escape-hatch ────────────────────────────────────────────────────────
 // `sourceSyncInternals` bundles all internal helper functions that tests reach
@@ -157,4 +161,6 @@ export const sourceSyncInternals = {
   isNonTransientError,
 
   fetchWithRetry,
+
+  synchronizeIndexedSource,
 };

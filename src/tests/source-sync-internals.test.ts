@@ -1483,3 +1483,60 @@ function jsonResponse(value: unknown): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+void test("synchronizeIndexedSource dispatches ard-registry kind-guard", async () => {
+  const ardSource = {
+    id: "test-ard-registry",
+    name: "Test ARD Registry",
+    kind: "ard-registry" as const,
+    enabled: true,
+    endpoints: { searchUrl: "https://ard.example.com/search" },
+    hosts: [] as string[],
+    assetKinds: ["skill" as const],
+    discoveryMode: "catalog" as const,
+    priority: 70,
+    authorityTier: "unverified-community" as const,
+    rules: { officialPreferred: false, allowMirror: true, allowInstall: true },
+  };
+
+  const context = {
+    demandProfile: null,
+    selectionRegistry: {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted" as const,
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    },
+    entriesById: new Map(),
+    entriesDirty: false,
+    previousState: undefined,
+    observedEntryIds: new Set(),
+  };
+
+  const originalFetch = globalThis.fetch;
+  try {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({ entries: [], nextCursor: null, totalCount: 0 }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      )) as typeof globalThis.fetch;
+
+    const result = await sourceSyncInternals.synchronizeIndexedSource(
+      ardSource,
+      context,
+    );
+
+    assert.ok(result !== null, "ard-registry dispatch must return a state");
+    assert.equal(result!.sourceId, "test-ard-registry");
+    assert.equal(result!.coverageMode, "indexed");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
