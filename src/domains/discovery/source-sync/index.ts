@@ -137,10 +137,25 @@ export async function syncIndexedSources(
   );
   let entriesDirty = false;
   const sourceStates: SourceSyncSourceState[] = [];
-
-  for (const source of sourceRegistry.sources.filter(
+  const indexedSources = sourceRegistry.sources.filter(
     (entry) => entry.enabled,
-  )) {
+  );
+  const totalSources = indexedSources.length;
+  let sourceIndex = 0;
+
+  for (const source of indexedSources) {
+    sourceIndex++;
+    const sourceLabel = source.endpoints?.repo ?? source.id;
+    const progressLabel = `[discover sync] ${sourceIndex}/${totalSources} ${sourceLabel}`;
+
+    // Per-source progress: print source name before sync starts (#382).
+    // Use process.stderr so progress lines don't contaminate stdout when
+    // the CLI is invoked in JSON-output mode.
+    if (totalSources > 1) {
+      process.stderr.write(`${progressLabel} … `);
+    }
+
+    const syncStart = Date.now();
     const previousState = existingState.sources.find(
       (entry) => entry.sourceId === source.id,
     );
@@ -188,6 +203,20 @@ export async function syncIndexedSources(
         }
       }
       entriesDirty ||= context.entriesDirty;
+
+      // Per-source completion: report sync duration (#382).
+      const syncDuration = Date.now() - syncStart;
+      if (totalSources > 1) {
+        const statusLabel =
+          synchronizedState?.status === "complete"
+            ? "done"
+            : synchronizedState?.status === "failed"
+              ? "failed"
+              : synchronizedState
+                ? synchronizedState.status
+                : "skipped";
+        process.stderr.write(`${statusLabel} (${syncDuration}ms)\n`);
+      }
     } catch (error) {
       // Stale-data fallback + persistence tracking.
       const previousFailures = (previousState?.consecutiveFailures ?? 0) + 1;

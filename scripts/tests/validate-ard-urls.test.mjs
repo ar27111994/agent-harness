@@ -7,7 +7,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 
-import { main, validateArdUrls } from "../validate-ard-urls.mjs";
+import {
+  main,
+  runCliIfDirect,
+  validateArdUrls,
+} from "../validate-ard-urls.mjs";
 
 async function withTempDir(fn) {
   const dir = await mkdtemp(join(tmpdir(), "ard-urls-test-"));
@@ -275,4 +279,88 @@ void test("validateArdUrls main function succeeds with valid catalog", async () 
     assert.equal(result.stats.total, 5);
     assert.equal(result.stats.httpCount, 5);
   });
+});
+
+void test("validateArdUrls main function handles missing catalog gracefully", async () => {
+  await withTempDir(async (dir) => {
+    assert.throws(() => {
+      main({ cwd: dir });
+    });
+  });
+});
+
+void test("validateArdUrls main function reports error for failing catalog", async () => {
+  await withTempDir(async (dir) => {
+    const wellKnown = join(dir, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    // Write a catalog with only hash URLs — well below 80% threshold
+    await writeFile(
+      join(wellKnown, "ai-catalog.json"),
+      JSON.stringify({
+        $schema: "https://example.com/schema.json",
+        publisher: "test",
+        version: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        entries: [
+          {
+            identifier: "a",
+            url: "a94df09f75fba2f11c63103c3e573c729226a6e0",
+            type: "app/ai-skill",
+          },
+          {
+            identifier: "b",
+            url: "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
+            type: "app/ai-skill",
+          },
+        ],
+      }) + "\n",
+      "utf8",
+    );
+
+    // main() should set process.exitCode and return non-ok result
+    const prevExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      const result = main({ cwd: dir });
+      assert.ok(!result.ok);
+      assert.ok(result.errors.some((e) => e.includes("below threshold")));
+      assert.equal(process.exitCode, 1);
+    } finally {
+      process.exitCode = prevExitCode;
+    }
+  });
+});
+
+void test("runCliIfDirect returns main result when guard is true", async () => {
+  await withTempDir(async (dir) => {
+    const wellKnown = join(dir, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    await writeFile(
+      join(wellKnown, "ai-catalog.json"),
+      JSON.stringify({
+        $schema: "https://example.com/schema.json",
+        publisher: "test",
+        version: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        entries: [
+          {
+            identifier: "a",
+            url: "https://github.com/test/SKILL.md",
+            type: "app/ai-skill",
+          },
+        ],
+      }) + "\n",
+      "utf8",
+    );
+
+    const result = runCliIfDirect(true, { cwd: dir });
+    assert.ok(result !== undefined);
+    assert.ok(result.ok);
+    assert.equal(result.stats.total, 1);
+  });
+});
+
+void test("runCliIfDirect returns undefined when guard is false", () => {
+  const result = runCliIfDirect(false);
+  assert.equal(result, undefined);
 });

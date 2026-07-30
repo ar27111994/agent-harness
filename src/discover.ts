@@ -248,6 +248,7 @@ export async function runDiscover(
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
+      const noSync = rest.includes("--no-sync");
       const maxBytesIndex = rest.indexOf("--max-scan-bytes");
       let maxBytes: number | undefined;
       if (maxBytesIndex >= 0) {
@@ -272,7 +273,13 @@ export async function runDiscover(
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
       await generateSourceIndex(projectRoot);
       logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
-      await syncIndexedSources(projectRoot);
+      if (noSync) {
+        console.warn(
+          "[discover full] --no-sync: skipping source sync, using existing local catalog data.",
+        );
+      } else {
+        await syncIndexedSources(projectRoot);
+      }
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
       logDiscoverPhase("discover full", 5, 5, "Applying selection rules");

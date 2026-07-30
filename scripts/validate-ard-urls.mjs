@@ -107,6 +107,14 @@ const isDirectExecution =
   process.argv[1] !== undefined &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
-if (isDirectExecution) {
-  main();
+// Deferred CLI entry: runs main() only when the script is invoked directly.
+// Extracted so tests can control the argv-based guard without c8 ignores.
+export function runCliIfDirect(guardValue, options) {
+  if (guardValue) {
+    return main(options);
+  }
+  return undefined;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+runCliIfDirect(isDirectExecution);
