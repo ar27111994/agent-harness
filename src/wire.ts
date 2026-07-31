@@ -2,6 +2,7 @@
 
 import { fileURLToPath } from "node:url";
 
+import { hasHelpFlag } from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import {
   listHostAdapters,
@@ -33,7 +34,7 @@ export async function runWire(
   const mode = getWireMode(rest);
 
   // Detect --help flag and show target-specific or parent help (#383).
-  if (rest.includes("--help") || rest.includes("-h")) {
+  if (hasHelpFlag(rest)) {
     printWireSubcommandHelp(target);
     return 0;
   }
