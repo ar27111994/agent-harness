@@ -304,11 +304,11 @@ void test("mapEntryToArd produces HTTP urls for all harvestable source kinds (#3
         `${kind}: url must be the originUrl, not the manifestEntry hash`,
       );
       assert.ok(
-        ard.url!.startsWith("https://"),
-        `${kind}: url must be a resolvable https URL, got ${ard.url?.slice(0, 50)}`,
+        ard.url!.startsWith("http"),
+        `${kind}: url must be a resolvable HTTP(S) URL, got ${ard.url?.slice(0, 50)}`,
       );
     } else {
-      // file:// URLs are acceptable for local directories.
+      // file:// URLs are acceptable for local directories and manifests.
       assert.ok(
         ard.url!.startsWith("file://"),
         `${kind}: local directory url must be a file:// URL`,

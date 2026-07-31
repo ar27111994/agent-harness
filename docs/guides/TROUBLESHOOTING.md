@@ -183,7 +183,7 @@ following durations are normal and do not indicate a hang or failure:
 | `npm run validate:release`  | 5–15 minutes      | All quality gates + smoke tests         |
 
 For `discover full`, the sync phase prints per-source progress to stderr (e.g.
-`[discover sync] 3/12 — npm …`). Use `--no-sync` to skip source sync for
+`[discover sync] 3/12 npm … done (7242ms)`). Use `--no-sync` to skip source sync for
 local-only discovery. CI pipelines should set `timeout-minutes: 30` or higher.
 
 For `test:self-hosting`, the test timeout is configured in the CI quality

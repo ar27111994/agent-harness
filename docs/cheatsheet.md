@@ -26,9 +26,10 @@ agent-harness wire opencode --apply            # Apply wire plan to workspace
 
 ```bash
 agent-harness discover demand-profile          # Scan workspace for demand signals
-agent-harness discover sources                 # List enabled discovery sources
+agent-harness discover sources                 # Refresh the discovery source index
 agent-harness discover sync                    # Harvest source data (network)
-agent-harness discover sync --no-sync           # Skip network sync (local only)
+agent-harness discover sync --full              # Run full sync (bypass cached index)
+agent-harness discover full --no-sync           # Run pipeline skipping source sync
 agent-harness discover catalog                 # Build full asset catalog
 agent-harness discover select                  # Filter catalog by demand + policy
 agent-harness discover full                    # Run full pipeline (demand → select)
@@ -51,7 +52,7 @@ agent-harness recommend explain --asset <id>   # Why an asset was selected/rejec
 agent-harness mirror plan --host <host>        # Preview mirror plan
 agent-harness mirror acquire --host <host>     # Download selected assets
 agent-harness mirror diff                      # Compare local vs remote mirrors
-agent-harness mirror locks                     # List lock files
+agent-harness mirror locks                     # Generate bundle lock files
 agent-harness mirror explain --asset <id>      # Mirror provenance for an asset
 ```
 

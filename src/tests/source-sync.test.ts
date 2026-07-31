@@ -227,7 +227,7 @@ void test("source sync indexes sitemap and html backed sources instead of sampli
     ]);
 
     const stderrLines: string[] = [];
-    const origWrite = process.stderr.write.bind(process.stderr);
+    const origWrite = process.stderr.write;
     process.stderr.write = ((chunk: string) => {
       stderrLines.push(String(chunk));
       return true;
@@ -764,7 +764,7 @@ void test("source sync keeps html-backed sources partial when a later page fetch
     ]);
 
     const stderrLines: string[] = [];
-    const origWrite = process.stderr.write.bind(process.stderr);
+    const origWrite = process.stderr.write;
     process.stderr.write = ((chunk: string) => {
       stderrLines.push(String(chunk));
       return true;
@@ -843,7 +843,7 @@ void test("source sync writes stderr completion on catch-path error", async () =
     ]);
 
     const stderrLines: string[] = [];
-    const origWrite = process.stderr.write.bind(process.stderr);
+    const origWrite = process.stderr.write;
     process.stderr.write = ((chunk: string) => {
       stderrLines.push(String(chunk));
       return true;
