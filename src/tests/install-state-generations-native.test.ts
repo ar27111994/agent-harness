@@ -1251,7 +1251,7 @@ void test("installBundles installs verified mirror content and preserves existin
   }
 });
 
-void test("installBundles rejects mirror artifacts with unexpected files", async () => {
+void test("installBundles skips malformed mirror artifacts gracefully (#409)", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-install-bundle-"),
   );
@@ -1302,9 +1302,10 @@ void test("installBundles rejects mirror artifacts with unexpected files", async
       } satisfies BundleLock,
     );
 
-    await assert.rejects(
+    // #409: Malformed artifacts are now skipped with a warning instead of
+    // aborting. The function should resolve without throwing.
+    await assert.doesNotReject(
       installBundles(projectRoot, ["--bundle", "copilot-core"]),
-      /unexpected file: rogue\.txt/u,
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

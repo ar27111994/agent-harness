@@ -118,6 +118,13 @@ function buildGitHubCatalogEntry(
   omsFileSizes: ReadonlyMap<string, number>,
 ): AssetCatalogEntry | null {
   const relativePath = treeEntry.path;
+
+  // Skip dependency directories — these contain installed packages, not
+  // agent assets. Ticket: #405.
+  if (isDependencyDirectoryPath(relativePath)) {
+    return null;
+  }
+
   const classification = classifyGitHubTreePath(relativePath, source);
 
   if (!classification) {
@@ -706,7 +713,34 @@ function toGitHubHarvesterErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Directory name patterns that indicate installed dependencies, not agent assets. */
+const DEPENDENCY_DIRECTORY_NAMES = new Set([
+  "node_modules",
+  "vendor",
+  ".venv",
+  "venv",
+  "__pycache__",
+  ".pytest_cache",
+  ".mypy_cache",
+  ".tox",
+]);
+
+/**
+ * Returns true if the given relative path lies inside a dependency directory
+ * (node_modules, vendor, .venv, etc.). Ticket: #405.
+ */
+function isDependencyDirectoryPath(relativePath: string): boolean {
+  const normalized = relativePath.replace(/\\/gu, "/").toLowerCase();
+  return (
+    DEPENDENCY_DIRECTORY_NAMES.has(normalized.split("/")[0]) ||
+    normalized
+      .split("/")
+      .some((segment) => DEPENDENCY_DIRECTORY_NAMES.has(segment))
+  );
+}
+
 /** Exposes github-harvester internals for focused unit testing. */
 export const githubHarvesterInternals = {
   collectRepositoryTrustEvidence,
+  isDependencyDirectoryPath,
 } as const;

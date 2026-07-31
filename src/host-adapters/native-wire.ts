@@ -212,6 +212,8 @@ export async function wireNativeHost(
   );
 
   if (options.mode === "preview") {
+    // eslint-disable-next-line no-console
+    console.log(formatWirePreviewManifest(preview));
     return;
   }
 
@@ -731,6 +733,44 @@ function buildNativeExtensionInstallActionLines(
       host: "cursor",
     }),
   ).map((line) => `Cursor native extension action: ${line}`);
+}
+
+/**
+ * Formats a WirePreviewManifest as a human-readable plan preview.
+ *
+ * Produces structured output matching the style of OpenCode's wire preview,
+ * with host info, target paths, and notes. Ticket: #403.
+ */
+export function formatWirePreviewManifest(
+  preview: WirePreviewManifest,
+): string {
+  const lines: string[] = [];
+  const divider = "─".repeat(60);
+
+  lines.push(divider);
+  lines.push(`  wire ${preview.host} — plan preview`);
+  lines.push(`  host: ${preview.host}  •  generated: ${preview.generatedAt}`);
+  lines.push(`  workspace: ${preview.workspaceRoot}`);
+  lines.push("");
+
+  if (preview.targetPaths.length > 0) {
+    lines.push(`  Target paths (${preview.targetPaths.length}):`);
+    for (const targetPath of preview.targetPaths) {
+      lines.push(`    ${targetPath}`);
+    }
+    lines.push("");
+  }
+
+  if (preview.notes.length > 0) {
+    lines.push("  Notes:");
+    for (const note of preview.notes) {
+      lines.push(`    ${note}`);
+    }
+    lines.push("");
+  }
+
+  lines.push(divider);
+  return lines.join("\n");
 }
 
 /**

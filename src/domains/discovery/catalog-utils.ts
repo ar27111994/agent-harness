@@ -422,13 +422,140 @@ export function compareAssetCatalogEntries(
 /**
  * Provides split into keywords for the lifecycle pipeline.
  */
+/**
+ * English stopwords + language-neutral noise tokens.
+ * Filtered from capability extraction and representative queries.
+ * Tickets: #400, #406.
+ */
+export const STOPWORD_TOKENS = new Set([
+  "a",
+  "an",
+  "the",
+  "and",
+  "or",
+  "but",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "of",
+  "with",
+  "by",
+  "from",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "may",
+  "might",
+  "can",
+  "shall",
+  "not",
+  "no",
+  "nor",
+  "so",
+  "if",
+  "then",
+  "than",
+  "that",
+  "this",
+  "these",
+  "those",
+  "it",
+  "its",
+  "he",
+  "she",
+  "they",
+  "them",
+  "their",
+  "we",
+  "us",
+  "our",
+  "my",
+  "your",
+  "his",
+  "her",
+  "me",
+  "you",
+  "all",
+  "each",
+  "every",
+  "both",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "only",
+  "own",
+  "same",
+  "just",
+  "about",
+  "up",
+  "out",
+  "as",
+  "into",
+  "over",
+  "under",
+  "after",
+  "before",
+  "between",
+  "through",
+  "during",
+  "above",
+  "below",
+  "any",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "where",
+  "when",
+  "why",
+  "how",
+  "very",
+  "too",
+  "also",
+  "now",
+  "here",
+  "there",
+  "one",
+  "two",
+  "zero",
+]);
+
+/**
+ * Splits a string into lowercase keyword tokens, filtering out stopwords,
+ * single-character tokens, and numeric-only tokens.
+ * Used by all capability extraction paths.
+ */
 export function splitIntoKeywords(value: string): string[] {
   return value
     .toLowerCase()
     .replace(/\.md$/u, "")
     .replace(/\.(ts|js|mts|cts)$/u, "")
     .split(/[^a-z0-9]+/u)
-    .filter((token) => token.length >= 1);
+    .filter((token) => {
+      if (token.length < 2) return false;
+      if (/^\d+$/u.test(token)) return false;
+      if (STOPWORD_TOKENS.has(token)) return false;
+      return true;
+    });
 }
 
 /**

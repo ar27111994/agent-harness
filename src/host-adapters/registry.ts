@@ -298,6 +298,16 @@ const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
       guidance:
         "Install the Codex CLI if you want runtime validation beyond project-local file wiring.",
     },
+    nativeInstall: {
+      assetKind: "extension",
+      collectActions: (assets) =>
+        buildVsCodeExtensionInstallActions(
+          assets.flatMap((asset) => {
+            const extensionId = resolveVsCodeExtensionId(asset);
+            return extensionId ? [extensionId] : [];
+          }),
+        ),
+    },
     capabilities: codexCapabilities,
     wire: (options) => wireNativeHost("codex", options),
   },

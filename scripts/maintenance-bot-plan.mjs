@@ -20,6 +20,7 @@ const reports = {
 };
 
 const issues = [
+  ...buildBrokenSourceIssues(reports.sourceHealth),
   ...buildSourceDriftIssues(reports.sourceDrift),
   ...buildSourceCandidateIssues(reports.sourceCandidates),
   ...buildSourceVerificationIssues(reports.sourceVerification),
@@ -56,8 +57,23 @@ async function readJsonOrNull(path) {
 }
 
 function buildSourceDriftIssues(report) {
+  // #412: Filter out dormant sources whose reason text indicates an ephemeral
+  // CI state root (no persisted cache). These are false positives, not real drift.
   return (report?.sources ?? [])
     .filter((source) => source.severity !== "ok")
+    .filter((source) => {
+      if (source.status === "dormant" && source.reasons) {
+        const reasonText = source.reasons.join(" ");
+        if (
+          reasonText.includes("ephemeral") ||
+          reasonText.includes("isolated workspace state root") ||
+          reasonText.includes("lacks this cache")
+        ) {
+          return false;
+        }
+      }
+      return true;
+    })
     .map((source) => ({
       title: `Review source drift: ${source.sourceId}`,
       labels: ["maintenance", "source-drift", source.severity],
@@ -71,6 +87,27 @@ function buildSourceDriftIssues(report) {
         selectedEntries: source.selectedEntries,
         rejectedEntries: source.rejectedEntries,
         duplicateRate: source.duplicateRate,
+      },
+    }));
+}
+
+/**
+ * #413: Build issues for broken sources (severity=error) from source-health.json.
+ * These are HIGHER priority than dormant drift and appear first in the issue list.
+ */
+function buildBrokenSourceIssues(report) {
+  return (report?.sources ?? [])
+    .filter((source) => source.severity === "error")
+    .map((source) => ({
+      title: `Fix broken source: ${source.sourceId}`,
+      labels: ["maintenance", "broken-source", "error"],
+      evidence: {
+        sourceId: source.sourceId,
+        status: source.status,
+        severity: source.severity,
+        reasons: source.reasons,
+        suggestedAction: source.suggestedAction,
+        harvestedEntries: source.harvestedEntries,
       },
     }));
 }

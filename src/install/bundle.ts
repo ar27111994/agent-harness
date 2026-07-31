@@ -154,10 +154,19 @@ export async function installBundles(
         continue;
       }
 
-      const mirrorManifest = await verifyMirrorFileManifest(
-        sourceMaterialPath,
-        mirrorEntry.contentHash,
-      );
+      let mirrorManifest: MirrorFileManifest;
+      try {
+        mirrorManifest = await verifyMirrorFileManifest(
+          sourceMaterialPath,
+          mirrorEntry.contentHash,
+          asset.assetId,
+        );
+      } catch (error) {
+        console.warn(
+          `Skipping malformed mirror artifact ${asset.assetId} (${sanitizeMirrorId(mirrorEntry.mirrorId)}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+        continue;
+      }
 
       const packageRoot = join(
         projectRoot,
@@ -298,14 +307,16 @@ interface MirrorFileManifest {
 async function verifyMirrorFileManifest(
   sourceMaterialPath: string,
   expectedAggregateHash: string,
+  assetId?: string,
 ): Promise<MirrorFileManifest> {
+  const context = assetId ? ` for asset ${assetId}` : "";
   const manifest = await readJsonFileOrNull<MirrorFileManifest>(
     join(sourceMaterialPath, "manifest.json"),
     assertMirrorFileManifest,
   );
   if (!manifest) {
     throw new Error(
-      `Mirror artifact is missing manifest.json: ${toPosixPath(sourceMaterialPath)}`,
+      `Mirror artifact is missing manifest.json: ${toPosixPath(sourceMaterialPath)}${context}`,
     );
   }
 
@@ -313,7 +324,7 @@ async function verifyMirrorFileManifest(
     left.relativePath.localeCompare(right.relativePath),
   );
   if (!normalizedFiles.some((file) => file.relativePath === "asset.json")) {
-    throw new Error("Mirror artifact manifest is missing asset.json");
+    throw new Error(`Mirror artifact manifest is missing asset.json${context}`);
   }
   for (const file of normalizedFiles) {
     const filePath = resolveSafeMirrorFilePath(
@@ -322,13 +333,13 @@ async function verifyMirrorFileManifest(
     );
     const content = await readBinaryFileOrNull(filePath);
     if (content === null) {
-      throw new Error(`Mirror artifact file is missing: ${file.relativePath}`);
+      throw new Error(`Mirror artifact file is missing: ${file.relativePath}${context}`);
     }
 
     const actualHash = createContentHash(content);
     const actualSize = content.byteLength;
     if (actualHash !== file.sha256 || actualSize !== file.sizeBytes) {
-      throw new Error(`Mirror artifact hash mismatch: ${file.relativePath}`);
+      throw new Error(`Mirror artifact hash mismatch: ${file.relativePath}${context}`);
     }
   }
 
@@ -336,10 +347,10 @@ async function verifyMirrorFileManifest(
     normalizedFiles.map(serializeMirrorManifestFileHashInput).join("\n"),
   );
   if (aggregateHash !== manifest.aggregateHash) {
-    throw new Error("Mirror artifact manifest aggregate hash mismatch");
+    throw new Error(`Mirror artifact manifest aggregate hash mismatch${context}`);
   }
   if (aggregateHash !== expectedAggregateHash) {
-    throw new Error("Mirror artifact hash does not match mirror index");
+    throw new Error(`Mirror artifact hash does not match mirror index${context}`);
   }
 
   await assertNoUnexpectedMirrorFiles(sourceMaterialPath, manifest);

@@ -53,7 +53,7 @@ void test("v2 host support matrix covers every registered adapter without overst
     matrix
       .filter((row) => row.nativeInstallVerifyRemove.length > 0)
       .map((row) => row.cliTarget),
-    ["copilot-vscode", "cursor"],
+    ["copilot-vscode", "cursor", "codex"],
   );
   assert.deepEqual(buildHostSupportMatrix([]), []);
   assert.deepEqual(

@@ -292,232 +292,94 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
 
 function printHelp(): void {
   printCommandHelp({
-    heading: "agent-harness commands:",
-    entries: [
-      {
-        command: "discover demand-profile",
-        description: "Scan the working directory and emit a demand profile",
-      },
-      {
-        command: "discover sources",
-        description: "Summarize enabled discovery sources",
-      },
-      {
-        command: "discover sync",
-        description:
-          "Persist indexed discovery results for supported high-volume sources",
-      },
-      {
-        command: "discover catalog",
-        description: "Build the unified asset catalog",
-      },
-      {
-        command: "discover select",
-        description: "Apply canonical selection policies",
-      },
-      {
-        command: "discover full",
-        description:
-          "Run demand-profile, sources, sync, catalog, and select in one pass",
-      },
-      {
-        command: "discover breadth",
-        description:
-          "Run the widest practical discovery pass and print candidate-pool guidance",
-      },
-      {
-        command: "discover stats",
-        description: "Print catalog/source stats",
-      },
-      {
-        command: "discover diff",
-        description: "Compare discovery outputs against a baseline state root",
-      },
-      {
-        command: "discover environment-index",
-        description: "Write experimental read-only query metadata index",
-      },
-      {
-        command: "discover ard-export",
-        description: "Export selected catalog to ARD ai-catalog.json format",
-      },
-      {
-        command: "mirror locks",
-        description: "Generate mirror bundle locks",
-      },
-      {
-        command: "mirror acquire",
-        description: "Acquire raw mirror artifacts and resolve bundle locks",
-      },
-      {
-        command: "bundle explain <bundleId>",
-        description: "Explain why assets are present in a bundle lock",
-      },
-      {
-        command: "mirror bundle-explain",
-        description: "Alias for bundle explain",
-      },
-      {
-        command: "stage bundle",
-        description: "Stage mirrored assets from bundle locks",
-      },
-      {
-        command: "stage native",
-        description: "Plan/verify/apply/remove host-native installs",
-      },
-      {
-        command: "stage refresh",
-        description:
-          "Refresh staged install state and report/apply stale assets",
-      },
-      {
-        command: "stage reconcile",
-        description: "Recompute staged install progress and generations",
-      },
-      {
-        command: "stage diff",
-        description:
-          "Compare current vs previous or explicit staged generations",
-      },
-      {
-        command: "stage explain",
-        description: "Explain where a staged asset is present and active",
-      },
-      {
-        command: "stage generations",
-        description: "Manage staged generation list, pinning, and pruning",
-      },
-      {
-        command: "stage reset",
-        description: "Remove staged install state",
-      },
-      {
-        command: "install <...>",
-        description: "Alias for stage <...>",
-      },
-      {
-        command: "activate host",
-        description: "Materialize active host views from staged bundles",
-      },
-      {
-        command: "activate rollback",
-        description: "Point a host to a previous generation",
-      },
-      {
-        command: "activate reset",
-        description: "Remove activation state",
-      },
-      {
-        command: "recommend report",
-        description: "Recompute the recommendation report",
-      },
-      {
-        command: "recommend ai-review",
-        description: "Run bounded recommendation-native AI review",
-      },
-      {
-        command: "recommend explain",
-        description:
-          "Explain why an asset was selected, rejected, quarantined, or budget-pruned",
-      },
-      {
-        command: "recommend evaluate",
-        description: "Run golden recommendation fixtures",
-      },
-      {
-        command: "quarantine list",
-        description:
-          "List, inspect, approve, or reject quarantined mirror artifacts",
-      },
-      {
-        command: "rebuild clean",
-        description:
-          "Remove install/activate transient state for a clean rebuild",
-      },
-      {
-        command: "rebuild full",
-        description:
-          "Clean and regenerate discover/mirror/install/activate state",
-      },
-      {
-        command: "workspace vscode",
-        description: "Run the full pipeline for a VS Code / Copilot workspace",
-      },
-      {
-        command: "workspace opencode",
-        description: "Run the full pipeline for an OpenCode workspace",
-      },
-      {
-        command: "workspace cursor",
-        description:
-          "Run the Copilot-compatible pipeline and wire Cursor project files",
-      },
-      {
-        command: "workspace zed",
-        description:
-          "Run the OpenCode-compatible pipeline and wire Zed project files",
-      },
-      {
-        command: "workspace claude-code",
-        description:
-          "Run the OpenCode-compatible pipeline and wire Claude Code project files",
-      },
-      {
-        command: "workspace pi",
-        description:
-          "Run the OpenCode-compatible pipeline and wire Pi project files",
-      },
-      {
-        command: "wire vscode",
-        description: "Preview/apply/reset VS Code user-scoped wire-in",
-      },
-      {
-        command: "wire opencode",
-        description: "Preview/apply/reset OpenCode project-local wire-in",
-      },
-      {
-        command: "wire cursor",
-        description: "Preview/apply/reset Cursor project-local wire-in",
-      },
-      {
-        command: "wire zed",
-        description: "Preview/apply/reset Zed project-local wire-in",
-      },
-      {
-        command: "wire claude-code",
-        description: "Preview/apply/reset Claude Code project-local wire-in",
-      },
-      {
-        command: "wire pi",
-        description: "Preview/apply/reset Pi project-local wire-in",
-      },
-      {
-        command: "setup doctor",
-        description: "Check config, host readiness, and guided setup notes",
-      },
-      {
-        command: "doctor",
-        description: "Alias for setup doctor",
-      },
-      {
-        command: "setup hosts",
-        description: "List registered host adapters",
-      },
-      {
-        command: "setup login",
-        description: "Print provider-specific login/OAuth guidance",
-      },
-      {
-        command: "mirror plan",
-        description: "Build a mirror readiness plan from current outputs",
-      },
-    ],
+    heading: "agent-harness",
+    entries: [],
     sections: [
+      {
+        title: "Quick start:",
+        lines: [
+          "  agent-harness setup doctor           Check host readiness and prerequisites",
+          "  agent-harness workspace opencode       Full pipeline for OpenCode",
+          "  agent-harness workspace vscode         Full pipeline for VS Code/Copilot",
+          "  agent-harness workspace cursor         Full pipeline for Cursor",
+          "",
+          "  Run 'agent-harness <command> --help' for detailed command options.",
+        ],
+      },
+      {
+        title: "Discover — scan workspaces and build asset catalogs:",
+        lines: [
+          "  discover demand-profile     Scan the working directory for demand signals",
+          "  discover sources            Summarize enabled discovery sources",
+          "  discover sync               Persist indexed sync results for high-volume sources",
+          "  discover catalog            Build the unified asset catalog",
+          "  discover select             Apply canonical selection policies",
+          "  discover full               Run demand-profile -> sources -> sync -> catalog -> select",
+          "  discover breadth            Widest discovery pass with candidate-pool guidance",
+          "  discover stats              Print catalog and source statistics",
+          "  discover diff               Compare outputs against a baseline state root",
+          "  discover environment-index  Write experimental read-only query metadata index",
+          "  discover ard-export         Export selected catalog to ARD ai-catalog.json",
+        ],
+      },
+      {
+        title: "Recommend — score and rank assets for your workspace:",
+        lines: [
+          "  recommend report            Build a scored recommendation report",
+          "  recommend evaluate          Evaluate recommendation quality and host fit",
+          "  recommend summary           Summarize top recommendations",
+        ],
+      },
+      {
+        title: "Mirror & Install — acquire and stage verified assets:",
+        lines: [
+          "  mirror locks                Generate mirror bundle locks",
+          "  mirror acquire              Acquire raw mirror artifacts",
+          "  mirror bundle-explain       Explain bundle lock contents",
+          "  mirror plan                 Build a mirror readiness plan",
+          "  install refresh             Install mirrored assets into host bundles",
+          "  install status              Show installation progress and status",
+        ],
+      },
+      {
+        title: "Activate & Wire — link installed assets into host workspaces:",
+        lines: [
+          "  activate opencode           Activate assets for OpenCode/Codex/Pi host family",
+          "  activate vscode             Activate assets for VS Code/Cursor host family",
+          "  wire vscode                 Preview/apply/reset VS Code user-scoped wire-in",
+          "  wire opencode               Preview/apply/reset OpenCode project-local wire-in",
+          "  wire cursor                 Preview/apply/reset Cursor project-local wire-in",
+          "  wire zed                    Preview/apply/reset Zed project-local wire-in",
+          "  wire claude-code            Preview/apply/reset Claude Code project-local wire-in",
+          "  wire pi                     Preview/apply/reset Pi project-local wire-in",
+          "  wire codex                  Preview/apply/reset Codex project-local wire-in",
+        ],
+      },
+      {
+        title: "Workspace — full lifecycle pipeline for a single host:",
+        lines: [
+          "  workspace vscode            Full pipeline for VS Code/Copilot",
+          "  workspace opencode          Full pipeline for OpenCode",
+          "  workspace cursor            Full pipeline for Cursor",
+          "  workspace zed               Full pipeline for Zed",
+          "  workspace claude-code       Full pipeline for Claude Code",
+          "  workspace pi                Full pipeline for Pi",
+          "  workspace codex             Full pipeline for Codex",
+        ],
+      },
+      {
+        title: "Setup & Doctor — check and configure your environment:",
+        lines: [
+          "  setup doctor                Check config, host readiness, and guided setup notes",
+          "  setup hosts                 List registered host adapters and capabilities",
+          "  setup login                 Print provider-specific login/OAuth guidance",
+        ],
+      },
       {
         title: "Global options:",
         lines: [
-          "--state-root <path> Write mutable lifecycle state under this path",
-          "--no-dotenv         Do not load .env from the current working directory",
+          "  --state-root <path>  Write mutable lifecycle state under this path",
+          "  --no-dotenv          Do not load .env from the current working directory",
         ],
       },
     ],

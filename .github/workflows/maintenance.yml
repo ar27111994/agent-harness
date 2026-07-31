@@ -30,6 +30,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # #414: Restore discovery state cache from prior runs so repo-kind
+      # sources with cached GitHub API data don't appear as dormant.
+      - name: Restore discovery cache
+        id: discovery-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            state/discover/source-sync.json
+            state/discover/source-sync.entries.jsonl
+          key: agent-harness-discovery-cache
+
       - name: Build
         run: npm run build
 
@@ -51,6 +62,16 @@ jobs:
           node ./dist/cli.js install refresh --host copilot-vscode --due-only
           node ./scripts/maintenance-summary.mjs
           node ./scripts/maintenance-bot-plan.mjs
+
+      # #414: Persist discovery state cache for the next CI run.
+      - name: Save discovery cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            state/discover/source-sync.json
+            state/discover/source-sync.entries.jsonl
+          key: agent-harness-discovery-cache
 
       - name: Upload maintenance artifacts
         # actions/upload-artifact@v7

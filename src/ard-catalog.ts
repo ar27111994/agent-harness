@@ -104,6 +104,11 @@ export function buildArdUrn(
 
 /**
  * Derives ARD trust manifest signals from agent-harness trust data.
+ *
+ * Generates trust manifests for all entries with non-trivial authority tiers,
+ * not just those with explicit publisherVerified or trust signals.
+ * Official-first-party and official-compatible sources always receive
+ * identity-based trust manifests. Ticket: #399.
  */
 export function deriveArdTrustManifest(
   entry: AssetCatalogEntry,
@@ -117,10 +122,31 @@ export function deriveArdTrustManifest(
     }
   }
 
-  // Use the publisher FQDN, not the human-readable publisher string.
+  // Derive publisher identity from verified sources.
   const fqdn = getArdPublisherFqdn();
+  const isVerifiedPublisher = entry.source.publisherVerified;
+
+  // Build identity for all sources that carry meaningful trust signals:
+  // verified publishers, official tiers, or existing trust attestations.
+  const authorityTier = entry.source.authorityTier;
+  const hasMeaningfulTier =
+    authorityTier === "official-first-party" ||
+    authorityTier === "official-compatible" ||
+    authorityTier === "trusted-community";
+
   const identity =
-    entry.source.publisherVerified && fqdn ? `domain:${fqdn}` : undefined;
+    isVerifiedPublisher || (hasMeaningfulTier && fqdn)
+      ? `domain:${fqdn}`
+      : undefined;
+
+  // For verified publishers, add the publisher-verified attestation
+  // if it isn't already present from trust signals.
+  if (
+    isVerifiedPublisher &&
+    !attestations.some((a) => a.type === "Publisher-Verified")
+  ) {
+    attestations.unshift(TRUST_SIGNAL_TO_ATTESTATION["publisher-verified"]);
+  }
 
   if (!identity && attestations.length === 0) return undefined;
 
@@ -180,6 +206,8 @@ export function mapEntryToArd(
 
 /**
  * Builds synthetic representative queries from capabilities.
+ * Filters out stopwords and low-quality tokens before query generation.
+ * Tickets: #400, #406.
  */
 function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
   const queries: string[] = [];
@@ -192,7 +220,17 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
   /* c8 ignore next */
   queries.push(`Find ${display} for ${entry.hosts[0] ?? "agent"} workflows`);
 
-  for (const cap of entry.capabilities.slice(0, 5)) {
+  // Filter capabilities to meaningful terms — exclude stopwords and noise.
+  const meaningfulCaps = entry.capabilities
+    .filter((cap) => {
+      const lower = cap.toLowerCase();
+      if (lower.length < 2) return false;
+      if (/^\d+$/u.test(lower)) return false;
+      return true;
+    })
+    .slice(0, 5);
+
+  for (const cap of meaningfulCaps) {
     queries.push(`Install a ${entry.assetKind} for ${cap}`);
   }
 

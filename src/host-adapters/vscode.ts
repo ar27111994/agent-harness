@@ -35,6 +35,7 @@ import {
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
+import { formatWirePreviewManifest } from "./native-wire.js";
 
 /**
  * Provides wire vs code for the lifecycle pipeline.
@@ -92,6 +93,8 @@ export async function wireVsCode(options: {
   );
 
   if (mode === "preview") {
+    // eslint-disable-next-line no-console
+    console.log(formatWirePreviewManifest(preview));
     return;
   }
 

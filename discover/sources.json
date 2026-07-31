@@ -793,7 +793,7 @@
       "assetKinds": ["plugin", "reference-pack"],
       "discoveryMode": "catalog",
       "priority": 70,
-      "enabled": true,
+      "enabled": false,
       "endpoints": {
         "baseUrl": "https://swiftpackageindex.com",
         "sitemapUrl": "https://swiftpackageindex.com/sitemap.xml"
@@ -1424,7 +1424,10 @@
       "name": "GitHub Agent Finder",
       "kind": "ard-registry",
       "authorityTier": "official-first-party",
-      "publisher": { "name": "GitHub", "verified": true },
+      "publisher": {
+        "name": "GitHub",
+        "verified": true
+      },
       "hosts": ["shared"],
       "assetKinds": ["skill", "mcp-server", "agent", "plugin"],
       "discoveryMode": "catalog",
@@ -1445,7 +1448,10 @@
       "name": "HuggingFace Discover",
       "kind": "ard-registry",
       "authorityTier": "official-first-party",
-      "publisher": { "name": "HuggingFace", "verified": true },
+      "publisher": {
+        "name": "HuggingFace",
+        "verified": true
+      },
       "hosts": ["shared"],
       "assetKinds": ["skill", "mcp-server", "agent"],
       "discoveryMode": "catalog",

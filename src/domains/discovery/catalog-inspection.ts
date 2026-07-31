@@ -12,6 +12,10 @@ import {
 
 /**
  * Provides print catalog stats for the lifecycle pipeline.
+ *
+ * When the raw catalog file (catalog.assets.jsonl) is missing but the selected
+ * catalog exists, breakdowns are built from the selected + rejected catalogs
+ * so that `discover stats` shows meaningful data. Ticket: #398.
  */
 export async function printCatalogStats(projectRoot: string): Promise<void> {
   const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
@@ -24,21 +28,32 @@ export async function printCatalogStats(projectRoot: string): Promise<void> {
     join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH),
   );
 
+  // When the raw catalog is missing but selected/rejected catalogs exist,
+  // use the combined selection as the breakdown source so operators see
+  // meaningful distributions instead of empty maps.
+  const breakdownEntries =
+    catalogEntries.length > 0
+      ? catalogEntries
+      : [...selectedEntries, ...rejectedEntries];
+  const catalogSource =
+    catalogEntries.length > 0 ? "raw-catalog" : "selected+rejected";
+
   const stats = {
     catalogCount: catalogEntries.length,
     selectedCount: selectedEntries.length,
     rejectedCount: rejectedEntries.length,
-    bySource: countBy(catalogEntries, (entry) => entry.source.sourceId),
+    catalogSource,
+    bySource: countBy(breakdownEntries, (entry) => entry.source.sourceId),
     byAuthorityTier: countBy(
-      catalogEntries,
+      breakdownEntries,
       (entry) => entry.source.authorityTier,
     ),
-    byAssetKind: countBy(catalogEntries, (entry) => entry.assetKind),
+    byAssetKind: countBy(breakdownEntries, (entry) => entry.assetKind),
     byCompatibility: countBy(
-      catalogEntries,
+      breakdownEntries,
       (entry) => entry.compatibilityMode,
     ),
-    byHost: countHostsForCatalog(catalogEntries),
+    byHost: countHostsForCatalog(breakdownEntries),
   };
 
   console.log(JSON.stringify(stats, null, 2));

@@ -18,7 +18,22 @@ export function resolveHomeRelativePath(pathValue: string): string {
 }
 
 /**
+ * Normalizes an MSYS/Cygwin-style Windows path (e.g. /c/Projects/foo) to a
+ * native Windows path (C:\\Projects\\foo). No-op on non-Windows platforms
+ * and on paths that don't match the MSYS pattern.
+ *
+ * Ticket: #397 — MSYS path mangling of --state-root.
+ */
+export function normalizeMsysPath(pathValue: string): string {
+  if (process.platform !== "win32") return pathValue;
+  const match = pathValue.match(/^\/([a-zA-Z])\//u);
+  if (!match) return pathValue;
+  return `${match[1].toUpperCase()}:${pathValue.slice(2).replace(/\//g, "\\")}`;
+}
+
+/**
  * Resolves portable path from the provided inputs.
+ * On Windows, normalises MSYS-style paths (/c/X → C:\\X) before resolution.
  */
 export function resolvePortablePath(
   pathValue: string | undefined,
@@ -28,7 +43,7 @@ export function resolvePortablePath(
     return projectRoot;
   }
 
-  const expandedValue = resolveHomeRelativePath(pathValue);
+  const expandedValue = resolveHomeRelativePath(normalizeMsysPath(pathValue));
   return isAbsolute(expandedValue)
     ? normalize(expandedValue)
     : resolve(projectRoot, expandedValue);
