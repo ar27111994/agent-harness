@@ -723,6 +723,10 @@ void test("source sync keeps html-backed sources partial when a later page fetch
     "https://pi.dev/packages?page=2": () => {
       throw new Error("timed out while fetching page 2");
     },
+    // second source so totalSources > 1 triggers per-source stderr progress
+    "https://cursor.com/sitemap-marketplace.xml": xmlResponse([
+      "<urlset><url><loc>https://cursor.com/marketplace/acme/plugin</loc></url></urlset>",
+    ]),
   });
 
   try {
@@ -741,9 +745,46 @@ void test("source sync keeps html-backed sources partial when a later page fetch
           verified: true,
         },
       ),
+      // second source so stderr per-source progress fires (totalSources > 1)
+      buildSource(
+        "cursor-marketplace",
+        "marketplace",
+        {
+          baseUrl: "https://cursor.com/marketplace",
+          sitemapUrl: "https://cursor.com/sitemap-marketplace.xml",
+        },
+        ["cursor"],
+        ["plugin"],
+        "official-marketplace",
+        {
+          name: "Cursor",
+          verified: true,
+        },
+      ),
     ]);
 
-    await syncIndexedSources(projectRoot);
+    const stderrLines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => {
+      stderrLines.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await syncIndexedSources(projectRoot);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+
+    // pi-packages page 1 succeeds, page 2 fails → status "partial" from success path.
+    assert.ok(
+      stderrLines.some((l) => l.includes("partial") && l.includes("ms")),
+      "stderr must include a 'partial' completion line for partial sync",
+    );
+    // cursor-marketplace succeeded → "done".
+    assert.ok(
+      stderrLines.some((l) => l.includes("done") && l.includes("ms")),
+      "stderr must include a 'done' completion line for successful source",
+    );
 
     const report = await readJsonFile<SourceSyncReport>(
       join(projectRoot, "discover", "output", "source-sync.json"),
@@ -755,6 +796,74 @@ void test("source sync keeps html-backed sources partial when a later page fetch
     assert.equal(piPackages?.coverageMode, "indexed");
     assert.equal(piPackages?.status, "partial");
     assert.match(piPackages?.reason ?? "", /page=2/u);
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("source sync writes stderr completion on catch-path error", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-"),
+  );
+  const cleanupFetch = installFetchMock({
+    // page 1 throws → entire sync fails, hitting the catch block
+    "https://pi.dev/packages": () => {
+      throw new Error("connection refused");
+    },
+    // second source succeeds so totalSources > 1 triggers stderr
+    "https://cursor.com/sitemap-marketplace.xml": xmlResponse([
+      "<urlset><url><loc>https://cursor.com/marketplace/acme/plugin</loc></url></urlset>",
+    ]),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pi-packages",
+        "registry",
+        { baseUrl: "https://pi.dev/packages" },
+        ["pi"],
+        ["skill", "agent"],
+        "official-compatible",
+        { name: "Pi", verified: true },
+      ),
+      buildSource(
+        "cursor-marketplace",
+        "marketplace",
+        {
+          baseUrl: "https://cursor.com/marketplace",
+          sitemapUrl: "https://cursor.com/sitemap-marketplace.xml",
+        },
+        ["cursor"],
+        ["plugin"],
+        "official-marketplace",
+        { name: "Cursor", verified: true },
+      ),
+    ]);
+
+    const stderrLines: string[] = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = ((chunk: string) => {
+      stderrLines.push(String(chunk));
+      return true;
+    }) as typeof process.stderr.write;
+    try {
+      await syncIndexedSources(projectRoot);
+    } finally {
+      process.stderr.write = origWrite;
+    }
+
+    // pi-packages: first page throws → catch block → "failed" (#382).
+    assert.ok(
+      stderrLines.some((l) => l.includes("failed") && l.includes("ms")),
+      "stderr must include 'failed' completion when source sync throws",
+    );
+    // cursor-marketplace succeeded.
+    assert.ok(
+      stderrLines.some((l) => l.includes("done") && l.includes("ms")),
+      "stderr must include 'done' for successful source",
+    );
   } finally {
     cleanupFetch();
     await rm(projectRoot, { force: true, recursive: true });
