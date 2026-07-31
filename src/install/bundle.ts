@@ -494,7 +494,7 @@ function getPendingAssets(
 
 function extractBundleId(bundlePath: string): string {
   const segments = bundlePath.split(/[/\\]/u);
-  const filename = segments.length > 0 ? (segments[segments.length - 1] ?? "") : "";
+  const filename = segments[segments.length - 1];
   return filename.replace(/\.lock\.json$/u, "");
 }
 
