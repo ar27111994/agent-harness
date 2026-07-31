@@ -499,12 +499,15 @@ describe("main", () => {
   it("uses default paths when called without opts", async () => {
     const logs = [];
     const origLog = console.log;
+    const origError = console.error;
     console.log = (...args) => logs.push(args.join(" "));
+    console.error = (...args) => logs.push(args.join(" "));
     try {
       const code = await main();
       assert.ok(code === 0 || code === 1);
     } finally {
       console.log = origLog;
+      console.error = origError;
     }
   });
 
@@ -522,6 +525,45 @@ describe("main", () => {
       assert.ok(exitCode === 0 || exitCode === 1);
     } finally {
       process.exit = origExit;
+    }
+  });
+
+  it("main returns 1 when .env.example is missing", async () => {
+    const logs = [];
+    const origError = console.error;
+    console.error = (...args) => logs.push(args.join(" "));
+    try {
+      const code = await main({
+        envFile: "/nonexistent/.env.example",
+        readmeFile: "/dev/null",
+      });
+      assert.equal(code, 1);
+      assert.ok(logs.some((l) => l.includes("Failed to read")));
+    } finally {
+      console.error = origError;
+    }
+  });
+
+  it("main returns 1 when README.md is missing", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "drift-readme-missing-"));
+    try {
+      const envFile = join(dir, ".env.example");
+      await writeFile(envFile, "AGENT_HARNESS_FOO=bar\n", "utf8");
+      const logs = [];
+      const origError = console.error;
+      console.error = (...args) => logs.push(args.join(" "));
+      try {
+        const code = await main({
+          envFile,
+          readmeFile: join(dir, "README.md"),
+        });
+        assert.equal(code, 1);
+        assert.ok(logs.some((l) => l.includes("Failed to read")));
+      } finally {
+        console.error = origError;
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });

@@ -166,9 +166,9 @@ function printRebuildSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness rebuild clean",
         "",
-        "Removes all generated lifecycle state (state/, install/, activate/,",
-        "coverage/, mirror/bundles/, discover/output/) while preserving",
-        "configuration files (discover/sources.json, discover/selections.json).",
+        "Removes all generated lifecycle state (install/, activate/,",
+        "state/install/, state/mirror/) while preserving configuration",
+        "files (discover/sources.json, discover/selections.json).",
       ],
     },
     full: {

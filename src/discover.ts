@@ -6,7 +6,11 @@ import {
   inspectCatalog,
   printCatalogStats,
 } from "./domains/discovery/catalog-inspection.js";
-import { hasHelpFlag, type SubcommandHelpEntry } from "./cli-help-format.js";
+import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
 import {
@@ -242,10 +246,6 @@ export async function runDiscover(
       );
     }
     case "full": {
-      if (helpRequested) {
-        printDiscoverFullHelp();
-        return 0;
-      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
@@ -308,10 +308,6 @@ export async function runDiscover(
     case "breadth":
     case "recall":
     case "candidate-pool":
-      if (helpRequested) {
-        printDiscoverBreadthHelp();
-        return 0;
-      }
       await runDiscoveryBreadth(workingDirectory, projectRoot);
       return 0;
     case "enrich":
@@ -1106,6 +1102,7 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
         "local index when fresh, performs live harvest otherwise.",
         "",
         "Options:",
+        "  --full               Run full sync (otherwise uses cached index when fresh)",
         "  --state-root <path>   Override state directory",
       ],
     },
@@ -1189,24 +1186,19 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
     },
   };
 
-  if (Object.hasOwn(helpTexts, subcommand) && helpTexts[subcommand]) {
-    const help = helpTexts[subcommand];
-    printCommandHelp({
-      heading: help.heading,
-      entries: [],
-      sections: [{ title: "", lines: help.lines }],
-    });
-  } else if (subcommand === "full") {
-    printDiscoverFullHelp();
-  } else if (
-    subcommand === "breadth" ||
-    subcommand === "recall" ||
-    subcommand === "candidate-pool"
-  ) {
-    printDiscoverBreadthHelp();
-  } else {
-    printDiscoverHelp();
-  }
+  printSubcommandHelp(subcommand, helpTexts, () => {
+    if (subcommand === "full") {
+      printDiscoverFullHelp();
+    } else if (
+      subcommand === "breadth" ||
+      subcommand === "recall" ||
+      subcommand === "candidate-pool"
+    ) {
+      printDiscoverBreadthHelp();
+    } else {
+      printDiscoverHelp();
+    }
+  });
 }
 
 function printDiscoverHelp(): void {
@@ -1343,6 +1335,7 @@ function printDiscoverFullHelp(): void {
         lines: [
           "--ai-enrich         Run AI enrichment after selection",
           "--no-ai-enrich      Skip AI enrichment",
+          "--no-sync           Skip source sync (local discovery only)",
           "--quiet             Suppress expected source health warnings",
           "--summary           Print aggregate warning breakdown by reason",
           "--max-scan-bytes N   Override the demand scan byte budget (default: 48 MB)",

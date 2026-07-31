@@ -31,12 +31,57 @@ function isHashUrl(url) {
 
 export function validateArdUrls(catalogPath) {
   const errors = [];
-  const raw = readFileSync(catalogPath, "utf8");
-  const catalog = JSON.parse(raw);
+  let raw;
+  try {
+    raw = readFileSync(catalogPath, "utf8");
+  } catch (err) {
+    errors.push(`Failed to read ai-catalog.json: ${err.message}`);
+    return {
+      ok: false,
+      errors,
+      stats: {
+        total: 0,
+        httpCount: 0,
+        hashCount: 0,
+        nameCount: 0,
+        missingCount: 0,
+        fraction: 0,
+      },
+    };
+  }
+  let catalog;
+  try {
+    catalog = JSON.parse(raw);
+  } catch (err) {
+    errors.push(`Failed to parse ai-catalog.json: ${err.message}`);
+    return {
+      ok: false,
+      errors,
+      stats: {
+        total: 0,
+        httpCount: 0,
+        hashCount: 0,
+        nameCount: 0,
+        missingCount: 0,
+        fraction: 0,
+      },
+    };
+  }
 
   if (!Array.isArray(catalog.entries)) {
     errors.push("ai-catalog.json is missing or has no entries array.");
-    return { ok: false, errors, entries: 0 };
+    return {
+      ok: false,
+      errors,
+      stats: {
+        total: 0,
+        httpCount: 0,
+        hashCount: 0,
+        nameCount: 0,
+        missingCount: 0,
+        fraction: 0,
+      },
+    };
   }
 
   const entries = catalog.entries;

@@ -465,7 +465,7 @@ function printSetupSubcommandHelp(subcommand: string): void {
     login: {
       heading: "setup login — Interactive host login",
       lines: [
-        "Usage: agent-harness setup login [--host <host>]",
+        "Usage: agent-harness setup login [--provider <provider>]",
         "",
         "Guides you through interactive login for host-specific",
         "authentication (API keys, OAuth, CLI auth).",

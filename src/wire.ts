@@ -131,6 +131,7 @@ function printWireSubcommandHelp(target: string): void {
             "Options:",
             "  --preview          Preview the wire plan without applying (default)",
             "  --apply            Apply the wire plan to the workspace",
+            "  --reset            Reset the wire configuration to defaults",
             "  --state-root <path>  Override state directory",
           ],
         },

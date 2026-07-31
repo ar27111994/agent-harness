@@ -83,8 +83,6 @@ All notable changes to this project will be documented in this file.
 - **Activation budget lookup** — replaced sequential `if` branches in `getActivationBudget` with a `Map<ActivationHost, number>` lookup (#356 item 1)
 - **Rejection sample size constant** — extracted inline `SAMPLE_SIZE = 20` to file-level `REJECTION_SAMPLE_SIZE` for consistency (#356 item 6)
 
-### Fixed
-
 - `writeJsonFileAtomically` no longer performs a pre-delete before the atomic rename, closing a window where a crash between `rm` and `rename` could leave a discovery artifact missing entirely (#316)
 - `swapActivationRuntimeRoot` now surfaces rollback failures via `AggregateError` when both the apply and the restore rename fail, preventing the runtime root from being silently left in a missing state (#317)
 - `readSharedMcpAssetIds` validates that `pkg.manifestPath` stays within the install root before reading, closing a path-traversal risk via tampered bundle manifests (#318)

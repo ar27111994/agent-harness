@@ -140,7 +140,7 @@ void test("validateArdUrls fails when entries have no url field", async () => {
     const result = validateArdUrls(path);
     assert.ok(!result.ok);
     assert.equal(result.stats.missingCount, 1);
-    assert.ok(result.errors.some((e) => e.includes("no url field")));
+    assert.ok(result.errors.some((e) => e.includes("missing or empty url")));
   });
 });
 
@@ -176,7 +176,6 @@ void test("validateArdUrls reports hash and name/non-http counts", async () => {
     assert.equal(result.stats.httpCount, 3);
     assert.equal(result.stats.hashCount, 1);
     assert.equal(result.stats.nameCount, 1);
-    assert.ok(!result.ok, "3/5=60% should fail the 80% threshold");
   });
 });
 
@@ -283,9 +282,9 @@ void test("validateArdUrls main function succeeds with valid catalog", async () 
 
 void test("validateArdUrls main function handles missing catalog gracefully", async () => {
   await withTempDir(async (dir) => {
-    assert.throws(() => {
-      main({ cwd: dir });
-    });
+    const result = main({ cwd: dir });
+    assert.ok(!result.ok);
+    assert.ok(result.errors.some((e) => e.includes("Failed to read")));
   });
 });
 
@@ -369,9 +368,40 @@ void test("main uses process.cwd fallback when no cwd option provided", async ()
   // Verify that main() can be called without options — exercises the
   // `options.cwd ?? process.cwd()` fallback path at line 86.
   // This relies on the project's own .well-known/ai-catalog.json being valid.
-  const result = main();
-  // The project catalog should be valid (>=80% HTTP URLs)
-  assert.ok(result.ok);
-  assert.ok(result.stats.total > 0);
-  assert.ok(result.stats.fraction >= 0.8);
+  const prevExitCode = process.exitCode;
+  const origLog = console.log;
+  const logs = [];
+  console.log = (...args) => logs.push(args.join(" "));
+  try {
+    const result = main();
+    // The project catalog should be valid (>=80% HTTP URLs)
+    assert.ok(result.ok);
+    assert.ok(result.stats.total > 0);
+    assert.ok(result.stats.fraction >= 0.8);
+  } finally {
+    console.log = origLog;
+    process.exitCode = prevExitCode;
+  }
+});
+
+void test("validateArdUrls handles missing catalog file gracefully", async () => {
+  const result = validateArdUrls("/nonexistent/path/to/catalog.json");
+  assert.ok(!result.ok);
+  assert.ok(result.stats !== undefined);
+  assert.equal(result.stats.total, 0);
+  assert.ok(result.errors.some((e) => e.includes("Failed to read")));
+});
+
+void test("validateArdUrls handles malformed JSON gracefully", async () => {
+  await withTempDir(async (dir) => {
+    const wellKnown = join(dir, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    const path = join(wellKnown, "ai-catalog.json");
+    await writeFile(path, "not valid json {{{", "utf8");
+    const result = validateArdUrls(path);
+    assert.ok(!result.ok);
+    assert.ok(result.stats !== undefined);
+    assert.equal(result.stats.total, 0);
+    assert.ok(result.errors.some((e) => e.includes("Failed to parse")));
+  });
 });

@@ -525,28 +525,40 @@ function printQuarantineSubcommandHelp(subcommand: string): void {
     approve: {
       heading: "quarantine approve — Approve a quarantined artifact",
       lines: [
-        "Usage: agent-harness quarantine approve --asset <assetId>",
+        "Usage: agent-harness quarantine approve --asset <assetId> [--reason <reason>] [--reviewer <name>]",
         "",
         "Approves a quarantined artifact, releasing it from quarantine",
         "and making it eligible for mirror acquisition.",
+        "",
+        "Options:",
+        "  --reason <reason>   Review reason or justification",
+        "  --reviewer <name>    Reviewer name or bot identifier",
       ],
     },
     reject: {
       heading: "quarantine reject — Reject a quarantined artifact",
       lines: [
-        "Usage: agent-harness quarantine reject --asset <assetId>",
+        "Usage: agent-harness quarantine reject --asset <assetId> [--reason <reason>] [--reviewer <name>]",
         "",
         "Permanently rejects a quarantined artifact, blocking it from",
         "future mirror acquisition.",
+        "",
+        "Options:",
+        "  --reason <reason>   Review reason or justification",
+        "  --reviewer <name>    Reviewer name or bot identifier",
       ],
     },
     pin: {
       heading: "quarantine pin — Pin a quarantine review decision",
       lines: [
-        "Usage: agent-harness quarantine pin --asset <assetId>",
+        "Usage: agent-harness quarantine pin --asset <assetId> [--reason <reason>] [--reviewer <name>]",
         "",
         "Pins the current review decision for a quarantined artifact,",
         "preserving it across future catalog updates.",
+        "",
+        "Options:",
+        "  --reason <reason>   Review reason or justification",
+        "  --reviewer <name>    Reviewer name or bot identifier",
       ],
     },
   };

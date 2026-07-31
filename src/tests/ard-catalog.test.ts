@@ -257,6 +257,22 @@ void test("mapEntryToArd produces HTTP urls for all harvestable source kinds (#3
       originUrl: "https://publisher.example.com/.well-known/ai-catalog.json",
       manifestEntry: "f1e2d3c4b5a6f7e8d9c0b1a2",
     },
+    {
+      kind: "docs",
+      originUrl: "https://docs.cursor.com/agent-skills",
+      manifestEntry: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+    },
+    {
+      kind: "marketplace",
+      originUrl:
+        "https://marketplace.visualstudio.com/items?itemName=ms-python.python",
+      manifestEntry: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
+    },
+    {
+      kind: "local-manifest",
+      originUrl: "file:///home/user/.local/share/agent-harness/manifest.json",
+      manifestEntry: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
+    },
   ];
 
   for (const { kind, originUrl, manifestEntry } of sourceKinds) {

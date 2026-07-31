@@ -106,14 +106,23 @@ function formatDriftReport(result) {
  * @param {string} [opts.readmeFile] - Path to README.md
  */
 async function main(opts) {
-  const rootDir = opts?.envFile
-    ? ""
-    : resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const ENV_FILE = opts?.envFile ?? resolve(rootDir, ".env.example");
   const README_FILE = opts?.readmeFile ?? resolve(rootDir, "README.md");
 
-  const envContent = await readFile(ENV_FILE, "utf-8");
-  const readmeContent = await readFile(README_FILE, "utf-8");
+  let envContent, readmeContent;
+  try {
+    envContent = await readFile(ENV_FILE, "utf-8");
+  } catch (err) {
+    console.error(`Failed to read ${ENV_FILE}: ${err.message}`);
+    return 1;
+  }
+  try {
+    readmeContent = await readFile(README_FILE, "utf-8");
+  } catch (err) {
+    console.error(`Failed to read ${README_FILE}: ${err.message}`);
+    return 1;
+  }
 
   const result = checkDrift(envContent, readmeContent);
 
@@ -129,6 +138,6 @@ async function main(opts) {
 export { main, formatDriftReport };
 
 /* c8 ignore next 3 */
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().then((code) => process.exit(code));
 }

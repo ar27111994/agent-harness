@@ -176,6 +176,47 @@ function printInstallSubcommandHelp(subcommand: string): void {
         "  --apply                                 Required for mutating operations",
       ],
     },
+    reconcile: {
+      heading: "stage reconcile — Reconcile staged install state",
+      lines: [
+        "Usage: agent-harness stage reconcile [--host <host>]",
+        "",
+        "Reconciles staged install state against mirror bundles, detecting",
+        "drift between what is staged and what is available.",
+      ],
+    },
+    diff: {
+      heading: "stage diff — Show install state differences",
+      lines: [
+        "Usage: agent-harness stage diff [--host <host>]",
+        "",
+        "Shows differences between staged install state and mirror bundles.",
+      ],
+    },
+    explain: {
+      heading: "stage explain — Explain an install decision",
+      lines: [
+        "Usage: agent-harness stage explain --asset <assetId>",
+        "",
+        "Explains why a specific asset was installed, updated, or skipped.",
+      ],
+    },
+    generations: {
+      heading: "stage generations — List install generations",
+      lines: [
+        "Usage: agent-harness stage generations [--host <host>]",
+        "",
+        "Lists historical install generation records with timestamps.",
+      ],
+    },
+    reset: {
+      heading: "stage reset — Reset install state",
+      lines: [
+        "Usage: agent-harness stage reset [--host <host>]",
+        "",
+        "Resets install state to a clean baseline, removing all staged assets.",
+      ],
+    },
   };
 
   printSubcommandHelp(subcommand, helpTexts, printInstallHelp);

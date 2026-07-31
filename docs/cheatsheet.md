@@ -28,6 +28,7 @@ agent-harness wire opencode --apply            # Apply wire plan to workspace
 agent-harness discover demand-profile          # Scan workspace for demand signals
 agent-harness discover sources                 # List enabled discovery sources
 agent-harness discover sync                    # Harvest source data (network)
+agent-harness discover sync --no-sync           # Skip network sync (local only)
 agent-harness discover catalog                 # Build full asset catalog
 agent-harness discover select                  # Filter catalog by demand + policy
 agent-harness discover full                    # Run full pipeline (demand → select)

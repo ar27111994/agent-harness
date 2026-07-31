@@ -1460,6 +1460,7 @@ agent-harness/
 │   ├── ISSUE_TEMPLATE/
 │   └── workflows/
 ├── discover/
+│   ├── README.md
 │   ├── recommendation-policy/
 │   ├── schema/
 │   ├── seeds/
@@ -1515,8 +1516,10 @@ agent-harness/
 │   ├── wire.ts
 │   └── workspace.ts
 ├── docs/
+│   ├── cheatsheet.md
 │   ├── demo/
 │   ├── guides/
+│   │   ├── ADAPTER-DEVELOPMENT.md
 │   │   ├── CATALOG-BREADTH.md
 │   │   ├── HARNESS-MAINTENANCE-GUIDE.md
 │   │   ├── LOGGING-STRATEGY.md
