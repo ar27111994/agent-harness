@@ -273,10 +273,16 @@ void test("validateArdUrls main function succeeds with valid catalog", async () 
       "utf8",
     );
 
-    const result = main({ cwd: dir });
-    assert.ok(result.ok);
-    assert.equal(result.stats.total, 5);
-    assert.equal(result.stats.httpCount, 5);
+    const prevExitCode = process.exitCode;
+    process.exitCode = undefined;
+    try {
+      const result = main({ cwd: dir });
+      assert.ok(result.ok);
+      assert.equal(result.stats.total, 5);
+      assert.equal(result.stats.httpCount, 5);
+    } finally {
+      process.exitCode = prevExitCode;
+    }
   });
 });
 

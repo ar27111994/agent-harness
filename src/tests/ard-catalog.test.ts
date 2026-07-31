@@ -297,7 +297,7 @@ void test("mapEntryToArd produces HTTP urls for all harvestable source kinds (#3
 
     const ard = mapEntryToArd(entry, "test.io", "2.0.0");
     // For non-local kinds, the URL must be the originUrl (an HTTP URL).
-    if (kind !== "local-directory") {
+    if (kind !== "local-directory" && kind !== "local-manifest") {
       assert.equal(
         ard.url,
         originUrl,
