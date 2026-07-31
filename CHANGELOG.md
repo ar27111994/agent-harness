@@ -15,6 +15,18 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **MSYS path normalisation** — `--state-root /c/Projects/...` is now correctly resolved to `C:\Projects\...` on Windows, preventing silent data misdirection to phantom `C:\c\...` paths (#397)
+- **Stopword filtering in capabilities** — `splitIntoKeywords` now filters English stopwords and single-character tokens, preventing noise like "the", "a", "is" from appearing in ARD capabilities and representative queries (#400, #406)
+- **Discover stats fallback** — when `catalog.assets.jsonl` is missing but `catalog.selected.jsonl` exists, breakdowns are now built from the available selection instead of showing empty maps (#398)
+- **Install malformed-artifact resilience** — `installBundles` now skips malformed mirror artifacts with a warning (including the assetId for diagnosis) instead of aborting the entire install pipeline (#409)
+- **ARD trust manifests** — `deriveArdTrustManifest` now generates identity-based trust manifests for all official-first-party, official-compatible, and trusted-community sources, and includes publisher-verified attestations (#399)
+- **Dependency directory exclusion** — GitHub repo harvesting now skips files under `node_modules/`, `vendor/`, `.venv/`, `__pycache__/`, and other dependency directories, preventing catalog pollution (#405)
+- **Wire plan preview output** — `wire cursor --preview` and `wire vscode --preview` now print a structured plan preview (matching the OpenCode format) instead of showing only preflight diagnostics (#403)
+- **CI maintenance noise reduction** — dormant-source false positives from ephemeral CI state roots are filtered; broken sources (severity=error) now surface as bot-plan issues ahead of drift warnings; discovery state cache is persisted between CI runs via GitHub Actions cache (#412, #413, #414)
+- **Codex native install** — the Codex host adapter now supports native extension installation via the same mechanism as VS Code/Cursor, replacing the previous `nativeInstall=none` (#407)
+- **Help output restructured** — `--help` now includes a Quick Start section at the top and groups commands by lifecycle phase (Discover, Recommend, Mirror & Install, Activate & Wire, Workspace, Setup & Doctor) instead of a dense 40+ command flat list (#410)
+- **Swift Package Index source disabled** — the `swift-package-index` source is now disabled (sitemap returns 403 Forbidden), eliminating a permanent severe source-health error from every maintenance run (#411)
+- **CHANGELOG date corrected** — `[2.0.0]` date updated to `2026-07-31` to reflect the actual release timeline (#408)
 - **ard-export Prettier compliance** — `discover ard-export` now formats `.well-known/ai-catalog.json` with Prettier inline, so the output passes `npm run format:check` immediately after generation (#348)
 - **Workspace pipeline silent failure** — `workspace <host>` now exits non-zero and stops at the recommend phase when recommendations cannot be produced, instead of silently continuing through mirror/install/activate with empty output (#349)
 - **`isAborted()` coverage** — removed `/* c8 ignore */` markers; the helper is now exported and tested through the preflight pipeline with aborted `AbortSignal` (#355)

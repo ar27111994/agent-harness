@@ -313,7 +313,8 @@
       "rush": 1.05,
       "bazel": 1.05,
       "pnpm-workspace": 1.05
-    }
+    },
+    "assetKindDiversityPenalty": 5
   },
   "hostDefaults": {
     "suppressedAssetIdPatterns": [

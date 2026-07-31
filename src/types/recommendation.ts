@@ -54,6 +54,7 @@ export interface RecommendationScoringPolicy {
   ecosystemMismatchPenalty: number;
   coverageGainWeight: number;
   sourceDiversityBonus: number;
+  assetKindDiversityPenalty: number;
   overlapPenalty: number;
   demandTermMultipliers: Record<string, number>;
 }
@@ -198,6 +199,7 @@ export interface RecommendationScoreBreakdown {
   hostPreference: number;
   coverage: number;
   diversity: number;
+  assetKindDiversityPenalty: number;
   freshness: number;
   costPenalty: number;
   riskPenalty: number;

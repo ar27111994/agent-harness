@@ -362,6 +362,7 @@ void test("assertRecommendationPolicyBaseOverride: injects ecosystemMismatchPena
     // ecosystemMismatchPenalty intentionally absent
     coverageGainWeight: 1,
     sourceDiversityBonus: 1,
+    assetKindDiversityPenalty: 5,
     overlapPenalty: 1,
     demandTermMultipliers: {},
   };
@@ -478,6 +479,7 @@ function makePolicy(): RecommendationPolicy {
       ecosystemMismatchPenalty: 40,
       coverageGainWeight: 1,
       sourceDiversityBonus: 1,
+      assetKindDiversityPenalty: 5,
       overlapPenalty: 1,
       demandTermMultipliers: {},
     },

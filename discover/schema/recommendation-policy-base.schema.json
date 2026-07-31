@@ -426,6 +426,7 @@
         "outOfDomainGroupPenalty",
         "coverageGainWeight",
         "sourceDiversityBonus",
+        "assetKindDiversityPenalty",
         "overlapPenalty",
         "demandTermMultipliers"
       ],
@@ -482,6 +483,9 @@
           "type": "number"
         },
         "sourceDiversityBonus": {
+          "type": "number"
+        },
+        "assetKindDiversityPenalty": {
           "type": "number"
         },
         "overlapPenalty": {

@@ -219,6 +219,7 @@ export function buildCandidateRecommendationBase(
     hostPreference: 0,
     coverage: 0,
     diversity: 0,
+    assetKindDiversityPenalty: 0,
     freshness: computeFreshnessScore(entry, policy),
     costPenalty: policy.scoring.costPenalties[entry.contextCost.sizeClass],
     riskPenalty:
@@ -856,6 +857,7 @@ function calculateBreakdownTotal(
       breakdown.coverage +
       breakdown.diversity +
       breakdown.freshness -
+      breakdown.assetKindDiversityPenalty -
       breakdown.costPenalty -
       breakdown.riskPenalty -
       breakdown.negativePenalty -

@@ -372,6 +372,7 @@ function buildPolicy(): RecommendationPolicy {
       ecosystemMismatchPenalty: 0,
       coverageGainWeight: 0,
       sourceDiversityBonus: 0,
+      assetKindDiversityPenalty: 5,
       overlapPenalty: 0,
       demandTermMultipliers: {},
     },

@@ -30,6 +30,11 @@ import type {
   DynamicScore,
 } from "./model.js";
 
+/** Minimum count of an asset kind before diversity penalty kicks in. */
+const ASSET_KIND_DIVERSITY_THRESHOLD = 3;
+/** Number of free slots per asset kind before penalty applies. */
+const ASSET_KIND_DIVERSITY_FREE_SLOTS = 2;
+
 /**
  * Builds top recommendations for host from the provided inputs.
  */
@@ -333,6 +338,15 @@ function scoreCandidateAgainstSelection(
     (selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0) > 0
       ? 0
       : policy.scoring.sourceDiversityBonus;
+  // #401: Penalize overrepresented asset kinds to prevent extensions
+  // from crowding out skills, agents, and instructions in top N.
+  const assetKindCount =
+    selectionState.kindCounts[candidate.entry.assetKind] ?? 0;
+  const assetKindDiversityPenalty =
+    assetKindCount >= ASSET_KIND_DIVERSITY_THRESHOLD
+      ? (assetKindCount - ASSET_KIND_DIVERSITY_FREE_SLOTS) *
+        policy.scoring.assetKindDiversityPenalty
+      : 0;
   const redundancyPenalty = computeRedundancyPenalty(
     candidate,
     selectionState,
@@ -356,10 +370,12 @@ function scoreCandidateAgainstSelection(
       candidate.breakdown.total +
       coverage +
       diversity -
+      assetKindDiversityPenalty -
       redundancyPenalty -
       budgetPenalty,
     coverage,
     diversity,
+    assetKindDiversityPenalty,
     redundancyPenalty,
     budgetPenalty,
   };
@@ -534,6 +550,7 @@ function applyDynamicScore(
     ...candidate.breakdown,
     coverage: score.coverage,
     diversity: score.diversity,
+    assetKindDiversityPenalty: score.assetKindDiversityPenalty,
     redundancyPenalty: score.redundancyPenalty,
     budgetPenalty: score.budgetPenalty,
     total: Math.round(score.total),
@@ -554,6 +571,9 @@ function applyDynamicScore(
   }
   if (score.diversity > 0) {
     reasons.push("source-diversity");
+  }
+  if (score.assetKindDiversityPenalty > 0) {
+    reasons.push("asset-kind-diversified");
   }
   if (score.redundancyPenalty > 0) {
     reasons.push("redundancy-controlled");

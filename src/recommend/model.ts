@@ -91,6 +91,7 @@ export interface DynamicScore {
   total: number;
   coverage: number;
   diversity: number;
+  assetKindDiversityPenalty: number;
   redundancyPenalty: number;
   budgetPenalty: number;
 }

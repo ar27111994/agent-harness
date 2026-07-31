@@ -563,6 +563,10 @@ function assertRecommendationScoring(value: unknown, context: string): void {
   );
   assertNumber(scoring.coverageGainWeight, `${context}.coverageGainWeight`);
   assertNumber(scoring.sourceDiversityBonus, `${context}.sourceDiversityBonus`);
+  assertNumber(
+    scoring.assetKindDiversityPenalty,
+    `${context}.assetKindDiversityPenalty`,
+  );
   assertNumber(scoring.overlapPenalty, `${context}.overlapPenalty`);
   assertRecord(
     scoring.demandTermMultipliers,
@@ -835,6 +839,14 @@ function assertRecommendationScoreBreakdown(
   assertNumber(record.hostPreference, `${context}.hostPreference`);
   assertNumber(record.coverage, `${context}.coverage`);
   assertNumber(record.diversity, `${context}.diversity`);
+  // Inject default 0 for reports that predate this field (#401).
+  if (record.assetKindDiversityPenalty === undefined) {
+    record.assetKindDiversityPenalty = 0;
+  }
+  assertNumber(
+    record.assetKindDiversityPenalty,
+    `${context}.assetKindDiversityPenalty`,
+  );
   assertNumber(record.freshness, `${context}.freshness`);
   assertNumber(record.costPenalty, `${context}.costPenalty`);
   assertNumber(record.riskPenalty, `${context}.riskPenalty`);

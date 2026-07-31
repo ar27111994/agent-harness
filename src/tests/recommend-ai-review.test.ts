@@ -1227,6 +1227,7 @@ function createEntry(assetId: string, score: number): RecommendationEntry {
       hostPreference: 10,
       coverage: 0,
       diversity: 0,
+      assetKindDiversityPenalty: 0,
       freshness: 0,
       costPenalty: 0,
       riskPenalty: 0,

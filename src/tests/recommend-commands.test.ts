@@ -1066,6 +1066,7 @@ function createRecommendationEntry(
       hostPreference: 4,
       coverage: 3,
       diversity: 2,
+      assetKindDiversityPenalty: 0,
       freshness: 1,
       costPenalty: 0,
       riskPenalty: 0,
