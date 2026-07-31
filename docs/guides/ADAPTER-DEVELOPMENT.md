@@ -312,9 +312,9 @@ Before submitting, verify:
 
 ## See Also
 
-- [Host Adapter Types](../src/host-adapters/types.ts) — full type definitions
-- [Registry](../src/host-adapters/registry.ts) — adapter registration
-- [Native Config](../src/host-adapters/native-config.ts) — shared config generation
-- [Native Wire](../src/host-adapters/native-wire.ts) — wire-in infrastructure
-- [V2 CLI Contract](./V2-CONTRACT.md) — host lifecycle model
-- [Contributing Guide](../CONTRIBUTING.md) — contribution workflow
+- [Host Adapter Types](https://github.com/ar27111994/agent-harness/blob/main/src/host-adapters/types.ts) — full type definitions
+- [Registry](https://github.com/ar27111994/agent-harness/blob/main/src/host-adapters/registry.ts) — adapter registration
+- [Native Config](https://github.com/ar27111994/agent-harness/blob/main/src/host-adapters/native-config.ts) — shared config generation
+- [Native Wire](https://github.com/ar27111994/agent-harness/blob/main/src/host-adapters/native-wire.ts) — wire-in infrastructure
+- [V2 CLI Contract](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/V2-CONTRACT.md) — host lifecycle model
+- [Contributing Guide](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md) — contribution workflow

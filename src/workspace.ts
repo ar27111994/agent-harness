@@ -37,6 +37,14 @@ export async function runWorkspace(
   projectRoot: string,
 ): Promise<number> {
   const [target = "help", ...rest] = args;
+
+  // Detect --help flag and show target-specific or parent help (#383).
+  // Must precede any argument parsing that could throw on invalid flags.
+  if (hasHelpFlag(rest)) {
+    printWorkspaceSubcommandHelp(target);
+    return 0;
+  }
+
   const sessionIntents = getOptionValues(rest, "--intent").map((v) =>
     parseSessionIntent(v),
   );
@@ -45,12 +53,6 @@ export async function runWorkspace(
       ? sessionIntents[0]
       : parseSessionIntent(undefined);
   const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
-
-  // Detect --help flag and show target-specific or parent help (#383).
-  if (hasHelpFlag(rest)) {
-    printWorkspaceSubcommandHelp(target);
-    return 0;
-  }
 
   if (target === "help") {
     printWorkspaceHelp();

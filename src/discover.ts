@@ -1106,7 +1106,7 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
         "local index when fresh, performs live harvest otherwise.",
         "",
         "Options:",
-        "  --no-sync   Skip source sync (local discovery only)",
+        "  --state-root <path>   Override state directory",
       ],
     },
     index: {
@@ -1189,8 +1189,8 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
     },
   };
 
-  const help = helpTexts[subcommand];
-  if (help) {
+  if (Object.hasOwn(helpTexts, subcommand) && helpTexts[subcommand]) {
+    const help = helpTexts[subcommand];
     printCommandHelp({
       heading: help.heading,
       entries: [],

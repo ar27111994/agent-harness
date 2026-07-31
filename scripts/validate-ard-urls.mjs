@@ -71,7 +71,7 @@ export function validateArdUrls(catalogPath) {
 
   if (missingCount > 0) {
     errors.push(
-      `${missingCount} entries have no url field — every ARD entry must have a url.`,
+      `${missingCount} entries have a missing or empty url — every ARD entry must have a resolvable url.`,
     );
   }
 

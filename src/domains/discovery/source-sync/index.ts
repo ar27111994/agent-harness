@@ -239,6 +239,13 @@ export async function syncIndexedSources(
         hasPriorEntries &&
         previousFailures <= MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR;
 
+      // Per-source completion on error: report failure/stale status (#382).
+      const syncDuration = Date.now() - syncStart;
+      if (totalSources > 1) {
+        const statusLabel = shouldFallBackToStale ? "stale" : "failed";
+        process.stderr.write(`${statusLabel} (${syncDuration}ms)\n`);
+      }
+
       sourceStates.push({
         sourceId: source.id,
         coverageMode: "indexed",

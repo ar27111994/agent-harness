@@ -59,7 +59,7 @@ export function checkDrift(envContent, readmeContent) {
 
   const missingFromReadme = [];
   for (const varName of envVars) {
-    if (!readmeContent.includes(varName)) {
+    if (!readmeVars.has(varName)) {
       missingFromReadme.push(varName);
     }
   }

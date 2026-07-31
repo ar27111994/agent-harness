@@ -31,13 +31,15 @@ export async function runWire(
   projectRoot: string,
 ): Promise<number> {
   const [target = "help", ...rest] = args;
-  const mode = getWireMode(rest);
 
   // Detect --help flag and show target-specific or parent help (#383).
+  // Must precede any argument parsing that could throw on invalid flags.
   if (hasHelpFlag(rest)) {
     printWireSubcommandHelp(target);
     return 0;
   }
+
+  const mode = getWireMode(rest);
 
   if (target === "help") {
     printWireHelp();

@@ -215,21 +215,21 @@ check — never compare raw strings with `startsWith()`.
 
 ### Key directories
 
-| Path                     | Purpose                                |
-| ------------------------ | -------------------------------------- |
-| `src/`                   | TypeScript source                      |
-| `src/domains/discovery/` | Harvesting, catalog, demand signals    |
-| `src/host-adapters/`     | Per-host wire and extension installers |
+| Path                     | Purpose                                                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`                   | TypeScript source                                                                                                                                           |
+| `src/domains/discovery/` | Harvesting, catalog, demand signals                                                                                                                         |
+| `src/host-adapters/`     | Per-host wire and extension installers                                                                                                                      |
+| `src/recommend/`         | Selection scoring and report generation                                                                                                                     |
+| `src/mirror/`            | Artifact download and provenance                                                                                                                            |
+| `src/install/`           | Staged install lifecycle                                                                                                                                    |
+| `src/activate.ts`        | Runtime root swap and rollback                                                                                                                              |
+| `discover/`              | Source config, policy, and seed JSON — see [discover/README.md](https://github.com/ar27111994/agent-harness/blob/main/discover/README.md) for schema layout |
+| `docs/`                  | Guides, reference, playbooks                                                                                                                                |
+| `plans/`                 | Advisor implementation plans                                                                                                                                |
 
 ### Adding a new host adapter
 
-See the [Adapter Development Guide](docs/guides/ADAPTER-DEVELOPMENT.md) for a
+See the [Adapter Development Guide](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/ADAPTER-DEVELOPMENT.md) for a
 step-by-step walkthrough covering registration, lifecycle wiring, capability
 matrix, native config generation, and testing — with a worked Windsurf example.
-| `src/recommend/` | Selection scoring and report generation |
-| `src/mirror/` | Artifact download and provenance |
-| `src/install/` | Staged install lifecycle |
-| `src/activate.ts` | Runtime root swap and rollback |
-| `discover/` | Source config, policy, and seed JSON — see [discover/README.md](./discover/README.md) for schema layout |
-| `docs/` | Guides, reference, playbooks |
-| `plans/` | Advisor implementation plans |
