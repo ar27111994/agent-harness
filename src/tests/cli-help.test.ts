@@ -282,6 +282,18 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
     assert.match(mirrorPlan, /Summarize mirror readiness/u);
     assert.doesNotMatch(mirrorPlan, /mirror commands:/u);
 
+    // mirror bundle-explain --help should show bundle-explain-specific help
+    const { stdout: mirrorBundleExplain } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["mirror", "bundle-explain", "--help"],
+    });
+    assert.match(mirrorBundleExplain, /mirror bundle-explain/u);
+    assert.match(mirrorBundleExplain, /bundle membership/u);
+    assert.doesNotMatch(mirrorBundleExplain, /mirror commands:/u);
+
     // stage bundle --help should show bundle-specific help
     const { stdout: stageBundle } = await runBuiltCli({
       cwd: workspaceRoot,
