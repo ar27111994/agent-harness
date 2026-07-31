@@ -148,7 +148,7 @@ function printWorkspaceSubcommandHelp(target: string): void {
             "",
             "Options:",
             "  --intent <intent>           Session intent (general, frontend, backend, etc.)",
-            "  --force                     Skip confirmation prompts",
+            "  --force                     Force enrichment provider call, bypassing cache",
             "  --state-root <path>         Override state directory",
             "  --no-dotenv                 Skip .env file loading",
             "  --ai-enrich                Request AI enrichment",

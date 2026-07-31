@@ -160,11 +160,10 @@ function runHelpCommand(
   );
 
   // When --help appears at subcommand depth (e.g., "discover full --help"),
-  // route to the domain handler. Only discover and recommend handle --help
-  // internally for subcommand-specific help output. For mutating domains
-  // (mirror, install, activate, quarantine, rebuild, workspace, wire, setup),
-  // we substitute "help" to prevent mutation — the handler then shows its
-  // generic help without executing any phase.
+  // route to the domain handler. The original subcommand is preserved and
+  // "--help" is appended so domain handlers can show subcommand-specific
+  // help instead of executing (#383). Handlers must detect --help and
+  // print help text without performing any mutation.
   if (nonFlagArgs.length >= 2) {
     const [domain, subcommand, ...extra] = nonFlagArgs;
     // Preserve the original subcommand so domain handlers can show

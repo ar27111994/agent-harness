@@ -286,8 +286,9 @@ npm run build
 ```
 
 > **Windows git-bash (MSYS) users:** Use native Windows paths when invoking the CLI.
-> MSYS path translation (`/c/Projects/...` → `C:\c\Projects\...`) can produce a
-> doubled drive letter (`C:\c\...`). Use `"C:\Projects\agent-harness\dist\cli.js"`
+> MSYS path translation (`/c/Projects/...` → `C:/Projects/...`) is normally correct,
+> but Node's module resolver can re-apply the drive letter, producing a doubled path
+> (`C:\c\Projects\...`). Use `"C:\Projects\agent-harness\dist\cli.js"`
 > or `node "$(cygpath -w /c/Projects/agent-harness/dist/cli.js)"`. For persistent
 > use, add the project to your `PATH` via native Windows syntax or use
 > `npx @ar27111994/agent-harness` from the npm global install. See
