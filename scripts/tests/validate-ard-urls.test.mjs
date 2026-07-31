@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { test } from "node:test";
+import { after, test } from "node:test";
 
 import {
   main,
@@ -410,4 +410,10 @@ void test("validateArdUrls handles malformed JSON gracefully", async () => {
     assert.equal(result.stats.total, 0);
     assert.ok(result.errors.some((e) => e.includes("Failed to parse")));
   });
+});
+
+// Restore process.exitCode after all tests so a previous test's
+// main() side-effect doesn't cause the module to report failure.
+after(() => {
+  process.exitCode = undefined;
 });
