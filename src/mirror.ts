@@ -172,6 +172,15 @@ function printMirrorSubcommandHelp(subcommand: string): void {
         "Prints provenance information for a specific mirrored artifact.",
       ],
     },
+    "bundle-explain": {
+      heading: "mirror bundle-explain — Explain a mirrored bundle",
+      lines: [
+        "Usage: agent-harness mirror bundle-explain --asset <assetId>",
+        "",
+        "Prints detailed bundle membership and provenance for a mirrored",
+        "artifact, including which bundles reference it and its acquisition status.",
+      ],
+    },
   };
 
   printSubcommandHelp(subcommand, helpTexts, printMirrorHelp);

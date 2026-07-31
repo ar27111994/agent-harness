@@ -123,7 +123,7 @@ function printWireSubcommandHelp(target: string): void {
         {
           title: "",
           lines: [
-            `Usage: agent-harness wire ${getPreferredHostCommand(hostAdapter.id)} [--preview|--apply]`,
+            `Usage: agent-harness wire ${getPreferredHostCommand(hostAdapter.id)} [--preview|--apply|--reset]`,
             "",
             `Wires activated assets into a ${hostAdapter.displayName} workspace.`,
             `By default runs in preview mode (no files are written).`,
