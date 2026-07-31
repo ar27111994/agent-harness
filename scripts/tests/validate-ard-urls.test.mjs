@@ -372,22 +372,45 @@ void test("runCliIfDirect returns undefined when guard is false", () => {
 
 void test("main uses process.cwd fallback when no cwd option provided", async () => {
   // Verify that main() can be called without options — exercises the
-  // `options.cwd ?? process.cwd()` fallback path at line 86.
-  // This relies on the project's own .well-known/ai-catalog.json being valid.
-  const prevExitCode = process.exitCode;
-  const origLog = console.log;
-  const logs = [];
-  console.log = (...args) => logs.push(args.join(" "));
-  try {
-    const result = main();
-    // The project catalog should be valid (>=80% HTTP URLs)
-    assert.ok(result.ok);
-    assert.ok(result.stats.total > 0);
-    assert.ok(result.stats.fraction >= 0.8);
-  } finally {
-    console.log = origLog;
-    process.exitCode = prevExitCode;
-  }
+  // `options.cwd ?? process.cwd()` fallback path.
+  await withTempDir(async (dir) => {
+    const wellKnown = join(dir, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    await writeFile(
+      join(wellKnown, "ai-catalog.json"),
+      JSON.stringify({
+        $schema: "https://example.com/schema.json",
+        publisher: "test",
+        version: "1.0.0",
+        generatedAt: new Date().toISOString(),
+        entries: [
+          {
+            identifier: "a",
+            url: "https://github.com/test/SKILL.md",
+            type: "app/ai-skill",
+          },
+        ],
+      }) + "\n",
+      "utf8",
+    );
+
+    const prevCwd = process.cwd();
+    const prevExitCode = process.exitCode;
+    const origLog = console.log;
+    const logs = [];
+    console.log = (...args) => logs.push(args.join(" "));
+    try {
+      process.chdir(dir);
+      process.exitCode = undefined;
+      const result = main();
+      assert.ok(result.ok);
+      assert.ok(result.stats.total > 0);
+    } finally {
+      process.chdir(prevCwd);
+      console.log = origLog;
+      process.exitCode = prevExitCode;
+    }
+  });
 });
 
 void test("validateArdUrls handles missing catalog file gracefully", async () => {

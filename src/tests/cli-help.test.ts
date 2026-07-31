@@ -511,8 +511,8 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
     });
 
     assert.ok(
-      stderr.includes("--no-sync: skipping source sync") ||
-        stdout.includes("--no-sync: skipping source sync"),
+      stderr.includes("--no-sync: skipping indexed source sync") ||
+        stdout.includes("--no-sync: skipping indexed source sync"),
       "must print --no-sync warning",
     );
   } finally {

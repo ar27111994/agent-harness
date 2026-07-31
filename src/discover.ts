@@ -273,12 +273,18 @@ export async function runDiscover(
       await generateDemandProfile(workingDirectory, projectRoot, maxBytes);
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
       await generateSourceIndex(projectRoot);
-      logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
       if (noSync) {
+        logDiscoverPhase(
+          "discover full",
+          3,
+          5,
+          "Skipping source sync (--no-sync)",
+        );
         console.warn(
-          "[discover full] --no-sync: skipping source sync, using existing local catalog data.",
+          "[discover full] --no-sync: skipping indexed source sync, using existing source-sync state.",
         );
       } else {
+        logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
         await syncIndexedSources(projectRoot);
       }
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
@@ -1335,7 +1341,7 @@ function printDiscoverFullHelp(): void {
         lines: [
           "--ai-enrich         Run AI enrichment after selection",
           "--no-ai-enrich      Skip AI enrichment",
-          "--no-sync           Skip source sync (local discovery only)",
+          "--no-sync           Skip indexed source sync (use existing state)",
           "--quiet             Suppress expected source health warnings",
           "--summary           Print aggregate warning breakdown by reason",
           "--max-scan-bytes N   Override the demand scan byte budget (default: 48 MB)",

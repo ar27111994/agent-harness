@@ -142,13 +142,13 @@ export async function syncIndexedSources(
   );
   let entriesDirty = false;
   const sourceStates: SourceSyncSourceState[] = [];
-  const indexedSources = sourceRegistry.sources.filter(
+  const enabledSources = sourceRegistry.sources.filter(
     (entry) => entry.enabled,
   );
-  const totalSources = indexedSources.length;
+  const totalSources = enabledSources.length;
   let sourceIndex = 0;
 
-  for (const source of indexedSources) {
+  for (const source of enabledSources) {
     sourceIndex++;
     const sourceLabel = source.endpoints?.repo ?? source.id;
     const progressLabel = `[discover sync] ${sourceIndex}/${totalSources} ${sourceLabel}`;
