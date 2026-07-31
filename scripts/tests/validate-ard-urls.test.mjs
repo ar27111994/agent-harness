@@ -412,6 +412,32 @@ void test("validateArdUrls handles malformed JSON gracefully", async () => {
   });
 });
 
+void test("validateArdUrls handles null and non-object entries gracefully", async () => {
+  await withTempDir(async (dir) => {
+    const path = await writeCatalog(dir, [
+      {
+        identifier: "a",
+        url: "https://github.com/test/SKILL.md",
+        type: "app/ai-skill",
+      },
+      null,
+      {
+        identifier: "c",
+        url: "https://github.com/test2/SKILL.md",
+        type: "app/ai-skill",
+      },
+      "not-an-object",
+    ]);
+    const result = validateArdUrls(path);
+    // 2 valid HTTP entries, 2 invalid — still reports error for non-objects
+    assert.ok(!result.ok);
+    assert.equal(result.stats.total, 4);
+    assert.equal(result.stats.httpCount, 2);
+    assert.equal(result.stats.invalidEntryCount, 2);
+    assert.ok(result.errors.some((e) => e.includes("null or non-object")));
+  });
+});
+
 // Restore process.exitCode after all tests so a previous test's
 // main() side-effect doesn't cause the module to report failure.
 after(() => {

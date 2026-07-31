@@ -45,6 +45,7 @@ export function validateArdUrls(catalogPath) {
         hashCount: 0,
         nameCount: 0,
         missingCount: 0,
+        invalidEntryCount: 0,
         fraction: 0,
       },
     };
@@ -63,6 +64,7 @@ export function validateArdUrls(catalogPath) {
         hashCount: 0,
         nameCount: 0,
         missingCount: 0,
+        invalidEntryCount: 0,
         fraction: 0,
       },
     };
@@ -79,6 +81,7 @@ export function validateArdUrls(catalogPath) {
         hashCount: 0,
         nameCount: 0,
         missingCount: 0,
+        invalidEntryCount: 0,
         fraction: 0,
       },
     };
@@ -89,8 +92,13 @@ export function validateArdUrls(catalogPath) {
   let hashCount = 0;
   let nameCount = 0;
   let missingCount = 0;
+  let invalidEntryCount = 0;
 
   for (const entry of entries) {
+    if (entry == null || typeof entry !== "object") {
+      invalidEntryCount++;
+      continue;
+    }
     const url = entry.url;
     if (!url) {
       missingCount++;
@@ -101,6 +109,12 @@ export function validateArdUrls(catalogPath) {
     } else {
       nameCount++;
     }
+  }
+
+  if (invalidEntryCount > 0) {
+    errors.push(
+      `${invalidEntryCount} entries are null or non-object values — every ARD entry must be an object.`,
+    );
   }
 
   const total = entries.length;
@@ -123,7 +137,15 @@ export function validateArdUrls(catalogPath) {
   return {
     ok: errors.length === 0,
     errors,
-    stats: { total, httpCount, hashCount, nameCount, missingCount, fraction },
+    stats: {
+      total,
+      httpCount,
+      hashCount,
+      nameCount,
+      missingCount,
+      invalidEntryCount,
+      fraction,
+    },
   };
 }
 
