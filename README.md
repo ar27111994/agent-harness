@@ -1737,6 +1737,10 @@ Known boundaries:
 - [`AI-ENRICHMENT-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AI-ENRICHMENT-PLAYBOOK.md) - scenario-based guidance for enrichment modes, bounded AI review, and operator workflows
 - [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md) - report-only, due-only, and apply-safe refresh/update workflows for installed assets
 - [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/LOGGING-STRATEGY.md) - current decision and guardrails for CLI output/logging vs a full logging library
+- [`CATALOG-BREADTH.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/CATALOG-BREADTH.md) - how to widen catalog coverage and keep source breadth healthy
+- [`SEMANTIC-SCORING.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SEMANTIC-SCORING.md) - semantic scoring model, tuning knobs, and evaluation guidance
+- [`SOURCE-PACK-SEEDER.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/SOURCE-PACK-SEEDER.md) - seeding and maintaining source packs for discovery
+- [`TROUBLESHOOTING.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/TROUBLESHOOTING.md) - common failures and diagnostic steps
 - [`RECOMMENDATION-POLICY-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/RECOMMENDATION-POLICY-PLAYBOOK.md) - how to inspect and tweak ranking policy only after recall looks healthy
 - [`HOST-SURFACE-AUDIT.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/HOST-SURFACE-AUDIT.md) - checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status
 - [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md) - vulnerability reporting and supported-version policy
