@@ -1742,6 +1742,7 @@ Known boundaries:
 - [`SECURITY.md`](https://github.com/ar27111994/agent-harness/blob/main/SECURITY.md) - vulnerability reporting and supported-version policy
 - [`ROADMAP.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/ROADMAP.md) - gap analysis and long-range direction
 - [`IMPLEMENTATION-PLAN.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/IMPLEMENTATION-PLAN.md) - milestone-oriented execution plan
+- [`plans/README.md`](https://github.com/ar27111994/agent-harness/blob/main/plans/README.md) - plan index and execution status table; every plan file must declare an inline `status` field matching this table
 - [`FUTURE-IMPROVEMENTS.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/FUTURE-IMPROVEMENTS.md) - follow-up ideas and architectural extensions
 - [`CONTRIBUTING.md`](https://github.com/ar27111994/agent-harness/blob/main/CONTRIBUTING.md) - contribution workflow and hygiene
 
