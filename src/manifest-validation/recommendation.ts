@@ -1063,3 +1063,8 @@ function assertRecommendationAiReviewNote(
     `${context}.confidence`,
   );
 }
+
+/** Exposes validation internals for targeted coverage testing. */
+export const recommendationValidationInternals = {
+  assertRecommendationScoreBreakdown,
+};

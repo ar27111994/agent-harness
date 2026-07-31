@@ -24,8 +24,19 @@ export function resolveHomeRelativePath(pathValue: string): string {
  *
  * Ticket: #397 — MSYS path mangling of --state-root.
  */
-export function normalizeMsysPath(pathValue: string): string {
-  if (process.platform !== "win32") return pathValue;
+export function normalizeMsysPath(
+  pathValue: string,
+  platform?: string,
+): string {
+  if ((platform ?? process.platform) !== "win32") return pathValue;
+  return convertMsysToWindowsPath(pathValue);
+}
+
+/**
+ * Converts an MSYS-style path to a native Windows path.
+ * Exported for testing — use normalizeMsysPath for production use.
+ */
+export function convertMsysToWindowsPath(pathValue: string): string {
   const match = pathValue.match(/^\/([a-zA-Z])\//u);
   if (!match) return pathValue;
   return `${match[1].toUpperCase()}:${pathValue.slice(2).replace(/\//g, "\\")}`;

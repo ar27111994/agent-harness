@@ -405,6 +405,7 @@ export function extractErrorMessage(err: unknown): string {
  */
 export const ardCatalogInternals = {
   buildArdUrn,
+  buildRepresentativeQueries,
   deriveArdTrustManifest,
   mapEntryToArd,
   extractErrorMessage,

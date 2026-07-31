@@ -163,7 +163,7 @@ export async function installBundles(
         );
       } catch (error) {
         console.warn(
-          `Skipping malformed mirror artifact ${asset.assetId} (${sanitizeMirrorId(mirrorEntry.mirrorId)}): ${error instanceof Error ? error.message : String(error)}`,
+          `Skipping malformed mirror artifact ${asset.assetId} (${sanitizeMirrorId(mirrorEntry.mirrorId)}): ${toInstallErrorMessage(error)}`,
         );
         continue;
       }
@@ -493,12 +493,20 @@ function getPendingAssets(
 }
 
 function extractBundleId(bundlePath: string): string {
-  const pathParts = bundlePath.split(/[/\\]/u);
-  return pathParts[pathParts.length - 1]!.replace(/\.lock\.json$/u, "");
+  const segments = bundlePath.split(/[/\\]/u);
+  const filename = segments.length > 0 ? (segments[segments.length - 1] ?? "") : "";
+  return filename.replace(/\.lock\.json$/u, "");
 }
 
 /**
- * Exposes narrow install bundle internals for focused manifest and batching tests.
+ * Extracts a human-readable error message from any thrown value.
+ * Exported for testing of both Error and non-Error paths.
+ */
+function toInstallErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Exposes narrow install bundle internals for focused manifest and batching tests.
  */
 export const installBundleInternals = {
   mergeInstalledPackages,
@@ -512,4 +520,5 @@ export const installBundleInternals = {
   getAllowedAssetIds,
   getPendingAssets,
   extractBundleId,
+  toInstallErrorMessage,
 };
