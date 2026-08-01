@@ -73,7 +73,7 @@ void test("wire cursor --preview produces formatted preview output", async () =>
 
   try {
     const { stdout, exitCode } = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "wire",
       "cursor",
@@ -129,14 +129,14 @@ void test("wire cursor --apply and --reset round-trip", async () => {
     // With empty bundles, both may return non-zero — that's expected.
     // The important thing is they don't throw or crash.
     const applyResult = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "wire",
       "cursor",
       "--apply",
     ]);
     const resetResult = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "wire",
       "cursor",
@@ -175,7 +175,7 @@ void test("--state-root accepts MSYS path /c/X on Windows", async () => {
 
   try {
     const { exitCode } = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "--state-root",
       msysStateRoot,
@@ -201,7 +201,7 @@ void test("setup doctor runs without crashing", async () => {
 
   try {
     const { exitCode, stdout, stderr } = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "setup",
       "doctor",
@@ -235,7 +235,7 @@ void test("discover stats handles empty project gracefully", async () => {
 
   try {
     const { exitCode, stdout } = await runCli([
-      "--project-root",
+      "--state-root",
       projectRoot,
       "discover",
       "stats",
