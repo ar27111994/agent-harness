@@ -97,8 +97,8 @@ The workflow uses bounded sync settings so scheduled jobs remain actionable and 
 CI runners start with an empty state root and no persisted GitHub API cache, so repo-kind
 sources will always show zero harvested entries on the first run. agent-harness detects CI
 environments automatically (`CI=true`, `AGENT_HARNESS_CI=true`, or ephemeral state-root paths
-under `/tmp/`, `/home/runner/work/`, etc.) and sets `ciDetected: true` on source health
-entries. The maintenance bot plan filters dormant sources when `ciDetected` is true, preventing
+under `/tmp/`, `/home/runner/work/`, etc.) and sets `reasonCode: "ephemeral-ci-state-root"` on source health
+entries. The maintenance bot plan filters dormant sources when `reasonCode` matches, preventing
 ~127 false-positive drift issues per run (#412).
 
 ### Discovery state cache persistence

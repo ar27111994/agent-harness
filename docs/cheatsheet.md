@@ -98,6 +98,11 @@ agent-harness setup login                      # Interactive host login
 ```bash
 agent-harness rebuild clean                    # Clean generated state
 agent-harness rebuild full                     # Full rebuild from sources
+agent-harness quarantine list                  # List quarantined mirror artifacts
+agent-harness quarantine approve --asset <id>  # Approve with warning
+agent-harness quarantine reject --asset <id>   # Reject while keeping quarantine
+agent-harness quarantine pin --asset <id>      # Pin a quarantine decision
+agent-harness bundle explain <bundleId>        # Explain bundle lock contents
 ```
 
 ## Workspace (One-Shot)
@@ -142,14 +147,14 @@ AGENT_HARNESS_TIMEOUT_SECONDS=120              # Deadline for long operations (1
 
 ## Quick Troubleshooting
 
-| Symptom                                  | Check                                                   |
-| ---------------------------------------- | ------------------------------------------------------- |
-| `setup doctor` host not found            | Host CLI on PATH? Run `setup hosts` to list adapters    |
-| Empty recommendations                    | Run `discover full` first; check `demand-profile.json`  |
-| `install refresh` ENOENT                 | Run `mirror acquire` first to populate bundles          |
-| Slow first `discover full`               | Normal — first run syncs all sources; subsequent faster |
-| Windows git-bash path error (`C:\c\...`) | Use native Windows paths or `cygpath -w`                |
-| `recommend explain` no output            | Asset may be rejected; check `selection-report.json`    |
+| Symptom                                    | Check                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `setup doctor` host not found              | Host CLI on PATH? Run `setup hosts` to list adapters                                       |
+| Empty recommendations                      | Run `discover full` first; check `demand-profile.json`                                     |
+| `install refresh` ENOENT                   | Run `mirror acquire` first to populate bundles                                             |
+| Slow first `discover full`                 | Normal — first run syncs all sources; subsequent faster                                    |
+| Windows git-bash path error (`C:\\c\\...`) | MSYS paths are auto-normalised; if issues persist use native Windows paths or `cygpath -w` |
+| `recommend explain` no output              | Asset may be rejected; check `selection-report.json`                                       |
 
 ## See Also
 
