@@ -92,4 +92,29 @@ The workflow uses bounded sync settings so scheduled jobs remain actionable and 
 - unknown workspace or source candidates: `unknown-signals.json` / `source-candidates.json`
 - stale staged assets: `state/install/refresh-report.json`
 
+### CI ephemeral state roots
+
+CI runners start with an empty state root and no persisted GitHub API cache, so repo-kind
+sources will always show zero harvested entries on the first run. agent-harness detects CI
+environments automatically (`CI=true`, `AGENT_HARNESS_CI=true`, or ephemeral state-root paths
+under `/tmp/`, `/home/runner/work/`, etc.) and sets `ciDetected: true` on source health
+entries. The maintenance bot plan filters dormant sources when `ciDetected` is true, preventing
+~127 false-positive drift issues per run (#412).
+
+### Discovery state cache persistence
+
+The maintenance workflow persists discovery state between CI runs via GitHub Actions cache
+(`state/discover/source-sync.json` and `source-sync.entries.jsonl`). This allows repo-kind
+sources to build up real harvesting data across multiple runs instead of starting from zero
+each time (#414). The cache key is run-specific (`agent-harness-discovery-cache-<run_id>`)
+so each run saves a fresh entry; prior caches are matched by the stable `agent-harness-discovery-cache-`
+restore-keys prefix.
+
+### Broken source surfacing
+
+Sources with `severity: error` (sync failures, 403 Forbidden, broken endpoints) now appear
+as `Fix broken source:` issues in the maintenance bot plan, ordered ahead of dormant drift
+warnings. This ensures genuinely broken sources like `swift-package-index` (403 Forbidden)
+are surfaced immediately rather than buried under noise (#413).
+
 If maintenance starts producing noisy artifacts, tune the report thresholds before broadening automation.

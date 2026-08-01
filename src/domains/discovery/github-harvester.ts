@@ -743,4 +743,5 @@ function isDependencyDirectoryPath(relativePath: string): boolean {
 export const githubHarvesterInternals = {
   collectRepositoryTrustEvidence,
   isDependencyDirectoryPath,
+  buildGitHubCatalogEntry,
 } as const;

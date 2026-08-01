@@ -285,12 +285,11 @@ npm install
 npm run build
 ```
 
-> **Windows git-bash (MSYS) users:** Use native Windows paths when invoking the CLI.
-> MSYS path translation (`/c/Projects/...` → `C:/Projects/...`) is normally correct,
-> but Node's module resolver can re-apply the drive letter, producing a doubled path
-> (`C:\c\Projects\...`). Use `"C:\Projects\agent-harness\dist\cli.js"`
-> or `node "$(cygpath -w /c/Projects/agent-harness/dist/cli.js)"`. For persistent
-> use, add the project to your `PATH` via native Windows syntax or use
+> **Windows git-bash (MSYS) users:** MSYS-style paths (`/c/Projects/...`) are now
+> automatically normalised to native Windows paths (`C:\Projects\...`) for all CLI
+> arguments including `--state-root`. If you encounter path issues with Node's module
+> resolver, use native Windows paths or `node "$(cygpath -w /c/Projects/agent-harness/dist/cli.js)"`.
+> For persistent use, add the project to your `PATH` via native Windows syntax or use
 > `npx @ar27111994/agent-harness` from the npm global install. See
 > [Troubleshooting](docs/guides/TROUBLESHOOTING.md) for more Windows-specific guidance.
 
@@ -360,6 +359,7 @@ A packaged CLI keeps checked-in discovery and mirror policy assets read-only and
 - When you run from this repository root, the development default remains the repository root so existing npm scripts continue to work.
 - When you run the installed package from another workspace, the default mutable state root is `.agent-harness/` in that workspace.
 - Override the state location with `--state-root <path>` or `AGENT_HARNESS_STATE_ROOT`.
+- Long-running operations (recommend, discover catalog) respect `--timeout-seconds <n>` (clamped 10–3,600) or `AGENT_HARNESS_TIMEOUT_SECONDS`.
 
 ### Building a comprehensive catalog
 
@@ -1395,6 +1395,8 @@ AGENT_HARNESS_STATE_ROOT=.agent-harness
 ```
 
 You can also pass `--state-root <path>` on the CLI. This option is global and may appear before or after the command domain.
+
+Use `--timeout-seconds <n>` to set a deadline for long-running operations (recommend report, discover catalog). Default: no deadline. Clamped to 10–3,600 seconds. Also configurable via `AGENT_HARNESS_TIMEOUT_SECONDS`.
 
 ### Optional platform path overrides
 

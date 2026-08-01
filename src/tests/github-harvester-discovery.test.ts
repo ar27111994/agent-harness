@@ -1525,3 +1525,124 @@ void test("isDependencyDirectoryPath handles all 8 dependency patterns", () => {
     );
   }
 });
+
+// ---------------------------------------------------------------------------
+// buildGitHubCatalogEntry — returns null for dependency directory entries (#405)
+// ---------------------------------------------------------------------------
+
+void test("buildGitHubCatalogEntry returns null for node_modules entry", () => {
+  const { buildGitHubCatalogEntry } = githubHarvesterInternals;
+
+  const snapshot = {
+    sourceId: "test",
+    owner: "test-owner",
+    repo: "test-repo",
+    fetchedAt: new Date().toISOString(),
+    repoSummary: {
+      name: "test-repo",
+      fullName: "test-owner/test-repo",
+      description: null,
+      defaultBranch: "main",
+      updatedAt: null,
+      pushedAt: null,
+      stars: 0,
+      language: null,
+      topics: [],
+      archived: false,
+      htmlUrl: "https://github.com/test-owner/test-repo",
+    },
+    readme: { path: "README.md", content: "" },
+    tree: {
+      sha: "tree-sha",
+      truncated: false,
+      entries: [
+        {
+          path: "node_modules/pkg/index.js",
+          type: "blob",
+          size: 100,
+          sha: "a",
+        },
+        { path: "src/index.ts", type: "blob", size: 200, sha: "b" },
+      ],
+    },
+  } as unknown as GitHubRepoSnapshot;
+
+  const source = {
+    id: "test-source",
+    kind: "repo",
+    authorityTier: "unverified-community",
+    hosts: ["opencode"],
+    assetKinds: ["skill"],
+    discoveryMode: "catalog",
+  } as unknown as SourceDefinition;
+
+  const selectionRegistry = {
+    assetKinds: new Set(["skill", "agent"]),
+    hostCompatibility: {},
+  } as unknown as SelectionRegistry;
+
+  const nodeModulesEntry = snapshot.tree.entries[0];
+  const result = buildGitHubCatalogEntry(
+    snapshot,
+    source,
+    nodeModulesEntry,
+    null,
+    selectionRegistry,
+    new Map(),
+  );
+  assert.equal(result, null, "node_modules entry should be skipped");
+});
+
+void test("buildGitHubCatalogEntry returns null for vendor entry", () => {
+  const { buildGitHubCatalogEntry } = githubHarvesterInternals;
+
+  const snapshot = {
+    sourceId: "test",
+    owner: "test-owner",
+    repo: "test-repo",
+    fetchedAt: new Date().toISOString(),
+    repoSummary: {
+      name: "test-repo",
+      fullName: "test-owner/test-repo",
+      description: null,
+      defaultBranch: "main",
+      updatedAt: null,
+      pushedAt: null,
+      stars: 0,
+      language: null,
+      topics: [],
+      archived: false,
+      htmlUrl: "https://github.com/test-owner/test-repo",
+    },
+    readme: { path: "README.md", content: "" },
+    tree: {
+      sha: "tree-sha",
+      truncated: false,
+      entries: [{ path: "vendor/lib.js", type: "blob", size: 100, sha: "a" }],
+    },
+  } as unknown as GitHubRepoSnapshot;
+
+  const source = {
+    id: "test-source",
+    kind: "repo",
+    authorityTier: "unverified-community",
+    hosts: ["opencode"],
+    assetKinds: ["skill"],
+    discoveryMode: "catalog",
+  } as unknown as SourceDefinition;
+
+  const selectionRegistry = {
+    assetKinds: new Set(["skill"]),
+    hostCompatibility: {},
+  } as unknown as SelectionRegistry;
+
+  const result = buildGitHubCatalogEntry(
+    snapshot,
+    source,
+    snapshot.tree.entries[0],
+    null,
+    selectionRegistry,
+    new Map(),
+  );
+  assert.equal(result, null, "vendor entry should be skipped");
+});
