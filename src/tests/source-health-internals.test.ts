@@ -216,7 +216,7 @@ void test("groupBySource preserves insertion order within groups", () => {
     makeEntry("src", "third"),
   ];
   const groups = groupBySource(entries);
-  const srcEntries = groups.get("src")!;
+  const srcEntries = groups.get("src") ?? [];
   assert.equal(srcEntries[0].id, "first");
   assert.equal(srcEntries[1].id, "second");
   assert.equal(srcEntries[2].id, "third");
