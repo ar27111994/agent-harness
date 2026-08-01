@@ -92,6 +92,8 @@ export interface InstallProgressState {
       installedAssets: number;
       remainingAssets: number;
       lastBatchAssetIds: string[];
+      /** Asset IDs that were skipped (malformed, missing, or otherwise uninstallable). */
+      skippedAssetIds: string[];
     }
   >;
 }

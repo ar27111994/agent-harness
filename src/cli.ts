@@ -403,10 +403,18 @@ function printHelp(): void {
         ],
       },
       {
-        title:
-          "Quarantine, Rebuild & Maintenance — audit and repair asset supply-chain state:",
+        title: "Quarantine — review and manage quarantined mirror artifacts:",
         lines: [
           "  quarantine list             List quarantined mirror artifacts pending review",
+          "  quarantine approve          Mark a quarantined artifact approved-with-warning",
+          "  quarantine reject           Record a rejection while keeping quarantine status",
+          "  quarantine pin              Pin a quarantine decision for future reviews",
+        ],
+      },
+      {
+        title:
+          "Rebuild & Bundle — clean, rebuild, and inspect lifecycle state:",
+        lines: [
           "  rebuild clean               Remove install/activate transient state",
           "  rebuild full                Clean and regenerate discover/mirror/install/activate",
           "  bundle explain <bundleId>   Explain why assets are present in a bundle lock",

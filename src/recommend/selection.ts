@@ -30,10 +30,10 @@ import type {
   DynamicScore,
 } from "./model.js";
 
-/** Minimum count of an asset kind before diversity penalty kicks in. */
-const ASSET_KIND_DIVERSITY_THRESHOLD = 3;
 /** Number of free slots per asset kind before penalty applies. */
 const ASSET_KIND_DIVERSITY_FREE_SLOTS = 2;
+/** Threshold for diversity: equals free slots — penalty starts on the (n+1)th candidate. */
+const ASSET_KIND_DIVERSITY_THRESHOLD = ASSET_KIND_DIVERSITY_FREE_SLOTS;
 
 /**
  * Builds top recommendations for host from the provided inputs.
@@ -344,7 +344,7 @@ function scoreCandidateAgainstSelection(
     selectionState.kindCounts[candidate.entry.assetKind] ?? 0;
   const assetKindDiversityPenalty =
     assetKindCount >= ASSET_KIND_DIVERSITY_THRESHOLD
-      ? (assetKindCount - ASSET_KIND_DIVERSITY_FREE_SLOTS) *
+      ? (assetKindCount - ASSET_KIND_DIVERSITY_FREE_SLOTS + 1) *
         policy.scoring.assetKindDiversityPenalty
       : 0;
   const redundancyPenalty = computeRedundancyPenalty(

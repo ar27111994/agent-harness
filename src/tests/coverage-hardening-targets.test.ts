@@ -292,6 +292,7 @@ void test("pipeline install batching surfaces max-batch exhaustion", async () =>
             installedAssets: 1,
             remainingAssets: 1,
             lastBatchAssetIds: ["asset-1"],
+            skippedAssetIds: [],
           },
         },
       };

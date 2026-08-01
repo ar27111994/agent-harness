@@ -757,6 +757,7 @@ function buildInstallProgressState(
         installedAssets: 0,
         remainingAssets: 1,
         lastBatchAssetIds: [],
+        skippedAssetIds: [],
         ...overrides,
       },
     },

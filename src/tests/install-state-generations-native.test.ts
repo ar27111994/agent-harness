@@ -1569,6 +1569,7 @@ void test("writeInstallGenerations tolerates missing bundle manifests and empty 
           installedAssets: 1,
           remainingAssets: 0,
           lastBatchAssetIds: ["asset-a"],
+          skippedAssetIds: [],
         },
         "shared-mcp": {
           host: "copilot-vscode",
@@ -1577,6 +1578,7 @@ void test("writeInstallGenerations tolerates missing bundle manifests and empty 
           installedAssets: 1,
           remainingAssets: 0,
           lastBatchAssetIds: ["missing-asset"],
+          skippedAssetIds: [],
         },
       },
     } satisfies InstallProgressState);

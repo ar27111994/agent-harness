@@ -45,6 +45,10 @@ export interface SourceHealthEntry {
    *  CI bot workflows use this flag to suppress false-positive dormant
    *  source warnings instead of fragile reason-text matching. */
   ciDetected: boolean;
+  /** Structured reason code for the source's health status.
+   *  "ephemeral-ci-state-root": the source appears dormant because the
+   *    CI runner's state root lacks a persistent GitHub API cache. */
+  reasonCode?: string;
 }
 
 /**
@@ -266,6 +270,10 @@ export function buildSourceHealthReport(
         reasons,
         suggestedAction,
         ciDetected,
+        reasonCode:
+          ciDetected && status === "dormant"
+            ? "ephemeral-ci-state-root"
+            : undefined,
       };
     })
     .sort((left, right) => left.sourceId.localeCompare(right.sourceId));

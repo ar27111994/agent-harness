@@ -48,6 +48,7 @@ function createProgressState(
         installedAssets: 3 - remainingAssets,
         remainingAssets,
         lastBatchAssetIds: [bundleId],
+        skippedAssetIds: [],
       },
     },
   };

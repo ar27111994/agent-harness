@@ -37,9 +37,12 @@ export function normalizeMsysPath(
  * Exported for testing — use normalizeMsysPath for production use.
  */
 export function convertMsysToWindowsPath(pathValue: string): string {
-  const match = pathValue.match(/^\/([a-zA-Z])\//u);
+  const match = pathValue.match(/^\/([a-zA-Z])(\/|$)/u);
   if (!match) return pathValue;
-  return `${match[1].toUpperCase()}:${pathValue.slice(2).replace(/\//g, "\\")}`;
+  const drive = `${match[1].toUpperCase()}:`;
+  // Bare drive letter (e.g. /c) → C:\
+  if (match[2] === "") return drive;
+  return `${drive}${pathValue.slice(2).replace(/\//g, "\\")}`;
 }
 
 /**

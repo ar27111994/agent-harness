@@ -539,19 +539,30 @@ export const STOPWORD_TOKENS = new Set([
   "zero",
 ]);
 
+/** Single-character programming language identifiers that should survive token filtering. */
+const LANGUAGE_ID_TOKENS = new Set(["c", "r"]);
+
+/**
+ * Normalises common punctuation-based language aliases before generic
+ * token filtering so they survive the stopword and length checks.
+ */
+function normaliseLanguageAliases(value: string): string {
+  return value.replace(/c\+\+/giu, "cpp").replace(/f#/giu, "fsharp");
+}
+
 /**
  * Splits a string into lowercase keyword tokens, filtering out stopwords,
- * single-character tokens, and numeric-only tokens.
+ * single-character tokens (except language identifiers), and numeric-only tokens.
  * Used by all capability extraction paths.
  */
 export function splitIntoKeywords(value: string): string[] {
-  return value
+  return normaliseLanguageAliases(value)
     .toLowerCase()
     .replace(/\.md$/u, "")
     .replace(/\.(ts|js|mts|cts)$/u, "")
-    .split(/[^a-z0-9]+/u)
+    .split(/[^a-z0-9+#]+/u)
     .filter((token) => {
-      if (token.length < 2) return false;
+      if (token.length < 2 && !LANGUAGE_ID_TOKENS.has(token)) return false;
       if (/^\d+$/u.test(token)) return false;
       if (STOPWORD_TOKENS.has(token)) return false;
       return true;

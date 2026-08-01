@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import { getOptionValue } from "../../lib/cli-options.js";
-import { readJsonLinesFile } from "../../files.js";
+import { readJsonLinesFile, pathExists } from "../../files.js";
 import type { AssetCatalogEntry } from "../../types.js";
 import { countBy } from "./catalog-utils.js";
 import {
@@ -18,9 +18,10 @@ import {
  * so that `discover stats` shows meaningful data. Ticket: #398.
  */
 export async function printCatalogStats(projectRoot: string): Promise<void> {
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, ...CATALOG_OUTPUT_PATH),
-  );
+  const catalogFilePath = join(projectRoot, ...CATALOG_OUTPUT_PATH);
+  const catalogFileExists = await pathExists(catalogFilePath);
+  const catalogEntries =
+    await readJsonLinesFile<AssetCatalogEntry>(catalogFilePath);
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH),
   );
@@ -29,6 +30,7 @@ export async function printCatalogStats(projectRoot: string): Promise<void> {
   );
 
   const { breakdownEntries, catalogSource } = resolveBreakdownEntries(
+    catalogFileExists,
     catalogEntries,
     selectedEntries,
     rejectedEntries,
@@ -126,6 +128,7 @@ function countHostsForCatalog(
  * meaningful distributions instead of empty maps. Ticket: #398.
  */
 export function resolveBreakdownEntries(
+  catalogFileExists: boolean,
   catalogEntries: AssetCatalogEntry[],
   selectedEntries: AssetCatalogEntry[],
   rejectedEntries: AssetCatalogEntry[],
@@ -133,12 +136,11 @@ export function resolveBreakdownEntries(
   breakdownEntries: AssetCatalogEntry[];
   catalogSource: string;
 } {
-  const breakdownEntries =
-    catalogEntries.length > 0
-      ? catalogEntries
-      : [...selectedEntries, ...rejectedEntries];
-  const catalogSource =
-    catalogEntries.length > 0 ? "raw-catalog" : "selected+rejected";
+  // Distinguish "file absent" (fall back) from "file exists but is empty" (use empty).
+  const breakdownEntries = catalogFileExists
+    ? catalogEntries
+    : [...selectedEntries, ...rejectedEntries];
+  const catalogSource = catalogFileExists ? "raw-catalog" : "selected+rejected";
   return { breakdownEntries, catalogSource };
 }
 

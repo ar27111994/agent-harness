@@ -65,11 +65,14 @@ export function buildSourceDriftIssues(report) {
   // #412: Filter out dormant sources when CI mode is detected.
   // In ephemeral CI state roots, repo-kind sources have no GitHub API
   // cache and will always appear dormant — these are not real drift.
-  // Uses the explicit ciDetected flag instead of fragile reason-text matching.
+  // Uses the structured reasonCode field instead of substring matching.
   return (report?.sources ?? [])
     .filter((source) => source.severity !== "ok")
     .filter((source) => {
-      if (source.status === "dormant" && source.ciDetected) {
+      if (
+        source.status === "dormant" &&
+        source.reasonCode === "ephemeral-ci-state-root"
+      ) {
         return false;
       }
       return true;

@@ -96,6 +96,7 @@ export async function installBundles(
       assertBundleLock,
     );
     const packageManifests: InstalledBundleManifest["packages"] = [];
+    const skippedAssetIds: string[] = [];
     const currentBundleAssetIds = new Set(
       bundleLock.assets.map((asset) => asset.assetId),
     );
@@ -138,6 +139,7 @@ export async function installBundles(
         debugInstallBundleSkip(
           `Skipping ${asset.assetId}: no selected catalog entry found.`,
         );
+        skippedAssetIds.push(asset.assetId);
         continue;
       }
 
@@ -151,6 +153,7 @@ export async function installBundles(
         debugInstallBundleSkip(
           `Skipping ${asset.assetId}: mirror source material missing at ${toPosixPath(sourceMaterialPath)} for ${sanitizeMirrorId(mirrorEntry.mirrorId)}.`,
         );
+        skippedAssetIds.push(asset.assetId);
         continue;
       }
 
@@ -165,6 +168,7 @@ export async function installBundles(
         console.warn(
           `Skipping malformed mirror artifact ${asset.assetId} (${sanitizeMirrorId(mirrorEntry.mirrorId)}): ${toInstallErrorMessage(error)}`,
         );
+        skippedAssetIds.push(asset.assetId);
         continue;
       }
 
@@ -260,6 +264,7 @@ export async function installBundles(
       installableAssets,
       bundleManifest.packages,
       assetsToInstall.map((asset) => asset.assetId),
+      skippedAssetIds,
     );
   }
 

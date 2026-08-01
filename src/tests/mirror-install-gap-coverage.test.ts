@@ -1461,6 +1461,7 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
                   installedAssets: 1,
                   remainingAssets: 1,
                   lastBatchAssetIds: ["asset-a"],
+                  skippedAssetIds: [],
                 },
               },
             }),

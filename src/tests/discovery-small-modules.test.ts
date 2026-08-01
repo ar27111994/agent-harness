@@ -781,6 +781,7 @@ void test("resolveBreakdownEntries uses catalog when non-empty", () => {
   const rejectedEntries = [{ id: "c" }] as AssetCatalogEntry[];
 
   const result = resolveBreakdownEntries(
+    true, // file exists
     catalogEntries,
     selectedEntries,
     rejectedEntries,
@@ -791,12 +792,13 @@ void test("resolveBreakdownEntries uses catalog when non-empty", () => {
   assert.equal(result.breakdownEntries.length, 1);
 });
 
-void test("resolveBreakdownEntries falls back to selected+rejected when catalog is empty", () => {
+void test("resolveBreakdownEntries falls back to selected+rejected when file is absent", () => {
   const catalogEntries: AssetCatalogEntry[] = [];
   const selectedEntries = [{ id: "b" }] as AssetCatalogEntry[];
   const rejectedEntries = [{ id: "c" }] as AssetCatalogEntry[];
 
   const result = resolveBreakdownEntries(
+    false, // file absent
     catalogEntries,
     selectedEntries,
     rejectedEntries,
@@ -808,12 +810,13 @@ void test("resolveBreakdownEntries falls back to selected+rejected when catalog 
   assert.ok(result.breakdownEntries.some((e) => e.id === "c"));
 });
 
-void test("resolveBreakdownEntries uses empty combined when all are empty", () => {
+void test("resolveBreakdownEntries preserves empty raw catalog when file exists", () => {
   const catalogEntries: AssetCatalogEntry[] = [];
   const selectedEntries: AssetCatalogEntry[] = [];
   const rejectedEntries: AssetCatalogEntry[] = [];
 
   const result = resolveBreakdownEntries(
+    true, // file exists but empty
     catalogEntries,
     selectedEntries,
     rejectedEntries,
