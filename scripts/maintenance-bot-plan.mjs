@@ -57,7 +57,7 @@ if (
 }
 /* c8 ignore stop */
 
-async function readJsonOrNull(path) {
+export async function readJsonOrNull(path) {
   try {
     return JSON.parse(await readFile(path, "utf8"));
   } catch (error) {

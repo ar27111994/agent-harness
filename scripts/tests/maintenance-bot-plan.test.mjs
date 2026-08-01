@@ -7,6 +7,7 @@ import {
   buildSourceCandidateIssues,
   buildSourceVerificationIssues,
   buildReportOnlyPullRequests,
+  readJsonOrNull,
 } from "../maintenance-bot-plan.mjs";
 
 // ---------------------------------------------------------------------------
@@ -259,4 +260,22 @@ test("buildReportOnlyPullRequests returns empty when severeCount > 0", () => {
 
   const prs = buildReportOnlyPullRequests(sourceHealth, issues);
   assert.equal(prs.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// readJsonOrNull — error path coverage
+// ---------------------------------------------------------------------------
+
+test("readJsonOrNull re-throws non-ENOENT errors", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const dir = await mkdtemp(tmpdir() + "/bot-plan-test-");
+  try {
+    await assert.rejects(
+      () => readJsonOrNull(dir),
+      (err) => err.code === "EISDIR" || err.code === "EACCES",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
