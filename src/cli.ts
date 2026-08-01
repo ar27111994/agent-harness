@@ -403,6 +403,16 @@ function printHelp(): void {
         ],
       },
       {
+        title:
+          "Quarantine, Rebuild & Maintenance — audit and repair asset supply-chain state:",
+        lines: [
+          "  quarantine list             List quarantined mirror artifacts pending review",
+          "  rebuild clean               Remove install/activate transient state",
+          "  rebuild full                Clean and regenerate discover/mirror/install/activate",
+          "  bundle explain <bundleId>   Explain why assets are present in a bundle lock",
+        ],
+      },
+      {
         title: "Global options:",
         lines: [
           "  --state-root <path>     Write mutable lifecycle state under this path",

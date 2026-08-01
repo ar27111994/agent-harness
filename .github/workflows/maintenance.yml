@@ -32,6 +32,7 @@ jobs:
 
       # #414: Restore discovery state cache from prior runs so repo-kind
       # sources with cached GitHub API data don't appear as dormant.
+      # The save step uses run-specific keys; restore-keys matches any prior run.
       - name: Restore discovery cache
         id: discovery-cache
         uses: actions/cache/restore@v4
@@ -39,7 +40,9 @@ jobs:
           path: |
             state/discover/source-sync.json
             state/discover/source-sync.entries.jsonl
-          key: agent-harness-discovery-cache
+          key: agent-harness-discovery-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            agent-harness-discovery-cache-
 
       - name: Build
         run: npm run build
@@ -64,6 +67,8 @@ jobs:
           node ./scripts/maintenance-bot-plan.mjs
 
       # #414: Persist discovery state cache for the next CI run.
+      # Uses a run-specific key so each run saves a fresh cache entry;
+      # the restore step matches via the stable restore-keys prefix.
       - name: Save discovery cache
         if: always()
         uses: actions/cache/save@v4
@@ -71,7 +76,7 @@ jobs:
           path: |
             state/discover/source-sync.json
             state/discover/source-sync.entries.jsonl
-          key: agent-harness-discovery-cache
+          key: agent-harness-discovery-cache-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload maintenance artifacts
         # actions/upload-artifact@v7

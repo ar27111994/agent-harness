@@ -341,19 +341,36 @@ function defaultSyncStatus(kind: SourceDefinition["kind"]): string {
 }
 
 /**
- * Detects whether the current state root is ephemeral (CI/temp).
+ * Detects whether the given state-root path is ephemeral (CI/temp).
  *
- * Checks AGENT_HARNESS_STATE_ROOT and common temp-directory patterns.
+ * Checks common temp-directory and CI-runner path patterns.
  * When the state root is ephemeral, dormant repo sources are expected
  * (no GitHub API cache) and should not generate bot issues.
+ *
+ * @param stateRoot — absolute path to check; defaults to AGENT_HARNESS_STATE_ROOT
+ *                    env-var, falling back to process.cwd() at runtime.
  */
-function isEphemeralStateRoot(): boolean {
-  const stateRoot = process.env.AGENT_HARNESS_STATE_ROOT ?? process.cwd();
-  const normalized = stateRoot.toLowerCase().replace(/\\/gu, "/");
+export function isEphemeralStateRoot(stateRoot?: string): boolean {
+  const resolvedRoot =
+    stateRoot ?? process.env.AGENT_HARNESS_STATE_ROOT ?? process.cwd();
+  const normalized = resolvedRoot.toLowerCase().replace(/\\/gu, "/");
   return (
     normalized.includes("/tmp/") ||
     normalized.includes("/temp/") ||
     normalized.startsWith("/tmp") ||
-    normalized.includes("appdata/local/temp")
+    normalized.includes("appdata/local/temp") ||
+    normalized.startsWith("/private/tmp/") ||
+    normalized.includes("/_temp/") ||
+    normalized.includes("/github/workspace/") ||
+    normalized.includes("/home/runner/work/")
   );
 }
+
+/** Exports internals for unit testing. */
+export const sourceHealthInternals = {
+  groupBySource,
+  computeDuplicateRate,
+  defaultCoverageMode,
+  defaultSyncStatus,
+  isEphemeralStateRoot,
+} as const;
