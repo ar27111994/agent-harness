@@ -158,6 +158,24 @@ void test("isEphemeralStateRoot: concurrency — no mutation", async () => {
   }
 });
 
+void test("isEphemeralStateRoot uses process.cwd when called without args", () => {
+  const result = isEphemeralStateRoot();
+  assert.equal(typeof result, "boolean");
+});
+
+void test("isEphemeralStateRoot uses AGENT_HARNESS_STATE_ROOT when set", () => {
+  const prev = process.env.AGENT_HARNESS_STATE_ROOT;
+  process.env.AGENT_HARNESS_STATE_ROOT = "/tmp/ci-runner";
+  try {
+    assert.equal(isEphemeralStateRoot(), true);
+    process.env.AGENT_HARNESS_STATE_ROOT = "/home/user/normal";
+    assert.equal(isEphemeralStateRoot(), false);
+  } finally {
+    if (prev !== undefined) process.env.AGENT_HARNESS_STATE_ROOT = prev;
+    else delete process.env.AGENT_HARNESS_STATE_ROOT;
+  }
+});
+
 // ---------------------------------------------------------------------------
 // groupBySource
 // ---------------------------------------------------------------------------
