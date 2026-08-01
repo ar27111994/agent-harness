@@ -415,8 +415,10 @@ void test("buildSourceHealthReport omits reasonCode for active CI source", () =>
 void test("buildSourceHealthReport omits reasonCode outside CI even when dormant", () => {
   const prevCI = process.env.CI;
   const prevAgentCI = process.env.AGENT_HARNESS_CI;
+  const prevStateRoot = process.env.AGENT_HARNESS_STATE_ROOT;
   delete process.env.CI;
   delete process.env.AGENT_HARNESS_CI;
+  process.env.AGENT_HARNESS_STATE_ROOT = "/home/user/projects/test";
   try {
     const report = buildSourceHealthReport(
       [buildSourceDef("local-dormant", "Local Dormant")],
@@ -432,6 +434,11 @@ void test("buildSourceHealthReport omits reasonCode outside CI even when dormant
     assert.equal(src.ciDetected, false);
   } finally {
     if (prevCI !== undefined) process.env.CI = prevCI;
+    else delete process.env.CI;
     if (prevAgentCI !== undefined) process.env.AGENT_HARNESS_CI = prevAgentCI;
+    else delete process.env.AGENT_HARNESS_CI;
+    if (prevStateRoot !== undefined)
+      process.env.AGENT_HARNESS_STATE_ROOT = prevStateRoot;
+    else delete process.env.AGENT_HARNESS_STATE_ROOT;
   }
 });
