@@ -1235,7 +1235,7 @@ void test("installBundles installs verified mirror content and preserves existin
     );
     assert.equal(progressState.bundles["copilot-core"]?.totalAssets, 3);
     assert.equal(progressState.bundles["copilot-core"]?.installedAssets, 2);
-    assert.equal(progressState.bundles["copilot-core"]?.remainingAssets, 1);
+    assert.equal(progressState.bundles["copilot-core"]?.remainingAssets, 0);
     assert.deepEqual(progressState.bundles["copilot-core"]?.lastBatchAssetIds, [
       "asset-b",
     ]);

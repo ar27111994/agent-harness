@@ -33,6 +33,11 @@ void test("isEphemeralStateRoot: /tmp as root", () => {
   assert.equal(isEphemeralStateRoot("/tmp"), true);
 });
 
+void test("isEphemeralStateRoot: /tmpwork not misclassified", () => {
+  assert.equal(isEphemeralStateRoot("/tmpwork/project"), false);
+  assert.equal(isEphemeralStateRoot("/tmpfs-manual/state"), false);
+});
+
 void test("isEphemeralStateRoot: /tmp/subdir", () => {
   assert.equal(isEphemeralStateRoot("/tmp/myproject"), true);
 });
