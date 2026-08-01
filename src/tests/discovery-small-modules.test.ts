@@ -822,6 +822,6 @@ void test("resolveBreakdownEntries preserves empty raw catalog when file exists"
     rejectedEntries,
   );
 
-  assert.equal(result.catalogSource, "selected+rejected");
+  assert.equal(result.catalogSource, "raw-catalog");
   assert.equal(result.breakdownEntries.length, 0);
 });

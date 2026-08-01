@@ -66,7 +66,7 @@ export async function updateInstallProgressState(
     installedAssets: uniqueInstalled.length,
     remainingAssets: Math.max(
       0,
-      allAssets.length - uniqueInstalled.length - uniqueSkipped.length,
+      allAssets.length - uniqueInstalled.length,
     ),
     lastBatchAssetIds: lastBatchAssetIds.filter(
       (id) => !uniqueSkipped.includes(id),
