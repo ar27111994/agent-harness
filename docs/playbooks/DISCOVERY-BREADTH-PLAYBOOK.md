@@ -13,6 +13,8 @@ This is the right guide when:
 
 Run `discover breadth` for a broad demand-driven pass. For a truly comprehensive catalog, build an offline index first with `discover index`, then run per-workspace selection against it. See [CATALOG-BREADTH.md](../guides/CATALOG-BREADTH.md) for the full production-scale guide.
 
+**Long-running builds:** Full catalog and index builds can take minutes on large source sets. Use `--timeout-seconds 600` (or higher) to prevent premature timeouts on CI or first-time builds. Set `AGENT_HARNESS_TIMEOUT_SECONDS=600` for persistent configuration.
+
 The widest practical pool now has one first-class command: `agent-harness discover breadth`.
 
 That command already does the right discovery pass for recall-first diagnosis:

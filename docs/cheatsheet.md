@@ -116,6 +116,7 @@ agent-harness workspace codex                  # Full pipeline for Codex
 
 ```bash
 --state-root <path>       # Override state directory (default: .agent-harness)
+--timeout-seconds <n>     # Deadline in seconds for long operations (10–3600)
 --intent <intent>         # Workspace intent hint (general, frontend, backend, etc.)
 --host <host>             # Target host (vscode, opencode, cursor, zed, claude-code, pi, codex)
 --preview                 # Preview without applying changes
