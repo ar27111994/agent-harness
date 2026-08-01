@@ -351,7 +351,16 @@ void test("buildSourceHealthReport sets reasonCode when CI+dormant", () => {
       ],
       [],
       [],
-      [],
+      {
+        sources: [
+          {
+            sourceId: "ci-dormant-source",
+            status: "complete",
+            indexedEntryCount: 100,
+            coverageMode: "sampled",
+          },
+        ],
+      },
     );
     const ciSource = report.sources.find(
       (s) => s.sourceId === "ci-dormant-source",
@@ -428,8 +437,16 @@ void test("buildSourceHealthReport omits reasonCode outside CI", () => {
       },
     ],
     [],
-    [],
-    [],
+    {
+      sources: [
+        {
+          sourceId: "local-dormant",
+          status: "complete",
+          indexedEntryCount: 100,
+          coverageMode: "sampled",
+        },
+      ],
+    },
   );
   const source = report.sources.find((s) => s.sourceId === "local-dormant");
   assert.ok(source);
