@@ -351,6 +351,7 @@ void test("buildSourceHealthReport sets reasonCode when CI+dormant", () => {
       ],
       [],
       [],
+      [],
       {
         sources: [
           {
@@ -436,6 +437,8 @@ void test("buildSourceHealthReport omits reasonCode outside CI", () => {
         },
       },
     ],
+    [],
+    [],
     [],
     {
       sources: [
