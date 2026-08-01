@@ -248,3 +248,48 @@ void test("discover stats handles empty project gracefully", async () => {
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// --timeout-seconds validation
+// ---------------------------------------------------------------------------
+
+void test("--timeout-seconds rejects non-numeric value", async () => {
+  const { stderr } = await runCli([
+    "--timeout-seconds",
+    "abc",
+    "discover",
+    "stats",
+  ]);
+  assert.ok(
+    stderr.includes("requires a positive number") ||
+      stderr.includes("timeout-seconds"),
+    "should reject non-numeric --timeout-seconds",
+  );
+});
+
+void test("--timeout-seconds rejects zero", async () => {
+  const { stderr } = await runCli([
+    "--timeout-seconds",
+    "0",
+    "discover",
+    "stats",
+  ]);
+  assert.ok(
+    stderr.includes("requires a positive number") ||
+      stderr.includes("timeout-seconds"),
+    "should reject zero --timeout-seconds",
+  );
+});
+
+void test("--timeout-seconds=abc rejects non-numeric value", async () => {
+  const { stderr } = await runCli([
+    "--timeout-seconds=abc",
+    "discover",
+    "stats",
+  ]);
+  assert.ok(
+    stderr.includes("requires a positive number") ||
+      stderr.includes("timeout-seconds"),
+    "should reject non-numeric --timeout-seconds= form",
+  );
+});
