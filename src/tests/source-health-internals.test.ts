@@ -9,7 +9,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { sourceHealthInternals } from "../domains/discovery/source-health.js";
-import type { AssetCatalogEntry } from "../types.js";
+import { buildSourceHealthReport } from "../domains/discovery/source-health.js";
+import type { AssetCatalogEntry, SourceDefinition } from "../types.js";
+import type { SourceSyncState } from "../domains/discovery/source-sync/types.js";
 
 const {
   isEphemeralStateRoot,
@@ -318,4 +320,100 @@ void test("defaultSyncStatus: local-manifest → not-applicable", () => {
 void test("defaultSyncStatus: other kinds → unsupported", () => {
   assert.equal(defaultSyncStatus("package-registry"), "unsupported");
   assert.equal(defaultSyncStatus("ard-registry"), "unsupported");
+});
+
+// ---------------------------------------------------------------------------
+// reasonCode emission (#412 follow-up)
+// ---------------------------------------------------------------------------
+
+/** Minimal SourceDefinition for buildSourceHealthReport tests. */
+function buildSourceDef(id: string, name: string) {
+  return {
+    id,
+    name,
+    kind: "repo" as const,
+    authorityTier: "trusted-community" as const,
+    publisher: { name: "Test", verified: false },
+    hosts: ["shared"] as string[],
+    assetKinds: ["skill"] as string[],
+    discoveryMode: "catalog" as const,
+    priority: 50,
+    enabled: true,
+    endpoints: { baseUrl: "https://example.com" },
+    rules: { officialPreferred: false, allowMirror: true, allowInstall: true },
+  } as SourceDefinition;
+}
+
+/** Builds a SourceSyncState with one completed source, making it "dormant"
+ *  when the catalog has zero entries (status=complete + no entries = dormant,
+ *  not never-synced). */
+function dormantSyncState(sourceId: string): SourceSyncState {
+  return {
+    schemaVersion: 1 as const,
+    generatedAt: new Date().toISOString(),
+    sources: [
+      {
+        sourceId,
+        status: "complete",
+        coverageMode: "sampled",
+        indexedEntryCount: 100,
+        cursors: [],
+      },
+    ],
+  };
+}
+
+void test("buildSourceHealthReport sets reasonCode when CI + dormant source", () => {
+  process.env.CI = "true";
+  try {
+    const report = buildSourceHealthReport(
+      [buildSourceDef("dormant-ci", "Dormant CI")],
+      [],
+      [],
+      [],
+      dormantSyncState("dormant-ci"),
+    );
+    const src = report.sources.find((s) => s.sourceId === "dormant-ci");
+    assert.ok(src);
+    assert.equal(src.status, "dormant");
+    assert.equal(src.reasonCode, "ephemeral-ci-state-root");
+    assert.equal(src.ciDetected, true);
+  } finally {
+    delete process.env.CI;
+  }
+});
+
+void test("buildSourceHealthReport omits reasonCode for active CI source", () => {
+  process.env.CI = "true";
+  try {
+    const entry = makeEntry("active-ci", "asset-1");
+    const report = buildSourceHealthReport(
+      [buildSourceDef("active-ci", "Active CI")],
+      [entry],
+      [entry],
+      [],
+    );
+    const src = report.sources.find((s) => s.sourceId === "active-ci");
+    assert.ok(src);
+    assert.equal(src.status, "active");
+    assert.equal(src.reasonCode, undefined);
+    assert.equal(src.ciDetected, true);
+  } finally {
+    delete process.env.CI;
+  }
+});
+
+void test("buildSourceHealthReport omits reasonCode outside CI even when dormant", () => {
+  const report = buildSourceHealthReport(
+    [buildSourceDef("local-dormant", "Local Dormant")],
+    [],
+    [],
+    [],
+    dormantSyncState("local-dormant"),
+  );
+  const src = report.sources.find((s) => s.sourceId === "local-dormant");
+  assert.ok(src);
+  assert.equal(src.status, "dormant");
+  assert.equal(src.reasonCode, undefined);
+  assert.equal(src.ciDetected, false);
 });
