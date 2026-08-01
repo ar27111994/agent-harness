@@ -44,6 +44,7 @@ const plan = {
   ],
 };
 
+/* c8 ignore start — direct-execution guard, tested via manual invocation */
 if (
   process.argv[1] &&
   fileURLToPath(import.meta.url).endsWith(
@@ -54,6 +55,7 @@ if (
   await writeFile(outputPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
   console.log(`Maintenance bot plan written to ${outputPath}`);
 }
+/* c8 ignore stop */
 
 async function readJsonOrNull(path) {
   try {
