@@ -82,7 +82,11 @@ async function main(): Promise<number> {
   });
   await prepareStateRoot(preparedStateRoot);
   const projectRoot = preparedStateRoot.stateRoot;
-  setActiveDeadline(createDeadline(globalOptions.timeoutSeconds));
+  setActiveDeadline(
+    createDeadline(
+      globalOptions.timeoutSeconds ?? resolveTimeoutSeconds(undefined),
+    ),
+  );
 
   switch (domain) {
     case "discover":
@@ -293,6 +297,11 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
         throw new Error("--timeout-seconds requires a number value");
       }
       timeoutSeconds = resolveTimeoutSeconds(value);
+      if (timeoutSeconds === undefined) {
+        throw new Error(
+          `--timeout-seconds requires a positive number, got "${value}"`,
+        );
+      }
       index += 1;
       continue;
     }
@@ -303,6 +312,11 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
         throw new Error("--timeout-seconds requires a number value");
       }
       timeoutSeconds = resolveTimeoutSeconds(value);
+      if (timeoutSeconds === undefined) {
+        throw new Error(
+          `--timeout-seconds requires a positive number, got "${value}"`,
+        );
+      }
       continue;
     }
 

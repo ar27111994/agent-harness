@@ -41,7 +41,7 @@ export function convertMsysToWindowsPath(pathValue: string): string {
   if (!match) return pathValue;
   const drive = `${match[1].toUpperCase()}:`;
   // Bare drive letter (e.g. /c) → C:\
-  if (match[2] === "") return drive;
+  if (match[2] === "") return `${drive}\\`;
   return `${drive}${pathValue.slice(2).replace(/\//g, "\\")}`;
 }
 

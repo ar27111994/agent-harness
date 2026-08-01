@@ -44,7 +44,12 @@ const plan = {
   ],
 };
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  fileURLToPath(import.meta.url).endsWith(
+    process.argv[1].replace(/\\/g, "/").split("/").pop() ?? "",
+  )
+) {
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(plan, null, 2)}\n`, "utf8");
   console.log(`Maintenance bot plan written to ${outputPath}`);

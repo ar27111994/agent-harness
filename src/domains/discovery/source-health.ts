@@ -364,8 +364,8 @@ export function isEphemeralStateRoot(stateRoot?: string): boolean {
   const normalized = resolvedRoot.toLowerCase().replace(/\\/gu, "/");
   return (
     normalized.includes("/tmp/") ||
+    normalized === "/tmp" ||
     normalized.includes("/temp/") ||
-    normalized.startsWith("/tmp") ||
     normalized.includes("appdata/local/temp") ||
     normalized.startsWith("/private/tmp/") ||
     normalized.includes("/_temp/") ||

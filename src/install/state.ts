@@ -59,6 +59,16 @@ export async function updateInstallProgressState(
     ...new Set(installedAssets.map((asset) => asset.assetId)),
   ];
   const uniqueSkipped = [...new Set(skippedAssetIds)];
+  // Merge with previously skipped IDs, then remove any that are now
+  // installed or no longer part of this bundle (prevents stale entries).
+  const allAssetIds = new Set(allAssets.map((asset) => asset.assetId));
+  const previousSkipped =
+    currentState.bundles[bundleId]?.skippedAssetIds ?? [];
+  const mergedSkipped = [
+    ...new Set([...previousSkipped, ...uniqueSkipped]),
+  ].filter(
+    (id) => !uniqueInstalled.includes(id) && allAssetIds.has(id),
+  );
   currentState.bundles[bundleId] = {
     host,
     batchSize,
@@ -66,12 +76,12 @@ export async function updateInstallProgressState(
     installedAssets: uniqueInstalled.length,
     remainingAssets: Math.max(
       0,
-      allAssets.length - uniqueInstalled.length,
+      allAssets.length - uniqueInstalled.length - mergedSkipped.length,
     ),
     lastBatchAssetIds: lastBatchAssetIds.filter(
       (id) => !uniqueSkipped.includes(id),
     ),
-    skippedAssetIds: uniqueSkipped,
+    skippedAssetIds: mergedSkipped,
   };
 
   await writeJsonFileWithSnapshot(

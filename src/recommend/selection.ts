@@ -573,7 +573,7 @@ function applyDynamicScore(
     reasons.push("source-diversity");
   }
   if (score.assetKindDiversityPenalty > 0) {
-    reasons.push("asset-kind-diversified");
+    reasons.push("asset-kind-crowding-penalty");
   }
   if (score.redundancyPenalty > 0) {
     reasons.push("redundancy-controlled");
