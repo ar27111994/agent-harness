@@ -420,11 +420,8 @@ export function compareAssetCatalogEntries(
 }
 
 /**
- * Provides split into keywords for the lifecycle pipeline.
- */
-/**
  * English stopwords + language-neutral noise tokens.
- * Filtered from capability extraction and representative queries.
+ * Filtered from capability extraction via splitIntoKeywords.
  * Tickets: #400, #406.
  */
 export const STOPWORD_TOKENS = new Set([
