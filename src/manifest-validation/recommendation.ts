@@ -1,4 +1,5 @@
 import { SESSION_INTENTS } from "../lib/session-intent.js";
+import { SCORE_BREAKDOWN_DEFAULTS } from "../recommend/constants.js";
 import type {
   RecommendationHostPolicyOverride,
   RecommendationPolicy,
@@ -830,38 +831,23 @@ function assertRecommendationScoreBreakdown(
   context: string,
 ): void {
   const record = assertRecord(value, context);
-  assertNumber(record.authority, `${context}.authority`);
-  assertNumber(record.compatibility, `${context}.compatibility`);
-  assertNumber(record.portfolioFit, `${context}.portfolioFit`);
-  assertNumber(record.trust, `${context}.trust`);
-  assertNumber(record.sourcePriority, `${context}.sourcePriority`);
-  assertNumber(record.demand, `${context}.demand`);
-  assertNumber(record.hostPreference, `${context}.hostPreference`);
-  assertNumber(record.coverage, `${context}.coverage`);
-  assertNumber(record.diversity, `${context}.diversity`);
-  // Inject default 0 for reports that predate this field (#401).
-  if (record.assetKindDiversityPenalty === undefined) {
-    record.assetKindDiversityPenalty = 0;
+
+  // Merge defaults-driven: every field in SCORE_BREAKDOWN_DEFAULTS gets
+  // injected with its default when missing.  New score-breakdown fields
+  // need ONLY to be added to SCORE_BREAKDOWN_DEFAULTS — no per-field
+  // `=== undefined` injection line is required here.
+  for (const [field, defaultValue] of Object.entries(
+    SCORE_BREAKDOWN_DEFAULTS,
+  )) {
+    if (record[field] === undefined) {
+      record[field] = defaultValue;
+    }
   }
-  assertNumber(
-    record.assetKindDiversityPenalty,
-    `${context}.assetKindDiversityPenalty`,
-  );
-  assertNumber(record.freshness, `${context}.freshness`);
-  assertNumber(record.costPenalty, `${context}.costPenalty`);
-  assertNumber(record.riskPenalty, `${context}.riskPenalty`);
-  assertNumber(record.negativePenalty, `${context}.negativePenalty`);
-  // Inject default 0 for pre-v2.0.0 reports that predate this field.
-  if (record.ecosystemMismatchPenalty === undefined) {
-    record.ecosystemMismatchPenalty = 0;
+
+  // Validate every field is now a number.
+  for (const field of Object.keys(SCORE_BREAKDOWN_DEFAULTS)) {
+    assertNumber(record[field], `${context}.${field}`);
   }
-  assertNumber(
-    record.ecosystemMismatchPenalty,
-    `${context}.ecosystemMismatchPenalty`,
-  );
-  assertNumber(record.redundancyPenalty, `${context}.redundancyPenalty`);
-  assertNumber(record.budgetPenalty, `${context}.budgetPenalty`);
-  assertNumber(record.total, `${context}.total`);
 }
 
 /**

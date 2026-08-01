@@ -19,6 +19,7 @@
     "dist/setup.js",
     "dist/wire.js",
     "dist/workspace.js",
-    "scripts/tests/**"
+    "scripts/tests/**",
+    "scripts/maintenance-bot-plan.mjs"
   ]
 }

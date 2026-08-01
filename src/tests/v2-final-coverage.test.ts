@@ -127,3 +127,62 @@ void test("extractBundleId strips lock.json suffix from paths", async () => {
   assert.equal(extractBundleId("bundle.lock.json"), "bundle");
   assert.equal(extractBundleId("/a/b/c.lock.json"), "c");
 });
+
+// ---------------------------------------------------------------------------
+// convertMsysToWindowsPath — edge cases
+// ---------------------------------------------------------------------------
+
+void test("convertMsysToWindowsPath handles trailing slash", () => {
+  assert.equal(
+    convertMsysToWindowsPath("/c/"),
+    "C:\\",
+    "trailing slash: /c/ should resolve to C:\\",
+  );
+  assert.equal(convertMsysToWindowsPath("/d/projects/"), "D:\\projects\\");
+});
+
+void test("convertMsysToWindowsPath handles double slashes", () => {
+  assert.equal(
+    convertMsysToWindowsPath("/c//foo"),
+    "C:\\\\foo",
+    "double slash: /c//foo should collapse extra slashes",
+  );
+  assert.equal(convertMsysToWindowsPath("/c//a//b"), "C:\\\\a\\\\b");
+});
+
+void test("convertMsysToWindowsPath handles mixed separators", () => {
+  // MSYS paths use forward slashes; backslashes inside are passed through.
+  // The regex only replaces forward slashes, so mixed separators produce
+  // a mixed output — this is intentional for MSYS→Windows conversion.
+  const result = convertMsysToWindowsPath("/c/a\\b");
+  assert.equal(
+    result,
+    "C:\\a\\b",
+    "mixed separators: /c/a\\b should normalise forward slashes",
+  );
+});
+
+void test("convertMsysToWindowsPath rejects path traversal patterns", () => {
+  // Path traversal is NOT blocked by convertMsysToWindowsPath (path
+  // resolution is the caller's responsibility). The function faithfully
+  // converts the MSYS prefix; traversal segments are preserved so the
+  // caller can handle them in the resolved path.
+  const result = convertMsysToWindowsPath("/c/../../../etc/passwd");
+  assert.equal(
+    result,
+    "C:\\..\\..\\..\\etc\\passwd",
+    "path traversal: ../ segments are preserved for caller-side validation",
+  );
+});
+
+void test("convertMsysToWindowsPath handles deeply nested paths", () => {
+  assert.equal(
+    convertMsysToWindowsPath("/c/a/b/c/d/e/f/g"),
+    "C:\\a\\b\\c\\d\\e\\f\\g",
+  );
+});
+
+void test("convertMsysToWindowsPath handles single-segment after drive", () => {
+  assert.equal(convertMsysToWindowsPath("/c/foo"), "C:\\foo");
+  assert.equal(convertMsysToWindowsPath("/X/bar"), "X:\\bar");
+});

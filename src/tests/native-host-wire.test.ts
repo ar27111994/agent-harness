@@ -2013,3 +2013,51 @@ void test("mergeJsonObjects preserves array ordering and non-string entries", ()
     { mode: "write", count: 1, active: true },
   );
 });
+
+// ---------------------------------------------------------------------------
+// formatWirePreviewManifest — structured preview output (#403)
+// ---------------------------------------------------------------------------
+
+const { formatWirePreviewManifest } = nativeWireInternals;
+
+void test("formatWirePreviewManifest produces structured output", () => {
+  const preview = {
+    schemaVersion: 1,
+    mode: "preview" as const,
+    host: "cursor",
+    generatedAt: "2026-07-31T00:00:00Z",
+    workspaceRoot: "/c/Projects/test",
+    targetPaths: ["/path/to/settings.json", "/path/to/mcp.json"],
+    notes: ["note-1", "note-2"],
+  };
+
+  const output = formatWirePreviewManifest(preview);
+
+  assert.ok(output.includes("wire cursor — plan preview"));
+  assert.ok(output.includes("host: cursor"));
+  assert.ok(output.includes("workspace: /c/Projects/test"));
+  assert.ok(output.includes("Target paths (2):"));
+  assert.ok(output.includes("/path/to/settings.json"));
+  assert.ok(output.includes("/path/to/mcp.json"));
+  assert.ok(output.includes("Notes:"));
+  assert.ok(output.includes("note-1"));
+  assert.ok(output.includes("note-2"));
+});
+
+void test("formatWirePreviewManifest handles empty targetPaths and notes", () => {
+  const preview = {
+    schemaVersion: 1,
+    mode: "preview" as const,
+    host: "codex",
+    generatedAt: "2026-07-31T00:00:00Z",
+    workspaceRoot: "/tmp",
+    targetPaths: [] as string[],
+    notes: [] as string[],
+  };
+
+  const output = formatWirePreviewManifest(preview);
+
+  assert.ok(output.includes("wire codex — plan preview"));
+  assert.ok(!output.includes("Target paths"));
+  assert.ok(!output.includes("Notes:"));
+});

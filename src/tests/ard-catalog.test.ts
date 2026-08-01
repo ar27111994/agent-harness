@@ -134,6 +134,100 @@ void test("deriveArdTrustManifest includes domain identity when publisher verifi
 });
 
 // ---------------------------------------------------------------------------
+// buildRepresentativeQueries
+// ---------------------------------------------------------------------------
+
+const { buildRepresentativeQueries } = ardCatalogInternals;
+
+void test("buildRepresentativeQueries filters short tokens (length < 2)", () => {
+  const entry = buildEntry({
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    capabilities: ["a", "b", "testing", "x", "quality"],
+  });
+
+  const queries = buildRepresentativeQueries(entry);
+
+  // "a", "b", "x" should be filtered; "testing", "quality" should appear
+  assert.ok(queries.some((q) => q.includes("testing")));
+  assert.ok(queries.some((q) => q.includes("quality")));
+  assert.ok(!queries.some((q) => q.includes('"a"')));
+  assert.ok(!queries.some((q) => q.includes('"b"')));
+  assert.ok(!queries.some((q) => q.includes('"x"')));
+});
+
+void test("buildRepresentativeQueries filters numeric-only tokens", () => {
+  const entry = buildEntry({
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    capabilities: ["123", "42", "testing", "007"],
+  });
+
+  const queries = buildRepresentativeQueries(entry);
+
+  // Numeric-only tokens should be filtered
+  assert.ok(queries.some((q) => q.includes("testing")));
+  assert.ok(!queries.some((q) => q.includes("123")));
+  assert.ok(!queries.some((q) => q.includes("42")));
+  assert.ok(!queries.some((q) => q.includes("007")));
+});
+
+void test("buildRepresentativeQueries filters stopwords", () => {
+  const entry = buildEntry({
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    capabilities: ["the", "is", "for", "testing", "and"],
+  });
+
+  const queries = buildRepresentativeQueries(entry);
+
+  // Stopwords should be filtered; "testing" should appear
+  assert.ok(queries.some((q) => q.includes("testing")));
+  assert.ok(!queries.some((q) => q.includes('"the"')));
+  assert.ok(!queries.some((q) => q.includes('"is"')));
+  assert.ok(!queries.some((q) => q.includes('"for"')));
+  assert.ok(!queries.some((q) => q.includes('"and"')));
+});
+
+void test("buildRepresentativeQueries includes valid capabilities in queries", () => {
+  const entry = buildEntry({
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    capabilities: ["testing", "debugging", "linting"],
+  });
+
+  const queries = buildRepresentativeQueries(entry);
+
+  assert.ok(queries.some((q) => q.includes("testing")));
+  assert.ok(queries.some((q) => q.includes("debugging")));
+  assert.ok(queries.some((q) => q.includes("linting")));
+});
+
+void test("buildRepresentativeQueries handles mixed valid and invalid tokens", () => {
+  const entry = buildEntry({
+    id: "test-skill",
+    displayName: "Test Skill",
+    assetKind: "skill",
+    capabilities: ["a", "testing", "42", "the", "debugging", "", "x"],
+  });
+
+  const queries = buildRepresentativeQueries(entry);
+
+  // Valid capabilities should appear
+  assert.ok(queries.some((q) => q.includes("testing")));
+  assert.ok(queries.some((q) => q.includes("debugging")));
+  // Empty string, single-char, numeric, and stopwords should all be filtered
+  assert.ok(!queries.some((q) => q.includes('"a"')));
+  assert.ok(!queries.some((q) => q.includes('"42"')));
+  assert.ok(!queries.some((q) => q.includes('"the"')));
+  assert.ok(!queries.some((q) => q.includes('"x"')));
+});
+
+// ---------------------------------------------------------------------------
 // mapEntryToArd
 // ---------------------------------------------------------------------------
 

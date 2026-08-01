@@ -3,9 +3,9 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
-
 import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
 import {
+  catalogInspectionInternals,
   inspectCatalog,
   printCatalogStats,
 } from "../domains/discovery/catalog-inspection.js";
@@ -768,3 +768,57 @@ function createCatalogEntry(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// resolveBreakdownEntries — catalog fallback logic (#398)
+// ---------------------------------------------------------------------------
+
+const { resolveBreakdownEntries } = catalogInspectionInternals;
+
+void test("resolveBreakdownEntries uses catalog when non-empty", () => {
+  const catalogEntries = [{ id: "a" }] as AssetCatalogEntry[];
+  const selectedEntries = [{ id: "b" }] as AssetCatalogEntry[];
+  const rejectedEntries = [{ id: "c" }] as AssetCatalogEntry[];
+
+  const result = resolveBreakdownEntries(
+    catalogEntries,
+    selectedEntries,
+    rejectedEntries,
+  );
+
+  assert.equal(result.catalogSource, "raw-catalog");
+  assert.equal(result.breakdownEntries, catalogEntries);
+  assert.equal(result.breakdownEntries.length, 1);
+});
+
+void test("resolveBreakdownEntries falls back to selected+rejected when catalog is empty", () => {
+  const catalogEntries: AssetCatalogEntry[] = [];
+  const selectedEntries = [{ id: "b" }] as AssetCatalogEntry[];
+  const rejectedEntries = [{ id: "c" }] as AssetCatalogEntry[];
+
+  const result = resolveBreakdownEntries(
+    catalogEntries,
+    selectedEntries,
+    rejectedEntries,
+  );
+
+  assert.equal(result.catalogSource, "selected+rejected");
+  assert.equal(result.breakdownEntries.length, 2);
+  assert.ok(result.breakdownEntries.some((e) => e.id === "b"));
+  assert.ok(result.breakdownEntries.some((e) => e.id === "c"));
+});
+
+void test("resolveBreakdownEntries uses empty combined when all are empty", () => {
+  const catalogEntries: AssetCatalogEntry[] = [];
+  const selectedEntries: AssetCatalogEntry[] = [];
+  const rejectedEntries: AssetCatalogEntry[] = [];
+
+  const result = resolveBreakdownEntries(
+    catalogEntries,
+    selectedEntries,
+    rejectedEntries,
+  );
+
+  assert.equal(result.catalogSource, "selected+rejected");
+  assert.equal(result.breakdownEntries.length, 0);
+});

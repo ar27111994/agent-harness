@@ -14,6 +14,7 @@ import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { AssetCatalogEntry } from "./types.js";
+import { STOPWORD_TOKENS } from "./domains/discovery/catalog-utils.js";
 
 // ---------------------------------------------------------------------------
 // ARD Schema Types (§3)
@@ -226,6 +227,7 @@ function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
       const lower = cap.toLowerCase();
       if (lower.length < 2) return false;
       if (/^\d+$/u.test(lower)) return false;
+      if (STOPWORD_TOKENS.has(lower)) return false;
       return true;
     })
     .slice(0, 5);

@@ -28,15 +28,11 @@ export async function printCatalogStats(projectRoot: string): Promise<void> {
     join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH),
   );
 
-  // When the raw catalog is missing but selected/rejected catalogs exist,
-  // use the combined selection as the breakdown source so operators see
-  // meaningful distributions instead of empty maps.
-  const breakdownEntries =
-    catalogEntries.length > 0
-      ? catalogEntries
-      : [...selectedEntries, ...rejectedEntries];
-  const catalogSource =
-    catalogEntries.length > 0 ? "raw-catalog" : "selected+rejected";
+  const { breakdownEntries, catalogSource } = resolveBreakdownEntries(
+    catalogEntries,
+    selectedEntries,
+    rejectedEntries,
+  );
 
   const stats = {
     catalogCount: catalogEntries.length,
@@ -121,3 +117,35 @@ function countHostsForCatalog(
 
   return counts;
 }
+
+/**
+ * Resolves the breakdown entries and their source label for catalog stats.
+ *
+ * When the raw catalog is empty but selected/rejected catalogs exist,
+ * uses the combined selection as the breakdown source so operators see
+ * meaningful distributions instead of empty maps. Ticket: #398.
+ */
+export function resolveBreakdownEntries(
+  catalogEntries: AssetCatalogEntry[],
+  selectedEntries: AssetCatalogEntry[],
+  rejectedEntries: AssetCatalogEntry[],
+): {
+  breakdownEntries: AssetCatalogEntry[];
+  catalogSource: string;
+} {
+  const breakdownEntries =
+    catalogEntries.length > 0
+      ? catalogEntries
+      : [...selectedEntries, ...rejectedEntries];
+  const catalogSource =
+    catalogEntries.length > 0 ? "raw-catalog" : "selected+rejected";
+  return { breakdownEntries, catalogSource };
+}
+
+/**
+ * Provide internals for unit testing.
+ */
+export const catalogInspectionInternals = {
+  resolveBreakdownEntries,
+  countHostsForCatalog,
+};

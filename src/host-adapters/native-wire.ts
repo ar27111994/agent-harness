@@ -212,8 +212,7 @@ export async function wireNativeHost(
   );
 
   if (options.mode === "preview") {
-    // eslint-disable-next-line no-console
-    console.log(formatWirePreviewManifest(preview));
+    printWirePreviewManifest(preview);
     return;
   }
 
@@ -736,6 +735,15 @@ function buildNativeExtensionInstallActionLines(
 }
 
 /**
+ * Prints a wire preview manifest to stdout for preview mode.
+ * Shared between native-wire and vscode wire flows. Ticket: #403.
+ */
+export function printWirePreviewManifest(preview: WirePreviewManifest): void {
+  // eslint-disable-next-line no-console
+  console.log(formatWirePreviewManifest(preview));
+}
+
+/**
  * Formats a WirePreviewManifest as a human-readable plan preview.
  *
  * Produces structured output matching the style of OpenCode's wire preview,
@@ -779,6 +787,7 @@ export function formatWirePreviewManifest(
 export const nativeWireInternals = {
   cleanupFailedNativeHostApply,
   describeJsonValue,
+  formatWirePreviewManifest,
   mergeJsonObjects,
   mergeStringArraysPreservingOrder,
   isBenignRemoveDirectoryRace,

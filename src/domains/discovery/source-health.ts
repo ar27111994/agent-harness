@@ -40,6 +40,11 @@ export interface SourceHealthEntry {
     | "refresh-sync"
     | "disable-or-replace"
     | "verify-official-owner";
+  /** True when this report was generated in a CI/automation environment
+   *  where the state root is ephemeral and lacks persistent caches.
+   *  CI bot workflows use this flag to suppress false-positive dormant
+   *  source warnings instead of fragile reason-text matching. */
+  ciDetected: boolean;
 }
 
 /**
@@ -107,6 +112,15 @@ export function buildSourceHealthReport(
   rejectedEntries: AssetCatalogEntry[],
   sourceSyncState?: SourceSyncState,
 ): SourceHealthReport {
+  // #412: Detect CI/automation environments via explicit env var or
+  // ephemeral state-root path patterns.  CI bot workflows use this flag
+  // instead of fragile reason-text matching to suppress false-positive
+  // dormant source warnings.
+  const ciDetected =
+    process.env.AGENT_HARNESS_CI === "true" ||
+    process.env.CI === "true" ||
+    isEphemeralStateRoot();
+
   const catalogBySource = groupBySource(catalogEntries);
   const selectedBySource = groupBySource(selectedEntries);
   const rejectedBySource = groupBySource(rejectedEntries);
@@ -251,6 +265,7 @@ export function buildSourceHealthReport(
         duplicateRate,
         reasons,
         suggestedAction,
+        ciDetected,
       };
     })
     .sort((left, right) => left.sourceId.localeCompare(right.sourceId));
@@ -323,4 +338,22 @@ function defaultSyncStatus(kind: SourceDefinition["kind"]): string {
     return "not-applicable";
   }
   return "unsupported";
+}
+
+/**
+ * Detects whether the current state root is ephemeral (CI/temp).
+ *
+ * Checks AGENT_HARNESS_STATE_ROOT and common temp-directory patterns.
+ * When the state root is ephemeral, dormant repo sources are expected
+ * (no GitHub API cache) and should not generate bot issues.
+ */
+function isEphemeralStateRoot(): boolean {
+  const stateRoot = process.env.AGENT_HARNESS_STATE_ROOT ?? process.cwd();
+  const normalized = stateRoot.toLowerCase().replace(/\\/gu, "/");
+  return (
+    normalized.includes("/tmp/") ||
+    normalized.includes("/temp/") ||
+    normalized.startsWith("/tmp") ||
+    normalized.includes("appdata/local/temp")
+  );
 }

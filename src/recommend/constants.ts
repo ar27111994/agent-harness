@@ -128,3 +128,37 @@ export const GENERIC_CAPABILITY_TERMS = new Set([
  * Re-exported from the shared ARD module to avoid duplication.
  */
 export { TRUST_SIGNAL_SCORE_BOOST } from "../ard/types.js";
+
+/**
+ * Default values for every field in RecommendationScoreBreakdown.
+ *
+ * New score-breakdown fields added to the type system need ONLY to be added
+ * here — backward-compat injection is automatic.  This eliminates the
+ * per-field `=== undefined` pattern that previously required a manual
+ * injection line in assertRecommendationScoreBreakdown for every new field.
+ *
+ * All additive score components default to 0 (no contribution).
+ * All penalty components default to 0 (no deduction).
+ * The `total` field defaults to 0 (will be recomputed).
+ */
+export const SCORE_BREAKDOWN_DEFAULTS: Readonly<Record<string, number>> =
+  Object.freeze({
+    authority: 0,
+    compatibility: 0,
+    portfolioFit: 0,
+    trust: 0,
+    sourcePriority: 0,
+    demand: 0,
+    hostPreference: 0,
+    coverage: 0,
+    diversity: 0,
+    assetKindDiversityPenalty: 0,
+    freshness: 0,
+    costPenalty: 0,
+    riskPenalty: 0,
+    negativePenalty: 0,
+    ecosystemMismatchPenalty: 0,
+    redundancyPenalty: 0,
+    budgetPenalty: 0,
+    total: 0,
+  });

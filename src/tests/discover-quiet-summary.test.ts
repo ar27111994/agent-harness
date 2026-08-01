@@ -60,6 +60,7 @@ function buildEntry(
         : severity === "warning"
           ? "review-source"
           : "none",
+    ciDetected: false,
   };
 }
 
@@ -217,6 +218,7 @@ void test("printSourceHealthSummary: --summary handles empty reasons gracefully"
         duplicateRate: 0,
         reasons: [],
         suggestedAction: "review-source",
+        ciDetected: false,
       },
     ],
   });

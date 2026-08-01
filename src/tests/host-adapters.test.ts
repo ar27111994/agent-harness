@@ -27,6 +27,7 @@ import type {
   WirePlanManifest,
   WirePreviewManifest,
 } from "../types.js";
+import { buildEntry } from "./test-helpers.js";
 
 const NATIVE_HOSTS = ["cursor", "zed", "claude-code", "pi", "codex"] as const;
 const ALL_ASSET_KINDS = [
@@ -130,6 +131,86 @@ void test("native host adapters are registered with expected lifecycle hosts", (
     "shared-mcp",
   ]);
   assertWireCapabilities(codexAdapter, ALL_ASSET_KINDS);
+});
+
+void test("Codex adapter nativeInstall collects extension install actions", () => {
+  const codexAdapter = resolveHostAdapter("codex");
+  assert.ok(codexAdapter);
+  const { nativeInstall } = codexAdapter;
+  assert.ok(nativeInstall);
+  assert.equal(nativeInstall.assetKind, "extension");
+
+  // Build a valid extension asset using the canonical builder.
+  const extensionAsset = buildEntry({
+    id: "test.ext-1",
+    displayName: "Test Extension",
+    assetKind: "extension",
+    hosts: ["codex"],
+    install: {
+      method: "vs-code-extension",
+      manifestEntry: "publisher.extension-name",
+    },
+  });
+
+  const actions = nativeInstall.collectActions([extensionAsset]);
+
+  assert.ok(actions.length > 0);
+  assert.ok(actions.some((a) => a.extensionId === "publisher.extension-name"));
+});
+
+void test("Codex adapter collectActions skips assets without valid extension IDs", () => {
+  const codexAdapter = resolveHostAdapter("codex");
+  assert.ok(codexAdapter);
+  const { nativeInstall } = codexAdapter;
+  assert.ok(nativeInstall);
+
+  // Asset with a non-extension-ID manifestEntry should produce no actions.
+  const nonExtensionAsset = buildEntry({
+    id: "some-skill",
+    displayName: "Some Skill",
+    assetKind: "skill",
+    hosts: ["codex"],
+    install: {
+      method: "repo-reference",
+      manifestEntry: "https://example.com/skill.md",
+    },
+  });
+
+  const actions = nativeInstall.collectActions([nonExtensionAsset]);
+
+  // URL-based manifestEntry is not a valid VS Code extension ID.
+  assert.equal(actions.length, 0);
+});
+
+void test("Codex adapter collectActions concurrency", () => {
+  const codexAdapter = resolveHostAdapter("codex");
+  assert.ok(codexAdapter);
+  const { nativeInstall } = codexAdapter;
+  assert.ok(nativeInstall);
+
+  // Build 50 extension assets with unique IDs.
+  const assets = Array.from({ length: 50 }, (_, index) =>
+    buildEntry({
+      id: `test.ext-${index}`,
+      displayName: `Test Extension ${index}`,
+      assetKind: "extension",
+      hosts: ["codex"],
+      install: {
+        method: "vs-code-extension",
+        manifestEntry: `publisher.ext-${index}`,
+      },
+    }),
+  );
+
+  // All 50 should produce extension install actions.
+  const actions = nativeInstall.collectActions(assets);
+  assert.equal(actions.length, 50);
+  for (let index = 0; index < 50; index++) {
+    assert.ok(
+      actions.some((a) => a.extensionId === `publisher.ext-${index}`),
+      `should find extension publisher.ext-${index}`,
+    );
+  }
 });
 
 void test("OpenCode adapter upserts and resets only the managed AGENTS section", async () => {

@@ -447,12 +447,22 @@ async function generateCatalog(projectRoot: string): Promise<{
     (source) => source.kind !== "repo",
   );
 
+  const totalSources = nonRepoSources.length + repoSources.length;
+  let processedSources = 0;
+
+  process.stderr.write(
+    `[discover catalog] Building catalog from ${totalSources} enabled sources\n`,
+  );
+
   for (const source of nonRepoSources) {
+    processedSources++;
+    process.stderr.write(
+      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (${source.kind})\n`,
+    );
     if (indexedSourceIds.has(source.id)) {
-      appendCatalogEntries(
-        catalogEntries,
-        indexedCatalogEntriesBySourceId.get(source.id) ?? [],
-      );
+      const indexedEntries =
+        indexedCatalogEntriesBySourceId.get(source.id) ?? [];
+      appendCatalogEntries(catalogEntries, indexedEntries);
       continue;
     }
 
@@ -513,6 +523,10 @@ async function generateCatalog(projectRoot: string): Promise<{
   const harvestedRepoEntries: AssetCatalogEntry[] = [];
 
   for (const source of repoSlice) {
+    processedSources++;
+    process.stderr.write(
+      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (repo)\n`,
+    );
     if (isGitHubRepoSource(source)) {
       appendCatalogEntries(
         harvestedRepoEntries,
@@ -525,6 +539,10 @@ async function generateCatalog(projectRoot: string): Promise<{
       );
     }
   }
+
+  process.stderr.write(
+    `[discover catalog] Writing catalog (${catalogEntries.length} entries)...\n`,
+  );
 
   const repoSliceSourceIds = new Set(repoSlice.map((source) => source.id));
   const mergedRemoteCatalogEntries = mergeRemoteCatalogEntries(
