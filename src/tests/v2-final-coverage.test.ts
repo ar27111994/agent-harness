@@ -186,3 +186,16 @@ void test("convertMsysToWindowsPath handles single-segment after drive", () => {
   assert.equal(convertMsysToWindowsPath("/c/foo"), "C:\\foo");
   assert.equal(convertMsysToWindowsPath("/X/bar"), "X:\\bar");
 });
+
+void test("convertMsysToWindowsPath handles bare drive letter without trailing slash", () => {
+  assert.equal(convertMsysToWindowsPath("/c"), "C:");
+  assert.equal(convertMsysToWindowsPath("/D"), "D:");
+  assert.equal(convertMsysToWindowsPath("/x"), "X:");
+});
+
+void test("convertMsysToWindowsPath passes through non-MSYS paths unchanged", () => {
+  assert.equal(convertMsysToWindowsPath("C:\\foo"), "C:\\foo");
+  assert.equal(convertMsysToWindowsPath("/usr/local"), "/usr/local");
+  assert.equal(convertMsysToWindowsPath("relative/path"), "relative/path");
+  assert.equal(convertMsysToWindowsPath(""), "");
+});

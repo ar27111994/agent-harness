@@ -127,7 +127,38 @@ void test("catalog utilities compute demand fit, duplicate groups, ids, and disp
     "source:nested%2Fpath%2Fskill.md",
   );
   assert.equal(buildCatalogId("source", ""), "source:root");
+  // --- splitIntoKeywords — basic and stopword filtering ---
   assert.deepEqual(splitIntoKeywords("agent.plugin.ts"), ["agent", "plugin"]);
+  assert.deepEqual(splitIntoKeywords("the quick brown fox"), [
+    "quick",
+    "brown",
+    "fox",
+  ]);
+  assert.deepEqual(splitIntoKeywords("a in the and of to for is"), []);
+  assert.deepEqual(splitIntoKeywords("agent for the TypeScript"), [
+    "agent",
+    "typescript",
+  ]);
+  // --- single-char language IDs preserved ---
+  assert.deepEqual(splitIntoKeywords("C programming"), ["c", "programming"]);
+  assert.deepEqual(splitIntoKeywords("R language"), ["r", "language"]);
+  assert.deepEqual(splitIntoKeywords("C and R"), ["c", "r"]);
+  // --- single-char non-language tokens filtered ---
+  assert.deepEqual(splitIntoKeywords("a b c x y z"), ["c"]);
+  // --- C++ / F# normalisation ---
+  assert.deepEqual(splitIntoKeywords("C++ project"), ["cpp", "project"]);
+  assert.deepEqual(splitIntoKeywords("F# functional"), [
+    "fsharp",
+    "functional",
+  ]);
+  assert.deepEqual(splitIntoKeywords("c++ and F#"), ["cpp", "fsharp"]);
+  // --- numeric-only filtered ---
+  assert.deepEqual(splitIntoKeywords("version 2 0"), ["version"]);
+  assert.deepEqual(splitIntoKeywords("123 4567"), []);
+  // --- edge cases ---
+  assert.deepEqual(splitIntoKeywords(""), []);
+  assert.deepEqual(splitIntoKeywords("the a an"), []);
+  assert.deepEqual(splitIntoKeywords("..."), []);
   assert.deepEqual(uniqueStrings(["b", "a", "b"]), ["b", "a"]);
   assert.equal(
     deriveDisplayNameFromPath("skills/repo-guide/SKILL.md"),

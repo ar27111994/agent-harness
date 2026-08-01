@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { sourceHealthInternals } from "../domains/discovery/source-health.js";
+import { buildSourceHealthReport } from "../domains/discovery/source-health.js";
 import type { AssetCatalogEntry } from "../types.js";
 
 const {
@@ -318,4 +319,109 @@ void test("defaultSyncStatus: local-manifest → not-applicable", () => {
 void test("defaultSyncStatus: other kinds → unsupported", () => {
   assert.equal(defaultSyncStatus("package-registry"), "unsupported");
   assert.equal(defaultSyncStatus("ard-registry"), "unsupported");
+});
+
+// ---------------------------------------------------------------------------
+// reasonCode emission (#412 follow-up)
+// ---------------------------------------------------------------------------
+
+void test("buildSourceHealthReport sets reasonCode when CI+dormant", () => {
+  process.env.CI = "true";
+  try {
+    const report = buildSourceHealthReport(
+      [
+        {
+          id: "ci-dormant-source",
+          kind: "repo",
+          name: "CI Dormant Source",
+          authorityTier: "trusted-community",
+          publisher: { name: "Test", verified: false },
+          hosts: ["shared"],
+          assetKinds: ["skill"],
+          discoveryMode: "catalog",
+          priority: 50,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com" },
+          rules: [],
+        },
+      ],
+      [],
+      [],
+      [],
+    );
+    const ciSource = report.sources.find(
+      (s) => s.sourceId === "ci-dormant-source",
+    );
+    assert.ok(ciSource);
+    assert.equal(ciSource.status, "dormant");
+    assert.equal(ciSource.reasonCode, "ephemeral-ci-state-root");
+    assert.equal(ciSource.ciDetected, true);
+  } finally {
+    delete process.env.CI;
+  }
+});
+
+void test("buildSourceHealthReport omits reasonCode for non-dormant CI source", () => {
+  process.env.CI = "true";
+  try {
+    const entry = makeEntry("active-ci-source", "asset-1");
+    const report = buildSourceHealthReport(
+      [
+        {
+          id: "active-ci-source",
+          kind: "repo",
+          name: "Active CI Source",
+          authorityTier: "trusted-community",
+          publisher: { name: "Test", verified: false },
+          hosts: ["shared"],
+          assetKinds: ["skill"],
+          discoveryMode: "catalog",
+          priority: 50,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com" },
+          rules: [],
+        },
+      ],
+      [entry],
+      [entry],
+      [],
+    );
+    const ciSource = report.sources.find(
+      (s) => s.sourceId === "active-ci-source",
+    );
+    assert.ok(ciSource);
+    assert.equal(ciSource.status, "active");
+    assert.equal(ciSource.reasonCode, undefined);
+  } finally {
+    delete process.env.CI;
+  }
+});
+
+void test("buildSourceHealthReport omits reasonCode outside CI", () => {
+  const report = buildSourceHealthReport(
+    [
+      {
+        id: "local-dormant",
+        kind: "repo",
+        name: "Local Dormant",
+        authorityTier: "trusted-community",
+        publisher: { verified: false },
+        hosts: ["shared"],
+        assetKinds: ["skill"],
+        discoveryMode: "catalog",
+        priority: 50,
+        enabled: true,
+        endpoints: { baseUrl: "https://example.com" },
+        rules: [],
+      },
+    ],
+    [],
+    [],
+    [],
+  );
+  const source = report.sources.find((s) => s.sourceId === "local-dormant");
+  assert.ok(source);
+  assert.equal(source.status, "dormant");
+  assert.equal(source.reasonCode, undefined);
+  assert.equal(source.ciDetected, false);
 });

@@ -1239,6 +1239,11 @@ void test("installBundles installs verified mirror content and preserves existin
     assert.deepEqual(progressState.bundles["copilot-core"]?.lastBatchAssetIds, [
       "asset-b",
     ]);
+    assert.deepEqual(
+      progressState.bundles["copilot-core"]?.skippedAssetIds,
+      ["asset-c"],
+      "asset-c (no catalog entry) should be recorded as skipped",
+    );
     assert.deepEqual(currentGeneration.bundleIds, ["copilot-core"]);
     assert.deepEqual(currentGeneration.packageManifestPaths, [
       assetAPath.replace(/\\/gu, "/"),
@@ -1305,6 +1310,22 @@ void test("installBundles skips malformed mirror artifacts gracefully (#409)", a
     // aborting. The function should resolve without throwing.
     await assert.doesNotReject(
       installBundles(projectRoot, ["--bundle", "copilot-core"]),
+    );
+
+    // Verify progress state tracks the skipped asset
+    const progressState = await readJsonFile<InstallProgressState>(
+      join(projectRoot, ...INSTALL_PROGRESS_STATE_OUTPUT_PATH),
+    );
+    assert.deepEqual(
+      progressState.bundles["copilot-core"]?.skippedAssetIds,
+      ["asset-z"],
+      "malformed artifact should be recorded as skipped",
+    );
+    assert.equal(progressState.bundles["copilot-core"]?.installedAssets, 0);
+    assert.equal(
+      progressState.bundles["copilot-core"]?.remainingAssets,
+      1,
+      "skipped asset should still count toward remaining",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

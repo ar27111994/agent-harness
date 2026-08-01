@@ -10,10 +10,10 @@ import {
 } from "../maintenance-bot-plan.mjs";
 
 // ---------------------------------------------------------------------------
-// buildSourceDriftIssues — #412 ciDetected filtering
+// buildSourceDriftIssues — #412 reasonCode filtering
 // ---------------------------------------------------------------------------
 
-test("buildSourceDriftIssues filters out dormant sources when ciDetected is true", () => {
+test("buildSourceDriftIssues filters out dormant sources when reasonCode is ephemeral-ci-state-root", () => {
   const report = {
     sources: [
       {
@@ -31,7 +31,7 @@ test("buildSourceDriftIssues filters out dormant sources when ciDetected is true
         duplicateRate: 0,
         reasons: ["no entries produced"],
         suggestedAction: "review-source",
-        ciDetected: true,
+        reasonCode: "ephemeral-ci-state-root",
       },
     ],
   };
@@ -40,7 +40,7 @@ test("buildSourceDriftIssues filters out dormant sources when ciDetected is true
   assert.equal(issues.length, 0);
 });
 
-test("buildSourceDriftIssues keeps dormant sources when ciDetected is false", () => {
+test("buildSourceDriftIssues keeps dormant sources when reasonCode is not ephemeral-ci-state-root", () => {
   const report = {
     sources: [
       {
@@ -58,7 +58,7 @@ test("buildSourceDriftIssues keeps dormant sources when ciDetected is false", ()
         duplicateRate: 0,
         reasons: ["no entries produced"],
         suggestedAction: "review-source",
-        ciDetected: false,
+        reasonCode: undefined,
       },
     ],
   };
@@ -68,7 +68,7 @@ test("buildSourceDriftIssues keeps dormant sources when ciDetected is false", ()
   assert.equal(issues[0].title, "Review source drift: dormant-real");
 });
 
-test("buildSourceDriftIssues keeps non-dormant sources regardless of ciDetected", () => {
+test("buildSourceDriftIssues keeps non-dormant sources regardless of reasonCode", () => {
   const report = {
     sources: [
       {
@@ -86,7 +86,7 @@ test("buildSourceDriftIssues keeps non-dormant sources regardless of ciDetected"
         duplicateRate: 0,
         reasons: ["sync failed"],
         suggestedAction: "refresh-sync",
-        ciDetected: true,
+        reasonCode: "ephemeral-ci-state-root",
       },
     ],
   };
@@ -128,7 +128,7 @@ test("buildBrokenSourceIssues surfaces severity=error sources", () => {
         duplicateRate: 0,
         reasons: ["sync failed"],
         suggestedAction: "refresh-sync",
-        ciDetected: false,
+        reasonCode: undefined,
       },
       {
         sourceId: "dormant-1",
@@ -145,7 +145,7 @@ test("buildBrokenSourceIssues surfaces severity=error sources", () => {
         duplicateRate: 0,
         reasons: ["no entries"],
         suggestedAction: "review-source",
-        ciDetected: false,
+        reasonCode: undefined,
       },
     ],
   };
@@ -174,7 +174,7 @@ test("buildBrokenSourceIssues returns empty for severity=warning sources", () =>
         duplicateRate: 0,
         reasons: ["no entries"],
         suggestedAction: "review-source",
-        ciDetected: false,
+        reasonCode: undefined,
       },
     ],
   };
