@@ -369,6 +369,7 @@ function dormantSyncState(sourceId: string): SourceSyncState {
 }
 
 void test("buildSourceHealthReport sets reasonCode when CI + dormant source", () => {
+  const prevCI = process.env.CI;
   process.env.CI = "true";
   try {
     const report = buildSourceHealthReport(
@@ -384,11 +385,13 @@ void test("buildSourceHealthReport sets reasonCode when CI + dormant source", ()
     assert.equal(src.reasonCode, "ephemeral-ci-state-root");
     assert.equal(src.ciDetected, true);
   } finally {
-    delete process.env.CI;
+    if (prevCI !== undefined) process.env.CI = prevCI;
+    else delete process.env.CI;
   }
 });
 
 void test("buildSourceHealthReport omits reasonCode for active CI source", () => {
+  const prevCI = process.env.CI;
   process.env.CI = "true";
   try {
     const entry = makeEntry("active-ci", "asset-1");
@@ -404,21 +407,31 @@ void test("buildSourceHealthReport omits reasonCode for active CI source", () =>
     assert.equal(src.reasonCode, undefined);
     assert.equal(src.ciDetected, true);
   } finally {
-    delete process.env.CI;
+    if (prevCI !== undefined) process.env.CI = prevCI;
+    else delete process.env.CI;
   }
 });
 
 void test("buildSourceHealthReport omits reasonCode outside CI even when dormant", () => {
-  const report = buildSourceHealthReport(
-    [buildSourceDef("local-dormant", "Local Dormant")],
-    [],
-    [],
-    [],
-    dormantSyncState("local-dormant"),
-  );
-  const src = report.sources.find((s) => s.sourceId === "local-dormant");
-  assert.ok(src);
-  assert.equal(src.status, "dormant");
-  assert.equal(src.reasonCode, undefined);
-  assert.equal(src.ciDetected, false);
+  const prevCI = process.env.CI;
+  const prevAgentCI = process.env.AGENT_HARNESS_CI;
+  delete process.env.CI;
+  delete process.env.AGENT_HARNESS_CI;
+  try {
+    const report = buildSourceHealthReport(
+      [buildSourceDef("local-dormant", "Local Dormant")],
+      [],
+      [],
+      [],
+      dormantSyncState("local-dormant"),
+    );
+    const src = report.sources.find((s) => s.sourceId === "local-dormant");
+    assert.ok(src);
+    assert.equal(src.status, "dormant");
+    assert.equal(src.reasonCode, undefined);
+    assert.equal(src.ciDetected, false);
+  } finally {
+    if (prevCI !== undefined) process.env.CI = prevCI;
+    if (prevAgentCI !== undefined) process.env.AGENT_HARNESS_CI = prevAgentCI;
+  }
 });
