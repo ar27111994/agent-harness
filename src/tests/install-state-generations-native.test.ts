@@ -263,7 +263,7 @@ void test("updateInstallProgressState deduplicates installed assets and writes a
       allAssets,
       installedPackages,
       ["asset-a", "asset-a", "asset-b"],
-      ["problem-asset"],
+      ["asset-b"],
     );
     await updateInstallProgressState(
       projectRoot,
@@ -286,7 +286,7 @@ void test("updateInstallProgressState deduplicates installed assets and writes a
     ]);
     // Skipped IDs from previous call are preserved across updates
     assert.deepEqual(progressState.bundles["copilot-core"]?.skippedAssetIds, [
-      "problem-asset",
+      "asset-b",
     ]);
     assert.equal(
       await pathExists(
@@ -1329,8 +1329,8 @@ void test("installBundles skips malformed mirror artifacts gracefully (#409)", a
     assert.equal(progressState.bundles["copilot-core"]?.installedAssets, 0);
     assert.equal(
       progressState.bundles["copilot-core"]?.remainingAssets,
-      1,
-      "skipped asset should still count toward remaining",
+      0,
+      "skipped asset subtracts from remaining (processed for termination)",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
