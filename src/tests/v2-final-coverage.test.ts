@@ -21,6 +21,11 @@ void test("normalizeMsysPath passes through on non-win32 platform", () => {
   assert.equal(normalizeMsysPath("C:\\Windows", "darwin"), "C:\\Windows");
 });
 
+void test("normalizeMsysPath converts on win32 platform (explicit)", () => {
+  assert.equal(normalizeMsysPath("/c/foo", "win32"), "C:\\foo");
+  assert.equal(normalizeMsysPath("/D/bar", "win32"), "D:\\bar");
+});
+
 // ---------------------------------------------------------------------------
 // convertMsysToWindowsPath — core conversion logic
 // ---------------------------------------------------------------------------
