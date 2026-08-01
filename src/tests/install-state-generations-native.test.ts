@@ -263,6 +263,7 @@ void test("updateInstallProgressState deduplicates installed assets and writes a
       allAssets,
       installedPackages,
       ["asset-a", "asset-a", "asset-b"],
+      ["problem-asset"],
     );
     await updateInstallProgressState(
       projectRoot,
@@ -279,9 +280,13 @@ void test("updateInstallProgressState deduplicates installed assets and writes a
     );
 
     assert.equal(progressState.bundles["copilot-core"]?.installedAssets, 1);
-    assert.equal(progressState.bundles["copilot-core"]?.remainingAssets, 1);
+    assert.equal(progressState.bundles["copilot-core"]?.remainingAssets, 0);
     assert.deepEqual(progressState.bundles["copilot-core"]?.lastBatchAssetIds, [
       "asset-b",
+    ]);
+    // Skipped IDs from previous call are preserved across updates
+    assert.deepEqual(progressState.bundles["copilot-core"]?.skippedAssetIds, [
+      "problem-asset",
     ]);
     assert.equal(
       await pathExists(
