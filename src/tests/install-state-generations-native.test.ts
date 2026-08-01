@@ -1312,6 +1312,75 @@ void test("installBundles skips malformed mirror artifacts gracefully (#409)", a
   }
 });
 
+void test("installBundles skips artifact with missing manifest.json (#409)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-bundle-"),
+  );
+  const entry = buildAsset("asset-no-manifest");
+  const mirrorId = "sha256-asset-no-manifest";
+  const rawDir = join(projectRoot, "mirror", "raw", sanitizeMirrorId(mirrorId));
+  const warnings: string[] = [];
+
+  try {
+    // Create the raw mirror directory with asset.json and content but NO manifest.json.
+    // This simulates a partially-acquired artifact where the manifest was never written.
+    await writeTextFile(join(rawDir, "content.txt"), `fixture:${entry.id}\n`);
+    await writeTextFile(
+      join(rawDir, "asset.json"),
+      `${JSON.stringify(entry, null, 2)}\n`,
+    );
+
+    // Mirror index still references the (now-missing) manifest hash.
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      buildMirrorIndexEntry("asset-no-manifest", {
+        mirrorId,
+        contentHash: "hash-no-manifest",
+      }),
+    ]);
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry],
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "copilot-core",
+        generatedAt: new Date().toISOString(),
+        host: "copilot-vscode",
+        assets: [
+          {
+            assetId: "asset-no-manifest",
+            mirrorId,
+            projectionType: "native-skill",
+            activationEligible: true,
+          },
+        ],
+      } satisfies BundleLock,
+    );
+
+    t.mock.method(globalThis.console, "warn", (...args: unknown[]) => {
+      warnings.push(args.map((value) => String(value)).join(" "));
+    });
+
+    // #409: Missing manifest.json should be caught, warned about with the
+    // assetId, and skipped — the install pipeline should continue.
+    await assert.doesNotReject(
+      installBundles(projectRoot, ["--bundle", "copilot-core"]),
+    );
+
+    // Verify the warning includes the assetId for diagnosis.
+    assert.ok(
+      warnings.some(
+        (w) => w.includes("asset-no-manifest") && w.includes("malformed"),
+      ),
+      "warning should identify the malformed asset by assetId",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("manageInstallGenerations lists generation manifests and validates host and generation ids", async (t) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-install-generations-"),

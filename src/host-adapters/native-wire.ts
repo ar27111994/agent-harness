@@ -739,8 +739,7 @@ function buildNativeExtensionInstallActionLines(
  * Shared between native-wire and vscode wire flows. Ticket: #403.
  */
 export function printWirePreviewManifest(preview: WirePreviewManifest): void {
-  // eslint-disable-next-line no-console
-  console.log(formatWirePreviewManifest(preview));
+  process.stdout.write(`${formatWirePreviewManifest(preview)}\n`);
 }
 
 /**

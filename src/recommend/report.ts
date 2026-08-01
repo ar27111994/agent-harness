@@ -14,6 +14,10 @@ import { getRecommendationHosts } from "./hosts.js";
 import { loadRecommendationPolicy } from "./policy.js";
 import { buildDemandContext, buildSynonymLookup } from "./signals.js";
 import {
+  getActiveDeadline,
+  assertNotDeadlineExceeded,
+} from "../lib/deadline.js";
+import {
   buildCandidateRecommendationBase,
   buildPolicySearchContext,
 } from "./candidates.js";
@@ -133,6 +137,8 @@ export function buildRecommendationReport(
     `[recommend] Building candidate pool (${entries.length} entries)...\n`,
   );
 
+  const deadline = getActiveDeadline();
+
   const candidateBases = entries
     .filter((entry) => entry.compatibilityMode !== "incompatible")
     .map((entry) =>
@@ -146,6 +152,8 @@ export function buildRecommendationReport(
     )
     .filter((base): base is CandidateRecommendationBase => base !== null);
 
+  assertNotDeadlineExceeded(deadline, "recommend candidate-pool build");
+
   process.stderr.write(
     `[recommend] Ranking ${candidateBases.length} candidates across ${recommendationHosts.length} hosts...\n`,
   );
@@ -153,6 +161,7 @@ export function buildRecommendationReport(
   const topByHost = Object.fromEntries(
     recommendationHosts.map((host) => {
       process.stderr.write(`[recommend]   Ranking for ${host}...\n`);
+      assertNotDeadlineExceeded(deadline, `recommend ranking for ${host}`);
       return [
         host,
         buildTopRecommendationsForHost(

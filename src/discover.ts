@@ -84,6 +84,10 @@ import {
 import { writeSourceHealthReports } from "./domains/discovery/source-health.js";
 import type { SourceHealthReport } from "./domains/discovery/source-health.js";
 import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
+import {
+  getActiveDeadline,
+  assertNotDeadlineExceeded,
+} from "./lib/deadline.js";
 import { writeSourceVerificationReport } from "./domains/discovery/source-verification.js";
 import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
 import {
@@ -449,6 +453,7 @@ async function generateCatalog(projectRoot: string): Promise<{
 
   const totalSources = nonRepoSources.length + repoSources.length;
   let processedSources = 0;
+  const deadline = getActiveDeadline();
 
   process.stderr.write(
     `[discover catalog] Building catalog from ${totalSources} enabled sources\n`,
@@ -459,6 +464,7 @@ async function generateCatalog(projectRoot: string): Promise<{
     process.stderr.write(
       `[discover catalog] ${processedSources}/${totalSources} ${source.id} (${source.kind})\n`,
     );
+    assertNotDeadlineExceeded(deadline, `discover catalog source ${source.id}`);
     if (indexedSourceIds.has(source.id)) {
       const indexedEntries =
         indexedCatalogEntriesBySourceId.get(source.id) ?? [];
@@ -527,6 +533,7 @@ async function generateCatalog(projectRoot: string): Promise<{
     process.stderr.write(
       `[discover catalog] ${processedSources}/${totalSources} ${source.id} (repo)\n`,
     );
+    assertNotDeadlineExceeded(deadline, `discover catalog repo ${source.id}`);
     if (isGitHubRepoSource(source)) {
       appendCatalogEntries(
         harvestedRepoEntries,

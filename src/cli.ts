@@ -17,7 +17,12 @@ import { runRebuild } from "./rebuild.js";
 import { runWorkspace } from "./workspace.js";
 import { runSetup } from "./setup.js";
 import { runWire } from "./wire.js";
-import { prepareStateRoot, resolveStateRoot } from "./lib/state-root.js";
+import { resolveStateRoot, prepareStateRoot } from "./lib/state-root.js";
+import {
+  resolveTimeoutSeconds,
+  createDeadline,
+  setActiveDeadline,
+} from "./lib/deadline.js";
 
 /** Returns the package version from the installed package.json. */
 async function readPackageVersion(): Promise<string> {
@@ -77,6 +82,7 @@ async function main(): Promise<number> {
   });
   await prepareStateRoot(preparedStateRoot);
   const projectRoot = preparedStateRoot.stateRoot;
+  setActiveDeadline(createDeadline(globalOptions.timeoutSeconds));
 
   switch (domain) {
     case "discover":
@@ -130,6 +136,7 @@ interface GlobalCliOptions {
   args: string[];
   stateRoot?: string;
   noDotEnv: boolean;
+  timeoutSeconds?: number;
 }
 
 function isHelpRequest(args: string[]): boolean {
@@ -257,6 +264,7 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
   const nextArgs: string[] = [];
   let stateRoot: string | undefined;
   let noDotEnv = false;
+  let timeoutSeconds: number | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -279,6 +287,25 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
       continue;
     }
 
+    if (arg === "--timeout-seconds") {
+      const value = args[index + 1];
+      if (!value || value.startsWith("--")) {
+        throw new Error("--timeout-seconds requires a number value");
+      }
+      timeoutSeconds = resolveTimeoutSeconds(value);
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--timeout-seconds=")) {
+      const value = arg.slice("--timeout-seconds=".length);
+      if (!value) {
+        throw new Error("--timeout-seconds requires a number value");
+      }
+      timeoutSeconds = resolveTimeoutSeconds(value);
+      continue;
+    }
+
     if (arg === "--no-dotenv") {
       noDotEnv = true;
       continue;
@@ -287,7 +314,7 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
     nextArgs.push(arg);
   }
 
-  return { args: nextArgs, stateRoot, noDotEnv };
+  return { args: nextArgs, stateRoot, noDotEnv, timeoutSeconds };
 }
 
 function printHelp(): void {
@@ -378,8 +405,9 @@ function printHelp(): void {
       {
         title: "Global options:",
         lines: [
-          "  --state-root <path>  Write mutable lifecycle state under this path",
-          "  --no-dotenv          Do not load .env from the current working directory",
+          "  --state-root <path>     Write mutable lifecycle state under this path",
+          "  --timeout-seconds <n>   Deadline in seconds (clamped 10–3600). Also via AGENT_HARNESS_TIMEOUT_SECONDS env var.",
+          "  --no-dotenv             Do not load .env from the current working directory",
         ],
       },
     ],
