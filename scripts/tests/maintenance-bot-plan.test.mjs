@@ -266,6 +266,26 @@ test("buildReportOnlyPullRequests returns empty when severeCount > 0", () => {
 // readJsonOrNull — error path coverage
 // ---------------------------------------------------------------------------
 
+test("readJsonOrNull parses valid JSON file", async () => {
+  const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(tmpdir() + "/bot-plan-test-");
+  const file = join(dir, "valid.json");
+  try {
+    await writeFile(file, '{"key":"value"}', "utf8");
+    const result = await readJsonOrNull(file);
+    assert.deepEqual(result, { key: "value" });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("readJsonOrNull returns null for ENOENT", async () => {
+  const result = await readJsonOrNull("/nonexistent/path/file.json");
+  assert.equal(result, null);
+});
+
 test("readJsonOrNull re-throws non-ENOENT errors", async () => {
   const { mkdtemp, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
