@@ -66,7 +66,7 @@ export async function runInstall(
 
 function printInstallHelp(): void {
   printCommandHelp({
-    heading: "stage commands (install is a supported alias):",
+    heading: "install commands (stage is a legacy alias):",
     entries: [
       {
         command: "bundle",
@@ -133,9 +133,9 @@ function printInstallHelp(): void {
 function printInstallSubcommandHelp(subcommand: string): void {
   const helpTexts: Record<string, SubcommandHelpEntry> = {
     bundle: {
-      heading: "stage bundle — Stage mirrored assets from bundle locks",
+      heading: "install bundle — Stage mirrored assets from bundle locks",
       lines: [
-        "Usage: agent-harness stage bundle [--batch-size <n>] [--host <host>]",
+        "Usage: agent-harness install bundle [--batch-size <n>] [--host <host>]",
         "",
         "Stages mirrored assets from bundle lock files into lifecycle-host",
         "package stores. Reads mirror/bundles/*.lock.json and writes staged",
@@ -149,9 +149,9 @@ function printInstallSubcommandHelp(subcommand: string): void {
       ],
     },
     refresh: {
-      heading: "stage refresh — Refresh staged install state",
+      heading: "install refresh — Refresh staged install state",
       lines: [
-        "Usage: agent-harness stage refresh [--host <host>] [--apply]",
+        "Usage: agent-harness install refresh [--host <host>] [--apply]",
         "",
         "Refreshes staged install state by checking mirror bundles for updates.",
         "Reports stale assets and optionally applies updates.",
@@ -164,9 +164,9 @@ function printInstallSubcommandHelp(subcommand: string): void {
       ],
     },
     native: {
-      heading: "stage native — Host-native install operations",
+      heading: "install native — Host-native install operations",
       lines: [
-        "Usage: agent-harness stage native --host <host> --operation <op> [--apply]",
+        "Usage: agent-harness install native --host <host> --operation <op> [--apply]",
         "",
         "Manages host-native installs (VS Code extensions, npm packages, etc.).",
         "",
@@ -177,42 +177,42 @@ function printInstallSubcommandHelp(subcommand: string): void {
       ],
     },
     reconcile: {
-      heading: "stage reconcile — Reconcile staged install state",
+      heading: "install reconcile — Reconcile staged install state",
       lines: [
-        "Usage: agent-harness stage reconcile [--host <host>]",
+        "Usage: agent-harness install reconcile [--host <host>]",
         "",
         "Reconciles staged install state against mirror bundles, detecting",
         "drift between what is staged and what is available.",
       ],
     },
     diff: {
-      heading: "stage diff — Show install state differences",
+      heading: "install diff — Show install state differences",
       lines: [
-        "Usage: agent-harness stage diff [--host <host>]",
+        "Usage: agent-harness install diff [--host <host>]",
         "",
         "Shows differences between staged install state and mirror bundles.",
       ],
     },
     explain: {
-      heading: "stage explain — Explain an install decision",
+      heading: "install explain — Explain an install decision",
       lines: [
-        "Usage: agent-harness stage explain --asset <assetId>",
+        "Usage: agent-harness install explain --asset <assetId>",
         "",
         "Explains why a specific asset was installed, updated, or skipped.",
       ],
     },
     generations: {
-      heading: "stage generations — List install generations",
+      heading: "install generations — List install generations",
       lines: [
-        "Usage: agent-harness stage generations [--host <host>]",
+        "Usage: agent-harness install generations [--host <host>]",
         "",
         "Lists historical install generation records with timestamps.",
       ],
     },
     reset: {
-      heading: "stage reset — Reset install state",
+      heading: "install reset — Reset install state",
       lines: [
-        "Usage: agent-harness stage reset [--host <host>]",
+        "Usage: agent-harness install reset [--host <host>]",
         "",
         "Resets install state to a clean baseline, removing all staged assets.",
       ],

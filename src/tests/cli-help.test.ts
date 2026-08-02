@@ -67,7 +67,7 @@ void test("subcommand --help exits without preparing state", async () => {
 
     assert.match(
       stageHelpStdout,
-      /stage commands \(install is a supported alias\):/u,
+      /install commands \(stage is a legacy alias\):/u,
     );
     assert.match(
       stageHelpStdout,
@@ -294,17 +294,17 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
     assert.match(mirrorBundleExplain, /bundle membership/u);
     assert.doesNotMatch(mirrorBundleExplain, /mirror commands:/u);
 
-    // stage bundle --help should show bundle-specific help
+    // install bundle --help should show bundle-specific help
     const { stdout: stageBundle } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["stage", "bundle", "--help"],
+      args: ["install", "bundle", "--help"],
     });
-    assert.match(stageBundle, /stage bundle/u);
+    assert.match(stageBundle, /install bundle/u);
     assert.match(stageBundle, /Stage mirrored assets from bundle locks/u);
-    assert.doesNotMatch(stageBundle, /stage commands/u);
+    assert.doesNotMatch(stageBundle, /install commands:/u);
 
     // activate host --help should show host-specific help
     const { stdout: activateHost } = await runBuiltCli({
@@ -360,11 +360,11 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["stage", "refresh", "--help"],
+      args: ["install", "refresh", "--help"],
     });
-    assert.match(stageRefresh, /stage refresh/u);
+    assert.match(stageRefresh, /install refresh/u);
     assert.match(stageRefresh, /Refresh staged install state/u);
-    assert.doesNotMatch(stageRefresh, /stage commands/u);
+    assert.doesNotMatch(stageRefresh, /install commands:/u);
 
     // activate diff --help should show diff-specific help
     const { stdout: activateDiff } = await runBuiltCli({
