@@ -277,9 +277,17 @@ export async function syncIndexedSources(
   const nextState: SourceSyncState = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    sources: sourceStates.sort((left, right) =>
-      left.sourceId.localeCompare(right.sourceId),
-    ),
+    sources: [
+      ...sourceStates,
+      // Preserve state entries for enabled sources that were excluded
+      // by the sourceIds filter. Without this merge, filtered-out sources
+      // lose their cursors, indexedEntryCount, and consecutiveFailures
+      // when the state is persisted (#419 review feedback).
+      ...existingState.sources.filter(
+        (previous) =>
+          !sourceStates.some((next) => next.sourceId === previous.sourceId),
+      ),
+    ].sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
   };
 
   await persistSourceSyncResults(
@@ -415,9 +423,37 @@ async function synchronizeIndexedSource(
         itemUrlPredicate: (url) => url.pathname !== "/",
         packageNameFromUrl: extractSwiftPackageNameFromUrl,
       });
+    case "hex-registry":
+      return syncSitemapPackageRegistrySource(source, context, {
+        rootSitemapUrl:
+          source.endpoints.sitemapUrl ?? "https://hex.pm/sitemap.xml",
+        itemUrlPredicate: (url) =>
+          url.pathname.startsWith("/packages/") && url.pathname !== "/packages",
+        packageNameFromUrl: (url) => {
+          const segments = decodePathSegments(url.pathname);
+          return segments[segments.length - 1];
+        },
+      });
+    case "conan-registry":
+      return syncSitemapPackageRegistrySource(source, context, {
+        rootSitemapUrl:
+          source.endpoints.sitemapUrl ?? "https://conan.io/sitemap.xml",
+        itemUrlPredicate: (url) =>
+          url.pathname.startsWith("/center/recipes/") &&
+          url.pathname !== "/center/recipes",
+        packageNameFromUrl: (url) => {
+          const segments = decodePathSegments(url.pathname);
+          return segments[segments.length - 1];
+        },
+      });
     default:
       return null;
   }
 
   return null;
 }
+
+/** Exposes source-sync internals for focused unit testing. */
+export const sourceSyncInternals = {
+  synchronizeIndexedSource,
+};

@@ -299,8 +299,11 @@ export async function runDiscover(
           ? undefined
           : computeDemandRelevantSourceIds(demandProfile);
         if (demandSourceIds && !quietMode) {
-          const allEnabledCount = await getEnabledSourceCount(projectRoot);
-          const filteredCount = demandSourceIds.size;
+          const enabledSourceIds = await getEnabledSourceIds(projectRoot);
+          const allEnabledCount = enabledSourceIds.length;
+          const filteredCount = enabledSourceIds.filter((id) =>
+            demandSourceIds.has(id),
+          ).length;
           const skippedCount = allEnabledCount - filteredCount;
           if (skippedCount > 0) {
             const primaryLang = demandProfile.signals.languages[0] ?? "unknown";
@@ -1610,7 +1613,7 @@ export const discoverInternals = {
   computeAcceptanceRate,
   computeSourceDiversityWarning,
   computeDemandRelevantSourceIds,
-  getEnabledSourceCount,
+  getEnabledSourceIds,
 };
 
 /**
@@ -1804,7 +1807,7 @@ function computeDemandRelevantSourceIds(
     ecosystemTerms.has("hex") ||
     ecosystemTerms.has("rebar")
   ) {
-    // No direct Hex.pm source yet — generic skill sources already included.
+    sourceIds.add("hex-registry");
   }
 
   // ── C / C++ ecosystem ──
@@ -1816,8 +1819,7 @@ function computeDemandRelevantSourceIds(
     ecosystemTerms.has("meson") ||
     ecosystemTerms.has("conan")
   ) {
-    // No dedicated C/C++ package index source yet — universal sources cover
-    // C/C++ tooling skills (clangd, cmake-language-server, etc.).
+    sourceIds.add("conan-registry");
   }
 
   // Always include local sources (project-specific)
@@ -1827,10 +1829,13 @@ function computeDemandRelevantSourceIds(
 }
 
 /**
- * Returns the count of enabled sources in the source registry without
- * loading the full registry state.
+ * Returns the IDs of all enabled sources in the source registry.
+ * Used to compute accurate filtered/skipped counts for the demand-based
+ * filtering progress hint (#419).
  */
-async function getEnabledSourceCount(projectRoot: string): Promise<number> {
+async function getEnabledSourceIds(projectRoot: string): Promise<string[]> {
   const sourceRegistry = await loadSourceRegistry(projectRoot);
-  return sourceRegistry.sources.filter((source) => source.enabled).length;
+  return sourceRegistry.sources
+    .filter((source) => source.enabled)
+    .map((source) => source.id);
 }

@@ -196,6 +196,11 @@ function runHelpCommand(
         // Map bundle subcommands to internal mirror subcommands (#418).
         // bundle explain --help should show "bundle explain" help, not
         // "mirror explain" — route it to the bundle-explain handler.
+        // Reject unknown subcommands consistently with the execution path.
+        if (domainArgs[0] !== "explain") {
+          printHelp();
+          return Promise.resolve(1);
+        }
         return runMirror(
           mapBundleSubcommandForHelp(domainArgs),
           workingDirectory,

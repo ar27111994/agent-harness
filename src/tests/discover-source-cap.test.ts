@@ -547,18 +547,18 @@ void test("computeDemandRelevantSourceIds: handles F# language", () => {
   assert.equal(ids.has("nuget-registry"), true);
 });
 
-void test("computeDemandRelevantSourceIds: handles Elixir language (no dedicated source)", () => {
+void test("computeDemandRelevantSourceIds: handles Elixir language", () => {
   const dp = createDemandProfile({ languages: ["Elixir"] });
   const ids = computeDemandRelevantSourceIds(dp);
-  // No Hex.pm source yet — expects only universals
+  assert.equal(ids.has("hex-registry"), true);
   assert.equal(ids.has("mcp-registry"), true);
   assert.equal(ids.has("npm-registry"), false);
 });
 
-void test("computeDemandRelevantSourceIds: handles C++ language (no dedicated source)", () => {
+void test("computeDemandRelevantSourceIds: handles C++ language", () => {
   const dp = createDemandProfile({ languages: ["C++"] });
   const ids = computeDemandRelevantSourceIds(dp);
-  // No dedicated C/C++ index source — expects only universals
+  assert.equal(ids.has("conan-registry"), true);
   assert.equal(ids.has("mcp-registry"), true);
 });
 
@@ -570,10 +570,10 @@ void test("computeDemandRelevantSourceIds: handles Erlang language (no dedicated
 });
 
 // ---------------------------------------------------------------------------
-// getEnabledSourceCount — edge cases (#419)
+// getEnabledSourceIds — edge cases (#419)
 // ---------------------------------------------------------------------------
 
-void test("getEnabledSourceCount: returns count from valid source registry", async () => {
+void test("getEnabledSourceIds: returns count from valid source registry", async () => {
   const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -659,16 +659,19 @@ void test("getEnabledSourceCount: returns count from valid source registry", asy
     );
 
     const { discoverInternals } = await import("../discover.js");
-    const count = await discoverInternals.getEnabledSourceCount(dir);
+    const ids = await discoverInternals.getEnabledSourceIds(dir);
     // Count should reflect both the base registry (3 enabled of 5)
     // plus generated local sources — exact count depends on system state.
-    assert.ok(count >= 3, `expected at least 3 enabled sources, got ${count}`);
+    assert.ok(
+      ids.length >= 3,
+      `expected at least 3 enabled sources, got ${ids.length}`,
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-void test("getEnabledSourceCount: returns 0 when all sources disabled", async () => {
+void test("getEnabledSourceIds: returns 0 when all sources disabled", async () => {
   const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -715,15 +718,18 @@ void test("getEnabledSourceCount: returns 0 when all sources disabled", async ()
     );
 
     const { discoverInternals } = await import("../discover.js");
-    const count = await discoverInternals.getEnabledSourceCount(dir);
+    const ids = await discoverInternals.getEnabledSourceIds(dir);
     // 0 from base registry + generated local sources (always enabled)
-    assert.ok(count >= 0, `expected non-negative count, got ${count}`);
+    assert.ok(
+      ids.length >= 0,
+      `expected non-negative count, got ${ids.length}`,
+    );
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
 
-void test("getEnabledSourceCount: throws when source registry file is missing", async () => {
+void test("getEnabledSourceIds: throws when source registry file is missing", async () => {
   const { mkdtemp, rm } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
@@ -732,7 +738,7 @@ void test("getEnabledSourceCount: throws when source registry file is missing", 
   try {
     const { discoverInternals } = await import("../discover.js");
     await assert.rejects(
-      () => discoverInternals.getEnabledSourceCount(dir),
+      () => discoverInternals.getEnabledSourceIds(dir),
       (err: unknown) =>
         err instanceof Error &&
         (err as NodeJS.ErrnoException).code === "ENOENT",

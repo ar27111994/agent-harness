@@ -1104,3 +1104,123 @@ function jsonResponse(value: unknown): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+void test("source sync dispatches hex-registry and conan-registry via sitemap (#419)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-hex-conan-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://hex.pm/sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://hex.pm</loc></url>",
+      "<url><loc>https://hex.pm/packages</loc></url>",
+      "<url><loc>https://hex.pm/packages/credo</loc></url>",
+      "<url><loc>https://hex.pm/packages/phoenix</loc></url>",
+      "</urlset>",
+    ]),
+    "https://conan.io/sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://conan.io</loc></url>",
+      "<url><loc>https://conan.io/center/recipes</loc></url>",
+      "<url><loc>https://conan.io/center/recipes/zlib</loc></url>",
+      "<url><loc>https://conan.io/center/recipes/boost</loc></url>",
+      "</urlset>",
+    ]),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "hex-registry",
+        "package-registry",
+        { baseUrl: "https://hex.pm" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "Hex.pm", verified: true },
+      ),
+      buildSource(
+        "conan-registry",
+        "package-registry",
+        { baseUrl: "https://conan.io/center" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "ConanCenter", verified: true },
+      ),
+    ]);
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: "/tmp",
+        summary: { scannedFiles: 0, matchedFiles: 0 },
+        signals: {
+          languages: [],
+          frameworks: [],
+          packageManagers: [],
+          concerns: [],
+          tooling: [],
+        },
+        evidence: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      { schemaVersion: 1, generatedAt: new Date().toISOString(), sources: [] },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const hexState = report.sources.find((s) => s.sourceId === "hex-registry");
+    const conanState = report.sources.find(
+      (s) => s.sourceId === "conan-registry",
+    );
+    assert.ok(hexState, "hex-registry should be present in sync report");
+    assert.ok(conanState, "conan-registry should be present in sync report");
+    assert.equal(hexState?.status, "complete");
+    assert.equal(conanState?.status, "complete");
+    assert.ok(
+      hexState.indexedEntryCount >= 1,
+      "hex-registry should have indexed entries",
+    );
+    assert.ok(
+      conanState.indexedEntryCount >= 1,
+      "conan-registry should have indexed entries",
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

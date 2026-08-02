@@ -440,7 +440,10 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
     });
     assert.match(stageBundle, /install bundle/u);
     assert.match(stageBundle, /Stage mirrored assets from bundle locks/u);
-    assert.doesNotMatch(stageBundle, /install commands:/u);
+    assert.doesNotMatch(
+      stageBundle,
+      /install commands \(stage is a legacy alias\):/u,
+    );
 
     // activate host --help should show host-specific help
     const { stdout: activateHost } = await runBuiltCli({
@@ -500,7 +503,10 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
     });
     assert.match(stageRefresh, /install refresh/u);
     assert.match(stageRefresh, /Refresh staged install state/u);
-    assert.doesNotMatch(stageRefresh, /install commands:/u);
+    assert.doesNotMatch(
+      stageRefresh,
+      /install commands \(stage is a legacy alias\):/u,
+    );
 
     // activate diff --help should show diff-specific help
     const { stdout: activateDiff } = await runBuiltCli({

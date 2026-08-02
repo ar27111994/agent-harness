@@ -52,21 +52,11 @@ export async function runRecommend(
 ): Promise<number> {
   const [command = "report", ...rest] = args;
 
-  // Subcommands with dedicated help handlers get routed to
-  // printRecommendSubcommandHelp. All others show parent help.
+  // Subcommand-specific help is routed through
+  // printRecommendSubcommandHelp which falls back to printRecommendHelp
+  // for unknown subcommands — no separate hasSpecificHelp set needed.
   // (#416 — recommend report/evaluate/ai-review/policy:print --help)
-  const hasSpecificHelp = new Set([
-    "report",
-    "explain",
-    "evaluate",
-    "ai-review",
-    "policy:print",
-  ]);
   if (hasHelpFlag(rest)) {
-    if (!hasSpecificHelp.has(command)) {
-      printRecommendHelp();
-      return 0;
-    }
     printRecommendSubcommandHelp(command);
     return 0;
   }

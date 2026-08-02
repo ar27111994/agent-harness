@@ -115,7 +115,7 @@ function printInstallHelp(): void {
         ],
       },
       {
-        title: "Stage refresh options:",
+        title: "Install refresh options:",
         lines: [
           "--host <copilot-vscode|opencode|shared>",
           "--apply             Apply eligible stale bundle refreshes after reporting",
@@ -145,7 +145,7 @@ function printInstallSubcommandHelp(subcommand: string): void {
         "  --host <host>        Target host (default: all bundles)",
         "  --batch-size <n>     Max assets per batch (default: 250)",
         "",
-        "Alias: install bundle",
+        "Alias: stage bundle",
       ],
     },
     refresh: {
