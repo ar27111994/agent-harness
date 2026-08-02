@@ -152,8 +152,11 @@ export async function syncIndexedSources(
   );
   // Filter to demand-relevant sources when a sourceIds filter is provided
   // (#419 — skip irrelevant registries for faster first-run sync).
+  // When sourceIds is explicitly provided (even as an empty Set), filter
+  // enabledSources by membership. Only fall back to all enabledSources
+  // when sourceIds is absent (undefined).
   const effectiveSources =
-    options?.sourceIds && options.sourceIds.size > 0
+    options?.sourceIds !== undefined
       ? enabledSources.filter((source) => options.sourceIds!.has(source.id))
       : enabledSources;
   const totalSources = effectiveSources.length;
