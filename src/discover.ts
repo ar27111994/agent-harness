@@ -254,6 +254,7 @@ export async function runDiscover(
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
       const noSync = rest.includes("--no-sync");
+      const syncAll = rest.includes("--sync-all");
       const maxBytesIndex = rest.indexOf("--max-scan-bytes");
       let maxBytes: number | undefined;
       if (maxBytesIndex >= 0) {
@@ -274,7 +275,11 @@ export async function runDiscover(
         maxBytes = parsed;
       }
       logDiscoverPhase("discover full", 1, 5, "Scanning workspace demand");
-      await generateDemandProfile(workingDirectory, projectRoot, maxBytes);
+      const demandProfile = await generateDemandProfile(
+        workingDirectory,
+        projectRoot,
+        maxBytes,
+      );
       logDiscoverPhase("discover full", 2, 5, "Refreshing source index");
       await generateSourceIndex(projectRoot);
       if (noSync) {
@@ -288,8 +293,30 @@ export async function runDiscover(
           "[discover full] --no-sync: skipping indexed source sync, using existing source-sync state.",
         );
       } else {
+        // Compute demand-relevant sources to skip irrelevant registries
+        // on first run (#419). Use --sync-all to sync every enabled source.
+        const demandSourceIds = syncAll
+          ? undefined
+          : computeDemandRelevantSourceIds(demandProfile);
+        if (demandSourceIds && !quietMode) {
+          const allEnabledCount = await getEnabledSourceCount(projectRoot);
+          const filteredCount = demandSourceIds.size;
+          const skippedCount = allEnabledCount - filteredCount;
+          if (skippedCount > 0) {
+            const primaryLang = demandProfile.signals.languages[0] ?? "unknown";
+            console.log(
+              `[discover full] Detected ${primaryLang} project. ` +
+                `Syncing ${filteredCount}/${allEnabledCount} demand-relevant sources ` +
+                `(${skippedCount} skipped). ` +
+                `Use --sync-all for full sync or --no-sync to skip entirely.`,
+            );
+          }
+        }
         logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
-        await syncIndexedSources(projectRoot);
+        await syncIndexedSources(
+          projectRoot,
+          demandSourceIds ? { sourceIds: demandSourceIds } : undefined,
+        );
       }
       logDiscoverPhase("discover full", 4, 5, "Building discovery catalog");
       await generateCatalog(projectRoot);
@@ -1367,6 +1394,7 @@ function printDiscoverFullHelp(): void {
           "--ai-enrich         Run AI enrichment after selection",
           "--no-ai-enrich      Skip AI enrichment",
           "--no-sync           Skip indexed source sync (use existing state)",
+          "--sync-all          Sync all enabled sources (skip demand-based filtering)",
           "--quiet             Suppress expected source health warnings",
           "--summary           Print aggregate warning breakdown by reason",
           "--max-scan-bytes N   Override the demand scan byte budget (default: 48 MB)",
@@ -1581,4 +1609,228 @@ export const discoverInternals = {
   applyPerSourceCap,
   computeAcceptanceRate,
   computeSourceDiversityWarning,
+  computeDemandRelevantSourceIds,
+  getEnabledSourceCount,
 };
+
+/**
+ * Source IDs that are always demand-relevant regardless of project type.
+ * These sources provide universal assets (MCP servers, skills directories)
+ * that apply to any project.
+ */
+const UNIVERSAL_SOURCE_IDS = new Set([
+  "mcp-registry",
+  "skills-sh",
+  "ui-skills",
+  "clawhub",
+]);
+
+/**
+ * Maps demand profile technology signals to source IDs that should be synced.
+ * Sources not in the returned set are skipped during sync unless --sync-all is
+ * passed (#419 — demand-based source filtering for faster first-run sync).
+ */
+function computeDemandRelevantSourceIds(
+  demandProfile: DemandProfile,
+): ReadonlySet<string> {
+  const sourceIds = new Set<string>(UNIVERSAL_SOURCE_IDS);
+  const signals = demandProfile.signals;
+
+  // Languages → registry sources
+  const languageSignals = new Set(
+    signals.languages.map((lang) => lang.toLowerCase()),
+  );
+  // Frameworks, package managers, and tooling also indicate ecosystem.
+  // Normalize to lowercase for case-insensitive matching.
+  const ecosystemTerms = new Set([
+    ...signals.frameworks.map((fw) => fw.toLowerCase()),
+    ...signals.packageManagers.map((pm) => pm.toLowerCase()),
+    ...signals.tooling.map((t) => t.toLowerCase()),
+  ]);
+
+  // ── JavaScript / TypeScript ecosystem ──
+  // npm, yarn (classic/berry), pnpm, bun, deno, node, tsx, ts-node, vite,
+  // webpack, esbuild, turbopack, nx, lerna, turbo, rush, etc.
+  if (
+    languageSignals.has("typescript") ||
+    languageSignals.has("javascript") ||
+    ecosystemTerms.has("npm") ||
+    ecosystemTerms.has("yarn") ||
+    ecosystemTerms.has("pnpm") ||
+    ecosystemTerms.has("bun") ||
+    ecosystemTerms.has("deno") ||
+    ecosystemTerms.has("node") ||
+    ecosystemTerms.has("node.js")
+  ) {
+    sourceIds.add("npm-registry");
+  }
+
+  // ── Python ecosystem ──
+  // pip, poetry, uv, pdm, pipenv, conda, rye, hatch
+  if (
+    languageSignals.has("python") ||
+    ecosystemTerms.has("pip") ||
+    ecosystemTerms.has("poetry") ||
+    ecosystemTerms.has("uv") ||
+    ecosystemTerms.has("pdm") ||
+    ecosystemTerms.has("pipenv") ||
+    ecosystemTerms.has("conda") ||
+    ecosystemTerms.has("rye") ||
+    ecosystemTerms.has("hatch")
+  ) {
+    sourceIds.add("pypi-registry");
+  }
+
+  // ── Rust ecosystem ──
+  // cargo, rustup, rust-analyzer
+  if (languageSignals.has("rust") || ecosystemTerms.has("cargo")) {
+    sourceIds.add("cargo-registry");
+  }
+
+  // ── Java / Kotlin / Scala ecosystem ──
+  // maven, gradle, sbt, ant, leiningen
+  if (
+    languageSignals.has("java") ||
+    languageSignals.has("kotlin") ||
+    languageSignals.has("scala") ||
+    ecosystemTerms.has("maven") ||
+    ecosystemTerms.has("gradle") ||
+    ecosystemTerms.has("sbt") ||
+    ecosystemTerms.has("ant")
+  ) {
+    sourceIds.add("maven-registry");
+  }
+
+  // ── .NET ecosystem ──
+  // nuget, dotnet, msbuild, paket
+  if (
+    languageSignals.has("c#") ||
+    languageSignals.has("csharp") ||
+    languageSignals.has("f#") ||
+    languageSignals.has("fsharp") ||
+    ecosystemTerms.has("nuget") ||
+    ecosystemTerms.has("dotnet")
+  ) {
+    sourceIds.add("nuget-registry");
+  }
+
+  // ── Go ecosystem ──
+  if (languageSignals.has("go") || languageSignals.has("golang")) {
+    sourceIds.add("go-registry");
+  }
+
+  // ── PHP ecosystem ──
+  // composer, laravel, symfony
+  if (
+    languageSignals.has("php") ||
+    ecosystemTerms.has("composer") ||
+    ecosystemTerms.has("laravel") ||
+    ecosystemTerms.has("symfony")
+  ) {
+    sourceIds.add("packagist-registry");
+  }
+
+  // ── Ruby ecosystem ──
+  // gem, bundler, rails, rbenv, rvm
+  if (
+    languageSignals.has("ruby") ||
+    ecosystemTerms.has("gem") ||
+    ecosystemTerms.has("bundler") ||
+    ecosystemTerms.has("rails") ||
+    ecosystemTerms.has("rbenv") ||
+    ecosystemTerms.has("rvm")
+  ) {
+    sourceIds.add("rubygems-registry");
+  }
+
+  // ── Swift ecosystem ──
+  // swiftpm, xcode
+  if (
+    languageSignals.has("swift") ||
+    ecosystemTerms.has("swiftpm") ||
+    ecosystemTerms.has("xcode")
+  ) {
+    sourceIds.add("swift-package-index");
+  }
+
+  // ── VS Code ecosystem ──
+  if (
+    ecosystemTerms.has("vscode") ||
+    ecosystemTerms.has("vs code") ||
+    ecosystemTerms.has("visual studio code") ||
+    ecosystemTerms.has("detector:codepilot") ||
+    ecosystemTerms.has("detector:vscode")
+  ) {
+    sourceIds.add("vscode-marketplace");
+  }
+
+  // ── Cursor ecosystem ──
+  if (ecosystemTerms.has("cursor") || ecosystemTerms.has("detector:cursor")) {
+    sourceIds.add("cursor-marketplace");
+  }
+
+  // ── Pi agent ecosystem ──
+  if (
+    ecosystemTerms.has("pi") ||
+    ecosystemTerms.has("detector:pi") ||
+    signals.concerns.some((c) =>
+      ["pi-agent", "pi-skill"].includes(c.toLowerCase()),
+    )
+  ) {
+    sourceIds.add("pi-packages");
+  }
+
+  // ── Zed ecosystem ──
+  if (ecosystemTerms.has("zed") || ecosystemTerms.has("detector:zed")) {
+    sourceIds.add("zed-extension-registry");
+  }
+
+  // ── Dart / Flutter ecosystem ──
+  if (
+    languageSignals.has("dart") ||
+    ecosystemTerms.has("flutter") ||
+    ecosystemTerms.has("pub")
+  ) {
+    // Dart uses pub.dev — no dedicated index source yet, but npm-registry
+    // may still be relevant for Flutter projects using JS tooling.
+    sourceIds.add("npm-registry");
+  }
+
+  // ── Elixir / Erlang ecosystem ──
+  if (
+    languageSignals.has("elixir") ||
+    languageSignals.has("erlang") ||
+    ecosystemTerms.has("mix") ||
+    ecosystemTerms.has("hex") ||
+    ecosystemTerms.has("rebar")
+  ) {
+    // No direct Hex.pm source yet — generic skill sources already included.
+  }
+
+  // ── C / C++ ecosystem ──
+  if (
+    languageSignals.has("c") ||
+    languageSignals.has("c++") ||
+    languageSignals.has("cpp") ||
+    ecosystemTerms.has("cmake") ||
+    ecosystemTerms.has("meson") ||
+    ecosystemTerms.has("conan")
+  ) {
+    // No dedicated C/C++ package index source yet — universal sources cover
+    // C/C++ tooling skills (clangd, cmake-language-server, etc.).
+  }
+
+  // Always include local sources (project-specific)
+  sourceIds.add("local-antigravity-manifest");
+
+  return sourceIds;
+}
+
+/**
+ * Returns the count of enabled sources in the source registry without
+ * loading the full registry state.
+ */
+async function getEnabledSourceCount(projectRoot: string): Promise<number> {
+  const sourceRegistry = await loadSourceRegistry(projectRoot);
+  return sourceRegistry.sources.filter((source) => source.enabled).length;
+}

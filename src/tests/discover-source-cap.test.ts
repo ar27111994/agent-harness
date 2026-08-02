@@ -20,9 +20,13 @@ import test from "node:test";
 
 import { computeAcceptanceRate, discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
-import type { AssetCatalogEntry } from "../types.js";
+import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
-const { applyPerSourceCap, computeSourceDiversityWarning } = discoverInternals;
+const {
+  applyPerSourceCap,
+  computeSourceDiversityWarning,
+  computeDemandRelevantSourceIds,
+} = discoverInternals;
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -282,4 +286,137 @@ void test("computeAcceptanceRate: computes fraction rounded to 4 decimal places"
   assert.equal(computeAcceptanceRate(20438, 800), 0.0391);
   // 1 / 3 ≈ 0.3333... → rounded to 0.3333
   assert.equal(computeAcceptanceRate(3, 1), 0.3333);
+});
+
+// ---------------------------------------------------------------------------
+// computeDemandRelevantSourceIds tests (#419)
+// ---------------------------------------------------------------------------
+
+function createDemandProfile(
+  overrides: Partial<DemandProfile["signals"]>,
+): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/test/workspace",
+    summary: { scannedFiles: 10, matchedFiles: 5 },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: [],
+      ...overrides,
+    },
+    evidence: [],
+  };
+}
+
+void test("computeDemandRelevantSourceIds: returns universal sources for empty demand", () => {
+  const dp = createDemandProfile({});
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("skills-sh"), true);
+  assert.equal(ids.has("ui-skills"), true);
+  assert.equal(ids.has("clawhub"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for TypeScript projects", () => {
+  const dp = createDemandProfile({ languages: ["TypeScript", "JavaScript"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("cargo-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: adds cargo for Rust projects", () => {
+  const dp = createDemandProfile({ languages: ["Rust"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("cargo-registry"), true);
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: adds pypi for Python projects", () => {
+  const dp = createDemandProfile({ languages: ["Python"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pypi-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: detects ecosystem from frameworks and package managers", () => {
+  const dp = createDemandProfile({
+    languages: [],
+    frameworks: ["react"],
+    packageManagers: ["npm"],
+    tooling: ["vscode"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("vscode-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds vscode-marketplace for VS Code detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:codepilot"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("vscode-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds cursor-marketplace for Cursor detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:cursor"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("cursor-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds pi-packages for Pi detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:pi"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pi-packages"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds zed-extension-registry for Zed detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:zed"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("zed-extension-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for pnpm package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["pnpm"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for bun runtime", () => {
+  const dp = createDemandProfile({ packageManagers: ["bun"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for yarn package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["yarn"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for Dart/Flutter projects", () => {
+  const dp = createDemandProfile({
+    languages: ["Dart"],
+    frameworks: ["flutter"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds pypi for uv package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["uv"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pypi-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds maven for Scala sbt projects", () => {
+  const dp = createDemandProfile({
+    languages: ["scala"],
+    frameworks: [],
+    packageManagers: ["sbt"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("maven-registry"), true);
 });

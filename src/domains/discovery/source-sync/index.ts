@@ -110,7 +110,11 @@ const MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR = 3;
  */
 export async function syncIndexedSources(
   projectRoot: string,
-  options?: { maxPagesPerRun?: number },
+  options?: {
+    maxPagesPerRun?: number;
+    /** Only sync sources whose IDs are in this set. When omitted, all enabled sources are synced. */
+    sourceIds?: ReadonlySet<string>;
+  },
 ): Promise<void> {
   if (
     options?.maxPagesPerRun !== undefined &&
@@ -145,10 +149,16 @@ export async function syncIndexedSources(
   const enabledSources = sourceRegistry.sources.filter(
     (entry) => entry.enabled,
   );
-  const totalSources = enabledSources.length;
+  // Filter to demand-relevant sources when a sourceIds filter is provided
+  // (#419 — skip irrelevant registries for faster first-run sync).
+  const effectiveSources =
+    options?.sourceIds && options.sourceIds.size > 0
+      ? enabledSources.filter((source) => options.sourceIds!.has(source.id))
+      : enabledSources;
+  const totalSources = effectiveSources.length;
   let sourceIndex = 0;
 
-  for (const source of enabledSources) {
+  for (const source of effectiveSources) {
     sourceIndex++;
     const sourceLabel = source.endpoints?.repo ?? source.id;
     const progressLabel = `[discover sync] ${sourceIndex}/${totalSources} ${sourceLabel}`;
