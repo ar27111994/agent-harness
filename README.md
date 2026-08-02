@@ -854,32 +854,32 @@ Mirror acquisition routes high-risk or prompt-injection-like community assets in
 
 ```bash
 npm run install:bundle
-agent-harness stage bundle
+agent-harness install bundle
 agent-harness install native --host vscode
 agent-harness install native --host vscode --operation verify
 agent-harness install native --host vscode --operation install --apply
 agent-harness install native --host vscode --operation remove --apply
 agent-harness install native --host cursor
 agent-harness install native --host cursor --operation verify
-agent-harness stage refresh --host copilot-vscode
-agent-harness stage refresh --host copilot-vscode --apply
-agent-harness stage refresh --host copilot-vscode --due-only
-agent-harness stage diff
-agent-harness stage diff --host copilot-vscode
-agent-harness stage explain --asset <asset-id>
-agent-harness stage generations list
-agent-harness stage generations list --host opencode
-agent-harness stage generations pin --host copilot-vscode --generation <gen-id> --reason "stable"
-agent-harness stage generations unpin --host copilot-vscode --generation <gen-id>
-agent-harness stage generations prune
-agent-harness stage reset
+agent-harness install refresh --host copilot-vscode
+agent-harness install refresh --host copilot-vscode --apply
+agent-harness install refresh --host copilot-vscode --due-only
+agent-harness install diff
+agent-harness install diff --host copilot-vscode
+agent-harness install explain --asset <asset-id>
+agent-harness install generations list
+agent-harness install generations list --host opencode
+agent-harness install generations pin --host copilot-vscode --generation <gen-id> --reason "stable"
+agent-harness install generations unpin --host copilot-vscode --generation <gen-id>
+agent-harness install generations prune
+agent-harness install reset
 npm run install:reconcile
 npm run install:reset
 ```
 
-`stage` is the preferred lifecycle term here: the harness stages a bounded mirrored bundle subset into its managed store, while `install native` remains the explicit host-facing install boundary. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
+`install` is the canonical command name; `stage` remains a supported legacy alias. The harness stages a bounded mirrored bundle subset into its managed store, while `install native` remains the explicit host-facing install boundary. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
-`stage refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. Refresh reports include policy tiers for report-only, stage-only, low-risk apply, review-required, and quarantined decisions; executable/native assets can be staged, but host-native activation/install remains review-gated. `install refresh` remains a supported alias.
+`install refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. Refresh reports include policy tiers for report-only, stage-only, low-risk apply, review-required, and quarantined decisions; executable/native assets can be staged, but host-native activation/install remains review-gated. `stage refresh` remains a supported legacy alias.
 
 For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md).
 
