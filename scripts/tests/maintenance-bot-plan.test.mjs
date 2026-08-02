@@ -184,6 +184,16 @@ test("buildBrokenSourceIssues returns empty for severity=warning sources", () =>
   assert.equal(issues.length, 0);
 });
 
+test("buildBrokenSourceIssues handles null report", () => {
+  const issues = buildBrokenSourceIssues(null);
+  assert.deepEqual(issues, []);
+});
+
+test("buildBrokenSourceIssues handles report without sources", () => {
+  const issues = buildBrokenSourceIssues({});
+  assert.deepEqual(issues, []);
+});
+
 // ---------------------------------------------------------------------------
 // buildSourceCandidateIssues
 // ---------------------------------------------------------------------------
@@ -199,6 +209,16 @@ test("buildSourceCandidateIssues surfaces review-required candidates", () => {
   const issues = buildSourceCandidateIssues(report);
   assert.equal(issues.length, 1);
   assert.equal(issues[0].title, "Review source candidate: new-source-1");
+});
+
+test("buildSourceCandidateIssues handles null report", () => {
+  const issues = buildSourceCandidateIssues(null);
+  assert.deepEqual(issues, []);
+});
+
+test("buildSourceCandidateIssues handles report without candidates", () => {
+  const issues = buildSourceCandidateIssues({});
+  assert.deepEqual(issues, []);
 });
 
 // ---------------------------------------------------------------------------
@@ -227,6 +247,16 @@ test("buildSourceVerificationIssues surfaces trust demotions", () => {
     issues[0].title,
     "Review official source trust demotion: demoted-source",
   );
+});
+
+test("buildSourceVerificationIssues handles null report", () => {
+  const issues = buildSourceVerificationIssues(null);
+  assert.deepEqual(issues, []);
+});
+
+test("buildSourceVerificationIssues handles report without entries", () => {
+  const issues = buildSourceVerificationIssues({});
+  assert.deepEqual(issues, []);
 });
 
 // ---------------------------------------------------------------------------
@@ -259,6 +289,12 @@ test("buildReportOnlyPullRequests returns empty when severeCount > 0", () => {
   const issues = [];
 
   const prs = buildReportOnlyPullRequests(sourceHealth, issues);
+  assert.equal(prs.length, 0);
+});
+
+test("buildReportOnlyPullRequests handles null sourceHealth", () => {
+  const issues = [];
+  const prs = buildReportOnlyPullRequests(null, issues);
   assert.equal(prs.length, 0);
 });
 
