@@ -220,6 +220,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Build discovery state
+        run: node dist/cli.js discover full --no-sync --no-ai-enrich
+
       - name: Regenerate ARD catalog
         run: |
           node dist/cli.js discover ard-export
