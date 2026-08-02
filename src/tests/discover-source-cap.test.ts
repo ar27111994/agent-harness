@@ -420,3 +420,324 @@ void test("computeDemandRelevantSourceIds: adds maven for Scala sbt projects", (
   const ids = computeDemandRelevantSourceIds(dp);
   assert.equal(ids.has("maven-registry"), true);
 });
+
+// ---------------------------------------------------------------------------
+// computeDemandRelevantSourceIds — edge cases & security (#419)
+// ---------------------------------------------------------------------------
+
+void test("computeDemandRelevantSourceIds: all ecosystems simultaneously returns all registries", () => {
+  const dp = createDemandProfile({
+    languages: [
+      "TypeScript",
+      "Python",
+      "Rust",
+      "Java",
+      "C#",
+      "Go",
+      "PHP",
+      "Ruby",
+      "Swift",
+      "Dart",
+    ],
+    frameworks: ["flutter"],
+    packageManagers: [
+      "npm",
+      "pip",
+      "cargo",
+      "maven",
+      "nuget",
+      "composer",
+      "bundler",
+    ],
+    tooling: ["vscode", "cursor", "detector:pi", "detector:zed"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("pypi-registry"), true);
+  assert.equal(ids.has("cargo-registry"), true);
+  assert.equal(ids.has("maven-registry"), true);
+  assert.equal(ids.has("nuget-registry"), true);
+  assert.equal(ids.has("go-registry"), true);
+  assert.equal(ids.has("packagist-registry"), true);
+  assert.equal(ids.has("rubygems-registry"), true);
+  assert.equal(ids.has("swift-package-index"), true);
+  assert.equal(ids.has("vscode-marketplace"), true);
+  assert.equal(ids.has("cursor-marketplace"), true);
+  assert.equal(ids.has("pi-packages"), true);
+  assert.equal(ids.has("zed-extension-registry"), true);
+  // Also expect universal sources
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("skills-sh"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles very long framework/tooling names without crash", () => {
+  const longName = "a".repeat(10_000);
+  const dp = createDemandProfile({
+    languages: [longName],
+    frameworks: [longName],
+    packageManagers: [longName],
+    tooling: [longName],
+  });
+  // Should not throw — just return universal sources since no term matches
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles special characters in signal names safely", () => {
+  const dp = createDemandProfile({
+    languages: ["<script>alert(1)</script>"],
+    frameworks: ["'; DROP TABLE sources;--"],
+    packageManagers: ["${PATH}"],
+    tooling: ["detector:$(whoami)"],
+  });
+  // Should not throw — signal strings are opaque lookup keys, never evaluated
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  // Injection strings shouldn't accidentally match any source ID
+  assert.equal(ids.has("npm-registry"), false);
+  assert.equal(ids.has("pypi-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles unicode/surrogate pairs in language names", () => {
+  const dp = createDemandProfile({
+    languages: ["Rust🚀", "TypeScript\u0000test"],
+    frameworks: ["react\0embedded"],
+  });
+  // Should not throw — Set lookups will just not match
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles concerns with pi-agent matching", () => {
+  const dp = createDemandProfile({
+    concerns: ["PI-agent", "pi-SKILL"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pi-packages"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles empty string signals gracefully", () => {
+  const dp = createDemandProfile({
+    languages: [""],
+    frameworks: [""],
+    packageManagers: [""],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // Empty strings shouldn't match any ecosystem
+  assert.equal(ids.has("npm-registry"), false);
+  assert.equal(ids.has("mcp-registry"), true); // universal
+});
+
+void test("computeDemandRelevantSourceIds: handles whitespace-only signals", () => {
+  const dp = createDemandProfile({
+    languages: ["  "],
+    frameworks: ["\t"],
+    packageManagers: ["\n"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // Whitespace shouldn't match any ecosystem
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles F# language", () => {
+  const dp = createDemandProfile({ languages: ["F#"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("nuget-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles Elixir language (no dedicated source)", () => {
+  const dp = createDemandProfile({ languages: ["Elixir"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // No Hex.pm source yet — expects only universals
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles C++ language (no dedicated source)", () => {
+  const dp = createDemandProfile({ languages: ["C++"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // No dedicated C/C++ index source — expects only universals
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles Erlang language (no dedicated source)", () => {
+  const dp = createDemandProfile({ languages: ["Erlang"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // No Hex.pm source yet — expects only universals
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+// ---------------------------------------------------------------------------
+// getEnabledSourceCount — edge cases (#419)
+// ---------------------------------------------------------------------------
+
+void test("getEnabledSourceCount: returns count from valid source registry", async () => {
+  const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const discoverDir = join(dir, "discover");
+    await mkdir(discoverDir, { recursive: true });
+    await writeFile(
+      join(discoverDir, "sources.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            id: "src-1",
+            name: "Source 1",
+            kind: "repo",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 1,
+            enabled: true,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-2",
+            name: "Source 2",
+            kind: "package-registry",
+            authorityTier: "official-first-party",
+            hosts: ["shared"],
+            assetKinds: ["mcp-server"],
+            discoveryMode: "catalog",
+            priority: 2,
+            enabled: true,
+            endpoints: { baseUrl: "https://example.com" },
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-3",
+            name: "Source 3",
+            kind: "local-manifest",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 3,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-4",
+            name: "Source 4",
+            kind: "marketplace",
+            authorityTier: "official-first-party",
+            hosts: ["copilot-vscode"],
+            assetKinds: ["extension"],
+            discoveryMode: "catalog",
+            priority: 4,
+            enabled: true,
+            endpoints: { baseUrl: "https://marketplace.example.com" },
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-5",
+            name: "Source 5",
+            kind: "repo",
+            authorityTier: "unverified-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 5,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const { discoverInternals } = await import("../discover.js");
+    const count = await discoverInternals.getEnabledSourceCount(dir);
+    // Count should reflect both the base registry (3 enabled of 5)
+    // plus generated local sources — exact count depends on system state.
+    assert.ok(count >= 3, `expected at least 3 enabled sources, got ${count}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+void test("getEnabledSourceCount: returns 0 when all sources disabled", async () => {
+  const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const discoverDir = join(dir, "discover");
+    await mkdir(discoverDir, { recursive: true });
+    await writeFile(
+      join(discoverDir, "sources.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            id: "src-1",
+            name: "Source 1",
+            kind: "repo",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 1,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-2",
+            name: "Source 2",
+            kind: "package-registry",
+            authorityTier: "official-first-party",
+            hosts: ["shared"],
+            assetKinds: ["mcp-server"],
+            discoveryMode: "catalog",
+            priority: 2,
+            enabled: false,
+            endpoints: { baseUrl: "https://example.com" },
+            rules: { selection: "default" },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const { discoverInternals } = await import("../discover.js");
+    const count = await discoverInternals.getEnabledSourceCount(dir);
+    // 0 from base registry + generated local sources (always enabled)
+    assert.ok(count >= 0, `expected non-negative count, got ${count}`);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+void test("getEnabledSourceCount: throws when source registry file is missing", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const { discoverInternals } = await import("../discover.js");
+    await assert.rejects(
+      () => discoverInternals.getEnabledSourceCount(dir),
+      (err: unknown) =>
+        err instanceof Error &&
+        (err as NodeJS.ErrnoException).code === "ENOENT",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

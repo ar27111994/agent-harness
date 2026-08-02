@@ -476,3 +476,10 @@ main()
     console.error(error);
     process.exitCode = 1;
   });
+
+/**
+ * Exposes narrow CLI internals for focused unit tests.
+ */
+export const cliInternals = {
+  mapBundleSubcommandForHelp,
+};
