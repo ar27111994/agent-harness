@@ -1105,7 +1105,7 @@ function jsonResponse(value: unknown): Response {
   });
 }
 
-void test("source sync dispatches hex-registry and conan-registry via sitemap (#419)", async () => {
+void test("source sync dispatches hex, conan, and pub-dev registries (#419)", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-sync-hex-conan-"),
   );
@@ -1126,6 +1126,28 @@ void test("source sync dispatches hex-registry and conan-registry via sitemap (#
       "<url><loc>https://conan.io/center/recipes/boost</loc></url>",
       "</urlset>",
     ]),
+    "https://pub.dev/api/packages?page=1": jsonResponse({
+      next_url: undefined,
+      packages: [
+        {
+          name: "flutter_lints",
+          latest: {
+            version: "3.0.0",
+            pubspec: { description: "Recommended lints for Flutter" },
+          },
+        },
+        {
+          name: "provider",
+          latest: {
+            version: "6.1.0",
+            pubspec: { description: "State management" },
+          },
+        },
+        { name: null },
+        {},
+        null,
+      ],
+    }),
   });
 
   try {
@@ -1147,6 +1169,15 @@ void test("source sync dispatches hex-registry and conan-registry via sitemap (#
         ["plugin", "reference-pack"],
         "official-marketplace",
         { name: "ConanCenter", verified: true },
+      ),
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        {}, // no baseUrl — triggers ?? fallback
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
       ),
     ]);
 
@@ -1218,6 +1249,148 @@ void test("source sync dispatches hex-registry and conan-registry via sitemap (#
     assert.ok(
       conanState.indexedEntryCount >= 1,
       "conan-registry should have indexed entries",
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    assert.equal(pubDevState?.status, "complete");
+    assert.ok(
+      pubDevState.indexedEntryCount >= 1,
+      "pub-dev-registry should have indexed entries",
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("pub-dev adapter handles edge cases gracefully", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-pubdev-edge-"),
+  );
+  const cleanupFetch = installFetchMock({
+    // Page 1: returns packages with edge cases
+    "https://pub.dev/api/packages?page=1": jsonResponse({
+      next_url: "https://pub.dev/api/packages?page=2",
+      packages: [
+        {
+          name: "valid-pkg",
+          latest: { version: "1.0.0", pubspec: { description: "A package" } },
+        },
+        { name: "no-version", latest: { pubspec: {} } },
+        null,
+      ],
+    }),
+    // Page 2: returns different data to exercise multi-page path + non-string next_url
+    "https://pub.dev/api/packages?page=2": jsonResponse({
+      next_url: 3,
+      packages: [
+        {
+          name: "page2-pkg",
+          latest: {
+            version: "2.0.0",
+            pubspec: { description: "Page 2 package" },
+          },
+        },
+      ],
+    }),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        {}, // no baseUrl — triggers ?? fallback
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
+      ),
+    ]);
+
+    // Write previous state with falsy nextToken to exercise !nextUrl branch
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            sourceId: "pub-dev-registry",
+            coverageMode: "indexed",
+            status: "partial",
+            lastSyncedAt: new Date().toISOString(),
+            indexedEntryCount: 0,
+            cursors: [
+              { cursorId: "packages", nextToken: "", completed: false },
+            ],
+          },
+        ],
+      },
+    );
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: "/tmp",
+        summary: { scannedFiles: 0, matchedFiles: 0 },
+        signals: {
+          languages: [],
+          frameworks: [],
+          packageManagers: [],
+          concerns: [],
+          tooling: [],
+        },
+        evidence: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    // Status is "partial" because next_url was a non-string integer,
+    // which doesn't match typeof === "string", so it's treated as end.
+    assert.equal(pubDevState?.status, "complete");
+    assert.ok(
+      pubDevState.indexedEntryCount >= 1,
+      "pub-dev-registry should have indexed entries even with edge-case data",
     );
   } finally {
     cleanupFetch();

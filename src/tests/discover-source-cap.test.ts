@@ -396,13 +396,13 @@ void test("computeDemandRelevantSourceIds: adds npm for yarn package manager", (
   assert.equal(ids.has("npm-registry"), true);
 });
 
-void test("computeDemandRelevantSourceIds: adds npm for Dart/Flutter projects", () => {
+void test("computeDemandRelevantSourceIds: adds pub-dev for Dart/Flutter projects", () => {
   const dp = createDemandProfile({
     languages: ["Dart"],
     frameworks: ["flutter"],
   });
   const ids = computeDemandRelevantSourceIds(dp);
-  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("pub-dev-registry"), true);
 });
 
 void test("computeDemandRelevantSourceIds: adds pypi for uv package manager", () => {

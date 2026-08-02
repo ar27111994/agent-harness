@@ -1530,6 +1530,38 @@
         "allowMirror": true,
         "allowInstall": true
       }
+    },
+    {
+      "id": "pub-dev-registry",
+      "name": "pub.dev",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "pub.dev",
+        "verified": true
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://pub.dev",
+        "listApi": "https://pub.dev/api/packages"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
     }
   ]
 }

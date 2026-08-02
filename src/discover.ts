@@ -1794,9 +1794,7 @@ function computeDemandRelevantSourceIds(
     ecosystemTerms.has("flutter") ||
     ecosystemTerms.has("pub")
   ) {
-    // Dart uses pub.dev — no dedicated index source yet, but npm-registry
-    // may still be relevant for Flutter projects using JS tooling.
-    sourceIds.add("npm-registry");
+    sourceIds.add("pub-dev-registry");
   }
 
   // ── Elixir / Erlang ecosystem ──

@@ -69,6 +69,7 @@ import { syncGoRegistrySource } from "./registries/go.js";
 import { syncMavenRegistrySource } from "./registries/maven.js";
 import { syncNuGetRegistrySource } from "./registries/nuget.js";
 import { syncPackagistRegistrySource } from "./registries/packagist.js";
+import { syncPubDevSource } from "./registries/pub-dev.js";
 import type {
   SourceSyncContext,
   SourceSyncSourceState,
@@ -446,6 +447,8 @@ async function synchronizeIndexedSource(
           return segments[segments.length - 1];
         },
       });
+    case "pub-dev-registry":
+      return syncPubDevSource(source, context);
     default:
       return null;
   }
