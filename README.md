@@ -595,17 +595,19 @@ agent-harness discover environment-index
 
 ### Reducing source health noise
 
-`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Two flags help cut through the noise:
+`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Three flags help manage output and performance:
 
 - **`--quiet`**: suppress expected warnings; only severe/error conditions are shown
 - **`--summary`**: print aggregate warning counts grouped by reason instead of per-source lines
+- **`--sync-all`**: sync every enabled source (bypass demand-based filtering); useful when your project spans ecosystems not detected by demand signals, or for building a comprehensive catalog
 
 ```bash
 agent-harness discover full --quiet    # only errors, warnings suppressed
 agent-harness discover full --summary  # aggregate breakdown by reason
+agent-harness discover full --sync-all # full sync of all 170+ sources
 ```
 
-Default behavior (no flags) remains unchanged — all warnings are shown for debugging.
+Demand-based filtering (#419) automatically narrows source sync to only ecosystem-relevant sources. After demand detection, `discover full` prints a summary like "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped)." This reduces first-run sync time from 5+ minutes to under 60 seconds for typical single-stack projects. Use `--sync-all` for the legacy full-sync behaviour, or `--no-sync` to skip sync entirely.
 
 `discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
 
