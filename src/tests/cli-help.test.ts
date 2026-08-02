@@ -290,7 +290,7 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
       timeout: 30_000,
       args: ["mirror", "bundle-explain", "--help"],
     });
-    assert.match(mirrorBundleExplain, /mirror bundle-explain/u);
+    assert.match(mirrorBundleExplain, /bundle explain/u);
     assert.match(mirrorBundleExplain, /bundle membership/u);
     assert.doesNotMatch(mirrorBundleExplain, /mirror commands:/u);
 

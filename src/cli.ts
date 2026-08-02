@@ -191,8 +191,16 @@ function runHelpCommand(
       case "recommend":
         return runRecommend(domainArgs, workingDirectory, "");
       case "mirror":
-      case "bundle":
         return runMirror(domainArgs, workingDirectory, "");
+      case "bundle":
+        // Map bundle subcommands to internal mirror subcommands (#418).
+        // bundle explain --help should show "bundle explain" help, not
+        // "mirror explain" — route it to the bundle-explain handler.
+        return runMirror(
+          mapBundleSubcommandForHelp(domainArgs),
+          workingDirectory,
+          "",
+        );
       case "install":
       case "stage":
         return runInstall(domainArgs, workingDirectory, "");
@@ -262,6 +270,20 @@ function resolveHelpDomain(args: string[]): string | undefined {
   }
 
   return args.find((arg) => arg !== "--help" && arg !== "-h");
+}
+
+/**
+ * Maps bundle-domain subcommands to internal mirror subcommands for help
+ * routing (#418). When a user types `bundle explain --help`, the help
+ * dispatch must route to the `bundle-explain` handler in mirror.ts so the
+ * heading shows "bundle explain" rather than "mirror explain".
+ */
+function mapBundleSubcommandForHelp(args: string[]): string[] {
+  const subcommand = args[0];
+  if (subcommand === "explain") {
+    return ["bundle-explain", ...args.slice(1)];
+  }
+  return args;
 }
 
 function parseGlobalOptions(args: string[]): GlobalCliOptions {
