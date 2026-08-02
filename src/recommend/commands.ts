@@ -5,6 +5,11 @@ import { readJsonFile, readJsonFileOrNull, writeJsonFile } from "../files.js";
 import { printCommandHelp } from "../lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
+  hasHelpFlag,
+  printSubcommandHelp,
+  type SubcommandHelpEntry,
+} from "../cli-help-format.js";
+import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
 } from "../lib/session-intent.js";
@@ -47,16 +52,22 @@ export async function runRecommend(
 ): Promise<number> {
   const [command = "report", ...rest] = args;
 
-  // Subcommands with dedicated help handlers ("explain") get routed inside
-  // the switch. For all other subcommands, --help/-h shows parent recommend help.
-  const hasHelpFlag = rest.includes("--help") || rest.includes("-h");
-  const hasSpecificHelp = new Set(["explain"]);
-  // When hasSpecificHelp has the command, the switch case handles --help
-  // directly. This gate only fires for subcommands without specific help.
-  // c8 misattributes the `&&` false arm when `hasSpecificHelp.has` is true.
-  /* c8 ignore next */
-  if (hasHelpFlag && !hasSpecificHelp.has(command)) {
-    printRecommendHelp();
+  // Subcommands with dedicated help handlers get routed to
+  // printRecommendSubcommandHelp. All others show parent help.
+  // (#416 — recommend report/evaluate/ai-review/policy:print --help)
+  const hasSpecificHelp = new Set([
+    "report",
+    "explain",
+    "evaluate",
+    "ai-review",
+    "policy:print",
+  ]);
+  if (hasHelpFlag(rest)) {
+    if (!hasSpecificHelp.has(command)) {
+      printRecommendHelp();
+      return 0;
+    }
+    printRecommendSubcommandHelp(command);
     return 0;
   }
 
@@ -114,10 +125,6 @@ export async function runRecommend(
       return 0;
     }
     case "explain":
-      if (rest.includes("--help") || rest.includes("-h")) {
-        printRecommendExplainHelp();
-        return 0;
-      }
       await explainRecommendation(projectRoot, rest);
       return 0;
     case "evaluate": {
@@ -654,40 +661,87 @@ function printRecommendHelp(): void {
 }
 
 /**
- * Prints help for `recommend explain`.
+ * Prints subcommand-specific help for recommend subcommands (#416).
+ * Routes to printSubcommandHelp with per-subcommand headings and usage.
  */
-function printRecommendExplainHelp(): void {
-  printCommandHelp({
-    heading:
-      "recommend explain — Explain why an asset was selected, rejected, quarantined, or budget-pruned",
-    entries: [
-      {
-        command: "Usage:",
-        description: "",
-      },
-      {
-        command: "  recommend explain --asset <assetId>",
-        description: "Show per-host explanation for the given asset",
-      },
-      {
-        command: "  recommend explain --asset <assetId> --host <host>",
-        description: "Scope explanation to a specific host",
-      },
-      {
-        command: "  recommend explain --asset <assetId> --json",
-        description: "Output machine-readable JSON format",
-      },
-    ],
-    sections: [
-      {
-        title: "Explanation states:",
-        lines: [
-          "selected       Asset appears in the top-N for the host with rank and score breakdown",
-          "rejected       Asset was rejected during discovery selection (e.g., duplicate)",
-          "quarantined    Asset is held in quarantine pending review",
-          "budget-pruned  Asset was ranked but excluded by the activation budget",
-        ],
-      },
-    ],
-  });
+function printRecommendSubcommandHelp(subcommand: string): void {
+  const helpTexts: Record<string, SubcommandHelpEntry> = {
+    report: {
+      heading: "recommend report — Build a scored recommendation report",
+      lines: [
+        "Usage: agent-harness recommend report [--ai-review] [--intent <intent>]",
+        "",
+        "Recomputes the recommendation report from the latest selected catalog",
+        "and writes it to recommend/output/recommendation-report.json.",
+        "",
+        "Options:",
+        "  --ai-review       Run AI review on the report after generation",
+        `  --intent <intent>  Repeatable; intents: ${SESSION_INTENT_CHOICES}`,
+        "  --host <host>     Scope AI review to a specific host",
+        "  --review-limit <n> Limit AI review count",
+      ],
+    },
+    explain: {
+      heading:
+        "recommend explain — Explain why an asset was selected, rejected, quarantined, or budget-pruned",
+      lines: [
+        "Usage: agent-harness recommend explain --asset <assetId> [--host <host>] [--json]",
+        "",
+        "Shows per-host explanation for the given asset from the latest",
+        "recommendation report.",
+        "",
+        "Options:",
+        "  --asset <assetId>  Asset ID to explain (required)",
+        "  --host <host>      Scope explanation to a specific host",
+        "  --json             Output machine-readable JSON format",
+        "",
+        "Explanation states:",
+        "  selected       Asset appears in the top-N for the host with rank and score breakdown",
+        "  rejected       Asset was rejected during discovery selection (e.g., duplicate)",
+        "  quarantined    Asset is held in quarantine pending review",
+        "  budget-pruned  Asset was ranked but excluded by the activation budget",
+      ],
+    },
+    evaluate: {
+      heading: "recommend evaluate — Run golden recommendation fixtures",
+      lines: [
+        "Usage: agent-harness recommend evaluate [--write]",
+        "",
+        "Runs golden recommendation fixtures against the policy and prints",
+        "quality summary metrics.",
+        "",
+        "Options:",
+        "  --write  Persist evaluation results to recommend/output/evaluation.json",
+      ],
+    },
+    "ai-review": {
+      heading: "recommend ai-review — Run recommendation-native AI review",
+      lines: [
+        "Usage: agent-harness recommend ai-review [--host <host>] [--review-limit <n>] [--apply] [--intent <intent>]",
+        "",
+        "Runs AI review on the latest recommendation report and writes the",
+        "review artifact to recommend/output/ai-review.json.",
+        "",
+        "Options:",
+        "  --host <host>     Target host for review",
+        "  --review-limit <n> Max review entries",
+        "  --apply           Apply AI review adjustments to the recommendation report",
+        `  --intent <intent>  Repeatable; intents: ${SESSION_INTENT_CHOICES}`,
+      ],
+    },
+    "policy:print": {
+      heading: "recommend policy:print — Print the merged effective policy",
+      lines: [
+        "Usage: agent-harness recommend policy:print [--host <host>] [--compact]",
+        "",
+        "Prints the merged effective recommendation policy as JSON.",
+        "",
+        "Options:",
+        "  --host <host>  Scope to a specific host's policy",
+        "  --compact      Output compact (single-line) JSON",
+      ],
+    },
+  };
+
+  printSubcommandHelp(subcommand, helpTexts, printRecommendHelp);
 }
