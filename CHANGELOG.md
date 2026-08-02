@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Demand-based source filtering** — `discover full` now syncs only sources relevant to the detected project ecosystem, reducing first-run sync time from 5+ minutes to under 60 seconds for typical TypeScript projects. Sources are mapped from demand signals (languages, frameworks, package managers) to relevant registries. Universal sources (mcp-registry, skills-sh, ui-skills, clawhub) are always synced. Use `--sync-all` to override and sync every enabled source (#419)
+- **Demand-sync progress hint** — after demand detection, `discover full` prints an ecosystem-aware summary: "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped). Use --sync-all for full sync or --no-sync to skip entirely." (#420)
+- **`--sync-all` flag** — new flag for `discover full` that bypasses demand-based source filtering and syncs all enabled sources (#419)
+
+### Fixed
+
+- **`recommend` subcommand --help shows subcommand-specific options** — `recommend report --help`, `recommend evaluate --help`, `recommend ai-review --help`, and `recommend policy:print --help` now show subcommand-specific usage and options instead of the parent recommend command list (#416)
+- **`install refresh --help` uses correct command name** — help headings and usage lines now show `install` (the primary command) instead of the legacy `stage` alias. Parent help says "install commands (stage is a legacy alias)" (#417)
+- **`bundle explain --help` shows correct heading** — `bundle explain --help` now shows "bundle explain — Explain why assets are present in a bundle lock" instead of the incorrect "mirror explain" heading (#418)
+
 ## [2.0.0] - 2026-07-31
 
 ### Breaking Changes
