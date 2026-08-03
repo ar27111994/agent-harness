@@ -427,6 +427,8 @@ function printHelp(): void {
           "  activate host --host opencode  Activate assets for OpenCode/Codex/Pi host family",
           "  activate host --host vscode    Activate assets for VS Code/Cursor host family",
           "  activate diff                 Compare activation states between generations",
+          "  activate explain              Explain why an installed asset is active or not",
+          "  activate rollback             Roll back activation to a previous generation",
           "  wire vscode                   Preview/apply/reset VS Code user-scoped wire-in",
           "  wire opencode                 Preview/apply/reset OpenCode project-local wire-in",
           "  wire cursor                   Preview/apply/reset Cursor project-local wire-in",

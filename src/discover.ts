@@ -1158,7 +1158,7 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
     sync: {
       heading: "discover sync — Synchronize discovered sources",
       lines: [
-        "Usage: agent-harness discover sync",
+        "Usage: agent-harness discover sync [--full]",
         "",
         "Fetches and persists data from all configured discovery sources. Uses the",
         "local index when fresh, performs live harvest otherwise.",
@@ -1390,6 +1390,11 @@ function printDiscoverFullHelp(): void {
   printCommandHelp({
     heading: "discover full — Run the complete discovery pipeline in one pass",
     entries: [
+      {
+        command: "Usage:",
+        description:
+          "  agent-harness discover full [--no-sync] [--sync-all] [--ai-enrich] [--no-ai-enrich] [--quiet] [--summary] [--max-scan-bytes N]",
+      },
       {
         command: "Steps executed in order:",
         description: "",
