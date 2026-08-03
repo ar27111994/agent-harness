@@ -139,6 +139,7 @@ export async function runDiscover(
     "ard-export",
     "diff",
     "environment-index",
+    "inspect",
   ]);
   if (helpRequested && !hasSpecificHelp.has(command)) {
     printDiscoverHelp();
@@ -237,7 +238,7 @@ export async function runDiscover(
     case "select": {
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
-      await generateSelectionOutputs(projectRoot); // flags not applicable in select mode
+      await generateSelectionOutputs(projectRoot);
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "after-select",
@@ -1182,7 +1183,7 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
     select: {
       heading: "discover select — Apply selection rules to the catalog",
       lines: [
-        "Usage: agent-harness discover select",
+        "Usage: agent-harness discover select [--ai-enrich] [--no-ai-enrich] [--require-ai-enrich] [--force]",
         "",
         "Applies canonical selection rules (demand relevance, deduplication, diversity",
         "caps) to the asset catalog and writes selected/rejected outputs to:",
@@ -1190,6 +1191,12 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
         "  discover/output/catalog.rejected.jsonl",
         "",
         "Prerequisite: 'discover catalog' must have been run first.",
+        "",
+        "AI enrichment options:",
+        "  --ai-enrich          Run AI enrichment after selection",
+        "  --no-ai-enrich       Skip AI enrichment (respects runtime config default)",
+        "  --require-ai-enrich  Fail if AI enrichment is unavailable or fails",
+        "  --force              Re-run enrichment even if already cached",
       ],
     },
     stats: {
@@ -1204,10 +1211,14 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
     enrich: {
       heading: "discover enrich — Run AI-assisted enrichment on the catalog",
       lines: [
-        "Usage: agent-harness discover enrich",
+        "Usage: agent-harness discover enrich [--force] [--require-ai-enrich]",
         "",
         "Runs a bounded AI-assisted enrichment pass against the selected catalog to",
         "improve classification confidence, capability extraction, and deduplication.",
+        "",
+        "Options:",
+        "  --force              Re-run enrichment even if already cached",
+        "  --require-ai-enrich  Fail if AI enrichment is unavailable or fails",
         "",
         "Env: AGENT_HARNESS_AI_ENRICHMENT_URL",
         "      AGENT_HARNESS_AI_ENRICHMENT_API_KEY",
@@ -1225,6 +1236,20 @@ function printDiscoverSubcommandHelp(subcommand: string): void {
         "",
         "ARD-compliant registries can then discover and index agent-harness as a",
         "publisher.",
+      ],
+    },
+    inspect: {
+      heading: "discover inspect — Print catalog entries with optional filters",
+      lines: [
+        "Usage: agent-harness discover inspect [--source <sourceId>] [--id <assetId>] [--limit <n>]",
+        "",
+        "Prints catalog entries from the latest discovery run with optional",
+        "source, asset ID, and count filters.",
+        "",
+        "Options:",
+        "  --source <sourceId>  Filter to entries from this source",
+        "  --id <assetId>       Show a specific asset entry",
+        "  --limit <n>          Max entries to print (default: 20)",
       ],
     },
     diff: {
