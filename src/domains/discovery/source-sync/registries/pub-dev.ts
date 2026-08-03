@@ -10,11 +10,7 @@
  * is not a supported public API.
  */
 
-import type {
-  DemandProfile,
-  SelectionRegistry,
-  SourceDefinition,
-} from "../../../../types.js";
+import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
   getPackageRegistryKind,
@@ -77,8 +73,8 @@ export async function syncPubDevSource(
 
   const maxPages = getEffectiveMaxPagesPerRun(context);
   const registryKind = getPackageRegistryKind(source);
-  const demandProfile = context.demandProfile ?? (null as DemandProfile | null);
-  const selectionRegistry = context.selectionRegistry as SelectionRegistry;
+  const demandProfile = context.demandProfile;
+  const selectionRegistry = context.selectionRegistry;
 
   while (nextUrl && pageCount < maxPages) {
     const data = await fetchRequiredJson(nextUrl, allowedOrigins);

@@ -177,6 +177,7 @@ function printMirrorSubcommandHelp(subcommand: string): void {
         "bundle explain — Explain why assets are present in a bundle lock",
       lines: [
         "Usage: agent-harness bundle explain --bundle <bundleId>",
+        "       agent-harness bundle explain <bundleId>",
         "       agent-harness mirror bundle-explain --bundle <bundleId>",
         "",
         "Prints detailed bundle membership and provenance for a mirrored",
