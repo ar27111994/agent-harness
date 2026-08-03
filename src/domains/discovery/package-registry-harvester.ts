@@ -241,8 +241,6 @@ async function searchRegistryByKind(
     case "pub":
       // No public keyword-search API available.
       return [];
-    default:
-      return [];
   }
 }
 
