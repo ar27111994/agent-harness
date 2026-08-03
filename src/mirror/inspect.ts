@@ -135,7 +135,7 @@ export async function explainBundleLock(
   const bundleId = getOptionValue(args, "--bundle") ?? args[0];
   const json = args.includes("--json");
   if (!bundleId) {
-    throw new Error("mirror bundle-explain requires --bundle <bundleId>");
+    throw new Error("bundle explain requires --bundle <bundleId>");
   }
 
   const bundleLock = await readJsonFile<BundleLock>(

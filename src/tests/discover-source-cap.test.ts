@@ -562,10 +562,10 @@ void test("computeDemandRelevantSourceIds: handles C++ language", () => {
   assert.equal(ids.has("mcp-registry"), true);
 });
 
-void test("computeDemandRelevantSourceIds: handles Erlang language (no dedicated source)", () => {
+void test("computeDemandRelevantSourceIds: handles Erlang language", () => {
   const dp = createDemandProfile({ languages: ["Erlang"] });
   const ids = computeDemandRelevantSourceIds(dp);
-  // No Hex.pm source yet — expects only universals
+  assert.equal(ids.has("hex-registry"), true);
   assert.equal(ids.has("mcp-registry"), true);
 });
 
