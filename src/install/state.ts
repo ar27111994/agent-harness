@@ -94,7 +94,10 @@ export async function updateInstallProgressState(
 /**
  * Reconciles reconcile install state state from persisted manifests.
  */
-export async function reconcileInstallState(projectRoot: string): Promise<void> {
+export async function reconcileInstallState(
+  projectRoot: string,
+  hostFilter?: string,
+): Promise<void> {
   const mirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, "mirror", "index.jsonl"),
     assertMirrorIndexEntry,
@@ -108,7 +111,11 @@ export async function reconcileInstallState(projectRoot: string): Promise<void> 
     bundles: {},
   };
 
-  for (const host of INSTALL_HOSTS) {
+  const effectiveHosts = hostFilter
+    ? [hostFilter]
+    : [...INSTALL_HOSTS];
+
+  for (const host of effectiveHosts) {
     const bundlesRoot = join(projectRoot, "install", host, "bundles");
     if (!(await pathExists(bundlesRoot))) {
       continue;
@@ -186,12 +193,23 @@ export async function reconcileInstallState(projectRoot: string): Promise<void> 
 /**
  * Resets reset install state state and generated outputs.
  */
-export async function resetInstallState(projectRoot: string): Promise<void> {
-  await removePath(join(projectRoot, "install"));
-  await removePath(join(projectRoot, "state", "install"));
-  console.log(
-    `Install state reset under ${toPosixPath(join(projectRoot, "install"))}`,
-  );
+export async function resetInstallState(
+  projectRoot: string,
+  hostFilter?: string,
+): Promise<void> {
+  if (hostFilter) {
+    await removePath(join(projectRoot, "install", hostFilter));
+    await removePath(join(projectRoot, "state", "install", hostFilter));
+    console.log(
+      `Install state for '${hostFilter}' reset under ${toPosixPath(join(projectRoot, "install", hostFilter))}`,
+    );
+  } else {
+    await removePath(join(projectRoot, "install"));
+    await removePath(join(projectRoot, "state", "install"));
+    console.log(
+      `Install state reset under ${toPosixPath(join(projectRoot, "install"))}`,
+    );
+  }
 }
 
 /**

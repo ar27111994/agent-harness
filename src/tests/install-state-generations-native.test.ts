@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { chmod, mkdtemp, rm } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -9,6 +9,7 @@ import {
   pathExists,
   readJsonFile,
   writeJsonFile,
+  ensureDirectory,
   writeJsonLinesFile,
   writeTextFile,
 } from "../files.js";
@@ -442,6 +443,98 @@ void test("resetInstallState removes install and state directories", async () =>
     assert.equal(
       await pathExists(join(projectRoot, "state", "install")),
       false,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("reconcileInstallState with --host only reconciles the specified host", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reconcile-host-"),
+  );
+
+  try {
+    const opencodeDir = join(projectRoot, "install", "opencode", "bundles");
+    const sharedDir = join(projectRoot, "install", "shared", "bundles");
+    await mkdir(opencodeDir, { recursive: true });
+    await mkdir(sharedDir, { recursive: true });
+
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), []);
+
+    // Write a minimal install manifest for opencode
+    await writeJsonFile(join(opencodeDir, "core.install.json"), {
+      schemaVersion: 1,
+      bundleId: "core",
+      host: "opencode",
+      installedAt: new Date().toISOString(),
+      packages: [
+        {
+          assetId: "test-asset",
+          mirrorId: "sha256-test-asset",
+          manifestPath: "/tmp/test.json",
+        },
+      ],
+    });
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "core",
+        generatedAt: new Date().toISOString(),
+        host: "opencode",
+        installedAt: new Date().toISOString(),
+        assets: [
+          {
+            assetId: "test-asset",
+            projectionType: "adapted-skill",
+            mirrorId: "sha256-test-asset",
+            activationEligible: true,
+          },
+        ],
+      },
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      buildMirrorIndexEntry("test-asset"),
+    ]);
+    await ensureDirectory(join(projectRoot, "state", "install"));
+
+    await reconcileInstallState(projectRoot, "opencode");
+
+    const progress = await readJsonFile<{
+      bundles: Record<string, { host: string }>;
+    }>(join(projectRoot, "state", "install", "progress.json"));
+    assert.ok(progress.bundles.core, "opencode bundle should be reconciled");
+    assert.equal(progress.bundles.core.host, "opencode");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("resetInstallState with --host only removes the specified host", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reset-host-"),
+  );
+
+  try {
+    await mkdir(join(projectRoot, "install", "opencode", "bundles"), {
+      recursive: true,
+    });
+    await mkdir(join(projectRoot, "install", "shared", "bundles"), {
+      recursive: true,
+    });
+
+    await resetInstallState(projectRoot, "opencode");
+
+    assert.equal(
+      await pathExists(join(projectRoot, "install", "opencode")),
+      false,
+      "opencode install dir should be removed",
+    );
+    assert.equal(
+      await pathExists(join(projectRoot, "install", "shared")),
+      true,
+      "shared install dir should still exist",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

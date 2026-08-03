@@ -13,6 +13,7 @@ import {
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
+import { getOptionValue } from "./lib/cli-options.js";
 
 /**
  * Dispatches the install CLI command group.
@@ -41,7 +42,7 @@ export async function runInstall(
       await manageInstallRefresh(projectRoot, workingDirectory, rest);
       return 0;
     case "reconcile":
-      await reconcileInstallState(projectRoot);
+      await reconcileInstallState(projectRoot, getOptionValue(rest, "--host"));
       return 0;
     case "diff":
       await diffInstallState(projectRoot, rest);
@@ -53,7 +54,7 @@ export async function runInstall(
       await manageInstallGenerations(projectRoot, rest);
       return 0;
     case "reset":
-      await resetInstallState(projectRoot);
+      await resetInstallState(projectRoot, getOptionValue(rest, "--host"));
       return 0;
     case "help":
       printInstallHelp();
