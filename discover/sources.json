@@ -1466,6 +1466,102 @@
         "allowMirror": true,
         "allowInstall": true
       }
+    },
+    {
+      "id": "hex-registry",
+      "name": "Hex.pm",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "Hex.pm",
+        "verified": true
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://hex.pm",
+        "sitemapUrl": "https://hex.pm/sitemap.xml"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
+      "id": "conan-registry",
+      "name": "ConanCenter",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "ConanCenter",
+        "verified": true
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://conan.io/center",
+        "sitemapUrl": "https://conan.io/sitemap.xml"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
+    },
+    {
+      "id": "pub-dev-registry",
+      "name": "pub.dev",
+      "kind": "package-registry",
+      "authorityTier": "official-marketplace",
+      "publisher": {
+        "name": "pub.dev",
+        "verified": true
+      },
+      "hosts": [
+        "copilot-vscode",
+        "opencode",
+        "cursor",
+        "zed",
+        "claude-code",
+        "pi",
+        "codex"
+      ],
+      "assetKinds": ["plugin", "reference-pack"],
+      "discoveryMode": "catalog",
+      "priority": 70,
+      "enabled": true,
+      "endpoints": {
+        "baseUrl": "https://pub.dev",
+        "listApi": "https://pub.dev/api/package-names"
+      },
+      "rules": {
+        "officialPreferred": true,
+        "allowMirror": true,
+        "allowInstall": true
+      }
     }
   ]
 }

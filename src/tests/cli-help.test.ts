@@ -67,7 +67,7 @@ void test("subcommand --help exits without preparing state", async () => {
 
     assert.match(
       stageHelpStdout,
-      /stage commands \(install is a supported alias\):/u,
+      /install commands \(stage is a legacy alias\):/u,
     );
     assert.match(
       stageHelpStdout,
@@ -226,7 +226,7 @@ void test("recommend explain --help shows explain-specific help (#364)", async (
   }
 });
 
-void test("recommend report --help shows parent recommend help", async () => {
+void test("recommend report --help shows report-specific help (#416)", async () => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
 
   try {
@@ -240,8 +240,144 @@ void test("recommend report --help shows parent recommend help", async () => {
       args: ["recommend", "report", "--help"],
     });
 
+    assert.match(stdout, /recommend report/u);
+    assert.match(stdout, /recommendation report/u);
+    assert.match(stdout, /--ai-review/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend evaluate --help shows evaluate-specific help (#416)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "evaluate", "--help"],
+    });
+
+    assert.match(stdout, /recommend evaluate/u);
+    assert.match(stdout, /golden recommendation fixtures/u);
+    assert.match(stdout, /--write/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend unknown-subcommand --help shows parent help (#416)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "unknown", "--help"],
+    });
+
     assert.match(stdout, /recommend commands:/u);
-    assert.match(stdout, /explain.*Explain why an asset/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend ai-review --help shows ai-review-specific help (#416)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "ai-review", "--help"],
+    });
+
+    assert.match(stdout, /recommend ai-review/u);
+    assert.match(stdout, /AI review/u);
+    assert.match(stdout, /--apply/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("recommend policy:print --help shows policy-print-specific help (#416)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["recommend", "policy:print", "--help"],
+    });
+
+    assert.match(stdout, /recommend policy:print/u);
+    assert.match(stdout, /--host/u);
+    assert.match(stdout, /--compact/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("stage refresh --help shows install heading (legacy alias consistency) (#417)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["stage", "refresh", "--help"],
+    });
+
+    // Even when invoked via legacy 'stage' alias, help should show 'install'
+    assert.match(stdout, /install refresh/u);
+    assert.match(stdout, /Refresh staged install state/u);
+    assert.equal(existsSync(stateRoot), false);
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("discover full --help documents --sync-all flag (#419)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-help-"));
+
+  try {
+    const { workspaceRoot, stateRoot, env } =
+      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: false });
+    const { stdout } = await runBuiltCli({
+      cwd: workspaceRoot,
+      env,
+      stateRoot,
+      timeout: 30_000,
+      args: ["discover", "full", "--help"],
+    });
+
+    assert.match(stdout, /--sync-all/u);
+    assert.match(stdout, /demand-based filtering/u);
     assert.equal(existsSync(stateRoot), false);
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
@@ -290,21 +426,24 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
       timeout: 30_000,
       args: ["mirror", "bundle-explain", "--help"],
     });
-    assert.match(mirrorBundleExplain, /mirror bundle-explain/u);
+    assert.match(mirrorBundleExplain, /bundle explain/u);
     assert.match(mirrorBundleExplain, /bundle membership/u);
     assert.doesNotMatch(mirrorBundleExplain, /mirror commands:/u);
 
-    // stage bundle --help should show bundle-specific help
+    // install bundle --help should show bundle-specific help
     const { stdout: stageBundle } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["stage", "bundle", "--help"],
+      args: ["install", "bundle", "--help"],
     });
-    assert.match(stageBundle, /stage bundle/u);
+    assert.match(stageBundle, /install bundle/u);
     assert.match(stageBundle, /Stage mirrored assets from bundle locks/u);
-    assert.doesNotMatch(stageBundle, /stage commands/u);
+    assert.doesNotMatch(
+      stageBundle,
+      /install commands \(stage is a legacy alias\):/u,
+    );
 
     // activate host --help should show host-specific help
     const { stdout: activateHost } = await runBuiltCli({
@@ -360,11 +499,14 @@ void test("subcommand --help shows subcommand-specific help distinct from parent
       env,
       stateRoot,
       timeout: 30_000,
-      args: ["stage", "refresh", "--help"],
+      args: ["install", "refresh", "--help"],
     });
-    assert.match(stageRefresh, /stage refresh/u);
+    assert.match(stageRefresh, /install refresh/u);
     assert.match(stageRefresh, /Refresh staged install state/u);
-    assert.doesNotMatch(stageRefresh, /stage commands/u);
+    assert.doesNotMatch(
+      stageRefresh,
+      /install commands \(stage is a legacy alias\):/u,
+    );
 
     // activate diff --help should show diff-specific help
     const { stdout: activateDiff } = await runBuiltCli({

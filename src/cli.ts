@@ -191,8 +191,21 @@ function runHelpCommand(
       case "recommend":
         return runRecommend(domainArgs, workingDirectory, "");
       case "mirror":
-      case "bundle":
         return runMirror(domainArgs, workingDirectory, "");
+      case "bundle":
+        // Map bundle subcommands to internal mirror subcommands (#418).
+        // bundle explain --help should show "bundle explain" help, not
+        // "mirror explain" — route it to the bundle-explain handler.
+        // Reject unknown subcommands consistently with the execution path.
+        if (domainArgs[0] !== "explain") {
+          printHelp();
+          return Promise.resolve(1);
+        }
+        return runMirror(
+          mapBundleSubcommandForHelp(domainArgs),
+          workingDirectory,
+          "",
+        );
       case "install":
       case "stage":
         return runInstall(domainArgs, workingDirectory, "");
@@ -262,6 +275,20 @@ function resolveHelpDomain(args: string[]): string | undefined {
   }
 
   return args.find((arg) => arg !== "--help" && arg !== "-h");
+}
+
+/**
+ * Maps bundle-domain subcommands to internal mirror subcommands for help
+ * routing (#418). When a user types `bundle explain --help`, the help
+ * dispatch must route to the `bundle-explain` handler in mirror.ts so the
+ * heading shows "bundle explain" rather than "mirror explain".
+ */
+function mapBundleSubcommandForHelp(args: string[]): string[] {
+  const subcommand = args[0];
+  if (subcommand === "explain") {
+    return ["bundle-explain", ...args.slice(1)];
+  }
+  return args;
 }
 
 function parseGlobalOptions(args: string[]): GlobalCliOptions {
@@ -353,6 +380,7 @@ function printHelp(): void {
           "  discover demand-profile     Scan the working directory for demand signals",
           "  discover sources            Summarize enabled discovery sources",
           "  discover sync               Persist indexed sync results for high-volume sources",
+          "  discover index              Build full offline catalog index (500 pages per source)",
           "  discover catalog            Build the unified asset catalog",
           "  discover select             Apply canonical selection policies",
           "  discover full               Run demand-profile -> sources -> sync -> catalog -> select",
@@ -361,14 +389,18 @@ function printHelp(): void {
           "  discover diff               Compare outputs against a baseline state root",
           "  discover environment-index  Write experimental read-only query metadata index",
           "  discover ard-export         Export selected catalog to ARD ai-catalog.json",
+          "  discover enrich             Run AI-assisted enrichment on the catalog",
+          "  discover inspect            Print catalog entries with optional filters",
         ],
       },
       {
         title: "Recommend — score and rank assets for your workspace:",
         lines: [
           "  recommend report            Build a scored recommendation report",
+          "  recommend ai-review         Run recommendation-native AI review (--apply to rewrite report)",
+          "  recommend explain           Explain why an asset was selected, rejected, or pruned",
           "  recommend evaluate          Evaluate recommendation quality and host fit",
-          "  recommend summary           Summarize top recommendations",
+          "  recommend policy:print      Print the merged effective policy",
         ],
       },
       {
@@ -378,22 +410,33 @@ function printHelp(): void {
           "  mirror acquire              Acquire raw mirror artifacts",
           "  mirror bundle-explain       Explain bundle lock contents",
           "  mirror plan                 Build a mirror readiness plan",
-          "  install refresh             Install mirrored assets into host bundles",
-          "  install status              Show installation progress and status",
+          "  mirror diff                 Compare current mirror index to previous snapshot",
+          "  mirror explain              Explain a mirrored artifact by --asset or --mirror",
+          "  install bundle              Stage mirrored assets from mirror bundle locks",
+          "  install native              Plan/verify/apply/remove host-native installs",
+          "  install refresh             Refresh staged install state and report/apply stale assets",
+          "  install reconcile           Recompute staged install progress from manifests",
+          "  install diff                Compare current vs previous install generations",
+          "  install explain             Explain where a staged asset is present and active",
+          "  install generations         Manage generation list, pinning, and pruning",
+          "  install reset               Remove staged install state, packages, and bundles",
         ],
       },
       {
         title: "Activate & Wire — link installed assets into host workspaces:",
         lines: [
-          "  activate opencode           Activate assets for OpenCode/Codex/Pi host family",
-          "  activate vscode             Activate assets for VS Code/Cursor host family",
-          "  wire vscode                 Preview/apply/reset VS Code user-scoped wire-in",
-          "  wire opencode               Preview/apply/reset OpenCode project-local wire-in",
-          "  wire cursor                 Preview/apply/reset Cursor project-local wire-in",
-          "  wire zed                    Preview/apply/reset Zed project-local wire-in",
-          "  wire claude-code            Preview/apply/reset Claude Code project-local wire-in",
-          "  wire pi                     Preview/apply/reset Pi project-local wire-in",
-          "  wire codex                  Preview/apply/reset Codex project-local wire-in",
+          "  activate host --host opencode  Activate assets for OpenCode/Codex/Pi host family",
+          "  activate host --host vscode    Activate assets for VS Code/Cursor host family",
+          "  activate diff                 Compare activation states between generations",
+          "  activate explain              Explain why an installed asset is active or not",
+          "  activate rollback             Roll back activation to a previous generation",
+          "  wire vscode                   Preview/apply/reset VS Code user-scoped wire-in",
+          "  wire opencode                 Preview/apply/reset OpenCode project-local wire-in",
+          "  wire cursor                   Preview/apply/reset Cursor project-local wire-in",
+          "  wire zed                      Preview/apply/reset Zed project-local wire-in",
+          "  wire claude-code              Preview/apply/reset Claude Code project-local wire-in",
+          "  wire pi                       Preview/apply/reset Pi project-local wire-in",
+          "  wire codex                    Preview/apply/reset Codex project-local wire-in",
         ],
       },
       {
@@ -454,3 +497,10 @@ main()
     console.error(error);
     process.exitCode = 1;
   });
+
+/**
+ * Exposes narrow CLI internals for focused unit tests.
+ */
+export const cliInternals = {
+  mapBundleSubcommandForHelp,
+};

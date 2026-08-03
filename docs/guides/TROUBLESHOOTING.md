@@ -174,17 +174,21 @@ Two fixes address this:
 Some commands are inherently slow due to network I/O and processing volume. The
 following durations are normal and do not indicate a hang or failure:
 
-| Command                     | Expected Duration | Notes                                   |
-| --------------------------- | ----------------- | --------------------------------------- |
-| `discover full` (first run) | 5–10 minutes      | Source sync iterates 70+ remote sources |
-| `discover sync`             | 2–5 minutes       | Subsequent runs use cached local index  |
-| `discover index`            | 10–30 minutes     | Full pagination of all indexed sources  |
-| `test:self-hosting`         | 2–3 minutes       | Runs full pipeline on the repo itself   |
-| `npm run validate:release`  | 5–15 minutes      | All quality gates + smoke tests         |
+| Command                     | Expected Duration | Notes                                                        |
+| --------------------------- | ----------------- | ------------------------------------------------------------ |
+| `discover full` (first run) | ~60s (typical)    | Demand-based filtering syncs only ecosystem-relevant sources |
+| `discover full --sync-all`  | 5–10 minutes      | Full sync of all 170+ sources (legacy behaviour)             |
+| `discover sync`             | 2–5 minutes       | Subsequent runs use cached local index                       |
+| `discover index`            | 10–30 minutes     | Full pagination of all indexed sources                       |
+| `test:self-hosting`         | 2–3 minutes       | Runs full pipeline on the repo itself                        |
+| `npm run validate:release`  | 5–15 minutes      | All quality gates + smoke tests                              |
 
 For `discover full`, the sync phase prints per-source progress to stderr (e.g.
-`[discover sync] 3/12 npm … done (7242ms)`). Use `--no-sync` to skip source sync for
-local-only discovery. CI pipelines should set `timeout-minutes: 30` or higher.
+`[discover sync] 3/12 npm … done (7242ms)`) and a demand-based filtering summary
+(`Detected TypeScript project. Syncing 12/47 demand-relevant sources`).
+Use `--no-sync` to skip source sync for local-only discovery or `--sync-all`
+for legacy full sync of all sources. CI pipelines should set `timeout-minutes: 30`
+or higher when using `--sync-all`.
 
 For `test:self-hosting`, the test timeout is configured in the CI quality
 workflow. If running locally, use:

@@ -1104,3 +1104,348 @@ function jsonResponse(value: unknown): Response {
     headers: { "content-type": "application/json; charset=utf-8" },
   });
 }
+
+void test("source sync dispatches hex, conan, and pub-dev registries (#419)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-hex-conan-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://hex.pm/sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://hex.pm</loc></url>",
+      "<url><loc>https://hex.pm/packages</loc></url>",
+      "<url><loc>https://hex.pm/packages/credo</loc></url>",
+      "<url><loc>https://hex.pm/packages/phoenix</loc></url>",
+      "</urlset>",
+    ]),
+    "https://conan.io/sitemap.xml": xmlResponse([
+      "<urlset>",
+      "<url><loc>https://conan.io</loc></url>",
+      "<url><loc>https://conan.io/center/recipes</loc></url>",
+      "<url><loc>https://conan.io/center/recipes/zlib</loc></url>",
+      "<url><loc>https://conan.io/center/recipes/boost</loc></url>",
+      "</urlset>",
+    ]),
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: undefined,
+      packages: ["flutter_lints", "provider", null, ""],
+    }),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "hex-registry",
+        "package-registry",
+        { baseUrl: "https://hex.pm" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "Hex.pm", verified: true },
+      ),
+      buildSource(
+        "conan-registry",
+        "package-registry",
+        { baseUrl: "https://conan.io/center" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "ConanCenter", verified: true },
+      ),
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        {}, // no baseUrl — triggers ?? fallback
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
+      ),
+    ]);
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: "/tmp",
+        summary: { scannedFiles: 0, matchedFiles: 0 },
+        signals: {
+          languages: [],
+          frameworks: [],
+          packageManagers: [],
+          concerns: [],
+          tooling: [],
+        },
+        evidence: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      { schemaVersion: 1, generatedAt: new Date().toISOString(), sources: [] },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const hexState = report.sources.find((s) => s.sourceId === "hex-registry");
+    const conanState = report.sources.find(
+      (s) => s.sourceId === "conan-registry",
+    );
+    assert.ok(hexState, "hex-registry should be present in sync report");
+    assert.ok(conanState, "conan-registry should be present in sync report");
+    assert.equal(hexState?.status, "complete");
+    assert.equal(conanState?.status, "complete");
+    assert.ok(
+      hexState.indexedEntryCount >= 1,
+      "hex-registry should have indexed entries",
+    );
+    assert.ok(
+      conanState.indexedEntryCount >= 1,
+      "conan-registry should have indexed entries",
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    assert.equal(pubDevState?.status, "complete");
+    assert.ok(
+      pubDevState.indexedEntryCount >= 1,
+      "pub-dev-registry should have indexed entries",
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("pub-dev adapter handles edge cases gracefully", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-pubdev-edge-"),
+  );
+  const cleanupFetch = installFetchMock({
+    // Page 1: string packages with null/empty entries
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: "https://pub.dev/api/package-names?page=2",
+      packages: ["valid-pkg", null, ""],
+    }),
+    // Page 2: non-array packages → exercises line 61 false arm
+    "https://pub.dev/api/package-names?page=2": jsonResponse({
+      nextUrl: undefined,
+      packages: null,
+    }),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        {}, // no baseUrl — triggers ?? fallback
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
+      ),
+    ]);
+
+    // Write previous state with falsy nextToken to exercise !nextUrl branch
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            sourceId: "pub-dev-registry",
+            coverageMode: "indexed",
+            status: "partial",
+            lastSyncedAt: new Date().toISOString(),
+            indexedEntryCount: 0,
+            cursors: [
+              { cursorId: "packages", nextToken: "", completed: false },
+            ],
+          },
+          // Stale entry for a source not in the enabled registry —
+          // exercises the enabledSources filter in the state merge (#419)
+          {
+            sourceId: "stale-disabled-source",
+            coverageMode: "indexed",
+            status: "complete",
+            lastSyncedAt: new Date().toISOString(),
+            indexedEntryCount: 5,
+            cursors: [
+              { cursorId: "packages", nextToken: undefined, completed: true },
+            ],
+          },
+        ],
+      },
+    );
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    // Omit demand-profile.json — exercises line 55 ?? fallback (null demandProfile)
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    // No maxPagesPerRun → processes all pages → status "complete"
+    assert.equal(pubDevState?.status, "complete");
+    assert.ok(
+      pubDevState.indexedEntryCount >= 1,
+      "pub-dev-registry should have indexed entries even with edge-case data",
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("pub-dev adapter handles partial completion", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-pubdev-partial-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: "https://pub.dev/api/package-names?page=2",
+      packages: ["pkg1"],
+    }),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        { baseUrl: "https://pub.dev" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
+      ),
+    ]);
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: "/tmp",
+        summary: { scannedFiles: 0, matchedFiles: 0 },
+        signals: {
+          languages: [],
+          frameworks: [],
+          packageManagers: [],
+          concerns: [],
+          tooling: [],
+        },
+        evidence: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      { schemaVersion: 1, generatedAt: new Date().toISOString(), sources: [] },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    // maxPagesPerRun: 1 → only processes page 1, nextUrl still set to page 2
+    // → status "partial" (exercises line 105 false arm)
+    await syncIndexedSources(projectRoot, { maxPagesPerRun: 1 });
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    assert.equal(pubDevState?.status, "partial");
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});

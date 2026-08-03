@@ -33,6 +33,25 @@ import {
 import { getInstallableAssets, INSTALL_HOSTS } from "./utils.js";
 
 /**
+ * Validates that a user-supplied --host value matches a known install host.
+ * Rejects empty, unknown, and traversal-like inputs.
+ */
+function validateInstallHost(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(
+      `Invalid --host value. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
+    );
+  }
+  if (!INSTALL_HOSTS.includes(value as (typeof INSTALL_HOSTS)[number])) {
+    throw new Error(
+      `Unknown --host '${value}'. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
+    );
+  }
+  return value;
+}
+
+/**
  * Updates update install progress state state with the provided inputs.
  */
 export async function updateInstallProgressState(
@@ -94,7 +113,12 @@ export async function updateInstallProgressState(
 /**
  * Reconciles reconcile install state state from persisted manifests.
  */
-export async function reconcileInstallState(projectRoot: string): Promise<void> {
+export async function reconcileInstallState(
+  projectRoot: string,
+  hostFilter?: string,
+): Promise<void> {
+  const validatedHost = validateInstallHost(hostFilter);
+
   const mirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, "mirror", "index.jsonl"),
     assertMirrorIndexEntry,
@@ -102,13 +126,33 @@ export async function reconcileInstallState(projectRoot: string): Promise<void> 
   const mirrorIndexById = new Map(
     mirrorIndexEntries.map((entry) => [entry.mirrorId, entry]),
   );
+
+  // When host-scoped, seed from existing progress so other hosts'
+  // bundle entries are preserved.
+  const existingProgress = validatedHost
+    ? await readJsonFileOrNull<InstallProgressState>(
+        join(projectRoot, ...INSTALL_PROGRESS_STATE_OUTPUT_PATH),
+        assertInstallProgressState,
+      )
+    : null;
+
   const reconciledState: InstallProgressState = {
     schemaVersion: 1,
     updatedAt: new Date().toISOString(),
-    bundles: {},
+    bundles: existingProgress
+      ? Object.fromEntries(
+          Object.entries(existingProgress.bundles).filter(
+            ([, bundle]) => bundle.host !== validatedHost,
+          ),
+        )
+      : {},
   };
 
-  for (const host of INSTALL_HOSTS) {
+  const effectiveHosts = validatedHost
+    ? [validatedHost]
+    : [...INSTALL_HOSTS];
+
+  for (const host of effectiveHosts) {
     const bundlesRoot = join(projectRoot, "install", host, "bundles");
     if (!(await pathExists(bundlesRoot))) {
       continue;
@@ -186,12 +230,56 @@ export async function reconcileInstallState(projectRoot: string): Promise<void> 
 /**
  * Resets reset install state state and generated outputs.
  */
-export async function resetInstallState(projectRoot: string): Promise<void> {
-  await removePath(join(projectRoot, "install"));
-  await removePath(join(projectRoot, "state", "install"));
-  console.log(
-    `Install state reset under ${toPosixPath(join(projectRoot, "install"))}`,
-  );
+export async function resetInstallState(
+  projectRoot: string,
+  hostFilter?: string,
+): Promise<void> {
+  const validatedHost = validateInstallHost(hostFilter);
+
+  if (validatedHost) {
+    await removePath(join(projectRoot, "install", validatedHost));
+    await removePath(
+      join(projectRoot, ...INSTALL_GENERATIONS_ROOT, validatedHost),
+    );
+
+    // Remove the host's bundles from progress state without clobbering
+    // other hosts' entries.
+    const progressPath = join(
+      projectRoot,
+      ...INSTALL_PROGRESS_STATE_OUTPUT_PATH,
+    );
+    const existingProgress =
+      await readJsonFileOrNull<InstallProgressState>(
+        progressPath,
+        assertInstallProgressState,
+      );
+    if (existingProgress) {
+      const updatedProgress: InstallProgressState = {
+        ...existingProgress,
+        updatedAt: new Date().toISOString(),
+        bundles: Object.fromEntries(
+          Object.entries(existingProgress.bundles).filter(
+            ([, bundle]) => bundle.host !== validatedHost,
+          ),
+        ),
+      };
+      await writeJsonFileWithSnapshot(
+        progressPath,
+        join(projectRoot, ...INSTALL_PROGRESS_SNAPSHOT_OUTPUT_PATH),
+        updatedProgress,
+      );
+    }
+
+    console.log(
+      `Install state for '${validatedHost}' reset under ${toPosixPath(join(projectRoot, "install", validatedHost))}`,
+    );
+  } else {
+    await removePath(join(projectRoot, "install"));
+    await removePath(join(projectRoot, "state", "install"));
+    console.log(
+      `Install state reset under ${toPosixPath(join(projectRoot, "install"))}`,
+    );
+  }
 }
 
 /**

@@ -624,7 +624,7 @@ void test("explainBundleLock explains rejected and unresolved assets", async (t)
 void test("explainBundleLock requires a bundle id", async () => {
   await assert.rejects(
     explainBundleLock(process.cwd(), []),
-    /mirror bundle-explain requires --bundle <bundleId>/u,
+    /bundle explain requires --bundle <bundleId>/u,
   );
 });
 

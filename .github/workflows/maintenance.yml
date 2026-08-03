@@ -35,7 +35,7 @@ jobs:
       # The save step uses run-specific keys; restore-keys matches any prior run.
       - name: Restore discovery cache
         id: discovery-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: |
             state/discover/source-sync.json
@@ -71,7 +71,7 @@ jobs:
       # the restore step matches via the stable restore-keys prefix.
       - name: Save discovery cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             state/discover/source-sync.json

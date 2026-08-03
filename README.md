@@ -595,19 +595,21 @@ agent-harness discover environment-index
 
 ### Reducing source health noise
 
-`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Two flags help cut through the noise:
+`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Three flags help manage output and performance:
 
 - **`--quiet`**: suppress expected warnings; only severe/error conditions are shown
 - **`--summary`**: print aggregate warning counts grouped by reason instead of per-source lines
+- **`--sync-all`**: sync every enabled source (bypass demand-based filtering); useful when your project spans ecosystems not detected by demand signals, or for building a comprehensive catalog
 
 ```bash
 agent-harness discover full --quiet    # only errors, warnings suppressed
 agent-harness discover full --summary  # aggregate breakdown by reason
+agent-harness discover full --sync-all # full sync of all 170+ sources
 ```
 
-Default behavior (no flags) remains unchanged — all warnings are shown for debugging.
+Demand-based filtering (#419) automatically narrows source sync to only ecosystem-relevant sources. After demand detection, `discover full` prints a summary like "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped)." This reduces first-run sync time from 5+ minutes to under 60 seconds for typical single-stack projects. Use `--sync-all` for the legacy full-sync behaviour, or `--no-sync` to skip sync entirely.
 
-`discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, and Swift Package Index).
+`discover sync` now provides persistent indexed harvesting for the built-in marketplace and registry sources that expose trustworthy official feeds, sitemaps, or paginated APIs. That includes the VS Code and Cursor marketplaces, Zed and Pi package galleries, skills.sh, ClawHub's server-rendered plugin catalog, the official MCP registry, and the supported package registries (npm change feed, PyPI, crates.io, Go index, Maven Central, NuGet, RubyGems, Packagist, Swift Package Index, Hex.pm, ConanCenter, and pub.dev).
 
 Coverage modes remain explicit instead of silently pretending everything is equivalent:
 
@@ -852,32 +854,32 @@ Mirror acquisition routes high-risk or prompt-injection-like community assets in
 
 ```bash
 npm run install:bundle
-agent-harness stage bundle
+agent-harness install bundle
 agent-harness install native --host vscode
 agent-harness install native --host vscode --operation verify
 agent-harness install native --host vscode --operation install --apply
 agent-harness install native --host vscode --operation remove --apply
 agent-harness install native --host cursor
 agent-harness install native --host cursor --operation verify
-agent-harness stage refresh --host copilot-vscode
-agent-harness stage refresh --host copilot-vscode --apply
-agent-harness stage refresh --host copilot-vscode --due-only
-agent-harness stage diff
-agent-harness stage diff --host copilot-vscode
-agent-harness stage explain --asset <asset-id>
-agent-harness stage generations list
-agent-harness stage generations list --host opencode
-agent-harness stage generations pin --host copilot-vscode --generation <gen-id> --reason "stable"
-agent-harness stage generations unpin --host copilot-vscode --generation <gen-id>
-agent-harness stage generations prune
-agent-harness stage reset
+agent-harness install refresh --host copilot-vscode
+agent-harness install refresh --host copilot-vscode --apply
+agent-harness install refresh --host copilot-vscode --due-only
+agent-harness install diff
+agent-harness install diff --host copilot-vscode
+agent-harness install explain --asset <asset-id>
+agent-harness install generations list
+agent-harness install generations list --host opencode
+agent-harness install generations pin --host copilot-vscode --generation <gen-id> --reason "stable"
+agent-harness install generations unpin --host copilot-vscode --generation <gen-id>
+agent-harness install generations prune
+agent-harness install reset
 npm run install:reconcile
 npm run install:reset
 ```
 
-`stage` is the preferred lifecycle term here: the harness stages a bounded mirrored bundle subset into its managed store, while `install native` remains the explicit host-facing install boundary. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
+`install` is the canonical command name; `stage` remains a supported legacy alias. The harness stages a bounded mirrored bundle subset into its managed store, while `install native` remains the explicit host-facing install boundary. Mutating install/remove operations require `--apply`; verify is non-mutating. VS Code and Cursor extension assets are installed through adapter-owned VS Code-style extension providers and results are written to `state/install/native-extensions.json`.
 
-`stage refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. Refresh reports include policy tiers for report-only, stage-only, low-risk apply, review-required, and quarantined decisions; executable/native assets can be staged, but host-native activation/install remains review-gated. `install refresh` remains a supported alias.
+`install refresh` writes `state/install/refresh-report.json`, persists schedule/checkpoint metadata in `state/install/refresh-state.json`, compares the installed upstream fingerprint stamped into each install manifest against the latest bundle-lock mirror, and can apply safe staged refreshes when `AGENT_HARNESS_INSTALL_REFRESH_POLICY=apply-safe` and `--apply` are both used. `--due-only` makes the command suitable for cron/background checks by skipping runs until the configured refresh interval is due. Refresh reports include policy tiers for report-only, stage-only, low-risk apply, review-required, and quarantined decisions; executable/native assets can be staged, but host-native activation/install remains review-gated. `stage refresh` remains a supported legacy alias.
 
 For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/ASSET-UPDATE-PLAYBOOK.md).
 

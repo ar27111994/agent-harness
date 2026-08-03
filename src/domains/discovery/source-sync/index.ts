@@ -69,6 +69,7 @@ import { syncGoRegistrySource } from "./registries/go.js";
 import { syncMavenRegistrySource } from "./registries/maven.js";
 import { syncNuGetRegistrySource } from "./registries/nuget.js";
 import { syncPackagistRegistrySource } from "./registries/packagist.js";
+import { syncPubDevSource } from "./registries/pub-dev.js";
 import type {
   SourceSyncContext,
   SourceSyncSourceState,
@@ -110,7 +111,11 @@ const MAX_CONSECUTIVE_FAILURES_BEFORE_ERROR = 3;
  */
 export async function syncIndexedSources(
   projectRoot: string,
-  options?: { maxPagesPerRun?: number },
+  options?: {
+    maxPagesPerRun?: number;
+    /** Only sync sources whose IDs are in this set. When omitted, all enabled sources are synced. */
+    sourceIds?: ReadonlySet<string>;
+  },
 ): Promise<void> {
   if (
     options?.maxPagesPerRun !== undefined &&
@@ -145,10 +150,19 @@ export async function syncIndexedSources(
   const enabledSources = sourceRegistry.sources.filter(
     (entry) => entry.enabled,
   );
-  const totalSources = enabledSources.length;
+  // Filter to demand-relevant sources when a sourceIds filter is provided
+  // (#419 — skip irrelevant registries for faster first-run sync).
+  // When sourceIds is explicitly provided (even as an empty Set), filter
+  // enabledSources by membership. Only fall back to all enabledSources
+  // when sourceIds is absent (undefined).
+  const effectiveSources =
+    options?.sourceIds !== undefined
+      ? enabledSources.filter((source) => options.sourceIds!.has(source.id))
+      : enabledSources;
+  const totalSources = effectiveSources.length;
   let sourceIndex = 0;
 
-  for (const source of enabledSources) {
+  for (const source of effectiveSources) {
     sourceIndex++;
     const sourceLabel = source.endpoints?.repo ?? source.id;
     const progressLabel = `[discover sync] ${sourceIndex}/${totalSources} ${sourceLabel}`;
@@ -267,9 +281,21 @@ export async function syncIndexedSources(
   const nextState: SourceSyncState = {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    sources: sourceStates.sort((left, right) =>
-      left.sourceId.localeCompare(right.sourceId),
-    ),
+    sources: [
+      ...sourceStates,
+      // Preserve state entries for enabled sources that were excluded
+      // by the sourceIds filter. Without this merge, filtered-out sources
+      // lose their cursors, indexedEntryCount, and consecutiveFailures
+      // when the state is persisted (#419 review feedback).
+      // Only carry forward entries for sources that are still enabled —
+      // stale entries for disabled/removed sources are dropped.
+      ...existingState.sources.filter((previous) => {
+        if (sourceStates.some((next) => next.sourceId === previous.sourceId)) {
+          return false; // already updated in this run
+        }
+        return enabledSources.some((s) => s.id === previous.sourceId);
+      }),
+    ].sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
   };
 
   await persistSourceSyncResults(
@@ -405,9 +431,39 @@ async function synchronizeIndexedSource(
         itemUrlPredicate: (url) => url.pathname !== "/",
         packageNameFromUrl: extractSwiftPackageNameFromUrl,
       });
+    case "hex-registry":
+      return syncSitemapPackageRegistrySource(source, context, {
+        rootSitemapUrl:
+          source.endpoints.sitemapUrl ?? "https://hex.pm/sitemap.xml",
+        itemUrlPredicate: (url) =>
+          url.pathname.startsWith("/packages/") && url.pathname !== "/packages",
+        packageNameFromUrl: (url) => {
+          const segments = decodePathSegments(url.pathname);
+          return segments[segments.length - 1];
+        },
+      });
+    case "conan-registry":
+      return syncSitemapPackageRegistrySource(source, context, {
+        rootSitemapUrl:
+          source.endpoints.sitemapUrl ?? "https://conan.io/sitemap.xml",
+        itemUrlPredicate: (url) =>
+          url.pathname.startsWith("/center/recipes/") &&
+          url.pathname !== "/center/recipes",
+        packageNameFromUrl: (url) => {
+          const segments = decodePathSegments(url.pathname);
+          return segments[segments.length - 1];
+        },
+      });
+    case "pub-dev-registry":
+      return syncPubDevSource(source, context);
     default:
       return null;
   }
 
   return null;
 }
+
+/** Exposes source-sync internals for focused unit testing. */
+export const sourceSyncInternals = {
+  synchronizeIndexedSource,
+};

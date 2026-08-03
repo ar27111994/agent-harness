@@ -635,20 +635,31 @@ void test("searchRegistryByKind — pypi returns empty array without network cal
   assert.deepEqual(result, [], "pypi search always returns empty array");
 });
 
-void test("searchRegistryByKind — unknown registry kind returns empty array", async () => {
-  // The default branch returns [] for any unrecognised kind.
+void test("searchRegistryByKind — go returns empty array", async () => {
   const result = await packageRegistryHarvesterInternals.searchRegistryByKind(
-    "swift" as unknown as Parameters<
-      typeof packageRegistryHarvesterInternals.searchRegistryByKind
-    >[0],
+    "go",
     "query",
     5,
   );
-  assert.deepEqual(
-    result,
-    [],
-    "unrecognised kind returns empty array via default branch",
+  assert.deepEqual(result, [], "go has no search API");
+});
+
+void test("searchRegistryByKind — swift returns empty array", async () => {
+  const result = await packageRegistryHarvesterInternals.searchRegistryByKind(
+    "swift",
+    "query",
+    5,
   );
+  assert.deepEqual(result, [], "swift has no search API");
+});
+
+void test("searchRegistryByKind — pub returns empty array", async () => {
+  const result = await packageRegistryHarvesterInternals.searchRegistryByKind(
+    "pub",
+    "query",
+    5,
+  );
+  assert.deepEqual(result, [], "pub has no search API");
 });
 
 void test("discoverAdjacentPackages — static matrix path: returns adjacent packages when adjacentToolingEnabled and demand signals present", async () => {

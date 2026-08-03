@@ -20,9 +20,13 @@ import test from "node:test";
 
 import { computeAcceptanceRate, discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
-import type { AssetCatalogEntry } from "../types.js";
+import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
-const { applyPerSourceCap, computeSourceDiversityWarning } = discoverInternals;
+const {
+  applyPerSourceCap,
+  computeSourceDiversityWarning,
+  computeDemandRelevantSourceIds,
+} = discoverInternals;
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -282,4 +286,463 @@ void test("computeAcceptanceRate: computes fraction rounded to 4 decimal places"
   assert.equal(computeAcceptanceRate(20438, 800), 0.0391);
   // 1 / 3 ≈ 0.3333... → rounded to 0.3333
   assert.equal(computeAcceptanceRate(3, 1), 0.3333);
+});
+
+// ---------------------------------------------------------------------------
+// computeDemandRelevantSourceIds tests (#419)
+// ---------------------------------------------------------------------------
+
+function createDemandProfile(
+  overrides: Partial<DemandProfile["signals"]>,
+): DemandProfile {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/test/workspace",
+    summary: { scannedFiles: 10, matchedFiles: 5 },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: [],
+      ...overrides,
+    },
+    evidence: [],
+  };
+}
+
+void test("computeDemandRelevantSourceIds: returns universal sources for empty demand", () => {
+  const dp = createDemandProfile({});
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("skills-sh"), true);
+  assert.equal(ids.has("ui-skills"), true);
+  assert.equal(ids.has("clawhub"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for TypeScript projects", () => {
+  const dp = createDemandProfile({ languages: ["TypeScript", "JavaScript"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("cargo-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: adds cargo for Rust projects", () => {
+  const dp = createDemandProfile({ languages: ["Rust"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("cargo-registry"), true);
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: adds pypi for Python projects", () => {
+  const dp = createDemandProfile({ languages: ["Python"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pypi-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: detects ecosystem from frameworks and package managers", () => {
+  const dp = createDemandProfile({
+    languages: [],
+    frameworks: ["react"],
+    packageManagers: ["npm"],
+    tooling: ["vscode"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("vscode-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds vscode-marketplace for VS Code detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:codepilot"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("vscode-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds cursor-marketplace for Cursor detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:cursor"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("cursor-marketplace"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds pi-packages for Pi detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:pi"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pi-packages"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds zed-extension-registry for Zed detectors", () => {
+  const dp = createDemandProfile({ tooling: ["detector:zed"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("zed-extension-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for pnpm package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["pnpm"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for bun runtime", () => {
+  const dp = createDemandProfile({ packageManagers: ["bun"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds npm for yarn package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["yarn"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds pub-dev for Dart/Flutter projects", () => {
+  const dp = createDemandProfile({
+    languages: ["Dart"],
+    frameworks: ["flutter"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pub-dev-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds pypi for uv package manager", () => {
+  const dp = createDemandProfile({ packageManagers: ["uv"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pypi-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: adds maven for Scala sbt projects", () => {
+  const dp = createDemandProfile({
+    languages: ["scala"],
+    frameworks: [],
+    packageManagers: ["sbt"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("maven-registry"), true);
+});
+
+// ---------------------------------------------------------------------------
+// computeDemandRelevantSourceIds — edge cases & security (#419)
+// ---------------------------------------------------------------------------
+
+void test("computeDemandRelevantSourceIds: all ecosystems simultaneously returns all registries", () => {
+  const dp = createDemandProfile({
+    languages: [
+      "TypeScript",
+      "Python",
+      "Rust",
+      "Java",
+      "C#",
+      "Go",
+      "PHP",
+      "Ruby",
+      "Swift",
+      "Dart",
+    ],
+    frameworks: ["flutter"],
+    packageManagers: [
+      "npm",
+      "pip",
+      "cargo",
+      "maven",
+      "nuget",
+      "composer",
+      "bundler",
+    ],
+    tooling: ["vscode", "cursor", "detector:pi", "detector:zed"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("npm-registry"), true);
+  assert.equal(ids.has("pypi-registry"), true);
+  assert.equal(ids.has("cargo-registry"), true);
+  assert.equal(ids.has("maven-registry"), true);
+  assert.equal(ids.has("nuget-registry"), true);
+  assert.equal(ids.has("go-registry"), true);
+  assert.equal(ids.has("packagist-registry"), true);
+  assert.equal(ids.has("rubygems-registry"), true);
+  assert.equal(ids.has("swift-package-index"), true);
+  assert.equal(ids.has("vscode-marketplace"), true);
+  assert.equal(ids.has("cursor-marketplace"), true);
+  assert.equal(ids.has("pi-packages"), true);
+  assert.equal(ids.has("zed-extension-registry"), true);
+  // Also expect universal sources
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("skills-sh"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles very long framework/tooling names without crash", () => {
+  const longName = "a".repeat(10_000);
+  const dp = createDemandProfile({
+    languages: [longName],
+    frameworks: [longName],
+    packageManagers: [longName],
+    tooling: [longName],
+  });
+  // Should not throw — just return universal sources since no term matches
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("local-antigravity-manifest"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles special characters in signal names safely", () => {
+  const dp = createDemandProfile({
+    languages: ["<script>alert(1)</script>"],
+    frameworks: ["'; DROP TABLE sources;--"],
+    packageManagers: ["${PATH}"],
+    tooling: ["detector:$(whoami)"],
+  });
+  // Should not throw — signal strings are opaque lookup keys, never evaluated
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+  // Injection strings shouldn't accidentally match any source ID
+  assert.equal(ids.has("npm-registry"), false);
+  assert.equal(ids.has("pypi-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles unicode/surrogate pairs in language names", () => {
+  const dp = createDemandProfile({
+    languages: ["Rust🚀", "TypeScript\u0000test"],
+    frameworks: ["react\0embedded"],
+  });
+  // Should not throw — Set lookups will just not match
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles concerns with pi-agent matching", () => {
+  const dp = createDemandProfile({
+    concerns: ["PI-agent", "pi-SKILL"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("pi-packages"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles empty string signals gracefully", () => {
+  const dp = createDemandProfile({
+    languages: [""],
+    frameworks: [""],
+    packageManagers: [""],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // Empty strings shouldn't match any ecosystem
+  assert.equal(ids.has("npm-registry"), false);
+  assert.equal(ids.has("mcp-registry"), true); // universal
+});
+
+void test("computeDemandRelevantSourceIds: handles whitespace-only signals", () => {
+  const dp = createDemandProfile({
+    languages: ["  "],
+    frameworks: ["\t"],
+    packageManagers: ["\n"],
+  });
+  const ids = computeDemandRelevantSourceIds(dp);
+  // Whitespace shouldn't match any ecosystem
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles F# language", () => {
+  const dp = createDemandProfile({ languages: ["F#"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("nuget-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles Elixir language", () => {
+  const dp = createDemandProfile({ languages: ["Elixir"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("hex-registry"), true);
+  assert.equal(ids.has("mcp-registry"), true);
+  assert.equal(ids.has("npm-registry"), false);
+});
+
+void test("computeDemandRelevantSourceIds: handles C++ language", () => {
+  const dp = createDemandProfile({ languages: ["C++"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("conan-registry"), true);
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+void test("computeDemandRelevantSourceIds: handles Erlang language", () => {
+  const dp = createDemandProfile({ languages: ["Erlang"] });
+  const ids = computeDemandRelevantSourceIds(dp);
+  assert.equal(ids.has("hex-registry"), true);
+  assert.equal(ids.has("mcp-registry"), true);
+});
+
+// ---------------------------------------------------------------------------
+// getEnabledSourceIds — edge cases (#419)
+// ---------------------------------------------------------------------------
+
+void test("getEnabledSourceIds: returns count from valid source registry", async () => {
+  const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const discoverDir = join(dir, "discover");
+    await mkdir(discoverDir, { recursive: true });
+    await writeFile(
+      join(discoverDir, "sources.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            id: "src-1",
+            name: "Source 1",
+            kind: "repo",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 1,
+            enabled: true,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-2",
+            name: "Source 2",
+            kind: "package-registry",
+            authorityTier: "official-first-party",
+            hosts: ["shared"],
+            assetKinds: ["mcp-server"],
+            discoveryMode: "catalog",
+            priority: 2,
+            enabled: true,
+            endpoints: { baseUrl: "https://example.com" },
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-3",
+            name: "Source 3",
+            kind: "local-manifest",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 3,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-4",
+            name: "Source 4",
+            kind: "marketplace",
+            authorityTier: "official-first-party",
+            hosts: ["copilot-vscode"],
+            assetKinds: ["extension"],
+            discoveryMode: "catalog",
+            priority: 4,
+            enabled: true,
+            endpoints: { baseUrl: "https://marketplace.example.com" },
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-5",
+            name: "Source 5",
+            kind: "repo",
+            authorityTier: "unverified-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 5,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const { discoverInternals } = await import("../discover.js");
+    const ids = await discoverInternals.getEnabledSourceIds(dir);
+    // Must include the enabled fixture sources
+    assert.ok(ids.includes("src-1"), "src-1 (enabled) should be in list");
+    assert.ok(ids.includes("src-2"), "src-2 (enabled) should be in list");
+    assert.ok(ids.includes("src-4"), "src-4 (enabled) should be in list");
+    // Must NOT include the disabled fixture sources
+    assert.ok(!ids.includes("src-3"), "src-3 (disabled) should NOT be in list");
+    assert.ok(!ids.includes("src-5"), "src-5 (disabled) should NOT be in list");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+void test("getEnabledSourceIds: returns 0 when all sources disabled", async () => {
+  const { mkdtemp, rm, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const discoverDir = join(dir, "discover");
+    await mkdir(discoverDir, { recursive: true });
+    await writeFile(
+      join(discoverDir, "sources.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        sources: [
+          {
+            id: "src-1",
+            name: "Source 1",
+            kind: "repo",
+            authorityTier: "trusted-community",
+            hosts: ["shared"],
+            assetKinds: ["skill"],
+            discoveryMode: "catalog",
+            priority: 1,
+            enabled: false,
+            endpoints: {},
+            rules: { selection: "default" },
+          },
+          {
+            id: "src-2",
+            name: "Source 2",
+            kind: "package-registry",
+            authorityTier: "official-first-party",
+            hosts: ["shared"],
+            assetKinds: ["mcp-server"],
+            discoveryMode: "catalog",
+            priority: 2,
+            enabled: false,
+            endpoints: { baseUrl: "https://example.com" },
+            rules: { selection: "default" },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const { discoverInternals } = await import("../discover.js");
+    const ids = await discoverInternals.getEnabledSourceIds(dir);
+    // Disabled fixture sources must NOT appear in the enabled list
+    assert.ok(!ids.includes("src-1"), "src-1 (disabled) should NOT be in list");
+    assert.ok(!ids.includes("src-2"), "src-2 (disabled) should NOT be in list");
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+void test("getEnabledSourceIds: throws when source registry file is missing", async () => {
+  const { mkdtemp, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-src-count-"));
+
+  try {
+    const { discoverInternals } = await import("../discover.js");
+    await assert.rejects(
+      () => discoverInternals.getEnabledSourceIds(dir),
+      (err: unknown) =>
+        err instanceof Error &&
+        (err as NodeJS.ErrnoException).code === "ENOENT",
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

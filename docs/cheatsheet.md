@@ -30,6 +30,7 @@ agent-harness discover sources                 # Refresh the discovery source in
 agent-harness discover sync                    # Harvest source data (network)
 agent-harness discover sync --full              # Run full sync (bypass cached index)
 agent-harness discover full --no-sync           # Run pipeline skipping source sync
+agent-harness discover full --sync-all          # Sync all sources (skip demand filtering)
 agent-harness discover catalog                 # Build full asset catalog
 agent-harness discover select                  # Filter catalog by demand + policy
 agent-harness discover full                    # Run full pipeline (demand → select)
@@ -147,14 +148,14 @@ AGENT_HARNESS_TIMEOUT_SECONDS=120              # Deadline for long operations (1
 
 ## Quick Troubleshooting
 
-| Symptom                                    | Check                                                                                      |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `setup doctor` host not found              | Host CLI on PATH? Run `setup hosts` to list adapters                                       |
-| Empty recommendations                      | Run `discover full` first; check `demand-profile.json`                                     |
-| `install refresh` ENOENT                   | Run `mirror acquire` first to populate bundles                                             |
-| Slow first `discover full`                 | Normal — first run syncs all sources; subsequent faster                                    |
-| Windows git-bash path error (`C:\\c\\...`) | MSYS paths are auto-normalised; if issues persist use native Windows paths or `cygpath -w` |
-| `recommend explain` no output              | Asset may be rejected; check `selection-report.json`                                       |
+| Symptom                                    | Check                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `setup doctor` host not found              | Host CLI on PATH? Run `setup hosts` to list adapters                                                                     |
+| Empty recommendations                      | Run `discover full` first; check `demand-profile.json`                                                                   |
+| `install refresh` ENOENT                   | Run `mirror acquire` first to populate bundles                                                                           |
+| Slow first `discover full`                 | Demand-based filtering narrows sync to relevant ecosystem sources; use `--sync-all` for full sync or `--no-sync` to skip |
+| Windows git-bash path error (`C:\\c\\...`) | MSYS paths are auto-normalised; if issues persist use native Windows paths or `cygpath -w`                               |
+| `recommend explain` no output              | Asset may be rejected; check `selection-report.json`                                                                     |
 
 ## See Also
 
