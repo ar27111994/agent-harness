@@ -26,7 +26,8 @@ export type PackageRegistryKind =
   | "nuget"
   | "gem"
   | "packagist"
-  | "swift";
+  | "swift"
+  | "pub";
 
 /**
  * Collects package candidates from demand profile from the provided inputs.

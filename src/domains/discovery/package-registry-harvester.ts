@@ -167,6 +167,7 @@ export function getPackageRegistryKind(
     "rubygems-registry": "gem",
     "packagist-registry": "packagist",
     "swift-package-index": "swift",
+    "pub-dev-registry": "pub",
   };
   return (
     registryKindBySourceId[source.id] ??
@@ -235,6 +236,11 @@ async function searchRegistryByKind(
         .map((r) => r.name)
         .filter(Boolean);
     /* c8 ignore stop */
+    case "go":
+    case "swift":
+    case "pub":
+      // No public keyword-search API available.
+      return [];
     default:
       return [];
   }
@@ -379,6 +385,8 @@ function buildPackageRegistryUrl(
       return `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`;
     case "pypi":
       return `https://pypi.org/project/${encodeURIComponent(packageName)}`;
+    case "pub":
+      return `https://pub.dev/packages/${encodeURIComponent(packageName)}`;
   }
 }
 
