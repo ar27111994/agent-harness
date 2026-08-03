@@ -1126,27 +1126,9 @@ void test("source sync dispatches hex, conan, and pub-dev registries (#419)", as
       "<url><loc>https://conan.io/center/recipes/boost</loc></url>",
       "</urlset>",
     ]),
-    "https://pub.dev/api/packages?page=1": jsonResponse({
-      next_url: undefined,
-      packages: [
-        {
-          name: "flutter_lints",
-          latest: {
-            version: "3.0.0",
-            pubspec: { description: "Recommended lints for Flutter" },
-          },
-        },
-        {
-          name: "provider",
-          latest: {
-            version: "6.1.0",
-            pubspec: { description: "State management" },
-          },
-        },
-        { name: null },
-        {},
-        null,
-      ],
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: undefined,
+      packages: ["flutter_lints", "provider", null, ""],
     }),
   });
 
@@ -1271,22 +1253,14 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
     join(tmpdir(), "agent-harness-source-sync-pubdev-edge-"),
   );
   const cleanupFetch = installFetchMock({
-    // Page 1: edge cases — null latest, missing pubspec (#419)
-    "https://pub.dev/api/packages?page=1": jsonResponse({
-      next_url: "https://pub.dev/api/packages?page=2",
-      packages: [
-        {
-          name: "valid-pkg",
-          latest: { version: "1.0.0", pubspec: { description: "A package" } },
-        },
-        { name: "no-latest" }, // no `latest` → line 70 ??
-        { name: "no-pubspec", latest: {} }, // `latest` without `pubspec` → line 71 ??
-        null, // skip null entries
-      ],
+    // Page 1: string packages with null/empty entries
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: "https://pub.dev/api/package-names?page=2",
+      packages: ["valid-pkg", null, ""],
     }),
     // Page 2: non-array packages → exercises line 61 false arm
-    "https://pub.dev/api/packages?page=2": jsonResponse({
-      next_url: undefined,
+    "https://pub.dev/api/package-names?page=2": jsonResponse({
+      nextUrl: undefined,
       packages: null,
     }),
   });
@@ -1379,14 +1353,9 @@ void test("pub-dev adapter handles partial completion", async () => {
     join(tmpdir(), "agent-harness-source-sync-pubdev-partial-"),
   );
   const cleanupFetch = installFetchMock({
-    "https://pub.dev/api/packages?page=1": jsonResponse({
-      next_url: "https://pub.dev/api/packages?page=2",
-      packages: [
-        {
-          name: "pkg1",
-          latest: { version: "1.0", pubspec: { description: "test" } },
-        },
-      ],
+    "https://pub.dev/api/package-names": jsonResponse({
+      nextUrl: "https://pub.dev/api/package-names?page=2",
+      packages: ["pkg1"],
     }),
   });
 

@@ -1555,7 +1555,7 @@
       "enabled": true,
       "endpoints": {
         "baseUrl": "https://pub.dev",
-        "listApi": "https://pub.dev/api/packages"
+        "listApi": "https://pub.dev/api/package-names"
       },
       "rules": {
         "officialPreferred": true,

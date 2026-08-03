@@ -1,8 +1,13 @@
 /**
  * pub.dev registry adapter for source-sync.
  *
- * Owns: resumable pub.dev package listing sync via the paginated
- * JSON API at https://pub.dev/api/packages.
+ * Owns: resumable pub.dev package listing sync via the official
+ * JSON API at https://pub.dev/api/package-names.
+ *
+ * Per https://pub.dev/help/api, the supported listing endpoint is
+ * /api/package-names — it returns paginated package name strings
+ * with a camelCase `nextUrl` cursor. The /api/packages?page=N URL
+ * is not a supported public API.
  */
 
 import type {
@@ -29,25 +34,45 @@ import {
 } from "../fetching.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
+/** Canonical listing URL derived from the checked-in source endpoints. */
+function resolveListingUrl(source: SourceDefinition): string {
+  return (
+    source.endpoints.listApi ??
+    `${source.endpoints.baseUrl ?? "https://pub.dev"}/api/package-names`
+  );
+}
+
 /**
- * Syncs the pub.dev package registry using the paginated JSON package
- * listing API. Each page returns a `next_url` for cursor-based pagination
- * and a `packages` array with package metadata.
+ * Syncs the pub.dev package registry using the official paginated
+ * `/api/package-names` API. Each response page contains:
+ *
+ *   { "packages": ["name1", ...], "nextUrl": "..." }
+ *
+ * Packages are returned as plain names — the listing API does not
+ * expose per-package metadata. Individual package details require
+ * separate calls to /api/packages/<name>, which are not used here
+ * to keep sync fast and bounded.
  */
 export async function syncPubDevSource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
+  const listingUrl = resolveListingUrl(source);
+  // Derive allowed origins from the checked-in source endpoint once,
+  // not from the API response's nextUrl field (which the remote could
+  // in theory pivot to any origin).
+  const allowedOrigins = getAllowedOrigins(listingUrl);
+
   const previousCursor = getPreviousCursorStates(context.previousState)[0] ?? {
     cursorId: "packages",
-    nextToken: `${source.endpoints.baseUrl ?? "https://pub.dev"}/api/packages?page=1`,
+    nextToken: listingUrl,
     completed: false,
   };
 
   let pageCount = 0;
   let nextUrl: string | undefined = previousCursor.nextToken;
   if (!nextUrl) {
-    nextUrl = `${source.endpoints.baseUrl ?? "https://pub.dev"}/api/packages?page=1`;
+    nextUrl = listingUrl;
   }
 
   const maxPages = context.maxPagesPerRunOverride ?? SOURCE_SYNC_BATCH_SIZE;
@@ -56,33 +81,30 @@ export async function syncPubDevSource(
   const selectionRegistry = context.selectionRegistry as SelectionRegistry;
 
   while (nextUrl && pageCount < maxPages) {
-    const data = await fetchRequiredJson(nextUrl, getAllowedOrigins(nextUrl));
+    const data = await fetchRequiredJson(nextUrl, allowedOrigins);
     const record = asRecord(data);
     const packages = Array.isArray(record.packages) ? record.packages : [];
 
     for (const pkg of packages) {
-      const pkgRecord = asRecord(pkg);
-      const packageName = getString(pkgRecord.name);
+      // pub.dev /api/package-names returns plain strings, not objects.
+      // Accept both forms so the adapter degrades gracefully if the
+      // response format changes.
+      const packageName =
+        typeof pkg === "string" ? pkg : getString(asRecord(pkg).name);
       if (!packageName) {
         continue;
       }
 
-      const latest = asRecord(pkgRecord.latest ?? {});
-      const pubspec = asRecord(latest.pubspec ?? {});
-      const description = getString(pubspec.description) ?? "";
-      const repositoryUrl = getString(pubspec.repository);
-      // pub.dev listing API does not expose per-package publication
-      // timestamps. lastUpdated remains undefined so freshness scoring
-      // falls back to source lastSyncedAt rather than fabricating a
-      // timestamp that would mark every package as "just updated."
-      const lastUpdated = undefined;
-
+      // The listing API does not expose per-package description,
+      // repository URL, or publication timestamp. Build the catalog
+      // entry from the package name alone — downstream scoring uses
+      // source-level signals (authority tier, kind) to fill the gaps.
       const entry = buildPackageRegistryCatalogEntry(
         source,
         packageName,
-        description,
-        repositoryUrl,
-        lastUpdated,
+        "", // description — not available from listing
+        undefined, // repositoryUrl — not available
+        undefined, // lastUpdated — not available (avoids fabrication)
         demandProfile,
         selectionRegistry,
         registryKind,
@@ -92,7 +114,9 @@ export async function syncPubDevSource(
     }
 
     pageCount++;
-    nextUrl = typeof record.next_url === "string" ? record.next_url : undefined;
+    // The official API response field is camelCase `nextUrl` (not
+    // snake_case `next_url`).  https://pub.dev/help/api
+    nextUrl = typeof record.nextUrl === "string" ? record.nextUrl : undefined;
   }
 
   const completed = nextUrl === undefined;
