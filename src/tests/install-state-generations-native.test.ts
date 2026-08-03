@@ -541,6 +541,206 @@ void test("resetInstallState with --host only removes the specified host", async
   }
 });
 
+void test("reconcileInstallState rejects unknown --host values", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reconcile-badhost-"),
+  );
+
+  try {
+    await assert.rejects(
+      () => reconcileInstallState(projectRoot, "nonexistent"),
+      /Unknown --host/u,
+    );
+    await assert.rejects(
+      () => reconcileInstallState(projectRoot, ""),
+      /Invalid --host/u,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("resetInstallState rejects unknown --host values", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reset-badhost-"),
+  );
+
+  try {
+    await assert.rejects(
+      () => resetInstallState(projectRoot, "nonexistent"),
+      /Unknown --host/u,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("reconcileInstallState preserves other hosts progress when scoped", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reconcile-preserve-"),
+  );
+
+  try {
+    // Pre-populate progress with a shared-host bundle
+    await ensureDirectory(join(projectRoot, "state", "install"));
+    await writeJsonFile(
+      join(projectRoot, "state", "install", "progress.json"),
+      {
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+        bundles: {
+          "shared-core": {
+            host: "shared",
+            batchSize: 10,
+            totalAssets: 20,
+            installedAssets: 8,
+            remainingAssets: 12,
+            lastBatchAssetIds: ["asset-1"],
+            skippedAssetIds: [],
+          },
+        },
+      },
+    );
+
+    // Set up opencode bundles
+    const opencodeDir = join(projectRoot, "install", "opencode", "bundles");
+    await mkdir(opencodeDir, { recursive: true });
+    await writeJsonFile(join(opencodeDir, "core.install.json"), {
+      schemaVersion: 1,
+      bundleId: "core",
+      host: "opencode",
+      installedAt: new Date().toISOString(),
+      packages: [
+        {
+          assetId: "test-asset",
+          mirrorId: "sha256-test-asset",
+          manifestPath: "/tmp/test.json",
+        },
+      ],
+    });
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "core",
+        generatedAt: new Date().toISOString(),
+        host: "opencode",
+        assets: [
+          {
+            assetId: "test-asset",
+            projectionType: "adapted-skill",
+            mirrorId: "sha256-test-asset",
+            activationEligible: true,
+          },
+        ],
+      },
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      buildMirrorIndexEntry("test-asset"),
+    ]);
+
+    await reconcileInstallState(projectRoot, "opencode");
+
+    const progress = await readJsonFile<{
+      bundles: Record<string, { host: string }>;
+    }>(join(projectRoot, "state", "install", "progress.json"));
+    // Shared bundle should survive the scoped reconcile
+    assert.ok(
+      progress.bundles["shared-core"],
+      "shared host bundle should be preserved",
+    );
+    assert.equal(progress.bundles["shared-core"].host, "shared");
+    // OpenCode bundle should be recomputed
+    assert.ok(progress.bundles.core, "opencode bundle should be reconciled");
+    assert.equal(progress.bundles.core.host, "opencode");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("resetInstallState removes only host progress when scoped", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-reset-preserve-"),
+  );
+
+  try {
+    // Pre-populate progress with both opencode and shared bundles
+    await ensureDirectory(join(projectRoot, "state", "install"));
+    await writeJsonFile(
+      join(projectRoot, "state", "install", "progress.json"),
+      {
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+        bundles: {
+          "opencode-core": {
+            host: "opencode",
+            batchSize: 5,
+            totalAssets: 10,
+            installedAssets: 3,
+            remainingAssets: 7,
+            lastBatchAssetIds: [],
+            skippedAssetIds: [],
+          },
+          "shared-core": {
+            host: "shared",
+            batchSize: 5,
+            totalAssets: 10,
+            installedAssets: 3,
+            remainingAssets: 7,
+            lastBatchAssetIds: [],
+            skippedAssetIds: [],
+          },
+        },
+      },
+    );
+    await mkdir(join(projectRoot, "install", "opencode", "bundles"), {
+      recursive: true,
+    });
+    await mkdir(join(projectRoot, "install", "shared", "bundles"), {
+      recursive: true,
+    });
+    await mkdir(join(projectRoot, "install", "generations", "opencode"), {
+      recursive: true,
+    });
+    await mkdir(join(projectRoot, "install", "generations", "shared"), {
+      recursive: true,
+    });
+
+    await resetInstallState(projectRoot, "opencode");
+
+    // OpenCode install dir removed
+    assert.equal(
+      await pathExists(join(projectRoot, "install", "opencode")),
+      false,
+    );
+    // OpenCode generations removed
+    assert.equal(
+      await pathExists(join(projectRoot, "install", "generations", "opencode")),
+      false,
+    );
+    // Shared still exists
+    assert.equal(
+      await pathExists(join(projectRoot, "install", "shared")),
+      true,
+    );
+
+    // Progress: opencode bundle removed, shared bundle preserved
+    const progress = await readJsonFile<{ bundles: Record<string, unknown> }>(
+      join(projectRoot, "state", "install", "progress.json"),
+    );
+    assert.ok(
+      !progress.bundles["opencode-core"],
+      "opencode bundle should be removed from progress",
+    );
+    assert.ok(
+      progress.bundles["shared-core"],
+      "shared bundle should be preserved",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("diffInstallState compares previous and current generations", async (t) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-install-generations-"),
