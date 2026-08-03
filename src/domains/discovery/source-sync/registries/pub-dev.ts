@@ -22,11 +22,11 @@ import {
 
 import {
   countEntriesForSource,
+  getEffectiveMaxPagesPerRun,
   getPreviousCursorStates,
   upsertIndexedCatalogEntry,
 } from "../state.js";
 import {
-  SOURCE_SYNC_BATCH_SIZE,
   asRecord,
   fetchRequiredJson,
   getAllowedOrigins,
@@ -75,7 +75,7 @@ export async function syncPubDevSource(
     nextUrl = listingUrl;
   }
 
-  const maxPages = context.maxPagesPerRunOverride ?? SOURCE_SYNC_BATCH_SIZE;
+  const maxPages = getEffectiveMaxPagesPerRun(context);
   const registryKind = getPackageRegistryKind(source);
   const demandProfile = context.demandProfile ?? (null as DemandProfile | null);
   const selectionRegistry = context.selectionRegistry as SelectionRegistry;
@@ -116,7 +116,9 @@ export async function syncPubDevSource(
     pageCount++;
     // The official API response field is camelCase `nextUrl` (not
     // snake_case `next_url`).  https://pub.dev/help/api
-    nextUrl = typeof record.nextUrl === "string" ? record.nextUrl : undefined;
+    // Use getString to normalize empty strings → undefined so
+    // end-of-pagination is consistently treated as complete.
+    nextUrl = getString(record.nextUrl);
   }
 
   const completed = nextUrl === undefined;

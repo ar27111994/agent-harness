@@ -1295,6 +1295,18 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
               { cursorId: "packages", nextToken: "", completed: false },
             ],
           },
+          // Stale entry for a source not in the enabled registry —
+          // exercises the enabledSources filter in the state merge (#419)
+          {
+            sourceId: "stale-disabled-source",
+            coverageMode: "indexed",
+            status: "complete",
+            lastSyncedAt: new Date().toISOString(),
+            indexedEntryCount: 5,
+            cursors: [
+              { cursorId: "packages", nextToken: undefined, completed: true },
+            ],
+          },
         ],
       },
     );

@@ -287,10 +287,14 @@ export async function syncIndexedSources(
       // by the sourceIds filter. Without this merge, filtered-out sources
       // lose their cursors, indexedEntryCount, and consecutiveFailures
       // when the state is persisted (#419 review feedback).
-      ...existingState.sources.filter(
-        (previous) =>
-          !sourceStates.some((next) => next.sourceId === previous.sourceId),
-      ),
+      // Only carry forward entries for sources that are still enabled —
+      // stale entries for disabled/removed sources are dropped.
+      ...existingState.sources.filter((previous) => {
+        if (sourceStates.some((next) => next.sourceId === previous.sourceId)) {
+          return false; // already updated in this run
+        }
+        return enabledSources.some((s) => s.id === previous.sourceId);
+      }),
     ].sort((left, right) => left.sourceId.localeCompare(right.sourceId)),
   };
 

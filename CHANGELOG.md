@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - **`--sync-all` flag** — new flag for `discover full` that bypasses demand-based source filtering and syncs all enabled sources (#419)
 - **hex-registry (Hex.pm)** — Elixir/Erlang ecosystem package registry via sitemap-based sync at https://hex.pm/sitemap.xml. Automatically included when demand signals detect Elixir, Erlang, mix, hex, or rebar
 - **conan-registry (ConanCenter)** — C/C++ ecosystem package registry via sitemap-based sync at https://conan.io/sitemap.xml. Automatically included when demand signals detect C, C++, cmake, meson, or conan
-- **pub-dev-registry (pub.dev)** — Dart/Flutter ecosystem package registry via JSON API paginated sync at https://pub.dev/api/packages. Automatically included when demand signals detect Dart, Flutter, or pub
+- **pub-dev-registry (pub.dev)** — Dart/Flutter ecosystem package registry via JSON API paginated sync at https://pub.dev/api/package-names. Automatically included when demand signals detect Dart, Flutter, or pub
 
 ### Fixed
 
