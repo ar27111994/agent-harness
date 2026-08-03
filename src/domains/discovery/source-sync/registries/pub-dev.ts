@@ -71,9 +71,11 @@ export async function syncPubDevSource(
       const pubspec = asRecord(latest.pubspec ?? {});
       const description = getString(pubspec.description) ?? "";
       const repositoryUrl = getString(pubspec.repository);
-      const lastUpdated = getString(latest.version)
-        ? new Date().toISOString()
-        : undefined;
+      // pub.dev listing API does not expose per-package publication
+      // timestamps. lastUpdated remains undefined so freshness scoring
+      // falls back to source lastSyncedAt rather than fabricating a
+      // timestamp that would mark every package as "just updated."
+      const lastUpdated = undefined;
 
       const entry = buildPackageRegistryCatalogEntry(
         source,

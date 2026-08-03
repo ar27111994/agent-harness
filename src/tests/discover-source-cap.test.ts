@@ -660,12 +660,13 @@ void test("getEnabledSourceIds: returns count from valid source registry", async
 
     const { discoverInternals } = await import("../discover.js");
     const ids = await discoverInternals.getEnabledSourceIds(dir);
-    // Count should reflect both the base registry (3 enabled of 5)
-    // plus generated local sources — exact count depends on system state.
-    assert.ok(
-      ids.length >= 3,
-      `expected at least 3 enabled sources, got ${ids.length}`,
-    );
+    // Must include the enabled fixture sources
+    assert.ok(ids.includes("src-1"), "src-1 (enabled) should be in list");
+    assert.ok(ids.includes("src-2"), "src-2 (enabled) should be in list");
+    assert.ok(ids.includes("src-4"), "src-4 (enabled) should be in list");
+    // Must NOT include the disabled fixture sources
+    assert.ok(!ids.includes("src-3"), "src-3 (disabled) should NOT be in list");
+    assert.ok(!ids.includes("src-5"), "src-5 (disabled) should NOT be in list");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -719,11 +720,9 @@ void test("getEnabledSourceIds: returns 0 when all sources disabled", async () =
 
     const { discoverInternals } = await import("../discover.js");
     const ids = await discoverInternals.getEnabledSourceIds(dir);
-    // 0 from base registry + generated local sources (always enabled)
-    assert.ok(
-      ids.length >= 0,
-      `expected non-negative count, got ${ids.length}`,
-    );
+    // Disabled fixture sources must NOT appear in the enabled list
+    assert.ok(!ids.includes("src-1"), "src-1 (disabled) should NOT be in list");
+    assert.ok(!ids.includes("src-2"), "src-2 (disabled) should NOT be in list");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
