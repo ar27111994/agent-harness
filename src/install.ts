@@ -188,9 +188,10 @@ function printInstallSubcommandHelp(subcommand: string): void {
     diff: {
       heading: "install diff — Show install state differences",
       lines: [
-        "Usage: agent-harness install diff [--host <host>]",
+        "Usage: agent-harness install diff [--host <host>] [--left <genId>] [--right <genId>]",
         "",
         "Shows differences between staged install state and mirror bundles.",
+        "Optionally compare two specific generations via --left and --right.",
       ],
     },
     explain: {
