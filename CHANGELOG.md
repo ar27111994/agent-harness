@@ -9,6 +9,9 @@ All notable changes to this project will be documented in this file.
 - **Demand-based source filtering** — `discover full` now syncs only sources relevant to the detected project ecosystem, reducing first-run sync time from 5+ minutes to under 60 seconds for typical TypeScript projects. Sources are mapped from demand signals (languages, frameworks, package managers) to relevant registries. Universal sources (mcp-registry, skills-sh, ui-skills, clawhub) are always synced. Use `--sync-all` to override and sync every enabled source (#419)
 - **Demand-sync progress hint** — after demand detection, `discover full` prints an ecosystem-aware summary: "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped). Use --sync-all for full sync or --no-sync to skip entirely." (#420)
 - **`--sync-all` flag** — new flag for `discover full` that bypasses demand-based source filtering and syncs all enabled sources (#419)
+- **hex-registry (Hex.pm)** — Elixir/Erlang ecosystem package registry via sitemap-based sync at https://hex.pm/sitemap.xml. Automatically included when demand signals detect Elixir, Erlang, mix, hex, or rebar
+- **conan-registry (ConanCenter)** — C/C++ ecosystem package registry via sitemap-based sync at https://conan.io/sitemap.xml. Automatically included when demand signals detect C, C++, cmake, meson, or conan
+- **pub-dev-registry (pub.dev)** — Dart/Flutter ecosystem package registry via JSON API paginated sync at https://pub.dev/api/packages. Automatically included when demand signals detect Dart, Flutter, or pub
 
 ### Fixed
 
