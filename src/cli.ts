@@ -380,6 +380,7 @@ function printHelp(): void {
           "  discover demand-profile     Scan the working directory for demand signals",
           "  discover sources            Summarize enabled discovery sources",
           "  discover sync               Persist indexed sync results for high-volume sources",
+          "  discover index              Build full offline catalog index (500 pages per source)",
           "  discover catalog            Build the unified asset catalog",
           "  discover select             Apply canonical selection policies",
           "  discover full               Run demand-profile -> sources -> sync -> catalog -> select",
