@@ -13,6 +13,8 @@ import test from "node:test";
 
 import { runBuiltCli } from "./built-cli-harness.js";
 
+// ─── Shared helpers ─────────────────────────────────────────────────────────
+
 /**
  * Extracts the subcommand names listed under a section heading in parent
  * help output. Expects lines like "  discover demand-profile     Scan..."
@@ -46,25 +48,22 @@ function extractSubcommandsFromSection(
   return commands;
 }
 
-void test("parent help lists all discover subcommands that exist", async () => {
-  // Discover subcommands from cli.ts switch statement
-  const realDiscoverSubcommands = new Set([
-    "demand-profile",
-    "sources",
-    "catalog",
-    "index",
-    "sync",
-    "select",
-    "full",
-    "breadth",
-    "enrich",
-    "stats",
-    "diff",
-    "environment-index",
-    "ard-export",
-    "inspect",
-  ]);
-
+/**
+ * Shared parent-help validation: runs --help, extracts subcommands from
+ * the named section(s), and asserts bidirectional equality with the
+ * expected set.
+ *
+ * @param label      Human-readable command group name for error messages
+ * @param sections   One or more parent-help section titles to scan
+ * @param prefix     The command prefix (e.g. "discover", "mirror")
+ * @param expected   Set of subcommand names that actually exist
+ */
+async function assertParentHelpListsAll(
+  label: string,
+  sections: string[],
+  prefix: string,
+  expected: ReadonlySet<string>,
+): Promise<void> {
   const { stdout } = await runBuiltCli({
     cwd: process.cwd(),
     env: {},
@@ -73,217 +72,106 @@ void test("parent help lists all discover subcommands that exist", async () => {
     args: ["--help"],
   });
 
-  const listed = extractSubcommandsFromSection(
-    stdout,
-    "Discover —",
-    "discover",
+  const listed = sections.flatMap((title) =>
+    extractSubcommandsFromSection(stdout, title, prefix),
   );
 
   for (const cmd of listed) {
     assert.ok(
-      realDiscoverSubcommands.has(cmd),
-      `Parent help lists discover subcommand '${cmd}' but it doesn't exist`,
+      expected.has(cmd),
+      `Parent help lists ${label} subcommand '${cmd}' but it doesn't exist`,
     );
   }
 
-  for (const cmd of realDiscoverSubcommands) {
+  for (const cmd of expected) {
     assert.ok(
       listed.includes(cmd),
-      `Discover subcommand '${cmd}' exists but is not listed in parent help`,
+      `${label} subcommand '${cmd}' exists but is not listed in parent help`,
     );
   }
+}
+
+// ─── Parent-help completeness tests ─────────────────────────────────────────
+
+void test("parent help lists all discover subcommands that exist", async () => {
+  await assertParentHelpListsAll(
+    "discover",
+    ["Discover —"],
+    "discover",
+    new Set([
+      "demand-profile",
+      "sources",
+      "catalog",
+      "index",
+      "sync",
+      "select",
+      "full",
+      "breadth",
+      "enrich",
+      "stats",
+      "diff",
+      "environment-index",
+      "ard-export",
+      "inspect",
+    ]),
+  );
 });
 
 void test("parent help lists all recommend subcommands that exist", async () => {
-  const realRecommendSubcommands = new Set([
-    "report",
-    "ai-review",
-    "explain",
-    "evaluate",
-    "policy:print",
-  ]);
-
-  const { stdout } = await runBuiltCli({
-    cwd: process.cwd(),
-    env: {},
-    stateRoot: "",
-    timeout: 10_000,
-    args: ["--help"],
-  });
-
-  const listed = extractSubcommandsFromSection(
-    stdout,
-    "Recommend —",
+  await assertParentHelpListsAll(
     "recommend",
+    ["Recommend —"],
+    "recommend",
+    new Set(["report", "ai-review", "explain", "evaluate", "policy:print"]),
   );
-
-  for (const cmd of listed) {
-    assert.ok(
-      realRecommendSubcommands.has(cmd),
-      `Parent help lists recommend subcommand '${cmd}' but it doesn't exist`,
-    );
-  }
-
-  for (const cmd of realRecommendSubcommands) {
-    assert.ok(
-      listed.includes(cmd),
-      `Recommend subcommand '${cmd}' exists but is not listed in parent help`,
-    );
-  }
 });
 
 void test("parent help lists all mirror subcommands that exist", async () => {
-  const realMirrorSubcommands = new Set([
-    "locks",
-    "acquire",
-    "bundle-explain",
-    "plan",
-    "diff",
-    "explain",
-  ]);
-
-  const { stdout } = await runBuiltCli({
-    cwd: process.cwd(),
-    env: {},
-    stateRoot: "",
-    timeout: 10_000,
-    args: ["--help"],
-  });
-
-  const listed = [
-    ...extractSubcommandsFromSection(stdout, "Mirror & Install", "mirror"),
-    ...extractSubcommandsFromSection(stdout, "Rebuild & Bundle", "mirror"),
-  ];
-
-  for (const cmd of listed) {
-    assert.ok(
-      realMirrorSubcommands.has(cmd),
-      `Parent help lists mirror subcommand '${cmd}' but it doesn't exist`,
-    );
-  }
-
-  for (const cmd of realMirrorSubcommands) {
-    assert.ok(
-      listed.includes(cmd),
-      `Mirror subcommand '${cmd}' exists but is not listed in parent help`,
-    );
-  }
+  await assertParentHelpListsAll(
+    "mirror",
+    ["Mirror & Install", "Rebuild & Bundle"],
+    "mirror",
+    new Set(["locks", "acquire", "bundle-explain", "plan", "diff", "explain"]),
+  );
 });
 
 void test("parent help lists all install subcommands that exist", async () => {
-  const realInstallSubcommands = new Set([
-    "bundle",
-    "native",
-    "refresh",
-    "reconcile",
-    "diff",
-    "explain",
-    "generations",
-    "reset",
-  ]);
-
-  const { stdout } = await runBuiltCli({
-    cwd: process.cwd(),
-    env: {},
-    stateRoot: "",
-    timeout: 10_000,
-    args: ["--help"],
-  });
-
-  const listed = extractSubcommandsFromSection(
-    stdout,
-    "Mirror & Install",
+  await assertParentHelpListsAll(
     "install",
+    ["Mirror & Install"],
+    "install",
+    new Set([
+      "bundle",
+      "native",
+      "refresh",
+      "reconcile",
+      "diff",
+      "explain",
+      "generations",
+      "reset",
+    ]),
   );
-
-  for (const cmd of listed) {
-    assert.ok(
-      realInstallSubcommands.has(cmd),
-      `Parent help lists install subcommand '${cmd}' but it doesn't exist`,
-    );
-  }
-
-  for (const cmd of realInstallSubcommands) {
-    assert.ok(
-      listed.includes(cmd),
-      `Install subcommand '${cmd}' exists but is not listed in parent help`,
-    );
-  }
 });
 
 void test("parent help lists all activate subcommands that exist", async () => {
-  const realActivateSubcommands = new Set([
-    "host",
-    "diff",
-    "explain",
-    "rollback",
-  ]);
-
-  const { stdout } = await runBuiltCli({
-    cwd: process.cwd(),
-    env: {},
-    stateRoot: "",
-    timeout: 10_000,
-    args: ["--help"],
-  });
-
-  const listed = extractSubcommandsFromSection(
-    stdout,
-    "Activate & Wire",
+  await assertParentHelpListsAll(
     "activate",
+    ["Activate & Wire"],
+    "activate",
+    new Set(["host", "diff", "explain", "rollback"]),
   );
-
-  for (const cmd of listed) {
-    assert.ok(
-      realActivateSubcommands.has(cmd),
-      `Parent help lists activate subcommand '${cmd}' but it doesn't exist`,
-    );
-  }
-
-  for (const cmd of realActivateSubcommands) {
-    assert.ok(
-      listed.includes(cmd),
-      `Activate subcommand '${cmd}' exists but is not listed in parent help`,
-    );
-  }
 });
 
 void test("parent help lists all quarantine subcommands that exist", async () => {
-  const realQuarantineSubcommands = new Set([
-    "list",
-    "approve",
-    "reject",
-    "pin",
-  ]);
-
-  const { stdout } = await runBuiltCli({
-    cwd: process.cwd(),
-    env: {},
-    stateRoot: "",
-    timeout: 10_000,
-    args: ["--help"],
-  });
-
-  const listed = extractSubcommandsFromSection(
-    stdout,
-    "Quarantine —",
+  await assertParentHelpListsAll(
     "quarantine",
+    ["Quarantine —"],
+    "quarantine",
+    new Set(["list", "approve", "reject", "pin"]),
   );
-
-  for (const cmd of listed) {
-    assert.ok(
-      realQuarantineSubcommands.has(cmd),
-      `Parent help lists quarantine subcommand '${cmd}' but it doesn't exist`,
-    );
-  }
-
-  for (const cmd of realQuarantineSubcommands) {
-    assert.ok(
-      listed.includes(cmd),
-      `Quarantine subcommand '${cmd}' exists but is not listed in parent help`,
-    );
-  }
 });
+
+// ─── Subcommand-specific help test ──────────────────────────────────────────
 
 void test("every known subcommand has subcommand-specific --help", async () => {
   // Subcommands that should have specific help output (not parent help)
@@ -345,12 +233,14 @@ void test("every known subcommand has subcommand-specific --help", async () => {
       args: [domain, subcommand, "--help"],
     });
 
-    // Subcommand-specific help should contain the subcommand name in its
-    // heading, not show the parent command list.
+    // Subcommand-specific help should show the subcommand name in its
+    // heading (first line). Anchor to line start so incidental mentions
+    // in descriptions or options cannot satisfy the assertion.
     const subcommandName = `${domain} ${subcommand}`;
+    const escaped = subcommandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     assert.match(
       stdout,
-      new RegExp(subcommandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "u"),
+      new RegExp(`^${escaped}`, "mu"),
       `${subcommandName} --help should show subcommand-specific help`,
     );
   }
