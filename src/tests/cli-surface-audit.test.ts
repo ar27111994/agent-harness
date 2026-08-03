@@ -197,7 +197,8 @@ void test("every known subcommand has subcommand-specific --help", async () => {
     ["recommend", "policy:print"],
     ["mirror", "locks"],
     ["mirror", "acquire"],
-    ["mirror", "bundle-explain"],
+    // mirror bundle-explain --help displays heading "bundle explain"
+    ["mirror", "bundle-explain", "bundle explain"],
     ["mirror", "plan"],
     ["mirror", "diff"],
     ["mirror", "explain"],
@@ -224,7 +225,7 @@ void test("every known subcommand has subcommand-specific --help", async () => {
     ["setup", "login"],
   ];
 
-  for (const [domain, subcommand] of subcommandsWithHelp) {
+  for (const [domain, subcommand, displayName] of subcommandsWithHelp) {
     const { stdout } = await runBuiltCli({
       cwd: process.cwd(),
       env: {},
@@ -236,12 +237,12 @@ void test("every known subcommand has subcommand-specific --help", async () => {
     // Subcommand-specific help should show the subcommand name in its
     // heading (first line). Anchor to line start so incidental mentions
     // in descriptions or options cannot satisfy the assertion.
-    const subcommandName = `${domain} ${subcommand}`;
-    const escaped = subcommandName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const headingName = displayName ?? `${domain} ${subcommand}`;
+    const escaped = headingName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     assert.match(
       stdout,
       new RegExp(`^${escaped}`, "mu"),
-      `${subcommandName} --help should show subcommand-specific help`,
+      `${headingName} --help should show subcommand-specific help`,
     );
   }
 });
