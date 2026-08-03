@@ -1271,7 +1271,7 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
     join(tmpdir(), "agent-harness-source-sync-pubdev-edge-"),
   );
   const cleanupFetch = installFetchMock({
-    // Page 1: returns packages with edge cases
+    // Page 1: edge cases — null latest, missing pubspec (#419)
     "https://pub.dev/api/packages?page=1": jsonResponse({
       next_url: "https://pub.dev/api/packages?page=2",
       packages: [
@@ -1279,22 +1279,15 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
           name: "valid-pkg",
           latest: { version: "1.0.0", pubspec: { description: "A package" } },
         },
-        { name: "no-version", latest: { pubspec: {} } },
-        null,
+        { name: "no-latest" }, // no `latest` → line 70 ??
+        { name: "no-pubspec", latest: {} }, // `latest` without `pubspec` → line 71 ??
+        null, // skip null entries
       ],
     }),
-    // Page 2: returns different data to exercise multi-page path + non-string next_url
+    // Page 2: non-array packages → exercises line 61 false arm
     "https://pub.dev/api/packages?page=2": jsonResponse({
-      next_url: 3,
-      packages: [
-        {
-          name: "page2-pkg",
-          latest: {
-            version: "2.0.0",
-            pubspec: { description: "Page 2 package" },
-          },
-        },
-      ],
+      next_url: undefined,
+      packages: null,
     }),
   });
 
@@ -1345,6 +1338,84 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
       rankingOrder: [],
       duplicateGroups: [],
     });
+    // Omit demand-profile.json — exercises line 55 ?? fallback (null demandProfile)
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "remote-harvest-state.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        completedSourceIds: [],
+      },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [],
+    );
+
+    await syncIndexedSources(projectRoot);
+
+    const report = await readJsonFile<SourceSyncReport>(
+      join(projectRoot, "discover", "output", "source-sync.json"),
+    );
+
+    const pubDevState = report.sources.find(
+      (s) => s.sourceId === "pub-dev-registry",
+    );
+    assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
+    // No maxPagesPerRun → processes all pages → status "complete"
+    assert.equal(pubDevState?.status, "complete");
+    assert.ok(
+      pubDevState.indexedEntryCount >= 1,
+      "pub-dev-registry should have indexed entries even with edge-case data",
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("pub-dev adapter handles partial completion", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-pubdev-partial-"),
+  );
+  const cleanupFetch = installFetchMock({
+    "https://pub.dev/api/packages?page=1": jsonResponse({
+      next_url: "https://pub.dev/api/packages?page=2",
+      packages: [
+        {
+          name: "pkg1",
+          latest: { version: "1.0", pubspec: { description: "test" } },
+        },
+      ],
+    }),
+  });
+
+  try {
+    await writeTestSourceRegistry(projectRoot, [
+      buildSource(
+        "pub-dev-registry",
+        "package-registry",
+        { baseUrl: "https://pub.dev" },
+        ["pi"],
+        ["plugin", "reference-pack"],
+        "official-marketplace",
+        { name: "pub.dev", verified: true },
+      ),
+    ]);
+
+    await writeJsonFile(join(projectRoot, "discover", "selections.json"), {
+      schemaVersion: 1,
+      selectionPolicies: {
+        officialBeatsPopularity: true,
+        starsAreTieBreakerOnly: true,
+        preferNativeOverAdaptable: true,
+        preferLowerRiskWhenEquivalent: true,
+        preferLowerContextCostWhenEquivalent: true,
+        communityDefaultPolicy: "catalog-only-unless-promoted",
+      },
+      rankingOrder: [],
+      duplicateGroups: [],
+    });
     await writeJsonFile(
       join(projectRoot, "discover", "output", "demand-profile.json"),
       {
@@ -1370,12 +1441,18 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
         completedSourceIds: [],
       },
     );
+    await writeJsonFile(
+      join(projectRoot, "state", "discover", "source-sync.json"),
+      { schemaVersion: 1, generatedAt: new Date().toISOString(), sources: [] },
+    );
     await writeJsonLinesFile(
       join(projectRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
       [],
     );
 
-    await syncIndexedSources(projectRoot);
+    // maxPagesPerRun: 1 → only processes page 1, nextUrl still set to page 2
+    // → status "partial" (exercises line 105 false arm)
+    await syncIndexedSources(projectRoot, { maxPagesPerRun: 1 });
 
     const report = await readJsonFile<SourceSyncReport>(
       join(projectRoot, "discover", "output", "source-sync.json"),
@@ -1385,13 +1462,7 @@ void test("pub-dev adapter handles edge cases gracefully", async () => {
       (s) => s.sourceId === "pub-dev-registry",
     );
     assert.ok(pubDevState, "pub-dev-registry should be present in sync report");
-    // Status is "partial" because next_url was a non-string integer,
-    // which doesn't match typeof === "string", so it's treated as end.
-    assert.equal(pubDevState?.status, "complete");
-    assert.ok(
-      pubDevState.indexedEntryCount >= 1,
-      "pub-dev-registry should have indexed entries even with edge-case data",
-    );
+    assert.equal(pubDevState?.status, "partial");
   } finally {
     cleanupFetch();
     await rm(projectRoot, { recursive: true, force: true });
