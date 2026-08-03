@@ -57,8 +57,6 @@ void test("parent help lists all discover subcommands that exist", async () => {
     "select",
     "full",
     "breadth",
-    "recall",
-    "candidate-pool",
     "enrich",
     "stats",
     "diff",
