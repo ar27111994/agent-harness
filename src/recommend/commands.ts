@@ -659,7 +659,7 @@ function printRecommendSubcommandHelp(subcommand: string): void {
     report: {
       heading: "recommend report — Build a scored recommendation report",
       lines: [
-        "Usage: agent-harness recommend report [--ai-review] [--intent <intent>]",
+        "Usage: agent-harness recommend report [--ai-review] [--host <host>] [--review-limit <n>] [--intent <intent>]",
         "",
         "Recomputes the recommendation report from the latest selected catalog",
         "and writes it to recommend/output/recommendation-report.json.",

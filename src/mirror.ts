@@ -179,6 +179,7 @@ function printMirrorSubcommandHelp(subcommand: string): void {
         "Usage: agent-harness bundle explain --bundle <bundleId>",
         "       agent-harness bundle explain <bundleId>",
         "       agent-harness mirror bundle-explain --bundle <bundleId>",
+        "       agent-harness mirror bundle-explain <bundleId>",
         "",
         "Prints detailed bundle membership and provenance for a mirrored",
         "artifact, including which bundles reference it and its acquisition status.",
