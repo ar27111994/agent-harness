@@ -131,6 +131,33 @@ const DISCOVER_FULL_KNOWN_FLAGS = new Set([
 ]);
 const DISCOVER_FULL_FLAGS_WITH_VALUES = new Set(["--max-scan-bytes"]);
 
+/** Minimum number of sources before the first-run --no-sync hint appears. */
+const FIRST_RUN_SYNC_HINT_MIN_SOURCES = 6;
+
+/**
+ * Decides whether to proactively print the first-run `--no-sync` hint
+ * (#439). The hint must appear WITHOUT requiring a skipped-source condition:
+ * the first sync of many sources is the case where a 60-120s silent phase
+ * makes the pipeline look hung. Suppressed when the user already opted out
+ * (--no-sync/--sync-all), when quiet mode is active, or on non-first runs.
+ */
+function shouldShowFirstRunSyncHint(
+  priorSyncState: SourceSyncState | null,
+  effectiveSourceCount: number,
+  quietMode: boolean,
+  noSync: boolean,
+  syncAll: boolean,
+): boolean {
+  if (quietMode || noSync || syncAll) {
+    return false;
+  }
+  if (effectiveSourceCount < FIRST_RUN_SYNC_HINT_MIN_SOURCES) {
+    return false;
+  }
+  const hasPriorSync = (priorSyncState?.sources.length ?? 0) > 0;
+  return !hasPriorSync;
+}
+
 export async function runDiscover(
   args: string[],
   workingDirectory: string,
@@ -363,6 +390,26 @@ export async function runDiscover(
                 `Use --sync-all for full sync or --no-sync to skip entirely.`,
             );
           }
+        }
+        // Proactive first-run hint (#439): before the (potentially minutes-
+        // long) sync phase starts, tell interactive users that cached-state
+        // opt-outs exist — even when no source was skipped.
+        const effectiveSyncSourceCount =
+          demandSourceIds?.size ??
+          (await getEnabledSourceIds(projectRoot)).length;
+        const priorSyncState = await loadSourceSyncState(projectRoot);
+        if (
+          shouldShowFirstRunSyncHint(
+            priorSyncState,
+            effectiveSyncSourceCount,
+            quietMode,
+            noSync,
+            syncAll,
+          )
+        ) {
+          process.stderr.write(
+            `[discover full] First-time sync of ${effectiveSyncSourceCount} sources may take several minutes — pass --no-sync to use cached discovery state or --sync-all to sync every enabled source.\n`,
+          );
         }
         logDiscoverPhase("discover full", 3, 5, "Syncing indexed sources");
         await syncIndexedSources(
@@ -1730,6 +1777,7 @@ export const discoverInternals = {
   computeSourceDiversityWarning,
   computeDemandRelevantSourceIds,
   getEnabledSourceIds,
+  shouldShowFirstRunSyncHint,
 };
 
 /**

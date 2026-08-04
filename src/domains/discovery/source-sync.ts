@@ -29,10 +29,16 @@ export {
   getIndexedSourceIds,
   loadIndexedCatalogEntries,
   synchronizeIndexedSource,
+  formatSyncEtaMs,
+  estimateRemainingSyncMs,
 } from "./source-sync/index.js";
 
 // Import for local use in sourceSyncInternals (re-export above is for consumers).
-import { synchronizeIndexedSource } from "./source-sync/index.js";
+import {
+  estimateRemainingSyncMs,
+  formatSyncEtaMs,
+  synchronizeIndexedSource,
+} from "./source-sync/index.js";
 
 // ─── Test escape-hatch ────────────────────────────────────────────────────────
 // `sourceSyncInternals` bundles all internal helper functions that tests reach
@@ -163,4 +169,6 @@ export const sourceSyncInternals = {
   fetchWithRetry,
 
   synchronizeIndexedSource,
+  formatSyncEtaMs,
+  estimateRemainingSyncMs,
 };

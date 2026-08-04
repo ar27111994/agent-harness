@@ -21,6 +21,7 @@ import test from "node:test";
 import { computeAcceptanceRate, discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
+import type { SourceSyncState } from "../domains/discovery/source-sync.js";
 
 const {
   applyPerSourceCap,
@@ -588,6 +589,110 @@ void test("computeDemandRelevantSourceIds: handles Erlang language", () => {
   const ids = computeDemandRelevantSourceIds(dp);
   assert.equal(ids.has("hex-registry"), true);
   assert.equal(ids.has("mcp-registry"), true);
+});
+
+// ---------------------------------------------------------------------------
+// shouldShowFirstRunSyncHint (#439)
+// ---------------------------------------------------------------------------
+
+function emptySyncState(): SourceSyncState {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    sources: [],
+  };
+}
+
+void test("shouldShowFirstRunSyncHint: shows on first run with many sources regardless of skipped-source conditions", () => {
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      emptySyncState(),
+      12,
+      false,
+      false,
+      false,
+    ),
+    true,
+    "hint appears without any skipped-source condition",
+  );
+});
+
+void test("shouldShowFirstRunSyncHint: suppressed when the user already opted out", () => {
+  const noPrior = emptySyncState();
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      noPrior,
+      12,
+      false,
+      true,
+      false,
+    ),
+    false,
+    "--no-sync suppresses the hint",
+  );
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      noPrior,
+      12,
+      false,
+      false,
+      true,
+    ),
+    false,
+    "--sync-all suppresses the hint",
+  );
+});
+
+void test("shouldShowFirstRunSyncHint: suppressed in quiet mode and for small syncs", () => {
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      emptySyncState(),
+      12,
+      true,
+      false,
+      false,
+    ),
+    false,
+    "quiet mode suppresses the hint",
+  );
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      emptySyncState(),
+      5,
+      false,
+      false,
+      false,
+    ),
+    false,
+    "small syncs do not need the hint",
+  );
+});
+
+void test("shouldShowFirstRunSyncHint: suppressed when prior sync state exists", () => {
+  const prior: SourceSyncState = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    sources: [
+      {
+        sourceId: "npm-registry",
+        coverageMode: "indexed",
+        status: "complete",
+        indexedEntryCount: 100,
+        cursors: [],
+      },
+    ],
+  };
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      prior,
+      12,
+      false,
+      false,
+      false,
+    ),
+    false,
+    "subsequent runs do not need the first-run hint",
+  );
 });
 
 // ---------------------------------------------------------------------------

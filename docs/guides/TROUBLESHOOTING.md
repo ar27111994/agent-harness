@@ -184,11 +184,16 @@ following durations are normal and do not indicate a hang or failure:
 | `npm run validate:release`  | 5–15 minutes      | All quality gates + smoke tests                              |
 
 For `discover full`, the sync phase prints per-source progress to stderr (e.g.
-`[discover sync] 3/12 npm … done (7242ms)`) and a demand-based filtering summary
-(`Detected TypeScript project. Syncing 12/47 demand-relevant sources`).
+`[discover sync] 3/12 npm … done (7242ms, ~2m 5s remaining)`) and a demand-based
+filtering summary (`Detected TypeScript project. Syncing 12/47 demand-relevant
+sources`). On a first run (no cached sync state) with 6+ sources to sync, the
+pipeline also prints a proactive hint before syncing:
+`First-time sync of N sources may take several minutes — pass --no-sync to use
+cached discovery state or --sync-all to sync every enabled source.`
 Use `--no-sync` to skip source sync for local-only discovery or `--sync-all`
 for legacy full sync of all sources. CI pipelines should set `timeout-minutes: 30`
-or higher when using `--sync-all`.
+or higher when using `--sync-all`; agent sessions with a 120s command timeout
+should pass `--no-sync` on first runs of `discover full`.
 
 For `test:self-hosting`, the test timeout is configured in the CI quality
 workflow. If running locally, use:

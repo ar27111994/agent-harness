@@ -26,6 +26,12 @@ The fixture is a tiny TypeScript API workspace with `express`, `zod`, and `types
 
 ## Command sequence to record
 
+> **First-run timing:** the first `discover full` run performs a live source
+> sync that takes ~1–2 minutes (demand-filtered). If a 120-second command
+> timeout is in play, use `discover full --no-sync` for the recording and
+> note that the catalog then reflects cached sync state. Per-source sync
+> progress (with remaining-time estimates) prints to stderr.
+
 From the repository root after dependencies and build output exist:
 
 ```bash

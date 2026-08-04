@@ -1655,3 +1655,43 @@ void test("syncSitemapPackageRegistrySource — unmapped registry kinds fail clo
     cleanupFetch();
   }
 });
+
+// ---------------------------------------------------------------------------
+// #439 — sync progress ETA helpers
+// ---------------------------------------------------------------------------
+
+void test("formatSyncEtaMs formats remaining durations for sync progress", () => {
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(0), "~0s");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(999), "~1s");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(52_000), "~52s");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(125_000), "~2m 5s");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(180_000), "~3m");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(3_600_000), "~60m");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(-5), "~0s");
+  assert.equal(sourceSyncInternals.formatSyncEtaMs(Number.NaN), "~0s");
+  assert.equal(
+    sourceSyncInternals.formatSyncEtaMs(Number.POSITIVE_INFINITY),
+    "~0s",
+  );
+});
+
+void test("estimateRemainingSyncMs extrapolates average per-source duration", () => {
+  const past = Date.now() - 10_000;
+  // 2 sources completed in 10s → ~5s/source; 5 remaining → ~25s.
+  const remaining = sourceSyncInternals.estimateRemainingSyncMs(past, 2, 7);
+  assert.ok(remaining > 20_000 && remaining < 30_000);
+
+  // Nothing remaining (or nothing completed) → zero.
+  assert.equal(
+    sourceSyncInternals.estimateRemainingSyncMs(Date.now(), 2, 2),
+    0,
+  );
+  assert.equal(
+    sourceSyncInternals.estimateRemainingSyncMs(Date.now(), 0, 5),
+    0,
+  );
+  assert.equal(
+    sourceSyncInternals.estimateRemainingSyncMs(Date.now(), 3, 1),
+    0,
+  );
+});
