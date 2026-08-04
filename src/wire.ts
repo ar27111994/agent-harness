@@ -6,6 +6,7 @@ import {
   hasHelpFlag,
   isFlagLike,
   printUnknownArgumentError,
+  rejectUnknownFlags,
 } from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import {
@@ -58,6 +59,19 @@ export async function runWire(
     }
     console.log(formatActionableDiagnostic(unknownHostDiagnostic(target)));
     printWireHelp();
+    return 1;
+  }
+
+  // Strict flag validation before any preflight work (#431): wire hosts only
+  // accept the three mode flags.
+  if (
+    rejectUnknownFlags(
+      rest,
+      new Set(["--preview", "--apply", "--reset"]),
+      new Set(),
+      `agent-harness wire ${getPreferredHostCommand(hostAdapter.id)} --help`,
+    )
+  ) {
     return 1;
   }
 

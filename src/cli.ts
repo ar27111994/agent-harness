@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { loadDotEnvFile } from "./config/env-file.js";
 import { clearRuntimeConfig } from "./config/runtime.js";
@@ -89,6 +89,20 @@ async function main(): Promise<number> {
     ),
   );
 
+  return runDomainCommand(domain, args, workingDirectory, projectRoot);
+}
+
+/**
+ * Dispatches a parsed domain token to its runner. Extracted from `main` so
+ * in-process tests can exercise every dispatch branch (#428) without
+ * spawning a child CLI (subprocess execution is invisible to c8 coverage).
+ */
+export async function runDomainCommand(
+  domain: string | undefined,
+  args: string[],
+  workingDirectory: string,
+  projectRoot: string,
+): Promise<number> {
   switch (domain) {
     case "discover":
       return runDiscover(args, workingDirectory, projectRoot);
@@ -496,18 +510,33 @@ function printHelp(): void {
   });
 }
 
-main()
-  .then((exitCode) => {
-    process.exitCode = exitCode;
-  })
-  .catch((error: unknown) => {
-    console.error(error);
-    process.exitCode = 1;
-  });
+// Run the CLI only when executed directly (node dist/cli.js). When the
+// module is imported (in-process unit tests, #428), the dispatch helpers
+// must be importable without side effects — module-scope execution would
+// otherwise run a full CLI pass with the importing process' argv.
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main()
+    .then((exitCode) => {
+      process.exitCode = exitCode;
+    })
+    .catch((error: unknown) => {
+      console.error(error);
+      process.exitCode = 1;
+    });
+}
 
 /**
  * Exposes narrow CLI internals for focused unit tests.
  */
 export const cliInternals = {
   mapBundleSubcommandForHelp,
+  runDomainCommand,
+  runHelpCommand,
+  parseGlobalOptions,
+  resolveHelpDomain,
+  isHelpRequest,
+  isVersionRequest,
 };

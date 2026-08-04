@@ -516,6 +516,19 @@ void describe("findUnknownFlag", () => {
     );
   });
 
+  void it("does not skip the value token when the value form is used inline", () => {
+    const flagsWithValues = new Set(["--max-scan-bytes"]);
+    assert.equal(
+      findUnknownFlag(
+        ["--max-scan-bytes=100", "--quiet"],
+        new Set(["--max-scan-bytes", "--quiet"]),
+        flagsWithValues,
+      ),
+      undefined,
+      "inline --flag=value form is recognized and nothing after it is skipped",
+    );
+  });
+
   void it("ignores positionals and stops at --", () => {
     assert.equal(findUnknownFlag(["full", "opencode"], known), undefined);
     assert.equal(

@@ -8,6 +8,7 @@ import {
   isFlagLike,
   printSubcommandHelp,
   printUnknownArgumentError,
+  rejectUnknownFlags,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
@@ -60,11 +61,41 @@ export async function runSetup(
 
   switch (command) {
     case "doctor":
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(["--host"]),
+          new Set(["--host"]),
+          "agent-harness setup doctor --help",
+        )
+      ) {
+        return 1;
+      }
       return (await runDoctor(rest, projectRoot)) ? 0 : 1;
     case "hosts":
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(),
+          new Set(),
+          "agent-harness setup hosts --help",
+        )
+      ) {
+        return 1;
+      }
       printHosts();
       return 0;
     case "login":
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(["--provider"]),
+          new Set(["--provider"]),
+          "agent-harness setup login --help",
+        )
+      ) {
+        return 1;
+      }
       printLoginGuidance(rest);
       return 0;
     case "help":
