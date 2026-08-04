@@ -8,7 +8,10 @@ import {
 } from "./domains/discovery/catalog-inspection.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
+  rejectUnknownFlags,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
@@ -113,6 +116,21 @@ import type {
 /**
  * Dispatches the discover CLI command group.
  */
+const DISCOVER_AI_ENRICH_FLAGS = new Set([
+  "--ai-enrich",
+  "--no-ai-enrich",
+  "--force",
+  "--require-ai-enrich",
+]);
+const DISCOVER_FULL_KNOWN_FLAGS = new Set([
+  ...DISCOVER_AI_ENRICH_FLAGS,
+  "--quiet",
+  "--summary",
+  "--no-sync",
+  "--sync-all",
+]);
+const DISCOVER_FULL_FLAGS_WITH_VALUES = new Set(["--max-scan-bytes"]);
+
 export async function runDiscover(
   args: string[],
   workingDirectory: string,
@@ -209,6 +227,16 @@ export async function runDiscover(
       return 0;
     }
     case "sync": {
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(["--full"]),
+          new Set(),
+          "agent-harness discover sync --help",
+        )
+      ) {
+        return 1;
+      }
       const forceFullFlag = rest.includes("--full");
       if (!forceFullFlag && (await isCatalogIndexFresh(projectRoot))) {
         // The index is fresh but source-sync state may be stale or empty.
@@ -236,6 +264,16 @@ export async function runDiscover(
       return 0;
     }
     case "select": {
+      if (
+        rejectUnknownFlags(
+          rest,
+          DISCOVER_AI_ENRICH_FLAGS,
+          new Set(),
+          "agent-harness discover select --help",
+        )
+      ) {
+        return 1;
+      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
       await generateSelectionOutputs(projectRoot);
@@ -251,6 +289,16 @@ export async function runDiscover(
       );
     }
     case "full": {
+      if (
+        rejectUnknownFlags(
+          rest,
+          DISCOVER_FULL_KNOWN_FLAGS,
+          DISCOVER_FULL_FLAGS_WITH_VALUES,
+          "agent-harness discover full --help",
+        )
+      ) {
+        return 1;
+      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
@@ -349,9 +397,30 @@ export async function runDiscover(
     case "breadth":
     case "recall":
     case "candidate-pool":
+      // These subcommands take no options; any flag is unknown (#431).
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(),
+          new Set(),
+          "agent-harness discover breadth --help",
+        )
+      ) {
+        return 1;
+      }
       await runDiscoveryBreadth(workingDirectory, projectRoot);
       return 0;
     case "enrich":
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(["--force", "--require-ai-enrich"]),
+          new Set(),
+          "agent-harness discover enrich --help",
+        )
+      ) {
+        return 1;
+      }
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "manual",
@@ -362,6 +431,16 @@ export async function runDiscover(
         }),
       );
     case "stats":
+      if (
+        rejectUnknownFlags(
+          rest,
+          new Set(),
+          new Set(),
+          "agent-harness discover stats --help",
+        )
+      ) {
+        return 1;
+      }
       await printCatalogStats(projectRoot);
       return 0;
     case "diff":
@@ -400,6 +479,13 @@ export async function runDiscover(
       printDiscoverHelp();
       return 0;
     default:
+      // Flag-like first tokens are unknown options: name them instead of
+      // dumping the parent help (#431). Non-flag unknown subcommands still
+      // show parent help with a non-zero exit.
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printDiscoverHelp();
       return 1;
   }

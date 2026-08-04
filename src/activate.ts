@@ -14,7 +14,9 @@ import {
 } from "./files.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { listHostAdapters } from "./host-adapters/registry.js";
@@ -136,6 +138,10 @@ export async function runActivate(
       printActivateHelp();
       return 0;
     default:
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printActivateHelp();
       return 1;
   }

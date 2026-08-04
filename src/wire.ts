@@ -2,7 +2,11 @@
 
 import { fileURLToPath } from "node:url";
 
-import { hasHelpFlag } from "./cli-help-format.js";
+import {
+  hasHelpFlag,
+  isFlagLike,
+  printUnknownArgumentError,
+} from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import {
   listHostAdapters,
@@ -48,6 +52,10 @@ export async function runWire(
 
   const hostAdapter = resolveHostAdapter(target);
   if (!hostAdapter) {
+    if (isFlagLike(target)) {
+      printUnknownArgumentError(target);
+      return 1;
+    }
     console.log(formatActionableDiagnostic(unknownHostDiagnostic(target)));
     printWireHelp();
     return 1;

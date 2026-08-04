@@ -9,6 +9,7 @@ import { resolveProjectRoot } from "./files.js";
 import { clearGitHubState } from "./github.js";
 import { runInstall } from "./install.js";
 import { printCommandHelp } from "./lib/cli-output.js";
+import { printUnknownArgumentError } from "./cli-help-format.js";
 import { runMirror } from "./mirror.js";
 import { runRecommend } from "./recommend.js";
 import { runQuarantine } from "./quarantine.js";
@@ -131,7 +132,9 @@ async function main(): Promise<number> {
       printHelp();
       return 0;
     default:
-      printHelp();
+      // Unknown option/command: print a conventional error naming the
+      // argument instead of dumping the full top-level help (#431).
+      printUnknownArgumentError(domain);
       return 1;
   }
 }
@@ -198,7 +201,7 @@ function runHelpCommand(
         // "mirror explain" — route it to the bundle-explain handler.
         // Reject unknown subcommands consistently with the execution path.
         if (domainArgs[0] !== "explain") {
-          printHelp();
+          printUnknownArgumentError(domainArgs[0] ?? "");
           return Promise.resolve(1);
         }
         return runMirror(
@@ -260,7 +263,7 @@ function runHelpCommand(
       printHelp();
       return Promise.resolve(0);
     default:
-      printHelp();
+      printUnknownArgumentError(domain);
       return Promise.resolve(1);
   }
 }
@@ -385,6 +388,8 @@ function printHelp(): void {
           "  discover select             Apply canonical selection policies",
           "  discover full               Run demand-profile -> sources -> sync -> catalog -> select",
           "  discover breadth            Widest discovery pass with candidate-pool guidance",
+          "  discover recall             Alias for discover breadth",
+          "  discover candidate-pool     Alias for discover breadth",
           "  discover stats              Print catalog and source statistics",
           "  discover diff               Compare outputs against a baseline state root",
           "  discover environment-index  Write experimental read-only query metadata index",
@@ -463,6 +468,8 @@ function printHelp(): void {
         title: "Quarantine — review and manage quarantined mirror artifacts:",
         lines: [
           "  quarantine list             List quarantined mirror artifacts pending review",
+          "  quarantine inspect          Show quarantined artifact metadata and content preview",
+          "  quarantine report           Write state/quarantine/quarantine-state.json",
           "  quarantine approve          Mark a quarantined artifact approved-with-warning",
           "  quarantine reject           Record a rejection while keeping quarantine status",
           "  quarantine pin              Pin a quarantine decision for future reviews",

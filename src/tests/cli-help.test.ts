@@ -648,7 +648,9 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
       cwd: workspaceRoot,
       env,
       stateRoot,
-      timeout: 120_000,
+      // The full pipeline on a cold isolated state root takes ~90-120s on a
+      // loaded machine; leave headroom so parallel suite runs do not flake.
+      timeout: 180_000,
       args: ["discover", "full", "--no-sync"],
     });
 

@@ -8,7 +8,9 @@ import {
 import { generateMirrorPlan } from "./mirror/plan.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
@@ -67,6 +69,10 @@ export async function runMirror(
       printMirrorHelp();
       return 0;
     default:
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printMirrorHelp();
       return 1;
   }

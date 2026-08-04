@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  findUnknownFlag,
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
+  rejectUnknownFlags,
   type SubcommandHelpEntry,
 } from "../cli-help-format.js";
 
@@ -445,6 +449,151 @@ void describe("printSubcommandHelp", () => {
       assert.match(output, /test foo/u);
       // stdout.write must be restored to its exact pre-call reference
       assert.strictEqual(process.stdout.write, originalWrite);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isFlagLike / findUnknownFlag / printUnknownArgumentError / rejectUnknownFlags
+// ---------------------------------------------------------------------------
+
+void describe("isFlagLike", () => {
+  void it("classifies long, short, and non-flag tokens", () => {
+    assert.equal(isFlagLike("--quiet"), true);
+    assert.equal(isFlagLike("--no-sync"), true);
+    assert.equal(isFlagLike("-h"), true);
+    assert.equal(isFlagLike("--max-scan-bytes=100"), true);
+    assert.equal(isFlagLike("full"), false);
+    assert.equal(isFlagLike("-"), false, "bare dash is positional");
+    assert.equal(isFlagLike(""), false);
+  });
+});
+
+void describe("findUnknownFlag", () => {
+  const known = new Set(["--quiet", "--summary", "--no-sync"]);
+
+  void it("returns undefined when every flag is known", () => {
+    assert.equal(
+      findUnknownFlag(["--quiet", "--summary", "--no-sync"], known),
+      undefined,
+    );
+  });
+
+  void it("returns the first unknown flag", () => {
+    assert.equal(
+      findUnknownFlag(["--quiet", "--bad-flag"], known),
+      "--bad-flag",
+    );
+    assert.equal(findUnknownFlag(["--bad-flag"], known), "--bad-flag");
+  });
+
+  void it("compares --flag=value forms by long name", () => {
+    assert.equal(findUnknownFlag(["--quiet=true"], known), undefined);
+    assert.equal(
+      findUnknownFlag(["--max-scan-bytes=200"], known),
+      "--max-scan-bytes",
+    );
+  });
+
+  void it("skips value tokens for flags that take values", () => {
+    const flagsWithValues = new Set(["--max-scan-bytes"]);
+    assert.equal(
+      findUnknownFlag(
+        ["--max-scan-bytes", "100", "--quiet"],
+        new Set(["--max-scan-bytes", "--quiet"]),
+        flagsWithValues,
+      ),
+      undefined,
+    );
+    assert.equal(
+      findUnknownFlag(
+        ["--max-scan-bytes", "100", "--bad-flag"],
+        new Set(["--max-scan-bytes"]),
+        flagsWithValues,
+      ),
+      "--bad-flag",
+      "the token after a value flag is not itself scanned as a flag",
+    );
+  });
+
+  void it("ignores positionals and stops at --", () => {
+    assert.equal(findUnknownFlag(["full", "opencode"], known), undefined);
+    assert.equal(
+      findUnknownFlag(["--", "--bad-flag"], known),
+      undefined,
+      "tokens after -- are positional",
+    );
+  });
+
+  void it("handles empty args", () => {
+    assert.equal(findUnknownFlag([], known), undefined);
+  });
+
+  void it("does not classify a bare dash as an unknown flag", () => {
+    assert.equal(findUnknownFlag(["-"], known), undefined);
+  });
+});
+
+void describe("printUnknownArgumentError", () => {
+  void it("prints option vs command errors with a usage pointer", () => {
+    const messages: string[] = [];
+    const originalError = console.error;
+    console.error = (message?: unknown) => messages.push(String(message));
+    try {
+      printUnknownArgumentError("--bad-flag");
+      printUnknownArgumentError("license", "agent-harness --help");
+    } finally {
+      console.error = originalError;
+    }
+
+    assert.match(messages[0] ?? "", /error: unknown option '--bad-flag'/u);
+    assert.match(
+      messages[1] ?? "",
+      /Run 'agent-harness <command> --help' for usage/u,
+    );
+    assert.match(messages[2] ?? "", /error: unknown command 'license'/u);
+    assert.match(messages[3] ?? "", /Run 'agent-harness --help' for usage/u);
+  });
+});
+
+void describe("rejectUnknownFlags", () => {
+  void it("returns false and prints nothing for known flags", () => {
+    const messages: string[] = [];
+    const originalError = console.error;
+    console.error = (message?: unknown) => messages.push(String(message));
+    try {
+      const rejected = rejectUnknownFlags(
+        ["--quiet", "--no-sync"],
+        new Set(["--quiet", "--no-sync"]),
+        new Set(),
+        "agent-harness discover full --help",
+      );
+      assert.equal(rejected, false);
+      assert.deepEqual(messages, []);
+    } finally {
+      console.error = originalError;
+    }
+  });
+
+  void it("returns true and prints an error with the custom usage hint", () => {
+    const messages: string[] = [];
+    const originalError = console.error;
+    console.error = (message?: unknown) => messages.push(String(message));
+    try {
+      const rejected = rejectUnknownFlags(
+        ["--bad-flag"],
+        new Set(),
+        new Set(),
+        "agent-harness discover full --help",
+      );
+      assert.equal(rejected, true);
+      assert.match(messages[0] ?? "", /error: unknown option '--bad-flag'/u);
+      assert.match(
+        messages[1] ?? "",
+        /Run 'agent-harness discover full --help' for usage/u,
+      );
+    } finally {
+      console.error = originalError;
     }
   });
 });

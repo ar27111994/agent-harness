@@ -5,7 +5,9 @@ import {
 } from "./host-adapters/registry.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
@@ -69,6 +71,10 @@ export async function runSetup(
       printSetupHelp();
       return 0;
     default:
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printSetupHelp();
       return 1;
   }

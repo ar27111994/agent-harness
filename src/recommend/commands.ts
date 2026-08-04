@@ -6,7 +6,9 @@ import { printCommandHelp } from "../lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "../cli-help-format.js";
 import {
@@ -171,6 +173,10 @@ export async function runRecommend(
       printRecommendHelp();
       return 0;
     default:
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printRecommendHelp();
       return 1;
   }

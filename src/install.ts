@@ -9,7 +9,9 @@ import { manageInstallRefresh } from "./install/refresh.js";
 import { reconcileInstallState, resetInstallState } from "./install/state.js";
 import {
   hasHelpFlag,
+  isFlagLike,
   printSubcommandHelp,
+  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
@@ -60,6 +62,10 @@ export async function runInstall(
       printInstallHelp();
       return 0;
     default:
+      if (isFlagLike(command)) {
+        printUnknownArgumentError(command);
+        return 1;
+      }
       printInstallHelp();
       return 1;
   }

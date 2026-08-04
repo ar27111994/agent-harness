@@ -2,7 +2,12 @@
 
 import { fileURLToPath } from "node:url";
 
-import { hasHelpFlag } from "./cli-help-format.js";
+import {
+  hasHelpFlag,
+  isFlagLike,
+  printUnknownArgumentError,
+  rejectUnknownFlags,
+} from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValues } from "./lib/cli-options.js";
 import {
@@ -26,6 +31,15 @@ import {
   runHostPreflight,
 } from "./lib/preflight.js";
 import { runWorkspacePipeline } from "./pipeline.js";
+
+const WORKSPACE_KNOWN_FLAGS = new Set([
+  "--intent",
+  "--ai-enrich",
+  "--no-ai-enrich",
+  "--force",
+  "--require-ai-enrich",
+]);
+const WORKSPACE_FLAGS_WITH_VALUES = new Set(["--intent"]);
 
 /**
  * Runs the end-to-end lifecycle for a registered adapter and then applies its
@@ -59,8 +73,23 @@ export async function runWorkspace(
     return 0;
   }
 
+  if (
+    rejectUnknownFlags(
+      rest,
+      WORKSPACE_KNOWN_FLAGS,
+      WORKSPACE_FLAGS_WITH_VALUES,
+      "agent-harness workspace <host> --help",
+    )
+  ) {
+    return 1;
+  }
+
   const hostAdapter = resolveHostAdapter(target);
   if (!hostAdapter) {
+    if (isFlagLike(target)) {
+      printUnknownArgumentError(target);
+      return 1;
+    }
     printWorkspaceHelp();
     return 1;
   }
