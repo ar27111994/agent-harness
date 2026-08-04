@@ -115,11 +115,36 @@ export function filterCatalogEntriesByDemandRelevance(
     return { selectedEntries: catalogEntries, rejectedEntries: [] };
   }
 
+  return selectRelevantEntries(catalogEntries, catalogTermData, demandTerms);
+}
+
+/**
+ * Partitions catalog entries by demand relevance.
+ *
+ * Separated from `filterCatalogEntriesByDemandRelevance` so the guarded
+ * term-index lookup (#433) can be exercised directly: callers must pass a
+ * term index consistent with `catalogEntries`; a mismatched index throws
+ * with a descriptive error instead of producing `undefined` terms.
+ */
+function selectRelevantEntries(
+  catalogEntries: AssetCatalogEntry[],
+  catalogTermData: CatalogTermData,
+  demandTerms: DemandRelevanceTerms,
+): RelevanceFilterResult {
   const selectedEntries: AssetCatalogEntry[] = [];
   const rejectedEntries: AssetCatalogEntry[] = [];
 
   for (const entry of catalogEntries) {
-    const entryTerms = catalogTermData.entryTermsByEntry.get(entry)!;
+    // Guarded lookup (#433): the term index is built from the same
+    // `catalogEntries` array, so absence indicates an internal invariant
+    // violation — fail loudly with context instead of asserting via `!`.
+    const entryTerms = catalogTermData.entryTermsByEntry.get(entry);
+    if (entryTerms === undefined) {
+      throw new Error(
+        `catalog term index missing entry during demand relevance filtering: ${entry.id}`,
+        { cause: "entryTermsByEntry was built from a different entry set" },
+      );
+    }
     if (isEntryRelevantToDemand(entry, entryTerms, demandTerms)) {
       selectedEntries.push(entry);
     } else {
@@ -789,6 +814,7 @@ export const catalogSelectionInternals = {
   isCatalogCommonHighSignal,
   matchesTermGroupSet,
   normalizeDemandSignalKeywords,
+  selectRelevantEntries,
 };
 
 /**

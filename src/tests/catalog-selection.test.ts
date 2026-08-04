@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   filterCatalogEntriesByDemandRelevance,
   buildRejectionSummary,
+  catalogSelectionInternals,
 } from "../domains/discovery/catalog-selection.js";
 import { interactnoteFullDemandProfile } from "./fixtures/interactnote-full-demand-profile.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
@@ -725,4 +726,45 @@ void test("buildRejectionSummary handles single-reason log", () => {
 void test("buildRejectionSummary preserves arbitrary custom reason strings", () => {
   const log = [{ assetId: "z", reason: "policy-filtered" }];
   assert.deepEqual(buildRejectionSummary(log), { "policy-filtered": 1 });
+});
+
+void test("guarded term-index lookup throws when the index is inconsistent with the entries (#433)", () => {
+  // Defense-in-depth guard: the public API always builds its own term index
+  // from the same entry array, so a mismatch can only happen through an
+  // internal wiring change. Exercise the guard via the internals seam and
+  // assert the error names the offending entry instead of yielding undefined.
+  const indexedEntry = createEntry("indexed-entry", ["security"]);
+  const missingEntry = createEntry("missing-entry", ["security"]);
+  const demandProfile = createDemandProfile({ concerns: ["security"] });
+
+  const inconsistentTermData = catalogSelectionInternals.buildCatalogTermData([
+    indexedEntry,
+  ]);
+  const demandTerms = catalogSelectionInternals.buildDemandTermSet(
+    demandProfile,
+    inconsistentTermData.documentFrequency,
+    1,
+  );
+
+  assert.throws(
+    () =>
+      catalogSelectionInternals.selectRelevantEntries(
+        [indexedEntry, missingEntry],
+        inconsistentTermData,
+        demandTerms,
+      ),
+    /catalog term index missing entry during demand relevance filtering: missing-entry/u,
+  );
+
+  // Consistent index partitions correctly through the same guarded path.
+  const consistentResult = catalogSelectionInternals.selectRelevantEntries(
+    [indexedEntry, missingEntry],
+    catalogSelectionInternals.buildCatalogTermData([
+      indexedEntry,
+      missingEntry,
+    ]),
+    demandTerms,
+  );
+  assert.equal(consistentResult.selectedEntries.length, 2);
+  assert.equal(consistentResult.rejectedEntries.length, 0);
 });
