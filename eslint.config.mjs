@@ -8,6 +8,8 @@ const cliOutputFiles = [
   "src/activate.ts",
   "src/cli.ts",
   "src/discover.ts",
+  "src/discover-help.ts",
+  "src/discover-pipeline.ts",
   "src/domains/discovery/ai-enrichment.ts",
   "src/domains/discovery/catalog-inspection.ts",
   "src/domains/discovery/diff.ts",

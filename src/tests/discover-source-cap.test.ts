@@ -18,7 +18,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { computeAcceptanceRate, discoverInternals } from "../discover.js";
+import { computeAcceptanceRate } from "../discover-pipeline.js";
+import { discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 import type { SourceSyncState } from "../domains/discovery/source-sync.js";
