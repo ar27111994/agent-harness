@@ -202,16 +202,86 @@ export async function readBinaryFileOrNull(
   }
 }
 
+/** Test-only hook for simulating filesystem failures in the atomic JSON writer. */
+type RenameFile = (
+  sourcePath: string,
+  destinationPath: string,
+) => Promise<void>;
+let jsonWriteRenameOverride: RenameFile | undefined;
+
+const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 20;
+const MAX_WINDOWS_REPLACE_RETRIES = 3;
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Renames a write-temp onto its final path.
+ *
+ * Windows replaces an existing destination with a single `rename` in the
+ * common case, but a momentarily locked destination (AV scan, open handle,
+ * or a concurrent writer's own rename — observed as EPERM/EACCES) needs a
+ * bounded retry with a remove-and-retry fallback. Readers never observe
+ * partial content: at every point the destination holds the old file, no
+ * file, or the complete new file.
+ */
+async function renameJsonWriteTemp(
+  tempPath: string,
+  filePath: string,
+): Promise<void> {
+  let lastReplaceFailure: unknown;
+
+  for (let attempt = 0; attempt <= MAX_WINDOWS_REPLACE_RETRIES; attempt += 1) {
+    try {
+      if (jsonWriteRenameOverride !== undefined) {
+        await jsonWriteRenameOverride(tempPath, filePath);
+      } else {
+        await rename(tempPath, filePath);
+      }
+      return;
+    } catch (error) {
+      const failingCode = (error as NodeJS.ErrnoException).code;
+      if (failingCode !== "EPERM" && failingCode !== "EACCES") {
+        throw error;
+      }
+      lastReplaceFailure = error;
+
+      if (attempt < MAX_WINDOWS_REPLACE_RETRIES) {
+        // Windows quirk: rename over an existing file can fail with
+        // EPERM/EACCES when the destination is momentarily locked (AV
+        // scan, open handle, concurrent writer). Remove the destination
+        // and retry after a short backoff so the lock can clear.
+        await rm(filePath, { force: true });
+        await delay((attempt + 1) * WINDOWS_REPLACE_RETRY_BACKOFF_MS);
+      }
+    }
+  }
+
+  throw lastReplaceFailure;
+}
+
 /**
  * Writes json file to project state.
+ *
+ * Atomic by design (#427): content is written to a `.tmp` sibling and then
+ * renamed over the destination, so a crash or power loss mid-write can never
+ * leave a truncated/corrupt JSON state file. On failure the temp file is
+ * removed before the error propagates.
  */
 export async function writeJsonFile(
   filePath: string,
   value: unknown,
 ): Promise<void> {
   await ensureDirectory(dirname(filePath));
-  const json = `${JSON.stringify(value, null, 2)}\n`;
-  await writeFile(filePath, json, "utf8");
+  const tempPath = `${filePath}.tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  try {
+    await writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    await renameJsonWriteTemp(tempPath, filePath);
+  } catch (error) {
+    await rm(tempPath, { force: true });
+    throw error;
+  }
 }
 
 /**
@@ -1107,4 +1177,9 @@ export const filesInternals = {
   toCollectedFileStat,
   isLowPriorityForScanBudget,
   BINARY_SCAN_DEPRIORITY_EXTENSIONS,
+  renameJsonWriteTemp,
+  /** Test-only: replaces the atomic-writer rename step (failure injection, #427). */
+  setJsonWriteRenameOverride(override: RenameFile | undefined): void {
+    jsonWriteRenameOverride = override;
+  },
 };

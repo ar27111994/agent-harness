@@ -1,15 +1,13 @@
-import { randomUUID } from "node:crypto";
-import { rename, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
 import { getRuntimeConfig } from "../../config/runtime.js";
 import {
   createContentHash,
-  ensureDirectory,
   readJsonFileOrNull,
   readJsonLinesFile,
   readTextFileOrNull,
   toPosixPath,
+  writeJsonFile,
 } from "../../files.js";
 import {
   assertAllowedPublicHttpUrlWithDns,
@@ -49,7 +47,6 @@ const MAX_RECOMMENDATION_COUNT = 20;
 const MAX_RECOMMENDATION_LENGTH = 300;
 const MAX_WARNING_COUNT = 12;
 const MAX_WARNING_LENGTH = 240;
-const PRETTY_JSON_INDENT_SPACES = 2;
 const REDACTED_IDENTIFIER_HASH_LENGTH = 12;
 const NEAR_TIE_SELECTION_SAMPLE_SIZE = 8;
 const AMBIGUITY_GENERIC_CONCERN_DIVISOR = 2;
@@ -194,7 +191,7 @@ export async function orchestrateAiEnrichment(
     };
   }
 
-  await writeJsonFileAtomically(inputPath, input);
+  await writeJsonFile(inputPath, input);
 
   if (options.disableRequested) {
     const artifact = buildAiEnrichmentArtifact({
@@ -203,7 +200,7 @@ export async function orchestrateAiEnrichment(
       status: "skipped",
       reason: "AI enrichment was explicitly disabled for this run.",
     });
-    await writeJsonFileAtomically(outputPath, artifact);
+    await writeJsonFile(outputPath, artifact);
     return {
       outcome: artifact.status,
       artifact,
@@ -221,7 +218,7 @@ export async function orchestrateAiEnrichment(
       reason:
         "AI enrichment was skipped because discover/output/catalog.selected.jsonl contains no selected assets.",
     });
-    await writeJsonFileAtomically(outputPath, artifact);
+    await writeJsonFile(outputPath, artifact);
     return {
       outcome: artifact.status,
       artifact,
@@ -239,7 +236,7 @@ export async function orchestrateAiEnrichment(
       reason: buildMissingAiEnrichmentConfigMessage(config),
       warnings: [buildMissingAiEnrichmentConfigMessage(config)],
     });
-    await writeJsonFileAtomically(outputPath, artifact);
+    await writeJsonFile(outputPath, artifact);
     return {
       outcome: artifact.status,
       artifact,
@@ -255,7 +252,7 @@ export async function orchestrateAiEnrichment(
       shouldAllowAiEnrichmentCache(config.allowCacheInCi, ci),
     );
     if (reusedArtifact) {
-      await writeJsonFileAtomically(outputPath, reusedArtifact);
+      await writeJsonFile(outputPath, reusedArtifact);
       return {
         outcome: reusedArtifact.status,
         artifact: reusedArtifact,
@@ -274,7 +271,7 @@ export async function orchestrateAiEnrichment(
       ci,
     );
     if (policySkipArtifact) {
-      await writeJsonFileAtomically(outputPath, policySkipArtifact);
+      await writeJsonFile(outputPath, policySkipArtifact);
       return {
         outcome: policySkipArtifact.status,
         artifact: policySkipArtifact,
@@ -304,7 +301,7 @@ export async function orchestrateAiEnrichment(
       recommendations: parsedResponse.recommendations,
       warnings: parsedResponse.warnings,
     });
-    await writeJsonFileAtomically(outputPath, artifact);
+    await writeJsonFile(outputPath, artifact);
 
     return {
       outcome: artifact.status,
@@ -320,7 +317,7 @@ export async function orchestrateAiEnrichment(
       status: "failed",
       error: toAiEnrichmentErrorMessage(error),
     });
-    await writeJsonFileAtomically(outputPath, artifact);
+    await writeJsonFile(outputPath, artifact);
     return {
       outcome: artifact.status,
       artifact,
@@ -982,20 +979,6 @@ function sanitizeStringList(
   }
 
   return entries;
-}
-
-async function writeJsonFileAtomically(
-  filePath: string,
-  value: unknown,
-): Promise<void> {
-  await ensureDirectory(dirname(filePath));
-  const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
-  await writeFile(
-    tempPath,
-    `${JSON.stringify(value, null, PRETTY_JSON_INDENT_SPACES)}\n`,
-    "utf8",
-  );
-  await rename(tempPath, filePath);
 }
 
 function buildDemandProfileFingerprint(

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -7,11 +7,14 @@ import test from "node:test";
 import {
   createDirectoryLink,
   ensureDirectory,
+  filesInternals,
   pathExists,
+  readJsonFileOrNull,
   readJsonLinesFile,
   readTextFileOrNull,
   removeManagedSection,
   upsertManagedSection,
+  writeJsonFile,
   writeJsonLinesFile,
   writeTextFile,
 } from "../files.js";
@@ -138,4 +141,160 @@ void test("readJsonLinesFile rethrows non-ENOENT stream errors", async () => {
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+async function listTempFiles(directory: string): Promise<string[]> {
+  return (await readdir(directory)).filter((name) => name.includes(".tmp-"));
+}
+
+void test("writeJsonFile is atomic — a mid-write failure leaves the original file intact and no temp debris", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+  const filePath = join(root, "state.json");
+
+  t.after(() => {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+  });
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(filePath, { version: 1, note: "original" });
+
+  // Simulate a crash mid-write: the temp file was fully written but the
+  // rename over the destination fails with a non-replace error (EIO).
+  filesInternals.setJsonWriteRenameOverride(async () => {
+    const error = new Error("disk died mid-write");
+    (error as NodeJS.ErrnoException).code = "EIO";
+    throw error;
+  });
+
+  await assert.rejects(
+    writeJsonFile(filePath, { version: 2, note: "never lands" }),
+    /disk died mid-write/u,
+  );
+
+  // The pre-existing state file is byte-identical and no temp files remain.
+  assert.deepEqual(await readJsonFileOrNull(filePath), {
+    version: 1,
+    note: "original",
+  });
+  assert.deepEqual(await listTempFiles(root), [], "temp file cleaned up");
+});
+
+void test("writeJsonFile is atomic — Windows EPERM on rename retries with backoff and still lands complete content", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+  const filePath = join(root, "state.json");
+
+  t.after(() => {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+  });
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(filePath, { version: 1 });
+
+  // First two rename attempts hit the Windows locked-destination quirk
+  // (EPERM); the bounded retry removes the destination and retries, and the
+  // third attempt succeeds via the real rename.
+  let failuresInjected = 0;
+  filesInternals.setJsonWriteRenameOverride(async (source, destination) => {
+    if (failuresInjected < 2) {
+      failuresInjected += 1;
+      const error = new Error("destination momentarily locked");
+      (error as NodeJS.ErrnoException).code = "EPERM";
+      throw error;
+    }
+    const { rename } = await import("node:fs/promises");
+    await rename(source, destination);
+  });
+
+  await writeJsonFile(filePath, { version: 2, note: "retried" });
+
+  assert.equal(failuresInjected, 2, "retried after transient EPERM");
+  assert.deepEqual(await readJsonFileOrNull(filePath), {
+    version: 2,
+    note: "retried",
+  });
+  assert.deepEqual(await listTempFiles(root), [], "no temp debris");
+});
+
+void test("writeJsonFile — persistent Windows-style replace failures exhaust retries, clean temp, never land partial content", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+  const filePath = join(root, "state.json");
+
+  t.after(() => {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+  });
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(filePath, { version: 1, note: "original" });
+
+  let failuresInjected = 0;
+  filesInternals.setJsonWriteRenameOverride(async () => {
+    failuresInjected += 1;
+    const error = new Error("destination permanently locked");
+    (error as NodeJS.ErrnoException).code = "EPERM";
+    throw error;
+  });
+
+  await assert.rejects(
+    writeJsonFile(filePath, { version: 2 }),
+    /destination permanently locked/u,
+  );
+  assert.ok(failuresInjected >= 1, "rename attempts were made");
+  assert.deepEqual(await listTempFiles(root), [], "temp file cleaned up");
+});
+
+void test("writeJsonFile cleans the temp file when serialization itself fails", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+  const filePath = join(root, "state.json");
+
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  await assert.rejects(
+    writeJsonFile(filePath, { id: 1n } as never),
+    /serialize a BigInt/u,
+  );
+  assert.equal(await pathExists(filePath), false);
+  assert.deepEqual(await listTempFiles(root), [], "no temp debris");
+});
+
+void test("writeJsonFile — concurrent writers never interleave and always land complete content", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-files-test-"));
+  const filePath = join(root, "state.json");
+
+  t.after(async () => {
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const writers = Array.from({ length: 12 }, (_, index) => ({
+    id: index,
+    payload: Array.from({ length: 200 }, (_, j) => `value-${index}-${j}`),
+  }));
+
+  await Promise.all(
+    writers.map((writer) =>
+      writeJsonFile(filePath, { writerId: writer.id, payload: writer.payload }),
+    ),
+  );
+
+  const finalState = await readJsonFileOrNull<{
+    writerId: number;
+    payload: string[];
+  }>(filePath);
+  const landedWriter = writers.find(
+    (writer) => writer.id === finalState?.writerId,
+  );
+  assert.ok(landedWriter, "final file belongs to one complete writer");
+  assert.deepEqual(
+    finalState?.payload,
+    landedWriter?.payload,
+    "final content is one writer's complete payload, never interleaved",
+  );
+  assert.deepEqual(await listTempFiles(root), [], "no temp debris");
 });
