@@ -107,6 +107,8 @@ void test("parent help lists all discover subcommands that exist", async () => {
       "select",
       "full",
       "breadth",
+      "recall",
+      "candidate-pool",
       "enrich",
       "stats",
       "diff",
@@ -167,7 +169,7 @@ void test("parent help lists all quarantine subcommands that exist", async () =>
     "quarantine",
     ["Quarantine —"],
     "quarantine",
-    new Set(["list", "approve", "reject", "pin"]),
+    new Set(["list", "inspect", "report", "approve", "reject", "pin"]),
   );
 });
 
@@ -183,6 +185,8 @@ void test("every known subcommand has subcommand-specific --help", async () => {
     ["discover", "select"],
     ["discover", "full"],
     ["discover", "breadth"],
+    ["discover", "recall", "discover breadth"],
+    ["discover", "candidate-pool", "discover breadth"],
     ["discover", "stats"],
     ["discover", "diff"],
     ["discover", "environment-index"],
@@ -215,6 +219,8 @@ void test("every known subcommand has subcommand-specific --help", async () => {
     ["activate", "explain"],
     ["activate", "rollback"],
     ["quarantine", "list"],
+    ["quarantine", "inspect"],
+    ["quarantine", "report"],
     ["quarantine", "approve"],
     ["quarantine", "reject"],
     ["quarantine", "pin"],
