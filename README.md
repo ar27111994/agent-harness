@@ -791,13 +791,13 @@ The plan includes candidate breakdowns by host and asset kind, the effective mir
 agent-harness mirror locks
 ```
 
-**`mirror acquire`** acquires raw mirror artifacts, writes the mirror index, and resolves bundle locks by downloading or verifying each asset referenced in the lock files. High-risk community assets are routed into quarantine.
+**`mirror acquire`** acquires raw mirror artifacts, writes the mirror index file (`mirror/index.jsonl`), and resolves bundle locks by downloading or verifying each asset referenced in the lock files. High-risk community assets are routed into quarantine.
 
 ```bash
 agent-harness mirror acquire
 ```
 
-**`mirror diff`** compares the current mirror index against the previous index snapshot, printing added, removed, and changed assets.
+**`mirror diff`** compares the current mirror index file (`mirror/index.jsonl`) against the previous index snapshot, printing added, removed, and changed assets.
 
 ```bash
 agent-harness mirror diff
@@ -805,14 +805,14 @@ agent-harness mirror diff
 
 Previous index state is read from `mirror/index.jsonl.snapshot`; the current index is `mirror/index.jsonl`.
 
-**`mirror explain`** prints the full mirror index entry, raw content preview, and any available manifest for a specific mirrored artifact. Use `--asset` or `--mirror` to identify the target.
+**`mirror explain`** prints the full mirror index entry (`mirror/index.jsonl`), raw content preview, and any available manifest for a specific mirrored artifact. Use `--asset` or `--mirror` to identify the target.
 
 ```bash
 agent-harness mirror explain --asset my-asset-id
 agent-harness mirror explain --mirror mirror-abc123
 ```
 
-Output includes the mirror index entry, raw artifact root path, optional manifest, and a 4000-character content preview.
+Output includes the mirror index entry (from `mirror/index.jsonl`), raw artifact root path, optional manifest, and a 4000-character content preview.
 
 ### Bundle
 
@@ -835,7 +835,7 @@ Key flags:
 - **`--bundle <bundleId>`** (or pass the bundle ID as a positional argument) — Bundle lock to explain
 - **`--json`** — Output the full explanation as JSON
 
-The explanation draws on the catalog selection report, mirror index, and rejection log to explain each asset's presence in the bundle.
+The explanation draws on the catalog selection report, the mirror index file (`mirror/index.jsonl`), and the rejection log to explain each asset's presence in the bundle.
 
 ### Quarantine review
 
