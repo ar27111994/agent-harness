@@ -716,6 +716,58 @@ export async function fetchRubyGemsSearch(
   return searchRegistry(query, limit, rubyGemsSearchAdapter, options);
 }
 
+const hexSearchAdapter: RegistrySearchAdapter = {
+  buildUrl(query: string, limit: number): URL {
+    const url = new URL("https://hex.pm/api/packages");
+    url.searchParams.set("search", query);
+    url.searchParams.set("sort", "downloads");
+    url.searchParams.set("page", "1");
+    url.searchParams.set("per_page", String(Math.min(limit, 100)));
+    return url;
+  },
+  extractResults(data: unknown): RegistrySearchResult[] {
+    if (!Array.isArray(data)) return [];
+    return (data as Record<string, unknown>[]).map((p) => {
+      const meta =
+        p["meta"] && typeof p["meta"] === "object"
+          ? (p["meta"] as Record<string, unknown>)
+          : undefined;
+      const downloads =
+        p["downloads"] && typeof p["downloads"] === "object"
+          ? (p["downloads"] as Record<string, unknown>)
+          : undefined;
+      return {
+        name: typeof p["name"] === "string" ? p["name"] : "",
+        description:
+          typeof meta?.["description"] === "string"
+            ? meta["description"]
+            : undefined,
+        downloads:
+          typeof downloads?.["all"] === "number" ? downloads["all"] : undefined,
+      };
+    });
+  },
+  allowedOrigins: ["https://hex.pm"],
+  getHeaders(): Record<string, string> {
+    return {
+      Accept: "application/json",
+      "User-Agent": `agent-harness/${AGENT_HARNESS_VERSION} (github.com/ar27111994/agent-harness)`,
+    };
+  },
+};
+
+/**
+ * Searches Hex.pm (Elixir/Erlang package registry) by keyword, sorted by
+ * download count. Hex API requires a contactable User-Agent header per TOS.
+ */
+export async function fetchHexSearch(
+  query: string,
+  limit = 25,
+  options: Pick<FetchWithGuardsOptions, "resolveHostname"> = {},
+): Promise<RegistrySearchResult[]> {
+  return searchRegistry(query, limit, hexSearchAdapter, options);
+}
+
 /**
  * Exposes narrow package-registry internals for focused behavioral coverage.
  */

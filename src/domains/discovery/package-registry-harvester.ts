@@ -1,6 +1,7 @@
 import {
   extractRepositoryUrlFromNpmMetadata,
   extractRepositoryUrlFromPypiMetadata,
+  fetchHexSearch,
   fetchNpmPackageMetadata,
   fetchNpmPackageSearch,
   fetchPypiPackageMetadata,
@@ -54,6 +55,16 @@ export async function harvestPackageRegistrySource(
   selectionRegistry: SelectionRegistry,
 ): Promise<AssetCatalogEntry[]> {
   const registryKind = getPackageRegistryKind(source);
+  if (registryKind === null) {
+    // Fail closed (#424): never attribute packages to a registry family that
+    // has no explicit mapping. An unknown source id previously defaulted to
+    // npm, which let conan-registry/hex-registry harvest npm packages as
+    // official C++/Elixir registry assets.
+    console.warn(
+      `Skipping demand harvesting for package-registry source "${source.id}": no registry-kind mapping exists (fail-closed; no packages attributed to this source). Add an explicit mapping in getPackageRegistryKind to enable it.`,
+    );
+    return [];
+  }
   const packageCandidates = new Set(
     collectPackageCandidatesFromDemandProfile(demandProfile, registryKind),
   );
@@ -155,11 +166,17 @@ export async function harvestPackageRegistrySource(
 
 /**
  * Maps a configured package-registry source to its registry family.
+ *
+ * Every package-registry source id in `discover/sources.json` must have an
+ * explicit entry. Unknown ids return `null` (fail-closed) so sources added in
+ * the future can never inherit npm attribution by accident (#424).
  */
 export function getPackageRegistryKind(
   source: SourceDefinition,
-): PackageRegistryKind {
+): PackageRegistryKind | null {
   const registryKindBySourceId: Record<string, PackageRegistryKind> = {
+    "npm-registry": "npm",
+    "pypi-registry": "pypi",
     "cargo-registry": "cargo",
     "go-registry": "go",
     "maven-registry": "maven",
@@ -168,11 +185,29 @@ export function getPackageRegistryKind(
     "packagist-registry": "packagist",
     "swift-package-index": "swift",
     "pub-dev-registry": "pub",
+    "hex-registry": "hex",
+    "conan-registry": "conan",
   };
-  return (
-    registryKindBySourceId[source.id] ??
-    (source.id === "pypi-registry" ? "pypi" : "npm")
-  );
+  return registryKindBySourceId[source.id] ?? null;
+}
+
+/**
+ * Like `getPackageRegistryKind` but throws for unmapped source ids.
+ *
+ * Registry-specific sync adapters are dispatched by source id, so a missing
+ * mapping there is a wiring bug and should fail loudly rather than produce
+ * mis-attributed catalog entries.
+ */
+export function requirePackageRegistryKind(
+  source: SourceDefinition,
+): PackageRegistryKind {
+  const registryKind = getPackageRegistryKind(source);
+  if (registryKind === null) {
+    throw new Error(
+      `Unsupported package-registry kind for source "${source.id}": add an explicit registryKindBySourceId mapping before enabling sync/harvest for this source.`,
+    );
+  }
+  return registryKind;
 }
 
 async function searchNpmMcpServerPackages(
@@ -240,6 +275,14 @@ async function searchRegistryByKind(
     case "swift":
     case "pub":
       // No public keyword-search API available.
+      return [];
+    case "hex":
+      return (await fetchHexSearch(query, limit))
+        .map((r) => r.name)
+        .filter(Boolean);
+    case "conan":
+      // ConanCenter exposes no public keyword-search API; catalog coverage is
+      // provided by sitemap sync only (https://conan.io/sitemap.xml).
       return [];
   }
 }
@@ -385,6 +428,10 @@ function buildPackageRegistryUrl(
       return `https://pypi.org/project/${encodeURIComponent(packageName)}`;
     case "pub":
       return `https://pub.dev/packages/${encodeURIComponent(packageName)}`;
+    case "hex":
+      return `https://hex.pm/packages/${encodeURIComponent(packageName)}`;
+    case "conan":
+      return `https://conan.io/center/recipes/${encodeURIComponent(packageName)}`;
   }
 }
 

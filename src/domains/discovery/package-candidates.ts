@@ -27,7 +27,9 @@ export type PackageRegistryKind =
   | "gem"
   | "packagist"
   | "swift"
-  | "pub";
+  | "pub"
+  | "conan"
+  | "hex";
 
 /**
  * Collects package candidates from demand profile from the provided inputs.
@@ -105,7 +107,10 @@ export function collectNpmMcpSearchQueriesFromDemandProfile(
 
 function splitIntoTerms(value: string): string[] {
   return value
-    .replace(/^(npm|pypi|cargo|go|maven|nuget|gem|packagist|swift|pub):/u, "")
+    .replace(
+      /^(npm|pypi|cargo|go|maven|nuget|gem|packagist|swift|pub|conan|hex):/u,
+      "",
+    )
     .toLowerCase()
     .split(/[^a-z0-9]+/u)
     .filter((term) => term.length > 0);

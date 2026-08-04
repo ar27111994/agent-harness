@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   extractRepositoryUrlFromNpmMetadata,
   extractRepositoryUrlFromPypiMetadata,
+  fetchHexSearch,
   fetchNpmPackageMetadata,
   fetchNpmPackageSearch,
   fetchPypiPackageMetadata,
@@ -291,4 +292,115 @@ void test("package registries sanitize repository urls from common git notations
   for (const { input, expected } of cases) {
     assert.equal(sanitizeRepositoryUrl(input), expected);
   }
+});
+
+void test("fetchHexSearch — normalizes Hex.pm API responses and filters empty names", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const calls: string[] = [];
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+    }
+  });
+
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response(
+      JSON.stringify([
+        {
+          name: "phoenix",
+          meta: { description: "Productive web framework" },
+          downloads: { all: 1234 },
+        },
+        { name: "missing-meta" },
+        { name: "", meta: { description: "empty name" } },
+        "not-an-object",
+      ]),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  };
+  const resolveHostname = async () => [
+    { address: "93.184.216.34", family: 4 as const },
+  ];
+
+  const results = await fetchHexSearch("phoenix", 10, { resolveHostname });
+
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0]?.startsWith("https://hex.pm/api/packages?"));
+  assert.ok(calls[0]?.includes("search=phoenix"), "search query parameter set");
+  assert.deepEqual(results, [
+    {
+      name: "phoenix",
+      description: "Productive web framework",
+      downloads: 1234,
+    },
+    { name: "missing-meta", description: undefined, downloads: undefined },
+  ]);
+});
+
+void test("fetchHexSearch — returns [] on empty query without network and on malformed payloads", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  let fetchCalls = 0;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+    }
+  });
+
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    return new Response("null", {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  const resolveHostname = async () => [
+    { address: "93.184.216.34", family: 4 as const },
+  ];
+
+  assert.deepEqual(await fetchHexSearch("   ", 10, { resolveHostname }), []);
+  assert.equal(fetchCalls, 0, "empty query short-circuits before network");
+
+  assert.deepEqual(
+    await fetchHexSearch("phoenix", 10, { resolveHostname }),
+    [],
+  );
+  assert.equal(fetchCalls, 1, "non-array payload normalizes to empty");
+});
+
+void test("fetchHexSearch — caps per_page to 100 and tolerates fetch failure", async (t) => {
+  const previousFetch = globalThis.fetch;
+  const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const calls: string[] = [];
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  t.after(() => {
+    globalThis.fetch = previousFetch;
+    if (previousMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+    }
+  });
+
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    return new Response("oops", { status: 500 });
+  };
+  const resolveHostname = async () => [
+    { address: "93.184.216.34", family: 4 as const },
+  ];
+
+  const results = await fetchHexSearch("phoenix", 500, { resolveHostname });
+  assert.deepEqual(results, [], "failed fetch yields empty results");
+  assert.ok(calls[0]?.includes("per_page=100"), "limit clamped to 100");
 });

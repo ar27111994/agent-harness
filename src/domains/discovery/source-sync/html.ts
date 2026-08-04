@@ -22,6 +22,7 @@ import {
   upsertIndexedCatalogEntry,
   getEffectiveMaxPagesPerRun,
 } from "./state.js";
+
 import {
   SOURCE_SYNC_BATCH_SIZE,
   extractNormalizedLinks,
@@ -115,7 +116,10 @@ export async function syncSitemapPackageRegistrySource(
     itemUrlPredicate: options.itemUrlPredicate,
     buildItem: (url) => {
       const packageName = options.packageNameFromUrl(url);
-      if (!packageName) {
+      const registryKind = getPackageRegistryKind(source);
+      if (!packageName || registryKind === null) {
+        // Fail closed (#424): never attribute sitemap items to an unmapped
+        // registry family. Unknown ids produce no catalog entries.
         return null;
       }
 
@@ -127,7 +131,7 @@ export async function syncSitemapPackageRegistrySource(
         undefined,
         context.demandProfile,
         context.selectionRegistry,
-        getPackageRegistryKind(source),
+        registryKind,
       );
     },
   });
@@ -197,7 +201,10 @@ export async function syncHtmlPackageRegistrySource(
       pageUrlForNumber: options.pageUrlForNumber,
       buildItem: (url) => {
         const packageName = options.packageNameFromPath(url);
-        if (!packageName) {
+        const registryKind = getPackageRegistryKind(source);
+        if (!packageName || registryKind === null) {
+          // Fail closed (#424): never attribute paginated list items to an
+          // unmapped registry family. Unknown ids produce no catalog entries.
           return null;
         }
 
@@ -209,7 +216,7 @@ export async function syncHtmlPackageRegistrySource(
           undefined,
           context.demandProfile,
           context.selectionRegistry,
-          getPackageRegistryKind(source),
+          registryKind,
         );
       },
     },

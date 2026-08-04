@@ -7,7 +7,7 @@
 import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
-  getPackageRegistryKind,
+  requirePackageRegistryKind,
 } from "../../package-registry-harvester.js";
 
 import {
@@ -78,7 +78,7 @@ export async function syncCargoRegistrySource(
         getString(crate.updated_at),
         context.demandProfile,
         context.selectionRegistry,
-        getPackageRegistryKind(source),
+        requirePackageRegistryKind(source),
       );
       upsertIndexedCatalogEntry(context, entry);
     }

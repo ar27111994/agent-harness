@@ -11,7 +11,7 @@ import {
 } from "../../../../package-registries.js";
 import {
   buildPackageRegistryCatalogEntry,
-  getPackageRegistryKind,
+  requirePackageRegistryKind,
 } from "../../package-registry-harvester.js";
 import { buildCatalogId } from "../../catalog-utils.js";
 
@@ -56,7 +56,7 @@ export async function syncNpmRegistrySource(
   const record = asRecord(data);
   const results = Array.isArray(record.results) ? record.results : [];
 
-  const registryKind = getPackageRegistryKind(source);
+  const registryKind = requirePackageRegistryKind(source);
   for (const result of results) {
     const row = asRecord(result);
     const packageName = getString(row.id);
@@ -92,7 +92,7 @@ export async function syncNpmRegistrySource(
       metadata.lastUpdated,
       context.demandProfile,
       context.selectionRegistry,
-      getPackageRegistryKind(source),
+      registryKind,
       metadata.keywords ?? [],
     );
     upsertIndexedCatalogEntry(context, entry);

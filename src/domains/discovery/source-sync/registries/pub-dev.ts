@@ -13,7 +13,7 @@
 import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
-  getPackageRegistryKind,
+  requirePackageRegistryKind,
 } from "../../package-registry-harvester.js";
 
 import {
@@ -72,7 +72,7 @@ export async function syncPubDevSource(
   }
 
   const maxPages = getEffectiveMaxPagesPerRun(context);
-  const registryKind = getPackageRegistryKind(source);
+  const registryKind = requirePackageRegistryKind(source);
   const demandProfile = context.demandProfile;
   const selectionRegistry = context.selectionRegistry;
 

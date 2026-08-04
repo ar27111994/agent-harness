@@ -6,6 +6,7 @@ import {
   getPackageRegistryKind,
   harvestPackageRegistrySource,
   packageRegistryHarvesterInternals,
+  requirePackageRegistryKind,
 } from "../domains/discovery/package-registry-harvester.js";
 import type {
   AssetCatalogEntry,
@@ -25,11 +26,25 @@ void test("package registry harvester maps configured sources to registry famili
     ["swift-package-index", "swift"],
     ["pypi-registry", "pypi"],
     ["npm-registry", "npm"],
+    ["pub-dev-registry", "pub"],
+    ["hex-registry", "hex"],
+    ["conan-registry", "conan"],
   ];
 
   for (const [sourceId, expectedKind] of cases) {
     assert.equal(getPackageRegistryKind(buildSource(sourceId)), expectedKind);
   }
+});
+
+void test("package registry harvester fails closed for unmapped source ids instead of assuming npm", () => {
+  // Regression guard for #424: unknown package-registry source ids must never
+  // inherit npm attribution (which previously let conan-registry and
+  // hex-registry harvest npm packages as official C++/Elixir assets).
+  assert.equal(getPackageRegistryKind(buildSource("custom-npm-mirror")), null);
+  assert.equal(
+    getPackageRegistryKind(buildSource("future-package-registry")),
+    null,
+  );
 });
 
 void test("package registry catalog entries derive asset kinds, hosts, and origin urls from metadata", () => {
@@ -121,6 +136,30 @@ void test("package registry catalog entries derive asset kinds, hosts, and origi
       expectedAssetKind: "mcp-server",
       expectedHosts: ["shared"],
       packageKeywords: ["mcp", "server"],
+    },
+    {
+      registryKind: "hex",
+      packageName: "phoenix",
+      description: "Elixir web framework",
+      expectedOriginUrl: "https://hex.pm/packages/phoenix",
+      expectedAssetKind: "plugin",
+      expectedHosts: ["copilot-vscode"],
+    },
+    {
+      registryKind: "conan",
+      packageName: "openssl",
+      description: "C/C++ crypto library",
+      expectedOriginUrl: "https://conan.io/center/recipes/openssl",
+      expectedAssetKind: "plugin",
+      expectedHosts: ["copilot-vscode"],
+    },
+    {
+      registryKind: "pub",
+      packageName: "flutter_lints",
+      description: "Dart linter rules",
+      expectedOriginUrl: "https://pub.dev/packages/flutter_lints",
+      expectedAssetKind: "plugin",
+      expectedHosts: ["copilot-vscode"],
     },
   ];
 
@@ -801,4 +840,162 @@ void test("harvestPackageRegistrySource — returns empty array for cargo regist
     0,
     "empty when no candidates and no demand profile",
   );
+});
+
+void test("harvestPackageRegistrySource — fails closed with a warning for unmapped registry kinds", async (context) => {
+  // Regression guard for #424: an unmapped package-registry source id must not
+  // harvest npm packages under a foreign source identity. It returns no
+  // entries and warns instead of silently attributing npm packages.
+  const warnings: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (message?: unknown) => {
+    warnings.push(String(message));
+  };
+  context.after(() => {
+    console.warn = originalWarn;
+  });
+
+  const source = buildSource("unknown-registry");
+  const selectionRegistry = buildSelectionRegistry();
+  const entries = await harvestPackageRegistrySource(
+    source,
+    buildDemandProfile({ tooling: ["unknown-registry:npm-package"] }),
+    selectionRegistry,
+  );
+
+  assert.deepEqual(entries, [], "no entries for unmapped registry kinds");
+  assert.ok(
+    warnings.some((message) => message.includes("fail-closed")),
+    "warning explains the fail-closed skip",
+  );
+});
+
+void test("harvestPackageRegistrySource — conan registry demand candidates are attributed to conan, never npm", async () => {
+  // Regression guard for #424: a conan: evidence signal must produce a
+  // conan-attributed entry (conan.io origin, conan kind in the id), not an
+  // npm package page stamped with ConanCenter authority.
+  const source = buildSource("conan-registry");
+  const entries = await harvestPackageRegistrySource(
+    source,
+    buildDemandProfile({ tooling: ["conan:openssl"] }),
+    buildSelectionRegistry(),
+  );
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]?.displayName, "openssl");
+  assert.equal(entries[0]?.id, "conan-registry:conan:openssl");
+  assert.equal(
+    entries[0]?.source.originUrl,
+    "https://conan.io/center/recipes/openssl",
+  );
+  assert.equal(entries[0]?.source.sourceId, "conan-registry");
+  assert.match(entries[0]?.id ?? "", /^conan-registry:conan:/u);
+  assert.doesNotMatch(entries[0]?.id ?? "", /:npm:/u);
+});
+
+void test("harvestPackageRegistrySource — hex registry demand candidates are attributed to hex, never npm", async () => {
+  // Regression guard for #424: a hex: evidence signal must produce a
+  // hex-attributed entry (hex.pm origin, hex kind in the id), not an npm
+  // package page stamped with Hex.pm authority.
+  const source = buildSource("hex-registry");
+  const entries = await harvestPackageRegistrySource(
+    source,
+    buildDemandProfile({ tooling: ["hex:phoenix"] }),
+    buildSelectionRegistry(),
+  );
+
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]?.displayName, "phoenix");
+  assert.equal(entries[0]?.id, "hex-registry:hex:phoenix");
+  assert.equal(entries[0]?.source.originUrl, "https://hex.pm/packages/phoenix");
+  assert.equal(entries[0]?.source.sourceId, "hex-registry");
+  assert.match(entries[0]?.id ?? "", /^hex-registry:hex:/u);
+  assert.doesNotMatch(entries[0]?.id ?? "", /:npm:/u);
+});
+
+void test("requirePackageRegistryKind — throws for unmapped ids and returns the kind for mapped ids", () => {
+  assert.throws(
+    () => requirePackageRegistryKind(buildSource("unknown-registry")),
+    /Unsupported package-registry kind for source "unknown-registry"/u,
+  );
+  assert.equal(requirePackageRegistryKind(buildSource("hex-registry")), "hex");
+  assert.equal(
+    requirePackageRegistryKind(buildSource("conan-registry")),
+    "conan",
+  );
+  assert.equal(requirePackageRegistryKind(buildSource("npm-registry")), "npm");
+});
+
+void test("searchRegistryByKind — conan returns empty without network (no public keyword API)", async () => {
+  const results = await packageRegistryHarvesterInternals.searchRegistryByKind(
+    "conan",
+    "openssl",
+    5,
+  );
+  assert.deepEqual(results, [], "conan has no keyword-search API");
+});
+
+void test("searchRegistryByKind — hex searches via the Hex.pm API", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    if (url.startsWith("https://hex.pm/api/packages?")) {
+      return jsonResponse([
+        {
+          name: "phoenix",
+          meta: { description: "Productive web framework" },
+          downloads: { all: 1000 },
+        },
+        {
+          name: "",
+          meta: { description: "empty-name package" },
+        },
+      ]);
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+  });
+
+  const results = await packageRegistryHarvesterInternals.searchRegistryByKind(
+    "hex",
+    "phoenix",
+    5,
+  );
+  assert.deepEqual(results, ["phoenix"]);
+  assert.ok(!results.includes("nomatch"), "empty names are filtered");
+});
+
+void test("discoverAdjacentPackages — conan skips live search without network", async () => {
+  // conan kind: no static matrix, no keyword API — result must be empty and
+  // must not attempt any fetch (fail-safe for the new kind).
+  const profile = buildDemandProfile({
+    languages: ["language:cpp"],
+    frameworks: ["framework:cmake"],
+  });
+  const result =
+    await packageRegistryHarvesterInternals.discoverAdjacentPackages(
+      "conan",
+      profile,
+      new Set<string>(),
+      { maxTerms: 2, maxResultsPerTerm: 5, adjacentToolingEnabled: true },
+    );
+  assert.deepEqual(result, [], "conan produces no adjacent packages");
 });

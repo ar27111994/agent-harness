@@ -67,6 +67,21 @@ void test("package registry catalog entries for all non-npm registry kinds have 
       packageName: "acme-swift",
       expectedUrlPattern: /swiftpackageindex\.com/,
     },
+    {
+      kind: "pub",
+      packageName: "acme-dart",
+      expectedUrlPattern: /pub\.dev\/packages\/acme-dart/,
+    },
+    {
+      kind: "hex",
+      packageName: "acme-elixir",
+      expectedUrlPattern: /hex\.pm\/packages\/acme-elixir/,
+    },
+    {
+      kind: "conan",
+      packageName: "acme-cpp",
+      expectedUrlPattern: /conan\.io\/center\/recipes\/acme-cpp/,
+    },
   ];
 
   for (const { kind, packageName, expectedUrlPattern } of registryKindCases) {
@@ -89,9 +104,54 @@ void test("package registry catalog entries for all non-npm registry kinds have 
   }
 });
 
-void test("getPackageRegistryKind falls back to npm for unrecognized source ids", () => {
+void test("getPackageRegistryKind fails closed (null) for unmapped source ids", () => {
+  // Regression guard for #424: unknown package-registry ids must never fall
+  // back to npm attribution.
   const source = buildSource("custom-npm-mirror");
-  assert.equal(getPackageRegistryKind(source), "npm");
+  assert.equal(getPackageRegistryKind(source), null);
+});
+
+void test("getPackageRegistryKind covers every package-registry source id in discover/sources.json", async () => {
+  // Catalog census guard for #424: every package-registry source declared in
+  // the checked-in source universe must resolve to its own registry kind — a
+  // missing mapping would silently attribute packages to the wrong ecosystem.
+  const { readFile } = await import("node:fs/promises");
+  const raw = await readFile(
+    join(process.cwd(), "discover", "sources.json"),
+    "utf8",
+  );
+  const parsed = JSON.parse(raw) as { sources: SourceDefinition[] };
+  const sources = parsed.sources;
+  const expectedKindBySourceId: Record<string, string> = {
+    "npm-registry": "npm",
+    "pypi-registry": "pypi",
+    "cargo-registry": "cargo",
+    "go-registry": "go",
+    "maven-registry": "maven",
+    "nuget-registry": "nuget",
+    "rubygems-registry": "gem",
+    "packagist-registry": "packagist",
+    "swift-package-index": "swift",
+    "pub-dev-registry": "pub",
+    "hex-registry": "hex",
+    "conan-registry": "conan",
+  };
+  const packageRegistrySources = sources.filter(
+    (source) => source.kind === "package-registry",
+  );
+
+  assert.ok(
+    packageRegistrySources.length >= 10,
+    "source universe is populated",
+  );
+  for (const source of packageRegistrySources) {
+    const kind = getPackageRegistryKind(source);
+    assert.equal(
+      kind,
+      expectedKindBySourceId[source.id] ?? null,
+      `source ${source.id} must map to its own registry kind`,
+    );
+  }
 });
 
 void test("official index harvester classifies skill, reference-pack, mcp-server, plugin, and workflow assets", async (context) => {

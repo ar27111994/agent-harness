@@ -1540,3 +1540,118 @@ void test("synchronizeIndexedSource dispatches ard-registry kind-guard", async (
     globalThis.fetch = originalFetch;
   }
 });
+
+void test("syncSitemapPackageRegistrySource — unmapped registry kinds fail closed (no entries) while mapped kinds attribute correctly", async () => {
+  const cleanupFetch = installFetchMock(async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+    switch (url) {
+      case "https://example.com/sitemap.xml":
+        return xmlResponse([
+          "<sitemapindex>",
+          "<sitemap><loc>https://example.com/leaf.xml</loc></sitemap>",
+          "</sitemapindex>",
+        ]);
+      case "https://example.com/leaf.xml":
+        return xmlResponse([
+          "<urlset>",
+          "<url><loc>https://example.com/packages/phoenix</loc></url>",
+          "<url><loc>https://example.com/packages/ecto</loc></url>",
+          "</urlset>",
+        ]);
+      default:
+        throw new Error(`Unexpected fetch: ${url}`);
+    }
+  });
+
+  try {
+    // Unknown registry id: sitemap items must NOT be attributed to any
+    // registry family (fail-closed, #424) — sync still completes structurally.
+    const unknownContext = buildSourceSyncContext();
+    const unknownResult =
+      await sourceSyncInternals.syncSitemapPackageRegistrySource(
+        buildSourceDefinition("unknown-registry", "package-registry", {
+          baseUrl: "https://example.com",
+          sitemapUrl: "https://example.com/sitemap.xml",
+        }),
+        unknownContext,
+        {
+          rootSitemapUrl: "https://example.com/sitemap.xml",
+          itemUrlPredicate: (url: URL) => url.pathname.startsWith("/packages/"),
+          packageNameFromUrl: (url: URL) => {
+            const segments = url.pathname.split("/").filter(Boolean);
+            return segments[segments.length - 1];
+          },
+        },
+      );
+    assert.equal(unknownResult.status, "complete");
+    assert.equal(
+      unknownResult.indexedEntryCount,
+      0,
+      "unmapped kind must attribute zero entries",
+    );
+    assert.equal(unknownContext.entriesById.size, 0);
+
+    // hex-registry: items are attributed to hex.pm with hex-kind ids.
+    const hexContext = buildSourceSyncContext();
+    const hexResult =
+      await sourceSyncInternals.syncSitemapPackageRegistrySource(
+        buildSourceDefinition("hex-registry", "package-registry", {
+          baseUrl: "https://hex.pm",
+          sitemapUrl: "https://example.com/sitemap.xml",
+        }),
+        hexContext,
+        {
+          rootSitemapUrl: "https://example.com/sitemap.xml",
+          itemUrlPredicate: (url: URL) => url.pathname.startsWith("/packages/"),
+          packageNameFromUrl: (url: URL) => {
+            const segments = url.pathname.split("/").filter(Boolean);
+            return segments[segments.length - 1];
+          },
+        },
+      );
+    assert.equal(hexResult.status, "complete");
+    assert.equal(hexResult.indexedEntryCount, 2);
+    for (const entry of hexContext.entriesById.values()) {
+      assert.match(entry.id, /^hex-registry:hex:/u);
+      assert.equal(entry.source.sourceId, "hex-registry");
+      assert.match(entry.source.originUrl, /^https:\/\/hex\.pm\/packages\//u);
+    }
+
+    // conan-registry: items are attributed to ConanCenter with conan-kind ids.
+    const conanContext = buildSourceSyncContext();
+    const conanResult =
+      await sourceSyncInternals.syncSitemapPackageRegistrySource(
+        buildSourceDefinition("conan-registry", "package-registry", {
+          baseUrl: "https://conan.io",
+          sitemapUrl: "https://example.com/sitemap.xml",
+        }),
+        conanContext,
+        {
+          rootSitemapUrl: "https://example.com/sitemap.xml",
+          itemUrlPredicate: (url: URL) => url.pathname.startsWith("/packages/"),
+          packageNameFromUrl: (url: URL) => {
+            const segments = url.pathname.split("/").filter(Boolean);
+            return segments[segments.length - 1];
+          },
+        },
+      );
+    assert.equal(conanResult.status, "complete");
+    assert.equal(conanResult.indexedEntryCount, 2);
+    for (const entry of conanContext.entriesById.values()) {
+      assert.match(entry.id, /^conan-registry:conan:/u);
+      assert.equal(entry.source.sourceId, "conan-registry");
+      assert.match(
+        entry.source.originUrl,
+        /^https:\/\/conan\.io\/center\/recipes\//u,
+      );
+    }
+  } finally {
+    cleanupFetch();
+  }
+});

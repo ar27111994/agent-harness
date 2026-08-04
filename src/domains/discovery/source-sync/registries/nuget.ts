@@ -7,7 +7,7 @@
 import type { SourceDefinition } from "../../../../types.js";
 import {
   buildPackageRegistryCatalogEntry,
-  getPackageRegistryKind,
+  requirePackageRegistryKind,
 } from "../../package-registry-harvester.js";
 
 import {
@@ -85,7 +85,7 @@ export async function syncNuGetRegistrySource(
         undefined,
         context.demandProfile,
         context.selectionRegistry,
-        getPackageRegistryKind(source),
+        requirePackageRegistryKind(source),
         normalizeStringArray(packageRecord.tags),
       );
       upsertIndexedCatalogEntry(context, entry);
