@@ -332,6 +332,13 @@ async function activateHost(
     const fallbackSkillIds = candidates
       .map((candidate) => candidate.packageManifest)
       .filter((packageManifest) => packageManifest.assetKind === "skill")
+      .filter((packageManifest) => {
+        // Same negative-score hard boundary as the main selection (#426).
+        const recommendedEntry = recommendationEntryByAssetId.get(
+          packageManifest.assetId,
+        );
+        return !(recommendedEntry !== undefined && recommendedEntry.score < 0);
+      })
       .sort((left, right) =>
         compareActivationCandidates(
           left,
@@ -719,6 +726,16 @@ function selectActivationCandidates(
     const recommendedEntry = recommendationEntryByAssetId.get(
       candidate.packageManifest.assetId,
     );
+    // Hard boundary (#426): an asset with a NEGATIVE recommendation score for
+    // the activation's recommendation host is never selected — the engine
+    // explicitly marked it a don't-use for this context, and a supply-chain
+    // tool must not let a negatively-scored asset become active. Assets with
+    // NO recommendation for the host remain eligible: staged-bundle breadth
+    // is the operator-curated contract (mirror locks + catalog selection),
+    // but they rank below recommended assets via preferredAssetOrder.
+    if (recommendedEntry !== undefined && recommendedEntry.score < 0) {
+      continue;
+    }
     const promptWeight =
       recommendedEntry?.estimatedPromptWeight ??
       candidate.packageManifest.contextCost.estimatedPromptWeight;
@@ -1011,9 +1028,25 @@ async function explainActivationState(
       );
     }
     if (isActive) {
-      lines.push(
-        "  reason: selected from staged bundle outputs by recommendation order, session intent, trust, and activation budget",
-      );
+      // Truthful reason strings (#426): the staged-bundle breadth path is
+      // intentional (mirror locks + catalog selection), so active assets with
+      // no recommendation are labeled as such instead of claiming
+      // recommendation-order selection. A negative score is a hard boundary
+      // in current selection; if a legacy activation still contains one,
+      // explain says exactly that.
+      if (recommendationEntry && recommendationEntry.score < 0) {
+        lines.push(
+          "  reason: active from a legacy activation despite a negative recommendation score for this host (not eligible under current selection policy)",
+        );
+      } else if (recommendationEntry) {
+        lines.push(
+          "  reason: selected from staged bundle outputs by recommendation order, session intent, trust, and activation budget",
+        );
+      } else {
+        lines.push(
+          "  reason: activated from staged bundle (not recommended for this host — catalog-selection breadth)",
+        );
+      }
     } else if (budgetPrunedAsset) {
       lines.push(`  reason: ${budgetPrunedAsset.reason}`);
     } else if (suggestedBundle) {
@@ -1152,4 +1185,5 @@ function formatDiffList(values: string[]): string {
  */
 export const activateInternals = {
   swapActivationRuntimeRoot,
+  selectActivationCandidates,
 };

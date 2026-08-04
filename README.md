@@ -908,6 +908,14 @@ You can also activate one lifecycle host using another recommendation policy:
 agent-harness activate host --host copilot-vscode --recommendation-host cursor
 ```
 
+Activation selects from installed bundle contents: bundles are staged by
+`install bundle` (catalog-selection-driven), then ranked by recommendation
+order within the candidate set. Assets with **no recommendation** for the
+recommendation host remain eligible (staged-bundle breadth — see
+`docs/guides/V2-CONTRACT.md`), but an asset with a **negative recommendation
+score** is never activated — the engine's explicit don't-use signal is a hard
+boundary. `activate explain` always states the truthful per-asset reason.
+
 `--recommendation-host` is validated against the supported host set. `--intent` is also validated (`general | frontend | backend | mobile | devops | security | docs | testing | research | data | design | product | marketing`), accepts common aliases such as `documentation`, `ci-cd`, `branding`, and `ba`, and can be passed repeatedly. Activation uses the first provided intent as its primary activation context so downstream views stay deterministic even when recommendation/workspace flows were built from multiple intents.
 
 ### Wire
