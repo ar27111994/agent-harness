@@ -180,3 +180,38 @@ void test("rebuild full runs the clean + batch pipeline on an empty state root (
 
   await runTolerantly(() => runRebuild(["full"], workspaceRoot, stateRoot));
 });
+
+void test("workspace enrichment result handling maps note/failure to exit codes (#428)", async (t) => {
+  const { workspaceInternals } = await import("../workspace.js");
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  // Note present → printed, exit 0.
+  const noted = workspaceInternals.handleAiEnrichmentResult({
+    note: "enrichment skipped: not configured",
+    shouldFail: false,
+  } as never);
+  assert.equal(noted, 0);
+  assert.ok(
+    output.some((line) => line.includes("enrichment skipped")),
+    "the note is surfaced to the user",
+  );
+
+  // Failure requested → exit 1.
+  const failed = workspaceInternals.handleAiEnrichmentResult({
+    note: undefined,
+    shouldFail: true,
+  } as never);
+  assert.equal(failed, 1);
+
+  // Clean success without a note → exit 0, no output.
+  output.length = 0;
+  const ok = workspaceInternals.handleAiEnrichmentResult({
+    note: undefined,
+    shouldFail: false,
+  } as never);
+  assert.equal(ok, 0);
+  assert.equal(output.length, 0);
+});

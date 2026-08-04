@@ -256,6 +256,14 @@ function getPreferredHostCommand(adapterId: string): string {
   return adapterId === "copilot-vscode" ? "vscode" : adapterId;
 }
 
+/**
+ * Exposes workspace internals for focused test coverage.
+ * Not part of the public API.
+ */
+export const workspaceInternals = {
+  handleAiEnrichmentResult,
+};
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [, , ...args] = process.argv;
   const projectRoot = resolveProjectRoot(fileURLToPath(import.meta.url));

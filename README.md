@@ -1611,7 +1611,7 @@ npm run validate:coverage
 npm run test:self-hosting
 ```
 
-Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The current gate targets the main shipped runtime surface while excluding generated types, test harness artifacts, and selected built command-entry outputs listed in `.c8rc.json`; it fails CI unless statements, branches, functions, and lines all remain at 100%. The maintained 100% coverage policy and gap-inventory workflow are documented in [`COVERAGE-100-ROADMAP.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/COVERAGE-100-ROADMAP.md).
+Coverage is enforced through `npm run test:coverage` using the checked-in `.c8rc.json` policy. `npm run validate:coverage` builds, runs the coverage gate, and refreshes `coverage/coverage-gaps.md` with uncovered lines/functions/branches from the latest `lcov.info`. The exclusion list covers only non-product artifacts (generated types, test harness bundles, script test files); a CI guard (`validate:coverage-exclusions`) fails if a product module is ever added back to it. The gate fails CI unless statements, branches, functions, and lines all remain at 100% across the whole product. The maintained 100% coverage policy and gap-inventory workflow are documented in [`COVERAGE-100-ROADMAP.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/reference/COVERAGE-100-ROADMAP.md).
 
 For release or adapter changes, also run:
 

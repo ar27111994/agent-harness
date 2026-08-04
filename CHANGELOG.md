@@ -2,10 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.1.0] - 2026-08-04
 
 ### Added
 
+- **Conan and Meson demand detection** — `conanfile.txt`, `conanfile.py`, and `meson.build` are now inspectable strong-evidence manifests emitting C/C++ language signals plus `conan` package-manager/tooling (or `meson` tooling) signals. The demand-relevant source gate previously checked `conan`/`meson` ecosystem terms that nothing produced — those paths were dead code, and C++ projects using only Conan/Meson manifests could miss `conan-registry` in demand-filtered discovery (#424 follow-up)
+- **Real Hex.pm keyword search** — demand harvesting for `hex-registry` now queries `https://hex.pm/api/packages` (download-sorted); ConanCenter is documented as sitemap-only (no public keyword API) (#424)
+- **First-run sync UX** — `discover full` prints a proactive hint before the first sync of 6+ sources ("First-time sync of N sources may take several minutes — pass --no-sync to use cached discovery state or --sync-all…") even when nothing was skipped; per-source completion lines now include a cumulative remaining-time estimate (`done (7242ms, ~2m 5s remaining)`) (#439)
+- **Coverage-gate exclusion guard** — `npm run validate` and the CI quality job now fail if a product module is added to `.c8rc.json`'s exclude list. The "100% coverage" claim must cover the whole product (#428)
 - **Demand-based source filtering** — `discover full` now syncs only sources relevant to the detected project ecosystem, reducing first-run sync time from 5+ minutes to under 60 seconds for typical TypeScript projects. Sources are mapped from demand signals (languages, frameworks, package managers) to relevant registries. Universal sources (mcp-registry, skills-sh, ui-skills, clawhub) are always synced. Use `--sync-all` to override and sync every enabled source (#419)
 - **Demand-sync progress hint** — after demand detection, `discover full` prints an ecosystem-aware summary: "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped). Use --sync-all for full sync or --no-sync to skip entirely." (#420)
 - **`--sync-all` flag** — new flag for `discover full` that bypasses demand-based source filtering and syncs all enabled sources (#419)
@@ -15,9 +19,22 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- **Registry attribution integrity** — `conan-registry` and `hex-registry` no longer harvest npm packages as official C++/Elixir assets. `getPackageRegistryKind` now has an explicit mapping for every package-registry source in `discover/sources.json` and fails closed (`null`) for unknown ids instead of defaulting to npm; demand harvesting and sitemap sync skip unmapped ids. Catalog ids are now `hex-registry:hex:*` / `conan-registry:conan:*` with correct origin URLs, removing the inflated trust-98 npm entries that topped every recommendation (#424)
+- **Atomic JSON state writes** — `writeJsonFile` now writes to a `.tmp` sibling and renames over the destination (crash-safe), with a bounded retry + remove-and-retry fallback for the Windows EPERM locked-destination race. The private duplicate in `ai-enrichment.ts` is gone; all 74 call sites (demand profiles, sync state, generation manifests, acquire state, selection reports, quarantine, activate) are covered (#427)
+- **Activation truth and boundaries** — assets with a negative recommendation score for the activation's recommendation host can never be selected (main selection and Copilot fallback pool); staged-bundle breadth for never-recommended assets remains intentional and is now documented in `docs/guides/V2-CONTRACT.md` together with the recommendation → mirror → install → activate hand-off. `activate explain` reasons are truthful per state (recommended / not-recommended breadth / legacy-negative) (#426)
+- **Unknown CLI options print errors** — an unknown `--flag` at top-level, domain, or subcommand depth now prints `error: unknown option '<flag>'` plus a usage pointer on stderr and exits 1, instead of dumping full help (or silently executing). Strict known-flag validation covers `discover full/sync/select/breadth/recall/candidate-pool/enrich/stats`, `workspace <host>`, `wire <host>`, `setup doctor/hosts/login` (#431)
+- **Guarded catalog term lookup** — `catalog-selection.ts` no longer uses an unchecked `!` on `Map.get`; a guarded throw with entry context replaces it, with the guard reachable through `catalogSelectionInternals` (#433)
+- **Parent help lists alias-only subcommands** — top-level `--help` now shows `discover recall` / `discover candidate-pool` (aliases) and `quarantine inspect` / `quarantine report`; the surface-audit suite asserts every dispatch-switch subcommand appears in parent help (#430)
+- **Coverage gate measures the whole product** — the 11 previously-excluded top-level orchestration modules are measured again (55,937 statements), with in-process dispatch tests, deep activation/workspace/setup/rebuild/discover pipeline tests restoring 100% of the measured set (#428)
 - **`recommend` subcommand --help shows subcommand-specific options** — `recommend report --help`, `recommend evaluate --help`, `recommend ai-review --help`, and `recommend policy:print --help` now show subcommand-specific usage and options instead of the parent recommend command list (#416)
 - **`install refresh --help` uses correct command name** — help headings and usage lines now show `install` (the primary command) instead of the legacy `stage` alias. Parent help says "install commands (stage is a legacy alias)" (#417)
 - **`bundle explain --help` shows correct heading** — `bundle explain --help` now shows "bundle explain — Explain why assets are present in a bundle lock" instead of the incorrect "mirror explain" heading (#418)
+
+### Changed
+
+- **Module decomposition** — `discover.ts` (2,003 → 1,122 lines) split into `discover-help.ts` (help copy) and `discover-pipeline.ts` (breadth assessment, semantic relevance filtering, demand-relevant source selection); `recommend/counts.ts` middle-man wrappers collapsed to `countCoverageTagsForItems`; `mirror/plan.ts` reads discovery artifacts through the shared typed `loadDiscoveryArtifacts` loader; the duplicated test-framework filename check in `demand-signals.ts` is one `isTestFrameworkConfigFileName` helper (#434, #436, #437, #438)
+- **Allowed env-var documentation drift** — every `AGENT_HARNESS_*` variable read in `src/` must now appear in both README and `.env.example` (test-only hooks exempt); the drift guard scans `process.env.X` and `env.X` binding styles and 9 previously undocumented variables are now documented (#429)
+- **Package metadata truthfulness** — npm `description` no longer claims an MCP-server role; no MCP protocol server exists (`mcp-server` is an asset kind classifier) (#425)
 
 ## [2.0.0] - 2026-07-31
 

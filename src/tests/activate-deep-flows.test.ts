@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { runActivate } from "../activate.js";
+import { runActivate, activateInternals } from "../activate.js";
 import { writeJsonFile } from "../files.js";
 import type {
   AssetKind,
@@ -565,4 +565,109 @@ void test("activate per-subcommand help renders every subcommand surface (#428)"
     const code = await runActivate([sub, "--help"], projectRoot, projectRoot);
     assert.equal(code, 0, `activate ${sub} --help should exit 0`);
   }
+});
+
+// ─── Ranking/budget helper coverage (#428) ──────────────────────────────────
+
+const SESSION_INTENT_VALUE = "general" as const;
+
+function compareManifests(
+  left: Record<string, unknown>,
+  right: Record<string, unknown>,
+  preferredAssetOrder: Map<string, number>,
+  recommendationEntryByAssetId: Map<string, RecommendationEntry>,
+): number {
+  return activateInternals.compareActivationCandidates(
+    left as unknown as Parameters<
+      typeof activateInternals.compareActivationCandidates
+    >[0],
+    right as unknown as Parameters<
+      typeof activateInternals.compareActivationCandidates
+    >[0],
+    preferredAssetOrder,
+    recommendationEntryByAssetId,
+    SESSION_INTENT_VALUE as never,
+  );
+}
+
+void test("activation ranking tie-breakers: authority, portfolio fit, context cost, asset id (#428)", () => {
+  const emptyOrder = new Map<string, number>();
+  const emptyRecs = new Map<string, RecommendationEntry>();
+
+  // Authority beats lower authority when recommendation order is equal.
+  const official = installedPackageManifest("root", {
+    assetId: "official-x",
+    sourceAuthorityTier: "official-marketplace",
+  });
+  const community = installedPackageManifest("root", {
+    assetId: "community-y",
+    sourceAuthorityTier: "trusted-community",
+  });
+  assert.ok(
+    compareManifests(official, community, emptyOrder, emptyRecs) < 0,
+    "official-marketplace ranks before trusted-community",
+  );
+
+  // Portfolio fit beats lower fit at equal authority.
+  const higherFit = installedPackageManifest("root", {
+    assetId: "fit-high",
+  }) as Record<string, unknown> & { portfolioFit: number };
+  const lowerFit = installedPackageManifest("root", {
+    assetId: "fit-low",
+  }) as Record<string, unknown> & { portfolioFit: number };
+  higherFit.portfolioFit = 0.9;
+  lowerFit.portfolioFit = 0.1;
+  assert.ok(
+    compareManifests(higherFit, lowerFit, emptyOrder, emptyRecs) < 0,
+    "higher portfolio fit ranks first",
+  );
+
+  // Context cost ranks smaller classes first at equal fit.
+  const small = installedPackageManifest("root", {
+    assetId: "cost-small",
+  }) as Record<string, unknown> & {
+    contextCost: { sizeClass: string };
+  };
+  const large = installedPackageManifest("root", {
+    assetId: "cost-large",
+  }) as Record<string, unknown> & {
+    contextCost: { sizeClass: string };
+  };
+  small.contextCost.sizeClass = "small";
+  large.contextCost.sizeClass = "large";
+  assert.ok(
+    compareManifests(small, large, emptyOrder, emptyRecs) < 0,
+    "smaller context cost ranks first",
+  );
+
+  // Fully equal candidates fall back to asset id order (stability).
+  const alpha = installedPackageManifest("root", { assetId: "aaa" });
+  const beta = installedPackageManifest("root", { assetId: "zzz" });
+  assert.ok(
+    compareManifests(alpha, beta, emptyOrder, emptyRecs) < 0,
+    "asset id breaks the final tie",
+  );
+  assert.equal(
+    compareManifests(alpha, alpha, emptyOrder, emptyRecs),
+    0,
+    "identical candidates compare equal",
+  );
+});
+
+void test("activation budget resolution: configured host budgets and the default fallback (#428)", () => {
+  assert.equal(
+    activateInternals.getActivationBudget("opencode"),
+    120,
+    "opencode uses its configured budget",
+  );
+  assert.equal(
+    activateInternals.getActivationBudget("copilot-vscode"),
+    60,
+    "copilot-vscode uses its configured budget",
+  );
+  assert.equal(
+    activateInternals.getActivationBudget("shared"),
+    40,
+    "hosts without a configured budget fall back to the default",
+  );
 });

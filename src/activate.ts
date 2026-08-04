@@ -1186,4 +1186,6 @@ function formatDiffList(values: string[]): string {
 export const activateInternals = {
   swapActivationRuntimeRoot,
   selectActivationCandidates,
+  compareActivationCandidates,
+  getActivationBudget,
 };

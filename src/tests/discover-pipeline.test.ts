@@ -84,6 +84,17 @@ void test("discover sync/index/select/full complete on an empty source universe 
     );
   }
 
+  // Source-health summary paths: --quiet and --summary variants exercise the
+  // report printer with the empty-source-universe health report.
+  assert.equal(
+    await runDiscover(["full", "--quiet"], workspaceRoot, stateRoot),
+    0,
+  );
+  assert.equal(
+    await runDiscover(["full", "--summary"], workspaceRoot, stateRoot),
+    0,
+  );
+
   // The unified outputs exist after the pipeline ran.
   const outputs = join(stateRoot, "discover", "output");
   const { readdir } = await import("node:fs/promises");
