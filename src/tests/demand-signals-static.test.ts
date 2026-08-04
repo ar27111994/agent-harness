@@ -318,6 +318,75 @@ void test("demand signals extract static signals from lock files and manifest fi
   }
 });
 
+void test("demand signals inspect and detect Conan and Meson C/C++ manifests", async () => {
+  // Cross-ecosystem fixture coverage: conanfile.txt / conanfile.py are the
+  // canonical ConanCenter manifests and meson.build the Meson build file.
+  // Without them, the conan/meson ecosystem terms in the demand-relevant
+  // source gate are unreachable, and C++ projects using only these files
+  // would not surface the conan-registry source.
+  assert.equal(
+    shouldInspectFile("conanfile.txt", "/project/conanfile.txt"),
+    true,
+  );
+  assert.equal(
+    shouldInspectFile("conanfile.py", "/project/conanfile.py"),
+    true,
+  );
+  assert.equal(shouldInspectFile("meson.build", "/project/meson.build"), true);
+
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-cpp-"));
+
+  try {
+    const conanTxtPath = join(root, "conanfile.txt");
+    const conanPyPath = join(root, "conanfile.py");
+    const mesonPath = join(root, "meson.build");
+    await writeText(conanTxtPath, "[requires]\nopenssl/3.0.0\n");
+    await writeText(conanPyPath, "from conan import ConanFile\n");
+    await writeText(mesonPath, "project('demo', 'cpp')\n");
+
+    const conanTxtSignals = await collectDemandSignalsForFile(
+      "conanfile.txt",
+      conanTxtPath,
+    );
+    const conanPySignals = await collectDemandSignalsForFile(
+      "conanfile.py",
+      conanPyPath,
+    );
+    const mesonSignals = await collectDemandSignalsForFile(
+      "meson.build",
+      mesonPath,
+    );
+
+    for (const signals of [conanTxtSignals, conanPySignals]) {
+      assert.ok(signals.languages.includes("c"), "conan signals c language");
+      assert.ok(
+        signals.languages.includes("cpp"),
+        "conan signals cpp language",
+      );
+      assert.ok(
+        signals.packageManagers.includes("conan"),
+        "conan manifest signals conan package manager",
+      );
+      assert.ok(
+        signals.tooling.includes("conan"),
+        "conan manifest signals conan tooling",
+      );
+    }
+
+    assert.ok(mesonSignals.languages.includes("c"), "meson signals c language");
+    assert.ok(
+      mesonSignals.languages.includes("cpp"),
+      "meson signals cpp language",
+    );
+    assert.ok(
+      mesonSignals.tooling.includes("meson"),
+      "meson signals meson tooling",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 void test("demand signals extract signals from Package.swift file content", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-demand-swift-"));
 

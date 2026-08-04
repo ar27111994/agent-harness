@@ -104,6 +104,9 @@ const INSPECTABLE_FILE_NAMES = new Set([
   "Project.toml",
   "Manifest.toml",
   "CMakeLists.txt",
+  "meson.build",
+  "conanfile.txt",
+  "conanfile.py",
   "Makefile",
   "package.xml",
   "Dockerfile",
@@ -499,6 +502,17 @@ function collectStaticSignals(
   if (fileName === "CMakeLists.txt") {
     addSignals(matchedSignals.languages, ["c", "cpp"]);
     addSignals(matchedSignals.tooling, ["cmake"]);
+  }
+
+  if (fileName === "meson.build") {
+    addSignals(matchedSignals.languages, ["c", "cpp"]);
+    addSignals(matchedSignals.tooling, ["meson"]);
+  }
+
+  if (fileName === "conanfile.txt" || fileName === "conanfile.py") {
+    addSignals(matchedSignals.languages, ["c", "cpp"]);
+    addSignals(matchedSignals.packageManagers, ["conan"]);
+    addSignals(matchedSignals.tooling, ["conan"]);
   }
 
   if (fileName === "Makefile") {
@@ -993,6 +1007,9 @@ function shouldReadTextForTechnologySignals(fileName: string): boolean {
       "Podfile",
       "Makefile",
       "CMakeLists.txt",
+      "meson.build",
+      "conanfile.txt",
+      "conanfile.py",
       "mix.exs",
       "rebar.config",
       "Project.toml",

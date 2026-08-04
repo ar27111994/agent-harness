@@ -562,6 +562,27 @@ void test("computeDemandRelevantSourceIds: handles C++ language", () => {
   assert.equal(ids.has("mcp-registry"), true);
 });
 
+void test("computeDemandRelevantSourceIds: conan and meson ecosystem terms gate conan-registry", () => {
+  // conanfile.txt / conanfile.py / meson.build detection emits the conan and
+  // meson tooling/package-manager signals; the source gate must surface
+  // conan-registry from those terms alone (previously dead code paths).
+  const conanDp = createDemandProfile({ packageManagers: ["conan"] });
+  const conanIds = computeDemandRelevantSourceIds(conanDp);
+  assert.equal(conanIds.has("conan-registry"), true);
+
+  const conanToolingDp = createDemandProfile({ tooling: ["conan"] });
+  const conanToolingIds = computeDemandRelevantSourceIds(conanToolingDp);
+  assert.equal(conanToolingIds.has("conan-registry"), true);
+
+  const mesonDp = createDemandProfile({ tooling: ["meson"] });
+  const mesonIds = computeDemandRelevantSourceIds(mesonDp);
+  assert.equal(mesonIds.has("conan-registry"), true);
+
+  const cmakeDp = createDemandProfile({ tooling: ["cmake"] });
+  const cmakeIds = computeDemandRelevantSourceIds(cmakeDp);
+  assert.equal(cmakeIds.has("conan-registry"), true);
+});
+
 void test("computeDemandRelevantSourceIds: handles Erlang language", () => {
   const dp = createDemandProfile({ languages: ["Erlang"] });
   const ids = computeDemandRelevantSourceIds(dp);
