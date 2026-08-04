@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  countBy,
-  countCoverageTags,
-  countCoverageTagsFromEntries,
-} from "../recommend/counts.js";
+import { countBy, countCoverageTagsForItems } from "../recommend/counts.js";
 import type { CandidateRecommendation } from "../recommend/model.js";
 import type { RecommendationEntry } from "../types.js";
 
@@ -19,11 +15,11 @@ void test("recommend counts aggregates coverage tags across candidates and entri
     createRecommendationEntry(["frontend", "testing"]),
   ];
 
-  assert.deepEqual(countCoverageTags(candidates), {
+  assert.deepEqual(countCoverageTagsForItems(candidates), {
     backend: 2,
     testing: 1,
   });
-  assert.deepEqual(countCoverageTagsFromEntries(entries), {
+  assert.deepEqual(countCoverageTagsForItems(entries), {
     frontend: 2,
     testing: 1,
   });

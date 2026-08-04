@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { countBy, countCoverageTagsFromEntries } from "../recommend/counts.js";
+import { countBy, countCoverageTagsForItems } from "../recommend/counts.js";
 import {
   buildHostSummary,
   buildSuggestedBundle,
@@ -39,7 +39,7 @@ void test("recommend summary counts coverage tags and bucket summaries determini
   ];
   const policy = buildPolicy();
 
-  assert.deepEqual(countCoverageTagsFromEntries(entries), {
+  assert.deepEqual(countCoverageTagsForItems(entries), {
     backend: 3,
     testing: 1,
     docs: 1,

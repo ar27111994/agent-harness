@@ -1,6 +1,6 @@
 import { getRuntimeConfig } from "../config/runtime.js";
 import { FOCUSED_BUCKET_LIMIT } from "./constants.js";
-import { countBy, countCoverageTagsFromEntries } from "./counts.js";
+import { countBy, countCoverageTagsForItems } from "./counts.js";
 import type {
   RecommendationEntry,
   RecommendationHostSummary,
@@ -45,7 +45,7 @@ export function buildHostSummary(
     selectedAssetIds: entries.map((entry) => entry.assetId),
     byAssetKind: countBy(entries, (entry) => entry.assetKind ?? "unknown"),
     bySourceFamily: countBy(entries, (entry) => entry.sourceFamily),
-    byConcern: countCoverageTagsFromEntries(entries),
+    byConcern: countCoverageTagsForItems(entries),
     concernBuckets: buildConcernBuckets(entries),
     taskModeBuckets: buildTaskModeBuckets(entries),
   };

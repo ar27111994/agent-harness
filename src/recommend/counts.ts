@@ -1,25 +1,13 @@
-import type { RecommendationEntry } from "../types.js";
-import type { CandidateRecommendation } from "./model.js";
-
 /**
  * Provides count coverage tags for the lifecycle pipeline.
+ *
+ * Single canonical coverage-tag counter (#438): previously exposed as a
+ * generic private helper behind two thin middle-man wrappers
+ * (countCoverageTags / countCoverageTagsFromEntries) that added no behavior.
+ * Callers use this function directly, typed to any entry shape carrying
+ * `coverageTags`.
  */
-export function countCoverageTags(
-  entries: CandidateRecommendation[],
-): Record<string, number> {
-  return countCoverageTagsForItems(entries);
-}
-
-/**
- * Provides count coverage tags from entries for the lifecycle pipeline.
- */
-export function countCoverageTagsFromEntries(
-  entries: RecommendationEntry[],
-): Record<string, number> {
-  return countCoverageTagsForItems(entries);
-}
-
-function countCoverageTagsForItems<T extends { coverageTags: string[] }>(
+export function countCoverageTagsForItems<T extends { coverageTags: string[] }>(
   entries: T[],
 ): Record<string, number> {
   const counts: Record<string, number> = {};
