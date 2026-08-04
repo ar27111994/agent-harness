@@ -150,11 +150,7 @@ export function shouldInspectFile(fileName: string, filePath: string): boolean {
     return true;
   }
 
-  if (
-    fileName.startsWith("playwright.config.") ||
-    fileName.startsWith("vitest.config.") ||
-    fileName.startsWith("jest.config.")
-  ) {
+  if (isTestFrameworkConfigFileName(fileName)) {
     return true;
   }
 
@@ -265,9 +261,7 @@ export function getDemandEvidenceStrength(
     fileName.endsWith(".tfvars") ||
     isDockerfileName(fileName) ||
     isComposeFileName(fileName) ||
-    fileName.startsWith("playwright.config.") ||
-    fileName.startsWith("vitest.config.") ||
-    fileName.startsWith("jest.config.") ||
+    isTestFrameworkConfigFileName(fileName) ||
     /openapi|swagger/iu.test(fileName) ||
     INSPECTABLE_FILE_NAMES.has(fileName)
   ) {
@@ -298,6 +292,21 @@ function isDockerfileName(fileName: string): boolean {
   return (
     /^Dockerfile(?:[.-][A-Za-z0-9_.-]+)?$/u.test(fileName) ||
     fileName === "Containerfile"
+  );
+}
+
+/**
+ * Detects test-framework config filenames (playwright/vitest/jest).
+ *
+ * Single canonical check shared by demand-scoring and evidence-strength
+ * classification (#436); a framework config file is a strong demand signal
+ * for its ecosystem.
+ */
+function isTestFrameworkConfigFileName(fileName: string): boolean {
+  return (
+    fileName.startsWith("playwright.config.") ||
+    fileName.startsWith("vitest.config.") ||
+    fileName.startsWith("jest.config.")
   );
 }
 
@@ -527,19 +536,16 @@ function collectStaticSignals(
     addSignals(matchedSignals.tooling, ["terraform"]);
   }
 
-  if (fileName.startsWith("playwright.config.")) {
-    addSignals(matchedSignals.concerns, ["e2e-testing", "testing"]);
-    addSignals(matchedSignals.tooling, ["playwright"]);
-  }
-
-  if (
-    fileName.startsWith("vitest.config.") ||
-    fileName.startsWith("jest.config.")
-  ) {
-    addSignals(matchedSignals.concerns, ["testing"]);
-    addSignals(matchedSignals.tooling, [
-      fileName.startsWith("vitest") ? "vitest" : "jest",
-    ]);
+  if (isTestFrameworkConfigFileName(fileName)) {
+    if (fileName.startsWith("playwright.config.")) {
+      addSignals(matchedSignals.concerns, ["e2e-testing", "testing"]);
+      addSignals(matchedSignals.tooling, ["playwright"]);
+    } else {
+      addSignals(matchedSignals.concerns, ["testing"]);
+      addSignals(matchedSignals.tooling, [
+        fileName.startsWith("vitest") ? "vitest" : "jest",
+      ]);
+    }
   }
 
   if (/openapi|swagger/iu.test(fileName)) {
