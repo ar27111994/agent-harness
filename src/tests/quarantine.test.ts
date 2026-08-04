@@ -143,6 +143,61 @@ void test("quarantine report shows rejected and pinned lifecycle decisions", asy
   }
 });
 
+void test("quarantine list prints reachable rows and inspect reads quarantine artifact content", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-inspect-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      buildMirrorEntry("asset-1", "sha256-list-a"),
+      buildMirrorEntry("asset-2", "sha256-list-b"),
+    ]);
+
+    const listOutput: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      listOutput.push(args.map((value) => String(value)).join(" "));
+    });
+    let inspectOutput = "";
+    await runQuarantine(["list"], projectRoot);
+    inspectOutput = JSON.stringify(listOutput);
+    assert.match(inspectOutput, /asset-1/u);
+    assert.match(inspectOutput, /sha256-list-a/u);
+    assert.match(inspectOutput, /asset-2/u);
+    assert.match(inspectOutput, /trusted-community/u);
+
+    // Inspect against a quarantined artifact with stored asset metadata and
+    // content: prints the full JSON surface including the content preview.
+    await mkdir(join(projectRoot, "mirror", "quarantine", "sha256-list-a"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(projectRoot, "mirror", "quarantine", "sha256-list-a", "content.txt"),
+      "suspicious payload content\n".repeat(100),
+    );
+    listOutput.length = 0;
+    const code = await runQuarantine(
+      ["inspect", "--asset", "asset-1"],
+      projectRoot,
+    );
+    assert.equal(code, 0);
+    const inspectJson = JSON.parse(listOutput.join("\n")) as {
+      mirrorIndex: { assetId: string; mirrorId: string; status: string };
+      asset: unknown;
+      contentPreview: string;
+    };
+    assert.equal(inspectJson.mirrorIndex.assetId, "asset-1");
+    assert.equal(inspectJson.mirrorIndex.status, "quarantined");
+    assert.equal(inspectJson.asset, null, "asset metadata absent stays null");
+    assert.match(inspectJson.contentPreview, /suspicious payload/u);
+    assert.ok(
+      inspectJson.contentPreview.length <= 4000,
+      "content preview is bounded",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 void test("quarantine derives signal- and evidence-based lifecycle transitions", async () => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-quarantine-"),

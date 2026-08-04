@@ -97,14 +97,16 @@ function installedPackageManifest(
     sourceAuthorityTier: AuthorityTier;
     estimatedPromptWeight: number;
     filesRoot: string;
+    host: string;
   }>,
 ): Record<string, unknown> {
   const assetId = overrides.assetId ?? "asset-default";
+  const host = overrides.host ?? "opencode";
   return {
     schemaVersion: 1,
     assetId,
     mirrorId: overrides.mirrorId ?? `mirror-${assetId}`,
-    host: "opencode",
+    host,
     installedAt: new Date().toISOString(),
     projectionType: "overlay",
     assetKind: overrides.assetKind ?? "skill",
@@ -117,191 +119,121 @@ function installedPackageManifest(
     portfolioFit: 0.6,
     filesRoot:
       overrides.filesRoot ??
-      join(projectRoot, "install", "opencode", "packages", assetId),
+      join(projectRoot, "install", host, "packages", assetId),
     bundleMembership: ["opencode-global"],
     activationEligible: true,
     activeByDefault: false,
   };
 }
 
-async function writeActivationFixtureState(projectRoot: string): Promise<void> {
-  // Generation manifest declaring the installed packages.
+const ACTIVATION_FIXTURE_HOSTS = [
+  "opencode",
+  "copilot-vscode",
+  "shared",
+] as const;
+
+const BUNDLE_ID_BY_FIXTURE_HOST: Record<string, string> = {
+  opencode: "opencode-global",
+  "copilot-vscode": "copilot-core",
+  shared: "shared-mcp",
+};
+
+/** Installed-package asset ids shared by every fixture host. */
+const FIXTURE_PACKAGE_IDS = [
+  "recommended-a",
+  "staged-breadth",
+  "negative-score",
+  "heavy-asset",
+] as const;
+
+/**
+ * Writes the install-state family (generation, bundle manifest, package
+ * manifests) for one activation host so activateHost's bundle scan finds
+ * real candidates.
+ */
+async function writeActivationHostState(
+  projectRoot: string,
+  host: string,
+): Promise<void> {
+  const bundleId = BUNDLE_ID_BY_FIXTURE_HOST[host] ?? "opencode-global";
+  const packageManifestPaths = FIXTURE_PACKAGE_IDS.map((assetId) =>
+    join(projectRoot, "install", host, "packages", assetId, "manifest.json"),
+  );
+
   await writeJsonFile(
-    join(projectRoot, "install", "generations", "opencode", "current.json"),
+    join(projectRoot, "install", "generations", host, "current.json"),
     {
       schemaVersion: 1,
       generationId: "gen-current",
-      host: "opencode",
+      host,
       generatedAt: new Date().toISOString(),
-      bundleIds: ["opencode-global"],
-      packageManifestPaths: [
-        join(
-          projectRoot,
-          "install",
-          "opencode",
-          "packages",
-          "recommended-a",
-          "manifest.json",
-        ),
-        join(
-          projectRoot,
-          "install",
-          "opencode",
-          "packages",
-          "staged-breadth",
-          "manifest.json",
-        ),
-        join(
-          projectRoot,
-          "install",
-          "opencode",
-          "packages",
-          "negative-score",
-          "manifest.json",
-        ),
-        join(
-          projectRoot,
-          "install",
-          "opencode",
-          "packages",
-          "heavy-asset",
-          "manifest.json",
-        ),
-      ],
+      bundleIds: [bundleId],
+      packageManifestPaths,
     },
   );
 
-  // Installed bundle manifest.
   await writeJsonFile(
-    join(
-      projectRoot,
-      "install",
-      "opencode",
-      "bundles",
-      "opencode-global.install.json",
-    ),
+    join(projectRoot, "install", host, "bundles", `${bundleId}.install.json`),
     {
       schemaVersion: 1,
-      bundleId: "opencode-global",
-      host: "opencode",
+      bundleId,
+      host,
       installedAt: new Date().toISOString(),
-      packages: [
-        {
-          assetId: "recommended-a",
-          mirrorId: "mirror-a",
-          manifestPath: join(
-            projectRoot,
-            "install",
-            "opencode",
-            "packages",
-            "recommended-a",
-            "manifest.json",
-          ),
-        },
-        {
-          assetId: "staged-breadth",
-          mirrorId: "mirror-b",
-          manifestPath: join(
-            projectRoot,
-            "install",
-            "opencode",
-            "packages",
-            "staged-breadth",
-            "manifest.json",
-          ),
-        },
-        {
-          assetId: "negative-score",
-          mirrorId: "mirror-c",
-          manifestPath: join(
-            projectRoot,
-            "install",
-            "opencode",
-            "packages",
-            "negative-score",
-            "manifest.json",
-          ),
-        },
-        {
-          assetId: "heavy-asset",
-          mirrorId: "mirror-d",
-          manifestPath: join(
-            projectRoot,
-            "install",
-            "opencode",
-            "packages",
-            "heavy-asset",
-            "manifest.json",
-          ),
-        },
-      ],
+      packages: FIXTURE_PACKAGE_IDS.map((assetId, index) => ({
+        assetId,
+        mirrorId: `mirror-${["a", "b", "c", "d"][index]}`,
+        manifestPath: join(
+          projectRoot,
+          "install",
+          host,
+          "packages",
+          assetId,
+          "manifest.json",
+        ),
+      })),
     },
   );
 
   // Package manifests: one recommended (weight 1), one staged-breadth
-  // (no recommendation, weight 1), one negatively scored (#426 boundary),
-  // one heavy (weight 50 — exceeds the activation budget).
-  await writeJsonFile(
-    join(
-      projectRoot,
-      "install",
-      "opencode",
-      "packages",
-      "recommended-a",
-      "manifest.json",
-    ),
+  // (no recommendation, weight 1, instruction kind), one negatively scored
+  // (#426 boundary), one heavy (weight 50 — exceeds the activation budget).
+  const manifests: Array<Record<string, unknown>> = [
     installedPackageManifest(projectRoot, {
       assetId: "recommended-a",
-      mirrorId: "mirror-a",
       estimatedPromptWeight: 1,
+      host,
     }),
-  );
-  await writeJsonFile(
-    join(
-      projectRoot,
-      "install",
-      "opencode",
-      "packages",
-      "staged-breadth",
-      "manifest.json",
-    ),
     installedPackageManifest(projectRoot, {
       assetId: "staged-breadth",
-      mirrorId: "mirror-b",
       assetKind: "instruction",
       estimatedPromptWeight: 1,
+      host,
     }),
-  );
-  await writeJsonFile(
-    join(
-      projectRoot,
-      "install",
-      "opencode",
-      "packages",
-      "negative-score",
-      "manifest.json",
-    ),
     installedPackageManifest(projectRoot, {
       assetId: "negative-score",
-      mirrorId: "mirror-c",
       estimatedPromptWeight: 1,
+      host,
     }),
-  );
-  await writeJsonFile(
-    join(
-      projectRoot,
-      "install",
-      "opencode",
-      "packages",
-      "heavy-asset",
-      "manifest.json",
-    ),
     installedPackageManifest(projectRoot, {
       assetId: "heavy-asset",
-      mirrorId: "mirror-d",
       estimatedPromptWeight: 50,
+      host,
     }),
-  );
+  ];
+
+  for (let index = 0; index < FIXTURE_PACKAGE_IDS.length; index += 1) {
+    const assetId = FIXTURE_PACKAGE_IDS[index] as string;
+    await writeJsonFile(
+      join(projectRoot, "install", host, "packages", assetId, "manifest.json"),
+      manifests[index] as Record<string, unknown>,
+    );
+  }
+}
+
+async function writeActivationFixtureState(projectRoot: string): Promise<void> {
+  for (const host of ACTIVATION_FIXTURE_HOSTS) {
+    await writeActivationHostState(projectRoot, host);
+  }
 
   // Recommendations: recommended-a ranked 1; negative-score ranked 30 with a
   // negative score for opencode; staged-breadth and heavy-asset absent.
@@ -580,4 +512,57 @@ void test("activate diff succeeds when previous generation state exists (#428)",
     output.join("\n").includes("Activation diff for opencode"),
     "diff prints a per-host report",
   );
+});
+
+void test("activate host without --host drives every activation host including the Copilot profile (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("allhosts");
+  t.after(cleanup);
+  await writeActivationFixtureState(projectRoot);
+
+  // Default host set: opencode, copilot-vscode, shared. The Copilot host
+  // takes the workspace-profile + fallback-skill-pool path; shared uses the
+  // shared-mcp default bundle id.
+  const code = await runActivate(["host"], projectRoot, projectRoot);
+  assert.equal(code, 0);
+
+  for (const host of ["opencode", "copilot-vscode", "shared"]) {
+    const manifest = await readJson<{
+      activeAssets: string[];
+      activeBundles: string[];
+    }>(join(projectRoot, "activate", host, "activation-manifest.json"));
+    assert.ok(Array.isArray(manifest.activeAssets));
+    assert.ok(
+      !manifest.activeAssets.includes("negative-score"),
+      `negative-score must never activate for ${host}`,
+    );
+  }
+
+  // Copilot profile manifest exists and merged skill ids include the
+  // recommended skill. (The negative-score veto is per recommendation-host:
+  // copilot-vscode never scored the asset, so staged-breadth semantics apply
+  // there — the opencode assertion above proves the veto itself.)
+  const profile = await readJson<{ selectedSkillIds: string[] }>(
+    join(
+      projectRoot,
+      "activate",
+      "copilot-vscode",
+      "workspace-profile-manifest.json",
+    ),
+  );
+  assert.ok(profile.selectedSkillIds.includes("recommended-a"));
+  // shared host activation writes shared-mcp bundle selection.
+  const sharedManifest = await readJson<{ activeBundles: string[] }>(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+  );
+  assert.deepEqual(sharedManifest.activeBundles, ["shared-mcp"]);
+});
+
+void test("activate per-subcommand help renders every subcommand surface (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("helps");
+  t.after(cleanup);
+
+  for (const sub of ["host", "diff", "explain", "rollback", "reset"]) {
+    const code = await runActivate([sub, "--help"], projectRoot, projectRoot);
+    assert.equal(code, 0, `activate ${sub} --help should exit 0`);
+  }
 });
