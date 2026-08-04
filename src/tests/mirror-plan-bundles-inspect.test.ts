@@ -18,6 +18,7 @@ import {
 } from "../mirror/inspect.js";
 import { MIRROR_PLAN_OUTPUT_PATH } from "../mirror/constants.js";
 import { generateMirrorPlan } from "../mirror/plan.js";
+import { loadDiscoveryArtifacts } from "../mirror/discovery-artifacts.js";
 import type {
   AssetCatalogEntry,
   BundleLock,
@@ -980,6 +981,86 @@ void test("explainMirrorArtifact resolves by mirror id and tolerates missing pre
     };
     assert.equal(explained.mirrorIndex.mirrorId, "sha256-fixture-skill");
     assert.equal(explained.contentPreview, null);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// loadDiscoveryArtifacts (#437)
+// ---------------------------------------------------------------------------
+
+void test("loadDiscoveryArtifacts loads the typed artifact family with preserved nullability", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discovery-artifacts-"),
+  );
+
+  try {
+    await writeJsonFile(
+      join(projectRoot, "discover", "output", "demand-profile.json"),
+      { schemaVersion: 1, updatedAt: new Date().toISOString() },
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "catalog.assets.jsonl"),
+      [buildAsset("asset-1"), buildAsset("asset-2")],
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [buildAsset("asset-1")],
+    );
+
+    const artifacts = await loadDiscoveryArtifacts(projectRoot);
+
+    assert.equal(artifacts.demandProfile?.schemaVersion, 1);
+    assert.equal(artifacts.sourceIndex, null, "absent source index stays null");
+    assert.equal(artifacts.catalogEntries.length, 2);
+    assert.deepEqual(
+      artifacts.catalogEntries.map((entry) => entry.id),
+      ["asset-1", "asset-2"],
+    );
+    assert.deepEqual(
+      artifacts.selectedEntries.map((entry) => entry.id),
+      ["asset-1"],
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("loadDiscoveryArtifacts preserves missing-file semantics (empty arrays, null optionals)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discovery-artifacts-missing-"),
+  );
+
+  try {
+    // Missing required JSONL files were previously read as empty arrays by
+    // readJsonLinesFile (ENOENT -> []); the loader must preserve that so
+    // plan generation still succeeds with absent discovery outputs.
+    const artifacts = await loadDiscoveryArtifacts(projectRoot);
+
+    assert.equal(artifacts.demandProfile, null);
+    assert.equal(artifacts.sourceIndex, null);
+    assert.deepEqual(artifacts.catalogEntries, []);
+    assert.deepEqual(artifacts.selectedEntries, []);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("loadDiscoveryArtifacts rejects through the shared catalog validator", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discovery-artifacts-invalid-"),
+  );
+
+  try {
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "catalog.assets.jsonl"),
+      [{ id: "not-a-valid-entry" }],
+    );
+    await assert.rejects(
+      loadDiscoveryArtifacts(projectRoot),
+      /catalog\.assets\.jsonl/u,
+    );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

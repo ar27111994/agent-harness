@@ -2,15 +2,10 @@ import { join } from "node:path";
 
 import {
   readJsonFile,
-  readJsonFileOrNull,
-  readJsonLinesFile,
   toPosixPath,
   writeJsonFile,
 } from "../files.js";
-import {
-  assertAssetCatalogEntry,
-  assertMirrorPolicy,
-} from "../manifest-validation.js";
+import { assertMirrorPolicy } from "../manifest-validation.js";
 import type {
   AssetCatalogEntry,
   DemandProfile,
@@ -18,6 +13,7 @@ import type {
   MirrorPolicy,
   SourceIndex,
 } from "../types.js";
+import { loadDiscoveryArtifacts } from "./discovery-artifacts.js";
 import { MIRROR_PLAN_OUTPUT_PATH } from "./constants.js";
 
 /**
@@ -28,20 +24,11 @@ export async function generateMirrorPlan(projectRoot: string): Promise<void> {
     join(projectRoot, "mirror", "policy.json"),
     assertMirrorPolicy,
   );
-  const demandProfile = await readJsonFileOrNull<DemandProfile>(
-    join(projectRoot, "discover", "output", "demand-profile.json"),
-  );
-  const sourceIndex = await readJsonFileOrNull<SourceIndex>(
-    join(projectRoot, "discover", "output", "source-index.json"),
-  );
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, "discover", "catalog.assets.jsonl"),
-    assertAssetCatalogEntry,
-  );
-  const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
-    assertAssetCatalogEntry,
-  );
+  // The remaining discovery inputs travel together as a family; load them
+  // through the shared typed loader so every future reader reuses the same
+  // paths, validators, and nullability semantics (#437).
+  const { demandProfile, sourceIndex, catalogEntries, selectedEntries } =
+    await loadDiscoveryArtifacts(projectRoot);
   const selectedCatalogEntries = selectedEntries.length;
   const mirrorEligibleEntries = catalogEntries.filter(
     (entry) => entry.status.mirrorEligible,
