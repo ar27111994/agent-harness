@@ -192,7 +192,7 @@ async function runDoctor(
 
   // Derive the cumulative default from the resolved per-adapter timeout
   // plus headroom for the worst-case sequential runtime preflight budget
-  // (two checks at the default hostCommands.preflightTimeoutMs of 10s each).
+  // (two checks at the default hostCommands.preflightTimeoutMs of 15s each).
   // This ensures the cumulative timeout scales with any user-configured
   // per-adapter timeout rather than being pinned to a fixed constant.
   const cumulativeTimeoutMs = parsePositiveIntegerEnv(

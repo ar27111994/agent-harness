@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,8 @@ import {
   main,
   parseEnvExampleVars,
   parseReadmeVars,
+  parseSourceEnvReads,
+  TEST_ONLY_ENV_VARS,
 } from "../check-env-readme-drift.mjs";
 
 // ---------------------------------------------------------------------------
@@ -166,7 +168,6 @@ describe("parseEnvExampleVars", () => {
 // ---------------------------------------------------------------------------
 // parseReadmeVars
 // ---------------------------------------------------------------------------
-
 describe("parseReadmeVars", () => {
   it("extracts AGENT_HARNESS_* variables from README content", () => {
     const content =
@@ -235,6 +236,58 @@ describe("parseReadmeVars", () => {
     const content = "x".repeat(1_000_000);
     const vars = parseReadmeVars(content);
     assert.equal(vars.size, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// parseSourceEnvReads
+// ---------------------------------------------------------------------------
+
+describe("parseSourceEnvReads", () => {
+  it("extracts process.env AGENT_HARNESS_* reads", () => {
+    const content =
+      "const a = process.env.AGENT_HARNESS_FOO;\nconst b = process.env.AGENT_HARNESS_BAR;\n";
+    const vars = parseSourceEnvReads(content);
+    assert.deepStrictEqual(
+      vars,
+      new Set(["AGENT_HARNESS_FOO", "AGENT_HARNESS_BAR"]),
+    );
+  });
+
+  it("extracts env. AGENT_HARNESS_* reads (destructured binding style)", () => {
+    const content =
+      "function load(env = process.env) {\n  return env.AGENT_HARNESS_FOO ?? env.AGENT_HARNESS_BAR;\n}\n";
+    const vars = parseSourceEnvReads(content);
+    assert.deepStrictEqual(
+      vars,
+      new Set(["AGENT_HARNESS_FOO", "AGENT_HARNESS_BAR"]),
+    );
+  });
+
+  it("deduplicates repeated reads", () => {
+    const content =
+      "const x = process.env.AGENT_HARNESS_FOO;\nconst y = process.env.AGENT_HARNESS_FOO;\n";
+    const vars = parseSourceEnvReads(content);
+    assert.deepStrictEqual(vars, new Set(["AGENT_HARNESS_FOO"]));
+  });
+
+  it("ignores non-AGENT_HARNESS env reads and unrelated text", () => {
+    const content =
+      "const x = process.env.NODE_ENV;\nconst y = env.HOME;\n// AGENT_HARNESS_FOO mentioned in comment without read\n";
+    const vars = parseSourceEnvReads(content);
+    assert.deepStrictEqual(vars, new Set());
+  });
+
+  it("handles bracket-style reads that resolve to AGENT_HARNESS names", () => {
+    // Bracketed access is not matched (no literal AGENT_HARNESS_ token), so a
+    // dynamic read cannot bypass the docs requirement silently.
+    const content = 'process.env["AGENT_HARNESS_DYNAMIC"];\n';
+    const vars = parseSourceEnvReads(content);
+    assert.equal(vars.size, 0);
+  });
+
+  it("handles empty content", () => {
+    assert.deepStrictEqual(parseSourceEnvReads(""), new Set());
   });
 });
 
@@ -324,6 +377,67 @@ describe("checkDrift", () => {
     assert.equal(result.ok, true);
     assert.equal(result.envVarCount, 2);
   });
+
+  it("reports OK when src-read vars are documented in both files", () => {
+    const envContent = "AGENT_HARNESS_FOO=1\n";
+    const readmeContent = "Documentation for AGENT_HARNESS_FOO.";
+    const sourceContent = "const value = process.env.AGENT_HARNESS_FOO;\n";
+    const result = checkDrift(envContent, readmeContent, sourceContent);
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceVarCount, 1);
+    assert.deepStrictEqual(result.missingFromDocs, []);
+  });
+
+  it("flags src-read vars missing from README and .env.example", () => {
+    const envContent = "AGENT_HARNESS_FOO=1\n";
+    const readmeContent = "Documentation for AGENT_HARNESS_FOO.";
+    const sourceContent = [
+      "const a = process.env.AGENT_HARNESS_FOO;",
+      "const b = env.AGENT_HARNESS_UNDOCUMENTED;",
+    ].join("\n");
+    const result = checkDrift(envContent, readmeContent, sourceContent);
+    assert.equal(result.ok, false);
+    assert.equal(result.sourceVarCount, 2);
+    assert.deepStrictEqual(result.missingFromDocs, [
+      "AGENT_HARNESS_UNDOCUMENTED",
+    ]);
+  });
+
+  it("exempts test-only env hooks from the documentation requirement", () => {
+    const envContent = "AGENT_HARNESS_FOO=1\n";
+    const readmeContent = "Documentation for AGENT_HARNESS_FOO.";
+    const sourceContent = [
+      "const a = process.env.AGENT_HARNESS_FOO;",
+      "const b = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;",
+      "const c = process.env.AGENT_HARNESS_FAKE_CODE_STATE;",
+    ].join("\n");
+    const result = checkDrift(envContent, readmeContent, sourceContent);
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceVarCount, 1);
+    for (const testOnly of TEST_ONLY_ENV_VARS) {
+      assert.ok(
+        !result.missingFromDocs.includes(testOnly),
+        `${testOnly} should be exempt`,
+      );
+    }
+  });
+
+  it("skips the source scan when no source content is provided", () => {
+    const result = checkDrift("AGENT_HARNESS_FOO=1\n", "AGENT_HARNESS_FOO.");
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceVarCount, 0);
+    assert.deepStrictEqual(result.missingFromDocs, []);
+  });
+
+  it("handles empty source content without counting anything", () => {
+    const result = checkDrift(
+      "AGENT_HARNESS_FOO=1\n",
+      "AGENT_HARNESS_FOO.",
+      "",
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.sourceVarCount, 0);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -397,6 +511,34 @@ describe("formatDriftReport", () => {
     assert.match(report, /AGENT_HARNESS_MISSING_ENV/u);
   });
 
+  it("reports src-read vars missing from both docs", () => {
+    const result = {
+      ok: false,
+      envVarCount: 2,
+      missingFromReadme: [],
+      missingFromEnv: [],
+      sourceVarCount: 3,
+      missingFromDocs: ["AGENT_HARNESS_UNDOCUMENTED"],
+    };
+    const report = formatDriftReport(result);
+    assert.match(report, /src-read var\(s\) NOT documented/u);
+    assert.match(report, /AGENT_HARNESS_UNDOCUMENTED/u);
+  });
+
+  it("includes the src-read count in the OK report", () => {
+    const result = {
+      ok: true,
+      envVarCount: 2,
+      missingFromReadme: [],
+      missingFromEnv: [],
+      sourceVarCount: 5,
+      missingFromDocs: [],
+    };
+    const report = formatDriftReport(result);
+    assert.match(report, /OK/u);
+    assert.match(report, /5 src-read vars documented/u);
+  });
+
   it("handles empty missing arrays (just in case)", () => {
     const result = {
       ok: true,
@@ -444,25 +586,32 @@ describe("formatDriftReport", () => {
 // ---------------------------------------------------------------------------
 
 describe("main", () => {
-  it("exits 0 when env and readme are in sync", async () => {
+  it("exits 0 when env, readme, and source reads are in sync", async () => {
     const dir = await mkdtemp(join(tmpdir(), "drift-test-sync-"));
     try {
       const envFile = join(dir, ".env.example");
       const readmeFile = join(dir, "README.md");
+      const srcDir = join(dir, "src");
+      await mkdir(srcDir, { recursive: true });
       await writeFile(envFile, "AGENT_HARNESS_FOO=1\nAGENT_HARNESS_BAR=2\n");
       await writeFile(
         readmeFile,
         "Docs for AGENT_HARNESS_FOO and AGENT_HARNESS_BAR.",
+      );
+      await writeFile(
+        join(srcDir, "config.ts"),
+        "const a = process.env.AGENT_HARNESS_FOO;\nconst b = env.AGENT_HARNESS_BAR;\n",
       );
 
       const logs = [];
       const origLog = console.log;
       console.log = (...args) => logs.push(args.join(" "));
       try {
-        const code = await main({ envFile, readmeFile });
+        const code = await main({ envFile, readmeFile, srcDir });
         assert.equal(code, 0);
         assert.match(logs.join(""), /OK/u);
         assert.match(logs.join(""), /2 /u);
+        assert.match(logs.join(""), /2 src-read vars documented/u);
       } finally {
         console.log = origLog;
       }
@@ -476,18 +625,53 @@ describe("main", () => {
     try {
       const envFile = join(dir, ".env.example");
       const readmeFile = join(dir, "README.md");
+      const srcDir = join(dir, "src");
+      await mkdir(srcDir, { recursive: true });
       await writeFile(envFile, "AGENT_HARNESS_ONLY_ENV=1\n");
       await writeFile(readmeFile, "AGENT_HARNESS_ONLY_README documented.");
+      await writeFile(
+        join(srcDir, "config.ts"),
+        "const x = process.env.AGENT_HARNESS_SRC_ONLY;\n",
+      );
 
       const errors = [];
       const origError = console.error;
       console.error = (...args) => errors.push(args.join(" "));
       try {
-        const code = await main({ envFile, readmeFile });
+        const code = await main({ envFile, readmeFile, srcDir });
         assert.equal(code, 1);
         const output = errors.join("");
         assert.match(output, /NOT in README/u);
         assert.match(output, /NOT in .env.example/u);
+        assert.match(output, /NOT documented/u);
+        assert.match(output, /AGENT_HARNESS_SRC_ONLY/u);
+      } finally {
+        console.error = origError;
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 1 when the source directory cannot be read", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "drift-test-no-src-"));
+    try {
+      const envFile = join(dir, ".env.example");
+      const readmeFile = join(dir, "README.md");
+      await writeFile(envFile, "AGENT_HARNESS_FOO=1\n");
+      await writeFile(readmeFile, "AGENT_HARNESS_FOO documented.");
+
+      const logs = [];
+      const origError = console.error;
+      console.error = (...args) => logs.push(args.join(" "));
+      try {
+        const code = await main({
+          envFile,
+          readmeFile,
+          srcDir: join(dir, "missing-src"),
+        });
+        assert.equal(code, 1);
+        assert.ok(logs.some((l) => l.includes("Failed to read source")));
       } finally {
         console.error = origError;
       }

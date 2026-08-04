@@ -1233,6 +1233,8 @@ Optional GitHub tokens improve API throughput during discovery and GitHub-backed
 ```bash
 GITHUB_PERSONAL_ACCESS_TOKEN=
 # GITHUB_TOKEN=
+# Override the ARD publisher FQDN used for identity and attestation metadata.
+# AGENT_HARNESS_ARD_PUBLISHER_FQDN=
 ```
 
 PowerShell example:
@@ -1291,7 +1293,12 @@ AGENT_HARNESS_OFFICIAL_INDEX_PAGE_MAX_BYTES=1000000
 AGENT_HARNESS_OFFICIAL_INDEX_CONTENT_MAX_BYTES=1000000
 AGENT_HARNESS_NATIVE_COMMAND_TIMEOUT_MS=30000
 AGENT_HARNESS_NATIVE_COMMAND_MAX_BUFFER_BYTES=2000000
-AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS=10000
+AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS=15000
+# Cumulative wall-clock budget for `setup doctor` host preflight checks.
+# AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS=
+# Force CI-mode behavior (ephemeral state-root heuristics, enrichment CI
+# semantics) without a real CI runner.
+# AGENT_HARNESS_CI=true
 ```
 
 ### Discovery recall caps
@@ -1305,6 +1312,28 @@ AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN=10
 AGENT_HARNESS_NPM_SEARCH_RESULT_LIMIT=12
 AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT=8
 ```
+
+### Discovery demand and adjacent-tooling controls
+
+```bash
+AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED=true
+AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS=10
+AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM=50
+AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING=false
+AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY=0.35
+AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX=0
+AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED=true
+```
+
+These gate how much demand-driven package discovery fetches and how semantic relevance scoring behaves:
+
+- `AGENT_HARNESS_DISCOVERY_ADJACENT_TOOLING_ENABLED` — enables the static adjacent-tooling matrix (packages a workspace should probably be using but has not declared yet) plus live registry keyword search during package-registry harvesting. Set to `false` to restrict discovery to strictly declared dependencies.
+- `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_TERMS` — maximum demand signal terms dispatched per registry search sweep (default 10).
+- `AGENT_HARNESS_DISCOVERY_REGISTRY_SEARCH_MAX_RESULTS_PER_TERM` — maximum results kept per registry search term (default 50).
+- `AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING` — when `true` and the optional semantic-scoring package is installed, cosine similarity replaces the binary keyword demand-relevance gate. Default `false`.
+- `AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY` — minimum cosine similarity (0–1) for an entry to pass the semantic demand-relevance gate. Default `0.35`. Ignored when semantic scoring is disabled.
+- `AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX` — maximum catalog entries produced per awesome-list index; `0` (default) means unlimited, leaving deduplication and selection as the real cap.
+- `AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED` — whether the VS Code Marketplace category-taxonomy sweep runs during sync. Default `true`.
 
 ### Per-host recommendation limit overrides
 
