@@ -16,6 +16,7 @@ import { runDiscover, discoverInternals } from "../discover.js";
 import { runWorkspace } from "../workspace.js";
 import { runSetup } from "../setup.js";
 import { runRebuild, rebuildInternals } from "../rebuild.js";
+import { runWire } from "../wire.js";
 import { writeJsonFile, writeJsonLinesFile } from "../files.js";
 import type { AssetCatalogEntry } from "../types.js";
 
