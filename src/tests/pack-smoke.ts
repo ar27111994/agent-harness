@@ -62,7 +62,6 @@ try {
       cwd: workspaceRoot,
       env: {
         ...process.env,
-        NODE_V8_COVERAGE: undefined,
         AGENT_HARNESS_STATE_ROOT: stateRoot,
       },
       maxBuffer: 5_000_000,
@@ -83,13 +82,10 @@ async function runNpm(
   args: string[],
   options: Parameters<typeof execFileAsync>[2],
 ): Promise<{ stdout: string; stderr: string }> {
-  // Strip V8-coverage output from the npm child (it re-spawns node
-  // subprocesses); otherwise their coverage re-enters the c8 merge.
   const strippedOptions = {
     ...(options ?? {}),
     env: {
       ...((options?.env as NodeJS.ProcessEnv | undefined) ?? process.env),
-      NODE_V8_COVERAGE: undefined,
     },
   };
   const result = npmCliPath

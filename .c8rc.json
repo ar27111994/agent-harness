@@ -1,7 +1,6 @@
 {
   "reporter": ["text", "text-summary", "lcov", "json-summary"],
   "check-coverage": true,
-  "exclude-after-remap": true,
   "statements": 100,
   "branches": 100,
   "functions": 100,
