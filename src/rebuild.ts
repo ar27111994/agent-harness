@@ -217,4 +217,6 @@ function printRebuildHelp(): void {
  */
 export const rebuildInternals = {
   discoverBundleIds,
+  acquireAllMirrorBatches,
+  installAllBundleBatches,
 };

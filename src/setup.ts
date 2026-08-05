@@ -280,10 +280,21 @@ async function runDoctor(
                 ),
               { once: true },
             );
-          }).catch((): never => {
-            // Late rejection after Promise.race resolution —
-            // intentionally swallowed to prevent unhandled rejection.
-            return undefined as never;
+          }).catch((): PreflightDiagnostic[] => {
+            // The cumulative deadline fired before this adapter finished and
+            // the race resolved through the abort path. Resolve with a
+            // synthetic timeout diagnostic instead of undefined (#428 —
+            // undefined here crashed the per-adapter summary with a
+            // "reading 'length' of undefined" TypeError).
+            return [
+              {
+                severity: "warning",
+                code: `${adapter.id}-cumulative-timeout`,
+                message: `Preflight check timed out after cumulative timeout of ${cumulativeTimeoutMs}ms.`,
+                action:
+                  "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
+              },
+            ];
           }),
         ]);
         return result;
