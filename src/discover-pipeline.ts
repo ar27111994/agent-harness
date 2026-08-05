@@ -180,18 +180,34 @@ function assessDiscoveryBreadth(input: {
  * All scorer branching lives here so `generateSelectionOutputs` stays clean.
  */
 
+/**
+ * Minimal shape the semantic relevance filter needs from a scorer, so tests
+ * can inject a stub without loading the optional transformers pipeline.
+ */
+export interface RelevanceScorer {
+  readonly available: boolean;
+  tryInit(): Promise<void>;
+  filterAndRank(
+    entries: AssetCatalogEntry[],
+    demandProfile: DemandProfile | null,
+  ): Promise<{
+    selected: AssetCatalogEntry[];
+    rejected: AssetCatalogEntry[];
+  } | null>;
+}
+
 export async function applyRelevanceFilter(
   catalogEntries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,
   config: ReturnType<typeof getRuntimeConfig>,
+  scorerFactory: (minSimilarity: number) => RelevanceScorer = (minSimilarity) =>
+    new SemanticScorer({ minSimilarity }),
 ): Promise<{
   selectedEntries: AssetCatalogEntry[];
   rejectedEntries: AssetCatalogEntry[];
 }> {
   if (config.discovery.semanticScoringEnabled) {
-    const scorer = new SemanticScorer({
-      minSimilarity: config.discovery.semanticScoringMinSimilarity,
-    });
+    const scorer = scorerFactory(config.discovery.semanticScoringMinSimilarity);
     await scorer.tryInit();
     if (scorer.available) {
       const semanticResult = await scorer.filterAndRank(

@@ -127,11 +127,26 @@ export async function runSetup(
  * of blocking the entire doctor loop. Used by both `runDoctor` and
  * `runDoctorWithAdapters`.
  */
+/**
+ * Preflight functions the per-adapter runner delegates to. Exposed as an
+ * injection seam so tests can force non-timeout failures deterministically.
+ */
+export interface AdapterPreflightFunctions {
+  runHostPreflight: typeof runHostPreflight;
+  runAdapterPreflight: typeof runAdapterPreflight;
+  collectActivatedAssetPrerequisiteDiagnostics: typeof collectActivatedAssetPrerequisiteDiagnostics;
+}
+
 async function runAdapterPreflightWithTimeout(
   adapter: HostAdapter,
   adapterTimeoutMs: number,
   projectRoot?: string,
   cumulativeSignal?: AbortSignal,
+  preflight: AdapterPreflightFunctions = {
+    runHostPreflight,
+    runAdapterPreflight,
+    collectActivatedAssetPrerequisiteDiagnostics,
+  },
 ): Promise<PreflightDiagnostic[]> {
   const signal = AbortSignal.timeout(adapterTimeoutMs);
 
@@ -157,13 +172,13 @@ async function runAdapterPreflightWithTimeout(
   try {
     return await Promise.race([
       (async () => [
-        ...(await runHostPreflight(adapter.lifecycleHost, {
+        ...(await preflight.runHostPreflight(adapter.lifecycleHost, {
           requireHostPaths:
             adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
         })),
-        ...(await runAdapterPreflight(adapter, combined.signal)),
+        ...(await preflight.runAdapterPreflight(adapter, combined.signal)),
         ...(projectRoot
-          ? await collectActivatedAssetPrerequisiteDiagnostics(
+          ? await preflight.collectActivatedAssetPrerequisiteDiagnostics(
               projectRoot,
               adapter,
               { missingEnvSeverity: "warning" },
@@ -189,8 +204,11 @@ async function runAdapterPreflightWithTimeout(
         },
       ];
     }
-    // If signal was already aborted (e.g. during cleanup), return timeout diagnostic.
-    if (signal.aborted) {
+    // If the combined signal was already aborted (per-adapter or cumulative
+    // timeout, possibly during cleanup), return a timeout diagnostic. This
+    // must check the COMBINED controller: the cumulative deadline can fire
+    // while the per-adapter timer is still running.
+    if (combined.signal.aborted) {
       return [
         {
           severity: "warning",
@@ -568,6 +586,7 @@ function printSetupHelp(): void {
 export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
   parsePositiveIntegerEnv,
+  runAdapterPreflightWithTimeout,
   /** Run the doctor loop over an explicit adapter list with separate timeouts. */
   async runDoctorWithAdapters(
     adapters: HostAdapter[],

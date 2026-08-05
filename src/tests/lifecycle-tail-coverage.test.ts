@@ -719,6 +719,158 @@ void test("discover full --quiet/summary with a seeded failed source hit the sev
   );
 });
 
+void test("semantic relevance filter covers scorer available/unavailable/empty-result branches (#428)", async (t) => {
+  const { applyRelevanceFilter } = await import("../discover-pipeline.js");
+  const enabledConfig = {
+    discovery: {
+      semanticScoringEnabled: true,
+      semanticScoringMinSimilarity: 0.7,
+    },
+  } as never;
+  const entries = [
+    buildAsset("sem-a", {
+      capabilities: ["typescript", "testing", "node", "integration", "fixture"],
+    }),
+    buildAsset("sem-b", {
+      capabilities: ["ruby", "rails", "fixture"],
+    }),
+  ];
+  const demand = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "/ws",
+    summary: { scannedFiles: 1, matchedFiles: 1 },
+    signals: {
+      languages: ["typescript"],
+      packageManagers: [],
+      frameworks: [],
+      concerns: ["testing", "integration"],
+      tooling: ["node"],
+    },
+    evidence: [],
+  };
+
+  // Scorer available with a result → semantic selection wins.
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  const scorable = await applyRelevanceFilter(
+    entries,
+    demand,
+    enabledConfig,
+    () => ({
+      available: true,
+      tryInit: async () => {},
+      filterAndRank: async () => ({
+        selected: [entries[0]],
+        rejected: [entries[1]],
+      }),
+    }),
+  );
+  assert.deepEqual(
+    scorable.selectedEntries.map((entry) => entry.id),
+    ["sem-a"],
+  );
+  assert.ok(
+    output.some((line) => line.includes("[semantic-scoring] scored 2 entries")),
+  );
+
+  // Scorer available but returns no result → warn + keyword gate fallback.
+  const warned = await applyRelevanceFilter(
+    entries,
+    demand,
+    enabledConfig,
+    () => ({
+      available: true,
+      tryInit: async () => {},
+      filterAndRank: async () => null,
+    }),
+  );
+  assert.deepEqual(
+    warned.selectedEntries.map((entry) => entry.id),
+    ["sem-a"],
+  );
+
+  // Scorer unavailable after init → not-installed warn + keyword gate.
+  const unavailable = await applyRelevanceFilter(
+    entries,
+    demand,
+    enabledConfig,
+    () => ({
+      available: false,
+      tryInit: async () => {},
+      filterAndRank: async () => null,
+    }),
+  );
+  assert.deepEqual(
+    unavailable.selectedEntries.map((entry) => entry.id),
+    ["sem-a"],
+  );
+});
+
+void test("setup doctor adapter runner: non-timeout throw, aborted-signal diagnostics, already-aborted wireSignal (#428)", async () => {
+  const { setupInternals } = await import("../setup.js");
+  const { listHostAdapters } = await import("../host-adapters/registry.js");
+  const adapter = listHostAdapters()[0];
+
+  const preflightFns = {
+    runHostPreflight: async () => [],
+    runAdapterPreflight: async () => {
+      throw new Error("boom");
+    },
+    collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+  } as never;
+
+  // Non-timeout throw with the signal alive → the error propagates (the
+  // aggregator surfaces it as internal-error).
+  await assert.rejects(
+    setupInternals.runAdapterPreflightWithTimeout(
+      adapter,
+      5_000,
+      undefined,
+      undefined,
+      preflightFns,
+    ),
+    /boom/u,
+  );
+
+  // Same throw after the cumulative signal already fired → the catch
+  // returns a timeout diagnostic instead of crashing.
+  const aborted = AbortSignal.timeout(0);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  const diagnostics = await setupInternals.runAdapterPreflightWithTimeout(
+    adapter,
+    5_000,
+    undefined,
+    aborted,
+    preflightFns,
+  );
+  assert.ok(
+    diagnostics.some(
+      (diagnostic) => diagnostic.code === `${adapter.id}-doctor-timeout`,
+    ),
+    "aborted-signal fallback returns a timeout diagnostic",
+  );
+
+  // Already-aborted cumulative signal → the wireSignal branch aborts the
+  // combined controller immediately (no listener leak); the race still
+  // resolves with the preflight's result instead of hanging.
+  const preflightFnsOk = {
+    runHostPreflight: async () => [],
+    runAdapterPreflight: async () => [],
+    collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+  } as never;
+  const raced = await setupInternals.runAdapterPreflightWithTimeout(
+    adapter,
+    5_000,
+    undefined,
+    aborted,
+    preflightFnsOk,
+  );
+  assert.deepEqual(raced, [], "race resolves with the preflight result");
+});
+
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {
   const { stateRoot } = await makeRoot(t);
   const previousHostTimeout =
