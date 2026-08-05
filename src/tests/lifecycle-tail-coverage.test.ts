@@ -342,7 +342,21 @@ void test(
           concerns: ["testing", "integration"],
           tooling: ["node"],
         },
-        evidence: [{ file: "package.json", matched: true }],
+        evidence: [
+          {
+            file: "package.json",
+            path: "package.json",
+            fileName: "package.json",
+            matched: true,
+            matchedSignals: {
+              languages: ["typescript"],
+              packageManagers: ["npm"],
+              frameworks: [],
+              concerns: ["testing"],
+              tooling: [],
+            },
+          },
+        ],
       },
     );
     assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
@@ -1044,6 +1058,178 @@ void test("rebuild clean removes transient state and reports (#428)", async (t) 
     undefined,
   );
 });
+
+void test("setup doctor reports when no adapter matches the requested host (#428)", async (t) => {
+  const { stateRoot } = await makeRoot(t);
+  const code = await runSetup(["doctor", "--host", "nosuchhost"], stateRoot);
+  assert.equal(code, 1);
+});
+
+void test(
+  "rebuild full runs the entire lifecycle with fixtures + fetch mock (#428)",
+  { timeout: 180_000 },
+  async (t) => {
+    const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+    await writeJsonFile(join(stateRoot, "mirror", "policy.json"), {
+      schemaVersion: 1,
+      selection: {
+        officialBeatsPopularity: true,
+        requirePinnedProvenance: false,
+        communityDefaultPolicy: "allow",
+      },
+      audit: { alwaysAudit: false, quarantineOn: [] },
+      store: {
+        root: "mirror",
+        rawDirectories: ["raw"],
+        normalizedDirectories: [],
+        bundlesDirectory: "bundles",
+        quarantineDirectory: "quarantine",
+        auditDirectory: "audit",
+      },
+      bundleTemplates: [
+        {
+          id: "opencode-global",
+          host: "opencode",
+          description: "fixture global bundle",
+          assetKinds: ["skill"],
+          defaultPromotion: "default",
+        },
+      ],
+    });
+
+    const { cp } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const repositoryRoot = dirname(
+      dirname(dirname(fileURLToPath(import.meta.url))),
+    );
+    await cp(
+      join(repositoryRoot, "discover", "recommendation-policy"),
+      join(stateRoot, "discover", "recommendation-policy"),
+      { recursive: true },
+    );
+    await writeFile(
+      join(workspaceRoot, "package.json"),
+      JSON.stringify({ name: "rebuild-fixture", version: "1.0.0" }),
+    );
+
+    const originalFetch = globalThis.fetch;
+    const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    globalThis.fetch = async () =>
+      new Response("# fixture skill\ncontent", { status: 200 });
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+      if (previousFetchMockFlag === undefined) {
+        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      } else {
+        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      }
+    });
+
+    const code = await runRebuild(["full"], workspaceRoot, stateRoot);
+    assert.equal(code, 0, "rebuild full completes the lifecycle");
+  },
+);
+
+void test(
+  "discover catalog harvests docs/marketplace/registry reference sources (#428)",
+  { timeout: 120_000 },
+  async (t) => {
+    const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+    await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+      schemaVersion: 1,
+      sources: [
+        {
+          id: "docs-source",
+          name: "Docs Source",
+          kind: "docs",
+          authorityTier: "official-marketplace",
+          hosts: ["opencode"],
+          assetKinds: ["skill"],
+          priority: 90,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com/docs" },
+          rules: {},
+        },
+        {
+          id: "registry-source",
+          name: "Registry Source",
+          kind: "registry",
+          authorityTier: "official-marketplace",
+          hosts: ["opencode"],
+          assetKinds: ["skill"],
+          priority: 90,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com/registry" },
+          rules: {},
+        },
+        {
+          id: "marketplace-source",
+          name: "Marketplace Source",
+          kind: "marketplace",
+          authorityTier: "official-marketplace",
+          hosts: ["opencode"],
+          assetKinds: ["skill"],
+          priority: 90,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com/marketplace" },
+          rules: {},
+        },
+      ],
+    });
+    await writeJsonFile(
+      join(stateRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: workspaceRoot,
+        summary: { scannedFiles: 1, matchedFiles: 1 },
+        signals: {
+          languages: ["typescript"],
+          packageManagers: ["npm"],
+          frameworks: [],
+          concerns: ["testing", "integration"],
+          tooling: ["node"],
+        },
+        evidence: [
+          {
+            file: "package.json",
+            path: "package.json",
+            fileName: "package.json",
+            matched: true,
+            matchedSignals: {
+              languages: ["typescript"],
+              packageManagers: ["npm"],
+              frameworks: [],
+              concerns: ["testing"],
+              tooling: [],
+            },
+          },
+        ],
+      },
+    );
+
+    const originalFetch = globalThis.fetch;
+    const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    globalThis.fetch = async () =>
+      new Response("# docs fixture\ncontent", { status: 200 });
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+      if (previousFetchMockFlag === undefined) {
+        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      } else {
+        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      }
+    });
+
+    const code = await runDiscover(["catalog"], workspaceRoot, stateRoot);
+    assert.equal(code, 0, "catalog harvests reference sources");
+  },
+);
 
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {
   const { stateRoot } = await makeRoot(t);
