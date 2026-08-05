@@ -62,6 +62,7 @@ try {
       cwd: workspaceRoot,
       env: {
         ...process.env,
+        NODE_V8_COVERAGE: undefined,
         AGENT_HARNESS_STATE_ROOT: stateRoot,
       },
       maxBuffer: 5_000_000,

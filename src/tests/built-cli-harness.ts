@@ -56,6 +56,12 @@ export async function createIsolatedCliEnvironment(
     stateRoot,
     env: {
       ...process.env,
+      // Prevent spawned CLI subprocesses from inheriting c8's V8-coverage
+      // output directory: their independently-recorded coverage re-enters
+      // the c8 merge with different column ranges, producing duplicate
+      // DA records on the same line (one hit, one zero) that the gate
+      // counts as missed lines across ~every module the CLI imports.
+      NODE_V8_COVERAGE: undefined,
       AGENT_HARNESS_HOME: homeRoot,
       AGENT_HARNESS_STATE_ROOT: stateRoot,
       APPDATA: appDataRoot,

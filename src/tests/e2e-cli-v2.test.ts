@@ -26,7 +26,9 @@ async function runCli(
   try {
     const result = await execFileAsync(process.execPath, [CLI, ...args], {
       cwd: options.cwd,
-      env: { ...process.env, ...options.env },
+      // Do not let the CLI subprocess write V8 coverage into the c8 merge
+      // (duplicate DA records corrupt the per-line hit counts).
+      env: { ...process.env, NODE_V8_COVERAGE: undefined, ...options.env },
       timeout: 60_000,
       maxBuffer: 10 * 1024 * 1024,
     });
