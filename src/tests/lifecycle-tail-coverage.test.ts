@@ -287,6 +287,96 @@ void test("discover select applies selection to real catalog entries (#428)", as
   void discoverInternals;
 });
 
+void test("discover breadth reports every assessment outcome (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+  // One enabled source so breadth can progress past source-coverage-limited.
+  await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      {
+        id: "fixture-source",
+        name: "Fixture Source",
+        kind: "package-registry",
+        registryKind: "npm",
+        authorityTier: "official-marketplace",
+        publisher: { name: "npm", verified: true },
+        hosts: ["copilot-vscode", "opencode"],
+        assetKinds: ["skill"],
+        discoveryMode: "catalog",
+        endpoints: {
+          baseUrl: "https://www.npmjs.com",
+          changesApi: "https://replicate.npmjs.com/_changes",
+        },
+        rules: {
+          officialPreferred: true,
+          allowMirror: true,
+          allowInstall: true,
+        },
+        priority: 80,
+        enabled: true,
+      },
+    ],
+  });
+
+  // (1) No catalog yet → source-coverage-limited.
+  await writeJsonFile(
+    join(stateRoot, "discover", "output", "demand-profile.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      scanRoot: workspaceRoot,
+      summary: { scannedFiles: 1, matchedFiles: 1 },
+      signals: {
+        languages: ["typescript"],
+        packageManagers: ["npm"],
+        frameworks: [],
+        concerns: ["testing", "integration"],
+        tooling: ["node"],
+      },
+      evidence: [{ file: "package.json", matched: true }],
+    },
+  );
+  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+  // (2) Entries that do not match the demand → selection-limited.
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [
+      buildAsset("entry-ignore-1", {
+        capabilities: ["python", "data", "fixture"],
+      }),
+      buildAsset("entry-ignore-2", {
+        capabilities: ["ruby", "rails", "fixture"],
+      }),
+    ],
+  );
+  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+  // (3) Matching entries → ranking-ready.
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [
+      buildAsset("entry-match", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+      }),
+      buildAsset("entry-ignore", {
+        capabilities: ["python", "data", "fixture"],
+      }),
+    ],
+  );
+  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+  // (4) One more breadth pass reuses the healthy state (fresh path).
+  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+});
+
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {
   const { stateRoot } = await makeRoot(t);
   const previousHostTimeout =
