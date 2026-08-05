@@ -567,6 +567,119 @@ void test("activate per-subcommand help renders every subcommand surface (#428)"
   }
 });
 
+void test("activate explain covers absent assets and missing-argument errors (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("explain-edge");
+  t.after(cleanup);
+
+  // explain without --asset rejects with guidance.
+  await assert.rejects(
+    runActivate(["explain"], projectRoot, projectRoot),
+    /explain requires --asset/u,
+  );
+
+  // Fresh fixture (no activation manifests yet): every host is skipped and
+  // the asset reports as never activated.
+  await writeActivationFixtureState(projectRoot);
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  const code = await runActivate(
+    ["explain", "--asset", "does-not-exist"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("has not been activated for any host")),
+    "explain reports the asset was never activated",
+  );
+
+  // Rollback to a missing generation rejects.
+  await assert.rejects(
+    runActivate(
+      ["rollback", "--host", "opencode", "--generation", "missing-gen"],
+      projectRoot,
+      projectRoot,
+    ),
+    /generation not found/u,
+  );
+});
+
+void test("activation ranking considers session-intent match rank before recommendation order (#428)", () => {
+  const { activateInternals: internals } = { activateInternals };
+  const order = new Map<string, number>([
+    ["intent-match-asset", 1],
+    ["other-asset", 2],
+  ]);
+  const recs = new Map<string, RecommendationEntry>([
+    [
+      "intent-match-asset",
+      {
+        ...recommendationEntry("intent-match-asset", 1, 1),
+        taskModes: ["general", "development"],
+      },
+    ],
+    [
+      "other-asset",
+      {
+        ...recommendationEntry("other-asset", 2, 1),
+        taskModes: ["backend"],
+      },
+    ],
+  ]);
+
+  const intentMatch = installedPackageManifest("root", {
+    assetId: "intent-match-asset",
+  });
+  const other = installedPackageManifest("root", { assetId: "other-asset" });
+
+  const comparison = internals.compareActivationCandidates(
+    intentMatch as never,
+    other as never,
+    order,
+    recs,
+    "development" as never,
+  );
+  assert.ok(comparison !== 0, "intent ranks differ");
+  assert.ok(
+    comparison < 0,
+    "session-intent match ranks before plain recommendation order",
+  );
+});
+
+void test("activate host skips candidates that are not activation-eligible (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("ineligible");
+  t.after(cleanup);
+  await writeActivationFixtureState(projectRoot);
+
+  // Mark one installed package ineligible; it must not activate anywhere.
+  const manifestPath = join(
+    projectRoot,
+    "install",
+    "opencode",
+    "packages",
+    "staged-breadth",
+    "manifest.json",
+  );
+  const manifest = await readJson<{ activationEligible: boolean }>(
+    manifestPath,
+  );
+  manifest.activationEligible = false;
+  await writeJsonFile(manifestPath, manifest);
+
+  const code = await runActivate(["host"], projectRoot, projectRoot);
+  assert.equal(code, 0);
+
+  const activationManifest = await readJson<{ activeAssets: string[] }>(
+    join(projectRoot, "activate", "opencode", "activation-manifest.json"),
+  );
+  assert.ok(
+    !activationManifest.activeAssets.includes("staged-breadth"),
+    "ineligible candidate never activates",
+  );
+});
+
 // ─── Ranking/budget helper coverage (#428) ──────────────────────────────────
 
 const SESSION_INTENT_VALUE = "general" as const;
