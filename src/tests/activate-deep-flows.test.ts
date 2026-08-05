@@ -567,6 +567,63 @@ void test("activate per-subcommand help renders every subcommand surface (#428)"
   }
 });
 
+void test("cli main() executes the version and startup paths in-process (#428)", async (t) => {
+  const { cliInternals } = await import("../cli.js");
+  const { parseGlobalOptions, runHelpCommand, main, readPackageVersion } =
+    cliInternals;
+
+  // readPackageVersion reads the committed package.json.
+  const version = await readPackageVersion();
+  assert.match(version, /^\d+\.\d+\.\d+$/u);
+
+  // main() with --version prints the version and returns 0.
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  const previousArgv = process.argv;
+  process.argv = ["node", "cli.js", "--version"];
+  try {
+    const code = await main();
+    assert.equal(code, 0);
+    assert.ok(output.some((line) => /^\d+\.\d+\.\d+$/u.test(line)));
+  } finally {
+    process.argv = previousArgv;
+  }
+
+  // parseGlobalOptions validates --timeout-seconds.
+  assert.throws(
+    () => parseGlobalOptions(["--timeout-seconds"]),
+    /--timeout-seconds requires a number value/u,
+  );
+  assert.throws(
+    () => parseGlobalOptions(["--timeout-seconds=abc"]),
+    /requires a positive number/u,
+  );
+  assert.throws(
+    () => parseGlobalOptions(["--timeout-seconds", "abc"]),
+    /requires a positive number/u,
+  );
+
+  // runHelpCommand deep routes for every domain mirror help.
+  for (const domain of [
+    ["discover", "full", "--help"],
+    ["workspace", "--help"],
+    ["wire", "--help"],
+    ["setup", "--help"],
+    ["doctor", "--help"],
+    ["bundle", "--help"],
+    ["stage", "--help"],
+  ]) {
+    const code = await runHelpCommand(domain, "");
+    assert.equal(code, 0, `help for ${domain.join(" ")}`);
+  }
+
+  // Unknown help domain prints parent help and exits 1.
+  const code = await runHelpCommand(["nosuch-domain"], "");
+  assert.equal(code, 1);
+});
+
 void test("activate explain covers absent assets and missing-argument errors (#428)", async (t) => {
   const { projectRoot, cleanup } = await makeFixtureRoot("explain-edge");
   t.after(cleanup);

@@ -539,4 +539,6 @@ export const cliInternals = {
   resolveHelpDomain,
   isHelpRequest,
   isVersionRequest,
+  readPackageVersion,
+  main,
 };
