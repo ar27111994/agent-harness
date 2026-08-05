@@ -616,6 +616,7 @@ void test("activate explain covers absent assets and missing-argument errors (#4
         assetId: string;
         reason: string;
         estimatedPromptWeight?: number;
+        remainingBudget?: number;
       }>;
       assetIds: string[];
     }>;
@@ -624,7 +625,12 @@ void test("activate explain covers absent assets and missing-argument errors (#4
     if (bundle.assetIds.includes("recommended-a")) {
       bundle.assetIds.push("heavy-asset");
       bundle.budgetPrunedAssets = [
-        { assetId: "heavy-asset", reason: "budget", estimatedPromptWeight: 50 },
+        {
+          assetId: "heavy-asset",
+          reason: "budget",
+          estimatedPromptWeight: 50,
+          remainingBudget: 2,
+        },
       ];
     }
   }
