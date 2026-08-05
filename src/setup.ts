@@ -574,15 +574,21 @@ export const setupInternals = {
     adapterTimeoutMs: number,
     projectRoot?: string,
     cumulativeTimeoutMs?: number,
+    // Injection seam (#428): tests can substitute the per-adapter preflight
+    // runner to exercise the aggregator's rejection/error branches without
+    // relying on experimental module mocks.
+    preflightRunner:
+      typeof runAdapterPreflightWithTimeout | undefined = undefined,
   ): Promise<{
     hasErrors: boolean;
     results: Array<{ adapterId: string; diagnostics: PreflightDiagnostic[] }>;
   }> {
+    const resolvePreflight = preflightRunner ?? runAdapterPreflightWithTimeout;
     const effectiveCumulativeMs = cumulativeTimeoutMs ?? adapterTimeoutMs;
     const cumulativeSignal = AbortSignal.timeout(effectiveCumulativeMs);
     const adapterResults = await Promise.allSettled(
       adapters.map(async (adapter) =>
-        runAdapterPreflightWithTimeout(
+        resolvePreflight(
           adapter,
           adapterTimeoutMs,
           projectRoot,

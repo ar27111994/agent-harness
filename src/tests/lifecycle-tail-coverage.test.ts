@@ -141,41 +141,45 @@ void test("cli dispatch routes every plain domain through runDomainCommand (#428
   }
 });
 
-void test("workspace host surfaces preflight diagnostics when host paths are missing (#428)", async (t) => {
-  const { workspaceRoot, stateRoot } = await makeRoot(t);
-  await writeFile(
-    join(workspaceRoot, "package.json"),
-    JSON.stringify({ name: "ws-diag", version: "1.0.0" }),
-  );
+void test(
+  "workspace host surfaces preflight diagnostics when host paths are missing (#428)",
+  { timeout: 120_000 },
+  async (t) => {
+    const { workspaceRoot, stateRoot } = await makeRoot(t);
+    await writeFile(
+      join(workspaceRoot, "package.json"),
+      JSON.stringify({ name: "ws-diag", version: "1.0.0" }),
+    );
 
-  // Barren HOME/APPDATA/XDG: the opencode lifecycle paths do not exist, so
-  // preflight produces diagnostics that get printed and asserted.
-  const barrenHome = join(workspaceRoot, "..", "barren-home");
-  const env = {
-    ...process.env,
-    AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
-    AGENT_HARNESS_HOME: barrenHome,
-    HOME: barrenHome,
-    USERPROFILE: barrenHome,
-    APPDATA: join(barrenHome, "appdata"),
-    XDG_CONFIG_HOME: join(barrenHome, "config"),
-  };
+    // Barren HOME/APPDATA/XDG: the opencode lifecycle paths do not exist, so
+    // preflight produces diagnostics that get printed and asserted.
+    const barrenHome = join(workspaceRoot, "..", "barren-home");
+    const env = {
+      ...process.env,
+      AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
+      AGENT_HARNESS_HOME: barrenHome,
+      HOME: barrenHome,
+      USERPROFILE: barrenHome,
+      APPDATA: join(barrenHome, "appdata"),
+      XDG_CONFIG_HOME: join(barrenHome, "config"),
+    };
 
-  try {
-    await import("../workspace.js");
-    // Direct preflight-driven call with the barren env: the host path check
-    // diagnoses missing paths and the workspace still terminates (either by
-    // exit code or the #349 no-recommendations stop).
     try {
-      const code = await runWorkspace(["opencode"], workspaceRoot, stateRoot);
-      assert.ok(code === 0 || code === 1);
-    } catch (error) {
-      assert.ok(error instanceof Error, "pipeline stops with an Error");
+      await import("../workspace.js");
+      // Direct preflight-driven call with the barren env: the host path check
+      // diagnoses missing paths and the workspace still terminates (either by
+      // exit code or the #349 no-recommendations stop).
+      try {
+        const code = await runWorkspace(["opencode"], workspaceRoot, stateRoot);
+        assert.ok(code === 0 || code === 1);
+      } catch (error) {
+        assert.ok(error instanceof Error, "pipeline stops with an Error");
+      }
+    } finally {
+      void env;
     }
-  } finally {
-    void env;
-  }
-});
+  },
+);
 
 void test("discover full --quiet and --summary exercise severe and breakdown branches (#428)", async (t) => {
   const { workspaceRoot, stateRoot } = await makeRoot(t);
@@ -287,39 +291,179 @@ void test("discover select applies selection to real catalog entries (#428)", as
   void discoverInternals;
 });
 
-void test("discover breadth reports every assessment outcome (#428)", async (t) => {
+void test(
+  "discover breadth reports every assessment outcome (#428)",
+  { timeout: 120_000 },
+  async (t) => {
+    const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+    // One enabled source so breadth can progress past source-coverage-limited.
+    await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+      schemaVersion: 1,
+      sources: [
+        {
+          id: "fixture-source",
+          name: "Fixture Source",
+          kind: "package-registry",
+          registryKind: "npm",
+          authorityTier: "official-marketplace",
+          publisher: { name: "npm", verified: true },
+          hosts: ["copilot-vscode", "opencode"],
+          assetKinds: ["skill"],
+          discoveryMode: "catalog",
+          endpoints: {
+            baseUrl: "https://www.npmjs.com",
+            changesApi: "https://replicate.npmjs.com/_changes",
+          },
+          rules: {
+            officialPreferred: true,
+            allowMirror: true,
+            allowInstall: true,
+          },
+          priority: 80,
+          enabled: true,
+        },
+      ],
+    });
+
+    // (1) No catalog yet → source-coverage-limited.
+    await writeJsonFile(
+      join(stateRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: workspaceRoot,
+        summary: { scannedFiles: 1, matchedFiles: 1 },
+        signals: {
+          languages: ["typescript"],
+          packageManagers: ["npm"],
+          frameworks: [],
+          concerns: ["testing", "integration"],
+          tooling: ["node"],
+        },
+        evidence: [{ file: "package.json", matched: true }],
+      },
+    );
+    assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+    // (2) Entries that do not match the demand → selection-limited.
+    await writeJsonLinesFile(
+      join(stateRoot, "discover", "catalog.assets.jsonl"),
+      [
+        buildAsset("entry-ignore-1", {
+          capabilities: ["python", "data", "fixture"],
+        }),
+        buildAsset("entry-ignore-2", {
+          capabilities: ["ruby", "rails", "fixture"],
+        }),
+      ],
+    );
+    assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+    // (3) Matching entries → ranking-ready.
+    await writeJsonLinesFile(
+      join(stateRoot, "discover", "catalog.assets.jsonl"),
+      [
+        buildAsset("entry-match", {
+          capabilities: [
+            "typescript",
+            "testing",
+            "node",
+            "integration",
+            "fixture",
+          ],
+        }),
+        buildAsset("entry-ignore", {
+          capabilities: ["python", "data", "fixture"],
+        }),
+      ],
+    );
+    assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+    // (4) One more breadth pass reuses the healthy state (fresh path).
+    assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+  },
+);
+
+void test("discover flag-validation error branches at subcommand depth (#428)", async (t) => {
   const { workspaceRoot, stateRoot } = await makeRoot(t);
 
-  // One enabled source so breadth can progress past source-coverage-limited.
-  await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
-    schemaVersion: 1,
-    sources: [
-      {
-        id: "fixture-source",
-        name: "Fixture Source",
-        kind: "package-registry",
-        registryKind: "npm",
-        authorityTier: "official-marketplace",
-        publisher: { name: "npm", verified: true },
-        hosts: ["copilot-vscode", "opencode"],
-        assetKinds: ["skill"],
-        discoveryMode: "catalog",
-        endpoints: {
-          baseUrl: "https://www.npmjs.com",
-          changesApi: "https://replicate.npmjs.com/_changes",
-        },
-        rules: {
-          officialPreferred: true,
-          allowMirror: true,
-          allowInstall: true,
-        },
-        priority: 80,
-        enabled: true,
-      },
-    ],
-  });
+  await assert.rejects(
+    runDiscover(["full", "--max-scan-bytes"], workspaceRoot, stateRoot),
+    /--max-scan-bytes requires a value/u,
+  );
+  await assert.rejects(
+    runDiscover(["full", "--max-scan-bytes", "abc"], workspaceRoot, stateRoot),
+    /requires a positive safe integer/u,
+  );
+  await assert.rejects(
+    runDiscover(["full", "--max-scan-bytes", "1.5"], workspaceRoot, stateRoot),
+    /requires a positive safe integer/u,
+  );
 
-  // (1) No catalog yet → source-coverage-limited.
+  for (const sub of ["sync", "select", "enrich", "stats"]) {
+    const code = await runDiscover(
+      [sub, "--badflag"],
+      workspaceRoot,
+      stateRoot,
+    );
+    assert.equal(code, 1, `discover ${sub} --badflag exits 1`);
+  }
+
+  await assert.rejects(
+    runDiscover(
+      ["select", "--ai-enrich", "--no-ai-enrich"],
+      workspaceRoot,
+      stateRoot,
+    ),
+    /--ai-enrich and --no-ai-enrich cannot be used together/u,
+  );
+});
+
+void test("discover select emits duplicate-group decisions for deduped siblings (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [
+      buildAsset("entry-dup-1", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+        dedupe: {
+          candidateRankHint: "same-family",
+          duplicateGroup: "dup-group",
+        },
+      }),
+      buildAsset("entry-dup-2", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+        dedupe: {
+          candidateRankHint: "same-family",
+          duplicateGroup: "dup-group",
+        },
+      }),
+      buildAsset("entry-solo", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+        dedupe: { candidateRankHint: "solo", duplicateGroup: "solo-group" },
+      }),
+    ],
+  );
   await writeJsonFile(
     join(stateRoot, "discover", "output", "demand-profile.json"),
     {
@@ -334,47 +478,96 @@ void test("discover breadth reports every assessment outcome (#428)", async (t) 
         concerns: ["testing", "integration"],
         tooling: ["node"],
       },
-      evidence: [{ file: "package.json", matched: true }],
+      evidence: [],
     },
   );
-  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
 
-  // (2) Entries that do not match the demand → selection-limited.
-  await writeJsonLinesFile(
-    join(stateRoot, "discover", "catalog.assets.jsonl"),
-    [
-      buildAsset("entry-ignore-1", {
-        capabilities: ["python", "data", "fixture"],
-      }),
-      buildAsset("entry-ignore-2", {
-        capabilities: ["ruby", "rails", "fixture"],
-      }),
-    ],
+  assert.equal(await runDiscover(["select"], workspaceRoot, stateRoot), 0);
+  const { readFile } = await import("node:fs/promises");
+  const report = JSON.parse(
+    await readFile(
+      join(stateRoot, "discover", "output", "selection-report.json"),
+      "utf8",
+    ),
+  ) as { duplicateDecisions: Array<{ duplicateGroup: string }> };
+  assert.ok(
+    report.duplicateDecisions.some((d) => d.duplicateGroup === "dup-group"),
+    "duplicate-group decision recorded",
   );
-  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+});
 
-  // (3) Matching entries → ranking-ready.
-  await writeJsonLinesFile(
-    join(stateRoot, "discover", "catalog.assets.jsonl"),
-    [
-      buildAsset("entry-match", {
-        capabilities: [
-          "typescript",
-          "testing",
-          "node",
-          "integration",
-          "fixture",
-        ],
-      }),
-      buildAsset("entry-ignore", {
-        capabilities: ["python", "data", "fixture"],
-      }),
-    ],
+void test("discover ard-export tolerates an unreadable package.json (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+  const { chdir } = await import("node:process");
+  const originalCwd = process.cwd();
+  chdir(workspaceRoot);
+  try {
+    await writeJsonLinesFile(
+      join(stateRoot, "discover", "output", "catalog.selected.jsonl"),
+      [buildAsset("entry-export")],
+    );
+
+    const code = await runDiscover(["ard-export"], workspaceRoot, stateRoot);
+    assert.equal(code, 0);
+    const { readFile } = await import("node:fs/promises");
+    const catalog = JSON.parse(
+      await readFile(join(stateRoot, ".well-known", "ai-catalog.json"), "utf8"),
+    ) as { publisher: { name?: string } };
+    assert.ok(catalog.publisher, "ard catalog written");
+  } finally {
+    chdir(originalCwd);
+  }
+});
+
+void test("setup doctor aggregator handles rejected adapters and error diagnostics (#428)", async () => {
+  const { setupInternals } = await import("../setup.js");
+  const { listHostAdapters } = await import("../host-adapters/registry.js");
+  const adapters = listHostAdapters().slice(0, 2);
+
+  // Rejected preflight: the aggregator must surface internal-error
+  // diagnostics instead of crashing.
+  const rejected = await setupInternals.runDoctorWithAdapters(
+    adapters,
+    2_000,
+    undefined,
+    5_000,
+    (async () => {
+      throw new Error("boom");
+    }) as never,
   );
-  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+  assert.equal(rejected.hasErrors, true);
+  assert.ok(
+    rejected.results.every((result) =>
+      result.diagnostics.some(
+        (diagnostic) => diagnostic.code === "internal-error",
+      ),
+    ),
+    "rejected adapters surface internal-error diagnostics",
+  );
 
-  // (4) One more breadth pass reuses the healthy state (fresh path).
-  assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+  // Error-severity diagnostics flip the hasErrors flag.
+  const errored = await setupInternals.runDoctorWithAdapters(
+    adapters,
+    2_000,
+    undefined,
+    5_000,
+    (async () => [
+      {
+        severity: "error",
+        code: "fixture-error",
+        message: "fixture failure",
+        action: "fix it",
+      },
+    ]) as never,
+  );
+  assert.equal(errored.hasErrors, true);
+  assert.ok(
+    errored.results.every((result) =>
+      result.diagnostics.some(
+        (diagnostic) => diagnostic.code === "fixture-error",
+      ),
+    ),
+  );
 });
 
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {

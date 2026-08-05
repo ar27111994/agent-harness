@@ -134,6 +134,7 @@ const DISCOVER_FULL_KNOWN_FLAGS = new Set([
   "--summary",
   "--no-sync",
   "--sync-all",
+  "--max-scan-bytes",
 ]);
 const DISCOVER_FULL_FLAGS_WITH_VALUES = new Set(["--max-scan-bytes"]);
 
