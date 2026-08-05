@@ -871,6 +871,142 @@ void test("setup doctor adapter runner: non-timeout throw, aborted-signal diagno
   assert.deepEqual(raced, [], "race resolves with the preflight result");
 });
 
+void test(
+  "workspace host pipeline completes end-to-end and applies the wire-in (#428)",
+  { timeout: 180_000 },
+  async (t) => {
+    const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+    await writeJsonFile(join(stateRoot, "mirror", "policy.json"), {
+      schemaVersion: 1,
+      selection: {
+        officialBeatsPopularity: true,
+        requirePinnedProvenance: false,
+        communityDefaultPolicy: "allow",
+      },
+      audit: { alwaysAudit: false, quarantineOn: [] },
+      store: {
+        root: "mirror",
+        rawDirectories: ["raw"],
+        normalizedDirectories: [],
+        bundlesDirectory: "bundles",
+        quarantineDirectory: "quarantine",
+        auditDirectory: "audit",
+      },
+      bundleTemplates: [
+        {
+          id: "opencode-global",
+          host: "opencode",
+          description: "fixture global bundle",
+          assetKinds: ["skill"],
+          defaultPromotion: "default",
+        },
+        {
+          id: "community-stable",
+          host: "opencode",
+          description: "fixture community bundle",
+          assetKinds: ["skill"],
+          defaultPromotion: "community",
+        },
+        {
+          id: "shared-mcp",
+          host: "shared",
+          description: "fixture shared mcp bundle",
+          assetKinds: ["mcp-server"],
+          defaultPromotion: "default",
+        },
+      ],
+    });
+
+    // The recommend phase needs the shipped default recommendation policy.
+    const { cp } = await import("node:fs/promises");
+    const { dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const repositoryRoot = dirname(
+      dirname(dirname(fileURLToPath(import.meta.url))),
+    );
+    await cp(
+      join(repositoryRoot, "discover", "recommendation-policy"),
+      join(stateRoot, "discover", "recommendation-policy"),
+      { recursive: true },
+    );
+
+    // A catalog + demand profile so selection produces recommendations and the
+    // pipeline passes the recommend phase.
+    await writeJsonLinesFile(
+      join(stateRoot, "discover", "catalog.assets.jsonl"),
+      [
+        buildAsset("ws-entry", {
+          capabilities: [
+            "typescript",
+            "testing",
+            "node",
+            "integration",
+            "fixture",
+          ],
+        }),
+      ],
+    );
+    await writeJsonFile(
+      join(stateRoot, "discover", "output", "demand-profile.json"),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        scanRoot: workspaceRoot,
+        summary: { scannedFiles: 1, matchedFiles: 1 },
+        signals: {
+          languages: ["typescript"],
+          packageManagers: ["npm"],
+          frameworks: [],
+          concerns: ["testing", "integration"],
+          tooling: ["node"],
+        },
+        evidence: [],
+      },
+    );
+
+    // The opencode adapter's wire() writes a project-local overlay; with the
+    // isolated home/state roots the whole lifecycle terminates successfully.
+    // Fetch is stubbed so mirror acquire can materialize the raw artifact for
+    // the single selected skill.
+    const originalFetch = globalThis.fetch;
+    const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    globalThis.fetch = async () =>
+      new Response("# fixture skill\ncontent", { status: 200 });
+    t.after(() => {
+      globalThis.fetch = originalFetch;
+      if (previousFetchMockFlag === undefined) {
+        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      } else {
+        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      }
+    });
+
+    const code = await runWorkspace(["opencode"], workspaceRoot, stateRoot);
+    assert.equal(code, 0, "workspace opencode pipeline completes");
+  },
+);
+
+void test("rebuild clean removes transient state and reports (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+  await writeJsonFile(join(stateRoot, "install", "opencode", "marker.json"), {
+    marker: true,
+  });
+  await writeJsonFile(join(stateRoot, "activate", "opencode", "marker.json"), {
+    marker: true,
+  });
+
+  const code = await runRebuild(["clean"], workspaceRoot, stateRoot);
+  assert.equal(code, 0);
+  const { readdir } = await import("node:fs/promises");
+  await assert.rejects(readdir(join(stateRoot, "install")), undefined);
+  await assert.rejects(
+    readdir(join(stateRoot, "activate", "opencode")),
+    undefined,
+  );
+});
+
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {
   const { stateRoot } = await makeRoot(t);
   const previousHostTimeout =
