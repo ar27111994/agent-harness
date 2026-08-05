@@ -74,7 +74,11 @@ async function runCliExpectSuccess(args: string[]): Promise<string> {
     [builtCliPath, "--no-dotenv", ...args],
     {
       cwd: repositoryRoot,
-      env: { ...process.env, AGENT_HARNESS_TEST_FETCH_MOCKS: "1" },
+      env: {
+        ...process.env,
+        NODE_V8_COVERAGE: undefined,
+        AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
+      },
       timeout: 60_000,
       windowsHide: true,
       encoding: "utf8",
