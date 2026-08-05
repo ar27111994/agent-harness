@@ -264,7 +264,7 @@ function buildQuarantineStateEntry(
     assetId: entry.assetId,
     mirrorId: entry.mirrorId,
     currentState: entry.status,
-    reason: describeQuarantineReason(entry, transitions, latestDecision),
+    reason: describeQuarantineReason(entry, latestDecision),
     firstSeenAt: entry.mirroredAt,
     lastReviewedAt: latestDecision?.reviewedAt,
     suggestedAction: suggestQuarantineAction(entry, latestDecision),
@@ -378,7 +378,6 @@ function collectQuarantineTransitions(
 
 function describeQuarantineReason(
   entry: MirrorIndexEntry,
-  transitions: readonly QuarantineTransition[],
   latestDecision: QuarantineReviewDecision | undefined,
 ): string {
   if (latestDecision) {
@@ -387,9 +386,11 @@ function describeQuarantineReason(
   if (entry.status === "quarantined") {
     return "Asset is quarantined pending source, risk, and executable-behavior review.";
   }
-  if (transitions.includes("review-approved")) {
-    return "Asset was approved with warning after quarantine review.";
-  }
+  // The `review-approved` transition is always accompanied by the approving
+  // decision, whose reason the latestDecision branch returns; a transitions
+  // list without a decision cannot occur for this caller, so the middle
+  // branch is unreachable. History fallback remains for older entries that
+  // predate decision log retention.
   return "Asset has quarantine lifecycle history.";
 }
 

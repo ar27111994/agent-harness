@@ -988,6 +988,43 @@ void test(
   },
 );
 
+void test("wire host preview and apply run the preflight + wire pipeline in-process (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+  const policy = {
+    schemaVersion: 1,
+    selection: {
+      officialBeatsPopularity: true,
+      requirePinnedProvenance: false,
+      communityDefaultPolicy: "allow",
+    },
+    audit: { alwaysAudit: false, quarantineOn: [] },
+    store: {
+      root: "mirror",
+      rawDirectories: ["raw"],
+      normalizedDirectories: [],
+      bundlesDirectory: "bundles",
+      quarantineDirectory: "quarantine",
+      auditDirectory: "audit",
+    },
+    bundleTemplates: [],
+  };
+  await writeJsonFile(join(stateRoot, "mirror", "policy.json"), policy);
+
+  // Preview mode: preflight + wire("preview") with no state mutation.
+  assert.equal(
+    await runWire(["opencode", "--preview"], workspaceRoot, stateRoot),
+    0,
+  );
+  // Preview is also the default mode.
+  assert.equal(await runWire(["opencode"], workspaceRoot, stateRoot), 0);
+  // Apply mode writes the project-local overlay.
+  assert.equal(
+    await runWire(["opencode", "--apply"], workspaceRoot, stateRoot),
+    0,
+  );
+});
+
 void test("rebuild clean removes transient state and reports (#428)", async (t) => {
   const { workspaceRoot, stateRoot } = await makeRoot(t);
   await writeJsonFile(join(stateRoot, "install", "opencode", "marker.json"), {
