@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   hasHelpFlag,
@@ -264,7 +264,10 @@ export const workspaceInternals = {
   handleAiEnrichmentResult,
 };
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   const [, , ...args] = process.argv;
   const projectRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
   const workingDirectory = process.cwd();
