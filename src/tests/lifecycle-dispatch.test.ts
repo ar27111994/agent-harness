@@ -762,3 +762,53 @@ void test("activate deep flows: activateHost, diff, rollback against fixture sta
 
   assert.ok(capture.stdout.length > 0 || capture.stderr.length > 0);
 });
+
+// ─── Non-flag unknown subcommand words (conventional help + exit 1) ─────────
+
+void test("unknown subcommand words print domain help and exit 1 across every domain (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeIsolated(t);
+  const capture = captureConsole();
+  t.after(capture.restore);
+
+  await writeJsonFile(join(stateRoot, "mirror", "policy.json"), {
+    schemaVersion: 1,
+    selection: {
+      officialBeatsPopularity: true,
+      requirePinnedProvenance: false,
+      communityDefaultPolicy: "allow",
+    },
+    audit: { alwaysAudit: false, quarantineOn: [] },
+    store: {
+      root: "mirror",
+      rawDirectories: ["raw"],
+      normalizedDirectories: [],
+      bundlesDirectory: "bundles",
+      quarantineDirectory: "quarantine",
+      auditDirectory: "audit",
+    },
+    bundleTemplates: [],
+  });
+
+  const cases: Array<() => Promise<number>> = [
+    () => runDiscover(["unknownword"], workspaceRoot, stateRoot),
+    () => runQuarantine(["unknownword"], stateRoot),
+    () => runMirror(["unknownword"], workspaceRoot, stateRoot),
+    () => runInstall(["unknownword"], workspaceRoot, stateRoot),
+    () => runActivate(["unknownword"], workspaceRoot, stateRoot),
+    () => runRebuild(["unknownword"], workspaceRoot, stateRoot),
+    () => runSetup(["unknownword"], stateRoot),
+    () => runWire(["unknownword"], workspaceRoot, stateRoot),
+    () => runWorkspace(["unknownword"], workspaceRoot, stateRoot),
+    () => runRecommend(["unknownword"], workspaceRoot, stateRoot),
+  ];
+
+  for (const invocation of cases) {
+    capture.clear();
+    const code = await invocation();
+    assert.equal(code, 1, "unknown subcommand word exits 1");
+    assert.ok(
+      capture.stdout.length > 0,
+      "unknown subcommand word prints the parent help",
+    );
+  }
+});

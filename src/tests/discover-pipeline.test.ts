@@ -62,6 +62,9 @@ void test("discover sync/index/select/full complete on an empty source universe 
     [["sync"], 0],
     [["sync", "--full"], 0],
     [["index"], 0],
+    // After a fresh catalog index exists, sync takes the fresh-index path
+    // (copy snapshot into source-sync state instead of live harvesting).
+    [["sync"], 0],
     [["catalog"], 0],
     [["select"], 0],
     [["full"], 0],
