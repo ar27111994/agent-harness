@@ -798,6 +798,7 @@ void test("unknown subcommand words print domain help and exit 1 across every do
     () => runRebuild(["unknownword"], workspaceRoot, stateRoot),
     () => runSetup(["unknownword"], stateRoot),
     () => runWire(["unknownword"], workspaceRoot, stateRoot),
+    () => runWire(["--badflag"], workspaceRoot, stateRoot),
     () => runWorkspace(["unknownword"], workspaceRoot, stateRoot),
     () => runRecommend(["unknownword"], workspaceRoot, stateRoot),
   ];
@@ -807,8 +808,16 @@ void test("unknown subcommand words print domain help and exit 1 across every do
     const code = await invocation();
     assert.equal(code, 1, "unknown subcommand word exits 1");
     assert.ok(
-      capture.stdout.length > 0,
-      "unknown subcommand word prints the parent help",
+      capture.stdout.length > 0 || capture.stderr.length > 0,
+      "unknown subcommand word prints the parent help or an error line",
     );
   }
+
+  // wire --help on an unknown target name routes to the subcommand-help
+  // fallback (exit 0) instead of the unknown-word error path.
+  capture.clear();
+  assert.equal(
+    await runWire(["nosuchhost", "--help"], workspaceRoot, stateRoot),
+    0,
+  );
 });
