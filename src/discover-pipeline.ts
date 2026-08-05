@@ -196,6 +196,11 @@ export interface RelevanceScorer {
   } | null>;
 }
 
+/**
+ * Applies the semantic relevance filter when enabled, falling back to the
+ * keyword demand-relevance gate otherwise. All scorer branching lives here
+ * so `generateSelectionOutputs` stays clean.
+ */
 export async function applyRelevanceFilter(
   catalogEntries: AssetCatalogEntry[],
   demandProfile: DemandProfile | null,
