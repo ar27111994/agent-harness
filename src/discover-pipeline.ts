@@ -22,6 +22,11 @@ import type {
   SourceIndex,
 } from "./types.js";
 
+/**
+ * Summarizes and assesses a breadth discovery pass: prints the demand-signal
+ * count, indexed source count, operational source count, and the bottleneck
+ * assessment with next steps.
+ */
 export function printDiscoveryBreadthSummary(input: {
   demandProfile: DemandProfile;
   sourceIndex: SourceIndex;

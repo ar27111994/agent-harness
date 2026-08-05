@@ -11,6 +11,10 @@ import {
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
+/**
+ * Prints subcommand-specific help for discover, falling back to the parent
+ * help or the full/breadth help pages (with aliases) as appropriate.
+ */
 export function printDiscoverSubcommandHelp(subcommand: string): void {
   const helpTexts: Record<string, SubcommandHelpEntry> = {
     sources: {
@@ -186,6 +190,9 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
   });
 }
 
+/**
+ * Prints the parent discover command help (all subcommands and options).
+ */
 export function printDiscoverHelp(): void {
   printCommandHelp({
     heading: "discover commands:",

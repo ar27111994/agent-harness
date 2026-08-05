@@ -51,9 +51,16 @@ void test("package metadata describes the public agent-asset lifecycle surface",
     metadata.description.length <= 160,
     "package description should stay within npm/GitHub preview length",
   );
-  assert.match(metadata.description, /MCP server and agent skills manager/u);
-  assert.match(metadata.description, /Copilot, OpenCode, Cursor/u);
-  assert.match(metadata.description, /Codex workspaces/u);
+  assert.match(
+    metadata.description,
+    /ARD-compatible agent-asset supply-chain CLI/u,
+  );
+  assert.match(metadata.description, /Copilot, OpenCode, Cursor, Zed/u);
+  assert.match(metadata.description, /Pi, Codex/u);
+  assert.doesNotMatch(
+    metadata.description,
+    /MCP server and agent skills manager/u,
+  );
   assert.doesNotMatch(metadata.description, /runs? agents?/iu);
   assert.doesNotMatch(metadata.description, /silently installs?/iu);
 

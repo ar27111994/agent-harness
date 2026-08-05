@@ -165,6 +165,10 @@ function shouldShowFirstRunSyncHint(
   return !hasPriorSync;
 }
 
+/**
+ * Dispatches the discover command group: subcommand-specific help first,
+ * then the stateful pipeline subcommands and their strict-flag validation.
+ */
 export async function runDiscover(
   args: string[],
   workingDirectory: string,
@@ -1107,6 +1111,9 @@ async function runDiscoveryBreadth(
   });
 }
 
+/**
+ * Exposes narrow discover internals for focused per-source-cap tests.
+ */
 export const discoverInternals = {
   applyPerSourceCap,
   computeAcceptanceRate,

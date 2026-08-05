@@ -160,7 +160,7 @@ void test("syncPackagistRegistrySource: stops at SOURCE_SYNC_INDEXED_REGISTRY_EN
 
   const listApi = "https://1.1.1.1/packages/list.json";
   const source = {
-    id: "packagist-cap-test",
+    id: "packagist-registry",
     kind: "package-registry",
     enabled: true,
     authorityTier: "unverified-community",

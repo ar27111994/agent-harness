@@ -484,6 +484,10 @@ export const sourceSyncInternals = {
 const MILLISECONDS_PER_SECOND = 1_000;
 const SECONDS_PER_MINUTE = 60;
 
+/**
+ * Returns a human-readable remaining-time estimate for the sync progress
+ * line, extrapolated from the average per-source duration observed so far.
+ */
 export function formatSyncEtaMs(remainingMs: number): string {
   if (!Number.isFinite(remainingMs) || remainingMs < 0) {
     return "~0s";
