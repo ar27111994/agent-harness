@@ -604,6 +604,54 @@ void test("activate explain covers absent assets and missing-argument errors (#4
     ),
     /generation not found/u,
   );
+
+  // Now activate, and craft suggestions that name an un-activated asset
+  // (heavy-asset is budget-pruned) plus a ghost: the explain reason chains
+  // for budget-pruned, suggested-bundle, and plain-absent all execute.
+  await runActivate(["host", "--host", "opencode"], projectRoot, projectRoot);
+  const recsPath = join(projectRoot, "state", "recommendations.json");
+  const recs = await readJson<{
+    suggestedBundles: Array<{
+      budgetPrunedAssets?: Array<{
+        assetId: string;
+        reason: string;
+        estimatedPromptWeight?: number;
+      }>;
+      assetIds: string[];
+    }>;
+  }>(recsPath);
+  for (const bundle of recs.suggestedBundles) {
+    if (bundle.assetIds.includes("recommended-a")) {
+      bundle.assetIds.push("heavy-asset");
+      bundle.budgetPrunedAssets = [
+        { assetId: "heavy-asset", reason: "budget", estimatedPromptWeight: 50 },
+      ];
+    }
+  }
+  await writeJsonFile(recsPath, recs);
+
+  output.length = 0;
+  await runActivate(
+    ["explain", "--asset", "heavy-asset"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.ok(
+    output.some((line) => line.includes("reason")),
+    "explain still resolves a reason path for a non-active suggested asset",
+  );
+
+  await runActivate(
+    ["explain", "--asset", "ghost-asset"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.ok(
+    output.some((line) =>
+      line.includes("absent from the current activation manifest"),
+    ),
+    "plain-absent reason surfaced for unknown assets",
+  );
 });
 
 void test("activation ranking considers session-intent match rank before recommendation order (#428)", () => {

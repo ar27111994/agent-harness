@@ -570,6 +570,155 @@ void test("setup doctor aggregator handles rejected adapters and error diagnosti
   );
 });
 
+void test("setup hosts/login reject unknown flags through their own branches (#428)", async (t) => {
+  const { stateRoot } = await makeRoot(t);
+
+  assert.equal(await runSetup(["hosts", "--badflag"], stateRoot), 1);
+  assert.equal(await runSetup(["login", "--badflag"], stateRoot), 1);
+});
+
+void test("discover full accepts a valid --max-scan-bytes limit (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+
+  const code = await runDiscover(
+    ["full", "--max-scan-bytes", "100"],
+    workspaceRoot,
+    stateRoot,
+  );
+  assert.equal(code, 0);
+});
+
+void test("discover select applies the per-source cap and logs source-cap rejections (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+  const { clearRuntimeConfig } = await import("../config/runtime.js");
+  const previousCap = process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
+  process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE = "2";
+  clearRuntimeConfig();
+  t.after(() => {
+    if (previousCap === undefined) {
+      delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
+    } else {
+      process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE = previousCap;
+    }
+    clearRuntimeConfig();
+  });
+
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [
+      buildAsset("cap-a", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+      }),
+      buildAsset("cap-b", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+      }),
+      buildAsset("cap-c", {
+        capabilities: [
+          "typescript",
+          "testing",
+          "node",
+          "integration",
+          "fixture",
+        ],
+      }),
+    ],
+  );
+  await writeJsonFile(
+    join(stateRoot, "discover", "output", "demand-profile.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      scanRoot: workspaceRoot,
+      summary: { scannedFiles: 1, matchedFiles: 1 },
+      signals: {
+        languages: ["typescript"],
+        packageManagers: ["npm"],
+        frameworks: [],
+        concerns: ["testing", "integration"],
+        tooling: ["node"],
+      },
+      evidence: [],
+    },
+  );
+
+  assert.equal(await runDiscover(["select"], workspaceRoot, stateRoot), 0);
+  const { readFile } = await import("node:fs/promises");
+  const report = JSON.parse(
+    await readFile(
+      join(stateRoot, "discover", "output", "selection-report.json"),
+      "utf8",
+    ),
+  ) as { rejectionSummary: Record<string, number> };
+  assert.ok(
+    (report.rejectionSummary["source-cap"] ?? 0) >= 1,
+    "source-cap rejections recorded",
+  );
+});
+
+void test("discover full --quiet/summary with a seeded failed source hit the severe branch (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+  const { mkdir } = await import("node:fs/promises");
+  await mkdir(join(stateRoot, "state", "discover"), { recursive: true });
+
+  await writeJsonFile(
+    join(stateRoot, "state", "discover", "source-sync.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      sources: [
+        {
+          sourceId: "broken-source",
+          coverageMode: "indexed",
+          status: "failed",
+          lastSyncedAt: new Date().toISOString(),
+          indexedEntryCount: 0,
+          reason: "fetch failed",
+          cursors: [],
+          consecutiveFailures: 5,
+        },
+      ],
+    },
+  );
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [buildAsset("quiet-entry")],
+  );
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "output", "catalog.selected.jsonl"),
+    [buildAsset("quiet-entry")],
+  );
+
+  // --no-sync keeps the seeded broken source visible to the health report.
+  assert.equal(
+    await runDiscover(
+      ["full", "--no-sync", "--quiet"],
+      workspaceRoot,
+      stateRoot,
+    ),
+    0,
+  );
+  assert.equal(
+    await runDiscover(
+      ["full", "--no-sync", "--summary"],
+      workspaceRoot,
+      stateRoot,
+    ),
+    0,
+  );
+});
+
 void test("setup doctor emits timeout diagnostics with 1ms timeouts (#428)", async (t) => {
   const { stateRoot } = await makeRoot(t);
   const previousHostTimeout =
