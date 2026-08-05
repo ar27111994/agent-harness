@@ -41,6 +41,7 @@ async function runCliExpectFailure(
         cwd,
         env: {
           ...process.env,
+          NODE_V8_COVERAGE: undefined,
           AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
         },
         timeout: 60_000,
@@ -75,6 +76,7 @@ async function runCliExpectSuccess(args: string[]): Promise<string> {
       cwd: repositoryRoot,
       env: {
         ...process.env,
+        NODE_V8_COVERAGE: undefined,
         AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
       },
       timeout: 60_000,
