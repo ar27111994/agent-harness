@@ -254,7 +254,18 @@ async function renameJsonWriteTemp(
         // and retry after exponential backoff so the lock can clear;
         // the full window (~775ms) comfortably outlasts a rename burst
         // from concurrent writers on the same destination.
-        await rm(filePath, { force: true });
+        try {
+          await rm(filePath, { force: true });
+        } catch (rmError) {
+          // The destination can be locked by a competing writer's handle;
+          // the unlink itself then fails with EPERM/EACCES. That lock is
+          // best-effort clearing — skip the removal and let the backoff +
+          // rename retry below handle it.
+          const rmCode = (rmError as NodeJS.ErrnoException).code;
+          if (rmCode !== "EPERM" && rmCode !== "EACCES") {
+            throw rmError;
+          }
+        }
         await delay(WINDOWS_REPLACE_RETRY_BACKOFF_MS * 2 ** (attempt + 1));
       }
     }
