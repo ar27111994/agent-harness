@@ -209,8 +209,8 @@ type RenameFile = (
 ) => Promise<void>;
 let jsonWriteRenameOverride: RenameFile | undefined;
 
-const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 20;
-const MAX_WINDOWS_REPLACE_RETRIES = 3;
+const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 25;
+const MAX_WINDOWS_REPLACE_RETRIES = 4;
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -251,9 +251,11 @@ async function renameJsonWriteTemp(
         // Windows quirk: rename over an existing file can fail with
         // EPERM/EACCES when the destination is momentarily locked (AV
         // scan, open handle, concurrent writer). Remove the destination
-        // and retry after a short backoff so the lock can clear.
+        // and retry after exponential backoff so the lock can clear;
+        // the full window (~775ms) comfortably outlasts a rename burst
+        // from concurrent writers on the same destination.
         await rm(filePath, { force: true });
-        await delay((attempt + 1) * WINDOWS_REPLACE_RETRY_BACKOFF_MS);
+        await delay(WINDOWS_REPLACE_RETRY_BACKOFF_MS * 2 ** (attempt + 1));
       }
     }
   }
