@@ -9,6 +9,7 @@ import {
   ensureDirectory,
   filesInternals,
   readTextFileOrNull,
+  writeJsonFile,
   writeTextFile,
 } from "../files.js";
 
@@ -175,3 +176,47 @@ function createTelemetryThatTruncatesAfterReads(readLimit: number): {
     visitedBytes: 0,
   };
 }
+
+void test("atomic replace tolerates an EPERM destination removal and keeps retrying (#428)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-rm-eperm-"));
+  const eperm = Object.assign(new Error("injected EPERM"), { code: "EPERM" });
+  try {
+    filesInternals.setJsonWriteRenameOverride(async () => {
+      throw eperm;
+    });
+    filesInternals.setJsonWriteRemoveOverride(async () => {
+      throw eperm;
+    });
+    await assert.rejects(
+      writeJsonFile(join(root, "state.json"), { value: 1 }),
+      /EPERM/u,
+    );
+  } finally {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+    filesInternals.setJsonWriteRemoveOverride(undefined);
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("atomic replace rethrows non-EPERM destination removal errors (#428)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-rm-other-"));
+  const notDir = Object.assign(new Error("injected ENOTDIR"), {
+    code: "ENOTDIR",
+  });
+  try {
+    filesInternals.setJsonWriteRenameOverride(async () => {
+      throw Object.assign(new Error("injected EPERM"), { code: "EPERM" });
+    });
+    filesInternals.setJsonWriteRemoveOverride(async () => {
+      throw notDir;
+    });
+    await assert.rejects(
+      writeJsonFile(join(root, "state.json"), { value: 1 }),
+      /ENOTDIR/u,
+    );
+  } finally {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+    filesInternals.setJsonWriteRemoveOverride(undefined);
+    await rm(root, { force: true, recursive: true });
+  }
+});

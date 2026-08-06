@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -33,6 +33,8 @@ import {
   installRefreshInternals,
   manageInstallRefresh,
 } from "../install/refresh.js";
+import { runInstall } from "../install.js";
+import { runMirror } from "../mirror.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
 import { rebuildInternals } from "../rebuild.js";
 import {
@@ -2897,6 +2899,106 @@ void test("official index package materialization handles caps, content fallback
         originalMaxFileSize;
     }
     clearRuntimeConfigForTests();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("install refresh and explain dispatch through runInstall (#428)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-install-dispatch-"),
+  );
+  try {
+    // refresh with the mirror step skipped: pure state report on an empty root.
+    const refreshed = await runInstall(
+      ["refresh", "--no-mirror-refresh"],
+      projectRoot,
+      projectRoot,
+    );
+    assert.equal(refreshed, 0);
+
+    // explain on an empty root terminates cleanly with a not-installed report.
+    const explained = await runInstall(
+      ["explain", "--asset", "ghost-asset"],
+      projectRoot,
+      projectRoot,
+    );
+    assert.equal(explained, 0);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("mirror bundle-explain, explain-bundle, and explain dispatch through runMirror (#428)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-mirror-dispatch-"),
+  );
+  try {
+    await mkdir(join(projectRoot, "mirror", "bundles"), { recursive: true });
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "core",
+        generatedAt: new Date().toISOString(),
+        host: "opencode",
+        assets: [
+          {
+            assetId: "asset-a",
+            mirrorId: "sha256-asset-a",
+            projectionType: "adapted-skill",
+            activationEligible: true,
+          },
+        ],
+      },
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      {
+        mirrorId: "sha256-asset-a",
+        assetId: "asset-a",
+        upstream: {
+          type: "repo",
+          url: "https://example.com/acme/tool.git",
+          commit: "abc123",
+        },
+        source: {
+          authorityTier: "trusted-community",
+          publisher: "acme",
+          publisherVerified: false,
+        },
+        mirroredAt: "2026-01-02T00:00:00.000Z",
+        contentHash: "sha256-content-a",
+        projectionCandidates: [
+          {
+            host: "opencode",
+            projectionType: "adapted-skill",
+          },
+        ],
+        status: "approved",
+      },
+    ]);
+
+    const bundleExplain = await runMirror(
+      ["bundle-explain", "--bundle", "core"],
+      projectRoot,
+      projectRoot,
+    );
+    assert.equal(bundleExplain, 0);
+
+    // The alias routes to the same handler.
+    const aliasExplain = await runMirror(
+      ["explain-bundle", "core"],
+      projectRoot,
+      projectRoot,
+    );
+    assert.equal(aliasExplain, 0);
+
+    const artifactExplain = await runMirror(
+      ["explain", "--asset", "asset-a"],
+      projectRoot,
+      projectRoot,
+    );
+    assert.equal(artifactExplain, 0);
+  } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }
 });

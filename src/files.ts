@@ -209,6 +209,10 @@ type RenameFile = (
 ) => Promise<void>;
 let jsonWriteRenameOverride: RenameFile | undefined;
 
+/** Test-only hook for simulating destination-removal failures (rm EPERM races). */
+type RemoveFile = (path: string, options: { force?: boolean }) => Promise<void>;
+let jsonWriteRemoveOverride: RemoveFile | undefined;
+
 const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 25;
 const MAX_WINDOWS_REPLACE_RETRIES = 4;
 
@@ -255,7 +259,8 @@ async function renameJsonWriteTemp(
         // the full window (~775ms) comfortably outlasts a rename burst
         // from concurrent writers on the same destination.
         try {
-          await rm(filePath, { force: true });
+          const removeFile = jsonWriteRemoveOverride ?? rm;
+          await removeFile(filePath, { force: true });
         } catch (rmError) {
           // The destination can be locked by a competing writer's handle;
           // the unlink itself then fails with EPERM/EACCES. That lock is
@@ -1191,6 +1196,10 @@ export const filesInternals = {
   isLowPriorityForScanBudget,
   BINARY_SCAN_DEPRIORITY_EXTENSIONS,
   renameJsonWriteTemp,
+  /** Test-only: replaces the atomic-writer remove step (failure injection, #428). */
+  setJsonWriteRemoveOverride(override: RemoveFile | undefined): void {
+    jsonWriteRemoveOverride = override;
+  },
   /** Test-only: replaces the atomic-writer rename step (failure injection, #427). */
   setJsonWriteRenameOverride(override: RenameFile | undefined): void {
     jsonWriteRenameOverride = override;
