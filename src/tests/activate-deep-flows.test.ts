@@ -719,23 +719,26 @@ void test("activate explain covers absent assets and missing-argument errors (#4
 
 void test("activation ranking considers session-intent match rank before recommendation order (#428)", () => {
   const { activateInternals: internals } = { activateInternals };
+  // Contradictory order: order alone would rank other-asset first, but the
+  // frontend intent match must pull intent-match-asset ahead anyway.
   const order = new Map<string, number>([
-    ["intent-match-asset", 1],
-    ["other-asset", 2],
+    ["intent-match-asset", 2],
+    ["other-asset", 1],
   ]);
   const recs = new Map<string, RecommendationEntry>([
     [
       "intent-match-asset",
       {
         ...recommendationEntry("intent-match-asset", 1, 1),
-        taskModes: ["general", "development"],
+        taskModes: ["implementation"],
       },
     ],
     [
       "other-asset",
       {
         ...recommendationEntry("other-asset", 2, 1),
-        taskModes: ["backend"],
+        taskModes: ["automation"],
+        coverageTags: ["data"],
       },
     ],
   ]);
@@ -750,7 +753,7 @@ void test("activation ranking considers session-intent match rank before recomme
     other as never,
     order,
     recs,
-    "development" as never,
+    "frontend" as never,
   );
   assert.ok(comparison !== 0, "intent ranks differ");
   assert.ok(
@@ -893,5 +896,735 @@ void test("activation budget resolution: configured host budgets and the default
     activateInternals.getActivationBudget("shared"),
     40,
     "hosts without a configured budget fall back to the default",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Plan: activate.ts remaining paths — comparator tie-break chain, focused
+// bucket ordering, explain budget/reason/profile chains, host-option
+// validation, legacy diff reports, rank-0 ordering, bundle-id fallback, and
+// the copilot fallback-pool negative-score filter (#428).
+// ---------------------------------------------------------------------------
+
+const EXPLAIN_REPORT_HOSTS = [
+  "opencode",
+  "copilot-vscode",
+  "shared",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+  "codex",
+] as const;
+
+function buildExplainReport(
+  overrides: {
+    topByHost?: Record<string, RecommendationEntry[]>;
+    hostSummaries?: Record<string, Record<string, unknown>>;
+    suggestedBundles?: Array<Record<string, unknown>>;
+  } = {},
+): Record<string, unknown> {
+  const emptySummary = (host: string): Record<string, unknown> => ({
+    host,
+    recommendationLimit: 10,
+    recommendationLimitSource: "policy",
+    recommendationLimitOverrideMode: "preserve",
+    recommendationLimitOverrideModeSource: "policy",
+    activationBudget: 3,
+    selectedCount: 0,
+    totalEstimatedPromptWeight: 0,
+    selectedAssetIds: [],
+    byAssetKind: {},
+    bySourceFamily: {},
+    byConcern: {},
+    concernBuckets: {},
+    taskModeBuckets: {},
+  });
+  const topByHost: Record<string, RecommendationEntry[]> = {};
+  const hostSummaries: Record<string, Record<string, unknown>> = {};
+  for (const host of EXPLAIN_REPORT_HOSTS) {
+    topByHost[host] = [];
+    hostSummaries[host] = emptySummary(host);
+  }
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    policyVersion: 1,
+    sessionIntent: "general",
+    topByHost: { ...topByHost, ...(overrides.topByHost ?? {}) },
+    hostSummaries: { ...hostSummaries, ...(overrides.hostSummaries ?? {}) },
+    suggestedBundles: overrides.suggestedBundles ?? [],
+  };
+}
+
+void test("compareActivationCandidates breaks later ties in order (#428)", () => {
+  const recs = new Map<string, RecommendationEntry>([
+    [
+      "alpha",
+      { ...recommendationEntry("alpha", 1, 1), taskModes: ["implementation"] },
+    ],
+    [
+      "beta",
+      { ...recommendationEntry("beta", 1, 1), taskModes: ["implementation"] },
+    ],
+  ]);
+  const intent = "frontend" as never;
+
+  // Intent difference decides FIRST: alpha matches the frontend intent while
+  // beta does not, so alpha sorts ahead even when beta has the better order.
+  const differRecs = new Map<string, RecommendationEntry>([
+    [
+      "alpha",
+      { ...recommendationEntry("alpha", 1, 1), taskModes: ["implementation"] },
+    ],
+    [
+      "beta",
+      { ...recommendationEntry("beta", 1, 1), taskModes: ["automation"] },
+    ],
+  ]);
+  const orderAgainstIntent = new Map<string, number>([
+    ["alpha", 2],
+    ["beta", 1],
+  ]);
+  const byIntent = activateInternals.compareActivationCandidates(
+    installedPackageManifest("root", { assetId: "alpha" }) as never,
+    installedPackageManifest("root", { assetId: "beta" }) as never,
+    orderAgainstIntent,
+    differRecs,
+    intent,
+  );
+  assert.ok(byIntent < 0, "session-intent match wins against order");
+
+  // Tie on intent -> recommendation order decides.
+  const orderByRank = new Map<string, number>([
+    ["alpha", 1],
+    ["beta", 2],
+  ]);
+  const byOrder = activateInternals.compareActivationCandidates(
+    installedPackageManifest("root", { assetId: "alpha" }) as never,
+    installedPackageManifest("root", { assetId: "beta" }) as never,
+    orderByRank,
+    recs,
+    "development" as never,
+  );
+  assert.equal(byOrder, -1, "recommendation order breaks the intent tie");
+
+  // Tie on intent + order -> source authority decides (higher tier wins).
+  const sameOrder = new Map<string, number>([
+    ["alpha", 1],
+    ["beta", 1],
+  ]);
+  const byAuthority = activateInternals.compareActivationCandidates(
+    installedPackageManifest("root", {
+      assetId: "alpha",
+      sourceAuthorityTier: "official-first-party",
+    }) as never,
+    installedPackageManifest("root", {
+      assetId: "beta",
+      sourceAuthorityTier: "trusted-community",
+    }) as never,
+    sameOrder,
+    recs,
+    intent,
+  );
+  assert.equal(
+    byAuthority,
+    -4,
+    "higher source authority sorts first after order ties",
+  );
+
+  // Tie on intent + order + authority -> portfolio fit decides.
+  const alphaLowFit = {
+    ...installedPackageManifest("root", {
+      assetId: "alpha",
+      sourceAuthorityTier: "official-first-party",
+    }),
+    portfolioFit: 0.4,
+  };
+  const betaHighFit = {
+    ...installedPackageManifest("root", {
+      assetId: "beta",
+      sourceAuthorityTier: "official-first-party",
+    }),
+    portfolioFit: 0.9,
+  };
+  const byFit = activateInternals.compareActivationCandidates(
+    alphaLowFit as never,
+    betaHighFit as never,
+    sameOrder,
+    recs,
+    intent,
+  );
+  assert.ok(byFit > 0, "higher portfolio fit sorts first after authority ties");
+
+  // Tie through fit -> context cost decides (smaller costs rank first).
+  const betaSmallContext = {
+    ...installedPackageManifest("root", {
+      assetId: "beta",
+      sourceAuthorityTier: "official-first-party",
+    }),
+    portfolioFit: 0.9,
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 0.2 },
+  };
+  const byCost = activateInternals.compareActivationCandidates(
+    alphaLowFit as never,
+    betaSmallContext as never,
+    sameOrder,
+    recs,
+    intent,
+  );
+  assert.ok(
+    byCost > 0,
+    "lower context cost sorts first after portfolio-fit ties",
+  );
+
+  // Full tie -> deterministic asset-id comparison.
+  const alphaTied = { ...alphaLowFit, assetId: "alpha" };
+  const betaTied = { ...alphaLowFit, assetId: "beta" };
+  const identical = activateInternals.compareActivationCandidates(
+    alphaTied as never,
+    betaTied as never,
+    sameOrder,
+    recs,
+    intent,
+  );
+  assert.equal(
+    identical,
+    "alpha".localeCompare("beta"),
+    "asset-id comparison is the final deterministic tie breaker",
+  );
+  const reversed = activateInternals.compareActivationCandidates(
+    betaTied as never,
+    alphaTied as never,
+    sameOrder,
+    recs,
+    intent,
+  );
+  assert.equal(reversed, "beta".localeCompare("alpha"));
+});
+
+void test("buildTaskModeBuckets ranks intent-matching assets into the focused bucket (#428)", () => {
+  const recs = new Map<string, RecommendationEntry>([
+    [
+      "matching",
+      {
+        ...recommendationEntry("matching", 1, 1),
+        taskModes: ["implementation"],
+      },
+    ],
+    [
+      "other",
+      { ...recommendationEntry("other", 2, 1), taskModes: ["automation"] },
+    ],
+  ]);
+
+  const buckets = activateInternals.buildTaskModeBuckets(
+    ["matching", "other"],
+    recs,
+    "frontend" as never,
+  ) as {
+    focused: string[];
+    broad: string[];
+    implementation?: string[];
+  };
+
+  assert.deepEqual(buckets.focused, ["matching", "other"]);
+  assert.deepEqual(buckets.broad, ["matching", "other"]);
+  // The task-mode bucket itself is populated for the matching asset.
+  assert.deepEqual(buckets.implementation, ["matching"]);
+});
+
+void test("activate explain falls back through the activation-budget chain (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("explain-budget");
+  t.after(cleanup);
+
+  // Hand-written legacy manifest: no activationBudget, no recommendationHost.
+  await writeJsonFile(
+    join(projectRoot, "activate", "shared", "activation-manifest.json"),
+    {
+      schemaVersion: 1,
+      host: "shared",
+      generatedAt: new Date().toISOString(),
+      activeBundles: ["shared-mcp"],
+      activeAssets: ["recommended-a"],
+      runtimeRoot: join(projectRoot, "activate", "shared"),
+      notes: [],
+    },
+  );
+  const reportWithSummaries = () =>
+    buildExplainReport({
+      hostSummaries: {
+        shared: {
+          host: "shared",
+          recommendationLimit: 10,
+          recommendationLimitSource: "policy",
+          recommendationLimitOverrideMode: "preserve",
+          recommendationLimitOverrideModeSource: "policy",
+          activationBudget: 7,
+          selectedCount: 0,
+          totalEstimatedPromptWeight: 0,
+          selectedAssetIds: [],
+          byAssetKind: {},
+          bySourceFamily: {},
+          byConcern: {},
+          concernBuckets: {},
+          taskModeBuckets: {},
+        },
+      },
+    });
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  // Host summary carries the budget — the manifest fallback chain stops there.
+  await writeJsonFile(
+    join(projectRoot, "state", "recommendations.json"),
+    reportWithSummaries(),
+  );
+  output.length = 0;
+  let code = await runActivate(
+    ["explain", "--asset", "recommended-a"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("activation budget: 7")),
+    `expected host-summary budget 7, got: ${output.join("\n")}`,
+  );
+
+  // No recommendations report at all — the manifest's absence cascades to
+  // the per-host default budget.
+  await rm(join(projectRoot, "state", "recommendations.json"), {
+    force: true,
+  });
+  output.length = 0;
+  code = await runActivate(
+    ["explain", "--asset", "recommended-a"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => /activation budget: \d+/u.test(line)),
+    `expected a resolved default budget line, got: ${output.join("\n")}`,
+  );
+});
+
+void test("activate explain reports suggested-bundle presence without pruned metadata (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("explain-suggested");
+  t.after(cleanup);
+
+  // Legacy manifest with active assets, plus a suggestion naming a NOT-active
+  // asset and omitting budgetPrunedAssetIds entirely (covers the optional
+  // chained lookup fallback).
+  await writeJsonFile(
+    join(projectRoot, "activate", "opencode", "activation-manifest.json"),
+    {
+      schemaVersion: 1,
+      host: "opencode",
+      generatedAt: new Date().toISOString(),
+      generationId: "gen-current",
+      recommendationHost: "opencode",
+      activationBudget: 3,
+      activeBundles: ["opencode-global"],
+      activeAssets: ["recommended-a"],
+      runtimeRoot: join(projectRoot, "activate", "opencode"),
+      notes: [],
+    },
+  );
+  await writeJsonFile(
+    join(projectRoot, "state", "recommendations.json"),
+    buildExplainReport({
+      suggestedBundles: [
+        {
+          host: "opencode",
+          bundleId: "opencode-global",
+          assetIds: ["recommended-a", "extra-asset"],
+          estimatedPromptWeight: 2,
+          activationBudget: 3,
+          concernBuckets: {},
+          taskModeBuckets: {},
+        },
+      ],
+    }),
+  );
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  let code = await runActivate(
+    ["explain", "--asset", "extra-asset"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("present in suggested bundle")),
+    `expected suggested-bundle reason, got: ${output.join("\n")}`,
+  );
+
+  // A suggestion that DOES carry budgetPrunedAssetIds exercises the optional
+  // chained lookup with a present array (returns false for a third asset).
+  await writeJsonFile(
+    join(projectRoot, "state", "recommendations.json"),
+    buildExplainReport({
+      suggestedBundles: [
+        {
+          host: "opencode",
+          bundleId: "opencode-global",
+          assetIds: ["recommended-a"],
+          estimatedPromptWeight: 2,
+          activationBudget: 3,
+          budgetPrunedAssetIds: ["pruned-x"],
+          budgetPrunedAssets: [],
+          concernBuckets: {},
+          taskModeBuckets: {},
+        },
+      ],
+    }),
+  );
+  output.length = 0;
+  code = await runActivate(
+    ["explain", "--asset", "third-asset"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) =>
+      line.includes("absent from the current activation manifest"),
+    ),
+    `third asset with present pruned metadata reports absent, got: ${output.join("\n")}`,
+  );
+
+  // The pruned list itself can match the asset while the details list is
+  // empty: the finder matches via the pruned ids, the budget-pruned detail
+  // lookup comes up empty, and the suggested-bundle reason still explains.
+  output.length = 0;
+  code = await runActivate(
+    ["explain", "--asset", "pruned-x"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("present in suggested bundle")),
+    `pruned-id match without details reports the suggested-bundle reason, got: ${output.join("\n")}`,
+  );
+
+  // Back to the metadata-less suggestion: an asset that matches neither the
+  // assetIds nor (absent) pruned ids skips the optional pruned lookup
+  // entirely and falls through to the plain-absent reason.
+  await writeJsonFile(
+    join(projectRoot, "state", "recommendations.json"),
+    buildExplainReport({
+      suggestedBundles: [
+        {
+          host: "opencode",
+          bundleId: "opencode-global",
+          assetIds: ["recommended-a"],
+          estimatedPromptWeight: 2,
+          activationBudget: 3,
+          concernBuckets: {},
+          taskModeBuckets: {},
+        },
+      ],
+    }),
+  );
+  output.length = 0;
+  code = await runActivate(
+    ["explain", "--asset", "fourth-asset"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) =>
+      line.includes("absent from the current activation manifest"),
+    ),
+    `unmatched asset without pruned metadata reports absent, got: ${output.join("\n")}`,
+  );
+});
+
+void test("activate explain reports the copilot profile selection per asset (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("explain-copilot");
+  t.after(cleanup);
+
+  await writeJsonFile(
+    join(projectRoot, "activate", "copilot-vscode", "activation-manifest.json"),
+    {
+      schemaVersion: 1,
+      host: "copilot-vscode",
+      generatedAt: new Date().toISOString(),
+      generationId: "gen-current",
+      recommendationHost: "copilot-vscode",
+      activationBudget: 5,
+      activeBundles: ["copilot-core"],
+      activeAssets: ["recommended-a", "active-not-in-profile"],
+      runtimeRoot: join(projectRoot, "activate", "copilot-vscode"),
+      notes: [],
+    },
+  );
+  await writeJsonFile(
+    join(
+      projectRoot,
+      "activate",
+      "copilot-vscode",
+      "workspace-profile-manifest.json",
+    ),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      profileId: "recommended-a",
+      workspaceRoot: join(projectRoot, "activate", "copilot-vscode"),
+      bundleIds: ["copilot-core"],
+      selectedAssetIds: ["recommended-a"],
+      selectedInstructionIds: [],
+      selectedAgentIds: [],
+      selectedWorkflowIds: [],
+      activationBudget: 5,
+    },
+  );
+  await writeJsonFile(
+    join(projectRoot, "state", "recommendations.json"),
+    buildExplainReport(),
+  );
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  let code = await runActivate(
+    ["explain", "--asset", "recommended-a", "--host", "copilot-vscode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("profile selected: yes")),
+    `expected profile yes, got: ${output.join("\n")}`,
+  );
+
+  output.length = 0;
+  code = await runActivate(
+    ["explain", "--asset", "active-not-in-profile", "--host", "copilot-vscode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.some((line) => line.includes("profile selected: no")),
+    `expected profile no, got: ${output.join("\n")}`,
+  );
+});
+
+void test("activate explain validates --host values before any state reads (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("explain-badhost");
+  t.after(cleanup);
+
+  // A host target that is not an activation host (cursor is wireable but not
+  // materializable by activation) is rejected with the activation-host list.
+  await assert.rejects(
+    runActivate(
+      ["explain", "--asset", "x", "--host", "cursor"],
+      projectRoot,
+      projectRoot,
+    ),
+    /Invalid --host value: cursor/u,
+  );
+
+  // A completely unknown host target is rejected by the shared target parser.
+  await assert.rejects(
+    runActivate(
+      ["explain", "--asset", "x", "--host", "totally-bogus"],
+      projectRoot,
+      projectRoot,
+    ),
+    /Invalid --host value: totally-bogus/u,
+  );
+});
+
+void test("activate diff renders legacy unknown generations and empty diff lists (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("diff-legacy");
+  t.after(cleanup);
+
+  // Two manifests WITHOUT generation ids where the previous view differs:
+  // both sides of the "unknown" fallback, the non-empty diff list join, and
+  // the removed-asset rendering all execute.
+  const currentManifest = {
+    schemaVersion: 1,
+    host: "opencode",
+    generatedAt: new Date().toISOString(),
+    activeBundles: ["opencode-global"],
+    activeAssets: ["recommended-a"],
+    runtimeRoot: join(projectRoot, "activate", "opencode"),
+    notes: [],
+  };
+  const previousManifest = {
+    ...currentManifest,
+    generatedAt: new Date(Date.now() - 60_000).toISOString(),
+    activeBundles: ["old-bundle"],
+    activeAssets: ["old-asset"],
+  };
+  await writeJsonFile(
+    join(projectRoot, "activate", "opencode", "activation-manifest.json"),
+    currentManifest,
+  );
+  await writeJsonFile(
+    join(
+      projectRoot,
+      "activate",
+      "opencode",
+      "activation-manifest.previous.json",
+    ),
+    previousManifest,
+  );
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  const code = await runActivate(
+    ["diff", "--host", "opencode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+  const joined = output.join("\n");
+  assert.ok(joined.includes("unknown -> unknown"), `got: ${joined}`);
+  assert.ok(
+    joined.includes("Added assets: recommended-a") &&
+      joined.includes("Removed assets: old-asset") &&
+      joined.includes("Added bundles: opencode-global") &&
+      joined.includes("Removed bundles: old-bundle"),
+    `non-empty diff lists render by joining ids: ${joined}`,
+  );
+});
+
+void test("activate host honors a rank-0 recommendation via the index fallback (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("rank-zero");
+  t.after(cleanup);
+  await writeActivationFixtureState(projectRoot);
+
+  // Rank 0 is falsy: the preferred-order map must fall back to the entry
+  // index so ordering stays deterministic.
+  const recsPath = join(projectRoot, "state", "recommendations.json");
+  const recs = await readJson<{
+    topByHost: Record<string, RecommendationEntry[]>;
+  }>(recsPath);
+  recs.topByHost.opencode = [recommendationEntry("recommended-a", 0, 1)];
+  await writeJsonFile(recsPath, recs);
+
+  const code = await runActivate(
+    ["host", "--host", "opencode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+
+  const activationManifest = await readJson<{ activeAssets: string[] }>(
+    join(projectRoot, "activate", "opencode", "activation-manifest.json"),
+  );
+  assert.ok(
+    activationManifest.activeAssets.includes("recommended-a"),
+    "rank-0 recommended asset still activates",
+  );
+});
+
+void test("activate host falls back to generation bundle ids when suggestions name none (#428)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("bundle-fallback");
+  t.after(cleanup);
+  await writeActivationFixtureState(projectRoot);
+
+  // Suggested bundles for opencode name a bundle the generation does not
+  // install; the host filter must fall back to the generation's bundle ids.
+  const recsPath = join(projectRoot, "state", "recommendations.json");
+  const recs = await readJson<{
+    suggestedBundles: Array<Record<string, unknown>>;
+    topByHost: Record<string, RecommendationEntry[]>;
+  }>(recsPath);
+  recs.suggestedBundles = [
+    {
+      host: "opencode",
+      bundleId: "different-bundle",
+      assetIds: ["recommended-a"],
+      estimatedPromptWeight: 1,
+      activationBudget: 3,
+      budgetPrunedAssetIds: [],
+      budgetPrunedAssets: [],
+      concernBuckets: {},
+      taskModeBuckets: {},
+    },
+  ];
+  recs.topByHost.opencode = [recommendationEntry("recommended-a", 1, 1)];
+  await writeJsonFile(recsPath, recs);
+
+  const code = await runActivate(
+    ["host", "--host", "opencode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+
+  const activationManifest = await readJson<{ activeBundles: string[] }>(
+    join(projectRoot, "activate", "opencode", "activation-manifest.json"),
+  );
+  // The default bundle-id set for opencode survives the suggestion filter:
+  // the suggestion named a bundle the host does not install, so the filter
+  // falls back to the full default set instead of dropping everything.
+  assert.deepEqual(
+    activationManifest.activeBundles,
+    ["opencode-global", "community-stable"],
+    "default bundle ids are used when suggestions do not match",
+  );
+});
+
+void test("activate copilot-vscode excludes negatively-scored skills from the fallback pool (#428/#426)", async (t) => {
+  const { projectRoot, cleanup } = await makeFixtureRoot("copilot-negpool");
+  t.after(cleanup);
+  await writeActivationFixtureState(projectRoot);
+
+  // Give copilot-vscode its own recommendation set: recommended-a positive,
+  // negative-score negative for THIS host — the fallback skill pool must
+  // filter the negative entry out of the profile.
+  const recsPath = join(projectRoot, "state", "recommendations.json");
+  const recs = await readJson<{
+    topByHost: Record<string, RecommendationEntry[]>;
+  }>(recsPath);
+  recs.topByHost["copilot-vscode"] = [
+    recommendationEntry("recommended-a", 1, 1),
+    recommendationEntry("negative-score", 2, 1, -14),
+  ];
+  await writeJsonFile(recsPath, recs);
+
+  const code = await runActivate(
+    ["host", "--host", "copilot-vscode"],
+    projectRoot,
+    projectRoot,
+  );
+  assert.equal(code, 0);
+
+  const profile = await readJson<{ selectedSkillIds: string[] }>(
+    join(
+      projectRoot,
+      "activate",
+      "copilot-vscode",
+      "workspace-profile-manifest.json",
+    ),
+  );
+  assert.ok(
+    profile.selectedSkillIds.includes("recommended-a"),
+    "positive skill stays in the profile",
+  );
+  assert.ok(
+    !profile.selectedSkillIds.includes("negative-score"),
+    "negatively-scored skill is filtered from the fallback pool",
   );
 });

@@ -1188,4 +1188,5 @@ export const activateInternals = {
   selectActivationCandidates,
   compareActivationCandidates,
   getActivationBudget,
+  buildTaskModeBuckets,
 };
