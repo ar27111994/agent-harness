@@ -3014,11 +3014,13 @@ void test("installAllBundleBatches breaks when a bundle lock produces no progres
       join(projectRoot, "mirror", "policy.json"),
       buildPolicy(),
     );
+    // The lock must use a REGISTERED bundle id (host-adapter defaults) or
+    // discoverBundleIds filters it out and the batch loop never runs.
     await writeJsonFile(
-      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      join(projectRoot, "mirror", "bundles", "opencode-global.lock.json"),
       {
         schemaVersion: 1,
-        bundleId: "core",
+        bundleId: "opencode-global",
         generatedAt: new Date().toISOString(),
         host: "opencode",
         assets: [
@@ -3067,8 +3069,8 @@ void test("installAllBundleBatches breaks when a bundle lock produces no progres
       bundles: Record<string, unknown>;
     }>(join(projectRoot, "state", "install", "progress.json"));
     assert.ok(
-      progress === null || progress.bundles.core !== undefined,
-      "progress is either absent or recorded for the core bundle",
+      progress === null || progress.bundles["opencode-global"] !== undefined,
+      "progress is either absent or recorded for the opencode-global bundle",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -3087,10 +3089,10 @@ void test("installAllBundleBatches breaks when progress reports zero remaining (
       buildPolicy(),
     );
     await writeJsonFile(
-      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      join(projectRoot, "mirror", "bundles", "opencode-global.lock.json"),
       {
         schemaVersion: 1,
-        bundleId: "core",
+        bundleId: "opencode-global",
         generatedAt: new Date().toISOString(),
         host: "opencode",
         assets: [],
@@ -3104,7 +3106,7 @@ void test("installAllBundleBatches breaks when progress reports zero remaining (
         schemaVersion: 1,
         updatedAt: new Date().toISOString(),
         bundles: {
-          core: {
+          "opencode-global": {
             host: "opencode",
             batchSize: 5,
             totalAssets: 0,
@@ -3122,7 +3124,10 @@ void test("installAllBundleBatches breaks when progress reports zero remaining (
     const progress = await readJsonFile<{ bundles: Record<string, unknown> }>(
       join(projectRoot, "state", "install", "progress.json"),
     );
-    assert.ok(progress.bundles.core, "progress survives the completed run");
+    assert.ok(
+      progress.bundles["opencode-global"],
+      "progress survives the completed run",
+    );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

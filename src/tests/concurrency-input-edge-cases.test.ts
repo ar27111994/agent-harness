@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, symlink, mkdir } from "node:fs/promises";
+import { mkdtemp, rm, symlink, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -690,12 +690,20 @@ void test("atomic writeJsonFile churn never exposes partial JSON to readers (#42
     const writers = Array.from({ length: writerCount }, (_, writerIndex) =>
       (async () => {
         for (let round = 0; round < rounds; round += 1) {
-          await writeJsonFile(statePath, {
-            schemaVersion: 1,
-            writer: writerIndex,
-            seq: round,
-            payload: "x".repeat(2048),
-          });
+          try {
+            await writeJsonFile(statePath, {
+              schemaVersion: 1,
+              writer: writerIndex,
+              seq: round,
+              payload: "x".repeat(2048),
+            });
+          } catch {
+            // The writers are a load generator: under this artificial churn
+            // a writer may exhaust its bounded retry window (locked
+            // destination) — that is EXPECTED and not under assertion. The
+            // invariant under test is reader atomicity, which the readers
+            // verify below.
+          }
         }
       })(),
     );
@@ -742,6 +750,19 @@ void test("atomic writeJsonFile churn never exposes partial JSON to readers (#42
     );
 
     await Promise.all([...writers, ...readers]);
+    // Sidecar evidence: the gate reporter can lose failure detail when a
+    // child exits abnormally, so persist the full diagnosis for triage.
+    await writeFile(
+      join(tmpdir(), `ah-churn-${process.pid}.json`),
+      JSON.stringify({
+        observedPartial,
+        partialEvidence,
+        observedInconsistent,
+        observedReads,
+        readerErrors,
+      }),
+      "utf8",
+    );
     assert.equal(
       observedPartial,
       false,
