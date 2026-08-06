@@ -361,6 +361,9 @@ async function runDoctor(
     // function always resolves (the race resolves either way), so a rejection
     // here is a genuine internal error — surface it with the adapter identity.
     if (result.status === "rejected") {
+      // map/allSettled keep results index-aligned with adapters; fallbacks are
+      // defensive only.
+      /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
       const adapterId = adapters[resultIndex]?.id ?? "unknown adapter";
       console.log(
         `\n# (${adapterId} — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
@@ -647,6 +650,7 @@ export const setupInternals = {
     for (const [resultIndex, result] of adapterResults.entries()) {
       if (result.status === "rejected") {
         hasErrors = true;
+        /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
         const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
         results.push({
           adapterId,
@@ -660,6 +664,7 @@ export const setupInternals = {
         });
         continue;
       }
+      /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
       const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
       results.push({ adapterId, diagnostics: result.value });
       if (result.value.some((d) => d.severity === "error")) {

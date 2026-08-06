@@ -182,7 +182,13 @@ function buildGitHubTreeAsset(
   };
 }
 
-function buildOfficialIndexAsset(id: string): AssetCatalogEntry {
+function buildOfficialIndexAsset(
+  id: string,
+  options: { originUrl?: string } = {},
+): AssetCatalogEntry {
+  const originUrl =
+    options.originUrl ??
+    "https://officialskills.sh/cloudflare/skills/cloudflare";
   return {
     ...buildAsset(id),
     assetKind: "skill",
@@ -192,7 +198,7 @@ function buildOfficialIndexAsset(id: string): AssetCatalogEntry {
       authorityTier: "official-first-party",
       sourceKind: "docs",
       sourcePriority: 100,
-      originUrl: "https://officialskills.sh/cloudflare/skills/cloudflare",
+      originUrl,
       publisher: "Cloudflare",
       publisherVerified: true,
     },
@@ -208,7 +214,7 @@ function buildOfficialIndexAsset(id: string): AssetCatalogEntry {
       docsLinked: true,
       lineCount: 1,
       filePath: "SKILL.md",
-      rootPath: "https://officialskills.sh/cloudflare/skills/cloudflare",
+      rootPath: originUrl,
     },
   };
 }
@@ -691,7 +697,13 @@ void test("acquireMirrorArtifacts mirrors pinned github-tree assets between lega
 });
 
 void test("acquireMirrorArtifacts mirrors official-index packages when commit lookup fails but raw files verify", async (context) => {
-  const entry = buildOfficialIndexAsset("official-index-cloudflare");
+  // A unique originUrl guarantees the module-level resolution cache is cold
+  // for THIS entry even in a shared-process run, so the cache-miss fetch
+  // branch is genuinely exercised.
+  const entry = buildOfficialIndexAsset("official-index-cloudflare", {
+    originUrl:
+      "https://officialskills.sh/cloudflare-acquire-cold/skills/cloudflare",
+  });
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -703,7 +715,8 @@ void test("acquireMirrorArtifacts mirrors official-index packages when commit lo
     const requestUrl = String(url);
 
     if (
-      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
+      requestUrl ===
+      "https://officialskills.sh/cloudflare-acquire-cold/skills/cloudflare"
     ) {
       return new Response(
         [

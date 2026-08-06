@@ -340,6 +340,19 @@ export function registerHostAdapter(adapter: HostAdapter): void {
   hostAdapters.push(normalizedAdapter);
 }
 
+/**
+ * Test-only: replaces the adapter registry wholesale. `registerHostAdapter`
+ * mutates by id, which permanently changes the shared registry; suites that
+ * register fixture adapters must snapshot `listHostAdapters()` first and
+ * restore it here so a shared-process gate sees a stable registry.
+ */
+export function setHostAdaptersForTests(
+  adapters: readonly HostAdapter[],
+): void {
+  hostAdapters.length = 0;
+  hostAdapters.push(...adapters);
+}
+
 function normalizeHostTarget(value: HostTarget): HostTarget {
   const normalizedValue = value.toLowerCase();
   if (!HOST_TARGET_PATTERN.test(normalizedValue)) {

@@ -1,10 +1,15 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
+// CLI-argv fallback only applies when THIS script is the direct entry, so a
+// test runner's argv (flags like --test-isolation=none) never leaks in.
+const isDirectExecution =
+  process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 const outputPath =
-  process.argv[2] ?? join("discover", "output", "maintenance-bot-plan.json");
+  (isDirectExecution ? process.argv[2] : undefined) ??
+  join("discover", "output", "maintenance-bot-plan.json");
 
 // ── main ──
 const reports = {

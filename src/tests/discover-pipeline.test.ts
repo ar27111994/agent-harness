@@ -732,3 +732,24 @@ void test("discover catalog continues the repo slice when the batch does not wra
   // batch is 15 of 30): the offset advanced instead of wrapping.
   assert.equal(harvestState.nextRepoOffset, 15);
 });
+
+void test("printSourceHealthSummary renders the empty breakdown suffix in summary mode (#428)", (t) => {
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  discoverInternals.printSourceHealthSummary(
+    {
+      sourceCount: 1,
+      severeCount: 0,
+      warningCount: 0,
+      sources: [],
+    } as never,
+    { quietMode: false, summaryMode: true },
+  );
+  const joined = output.join("\n");
+  assert.ok(
+    joined.includes("breakdown") && joined.includes(" none"),
+    `expected the empty-breakdown suffix, got: ${joined}`,
+  );
+});

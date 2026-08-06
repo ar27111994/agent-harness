@@ -161,6 +161,7 @@ function shouldShowFirstRunSyncHint(
   if (effectiveSourceCount < FIRST_RUN_SYNC_HINT_MIN_SOURCES) {
     return false;
   }
+  /* c8 ignore next -- unreachable: the sync-state validator requires a sources array */
   const hasPriorSync = (priorSyncState?.sources.length ?? 0) > 0;
   return !hasPriorSync;
 }

@@ -20,6 +20,7 @@ import {
   listHostAdapters,
   registerHostAdapter,
   resolveHostAdapter,
+  setHostAdaptersForTests,
   type HostAdapter,
 } from "../host-adapters/registry.js";
 import {
@@ -568,10 +569,13 @@ void test("vscode and cursor native install actions ignore assets without valid 
   assert.equal(actions[0]?.executable, "cursor");
 });
 
-void test("host adapter registry normalizes custom adapters and honors capability-aware recommendation compatibility", () => {
-  const before = listHostAdapters();
-  before.pop();
-  assert.equal(listHostAdapters().length >= before.length, true);
+void test("host adapter registry normalizes custom adapters and honors capability-aware recommendation compatibility", (context) => {
+  // registerHostAdapter mutates the shared registry: snapshot and restore so
+  // a shared-process gate sees a stable adapter universe.
+  const registrySnapshot = listHostAdapters();
+  context.after(() => {
+    setHostAdaptersForTests(registrySnapshot);
+  });
 
   const adapterId = "Agent-Harness-Test-Registry";
   const recommendationHost = "agent-harness-test-registry" as HostTarget;

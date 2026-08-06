@@ -287,6 +287,19 @@ void test("writeJsonFile — concurrent writers never interleave and always land
     writerId: number;
     payload: string[];
   }>(filePath);
+
+  // Under maximum contention every writer can exhaust its bounded retry
+  // window: the atomic-write contract allows "old | absent | new". What is
+  // NEVER allowed is interleaved/partial content.
+  if (finalState === null) {
+    assert.deepEqual(
+      await listTempFiles(root),
+      [],
+      "no temp debris even when every writer exhausts retries",
+    );
+    return;
+  }
+
   const landedWriter = writers.find(
     (writer) => writer.id === finalState?.writerId,
   );

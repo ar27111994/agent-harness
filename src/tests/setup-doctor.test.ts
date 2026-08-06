@@ -489,3 +489,23 @@ void test("setup hosts prints the adapter table with runtime capabilities (#428)
     await rm(stateRoot, { force: true, recursive: true });
   }
 });
+
+void test("setup login falls back to generic guidance for adapters without runtime metadata (#428)", async (t) => {
+  const stateRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-setup-login-pi-"),
+  );
+  try {
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+    const code = await runSetup(["login", "--provider", "pi"], stateRoot);
+    assert.equal(code, 0);
+    assert.ok(
+      output.some((line) => line.includes("setup doctor --host pi")),
+      `expected pi login guidance, got: ${output.join("\n")}`,
+    );
+  } finally {
+    await rm(stateRoot, { force: true, recursive: true });
+  }
+});

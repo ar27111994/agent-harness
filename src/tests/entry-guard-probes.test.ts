@@ -134,3 +134,8 @@ void test("built workspace.js entry guard routes help and prints it (#428)", asy
     `expected workspace help output, got: ${result.stdout.slice(0, 200)}`,
   );
 });
+
+void test("built cli.js entry guard routes single non-domain args to the unknown-command path (#428)", async () => {
+  const result = await runEntry("cli.js", ["bogus-single"]);
+  assert.equal(result.exitCode, 1);
+});
