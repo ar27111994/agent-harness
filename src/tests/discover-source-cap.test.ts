@@ -19,9 +19,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeAcceptanceRate } from "../discover-pipeline.js";
+import {
+  applyRelevanceFilter,
+  printDiscoveryBreadthSummary,
+  type RelevanceScorer,
+} from "../discover-pipeline.js";
 import { discoverInternals } from "../discover.js";
 import { getRuntimeConfig, clearRuntimeConfig } from "../config/runtime.js";
-import type { AssetCatalogEntry, DemandProfile } from "../types.js";
+import type {
+  AssetCatalogEntry,
+  DemandProfile,
+  SelectionReport,
+  SourceDefinition,
+  SourceIndex,
+} from "../types.js";
 import type { SourceSyncState } from "../domains/discovery/source-sync.js";
 
 const {
@@ -42,6 +53,15 @@ function makeEntry(sourceId: string, index: number): AssetCatalogEntry {
     assetKind: "tool",
     hosts: ["shared"],
     compatibilityMode: "native",
+    capabilities: [],
+    install: { relativePath: `packages/${id}/install` },
+    evidence: {
+      manifestFound: false,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${id}/manifest.json`,
+    },
     source: {
       sourceId,
       sourceKind: "repo",
@@ -872,4 +892,422 @@ void test("getEnabledSourceIds: throws when source registry file is missing", as
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Breadth assessment outcomes + semantic relevance scorer paths (#428)
+// ---------------------------------------------------------------------------
+
+function makeSummaryInput(overrides: {
+  catalogEntries?: AssetCatalogEntry[];
+  enabledSourcesCount?: number;
+  selectedCount?: number;
+  rejectedCount?: number;
+}): Parameters<typeof printDiscoveryBreadthSummary>[0] {
+  return {
+    demandProfile: {
+      generatedAt: new Date().toISOString(),
+      schemaVersion: 1,
+      workspaceRoot: "/tmp",
+      signals: {
+        languages: ["typescript"],
+        packageManagers: [],
+        frameworks: [],
+        concerns: [],
+        tooling: ["eslint"],
+      },
+      evidence: [{ path: "package.json", kind: "manifest" }],
+    } as unknown as DemandProfile,
+    sourceIndex: {
+      enabledSources: [],
+      sourceCount: 1,
+    } as unknown as SourceIndex,
+    enabledSources: [
+      { id: "src-a", name: "Source A", kind: "repo" },
+    ] as unknown as SourceDefinition[],
+    catalogEntries: overrides.catalogEntries ?? [],
+    selectionReport: {
+      selectedCount: overrides.selectedCount ?? 0,
+      rejectedCount: overrides.rejectedCount ?? 0,
+    } as unknown as SelectionReport,
+  };
+}
+
+function captureBreadthSummary(
+  input: Parameters<typeof printDiscoveryBreadthSummary>[0],
+  t: {
+    mock: {
+      method: (
+        target: object,
+        name: string,
+        fn: (...args: unknown[]) => void,
+      ) => void;
+    };
+  },
+): string {
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  printDiscoveryBreadthSummary(input);
+  return output.join("\n");
+}
+
+void test("breadth counts every operational-source flag variant (#428)", (t) => {
+  const fullEvidence = (manifestFound: boolean) => ({
+    manifestFound,
+    readmeFound: false,
+    examplesFound: false,
+    docsLinked: false,
+    filePath: "packages/flag-source/manifest.json",
+  });
+  const fullStatus = (flags: {
+    mirrorEligible: boolean;
+    installEligible: boolean;
+    activationEligible: boolean;
+  }) => ({
+    cataloged: true,
+    mirrorEligible: flags.mirrorEligible,
+    installEligible: flags.installEligible,
+    activationEligible: flags.activationEligible,
+  });
+  const flagVariants: AssetCatalogEntry[] = [
+    {
+      ...makeEntry("flag-src-0", 0),
+      evidence: fullEvidence(true),
+      status: fullStatus({
+        mirrorEligible: false,
+        installEligible: false,
+        activationEligible: false,
+      }),
+    },
+    {
+      ...makeEntry("flag-src-1", 1),
+      evidence: fullEvidence(false),
+      status: fullStatus({
+        mirrorEligible: true,
+        installEligible: false,
+        activationEligible: false,
+      }),
+    },
+    {
+      ...makeEntry("flag-src-2", 2),
+      evidence: fullEvidence(false),
+      status: fullStatus({
+        mirrorEligible: false,
+        installEligible: true,
+        activationEligible: false,
+      }),
+    },
+    {
+      ...makeEntry("flag-src-3", 3),
+      evidence: fullEvidence(false),
+      status: fullStatus({
+        mirrorEligible: false,
+        installEligible: false,
+        activationEligible: true,
+      }),
+    },
+  ];
+  const output = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: flagVariants }),
+    t,
+  );
+  assert.ok(
+    output.includes("4 operational"),
+    `every flag variant must count as operational: ${output}`,
+  );
+});
+
+void test("breadth flags source-coverage-limited when no source is operational (#428)", (t) => {
+  const entries = makeEntries("cold-src", 3).map((entry) => ({
+    ...entry,
+    evidence: {
+      manifestFound: false,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${entry.id}/manifest.json`,
+    },
+    status: {
+      cataloged: true,
+      mirrorEligible: false,
+      installEligible: false,
+      activationEligible: false,
+    },
+  }));
+  const output = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: entries }),
+    t,
+  );
+  assert.ok(
+    output.includes("Assessment: source-coverage-limited"),
+    `expected source-coverage-limited, got: ${output}`,
+  );
+});
+
+void test("breadth flags selection-limited when nothing is selected (#428)", (t) => {
+  const entries = makeEntries("sel-src", 5).map((entry) => ({
+    ...entry,
+    evidence: {
+      manifestFound: true,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${entry.id}/manifest.json`,
+    },
+  }));
+  const output = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: entries, selectedCount: 0 }),
+    t,
+  );
+  assert.ok(
+    output.includes("Assessment: selection-limited"),
+    `expected selection-limited, got: ${output}`,
+  );
+});
+
+void test("breadth flags selection-limited for a large catalog with a tiny selection (#428)", (t) => {
+  const entries = makeEntries("big-src", 30).map((entry) => ({
+    ...entry,
+    evidence: {
+      manifestFound: true,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${entry.id}/manifest.json`,
+    },
+  }));
+  // 1 selected of 30: far below the max(3, 5%) floor.
+  const output = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: entries, selectedCount: 1 }),
+    t,
+  );
+  assert.ok(
+    output.includes("Assessment: selection-limited"),
+    `expected selection-limited for 1/30, got: ${output}`,
+  );
+});
+
+void test("breadth reports ranking-ready when selection clears the ratio floor (#428)", (t) => {
+  const bigEntries = makeEntries("ready-src", 30).map((entry) => ({
+    ...entry,
+    evidence: {
+      manifestFound: true,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${entry.id}/manifest.json`,
+    },
+  }));
+  const bigOutput = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: bigEntries, selectedCount: 10 }),
+    t,
+  );
+  assert.ok(
+    bigOutput.includes("Assessment: ranking-ready"),
+    `expected ranking-ready for 10/30, got: ${bigOutput}`,
+  );
+
+  const smallEntries = makeEntries("small-src", 10).map((entry) => ({
+    ...entry,
+    evidence: {
+      manifestFound: true,
+      readmeFound: false,
+      examplesFound: false,
+      docsLinked: false,
+      filePath: `packages/${entry.id}/manifest.json`,
+    },
+  }));
+  const smallOutput = captureBreadthSummary(
+    makeSummaryInput({ catalogEntries: smallEntries, selectedCount: 8 }),
+    t,
+  );
+  assert.ok(
+    smallOutput.includes("Assessment: ranking-ready"),
+    `expected ranking-ready for 8/10, got: ${smallOutput}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// applyRelevanceFilter — semantic scorer branches (#428)
+// ---------------------------------------------------------------------------
+
+function makeScorer(overrides: {
+  available?: boolean;
+  result?: {
+    selected: AssetCatalogEntry[];
+    rejected: AssetCatalogEntry[];
+  } | null;
+}): RelevanceScorer {
+  return {
+    available: overrides.available ?? false,
+    tryInit: async () => {},
+    filterAndRank: async () => overrides.result ?? null,
+  };
+}
+
+async function captureWarnings(
+  t: {
+    mock: {
+      method: (
+        target: object,
+        name: string,
+        fn: (...args: unknown[]) => void,
+      ) => void;
+    };
+  },
+  invocation: () => Promise<void>,
+): Promise<string[]> {
+  const warnings: string[] = [];
+  t.mock.method(globalThis.console, "warn", (...args: unknown[]) => {
+    warnings.push(args.map((value) => String(value)).join(" "));
+  });
+  try {
+    await invocation();
+  } catch (error: unknown) {
+    warnings.push(`THREW: ${String(error)}`);
+  }
+  return warnings;
+}
+
+async function withSemanticScoringEnv(
+  enabled: string,
+  invocation: () => Promise<void>,
+): Promise<void> {
+  const previousEnabled = process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING;
+  const previousSimilarity = process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY;
+  process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING = enabled;
+  process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY = "0.5";
+  clearRuntimeConfig();
+  try {
+    await invocation();
+  } finally {
+    if (previousEnabled === undefined) {
+      delete process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING;
+    } else {
+      process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING = previousEnabled;
+    }
+    if (previousSimilarity === undefined) {
+      delete process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY;
+    } else {
+      process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY = previousSimilarity;
+    }
+    clearRuntimeConfig();
+  }
+}
+
+void test("semantic scoring default factory falls back when transformers are unavailable (#428)", async (t) => {
+  const entries = makeEntries("sem-src", 2);
+  const warnings = await captureWarnings(t, async () => {
+    await withSemanticScoringEnv("1", async () => {
+      // No factory argument: the default SemanticScorer is constructed; on a
+      // machine without @xenova/transformers it reports unavailable and the
+      // keyword gate takes over.
+      const result = await applyRelevanceFilter(
+        entries,
+        null,
+        getRuntimeConfig(),
+      );
+      assert.ok(
+        Array.isArray(result.selectedEntries) &&
+          Array.isArray(result.rejectedEntries),
+        "the keyword fallback still returns split lists",
+      );
+    });
+  });
+  assert.ok(
+    warnings.some((line) => line.includes("not installed")),
+    `expected unavailable-scorer warning, got: ${warnings.join("\n")}`,
+  );
+});
+
+void test("semantic scoring uses the scorer result when available (#428)", async (t) => {
+  const entries = makeEntries("sem-ok", 3);
+  const kept = entries.slice(0, 1);
+  const dropped = entries.slice(1);
+  const warnings = await captureWarnings(t, async () => {
+    await withSemanticScoringEnv("1", async () => {
+      const result = await applyRelevanceFilter(
+        entries,
+        null,
+        getRuntimeConfig(),
+        () =>
+          makeScorer({
+            available: true,
+            result: { selected: kept, rejected: dropped },
+          }),
+      );
+      assert.deepEqual(result.selectedEntries, kept);
+      assert.deepEqual(result.rejectedEntries, dropped);
+    });
+  });
+  assert.equal(warnings.length, 0, "no warnings on the successful scorer path");
+});
+
+void test("semantic scoring falls back when the scorer returns null (#428)", async (t) => {
+  const entries = makeEntries("sem-null", 2);
+  const warnings = await captureWarnings(t, async () => {
+    await withSemanticScoringEnv("1", async () => {
+      const result = await applyRelevanceFilter(
+        entries,
+        null,
+        getRuntimeConfig(),
+        () => makeScorer({ available: true, result: null }),
+      );
+      assert.ok(Array.isArray(result.selectedEntries));
+    });
+  });
+  assert.ok(
+    warnings.some((line) => line.includes("unavailable after init")),
+    `expected re-init failure warning, got: ${warnings.join("\n")}`,
+  );
+});
+
+void test("semantic scoring warns when the scorer is unavailable after init (#428)", async (t) => {
+  const entries = makeEntries("sem-unavail", 2);
+  const warnings = await captureWarnings(t, async () => {
+    await withSemanticScoringEnv("1", async () => {
+      const result = await applyRelevanceFilter(
+        entries,
+        null,
+        getRuntimeConfig(),
+        () => makeScorer({ available: false }),
+      );
+      assert.ok(Array.isArray(result.selectedEntries));
+    });
+  });
+  assert.ok(
+    warnings.some((line) => line.includes("not installed")),
+    `expected unavailable warning, got: ${warnings.join("\n")}`,
+  );
+});
+
+void test("semantic scoring is skipped entirely when disabled (#428)", async (t) => {
+  const entries = makeEntries("sem-off", 2);
+  let factoryCalled = false;
+  const warnings = await captureWarnings(t, async () => {
+    await withSemanticScoringEnv("0", async () => {
+      const result = await applyRelevanceFilter(
+        entries,
+        null,
+        getRuntimeConfig(),
+        () => {
+          factoryCalled = true;
+          return makeScorer({ available: true });
+        },
+      );
+      assert.ok(Array.isArray(result.selectedEntries));
+    });
+  });
+  assert.equal(
+    factoryCalled,
+    false,
+    "the scorer factory must not run when disabled",
+  );
+  assert.equal(
+    warnings.length,
+    0,
+    `expected no warnings when disabled, got: ${warnings.join("\n")}`,
+  );
 });
