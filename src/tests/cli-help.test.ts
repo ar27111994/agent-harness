@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -10,6 +10,7 @@ import {
   repositoryRoot,
   runBuiltCli,
 } from "./built-cli-harness.js";
+import { runDiscover } from "../discover.js";
 
 /** Reads the expected version from the project package.json. */
 async function readExpectedVersion(): Promise<string> {
@@ -635,8 +636,10 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-nosync-"));
 
   try {
-    const { workspaceRoot, stateRoot, env } =
-      await createIsolatedCliEnvironment(tempRoot, { createStateRoot: true });
+    const { workspaceRoot, stateRoot } = await createIsolatedCliEnvironment(
+      tempRoot,
+      { createStateRoot: true },
+    );
 
     await writeFile(
       join(workspaceRoot, "package.json"),
@@ -644,21 +647,93 @@ void test("discover full --no-sync skips source sync and prints warning (#382)",
       "utf8",
     );
 
-    const { stdout, stderr } = await runBuiltCli({
-      cwd: workspaceRoot,
-      env,
-      stateRoot,
-      // The full pipeline on a cold isolated state root takes ~90-120s on a
-      // loaded machine; leave headroom so parallel suite runs do not flake.
-      timeout: 180_000,
-      args: ["discover", "full", "--no-sync"],
-    });
+    // Seed an EMPTY offline source universe before the run, mirroring the
+    // workspace-setup-rebuild-flows suites. This keeps the discovery pass
+    // fully local: the catalog phase must not touch live registries, so the
+    // test is deterministic instead of depending on network latency/rate
+    // limits (a cold-root spawn with the checked-in source defaults used to
+    // take 90–180s of live harvesting and flaked under load).
+    await mkdir(join(stateRoot, "discover"), { recursive: true });
+    await writeFile(
+      join(stateRoot, "discover", "sources.json"),
+      JSON.stringify({ schemaVersion: 1, sources: [] }),
+      "utf8",
+    );
+    await writeFile(
+      join(stateRoot, "discover", "selections.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        selectionPolicies: {
+          officialBeatsPopularity: true,
+          starsAreTieBreakerOnly: true,
+          preferNativeOverAdaptable: true,
+          preferLowerRiskWhenEquivalent: true,
+          preferLowerContextCostWhenEquivalent: true,
+          communityDefaultPolicy: "catalog-only-unless-promoted",
+        },
+        rankingOrder: [],
+        duplicateGroups: [],
+      }),
+      "utf8",
+    );
 
+    const warnings: string[] = [];
+    const stderrLines: string[] = [];
+    const originalWarn = console.warn;
+    const originalStderrWrite = process.stderr.write.bind(process.stderr);
+    console.warn = (...args: unknown[]) => {
+      warnings.push(args.map((value) => String(value)).join(" "));
+    };
+    process.stderr.write = (
+      chunk: Uint8Array | string,
+      encodingOrCb?: BufferEncoding | ((err?: Error | null) => void),
+      cb?: (err?: Error | null) => void,
+    ): boolean => {
+      if (typeof chunk === "string") {
+        stderrLines.push(chunk);
+      }
+      if (typeof encodingOrCb === "function") {
+        return originalStderrWrite(chunk, encodingOrCb);
+      }
+      if (encodingOrCb !== undefined) {
+        return originalStderrWrite(chunk, encodingOrCb, cb);
+      }
+      return originalStderrWrite(chunk);
+    };
+
+    let exitCode = -1;
+    try {
+      exitCode = await runDiscover(
+        ["full", "--no-sync"],
+        workspaceRoot,
+        stateRoot,
+      );
+    } finally {
+      console.warn = originalWarn;
+      process.stderr.write = originalStderrWrite;
+    }
+
+    assert.equal(exitCode, 0);
     assert.ok(
-      stderr.includes("--no-sync: skipping indexed source sync") ||
-        stdout.includes("--no-sync: skipping indexed source sync"),
+      [...warnings, ...stderrLines].some((line) =>
+        line.includes("--no-sync: skipping indexed source sync"),
+      ),
       "must print --no-sync warning",
     );
+
+    // The sync phase must not have been executed: no source-sync state file
+    // may exist for an empty universe.
+    const syncStatePath = join(
+      stateRoot,
+      "discover",
+      "output",
+      "source-sync.json",
+    );
+    const syncStateExists = await readFile(syncStatePath, "utf8").then(
+      () => true,
+      () => false,
+    );
+    assert.equal(syncStateExists, false);
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
