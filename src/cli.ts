@@ -25,15 +25,20 @@ import {
   setActiveDeadline,
 } from "./lib/deadline.js";
 
-/** Returns the package version from the installed package.json. */
-async function readPackageVersion(): Promise<string> {
+/**
+ * Returns the package version from the installed package.json.
+ *
+ * `pkgRoot` is injectable for tests: the default resolves the real package
+ * root from this module, and callers may point at an arbitrary package
+ * directory to exercise the missing-file / missing-version fallbacks.
+ */
+async function readPackageVersion(
+  pkgRoot: string = resolveProjectRoot(fileURLToPath(import.meta.url)),
+): Promise<string> {
   try {
     const { readFile } = await import("node:fs/promises");
     const { join } = await import("node:path");
-    const pkgPath = join(
-      resolveProjectRoot(fileURLToPath(import.meta.url)),
-      "package.json",
-    );
+    const pkgPath = join(pkgRoot, "package.json");
     const raw = await readFile(pkgPath, "utf8");
     const pkg = JSON.parse(raw) as { version?: string };
     return pkg.version ?? "0.0.0";

@@ -61,7 +61,7 @@ export function findUnknownFlag(
   flagsWithValues: ReadonlySet<string> = new Set(),
 ): string | undefined {
   for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index] ?? "";
+    const arg = args[index];
     if (arg === "--" || arg === "-") {
       // `--` ends option scanning; a bare `-` is conventionally stdin/stdout.
       break;
