@@ -704,12 +704,20 @@ void test("atomic writeJsonFile churn never exposes partial JSON to readers (#42
     // "old | absent | complete-new" — the Windows remove-and-retry window can
     // legitimately expose an absent destination — but NEVER partial content.
     let observedPartial = false;
+    let partialEvidence = "";
     let observedInconsistent = false;
     let observedReads = 0;
+    const readerErrors: string[] = [];
     const readers = Array.from({ length: 4 }, () =>
       (async () => {
         for (let round = 0; round < rounds * 2; round += 1) {
-          const raw = await readTextFileOrNull(statePath);
+          let raw: string | null;
+          try {
+            raw = await readTextFileOrNull(statePath);
+          } catch (error) {
+            readerErrors.push(String(error));
+            continue;
+          }
           if (raw === null) {
             // Absent is part of the contract (remove-and-retry window).
             continue;
@@ -723,22 +731,33 @@ void test("atomic writeJsonFile churn never exposes partial JSON to readers (#42
             };
             if (parsed.schemaVersion !== 1) {
               observedInconsistent = true;
+              partialEvidence = raw.slice(0, 300);
             }
           } catch {
             observedPartial = true;
+            partialEvidence = raw.slice(0, 300);
           }
         }
       })(),
     );
 
     await Promise.all([...writers, ...readers]);
-    assert.equal(observedPartial, false, "readers must never see partial JSON");
+    assert.equal(
+      observedPartial,
+      false,
+      `readers must never see partial JSON (evidence: ${partialEvidence || "none"})`,
+    );
     assert.equal(
       observedInconsistent,
       false,
-      "readers must always see schema-valid docs",
+      `readers must always see schema-valid docs (evidence: ${partialEvidence || "none"})`,
     );
     assert.ok(observedReads > 0, "readers made progress");
+    assert.deepEqual(
+      readerErrors,
+      [],
+      "readers must not hit transient open errors",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

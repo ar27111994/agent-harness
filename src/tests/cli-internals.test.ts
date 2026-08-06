@@ -175,6 +175,17 @@ void test("runHelpCommand falls back to the generic help for an unknown domain",
   );
 });
 
+void test("runHelpCommand rejects unknown bundle subcommands like the execution path (#418/#428)", async () => {
+  const { code } = await captureHelpOutput(() =>
+    runHelpCommand(["bundle", "locks", "--help"], ""),
+  );
+  assert.equal(
+    code,
+    1,
+    "bundle subcommand help must reject non-explain subcommands",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // main() (#428) — the full non-help/non-version dispatch path
 // ---------------------------------------------------------------------------

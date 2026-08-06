@@ -373,6 +373,11 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
       name: "synced-docs",
       kind: "docs",
     }),
+    buildCatalogSource({
+      id: "synced-empty",
+      name: "synced-empty",
+      kind: "docs",
+    }),
   ];
   await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
     schemaVersion: 1,
@@ -395,6 +400,14 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
           status: "complete",
           lastSyncedAt: new Date().toISOString(),
           indexedEntryCount: 1,
+          cursors: [],
+        },
+        {
+          sourceId: "synced-empty",
+          coverageMode: "indexed",
+          status: "complete",
+          lastSyncedAt: new Date().toISOString(),
+          indexedEntryCount: 0,
           cursors: [],
         },
       ],
@@ -590,4 +603,132 @@ void test("discover handles enrichment results through the shared exit-code mapp
     0,
   );
   assert.equal(output.length, 0);
+});
+
+void test("first-run sync hint shows when prior sync state has no sources (#428)", () => {
+  const priorSyncState = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    sources: [],
+  } as never;
+
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(
+      priorSyncState,
+      8,
+      false,
+      false,
+      false,
+    ),
+    true,
+    "an empty prior sync state still counts as first-run",
+  );
+});
+
+void test("discover full rejects conflicting AI-enrichment flags (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeDiscoverRoot(t);
+  await assert.rejects(
+    runDiscover(
+      ["full", "--no-ai-enrich", "--require-ai-enrich"],
+      workspaceRoot,
+      stateRoot,
+    ),
+    /--no-ai-enrich and --require-ai-enrich cannot be used together/u,
+  );
+});
+
+void test("discover catalog continues the repo slice when the batch does not wrap (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeDiscoverRoot(t);
+
+  // More repo sources than one batch: the offset advances instead of
+  // wrapping, so the writeRemoteHarvestState continuation branch runs.
+  const sources = Array.from({ length: 30 }, (_, index) =>
+    buildCatalogSource({
+      id: `gh-repo-${index}`,
+      name: `gh-repo-${index}`,
+      priority: 90,
+    }),
+  );
+  await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources,
+  });
+  await writeJsonFile(
+    join(stateRoot, "state", "discover", "remote-harvest.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      nextRepoOffset: 0,
+      completedSourceIds: [],
+    },
+  );
+
+  const originalFetch = globalThis.fetch;
+  const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (url === "https://api.github.com/repos/acme/toolbox") {
+      return jsonResponse({
+        name: "toolbox",
+        full_name: "acme/toolbox",
+        description: "Repository with installable agent assets",
+        default_branch: "main",
+        updated_at: "2026-05-15T00:00:00.000Z",
+        pushed_at: "2026-05-15T00:00:00.000Z",
+        stargazers_count: 3,
+        language: "TypeScript",
+        topics: ["agent", "tooling"],
+        archived: false,
+        html_url: "https://github.com/acme/toolbox",
+      });
+    }
+    if (
+      url ===
+      "https://api.github.com/repos/acme/toolbox/git/trees/main?recursive=1"
+    ) {
+      return jsonResponse({
+        sha: "tree-sha",
+        truncated: false,
+        tree: [],
+      });
+    }
+    if (url === "https://api.github.com/repos/acme/toolbox/readme") {
+      return jsonResponse({
+        path: "README.md",
+        sha: "readme-sha",
+        size: 12,
+        html_url: "https://github.com/acme/toolbox/blob/main/README.md",
+        download_url:
+          "https://raw.githubusercontent.com/acme/toolbox/main/README.md",
+      });
+    }
+    throw new Error(`Unexpected fetch in repo-slice continuation test: ${url}`);
+  };
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+    }
+  });
+
+  const code = await runDiscover(["catalog"], workspaceRoot, stateRoot);
+  assert.equal(code, 0);
+
+  const harvestState = JSON.parse(
+    await readFile(
+      join(stateRoot, "state", "discover", "remote-harvest.json"),
+      "utf8",
+    ),
+  ) as { nextRepoOffset: number };
+  // The batch covered fewer sources than the total (default remote-harvest
+  // batch is 15 of 30): the offset advanced instead of wrapping.
+  assert.equal(harvestState.nextRepoOffset, 15);
 });
