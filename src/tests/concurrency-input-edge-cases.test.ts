@@ -678,3 +678,68 @@ void test("buildCodexHookSource returns hookFile when manifestDirectory undefine
   >;
   assert.equal(hooks[0]?.source, hookPath);
 });
+
+void test("atomic writeJsonFile churn never exposes partial JSON to readers (#427/#428)", async () => {
+  const root = await mkdtempFixture("atomic-churn");
+  try {
+    const statePath = join(root, "state.json");
+    await writeJsonFile(statePath, { schemaVersion: 1, seq: 0 });
+
+    const writerCount = 8;
+    const rounds = 10;
+    const writers = Array.from({ length: writerCount }, (_, writerIndex) =>
+      (async () => {
+        for (let round = 0; round < rounds; round += 1) {
+          await writeJsonFile(statePath, {
+            schemaVersion: 1,
+            writer: writerIndex,
+            seq: round,
+            payload: "x".repeat(2048),
+          });
+        }
+      })(),
+    );
+
+    // Readers run concurrently with the writers. The atomic-write contract is
+    // "old | absent | complete-new" — the Windows remove-and-retry window can
+    // legitimately expose an absent destination — but NEVER partial content.
+    let observedPartial = false;
+    let observedInconsistent = false;
+    let observedReads = 0;
+    const readers = Array.from({ length: 4 }, () =>
+      (async () => {
+        for (let round = 0; round < rounds * 2; round += 1) {
+          const raw = await readTextFileOrNull(statePath);
+          if (raw === null) {
+            // Absent is part of the contract (remove-and-retry window).
+            continue;
+          }
+          observedReads += 1;
+          try {
+            const parsed = JSON.parse(raw) as {
+              schemaVersion: number;
+              writer: number;
+              seq: number;
+            };
+            if (parsed.schemaVersion !== 1) {
+              observedInconsistent = true;
+            }
+          } catch {
+            observedPartial = true;
+          }
+        }
+      })(),
+    );
+
+    await Promise.all([...writers, ...readers]);
+    assert.equal(observedPartial, false, "readers must never see partial JSON");
+    assert.equal(
+      observedInconsistent,
+      false,
+      "readers must always see schema-valid docs",
+    );
+    assert.ok(observedReads > 0, "readers made progress");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
