@@ -16,7 +16,8 @@ import test from "node:test";
 import { runWorkspace } from "../workspace.js";
 import { runSetup } from "../setup.js";
 import { runRebuild } from "../rebuild.js";
-import { writeJsonFile } from "../files.js";
+import { runWire } from "../wire.js";
+import { writeJsonFile, writeJsonLinesFile } from "../files.js";
 import { createIsolatedCliEnvironment } from "./built-cli-harness.js";
 
 async function makeIsolated(t: {
@@ -214,4 +215,228 @@ void test("workspace enrichment result handling maps note/failure to exit codes 
   } as never);
   assert.equal(ok, 0);
   assert.equal(output.length, 0);
+});
+
+void test("workspace rejects flag-like unknown targets and unknown host help falls back to parent help (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeIsolated(t);
+
+  const flagCode = await runWorkspace(["--bogus"], workspaceRoot, stateRoot);
+  assert.equal(flagCode, 1);
+
+  const helpOutput: string[] = [];
+  t.mock.method(process.stdout, "write", (chunk: unknown) => {
+    helpOutput.push(String(chunk));
+    return true;
+  });
+  const helpCode = await runWorkspace(
+    ["nonsense-host", "--help"],
+    workspaceRoot,
+    stateRoot,
+  );
+  assert.equal(helpCode, 0);
+  assert.ok(
+    helpOutput.join("").includes("workspace commands:"),
+    `expected parent workspace help fallback, got: ${helpOutput.join("")}`,
+  );
+});
+
+void test("workspace rejects conflicting AI-enrichment flags before any pipeline work (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeIsolated(t);
+  await assert.rejects(
+    runWorkspace(
+      ["opencode", "--ai-enrich", "--no-ai-enrich"],
+      workspaceRoot,
+      stateRoot,
+    ),
+    /--ai-enrich and --no-ai-enrich cannot be used together/u,
+  );
+});
+
+void test("workspace prints and fails on prerequisite diagnostics from activated assets (#428)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeIsolated(t);
+
+  // The recommend phase needs the shipped default recommendation policy.
+  const { cp } = await import("node:fs/promises");
+  const { dirname } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+  const repositoryRoot = dirname(
+    dirname(dirname(fileURLToPath(import.meta.url))),
+  );
+  await cp(
+    join(repositoryRoot, "discover", "recommendation-policy"),
+    join(stateRoot, "discover", "recommendation-policy"),
+    { recursive: true },
+  );
+  // The mirror phase needs the mirror policy.
+  await writeJsonFile(join(stateRoot, "mirror", "policy.json"), {
+    schemaVersion: 1,
+    selection: {
+      officialBeatsPopularity: true,
+      requirePinnedProvenance: false,
+      communityDefaultPolicy: "allow",
+    },
+    audit: { alwaysAudit: false, quarantineOn: [] },
+    store: {
+      root: "mirror",
+      rawDirectories: ["raw"],
+      normalizedDirectories: [],
+      bundlesDirectory: "bundles",
+      quarantineDirectory: "quarantine",
+      auditDirectory: "audit",
+    },
+    bundleTemplates: [
+      {
+        id: "opencode-global",
+        host: "opencode",
+        description: "fixture global bundle",
+        assetKinds: ["skill"],
+        defaultPromotion: "default",
+      },
+      {
+        id: "community-stable",
+        host: "opencode",
+        description: "fixture community bundle",
+        assetKinds: ["skill"],
+        defaultPromotion: "community",
+      },
+      {
+        id: "shared-mcp",
+        host: "shared",
+        description: "fixture shared mcp bundle",
+        assetKinds: ["mcp-server"],
+        defaultPromotion: "default",
+      },
+    ],
+  });
+
+  // A catalog + demand profile so selection produces a recommendation and
+  // the pipeline stages real bundle locks (install progress is required).
+  const assetEntry = {
+    id: "ws-entry",
+    displayName: "ws-entry",
+    assetKind: "skill",
+    hosts: ["opencode"],
+    compatibilityMode: "native",
+    source: {
+      sourceId: "fixture-source",
+      authorityTier: "official-first-party",
+      sourceKind: "docs",
+      sourcePriority: 100,
+      originUrl: "https://example.com/assets/ws-entry",
+      publisher: "Fixture",
+      publisherVerified: true,
+    },
+    trust: { score: 100, signals: [] },
+    capabilities: ["fixture", "testing"],
+    install: {
+      method: "local-file",
+      nativeHosts: ["opencode"],
+      manifestEntry: "ws-entry",
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      filePath: "ws-entry.md",
+      rootPath: "/fixture",
+    },
+    maintenance: {
+      lastUpdated: "2026-01-01T00:00:00.000Z",
+      stars: 0,
+      releaseCadence: "active",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.9, hostFit: 0.9 },
+    dedupe: { candidateRankHint: "fixture" },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
+  };
+  await writeJsonLinesFile(
+    join(stateRoot, "discover", "catalog.assets.jsonl"),
+    [assetEntry],
+  );
+  await writeJsonFile(
+    join(stateRoot, "discover", "output", "demand-profile.json"),
+    {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      scanRoot: workspaceRoot,
+      summary: { scannedFiles: 1, matchedFiles: 1 },
+      signals: {
+        languages: ["typescript"],
+        packageManagers: ["npm"],
+        frameworks: [],
+        concerns: ["testing", "integration"],
+        tooling: ["node"],
+      },
+      evidence: [],
+    },
+  );
+
+  // Fetch is stubbed so mirror acquire can materialize the raw artifact for
+  // the single selected skill.
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  globalThis.fetch = async () =>
+    new Response("# fixture skill\ncontent", { status: 200 });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    }
+  });
+
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+
+  // Injected preflight passes; the prerequisite collector reports a missing
+  // environment variable for an activated asset, which is printed and then
+  // fails the run.
+  await assert.rejects(
+    runWorkspace(["opencode"], workspaceRoot, stateRoot, {
+      runHostPreflight: async () => [],
+      runAdapterPreflight: async () => [],
+      collectActivatedAssetPrerequisiteDiagnostics: async () => [
+        {
+          severity: "error",
+          code: "missing-env",
+          message: "Missing ANTHROPIC_API_KEY for activated asset demo-skill.",
+          action: "Set ANTHROPIC_API_KEY.",
+        },
+      ],
+    }),
+    /missing-env/u,
+  );
+  assert.ok(
+    output.some((line) => line.includes("Missing ANTHROPIC_API_KEY")),
+    `expected the prerequisite diagnostics to print, got: ${output.join("\n")}`,
+  );
+});
+
+void test("wire preview mode runs preflight with warning severity and completes (#428)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-wire-preview-"),
+  );
+  try {
+    const code = await runWire(["opencode"], projectRoot, projectRoot);
+    assert.equal(code, 0, "wire preview must terminate cleanly");
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
 });

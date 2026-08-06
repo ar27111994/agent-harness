@@ -42,6 +42,17 @@ const WORKSPACE_KNOWN_FLAGS = new Set([
 const WORKSPACE_FLAGS_WITH_VALUES = new Set(["--intent"]);
 
 /**
+ * Preflight functions the workspace runner delegates to. Exposed as an
+ * injection seam so tests can exercise the prerequisite-diagnostics surface
+ * deterministically without depending on installed host CLIs.
+ */
+export interface WorkspacePreflightFunctions {
+  runHostPreflight: typeof runHostPreflight;
+  runAdapterPreflight: typeof runAdapterPreflight;
+  collectActivatedAssetPrerequisiteDiagnostics: typeof collectActivatedAssetPrerequisiteDiagnostics;
+}
+
+/**
  * Runs the end-to-end lifecycle for a registered adapter and then applies its
  * host-specific workspace wire-in.
  */
@@ -49,6 +60,7 @@ export async function runWorkspace(
   args: string[],
   workingDirectory: string,
   projectRoot: string,
+  preflight: Partial<WorkspacePreflightFunctions> = {},
 ): Promise<number> {
   const [target = "help", ...rest] = args;
 
@@ -98,13 +110,22 @@ export async function runWorkspace(
     `[workspace ${getPreferredHostCommand(hostAdapter.id)}] Starting ${hostAdapter.displayName} workspace pipeline...`,
   );
 
+  const hostPreflight = preflight.runHostPreflight ?? runHostPreflight;
+  const adapterPreflight = preflight.runAdapterPreflight ?? runAdapterPreflight;
+  const collectPrerequisites =
+    preflight.collectActivatedAssetPrerequisiteDiagnostics ??
+    collectActivatedAssetPrerequisiteDiagnostics;
+
+  // Every registered adapter defines requiresLifecycleHostPaths today, so the
+  // mutatesHostPaths fallback is unreachable; kept for future adapters.
+  /* c8 ignore next 3 -- unreachable: all registered adapters define requiresLifecycleHostPaths */
   const requiresLifecycleHostPaths =
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = [
-    ...(await runHostPreflight(hostAdapter.lifecycleHost, {
+    ...(await hostPreflight(hostAdapter.lifecycleHost, {
       requireHostPaths: requiresLifecycleHostPaths,
     })),
-    ...(await runAdapterPreflight(hostAdapter)),
+    ...(await adapterPreflight(hostAdapter)),
   ];
   if (diagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(diagnostics));
@@ -121,12 +142,11 @@ export async function runWorkspace(
     bundleIds: hostAdapter.defaultBundleIds,
   });
 
-  const prerequisiteDiagnostics =
-    await collectActivatedAssetPrerequisiteDiagnostics(
-      projectRoot,
-      hostAdapter,
-      { missingEnvSeverity: "error" },
-    );
+  const prerequisiteDiagnostics = await collectPrerequisites(
+    projectRoot,
+    hostAdapter,
+    { missingEnvSeverity: "error" },
+  );
   if (prerequisiteDiagnostics.length > 0) {
     console.log(formatPreflightDiagnostics(prerequisiteDiagnostics));
   }
