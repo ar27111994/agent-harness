@@ -37,7 +37,7 @@ export function parseLcov(text) {
   const records = [];
   let current = null;
   const lineHits = new Map(); // SF -> line -> max hits
-  const branchTaken = new Map(); // SF -> "line:block:branch" -> max taken
+  const branchTaken = new Map(); // SF -> line:block:branch key -> max taken
   const functionHits = new Map(); // SF -> name -> max hits
   const knownFunctions = new Map(); // SF -> name -> line
 

@@ -37,7 +37,7 @@ for (const line of lcov.split("\n")) {
     const [ln, hits] = line.slice(3).split(",");
     if (Number(hits) === 0) current.lines.push(Number(ln));
   } else if (current && line.startsWith("BRDA:")) {
-    const [ln, block, branch, taken] = line.slice(5).split(",");
+    const [ln, , , taken] = line.slice(5).split(",");
     if (taken === "0") current.branches.push(Number(ln));
   } else if (current && line.startsWith("FN:")) {
     const [ln, name] = line.slice(3).split(",");
