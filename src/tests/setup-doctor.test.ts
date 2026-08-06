@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import type { HostAdapter } from "../host-adapters/registry.js";
 import { runAdapterPreflight } from "../lib/preflight.js";
-import { setupInternals } from "../setup.js";
+import type { PreflightDiagnostic } from "../lib/preflight.js";
+import { setupInternals, runSetup } from "../setup.js";
 import { preflightInternals } from "../lib/preflight.js";
 
 const {
@@ -405,4 +409,83 @@ void test("runDoctorWithAdapters accepts separate cumulativeTimeoutMs", async ()
 
   assert.equal(results.length, 1);
   assert.equal(hasErrors, false);
+});
+
+void test("setup doctor flags error-severity diagnostics through the injected runner (#428)", async () => {
+  const ok = await setupInternals.runDoctor(["doctor"], undefined, {
+    preflightRunner: async (): Promise<PreflightDiagnostic[]> => [
+      {
+        severity: "error",
+        code: "fixture-error",
+        message: "fixture failure",
+        action: "fix it",
+      },
+    ],
+  });
+  assert.equal(ok, false, "error-severity diagnostics fail the doctor run");
+});
+
+void test("setup doctor resolves cumulative TimeoutError rejections to diagnostics (#428)", async () => {
+  const ok = await setupInternals.runDoctor(["doctor"], undefined, {
+    preflightRunner: async (): Promise<PreflightDiagnostic[]> => {
+      throw new DOMException("cumulative budget exceeded", "TimeoutError");
+    },
+  });
+  // The synthetic timeout diagnostic is a warning, so the run still passes.
+  assert.equal(ok, true, "timeout diagnostics are warnings, not errors");
+});
+
+void test("setup doctor surfaces uncaught adapter throws in the summary (#428)", async (t) => {
+  const output: string[] = [];
+  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+    output.push(args.map((value) => String(value)).join(" "));
+  });
+  const ok = await setupInternals.runDoctor(["doctor"], undefined, {
+    preflightRunner: async (): Promise<PreflightDiagnostic[]> => {
+      throw new Error("preflight exploded");
+    },
+  });
+  assert.equal(ok, false, "uncaught adapter throws fail the doctor run");
+  assert.ok(
+    output.some((line) => line.includes("preflight threw unexpectedly")),
+    `expected the unexpected-throw summary, got: ${output.join("\n")}`,
+  );
+});
+
+void test("setup login falls back to adapter guidance for host adapters (#428)", async (t) => {
+  const stateRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-setup-login-zed-"),
+  );
+  try {
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+    const code = await runSetup(["login", "--provider", "zed"], stateRoot);
+    assert.equal(code, 0);
+    assert.ok(
+      output.some((line) => line.includes("setup doctor --host zed")),
+      `expected adapter-specific login guidance, got: ${output.join("\n")}`,
+    );
+  } finally {
+    await rm(stateRoot, { force: true, recursive: true });
+  }
+});
+
+void test("setup hosts prints the adapter table with runtime capabilities (#428)", async (t) => {
+  const stateRoot = await mkdtemp(join(tmpdir(), "agent-harness-setup-hosts-"));
+  try {
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+    const code = await runSetup(["hosts"], stateRoot);
+    assert.equal(code, 0);
+    assert.ok(
+      output.some((line) => line.includes("vscode")),
+      `expected the adapter table, got: ${output.join("\n")}`,
+    );
+  } finally {
+    await rm(stateRoot, { force: true, recursive: true });
+  }
 });

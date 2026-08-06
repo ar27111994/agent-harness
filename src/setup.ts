@@ -186,6 +186,10 @@ async function runAdapterPreflightWithTimeout(
           : []),
       ])(),
       // Reject when the abort signal fires so Promise.race resolves immediately.
+      // AbortSignal.timeout always aborts with a TimeoutError reason, so the
+      // nullish fallback below is unreachable; kept for signal-source parity
+      // with the cumulative race in runDoctor.
+      /* c8 ignore next 5 -- unreachable: AbortSignal.timeout always provides a reason */
       new Promise<never>((_, reject) => {
         signal.addEventListener("abort", () =>
           reject(signal.reason ?? new DOMException("Timeout", "TimeoutError")),
@@ -226,6 +230,10 @@ async function runAdapterPreflightWithTimeout(
 async function runDoctor(
   args: string[],
   projectRoot: string | undefined,
+  options: {
+    preflightRunner?: typeof runAdapterPreflightWithTimeout;
+    preflight?: AdapterPreflightFunctions;
+  } = {},
 ): Promise<boolean> {
   const hostName = getOptionValue(args, "--host");
 
@@ -239,6 +247,9 @@ async function runDoctor(
     console.log(`No registered host adapter matched '${hostName}'.`);
     return false;
   }
+
+  const resolvePreflight =
+    options.preflightRunner ?? runAdapterPreflightWithTimeout;
 
   const adapterTimeoutMs = parsePositiveIntegerEnv(
     process.env.AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS,
@@ -273,14 +284,20 @@ async function runDoctor(
       console.error(`  Checking ${adapterLabel}...`);
       try {
         const result = await Promise.race([
-          runAdapterPreflightWithTimeout(
+          resolvePreflight(
             adapter,
             adapterTimeoutMs,
             projectRoot,
             cumulativeSignal,
+            options.preflight,
           ),
           // Reject immediately when cumulativeSignal is already aborted,
           // then register listener with once: true so it cleans up after firing.
+          // The pre-abort branch is structurally unreachable today: every race
+          // is created synchronously before any timeout timer can fire (the
+          // cumulative signal is AbortSignal.timeout, whose abort fires on a
+          // later macrotask). Kept for future lazy adapter scheduling.
+          /* c8 ignore start -- unreachable: races are created before any timer can fire */
           new Promise<never>((_, reject) => {
             if (cumulativeSignal.aborted) {
               reject(
@@ -314,6 +331,7 @@ async function runDoctor(
               },
             ];
           }),
+          /* c8 ignore stop */
         ]);
         return result;
       } catch (err) {
@@ -356,6 +374,9 @@ async function runDoctor(
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
     console.log(`Recommendation host: ${adapter.recommendationHost}`);
+    // Every registered adapter defines requiresLifecycleHostPaths today, so
+    // the mutatesHostPaths fallback is unreachable; kept for future adapters.
+    /* c8 ignore next 4 -- unreachable: all registered adapters define requiresLifecycleHostPaths */
     console.log(
       `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
     );
@@ -587,6 +608,7 @@ export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
   parsePositiveIntegerEnv,
   runAdapterPreflightWithTimeout,
+  runDoctor,
   /** Run the doctor loop over an explicit adapter list with separate timeouts. */
   async runDoctorWithAdapters(
     adapters: HostAdapter[],
