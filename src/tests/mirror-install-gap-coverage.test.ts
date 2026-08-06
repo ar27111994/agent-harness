@@ -8,6 +8,7 @@ import {
   createContentHash,
   pathExists,
   readJsonFile,
+  readJsonFileOrNull,
   readJsonLinesFile,
   writeJsonFile,
   writeJsonLinesFile,
@@ -2998,6 +2999,130 @@ void test("mirror bundle-explain, explain-bundle, and explain dispatch through r
       projectRoot,
     );
     assert.equal(artifactExplain, 0);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("installAllBundleBatches breaks when a bundle lock produces no progress (#428)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-rebuild-install-"),
+  );
+  try {
+    await mkdir(join(projectRoot, "mirror", "bundles"), { recursive: true });
+    await writeJsonFile(
+      join(projectRoot, "mirror", "policy.json"),
+      buildPolicy(),
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "core",
+        generatedAt: new Date().toISOString(),
+        host: "opencode",
+        assets: [
+          {
+            assetId: "asset-a",
+            mirrorId: "sha256-asset-a",
+            projectionType: "adapted-skill",
+            activationEligible: true,
+          },
+        ],
+      },
+    );
+    await writeJsonLinesFile(join(projectRoot, "mirror", "index.jsonl"), [
+      {
+        mirrorId: "sha256-asset-a",
+        assetId: "asset-a",
+        upstream: {
+          type: "repo",
+          url: "https://example.com/acme/tool.git",
+          commit: "abc123",
+        },
+        source: {
+          authorityTier: "trusted-community",
+          publisher: "acme",
+          publisherVerified: false,
+        },
+        mirroredAt: "2026-01-02T00:00:00.000Z",
+        contentHash: "sha256-content-a",
+        projectionCandidates: [
+          {
+            host: "opencode",
+            projectionType: "adapted-skill",
+          },
+        ],
+        status: "approved",
+      },
+    ]);
+
+    // No progress file: the first install pass has nothing staged, the
+    // progress lookup is empty, and the loop breaks on the missing bundle.
+    await rebuildInternals.installAllBundleBatches(projectRoot, projectRoot);
+
+    // The run terminates; progress may be absent (nothing staged) or
+    // reflect a completed empty pass — either way the loop must not spin.
+    const progress = await readJsonFileOrNull<{
+      bundles: Record<string, unknown>;
+    }>(join(projectRoot, "state", "install", "progress.json"));
+    assert.ok(
+      progress === null || progress.bundles.core !== undefined,
+      "progress is either absent or recorded for the core bundle",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("installAllBundleBatches breaks when progress reports zero remaining (#428)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-rebuild-install2-"),
+  );
+  try {
+    await mkdir(join(projectRoot, "mirror", "bundles"), { recursive: true });
+    await mkdir(join(projectRoot, "state", "install"), { recursive: true });
+    await writeJsonFile(
+      join(projectRoot, "mirror", "policy.json"),
+      buildPolicy(),
+    );
+    await writeJsonFile(
+      join(projectRoot, "mirror", "bundles", "core.lock.json"),
+      {
+        schemaVersion: 1,
+        bundleId: "core",
+        generatedAt: new Date().toISOString(),
+        host: "opencode",
+        assets: [],
+      },
+    );
+    // Pre-seeded completed progress: the recompute leaves zero remaining and
+    // the loop breaks on the remainingAssets check.
+    await writeJsonFile(
+      join(projectRoot, "state", "install", "progress.json"),
+      {
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+        bundles: {
+          core: {
+            host: "opencode",
+            batchSize: 5,
+            totalAssets: 0,
+            installedAssets: 0,
+            remainingAssets: 0,
+            lastBatchAssetIds: [],
+            skippedAssetIds: [],
+          },
+        },
+      },
+    );
+
+    await rebuildInternals.installAllBundleBatches(projectRoot, projectRoot);
+
+    const progress = await readJsonFile<{ bundles: Record<string, unknown> }>(
+      join(projectRoot, "state", "install", "progress.json"),
+    );
+    assert.ok(progress.bundles.core, "progress survives the completed run");
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
   }

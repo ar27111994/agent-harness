@@ -411,3 +411,200 @@ function buildReviewDecision(
     },
   };
 }
+
+void test("quarantine review defaults the reason and records prompt-injection evidence", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      buildMirrorEntry("asset-injected", "sha256-injected", {
+        quarantineSignals: {
+          promptInjection: true,
+          executableRisk: false,
+          communityRisk: true,
+          highRisk: false,
+        },
+      }),
+    ]);
+
+    // No --reason: the default "manual review" is recorded, and the
+    // quarantine signals flow into the review evidence.
+    const exitCode = await runQuarantine(
+      ["approve", "--asset", "asset-injected"],
+      projectRoot,
+    );
+    assert.equal(exitCode, 0);
+
+    const reviewLog = await readFile(
+      join(projectRoot, "state", "quarantine", "reviews.jsonl"),
+      "utf8",
+    );
+    const reviewEntry = parseJsonRecord(reviewLog.trim());
+    assert.equal(reviewEntry.reason, "manual review");
+    const evidence = reviewEntry.evidence as Record<string, unknown>;
+    assert.equal(evidence.promptInjection, true);
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("quarantine inspect includes a content preview when content exists", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      buildMirrorEntry("asset-content", "sha256-content"),
+    ]);
+    await mkdir(join(projectRoot, "mirror", "quarantine", "sha256-content"), {
+      recursive: true,
+    });
+    await writeFile(
+      join(
+        projectRoot,
+        "mirror",
+        "quarantine",
+        "sha256-content",
+        "content.txt",
+      ),
+      "raw artifact body",
+      "utf8",
+    );
+    await writeFile(
+      join(projectRoot, "mirror", "quarantine", "sha256-content", "asset.json"),
+      JSON.stringify({
+        id: "asset-content",
+        displayName: "Asset content",
+        assetKind: "skill",
+        hosts: ["opencode"],
+        compatibilityMode: "native",
+        capabilities: [],
+        install: { method: "manual", relativePath: "content/SKILL.md" },
+        evidence: {
+          manifestFound: true,
+          readmeFound: false,
+          examplesFound: false,
+          docsLinked: false,
+          filePath: "content/SKILL.md",
+        },
+        source: {
+          sourceId: "quarantine-src",
+          authorityTier: "trusted-community",
+          sourceKind: "repo",
+          sourcePriority: 70,
+          originUrl: "https://github.com/example/repo",
+          publisher: "example",
+          publisherVerified: false,
+        },
+        trust: { score: 70, signals: [] },
+        maintenance: {
+          lastUpdated: "2026-01-01T00:00:00.000Z",
+          stars: 1,
+          releaseCadence: "active",
+        },
+        risk: {
+          level: "low",
+          hasHooks: false,
+          hasExecScripts: false,
+          requiresNetwork: false,
+        },
+        contextCost: { sizeClass: "small", estimatedPromptWeight: 1 },
+        fit: { portfolioFit: 0.5, hostFit: 0.8 },
+        dedupe: { duplicateGroup: undefined, candidateRankHint: "fixture" },
+        status: {
+          cataloged: true,
+          mirrorEligible: true,
+          installEligible: true,
+          activationEligible: true,
+        },
+      }),
+      "utf8",
+    );
+
+    const output: string[] = [];
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+    const exitCode = await runQuarantine(
+      ["inspect", "--asset", "asset-content"],
+      projectRoot,
+    );
+    assert.equal(exitCode, 0);
+    assert.ok(
+      output.join("\n").includes("raw artifact body"),
+      "the content preview carries the quarantined body",
+    );
+
+    // An asset without a quarantined content file renders a null preview.
+    await rm(
+      join(
+        projectRoot,
+        "mirror",
+        "quarantine",
+        "sha256-content",
+        "content.txt",
+      ),
+      { force: true },
+    );
+    output.length = 0;
+    const noContentExit = await runQuarantine(
+      ["inspect", "--asset", "asset-content"],
+      projectRoot,
+    );
+    assert.equal(noContentExit, 0);
+    assert.ok(
+      output.join("\n").includes('"contentPreview": null'),
+      `missing content must render a null preview, got: ${output.join("\n").slice(0, 200)}`,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("quarantine report explains approved-with-warning entries without decisions", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      buildMirrorEntry("asset-warned", "sha256-warned", {
+        status: "approved-with-warning",
+      }),
+    ]);
+
+    const exitCode = await runQuarantine(["report"], projectRoot);
+    assert.equal(exitCode, 0);
+
+    const report = await readJsonFile<QuarantineStateReport>(
+      join(projectRoot, "state", "quarantine", "quarantine-state.json"),
+      assertQuarantineStateReport,
+    );
+    assert.equal(report.entries.length, 1);
+    assert.equal(report.entries[0]?.assetId, "asset-warned");
+    assert.equal(
+      report.entries[0]?.reason,
+      "Asset has quarantine lifecycle history.",
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("quarantine review rejects an unknown asset with guidance", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-quarantine-"),
+  );
+  try {
+    await writeMirrorIndex(projectRoot, [
+      buildMirrorEntry("asset-1", "sha256-test"),
+    ]);
+
+    await assert.rejects(
+      runQuarantine(["approve", "--asset", "ghost"], projectRoot),
+      /No matching mirror artifact found for quarantine review/u,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
