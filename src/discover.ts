@@ -233,13 +233,13 @@ export async function runDiscover(
       // When pageCap is 0, use an unlimited sentinel rather than omitting
       // the option — omission falls back to the runtime default (10 pages),
       // defeating the purpose of configuring unlimited index builds.
+      // pageCap is validated as a non-negative integer, so the only two
+      // cases are zero (unlimited) and positive (bounded).
       await syncIndexedSources(
         projectRoot,
         pageCap === 0
           ? { maxPagesPerRun: Number.MAX_SAFE_INTEGER }
-          : pageCap > 0
-            ? { maxPagesPerRun: pageCap }
-            : undefined,
+          : { maxPagesPerRun: pageCap },
       );
       // Copy the source-sync entries snapshot to catalog-index.jsonl so that
       // `discover sync` and `discover select` can read it without touching
@@ -692,6 +692,9 @@ async function generateCatalog(projectRoot: string): Promise<{
           ),
         );
         break;
+      // The source-registry validator closes the kind set to the cases
+      // above, so an unknown kind cannot reach this default.
+      /* c8 ignore next 2 -- unreachable: source kinds are validated upfront */
       default:
         break;
     }
@@ -834,6 +837,10 @@ async function generateSelectionOutputs(
     );
     const selectedEntry = sortedGroupEntries[0];
 
+    // Every group built by groupCatalogEntriesForSelection contains at least
+    // one entry (the map is populated exclusively by push), so an undefined
+    // first element is unreachable — kept as a defensive guard.
+    /* c8 ignore next 3 -- unreachable: groups are never empty by construction */
     if (!selectedEntry) {
       continue;
     }
@@ -891,6 +898,10 @@ async function generateSelectionOutputs(
   // in the unlikely but possible case where there are more than
   // REJECTION_SAMPLE_SIZE distinct rejection reasons).
   for (const entry of rejectionLog) {
+    // The rejection reason vocabulary is closed (demand-relevance, duplicate,
+    // source-cap), so a full sample of REJECTION_SAMPLE_SIZE distinct reasons
+    // is unreachable today; the guard protects future rejection kinds.
+    /* c8 ignore next -- unreachable: distinct reasons are capped far below the sample size */
     if (sampleRejected.length >= REJECTION_SAMPLE_SIZE) break;
     if (!seenReasons.has(entry.reason)) {
       seenReasons.add(entry.reason);
@@ -1121,6 +1132,8 @@ export const discoverInternals = {
   computeDemandRelevantSourceIds,
   getEnabledSourceIds,
   shouldShowFirstRunSyncHint,
+  printSourceHealthSummary,
+  handleAiEnrichmentResult,
 };
 
 /**
