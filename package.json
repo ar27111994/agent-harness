@@ -114,7 +114,7 @@
     "check": "npm run typecheck",
     "check:version-sync": "node ./scripts/check-version-sync.mjs",
     "test": "node --test --test-timeout=600000 dist/tests/*.test.js scripts/tests/*.test.mjs",
-    "test:coverage": "c8 node --test --test-timeout=600000 --test-concurrency=1 dist/tests/*.test.js scripts/tests/*.test.mjs",
+    "test:coverage": "c8 --check-coverage=false node --test --test-timeout=600000 --test-isolation=none dist/tests/*.test.js scripts/tests/*.test.mjs && node ./scripts/normalize-lcov.mjs coverage/lcov.info coverage/lcov.normalized.info && node ./scripts/assert-full-coverage.mjs coverage/lcov.normalized.info && node ./scripts/coverage-gap-report.mjs coverage/lcov.normalized.info coverage/coverage-gaps.md",
     "coverage:gaps": "node ./scripts/coverage-gap-report.mjs coverage/lcov.info coverage/coverage-gaps.md",
     "test:self-hosting": "node --test --test-timeout=300000 dist/tests/self-hosting.js",
     "benchmark:scan": "node ./dist/tests/scan-benchmark.js",

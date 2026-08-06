@@ -90,8 +90,13 @@ async function acquireAllMirrorBatches(
 ): Promise<void> {
   const batchSize = String(getRuntimeConfig().batches.mirrorAcquire);
   const maxBatches = 200;
+  let checkpointReached = false;
 
-  for (let batchIndex = 0; batchIndex < maxBatches; batchIndex += 1) {
+  for (
+    let batchIndex = 0;
+    !checkpointReached && batchIndex < maxBatches;
+    batchIndex += 1
+  ) {
     await runMirror(
       ["acquire", "--batch-size", batchSize],
       workingDirectory,
@@ -101,14 +106,8 @@ async function acquireAllMirrorBatches(
       join(projectRoot, ...MIRROR_ACQUIRE_STATE_PATH),
       assertMirrorAcquireState,
     );
-    if (assertMirrorAcquireCheckpoint(state, "rebuild full")) {
-      return;
-    }
+    checkpointReached = assertMirrorAcquireCheckpoint(state, "rebuild full");
   }
-  // Note: an explicit post-loop throw was removed because the acquire
-  // recompute provably converges within a single batch for every reachable
-  // state (verified empirically with pre-seeded non-completing progress in
-  // ~40ms); the 200-batch bound above still guards against corrupted states.
 }
 
 async function installAllBundleBatches(

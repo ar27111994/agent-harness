@@ -2373,7 +2373,8 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
             authorityTier: "official-first-party",
             sourceKind: "docs",
             sourcePriority: 100,
-            originUrl: "https://officialskills.sh/cloudflare/skills/cloudflare",
+            originUrl:
+              "https://officialskills.sh/unit-cache-cold/skills/cloudflare",
             publisher: "Cloudflare",
             publisherVerified: true,
           },
