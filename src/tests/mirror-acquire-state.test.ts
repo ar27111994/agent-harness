@@ -838,7 +838,12 @@ void test("acquireMirrorArtifacts mirrors official-index packages when commit lo
 });
 
 void test("acquireMirrorArtifacts falls back to later official-index repo candidates when an earlier candidate exceeds policy caps", async (context) => {
-  const entry = buildOfficialIndexAsset("official-index-fallback-candidate");
+  // A unique originUrl keeps the module-level resolution cache cold in a
+  // shared-process run so the candidate pre-fetch actually executes.
+  const entry = buildOfficialIndexAsset("official-index-fallback-candidate", {
+    originUrl:
+      "https://officialskills.sh/cloudflare-candidates-cold/skills/cloudflare",
+  });
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
@@ -867,7 +872,8 @@ void test("acquireMirrorArtifacts falls back to later official-index repo candid
     const requestUrl = String(url);
 
     if (
-      requestUrl === "https://officialskills.sh/cloudflare/skills/cloudflare"
+      requestUrl ===
+      "https://officialskills.sh/cloudflare-candidates-cold/skills/cloudflare"
     ) {
       return new Response(createOfficialIndexHtml(oversizedRepoUrl), {
         status: 200,

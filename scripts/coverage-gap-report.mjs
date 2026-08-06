@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFile, writeFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export function parseLcov(text) {
   const records = [];
@@ -158,7 +159,8 @@ export async function main({
   // (argv[1] is the script path). Under a test runner argv points at the
   // runner, and leaking runner flags into outputPath would be wrong.
   const isDirectExecution =
-    process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+    process.argv[1] !== undefined &&
+    resolve(process.argv[1]) === fileURLToPath(import.meta.url);
   const resolvedInputPath =
     inputPath ??
     (isDirectExecution ? process.argv[2] : undefined) ??
@@ -175,13 +177,10 @@ export async function main({
   }
 }
 
-// Packaged-entry body: only reachable when argv[1] IS the script, which
-// in-process suites cannot arrange (the CLI probes spawn real entries and
-// their coverage is recorded in child processes).
-/* c8 ignore next 6 -- unreachable: packaged entry guard */
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
+const isDirectExecution =
+  process.argv[1] !== undefined &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectExecution) {
   await main();
 }

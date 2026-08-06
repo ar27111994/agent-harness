@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const isDirectExecution =
   process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 const outputPath =
+  /* c8 ignore next -- packaged CLI entry: argv[2] only exists when run directly */
   (isDirectExecution ? process.argv[2] : undefined) ??
   join("discover", "output", "maintenance-bot-plan.json");
 

@@ -171,7 +171,7 @@ function isHelpRequest(args: string[]): boolean {
     args[0] === "help" ||
     args.includes("--help") ||
     args.includes("-h") ||
-    (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0] ?? ""))
+    (args.length === 1 && HELP_DEFAULT_DOMAINS.has(args[0]))
   );
 }
 
@@ -219,11 +219,9 @@ function runHelpCommand(
         // bundle explain --help should show "bundle explain" help, not
         // "mirror explain" — route it to the bundle-explain handler.
         // Reject unknown subcommands consistently with the execution path.
-        // domainArgs[0] is guaranteed by the length>=2 gate above; the fallback
-        // is defensive only.
-        /* c8 ignore next -- unreachable: domainArgs[0] is defined by the length gate */
+        // domainArgs[0] is guaranteed by the length>=2 gate above.
         if (domainArgs[0] !== "explain") {
-          printUnknownArgumentError(domainArgs[0] ?? "");
+          printUnknownArgumentError(domainArgs[0]);
           return Promise.resolve(1);
         }
         return runMirror(
