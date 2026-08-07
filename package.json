@@ -60,6 +60,8 @@
     ".env.example",
     "dist/*.d.ts",
     "dist/*.js",
+    "dist/activate/**/*.d.ts",
+    "dist/activate/**/*.js",
     "dist/config/**/*.d.ts",
     "dist/config/**/*.js",
     "dist/domains/**/*.d.ts",
