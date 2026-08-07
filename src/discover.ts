@@ -1,7 +1,6 @@
 import { join } from "node:path";
 import { copyFile, mkdir } from "node:fs/promises";
 
-import { isGitHubRepoSource } from "./github.js";
 import {
   inspectCatalog,
   printCatalogStats,
@@ -13,91 +12,32 @@ import {
   rejectUnknownFlags,
 } from "./cli-help-format.js";
 
-import {
-  readJsonFile,
-  readJsonLinesFile,
-  readJsonFileOrNull,
-  toPosixPath,
-  writeJsonFile,
-  writeJsonLinesFile,
-} from "./files.js";
+import { readJsonLinesFile, toPosixPath } from "./files.js";
 import { getRuntimeConfig } from "./config/runtime.js";
-import {
-  compareSelectionCandidates,
-  groupCatalogEntriesForSelection,
-  buildRejectionSummary,
-  buildSelectionReason,
-} from "./domains/discovery/catalog-selection.js";
-import {
-  compareAssetCatalogEntries,
-  compareSourcesByPriority,
-  enhanceTrustForEntry,
-  mergeRemoteCatalogEntries,
-} from "./domains/discovery/catalog-utils.js";
 import {
   orchestrateAiEnrichment,
   type AiEnrichmentOrchestrationResult,
 } from "./domains/discovery/ai-enrichment.js";
-import { writeAssetLifecycleFingerprintReport } from "./domains/discovery/asset-fingerprints.js";
-import { writeSourceCandidateQueue } from "./domains/discovery/candidate-queue.js";
-import { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 import { writeDiscoverDiffReport } from "./domains/discovery/diff.js";
 import { writeEnvironmentIndex } from "./domains/discovery/environment-index.js";
 import { writeArdCatalog, getArdPublisherFqdn } from "./ard-catalog.js";
-import { harvestGitHubRepoSource } from "./domains/discovery/github-harvester.js";
 import { generateSourceIndex } from "./domains/discovery/source-index.js";
 import {
-  getIndexedSourceIds,
-  loadIndexedCatalogEntries,
   loadSourceSyncState,
   syncIndexedSources,
   type SourceSyncState,
 } from "./domains/discovery/source-sync.js";
-import { loadSourceRegistry } from "./domains/discovery/source-registry.js";
 import {
   CATALOG_INDEX_OUTPUT_PATH,
-  CATALOG_OUTPUT_PATH,
-  DEMAND_PROFILE_OUTPUT_PATH,
-  REJECTED_CATALOG_OUTPUT_PATH,
-  UNKNOWN_SIGNALS_OUTPUT_PATH,
-  REMOTE_CATALOG_STATE_OUTPUT_PATH,
-  SELECTED_CATALOG_OUTPUT_PATH,
-  SELECTION_REPORT_OUTPUT_PATH,
   SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
 } from "./domains/discovery/output-paths.js";
 import {
   isCatalogIndexFresh,
   writeCatalogIndexMeta,
 } from "./domains/discovery/catalog-index.js";
-import { harvestOfficialSkillIndexes } from "./domains/discovery/official-index-harvester.js";
-import {
-  loadRemoteHarvestState,
-  writeRemoteHarvestState,
-} from "./domains/discovery/remote-state.js";
-import { writeSourceHealthReports } from "./domains/discovery/source-health.js";
 import type { SourceHealthReport } from "./domains/discovery/source-health.js";
-import { writeSourceUtilizationReport } from "./domains/discovery/source-utilization.js";
-import {
-  getActiveDeadline,
-  assertNotDeadlineExceeded,
-} from "./lib/deadline.js";
-import { writeSourceVerificationReport } from "./domains/discovery/source-verification.js";
-import { writeUnknownSignalReport } from "./domains/discovery/unknown-signals.js";
-import {
-  assertAssetCatalogEntry,
-  assertDemandProfile,
-  assertSelectionRegistry,
-} from "./manifest-validation.js";
 
-import type {
-  AssetCatalogEntry,
-  DemandProfile,
-  SelectionDuplicateDecision,
-  SelectionRegistry,
-  SelectionReport,
-  SourceDefinition,
-  SourceKind,
-} from "./types.js";
+import type { AssetCatalogEntry } from "./types.js";
 
 /**
  * Dispatches the discover CLI command group.
@@ -107,17 +47,23 @@ import {
   printDiscoverSubcommandHelp,
 } from "./discover-help.js";
 import {
-  REJECTION_SAMPLE_SIZE,
   applyPerSourceCap,
-  applyRelevanceFilter,
-  buildStratifiedRejectionSample,
   computeAcceptanceRate,
   computeDemandRelevantSourceIds,
   computeSourceDiversityWarning,
   getEnabledSourceIds,
-  harvestCatalogSourceEntries,
   printDiscoveryBreadthSummary,
 } from "./discover-pipeline.js";
+import {
+  generateCatalog,
+  generateDemandProfile,
+  generateSelectionOutputs,
+} from "./domains/discovery/catalog-generation.js";
+
+/**
+ * Re-exports demand profile construction for programmatic discovery callers.
+ */
+export { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 
 const DISCOVER_AI_ENRICH_FLAGS = new Set([
   "--ai-enrich",
@@ -550,409 +496,6 @@ export async function runDiscover(
   }
 }
 
-async function generateDemandProfile(
-  scanRoot: string,
-  projectRoot: string,
-  maxBytes?: number,
-): Promise<DemandProfile> {
-  const demandProfile = await buildDemandProfile(scanRoot, { maxBytes });
-  const outputPath = join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH);
-  await writeJsonFile(outputPath, demandProfile);
-
-  const unknownSignalsOutputPath = join(
-    projectRoot,
-    ...UNKNOWN_SIGNALS_OUTPUT_PATH,
-  );
-  const unknownSignalsReport = await writeUnknownSignalReport(
-    scanRoot,
-    unknownSignalsOutputPath,
-  );
-
-  console.log(`Demand profile written to ${toPosixPath(outputPath)}`);
-  console.log(
-    `Unknown signal backlog written to ${toPosixPath(unknownSignalsOutputPath)} (${unknownSignalsReport.summary.signalCount} signals)`,
-  );
-  return demandProfile;
-}
-
-/**
- * Re-exports demand profile construction for programmatic discovery callers.
- */
-export { buildDemandProfile } from "./domains/discovery/demand-profile.js";
-
-async function generateCatalog(projectRoot: string): Promise<{
-  catalogEntries: AssetCatalogEntry[];
-  enabledSources: SourceDefinition[];
-  sourceSyncState: SourceSyncState;
-}> {
-  const sourceRegistry = await loadSourceRegistry(projectRoot);
-  const selectionRegistry = await readJsonFile<SelectionRegistry>(
-    join(projectRoot, "discover", "selections.json"),
-    assertSelectionRegistry,
-  );
-  const demandProfile = await readJsonFileOrNull<DemandProfile>(
-    join(projectRoot, "discover", "output", "demand-profile.json"),
-    assertDemandProfile,
-  );
-  const enabledSources = sourceRegistry.sources
-    .filter((source) => source.enabled)
-    .sort(compareSourcesByPriority);
-  const sourceSyncState = await loadSourceSyncState(projectRoot);
-  const indexedSourceIds = getIndexedSourceIds(sourceSyncState);
-  const indexedCatalogEntries = await loadIndexedCatalogEntries(projectRoot);
-  const indexedCatalogEntriesBySourceId = new Map<
-    string,
-    AssetCatalogEntry[]
-  >();
-  for (const entry of indexedCatalogEntries) {
-    const sourceEntries = indexedCatalogEntriesBySourceId.get(
-      entry.source.sourceId,
-    );
-    if (sourceEntries) {
-      sourceEntries.push(entry);
-    } else {
-      indexedCatalogEntriesBySourceId.set(entry.source.sourceId, [entry]);
-    }
-  }
-  const remoteHarvestState = await loadRemoteHarvestState(projectRoot);
-  const repoBatchSize = getRuntimeConfig().batches.remoteHarvest;
-  const cachedRemoteCatalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
-    assertAssetCatalogEntry,
-  );
-
-  const catalogEntries: AssetCatalogEntry[] = [];
-  const repoSources = enabledSources.filter(
-    (source): source is SourceDefinition & { kind: "repo" } =>
-      source.kind === "repo",
-  );
-  // Narrow the element type to the non-repo union so the per-source switch
-  // below can carry a compile-time exhaustiveness check (satisfies never).
-  const nonRepoSources = enabledSources.filter(
-    (
-      source,
-    ): source is SourceDefinition & {
-      kind: Exclude<SourceKind, "repo">;
-    } => source.kind !== "repo",
-  );
-
-  const totalSources = nonRepoSources.length + repoSources.length;
-  let processedSources = 0;
-  const deadline = getActiveDeadline();
-
-  process.stderr.write(
-    `[discover catalog] Building catalog from ${totalSources} enabled sources\n`,
-  );
-
-  for (const source of nonRepoSources) {
-    processedSources++;
-    process.stderr.write(
-      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (${source.kind})\n`,
-    );
-    assertNotDeadlineExceeded(deadline, `discover catalog source ${source.id}`);
-    if (indexedSourceIds.has(source.id)) {
-      const indexedEntries =
-        indexedCatalogEntriesBySourceId.get(source.id) ?? [];
-      appendCatalogEntries(catalogEntries, indexedEntries);
-      continue;
-    }
-
-    appendCatalogEntries(
-      catalogEntries,
-      await harvestCatalogSourceEntries(
-        source,
-        source.kind,
-        demandProfile,
-        selectionRegistry,
-        projectRoot,
-      ),
-    );
-  }
-
-  const repoSlice = repoSources.slice(
-    remoteHarvestState.nextRepoOffset,
-    remoteHarvestState.nextRepoOffset + repoBatchSize,
-  );
-  const harvestedRepoEntries: AssetCatalogEntry[] = [];
-
-  for (const source of repoSlice) {
-    processedSources++;
-    process.stderr.write(
-      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (repo)\n`,
-    );
-    assertNotDeadlineExceeded(deadline, `discover catalog repo ${source.id}`);
-    if (isGitHubRepoSource(source)) {
-      appendCatalogEntries(
-        harvestedRepoEntries,
-        await harvestGitHubRepoSource(
-          source,
-          demandProfile,
-          selectionRegistry,
-          projectRoot,
-        ),
-      );
-    }
-  }
-
-  process.stderr.write(
-    `[discover catalog] Writing catalog (${catalogEntries.length} entries)...\n`,
-  );
-
-  const repoSliceSourceIds = new Set(repoSlice.map((source) => source.id));
-  const mergedRemoteCatalogEntries = mergeRemoteCatalogEntries(
-    cachedRemoteCatalogEntries,
-    harvestedRepoEntries,
-    repoSliceSourceIds,
-  );
-  await writeJsonLinesFile(
-    join(projectRoot, ...REMOTE_CATALOG_STATE_OUTPUT_PATH),
-    mergedRemoteCatalogEntries,
-  );
-
-  appendCatalogEntries(catalogEntries, mergedRemoteCatalogEntries);
-
-  appendCatalogEntries(
-    catalogEntries,
-    await harvestOfficialSkillIndexes(projectRoot, demandProfile),
-  );
-
-  const sortedEntries = [
-    ...new Map(
-      catalogEntries.map((entry) => [entry.id, enhanceTrustForEntry(entry)]),
-    ).values(),
-  ].sort(compareAssetCatalogEntries);
-  const outputPath = join(projectRoot, ...CATALOG_OUTPUT_PATH);
-  await writeJsonLinesFile(outputPath, sortedEntries);
-  await writeSourceUtilizationReport(
-    projectRoot,
-    enabledSources,
-    sortedEntries,
-    sourceSyncState,
-  );
-  await writeRemoteHarvestState(projectRoot, {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    nextRepoOffset:
-      remoteHarvestState.nextRepoOffset + repoBatchSize >= repoSources.length
-        ? 0
-        : remoteHarvestState.nextRepoOffset + repoBatchSize,
-    completedSourceIds: repoSlice.map((source) => source.id),
-  });
-
-  console.log(
-    `Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} entries)`,
-  );
-
-  return {
-    catalogEntries: sortedEntries,
-    enabledSources,
-    sourceSyncState,
-  };
-}
-
-function appendCatalogEntries(
-  target: AssetCatalogEntry[],
-  entries: readonly AssetCatalogEntry[],
-): void {
-  for (const entry of entries) {
-    target.push(entry);
-  }
-}
-
-async function generateSelectionOutputs(
-  projectRoot: string,
-  options: { quietMode?: boolean; summaryMode?: boolean } = {},
-): Promise<{
-  selectionReport: SelectionReport;
-  selectedEntries: AssetCatalogEntry[];
-  rejectedEntries: AssetCatalogEntry[];
-  sourceHealthReport: SourceHealthReport;
-}> {
-  const selectionRegistry = await readJsonFile<SelectionRegistry>(
-    join(projectRoot, "discover", "selections.json"),
-    assertSelectionRegistry,
-  );
-  const catalogEntries = await readJsonLinesFile<AssetCatalogEntry>(
-    join(projectRoot, ...CATALOG_OUTPUT_PATH),
-    assertAssetCatalogEntry,
-  );
-  const demandProfile = await readJsonFileOrNull<DemandProfile>(
-    join(projectRoot, ...DEMAND_PROFILE_OUTPUT_PATH),
-    assertDemandProfile,
-  );
-  const config = getRuntimeConfig();
-
-  const relevanceFilter = await applyRelevanceFilter(
-    catalogEntries,
-    demandProfile,
-    config,
-  );
-  const groupedEntries = groupCatalogEntriesForSelection(
-    relevanceFilter.selectedEntries,
-  );
-  const selectedEntries: AssetCatalogEntry[] = [];
-  // Track rejection reason alongside each rejected entry so we can build
-  // rejectionSummary and sampleRejected without a second pass.
-  const rejectionLog: Array<{ assetId: string; reason: string }> = [];
-  const duplicateDecisions: SelectionDuplicateDecision[] = [];
-
-  for (const entry of relevanceFilter.rejectedEntries) {
-    rejectionLog.push({ assetId: entry.id, reason: "demand-relevance" });
-  }
-
-  for (const [groupKey, groupEntries] of groupedEntries) {
-    const sortedGroupEntries = [...groupEntries].sort((left, right) =>
-      compareSelectionCandidates(left, right, selectionRegistry),
-    );
-    // Groups are guaranteed non-empty (groupCatalogEntriesForSelection only
-    // ever pushes onto existing arrays), so the first element is present by
-    // construction — no defensive guard needed.
-    const selectedEntry = sortedGroupEntries[0];
-
-    selectedEntries.push(selectedEntry);
-
-    if (sortedGroupEntries.length > 1) {
-      const rejectedGroupEntries = sortedGroupEntries.slice(1);
-      for (const entry of rejectedGroupEntries) {
-        rejectionLog.push({ assetId: entry.id, reason: "duplicate" });
-      }
-      duplicateDecisions.push({
-        duplicateGroup: groupKey,
-        selectedAssetId: selectedEntry.id,
-        rejectedAssetIds: rejectedGroupEntries.map((entry) => entry.id),
-        selectionReason: buildSelectionReason(selectedEntry, selectionRegistry),
-      });
-    }
-  }
-
-  // Per-source entry cap — prevent a single source from dominating the
-  // selected set. Sort by descending source priority first so higher-quality
-  // entries are retained when the cap removes lower-quality same-source entries.
-  selectedEntries.sort(
-    (a, b) => b.source.sourcePriority - a.source.sourcePriority,
-  );
-  const MAX_ENTRIES_PER_SOURCE = config.discovery.maxEntriesPerSource;
-  const { kept: cappedSelectedEntries, capped: capRejections } =
-    applyPerSourceCap(selectedEntries, MAX_ENTRIES_PER_SOURCE);
-  for (const { assetId } of capRejections) {
-    rejectionLog.push({ assetId, reason: "source-cap" });
-  }
-  const sourceDiversityWarning = computeSourceDiversityWarning(
-    cappedSelectedEntries,
-    MAX_ENTRIES_PER_SOURCE,
-  );
-
-  // Derive the flat rejected-entries list from the log so we have a single
-  // source of truth (the log) driving both the JSONL output and the report.
-  // Filter directly over catalogEntries using the id set — avoids allocating
-  // a full-catalog [id, entry][] tuple array and a throwaway Map.
-  const rejectedEntryIds = new Set(rejectionLog.map((r) => r.assetId));
-  const rejectedEntries = catalogEntries.filter((e) =>
-    rejectedEntryIds.has(e.id),
-  );
-
-  // Build rejectionSummary — stable reason → count covering 100% of rejections.
-  const rejectionSummary = buildRejectionSummary(rejectionLog);
-
-  // sampleRejected — stratified sample of up to REJECTION_SAMPLE_SIZE entries,
-  // guaranteeing at least one entry per distinct rejection reason.
-  const sampleRejected = buildStratifiedRejectionSample(
-    rejectionLog,
-    REJECTION_SAMPLE_SIZE,
-  );
-
-  const sortedSelectedEntries = cappedSelectedEntries.sort(
-    compareAssetCatalogEntries,
-  );
-  const sortedRejectedEntries = rejectedEntries.sort(
-    compareAssetCatalogEntries,
-  );
-  const selectionReport: SelectionReport = {
-    schemaVersion: 1,
-    generatedAt: new Date().toISOString(),
-    inputCount: catalogEntries.length,
-    selectedCount: sortedSelectedEntries.length,
-    rejectedCount: sortedRejectedEntries.length,
-    acceptanceRate: computeAcceptanceRate(
-      catalogEntries.length,
-      sortedSelectedEntries.length,
-    ),
-    duplicateDecisions: duplicateDecisions.sort((left, right) =>
-      left.duplicateGroup.localeCompare(right.duplicateGroup),
-    ),
-    rejectionSummary,
-    sampleRejected,
-    ...(sourceDiversityWarning !== undefined ? { sourceDiversityWarning } : {}),
-  };
-
-  await writeJsonLinesFile(
-    join(projectRoot, ...SELECTED_CATALOG_OUTPUT_PATH),
-    sortedSelectedEntries,
-  );
-  await writeJsonLinesFile(
-    join(projectRoot, ...REJECTED_CATALOG_OUTPUT_PATH),
-    sortedRejectedEntries,
-  );
-  await writeJsonFile(
-    join(projectRoot, ...SELECTION_REPORT_OUTPUT_PATH),
-    selectionReport,
-  );
-  const fingerprintReport =
-    await writeAssetLifecycleFingerprintReport(projectRoot);
-  const sourceRegistry = await loadSourceRegistry(projectRoot);
-  const sourceVerificationReport = await writeSourceVerificationReport(
-    projectRoot,
-    sourceRegistry.sources,
-  );
-  const sourceSyncState = await loadSourceSyncState(projectRoot);
-  const enabledSources = sourceRegistry.sources.filter(
-    (source) => source.enabled,
-  );
-  const sourceHealthReport = await writeSourceHealthReports(
-    projectRoot,
-    enabledSources,
-    sortedSelectedEntries,
-    sortedRejectedEntries,
-    sourceSyncState,
-  );
-  const sourceCandidateQueue = await writeSourceCandidateQueue(
-    projectRoot,
-    enabledSources,
-  );
-
-  console.log(
-    `Selection outputs written to ${toPosixPath(join(projectRoot, "discover", "output"))} (${sortedSelectedEntries.length} selected, ${sortedRejectedEntries.length} rejected)`,
-  );
-  console.log(
-    `Asset lifecycle fingerprints written (${fingerprintReport.assetCount} assets, ${fingerprintReport.duplicateGroupCount} duplicate groups)`,
-  );
-  console.log(
-    `Source verification report written (${sourceVerificationReport.demotedSourceCount} deterministic demotions)`,
-  );
-  if (!options.quietMode && !options.summaryMode) {
-    console.log(
-      `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
-    );
-  }
-  console.log(
-    `Source candidate queue written (${sourceCandidateQueue.candidateCount} candidates, ${sourceCandidateQueue.reviewRequiredCount} review-required)`,
-  );
-
-  return {
-    selectionReport,
-    selectedEntries: sortedSelectedEntries,
-    rejectedEntries: sortedRejectedEntries,
-    sourceHealthReport,
-  };
-}
-
-/**
- * Prints a filtered or summarized source health summary based on mode flags.
- * Only called when `--quiet` or `--summary` is active on `discover full`.
- *
- * - `--quiet`: suppresses expected warnings; prints only errors or all-clear.
- * - `--summary`: prints aggregate warning breakdown by reason.
- */
 function printSourceHealthSummary(
   report: SourceHealthReport,
   options: { quietMode: boolean; summaryMode: boolean },
