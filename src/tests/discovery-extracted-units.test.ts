@@ -166,7 +166,11 @@ void test("buildStratifiedRejectionSample keeps the exact order when sample size
 // ─── setup doctor cumulativeSignal injection seam (#428 follow-up) ───────────
 
 void test("runDoctor with a pre-aborted cumulative signal exercises the already-aborted race branch", async (t) => {
-  const preAborted = AbortSignal.abort("cumulative-timeout");
+  // abort(undefined) leaves reason undefined so the DOMException fallback
+  // inside the pre-abort reject arm fires as well.
+  const controller = new AbortController();
+  controller.abort(undefined);
+  const preAborted = controller.signal;
   const adapter: HostAdapter = {
     id: "preabort-adapter",
     aliases: [],
@@ -204,5 +208,49 @@ void test("runDoctor with a pre-aborted cumulative signal exercises the already-
       },
     ]) as never,
   });
+  assert.equal(ok, true);
+});
+
+void test("runDoctor race resolves through the abort listener when the signal fires after registration", async (t) => {
+  const controller = new AbortController();
+  const adapter: HostAdapter = {
+    id: "listener-adapter",
+    aliases: [],
+    displayName: "Listener Adapter",
+    lifecycleHost: "opencode",
+    recommendationHost: "opencode",
+    defaultBundleIds: [],
+    mutatesHostPaths: false,
+    requiresLifecycleHostPaths: false,
+    runtime: undefined,
+    capabilities: [],
+    wire: async () => {},
+  };
+
+  const { listHostAdapters, setHostAdaptersForTests } =
+    await import("../host-adapters/registry.js");
+  const snapshot = listHostAdapters();
+  t.after(() => setHostAdaptersForTests(snapshot));
+  setHostAdaptersForTests([...snapshot, adapter]);
+
+  const { runDoctor } = setupInternals;
+  const aborting = runDoctor(["--host", "listener-adapter"], undefined, {
+    // Signal NOT pre-aborted: the race registers a listener, then the
+    // cumulative signal fires with an undefined reason so the listener's
+    // DOMException fallback arm executes.
+    cumulativeSignal: controller.signal,
+    preflightRunner: (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      controller.abort(undefined);
+      return [
+        {
+          severity: "info",
+          code: "preflight-ok",
+          message: "resolved immediately",
+        },
+      ];
+    }) as never,
+  });
+  const ok = await aborting;
   assert.equal(ok, true);
 });
