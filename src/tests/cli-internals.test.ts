@@ -187,6 +187,170 @@ void test("runHelpCommand rejects unknown bundle subcommands like the execution 
 });
 
 // ---------------------------------------------------------------------------
+// runHelpCommand subcommand-depth dispatch (#428) — every remaining domain in
+// the dispatch switch routes subcommand --help to its domain handler with no
+// state preparation. These are in-process so the coverage gate measures the
+// help surface (spawn-based children strip NODE_V8_COVERAGE by design).
+// ---------------------------------------------------------------------------
+
+void test("runHelpCommand routes discover subcommand help to discover help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["discover", "full", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("discover full"),
+    `expected discover full help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes recommend subcommand help to recommend help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["recommend", "report", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("recommend report"),
+    `expected recommend report help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes mirror subcommand help to mirror help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["mirror", "locks", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("mirror locks"),
+    `expected mirror locks help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes install subcommand help to install help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["install", "bundle", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("install bundle"),
+    `expected install bundle help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes stage alias subcommand help to install help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["stage", "refresh", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("install refresh"),
+    `expected install refresh help under the stage alias, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes activate subcommand help to activate help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["activate", "host", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("activate host"),
+    `expected activate host help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes quarantine subcommand help to quarantine help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["quarantine", "inspect", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("quarantine inspect"),
+    `expected quarantine inspect help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes rebuild subcommand help to rebuild help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["rebuild", "clean", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("rebuild clean"),
+    `expected rebuild clean help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes setup subcommand help to setup help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["setup", "doctor", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("setup doctor"),
+    `expected setup doctor help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand routes doctor alias subcommand help to setup help", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["doctor", "hosts", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("setup hosts"),
+    `expected setup hosts help under the doctor alias, got: ${output}`,
+  );
+});
+
+// Unknown subcommands at --help depth fall back to the domain parent help via
+// printSubcommandHelp's fallback branch — exercised in-process once per
+// domain printer (#383/#428).
+void test("runHelpCommand falls back to install parent help for unknown subcommand", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["install", "not-a-subcommand", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("install commands"),
+    `expected install parent help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand falls back to quarantine parent help for unknown subcommand", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["quarantine", "not-a-subcommand", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("quarantine commands"),
+    `expected quarantine parent help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand falls back to rebuild parent help for unknown subcommand", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["rebuild", "not-a-subcommand", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("rebuild"),
+    `expected rebuild parent help, got: ${output}`,
+  );
+});
+
+void test("runHelpCommand falls back to setup parent help for unknown subcommand", async () => {
+  const { code, output } = await captureHelpOutput(() =>
+    runHelpCommand(["setup", "not-a-subcommand", "--help"], ""),
+  );
+  assert.equal(code, 0);
+  assert.ok(
+    output.includes("setup commands"),
+    `expected setup parent help, got: ${output}`,
+  );
+});
+
+// ---------------------------------------------------------------------------
 // main() (#428) — the full non-help/non-version dispatch path
 // ---------------------------------------------------------------------------
 
