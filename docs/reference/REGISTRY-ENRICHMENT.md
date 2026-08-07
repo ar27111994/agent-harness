@@ -37,8 +37,17 @@ Demand language and framework signals (e.g. `typescript`, `react`, `django`) are
 | Maven Central | `search.maven.org/solrsearch/select` | relevance      |
 | Packagist     | `packagist.org/search.json`          | relevance      |
 | RubyGems      | `rubygems.org/api/v1/search.json`    | downloads      |
+| Hex.pm        | `hex.pm/api/packages`                | downloads      |
 
 > **Note:** crates.io requires a `User-Agent` header; `agent-harness` sends `agent-harness/2.0.0` automatically.
+
+**Registries without live keyword search** are covered by sitemap/feed sync only, so demand-driven adjacency never fabricates results for them:
+
+- PyPI — no public keyword-search API; coverage comes from `pypi.org/simple/` sync
+- Go (proxy.golang.org / index.golang.org) — index sync only
+- Swift Package Index — sitemap sync only
+- pub.dev (Pub) — JSON API package-name sync only
+- ConanCenter — sitemap sync only (`https://conan.io/sitemap.xml`); no public keyword API (#424)
 
 ### 3. Adjacent entry tagging
 

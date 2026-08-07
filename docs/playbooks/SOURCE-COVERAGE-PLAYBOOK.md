@@ -43,6 +43,8 @@ Inspect these artifacts relative to the active state root:
 - `discover/output/catalog.rejected.jsonl`
 - `state/recommendations.json`
 
+> **Registry search semantics:** live keyword search (demand-driven adjacency) exists for npm, crates.io, NuGet, Maven Central, Packagist, RubyGems, and Hex.pm only; PyPI, Go, Swift Package Index, pub.dev, and ConanCenter coverage is sitemap/index-sync-only. A thin `discover/output/catalog.candidates.jsonl` for a sitemap-only registry is expected, not a bug — see [`REGISTRY-ENRICHMENT.md`](../reference/REGISTRY-ENRICHMENT.md).
+
 Use these to answer:
 
 - Did the source appear at all?
