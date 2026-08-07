@@ -166,10 +166,11 @@ void test("buildStratifiedRejectionSample keeps the exact order when sample size
 // ─── setup doctor cumulativeSignal injection seam (#428 follow-up) ───────────
 
 void test("runDoctor with a pre-aborted cumulative signal exercises the already-aborted race branch", async (t) => {
-  // abort(undefined) leaves reason undefined so the DOMException fallback
-  // inside the pre-abort reject arm fires as well.
+  // abort(null) sets reason to null (per spec; abort(undefined) yields an
+  // AbortError DOMException instead), so the DOMException fallback inside
+  // the pre-abort reject arm fires as well.
   const controller = new AbortController();
-  controller.abort(undefined);
+  controller.abort(null);
   const preAborted = controller.signal;
   const adapter: HostAdapter = {
     id: "preabort-adapter",
@@ -241,7 +242,7 @@ void test("runDoctor race resolves through the abort listener when the signal fi
     cumulativeSignal: controller.signal,
     preflightRunner: (async () => {
       await new Promise((resolve) => setTimeout(resolve, 10));
-      controller.abort(undefined);
+      controller.abort(null);
       return [
         {
           severity: "info",

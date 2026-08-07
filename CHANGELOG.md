@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **Coverage gate branch honesty** (#428 follow-up) — `normalize-lcov` serialized branch records as `BRDA:<line>:<block>:<branch>,<taken>` while `parseLcov` reads canonical comma format `BRDA:<line>,<block>,<branch>,<taken>`, so re-parsing the normalized file produced `taken = NaN` and `assert-full-coverage` could never fail on branches (`NaN <= 0` is false). The serializer now emits canonical records (with `-` for never-taken branches) and `coverage-gap-report` consumes the shared parser instead of a private divergent copy. Round-trip regression tests cover normalize-lcov, assert-full-coverage, and the gap report; the gate now genuinely enforces branch coverage.
+- **Dead defensive c8-ignores removed** — 13 `c8 ignore` comments added during the v2.1.0 branch were replaced with real tests (fixture-registry adapters driving the `requiresLifecycleHostPaths ?? mutatesHostPaths` fallbacks in wire/workspace/setup, runtime-metadata placeholder arms in `setup hosts`, first-run-hint null arm, ard-registry catalog diagnostic, rejection-sample cap, doctor cumulative-signal race via a new injection seam, script direct-CLI argv arms) or removed with the dead code (silent `catch { return "2.0.0" }` version fallback, `AbortSignal.timeout` reason fallback, index-aligned `?.id ??` fallbacks).
+- **`discover catalog` ard-registry honesty** — an enabled ard source before its first sync now prints an explicit hint instead of silently falling through the closed-union switch; the switch's exhaustive `default` fails loudly on any future unhandled `SourceKind`.
+
 ## [2.1.0] - 2026-08-04
 
 ### Added
