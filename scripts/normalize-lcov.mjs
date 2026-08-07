@@ -54,16 +54,17 @@ export function parseLcov(text) {
   const flush = () => {
     if (current === null) return;
     const sf = current.sf;
-    const lines = lineHits.get(sf) ?? new Map();
-    const branches = branchTaken.get(sf) ?? new Map();
-    const fns = functionHits.get(sf) ?? new Map();
-    const fnLines = knownFunctions.get(sf) ?? new Map();
+    // Every SF: line below registers all four maps before current is set,
+    // and repeated SF blocks (multi-child merges) intentionally share the
+    // same maps so max-aggregation covers both; a missing map is an
+    // internal bug and fails loudly downstream instead of being patched
+    // with an empty map that would silently drop records.
     records.push({
       sf,
-      lines,
-      branches,
-      fns,
-      fnLines,
+      lines: lineHits.get(sf),
+      branches: branchTaken.get(sf),
+      fns: functionHits.get(sf),
+      fnLines: knownFunctions.get(sf),
     });
   };
 

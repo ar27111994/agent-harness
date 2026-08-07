@@ -64,6 +64,23 @@ function buildPartialRuntimeAdapter(id: string): HostAdapter {
   };
 }
 
+/** Fixture adapter with NO runtime at all (hits the none-placeholder arms). */
+function buildNoRuntimeFixtureAdapter(id: string): HostAdapter {
+  return {
+    id,
+    aliases: [],
+    displayName: `No-runtime Adapter ${id}`,
+    lifecycleHost: "opencode",
+    recommendationHost: "opencode",
+    defaultBundleIds: [],
+    mutatesHostPaths: false,
+    requiresLifecycleHostPaths: false,
+    runtime: undefined,
+    capabilities: [{ assetKind: "skill", behaviors: ["wire"] }],
+    wire: async () => {},
+  };
+}
+
 function withFixtureAdapters<T>(
   fixtureAdapters: HostAdapter[],
   fn: () => Promise<T>,
@@ -285,7 +302,10 @@ void test("setup hosts prints runtime capabilities and none-placeholders for par
   });
 
   await withFixtureAdapters(
-    [buildPartialRuntimeAdapter("partial-hosts")],
+    [
+      buildPartialRuntimeAdapter("partial-hosts"),
+      buildNoRuntimeFixtureAdapter("noruntime-hosts"),
+    ],
     async () => {
       const code = await runSetup(["hosts"], stateRoot);
       assert.equal(code, 0);
@@ -303,5 +323,12 @@ void test("setup hosts prints runtime capabilities and none-placeholders for par
         line.includes("runtime=partial-cli"),
     ),
     `expected runtime placeholder arms for the partial adapter, got: ${output.join("\n")}`,
+  );
+  assert.ok(
+    output.some(
+      (line) =>
+        line.includes("noruntime-hosts") && line.includes("runtime=none"),
+    ),
+    `expected the runtime=none placeholder for the no-runtime adapter, got: ${output.join("\n")}`,
   );
 });

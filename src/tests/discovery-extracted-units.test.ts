@@ -16,6 +16,7 @@ import {
   harvestCatalogSourceEntries,
 } from "../discover-pipeline.js";
 import { setupInternals } from "../setup.js";
+import type { HostAdapter } from "../host-adapters/registry.js";
 import type {
   DemandProfile,
   SelectionRegistry,
@@ -164,16 +165,44 @@ void test("buildStratifiedRejectionSample keeps the exact order when sample size
 
 // ─── setup doctor cumulativeSignal injection seam (#428 follow-up) ───────────
 
-void test("runDoctorWithAdapters with a pre-aborted cumulative signal exercises the already-aborted race branch", async () => {
+void test("runDoctor with a pre-aborted cumulative signal exercises the already-aborted race branch", async (t) => {
   const preAborted = AbortSignal.abort("cumulative-timeout");
-  const results = await setupInternals.runDoctorWithAdapters(
-    [],
-    5_000,
-    undefined,
-    10_000,
-    undefined,
-    preAborted,
-  );
-  assert.equal(results.hasErrors, false);
-  assert.deepEqual(results.results, []);
+  const adapter: HostAdapter = {
+    id: "preabort-adapter",
+    aliases: [],
+    displayName: "Preabort Adapter",
+    lifecycleHost: "opencode",
+    recommendationHost: "opencode",
+    defaultBundleIds: [],
+    mutatesHostPaths: false,
+    requiresLifecycleHostPaths: false,
+    runtime: undefined,
+    capabilities: [],
+    wire: async () => {},
+  };
+
+  // Register the fixture so runDoctor's --host resolution finds it.
+  const { listHostAdapters, setHostAdaptersForTests } =
+    await import("../host-adapters/registry.js");
+  const snapshot = listHostAdapters();
+  t.after(() => setHostAdaptersForTests(snapshot));
+  setHostAdaptersForTests([...snapshot, adapter]);
+
+  const { runDoctor } = setupInternals;
+  const ok = await runDoctor(["--host", "preabort-adapter"], undefined, {
+    // Pre-abort the cumulative signal: the race is created AFTER the
+    // signal already fired, so the pre-abort reject branch runs instead
+    // of registering a never-firing listener.
+    cumulativeSignal: preAborted,
+    // Resolve the preflight part immediately so the race is the only
+    // pending work; the pre-aborted signal wins the race.
+    preflightRunner: (async () => [
+      {
+        severity: "info",
+        code: "preflight-ok",
+        message: "resolved immediately",
+      },
+    ]) as never,
+  });
+  assert.equal(ok, true);
 });
