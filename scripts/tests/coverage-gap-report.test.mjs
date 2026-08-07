@@ -144,6 +144,38 @@ void test("main writes markdown to a file or stdout", async () => {
   assert.equal(stdoutOutput, fileOutput);
 });
 
+void test("main falls back to coverage/lcov.info when not directly executed", async () => {
+  const dir = await mkdtemp(
+    join(tmpdir(), "coverage-gap-report-default-input-"),
+  );
+  await mkdir(join(dir, "coverage"));
+  const inputPath = join(dir, "coverage", "lcov.info");
+  await writeFile(inputPath, SAMPLE_LCOV, "utf8");
+
+  const previousArgv = process.argv;
+  const previousWorkingDirectory = process.cwd();
+  // Run under a test-runner-like argv (argv[1] is NOT this script) so the
+  // isDirectExecution ternary takes its false arm and the input path falls
+  // through to the built-in default (#428).
+  process.argv = ["node", "some-other-test-runner.js"];
+  let stdoutOutput = "";
+  try {
+    process.chdir(dir);
+    await main({
+      stdout: {
+        write(chunk) {
+          stdoutOutput += chunk;
+        },
+      },
+    });
+  } finally {
+    process.argv = previousArgv;
+    process.chdir(previousWorkingDirectory);
+  }
+
+  assert.match(stdoutOutput, /src\/example\.ts/u);
+});
+
 void test("main falls back to process argv when inputPath is omitted", async () => {
   const dir = await mkdtemp(
     join(tmpdir(), "coverage-gap-report-default-input-"),

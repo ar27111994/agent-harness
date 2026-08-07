@@ -17,8 +17,18 @@
  * single aggregated value, making the merged file faithful to reality:
  *
  * - DA:<line>,<n>  -> one record per line with the max hit count
- * - BRDA:<line>:<block>:<branch>,<taken> -> one record per triple, max taken
+ * - BRDA:<line>,<block>,<branch>,<taken> -> one record per triple, max taken
  * - FNDA:<hits>,<name> -> one record per function name, max hits
+ *
+ * Output is canonical lcov: BRDA triples are emitted comma-separated exactly
+ * like c8 writes them, and branches whose aggregated taken count is <= 0 are
+ * written as `-` (the lcov "never taken" marker). The file therefore parses
+ * identically with the same tooling that reads raw c8 output, and uncovered
+ * branches remain detectable after normalization.
+ *
+ * `parseLcov` is the single shared lcov parser: `assert-full-coverage.mjs`
+ * and `coverage-gap-report.mjs` both consume it, so a format change cannot
+ * silently diverge between enforcement and reporting again (#428 follow-up).
  *
  * Usage: node scripts/normalize-lcov.mjs <lcov-in> <lcov-out>
  */
@@ -76,27 +86,30 @@ export function parseLcov(text) {
       const [lineNumberRaw, hitsRaw] = line.slice(3).split(",");
       const lineNumber = Number.parseInt(lineNumberRaw, 10);
       const hits = Number.parseInt(hitsRaw, 10);
-      if (!Number.isInteger(lineNumber)) continue;
+      if (!Number.isInteger(lineNumber) || !Number.isFinite(hits)) continue;
       const bucket = lineHits.get(current.sf);
       bucket.set(lineNumber, Math.max(bucket.get(lineNumber) ?? 0, hits));
       continue;
     }
     if (line.startsWith("BRDA:")) {
+      // Canonical lcov: BRDA:<line>,<block>,<branch>,<taken> where <taken>
+      // is a hit count or `-` for never-taken branches.
       const [lineNumberRaw, blockRaw, branchRaw, takenRaw] = line
         .slice(5)
         .split(",");
       const lineNumber = Number.parseInt(lineNumberRaw, 10);
       if (!Number.isInteger(lineNumber)) continue;
       const taken = takenRaw === "-" ? -1 : Number.parseInt(takenRaw, 10);
+      if (!Number.isFinite(taken)) continue;
       const key = `${lineNumber}:${blockRaw}:${branchRaw}`;
       const bucket = branchTaken.get(current.sf);
-      bucket.set(key, Math.max(bucket.get(key) ?? 0, taken));
+      bucket.set(key, Math.max(bucket.get(key) ?? -1, taken));
       continue;
     }
     if (line.startsWith("FN:")) {
       const [lineNumberRaw, name] = line.slice(3).split(",");
       const lineNumber = Number.parseInt(lineNumberRaw, 10);
-      if (Number.isInteger(lineNumber)) {
+      if (Number.isInteger(lineNumber) && name !== undefined) {
         knownFunctions.get(current.sf).set(name, lineNumber);
       }
       continue;
@@ -104,7 +117,7 @@ export function parseLcov(text) {
     if (line.startsWith("FNDA:")) {
       const [hitsRaw, name] = line.slice(5).split(",");
       const hits = Number.parseInt(hitsRaw, 10);
-      if (!Number.isInteger(hits)) continue;
+      if (!Number.isFinite(hits) || name === undefined) continue;
       const bucket = functionHits.get(current.sf);
       bucket.set(name, Math.max(bucket.get(name) ?? 0, hits));
       continue;
@@ -163,7 +176,9 @@ export function serializeRecords(records) {
       out.push(`DA:${lineNumber},${hits}`);
     }
     for (const [key, taken] of branches) {
-      out.push(`BRDA:${key},${taken}`);
+      const [lineNumber, blockRaw, branchRaw] = key.split(":");
+      const takenValue = taken > 0 ? taken : taken === -1 ? "-" : "0";
+      out.push(`BRDA:${lineNumber},${blockRaw},${branchRaw},${takenValue}`);
     }
     out.push("end_of_record");
     blocks.push(out.join("\n"));
