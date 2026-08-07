@@ -13,6 +13,7 @@ install/
 !src/install/
 !src/install/**
 state/
+# NOTE: if a src/state/ module is ever added, negate it here (see activate/).
 .agent-harness/
 
 .tmp/
