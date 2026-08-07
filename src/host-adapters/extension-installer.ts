@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { extname } from "node:path";
 import { promisify } from "node:util";
 
+import { containsShellMetaCharacters } from "../lib/preflight.js";
 import { getRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
@@ -239,8 +240,22 @@ async function executeNativeCommand(
   for (const candidateExecutable of buildExecutableCandidates(executable)) {
     try {
       const hostCommandConfig = getRuntimeConfig().hostCommands;
+      const runsThroughShell =
+        shouldRunCandidateThroughShell(candidateExecutable);
+      // Fail closed: cmd.exe re-parses the raw command line of a .cmd/.bat
+      // invocation, so shell-metacharacter arguments cannot be made safe by
+      // quoting. Extension ids are strict-pattern filtered upstream; any
+      // metacharacter reaching this point must be refused, not executed.
+      if (runsThroughShell && args.some(containsShellMetaCharacters)) {
+        return {
+          exitCode: Number.MAX_SAFE_INTEGER,
+          stdout: "",
+          stderr:
+            "Refusing to run Windows shell wrapper with shell-metacharacter arguments. Extension ids must match the strict VS Code pattern.",
+        };
+      }
       const result = await execFileAsync(candidateExecutable, args, {
-        shell: shouldRunCandidateThroughShell(candidateExecutable),
+        shell: runsThroughShell,
         windowsHide: true,
         timeout: hostCommandConfig.nativeTimeoutMs,
         maxBuffer: hostCommandConfig.nativeMaxBufferBytes,
@@ -322,6 +337,7 @@ function quoteFormattedCommand(value: string): string {
  */
 export const extensionInstallerInternals = {
   buildExecutableCandidates,
+  executeNativeCommand,
   formatCommand,
   shouldRunCandidateThroughShell,
   toNativeCommandResult,

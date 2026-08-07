@@ -449,6 +449,23 @@ async function runRuntimeCommand(
     resolvedExecutable,
   });
 
+  // Fail closed on wrapper targets: cmd.exe re-parses the raw command line
+  // of a .cmd/.bat invocation, so shell-metacharacter arguments (operators,
+  // redirection, %VAR% / !VAR! expansion, quotes) cannot be made safe by
+  // quoting. Legitimate wrapper callers (host CLI version probes) pass
+  // static literal arguments; anything else must be refused before a shell
+  // ever sees it.
+  if (
+    isWindowsShellWrapperPath(resolvedExecutable, process.platform) &&
+    args.some(containsShellMetaCharacters)
+  ) {
+    return {
+      cancelled: false,
+      exitCode: Number.MAX_SAFE_INTEGER,
+      message: `Refusing to run Windows shell wrapper with shell-metacharacter arguments: '${args.join("' '")}'. Host CLI wrapper arguments must be static literals.`,
+    };
+  }
+
   return new Promise((resolve) => {
     const child = spawn(spawnSpec.executable, spawnSpec.args, {
       shell: false,
@@ -524,6 +541,36 @@ function resolveFoundExecutable(
   return foundExecutable ?? executable;
 }
 
+/**
+ * Defines characters that cmd.exe (the target of .cmd/.bat wrappers)
+ * interprets even inside quoted arguments: operators, redirection, batch
+ * variable expansion, delayed expansion, and quote characters. Arguments
+ * containing any of these must never cross into a wrapper invocation —
+ * Windows batch-file argument parsing cannot be made safe for them by
+ * quoting alone (cmd.exe re-parses the raw command line). The NUL byte is
+ * checked separately to keep control characters out of the regex literal.
+ */
+const CMD_SHELL_META_PATTERN = /[&|<>^%!"\r\n]/u;
+
+/**
+ * Returns true when a value contains characters that cmd.exe interprets in
+ * wrapper command lines regardless of quoting.
+ */
+export function containsShellMetaCharacters(value: string): boolean {
+  return value.includes("\u0000") || CMD_SHELL_META_PATTERN.test(value);
+}
+
+/**
+ * Returns whether an executable path is a Windows shell wrapper (.cmd /
+ * .bat) that must be invoked through a shell.
+ */
+export function isWindowsShellWrapperPath(
+  executablePath: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === "win32" && /\.(?:cmd|bat)$/iu.test(executablePath);
+}
+
 interface RuntimeCommandSpawnSpecOptions {
   executable: string;
   args: string[];
@@ -535,8 +582,10 @@ function buildRuntimeCommandSpawnSpec(
   options: RuntimeCommandSpawnSpecOptions,
 ): { executable: string; args: string[] } {
   const platform = options.platform ?? process.platform;
-  const isWindowsShellWrapper =
-    platform === "win32" && /\.(?:cmd|bat)$/iu.test(options.resolvedExecutable);
+  const isWindowsShellWrapper = isWindowsShellWrapperPath(
+    options.resolvedExecutable,
+    platform,
+  );
 
   if (!isWindowsShellWrapper) {
     return {
@@ -619,10 +668,12 @@ export const preflightInternals = {
   buildRuntimeCommandSpawnSpec,
   buildWindowsPowerShellCommand,
   checkRuntimeCommand,
+  containsShellMetaCharacters,
   findExecutableOnPath,
   getExecutableAccessMode,
   getExecutableSearchExtensions,
   isAborted,
+  isWindowsShellWrapperPath,
   quotePowerShellLiteral,
   resolveFoundExecutable,
   resolveRuntimeExecutable,
