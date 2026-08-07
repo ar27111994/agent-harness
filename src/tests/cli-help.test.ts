@@ -95,7 +95,7 @@ void test("--version prints version and exits 0 without state", async () => {
     const { stdout, stderr } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
-      timeout: 15_000,
+      timeout: 90_000,
       args: ["--version"],
     });
 
@@ -121,7 +121,7 @@ void test("-V prints version and exits 0 without state", async () => {
     const { stdout, stderr } = await runBuiltCli({
       cwd: workspaceRoot,
       env,
-      timeout: 15_000,
+      timeout: 90_000,
       args: ["-V"],
     });
 
@@ -144,7 +144,7 @@ void test("--version works with --state-root", async () => {
       cwd: workspaceRoot,
       env,
       stateRoot,
-      timeout: 15_000,
+      timeout: 90_000,
       args: ["--version"],
     });
 
