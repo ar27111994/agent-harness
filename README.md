@@ -3,7 +3,7 @@
 <p>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg" /></a>
   <a href="./package.json"><img alt="Node >=22" src="https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white" /></a>
-  <a href="./package.json"><img alt="TypeScript 5.9" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white" /></a>
+  <a href="./package.json"><img alt="TypeScript 6.0.3" src="https://img.shields.io/badge/TypeScript-6.0.3-3178C6?logo=typescript&logoColor=white" /></a>
   <a href="https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml"><img alt="Quality workflow" src="https://github.com/ar27111994/agent-harness/actions/workflows/quality.yml/badge.svg" /></a>
   <a href="https://github.com/ar27111994/agent-harness/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/ar27111994/agent-harness?display_name=tag" /></a>
   <a href="https://www.npmjs.com/package/@ar27111994/agent-harness"><img alt="npm version" src="https://img.shields.io/npm/v/%40ar27111994%2Fagent-harness?logo=npm&color=CB3837" /></a>
