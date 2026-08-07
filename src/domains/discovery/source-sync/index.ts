@@ -155,9 +155,10 @@ export async function syncIndexedSources(
   // When sourceIds is explicitly provided (even as an empty Set), filter
   // enabledSources by membership. Only fall back to all enabledSources
   // when sourceIds is absent (undefined).
+  const sourceIdsFilter = options?.sourceIds;
   const effectiveSources =
-    options?.sourceIds !== undefined
-      ? enabledSources.filter((source) => options.sourceIds!.has(source.id))
+    sourceIdsFilter !== undefined
+      ? enabledSources.filter((source) => sourceIdsFilter.has(source.id))
       : enabledSources;
   const totalSources = effectiveSources.length;
   const overallStartMs = Date.now();

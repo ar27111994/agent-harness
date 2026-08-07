@@ -337,7 +337,7 @@ async function activateHost(
         const recommendedEntry = recommendationEntryByAssetId.get(
           packageManifest.assetId,
         );
-        return !(recommendedEntry !== undefined && recommendedEntry.score < 0);
+        return !isNegativelyScored(recommendedEntry);
       })
       .sort((left, right) =>
         compareActivationCandidates(
@@ -733,7 +733,7 @@ function selectActivationCandidates(
     // NO recommendation for the host remain eligible: staged-bundle breadth
     // is the operator-curated contract (mirror locks + catalog selection),
     // but they rank below recommended assets via preferredAssetOrder.
-    if (recommendedEntry !== undefined && recommendedEntry.score < 0) {
+    if (isNegativelyScored(recommendedEntry)) {
       continue;
     }
     const promptWeight =
@@ -831,6 +831,24 @@ function buildTaskModeBuckets(
       key,
       [...new Set(value)].sort(),
     ]),
+  );
+}
+
+/**
+ * Hard negative-score boundary shared by every activation selection path
+ * (#426): an asset the recommendation engine scored below zero for a host
+ * can never be activated for it. Centralizing the predicate keeps the
+ * selection, fallback-pool, and explain paths on one definition of the
+ * boundary.
+ */
+function isNegativelyScored(
+  recommendationEntry: { score: number | undefined } | undefined | null,
+): boolean {
+  return (
+    recommendationEntry !== undefined &&
+    recommendationEntry !== null &&
+    recommendationEntry.score !== undefined &&
+    recommendationEntry.score < 0
   );
 }
 
@@ -1034,7 +1052,7 @@ async function explainActivationState(
       // recommendation-order selection. A negative score is a hard boundary
       // in current selection; if a legacy activation still contains one,
       // explain says exactly that.
-      if (recommendationEntry && recommendationEntry.score < 0) {
+      if (isNegativelyScored(recommendationEntry)) {
         lines.push(
           "  reason: active from a legacy activation despite a negative recommendation score for this host (not eligible under current selection policy)",
         );
