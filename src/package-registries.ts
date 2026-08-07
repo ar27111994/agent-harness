@@ -5,21 +5,14 @@ import {
 } from "./lib/http.js";
 import { readFileSync } from "node:fs";
 
-// The shipped package always bundles package.json next to this module; only a
-// corrupt local install could reach the fallback below, so the catch entry is
-// provably unreachable in every supported deployment.
-/* c8 ignore next 15 -- unreachable catch: the shipped package always contains a parseable package.json */
-const AGENT_HARNESS_VERSION: string = (() => {
-  try {
-    return (
-      JSON.parse(
-        readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-      ) as { version: string }
-    ).version;
-  } catch {
-    return "2.0.0";
-  }
-})();
+// The shipped package always bundles package.json next to this module; a
+// corrupt install is a hard error and must fail loudly at load rather than
+// silently report a stale hardcoded version in User-Agent headers.
+const AGENT_HARNESS_VERSION: string = (
+  JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version: string }
+).version;
 
 const NPM_REGISTRY_ORIGINS = ["https://registry.npmjs.org"] as const;
 const PYPI_REGISTRY_ORIGINS = ["https://pypi.org"] as const;

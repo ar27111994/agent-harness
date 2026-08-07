@@ -4,11 +4,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 // CLI-argv fallback only applies when THIS script is the direct entry, so a
-// test runner's argv (flags like --test-isolation=none) never leaks in.
+// test runner's argv (flags like --test-isolation=none) never leaks in. The
+// argv[2] arm is exercised by the direct-CLI test in maintenance-bot-plan.test.mjs.
 const isDirectExecution =
   process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
 const outputPath =
-  /* c8 ignore next -- packaged CLI entry: argv[2] only exists when run directly */
   (isDirectExecution ? process.argv[2] : undefined) ??
   join("discover", "output", "maintenance-bot-plan.json");
 

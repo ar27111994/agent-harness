@@ -11,16 +11,122 @@ import type { getRuntimeConfig } from "./config/runtime.js";
 import { loadSourceRegistry } from "./domains/discovery/source-registry.js";
 import { filterCatalogEntriesByDemandRelevance } from "./domains/discovery/catalog-selection.js";
 import {
+  harvestLocalDirectorySource,
+  harvestLocalManifestSource,
+} from "./domains/discovery/local-harvesters.js";
+import { harvestPackageRegistrySource } from "./domains/discovery/package-registry-harvester.js";
+import { harvestReferenceSource } from "./domains/discovery/reference-source-harvester.js";
+import {
   buildDemandQueryText,
   SemanticScorer,
 } from "./domains/discovery/semantic-scoring.js";
 import type {
   AssetCatalogEntry,
   DemandProfile,
+  SelectionRegistry,
   SelectionReport,
   SourceDefinition,
   SourceIndex,
 } from "./types.js";
+
+/**
+ * Exhaustiveness guard for a closed SourceKind union: when a new kind is
+ * added, this call fails to compile until the dispatch switch handles it.
+ * At runtime an unknown kind is a programming error (the source-registry
+ * validator closes the kind set), so the throw is the fail-loud contract.
+ */
+function assertNeverSourceKind(value: never): never {
+  throw new Error(
+    `Unhandled source kind ${JSON.stringify(value)} in catalog generation`,
+  );
+}
+
+/**
+ * Harvests the catalog entries for one non-repo source. Repo sources run
+ * through a separate bounded batch loop in discover.ts; every other
+ * SourceKind member is dispatched here (exhaustiveness-checked).
+ *
+ * ard-registry sources are indexed (cursor-based) coverage: when sync has
+ * not populated the index yet, there is nothing to harvest locally. This is
+ * a live state (an enabled ard source before its first sync), not an
+ * invariant violation — surface it instead of failing or skipping silently.
+ */
+export async function harvestCatalogSourceEntries(
+  source: SourceDefinition,
+  sourceKind: Exclude<SourceDefinition["kind"], "repo">,
+  demandProfile: DemandProfile | null,
+  selectionRegistry: SelectionRegistry,
+  projectRoot: string,
+): Promise<AssetCatalogEntry[]> {
+  switch (sourceKind) {
+    case "local-manifest":
+      return harvestLocalManifestSource(
+        source,
+        demandProfile,
+        selectionRegistry,
+        projectRoot,
+      );
+    case "local-directory":
+      return harvestLocalDirectorySource(
+        source,
+        demandProfile,
+        selectionRegistry,
+        projectRoot,
+      );
+    case "package-registry":
+      return harvestPackageRegistrySource(
+        source,
+        demandProfile,
+        selectionRegistry,
+      );
+    case "docs":
+    case "marketplace":
+    case "registry":
+      return harvestReferenceSource(source, demandProfile, selectionRegistry);
+    case "ard-registry":
+      process.stderr.write(
+        `[discover catalog] ${source.id} (ard-registry) has no indexed entries yet — run discover sync to populate it.\n`,
+      );
+      return [];
+    default:
+      return assertNeverSourceKind(sourceKind);
+  }
+}
+
+/**
+ * Builds the stratified rejection sample: one representative per distinct
+ * rejection reason (Pass 1), then tops up to `sampleSize` with the earliest
+ * un-sampled entries (Pass 2). Membership checks use object references so
+ * they stay O(1).
+ *
+ * The Pass-1 cap bounds the sample when the distinct-reason count exceeds
+ * `sampleSize` — today the reason vocabulary is closed (3 kinds), but the
+ * guard protects future rejection kinds and is exercised directly by tests
+ * with >sampleSize distinct reasons.
+ */
+export function buildStratifiedRejectionSample<T extends { reason: string }>(
+  rejectionLog: T[],
+  sampleSize: number,
+): T[] {
+  const sample: T[] = [];
+  const seenReasons = new Set<string>();
+  for (const entry of rejectionLog) {
+    if (sample.length >= sampleSize) break;
+    if (!seenReasons.has(entry.reason)) {
+      seenReasons.add(entry.reason);
+      sample.push(entry);
+    }
+  }
+  const sampledSet = new Set(sample);
+  for (const entry of rejectionLog) {
+    if (sample.length >= sampleSize) break;
+    if (!sampledSet.has(entry)) {
+      sample.push(entry);
+      sampledSet.add(entry);
+    }
+  }
+  return sample;
+}
 
 /**
  * Summarizes and assesses a breadth discovery pass: prints the demand-signal

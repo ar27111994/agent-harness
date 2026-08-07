@@ -53,10 +53,6 @@ import {
   syncIndexedSources,
   type SourceSyncState,
 } from "./domains/discovery/source-sync.js";
-import {
-  harvestLocalDirectorySource,
-  harvestLocalManifestSource,
-} from "./domains/discovery/local-harvesters.js";
 import { loadSourceRegistry } from "./domains/discovery/source-registry.js";
 import {
   CATALOG_INDEX_OUTPUT_PATH,
@@ -74,8 +70,6 @@ import {
   writeCatalogIndexMeta,
 } from "./domains/discovery/catalog-index.js";
 import { harvestOfficialSkillIndexes } from "./domains/discovery/official-index-harvester.js";
-import { harvestPackageRegistrySource } from "./domains/discovery/package-registry-harvester.js";
-import { harvestReferenceSource } from "./domains/discovery/reference-source-harvester.js";
 import {
   loadRemoteHarvestState,
   writeRemoteHarvestState,
@@ -102,6 +96,7 @@ import type {
   SelectionRegistry,
   SelectionReport,
   SourceDefinition,
+  SourceKind,
 } from "./types.js";
 
 /**
@@ -115,10 +110,12 @@ import {
   REJECTION_SAMPLE_SIZE,
   applyPerSourceCap,
   applyRelevanceFilter,
+  buildStratifiedRejectionSample,
   computeAcceptanceRate,
   computeDemandRelevantSourceIds,
   computeSourceDiversityWarning,
   getEnabledSourceIds,
+  harvestCatalogSourceEntries,
   printDiscoveryBreadthSummary,
 } from "./discover-pipeline.js";
 
@@ -161,8 +158,11 @@ function shouldShowFirstRunSyncHint(
   if (effectiveSourceCount < FIRST_RUN_SYNC_HINT_MIN_SOURCES) {
     return false;
   }
-  /* c8 ignore next -- unreachable: the sync-state validator requires a sources array */
-  const hasPriorSync = (priorSyncState?.sources.length ?? 0) > 0;
+  // Simplified null-aware check: priorSyncState is null on the very first
+  // run (no state file written yet) — that is a live first-run path, so both
+  // arms are exercised by the hint tests.
+  const hasPriorSync =
+    priorSyncState !== null && priorSyncState.sources.length > 0;
   return !hasPriorSync;
 }
 
@@ -622,9 +622,18 @@ async function generateCatalog(projectRoot: string): Promise<{
   );
 
   const catalogEntries: AssetCatalogEntry[] = [];
-  const repoSources = enabledSources.filter((source) => source.kind === "repo");
+  const repoSources = enabledSources.filter(
+    (source): source is SourceDefinition & { kind: "repo" } =>
+      source.kind === "repo",
+  );
+  // Narrow the element type to the non-repo union so the per-source switch
+  // below can carry a compile-time exhaustiveness check (satisfies never).
   const nonRepoSources = enabledSources.filter(
-    (source) => source.kind !== "repo",
+    (
+      source,
+    ): source is SourceDefinition & {
+      kind: Exclude<SourceKind, "repo">;
+    } => source.kind !== "repo",
   );
 
   const totalSources = nonRepoSources.length + repoSources.length;
@@ -648,57 +657,16 @@ async function generateCatalog(projectRoot: string): Promise<{
       continue;
     }
 
-    switch (source.kind) {
-      case "local-manifest":
-        appendCatalogEntries(
-          catalogEntries,
-          await harvestLocalManifestSource(
-            source,
-            demandProfile,
-            selectionRegistry,
-            projectRoot,
-          ),
-        );
-        break;
-      case "local-directory":
-        appendCatalogEntries(
-          catalogEntries,
-          await harvestLocalDirectorySource(
-            source,
-            demandProfile,
-            selectionRegistry,
-            projectRoot,
-          ),
-        );
-        break;
-      case "package-registry":
-        appendCatalogEntries(
-          catalogEntries,
-          await harvestPackageRegistrySource(
-            source,
-            demandProfile,
-            selectionRegistry,
-          ),
-        );
-        break;
-      case "docs":
-      case "marketplace":
-      case "registry":
-        appendCatalogEntries(
-          catalogEntries,
-          await harvestReferenceSource(
-            source,
-            demandProfile,
-            selectionRegistry,
-          ),
-        );
-        break;
-      // The source-registry validator closes the kind set to the cases
-      // above, so an unknown kind cannot reach this default.
-      /* c8 ignore next 2 -- unreachable: source kinds are validated upfront */
-      default:
-        break;
-    }
+    appendCatalogEntries(
+      catalogEntries,
+      await harvestCatalogSourceEntries(
+        source,
+        source.kind,
+        demandProfile,
+        selectionRegistry,
+        projectRoot,
+      ),
+    );
   }
 
   const repoSlice = repoSources.slice(
@@ -836,15 +804,10 @@ async function generateSelectionOutputs(
     const sortedGroupEntries = [...groupEntries].sort((left, right) =>
       compareSelectionCandidates(left, right, selectionRegistry),
     );
+    // Groups are guaranteed non-empty (groupCatalogEntriesForSelection only
+    // ever pushes onto existing arrays), so the first element is present by
+    // construction — no defensive guard needed.
     const selectedEntry = sortedGroupEntries[0];
-
-    // Every group built by groupCatalogEntriesForSelection contains at least
-    // one entry (the map is populated exclusively by push), so an undefined
-    // first element is unreachable — kept as a defensive guard.
-    /* c8 ignore next 3 -- unreachable: groups are never empty by construction */
-    if (!selectedEntry) {
-      continue;
-    }
 
     selectedEntries.push(selectedEntry);
 
@@ -893,32 +856,10 @@ async function generateSelectionOutputs(
 
   // sampleRejected — stratified sample of up to REJECTION_SAMPLE_SIZE entries,
   // guaranteeing at least one entry per distinct rejection reason.
-  const sampleRejected: typeof rejectionLog = [];
-  const seenReasons = new Set<string>();
-  // Pass 1: take one representative per reason (cap at REJECTION_SAMPLE_SIZE
-  // in the unlikely but possible case where there are more than
-  // REJECTION_SAMPLE_SIZE distinct rejection reasons).
-  for (const entry of rejectionLog) {
-    // The rejection reason vocabulary is closed (demand-relevance, duplicate,
-    // source-cap), so a full sample of REJECTION_SAMPLE_SIZE distinct reasons
-    // is unreachable today; the guard protects future rejection kinds.
-    /* c8 ignore next -- unreachable: distinct reasons are capped far below the sample size */
-    if (sampleRejected.length >= REJECTION_SAMPLE_SIZE) break;
-    if (!seenReasons.has(entry.reason)) {
-      seenReasons.add(entry.reason);
-      sampleRejected.push(entry);
-    }
-  }
-  // Pass 2: top up to REJECTION_SAMPLE_SIZE with the earliest un-sampled entries.
-  // Use a Set of sampled object references so the membership check stays O(1).
-  const sampledSet = new Set(sampleRejected);
-  for (const entry of rejectionLog) {
-    if (sampleRejected.length >= REJECTION_SAMPLE_SIZE) break;
-    if (!sampledSet.has(entry)) {
-      sampleRejected.push(entry);
-      sampledSet.add(entry);
-    }
-  }
+  const sampleRejected = buildStratifiedRejectionSample(
+    rejectionLog,
+    REJECTION_SAMPLE_SIZE,
+  );
 
   const sortedSelectedEntries = cappedSelectedEntries.sort(
     compareAssetCatalogEntries,

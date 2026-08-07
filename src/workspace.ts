@@ -116,9 +116,8 @@ export async function runWorkspace(
     preflight.collectActivatedAssetPrerequisiteDiagnostics ??
     collectActivatedAssetPrerequisiteDiagnostics;
 
-  // Every registered adapter defines requiresLifecycleHostPaths today, so the
-  // mutatesHostPaths fallback is unreachable; kept for future adapters.
-  /* c8 ignore next 3 -- unreachable: all registered adapters define requiresLifecycleHostPaths */
+  // requiresLifecycleHostPaths is optional on HostAdapter; the fallback is
+  // live behavior for adapters that only declare mutatesHostPaths.
   const requiresLifecycleHostPaths =
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = [

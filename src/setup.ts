@@ -187,13 +187,11 @@ async function runAdapterPreflightWithTimeout(
       ])(),
       // Reject when the abort signal fires so Promise.race resolves immediately.
       // AbortSignal.timeout always aborts with a TimeoutError reason, so the
-      // nullish fallback below is unreachable; kept for signal-source parity
-      // with the cumulative race in runDoctor.
-      /* c8 ignore next 5 -- unreachable: AbortSignal.timeout always provides a reason */
+      // rejection payload is that reason itself — no fallback branch exists.
       new Promise<never>((_, reject) => {
-        signal.addEventListener("abort", () =>
-          reject(signal.reason ?? new DOMException("Timeout", "TimeoutError")),
-        );
+        signal.addEventListener("abort", () => reject(signal.reason), {
+          once: true,
+        });
       }),
     ]);
   } catch (err) {
@@ -233,6 +231,10 @@ async function runDoctor(
   options: {
     preflightRunner?: typeof runAdapterPreflightWithTimeout;
     preflight?: AdapterPreflightFunctions;
+    // Injection seam (#428 follow-up): tests can pre-abort the cumulative
+    // signal to exercise the already-aborted race branch (lazy scheduling
+    // path) without waiting on a real timeout timer.
+    cumulativeSignal?: AbortSignal;
   } = {},
 ): Promise<boolean> {
   const hostName = getOptionValue(args, "--host");
@@ -277,7 +279,8 @@ async function runDoctor(
   // timeout; if it fires we emit a synthetic timeout diagnostic and continue.
   // A cumulative timeout at the top level prevents the overall run from
   // hanging indefinitely even when all adapters collectively exceed budget.
-  const cumulativeSignal = AbortSignal.timeout(cumulativeTimeoutMs);
+  const cumulativeSignal =
+    options.cumulativeSignal ?? AbortSignal.timeout(cumulativeTimeoutMs);
   const adapterResults = await Promise.allSettled(
     adapters.map(async (adapter) => {
       const adapterLabel = `${adapter.displayName} (${adapter.id})`;
@@ -293,11 +296,10 @@ async function runDoctor(
           ),
           // Reject immediately when cumulativeSignal is already aborted,
           // then register listener with once: true so it cleans up after firing.
-          // The pre-abort branch is structurally unreachable today: every race
-          // is created synchronously before any timeout timer can fire (the
-          // cumulative signal is AbortSignal.timeout, whose abort fires on a
-          // later macrotask). Kept for future lazy adapter scheduling.
-          /* c8 ignore start -- unreachable: races are created before any timer can fire */
+          // Structurally unreachable through the default AbortSignal.timeout
+          // path (races are created synchronously before any timer fires);
+          // exercised directly via the cumulativeSignal injection seam for
+          // the future lazy-scheduling case.
           new Promise<never>((_, reject) => {
             if (cumulativeSignal.aborted) {
               reject(
@@ -331,7 +333,6 @@ async function runDoctor(
               },
             ];
           }),
-          /* c8 ignore stop */
         ]);
         return result;
       } catch (err) {
@@ -361,10 +362,10 @@ async function runDoctor(
     // function always resolves (the race resolves either way), so a rejection
     // here is a genuine internal error — surface it with the adapter identity.
     if (result.status === "rejected") {
-      // map/allSettled keep results index-aligned with adapters; fallbacks are
-      // defensive only.
-      /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
-      const adapterId = adapters[resultIndex]?.id ?? "unknown adapter";
+      // map/allSettled keep results index-aligned with adapters, so the
+      // adapter at this index is defined by construction; direct access
+      // fails loudly if that invariant ever breaks.
+      const adapterId = adapters[resultIndex].id;
       console.log(
         `\n# (${adapterId} — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
       );
@@ -372,14 +373,13 @@ async function runDoctor(
       continue;
     }
 
-    const adapter = adapters[resultIndex]!;
+    const adapter = adapters[resultIndex];
     const diagnostics = result.value;
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
     console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
     console.log(`Recommendation host: ${adapter.recommendationHost}`);
-    // Every registered adapter defines requiresLifecycleHostPaths today, so
-    // the mutatesHostPaths fallback is unreachable; kept for future adapters.
-    /* c8 ignore next 4 -- unreachable: all registered adapters define requiresLifecycleHostPaths */
+    // requiresLifecycleHostPaths is optional on HostAdapter; the fallback is
+    // live behavior for adapters that only declare mutatesHostPaths.
     console.log(
       `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
     );
@@ -623,20 +623,25 @@ export const setupInternals = {
     // relying on experimental module mocks.
     preflightRunner:
       typeof runAdapterPreflightWithTimeout | undefined = undefined,
+    // Injection seam (#428 follow-up): tests can pre-abort the cumulative
+    // signal to exercise the already-aborted race branch (lazy scheduling
+    // path) without waiting on a real timeout timer.
+    cumulativeSignal: AbortSignal | undefined = undefined,
   ): Promise<{
     hasErrors: boolean;
     results: Array<{ adapterId: string; diagnostics: PreflightDiagnostic[] }>;
   }> {
     const resolvePreflight = preflightRunner ?? runAdapterPreflightWithTimeout;
     const effectiveCumulativeMs = cumulativeTimeoutMs ?? adapterTimeoutMs;
-    const cumulativeSignal = AbortSignal.timeout(effectiveCumulativeMs);
+    const effectiveCumulativeSignal =
+      cumulativeSignal ?? AbortSignal.timeout(effectiveCumulativeMs);
     const adapterResults = await Promise.allSettled(
       adapters.map(async (adapter) =>
         resolvePreflight(
           adapter,
           adapterTimeoutMs,
           projectRoot,
-          cumulativeSignal,
+          effectiveCumulativeSignal,
         ),
       ),
     );
@@ -650,8 +655,10 @@ export const setupInternals = {
     for (const [resultIndex, result] of adapterResults.entries()) {
       if (result.status === "rejected") {
         hasErrors = true;
-        /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
-        const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
+        // map/allSettled keep results index-aligned with adapters, so the
+        // adapter at this index is defined by construction; direct access
+        // fails loudly if that invariant ever breaks.
+        const adapterId = adapters[resultIndex].id;
         results.push({
           adapterId,
           diagnostics: [
@@ -664,8 +671,7 @@ export const setupInternals = {
         });
         continue;
       }
-      /* c8 ignore next -- unreachable: adapterResults is index-aligned with adapters */
-      const adapterId = adapters[resultIndex]?.id ?? "(unknown)";
+      const adapterId = adapters[resultIndex].id;
       results.push({ adapterId, diagnostics: result.value });
       if (result.value.some((d) => d.severity === "error")) {
         hasErrors = true;

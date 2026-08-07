@@ -335,3 +335,29 @@ test("readJsonOrNull re-throws non-ENOENT errors", async () => {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("direct CLI execution honors an explicit output path argument", async () => {
+  const { execFile } = await import("node:child_process");
+  const { mkdtemp, rm, readFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { promisify } = await import("node:util");
+  const { fileURLToPath } = await import("node:url");
+  const execFileAsync = promisify(execFile);
+  const scriptPath = fileURLToPath(
+    new URL("../maintenance-bot-plan.mjs", import.meta.url),
+  );
+
+  const dir = await mkdtemp(join(tmpdir(), "bot-plan-cli-"));
+  const outputFile = join(dir, "custom-plan.json");
+  try {
+    await execFileAsync(process.execPath, [scriptPath, outputFile], {
+      cwd: dir,
+    });
+    const plan = JSON.parse(await readFile(outputFile, "utf8"));
+    assert.equal(plan.schemaVersion, 1);
+    assert.ok(Array.isArray(plan.issues));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

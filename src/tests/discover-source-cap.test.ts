@@ -638,6 +638,17 @@ void test("shouldShowFirstRunSyncHint: shows on first run with many sources rega
   );
 });
 
+void test("shouldShowFirstRunSyncHint: null prior state is a live first-run path", () => {
+  // loadSourceSyncState never returns null (zeroed fallback), but the
+  // function's contract accepts null and the first-run hint must appear
+  // for it — the null arm is exercised directly (#428 follow-up).
+  assert.equal(
+    discoverInternals.shouldShowFirstRunSyncHint(null, 12, false, false, false),
+    true,
+    "null prior state shows the first-run hint",
+  );
+});
+
 void test("shouldShowFirstRunSyncHint: suppressed when the user already opted out", () => {
   const noPrior = emptySyncState();
   assert.equal(

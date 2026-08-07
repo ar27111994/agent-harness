@@ -75,9 +75,8 @@ export async function runWire(
     return 1;
   }
 
-  /* c8 ignore next 3 -- unreachable: all registered adapters define requiresLifecycleHostPaths */
-  // Every registered adapter defines requiresLifecycleHostPaths today, so the
-  // mutatesHostPaths fallback is unreachable; kept for future adapters.
+  // requiresLifecycleHostPaths is optional on HostAdapter; the fallback is
+  // live behavior for adapters that only declare mutatesHostPaths.
   const requiresLifecycleHostPaths =
     hostAdapter.requiresLifecycleHostPaths ?? hostAdapter.mutatesHostPaths;
   const diagnostics = [
