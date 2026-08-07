@@ -81,6 +81,11 @@ const MOCKING_TEXT_MARKERS = ["mock", "mocking"];
 const REPLAY_TEXT_MARKERS = ["replay", "forwarding", "forwarder"];
 const WEBHOOK_TEXT_MARKERS = ["webhook", "webhooks"];
 
+/**
+ * Enriches demand signals from package.json content: dependency-driven
+ * language/tooling signals, package-manager and Node engine signals,
+ * node-cli detection, technology signatures, and generic text signals.
+ */
 export function enrichPackageJsonSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -168,6 +173,10 @@ function addPackageManagerSignal(
   }
 }
 
+/**
+ * Enriches demand signals from pip requirements/constraints content via
+ * plain-line parsing, technology signatures, and dependency tooling signals.
+ */
 export function enrichRequirementsSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -191,6 +200,10 @@ export function enrichRequirementsSignals(
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
 }
 
+/**
+ * Enriches demand signals from pyproject.toml content using the pyproject
+ * dependency extractor plus pypi technology signatures.
+ */
 export function enrichPyProjectSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -208,6 +221,10 @@ export function enrichPyProjectSignals(
   addPackageDependencySignals(matchedSignals, "pypi", dependencyNames);
 }
 
+/**
+ * Enriches demand signals from pubspec.yaml content via the pubspec
+ * dependency extractor plus pub technology signatures.
+ */
 export function enrichPubspecSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -225,6 +242,12 @@ export function enrichPubspecSignals(
   addPackageDependencySignals(matchedSignals, "pub", dependencyNames);
 }
 
+/**
+ * Enriches demand signals from non-JavaScript/Python manifest content:
+ * Cargo.toml, go.mod, pom.xml, Gradle, Gemfile, composer.json, Package.swift,
+ * and NuGet manifests. package.json / requirements.txt / pyproject.toml are
+ * handled by their dedicated enrich* functions and returned early.
+ */
 export function enrichMultiEcosystemDependencySignals(
   fileName: string,
   content: string | null,
@@ -321,6 +344,11 @@ export function enrichMultiEcosystemDependencySignals(
   }
 }
 
+/**
+ * Adds registry-qualified dependency names as tooling signals, filtering
+ * npm `@types/*` ambient-type packages and capping the per-file signal
+ * count to avoid lock-file flooding.
+ */
 export function addPackageDependencySignals(
   matchedSignals: DemandSignalSet,
   registryKind: string,
@@ -340,6 +368,11 @@ export function addPackageDependencySignals(
   addSignals(matchedSignals.tooling, normalizedNames);
 }
 
+/**
+ * Enriches demand signals from generic text content (bounded read) via
+ * technology signatures and generic text markers (webhook, replay, mocking,
+ * logging, integration).
+ */
 export function enrichGenericTextSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -357,6 +390,11 @@ export function enrichGenericTextSignals(
   addGenericTextSignals(matchedSignals, normalizedContent);
 }
 
+/**
+ * Returns whether a file's content should be read for technology signals:
+ * lock files are skipped (negligible signal), env templates and Dockerfiles
+ * always qualify, and text-shaped manifest extensions qualify otherwise.
+ */
 export function shouldReadTextForTechnologySignals(fileName: string): boolean {
   if (isLockfileName(fileName)) {
     return false;
@@ -393,6 +431,10 @@ export function shouldReadTextForTechnologySignals(fileName: string): boolean {
   );
 }
 
+/**
+ * Returns the text content used for technology signatures, stripping comment
+ * lines from Dockerfiles so `#` directives do not masquerade as signals.
+ */
 export function getTechnologySignalTextContent(
   fileName: string,
   content: string | null,
@@ -411,6 +453,11 @@ export function getTechnologySignalTextContent(
     .join("\n");
 }
 
+/**
+ * Enriches demand signals from .actor/actor.json content: title/description/
+ * categories text, containerization concern when a Dockerfile is declared,
+ * and a backend concern when a web server schema is declared.
+ */
 export function enrichActorJsonSignals(
   content: string | null,
   matchedSignals: DemandSignalSet,
@@ -444,6 +491,10 @@ export function enrichActorJsonSignals(
   addGenericTextSignals(matchedSignals, actorTextSignals);
 }
 
+/**
+ * Returns whether a discovered file's content should be read for demand
+ * enrichment during the scan.
+ */
 export function shouldReadFileContent(
   fileName: string,
   filePath: string,
@@ -458,6 +509,11 @@ export function shouldReadFileContent(
   );
 }
 
+/**
+ * Returns whether a file's content should be read for dependency-name
+ * extraction (non-npm ecosystem manifests handled by the multi-ecosystem
+ * extractor).
+ */
 export function shouldReadTextForDependencySignals(fileName: string): boolean {
   return (
     [
@@ -473,6 +529,10 @@ export function shouldReadTextForDependencySignals(fileName: string): boolean {
   );
 }
 
+/**
+ * Adds mobile platform concern/tooling signals from path evidence
+ * (ios/iphone/ipad, android, maui, xamarin path segments).
+ */
 export function addMobilePathSignals(
   filePath: string,
   matchedSignals: DemandSignalSet,
@@ -502,6 +562,10 @@ export function addMobilePathSignals(
   }
 }
 
+/**
+ * Enriches demand signals from .NET project content: iOS/Android target
+ * frameworks, MAUI usage, and Xamarin.Forms references.
+ */
 export function enrichDotNetProjectSignals(
   content: string,
   matchedSignals: DemandSignalSet,
@@ -538,6 +602,10 @@ export function enrichDotNetProjectSignals(
   }
 }
 
+/**
+ * Enriches demand signals from Gradle build files: Kotlin language evidence
+ * and Android application/library plugin evidence.
+ */
 export function enrichGradleSignals(
   content: string,
   fileName: string,
@@ -563,6 +631,10 @@ export function enrichGradleSignals(
   }
 }
 
+/**
+ * Adds generic text-marker concern signals (webhook, replay, mocking,
+ * logging/debugging, integration) from normalized text content.
+ */
 export function addGenericTextSignals(
   matchedSignals: DemandSignalSet,
   normalizedText: string,
@@ -589,6 +661,9 @@ export function addGenericTextSignals(
   }
 }
 
+/**
+ * Returns whether a file name is a package-manager lock file.
+ */
 export function isLockfileName(fileName: string): boolean {
   return [
     "package-lock.json",

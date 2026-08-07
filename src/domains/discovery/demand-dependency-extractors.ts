@@ -15,6 +15,9 @@ export const YAML_DEPENDENCY_SECTION_NAMES = new Set([
   "test_dependencies",
 ]);
 
+/**
+ * Parses a JSON string, returning null for empty or invalid input.
+ */
 export function parseJsonOrNull<T>(content: string | null): T | null {
   if (!content) {
     return null;
@@ -27,14 +30,26 @@ export function parseJsonOrNull<T>(content: string | null): T | null {
   }
 }
 
+/**
+ * Deduplicates string values while preserving first-occurrence order.
+ */
 export function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
 }
 
+/**
+ * Returns true when any needle occurs in the haystack.
+ */
 export function containsAnyText(haystack: string, needles: string[]): boolean {
   return needles.some((needle) => haystack.includes(needle));
 }
 
+/**
+ * Extracts dependency names from Cargo.toml dependency sections
+ * (`[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`,
+ * `[workspace.dependencies]`, and target-scoped variants), filtering the
+ * literal `package` key and deduplicating the result.
+ */
 export function extractCargoDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
   let currentSection = "";
@@ -62,6 +77,9 @@ export function extractCargoDependencyNames(content: string): string[] {
   );
 }
 
+/**
+ * Returns whether a Cargo.toml section name is a dependency section.
+ */
 export function isCargoDependencySection(sectionName: string): boolean {
   return (
     sectionName === "dependencies" ||
@@ -74,6 +92,10 @@ export function isCargoDependencySection(sectionName: string): boolean {
   );
 }
 
+/**
+ * Extracts module paths from a Go module file (single-module `require`
+ * lines and block bodies), deduplicating the result.
+ */
 export function extractGoModuleDependencyNames(content: string): string[] {
   const dependencies: string[] = [];
   for (const rawLine of content.split(/\r?\n/u)) {
@@ -87,6 +109,10 @@ export function extractGoModuleDependencyNames(content: string): string[] {
   return uniqueStrings(dependencies);
 }
 
+/**
+ * Extracts Maven `groupId:artifactId` pairs from pom.xml dependency blocks
+ * and from Gradle configuration dependency declarations.
+ */
 export function extractMavenDependencyNames(content: string): string[] {
   const dependencies: string[] = [];
   for (const dependencyMatch of content.matchAll(
@@ -112,6 +138,10 @@ export function extractMavenDependencyNames(content: string): string[] {
   return uniqueStrings(dependencies);
 }
 
+/**
+ * Extracts package names from NuGet package references (PackageReference /
+ * PackageVersion / packages.config package entries).
+ */
 export function extractNugetDependencyNames(content: string): string[] {
   return uniqueStrings(
     [
@@ -125,6 +155,9 @@ export function extractNugetDependencyNames(content: string): string[] {
   );
 }
 
+/**
+ * Extracts gem names from Gemfile gem declarations.
+ */
 export function extractGemDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/^\s*gem\s+["']([^"']+)["']/gimu)]
@@ -133,6 +166,10 @@ export function extractGemDependencyNames(content: string): string[] {
   );
 }
 
+/**
+ * Extracts dependency names from composer.json `require` and `require-dev`,
+ * filtering the literal `php` key.
+ */
 export function extractComposerDependencyNames(content: string): string[] {
   try {
     const parsed = JSON.parse(content) as {
@@ -148,6 +185,9 @@ export function extractComposerDependencyNames(content: string): string[] {
   }
 }
 
+/**
+ * Extracts the repository URLs of Swift Package Manager `.package` entries.
+ */
 export function extractSwiftDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/\.package\s*\([^)]*url:\s*["']([^"']+)["']/giu)]
@@ -156,6 +196,11 @@ export function extractSwiftDependencyNames(content: string): string[] {
   );
 }
 
+/**
+ * Extracts dependency names from pyproject.toml: PEP 621 `dependencies`
+ * lists, `project.optional-dependencies` groups, and Poetry tool sections,
+ * skipping direct references and non-package specifiers.
+ */
 export function extractPyProjectDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
   let currentSection = "";
@@ -208,6 +253,11 @@ export function extractPyProjectDependencyNames(content: string): string[] {
   return uniqueStrings(dependencyNames);
 }
 
+/**
+ * Extracts a single Poetry dependency name from a `name = spec` line inside
+ * a Poetry dependency section, or null for non-dependency, python, direct
+ * reference, or table-reference lines.
+ */
 export function extractPoetryDependencyName(
   line: string,
   currentSection: string,
@@ -234,6 +284,10 @@ export function extractPoetryDependencyName(
   return dependencyName;
 }
 
+/**
+ * Returns whether a Poetry dependency spec is a table reference (`{ ... }`
+ * with path/git/url/file keys) or a direct VCS/URL reference.
+ */
 export function isPoetryTableReference(value: string): boolean {
   const trimmedValue = value.trim();
   return (
@@ -242,6 +296,9 @@ export function isPoetryTableReference(value: string): boolean {
   );
 }
 
+/**
+ * Returns whether the section name is a Poetry dependency section.
+ */
 export function isPoetryDependencySection(currentSection: string): boolean {
   return (
     currentSection === "tool.poetry.dependencies" ||
@@ -250,6 +307,11 @@ export function isPoetryDependencySection(currentSection: string): boolean {
   );
 }
 
+/**
+ * Returns whether a line opens a pyproject dependency list for the current
+ * section: `dependencies = [` under `[project]` or `name = [` under
+ * `[project.optional-dependencies]`.
+ */
 export function isPyProjectDependencyListStart(
   line: string,
   currentSection: string,
@@ -265,6 +327,10 @@ export function isPyProjectDependencyListStart(
   return false;
 }
 
+/**
+ * Returns whether a requirements.txt line looks like a plain package
+ * specifier (non-empty, not a comment/option, no URL or path prefix).
+ */
 export function isPlainRequirementLine(line: string): boolean {
   return (
     line.length > 0 &&
@@ -275,16 +341,29 @@ export function isPlainRequirementLine(line: string): boolean {
   );
 }
 
+/**
+ * Returns whether a dependency specifier is a direct reference (local path
+ * or VCS/URL) rather than a plain package name.
+ */
 export function isPythonDirectReference(value: string): boolean {
   return /\s+@\s+(?:[\\/]|\.\.?[\\/]|[a-z]:[\\/]|file:|path:|git\+|hg\+|ssh:\/\/|git:\/\/|https?:\/\/)/iu.test(
     value,
   );
 }
 
+/**
+ * Type guard for plain package names (alphanumeric, dot, underscore,
+ * hyphen only).
+ */
 export function isPlainPackageName(value: string | undefined): value is string {
   return Boolean(value && /^[a-z0-9_.-]+$/iu.test(value));
 }
 
+/**
+ * Extracts dependency package names from pubspec.yaml dependency sections
+ * (dependencies/dev_dependencies/dependency_overrides/test_dependencies)
+ * using indentation to distinguish nested specs.
+ */
 export function extractPubspecDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
   let currentSection = "";

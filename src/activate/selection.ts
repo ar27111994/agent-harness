@@ -17,12 +17,23 @@ import type {
 } from "../types.js";
 import { recommendationMatchesSessionIntent } from "../lib/session-intent.js";
 
+/**
+ * Hosts that activation can directly materialize runtime views for.
+ */
 export type ActivationHost = "opencode" | "copilot-vscode" | "shared";
+
+/**
+ * The ordered list of activation-capable hosts.
+ */
 export const ACTIVATION_HOSTS = [
   "opencode",
   "copilot-vscode",
   "shared",
 ] as const satisfies readonly ActivationHost[];
+
+/**
+ * Canonical host target for the shared/default activation scope.
+ */
 export const SHARED_HOST_TARGET = "shared" as const satisfies HostTarget;
 
 /**
@@ -60,6 +71,12 @@ const DEFAULT_ACTIVATION_BUDGET = 40;
  */
 const FOCUSED_ACTIVATION_BUCKET_MAX_SIZE = 20;
 
+/**
+ * Filters installed bundle ids down to those a host's recommendation report
+ * suggests. When the report has no suggestion for the host (or none of the
+ * suggestions survive the filter), every bundle id is kept — catalog
+ * selection breadth remains the operator-curated contract.
+ */
 export function filterBundleIdsForHost(
   bundleIds: string[],
   host: HostTarget,
@@ -81,6 +98,10 @@ export function filterBundleIdsForHost(
   return filteredBundleIds.length > 0 ? filteredBundleIds : bundleIds;
 }
 
+/**
+ * Returns the default bundle ids activated for a host when no explicit host
+ * bundle list is configured.
+ */
 export function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
   if (host === "opencode") {
     return ["opencode-global", "community-stable"];
@@ -93,6 +114,11 @@ export function getDefaultBundleIdsForHost(host: ActivationHost): string[] {
   return ["shared-mcp"];
 }
 
+/**
+ * Builds a deterministic, slug-safe Copilot workspace profile id from
+ * selected asset ids: the first segments joined with hyphens, non-slug
+ * characters collapsed, and the result capped at a safe ID length.
+ */
 export function buildCopilotProfileId(assetIds: string[]): string {
   return assetIds
     .slice(0, COPILOT_PROFILE_ID_ASSET_SEGMENT_COUNT)
@@ -106,10 +132,21 @@ const ACTIVATION_BUDGET_BY_HOST = new Map<ActivationHost, number>([
   ["opencode", OPENCODE_ACTIVATION_BUDGET],
 ]);
 
+/**
+ * Returns the per-host activation budget, falling back to the conservative
+ * default for hosts without an explicit budget.
+ */
 export function getActivationBudget(host: ActivationHost): number {
   return ACTIVATION_BUDGET_BY_HOST.get(host) ?? DEFAULT_ACTIVATION_BUDGET;
 }
 
+/**
+ * Comparator ranking activation candidates: session-intent match first, then
+ * recommendation order, source authority, portfolio fit, context cost, and
+ * finally a deterministic asset-id tie-break.
+ *
+ * @returns A negative, zero, or positive number per Array.sort semantics.
+ */
 export function compareActivationCandidates(
   left: InstalledPackageManifest,
   right: InstalledPackageManifest,
@@ -159,6 +196,11 @@ export function compareActivationCandidates(
   return left.assetId.localeCompare(right.assetId);
 }
 
+/**
+ * Selects activation candidates up to the budget: negatively scored assets
+ * are never selected (hard boundary #426), and prompt-weight accounting
+ * guarantees the first candidate always fits the remaining budget.
+ */
 export function selectActivationCandidates(
   candidates: Array<{
     packageManifest: InstalledPackageManifest;
@@ -214,6 +256,10 @@ export function selectActivationCandidates(
   return selectedCandidates;
 }
 
+/**
+ * Groups asset ids by their recommendation coverage tags (concerns), with
+ * each bucket deduplicated and sorted.
+ */
 export function buildConcernBuckets(
   assetIds: string[],
   recommendationEntryByAssetId: Map<string, RecommendationEntry>,
@@ -240,6 +286,11 @@ export function buildConcernBuckets(
   );
 }
 
+/**
+ * Groups asset ids by task mode and appends the intent-ranked "focused"
+ * bucket (capped) plus the full "broad" bucket used to shape activation
+ * ordering.
+ */
 export function buildTaskModeBuckets(
   assetIds: string[],
   recommendationEntryByAssetId: Map<string, RecommendationEntry>,

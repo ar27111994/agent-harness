@@ -14,6 +14,9 @@ import {
 import { printCommandHelp } from "../lib/cli-output.js";
 import { SESSION_INTENT_CHOICES } from "../lib/session-intent.js";
 
+/**
+ * Prints the activate command-group parent help.
+ */
 export function printActivateHelp(): void {
   printCommandHelp({
     heading: "activate commands:",

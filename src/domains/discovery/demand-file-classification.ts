@@ -18,6 +18,10 @@ const IGNORED_DEMAND_EVIDENCE_PATTERNS = [
 ];
 const WEAK_DEMAND_TEXT_FILE_PATTERN = /\.(md|mdx|rst|adoc|txt)$/iu;
 
+/**
+ * Known environment-template file names whose content is inspected for
+ * technology signals.
+ */
 export const ENV_TEMPLATE_FILE_NAMES = new Set([
   ".env.example",
   ".env.sample",
@@ -26,6 +30,10 @@ export const ENV_TEMPLATE_FILE_NAMES = new Set([
   "env.sample",
   "env.template",
 ]);
+
+/**
+ * Manifest file names inspected directly for demand evidence during a scan.
+ */
 export const INSPECTABLE_FILE_NAMES = new Set([
   "package.json",
   "package-lock.json",
@@ -180,6 +188,10 @@ export function getDemandEvidenceStrength(
   return null;
 }
 
+/**
+ * Returns whether a file is a pip requirements/constraints file (including
+ * suffixed variants and entries under a requirements/ directory).
+ */
 export function isRequirementsFile(
   fileName: string,
   filePath: string,
@@ -192,6 +204,10 @@ export function isRequirementsFile(
   );
 }
 
+/**
+ * Returns whether a file name is a Dockerfile (or suffixed/variant form) or
+ * the Containerfile alternative.
+ */
 export function isDockerfileName(fileName: string): boolean {
   return (
     /^Dockerfile(?:[.-][A-Za-z0-9_.-]+)?$/u.test(fileName) ||
@@ -214,12 +230,18 @@ export function isTestFrameworkConfigFileName(fileName: string): boolean {
   );
 }
 
+/**
+ * Returns whether a file name is a docker-compose or plain compose YAML.
+ */
 export function isComposeFileName(fileName: string): boolean {
   return /^(?:docker-)?compose(?:[.-][A-Za-z0-9_.-]+)?\.ya?ml$/iu.test(
     fileName,
   );
 }
 
+/**
+ * Returns whether a file name is a package-manager lock file.
+ */
 export function isLockfileName(fileName: string): boolean {
   return [
     "package-lock.json",
@@ -229,6 +251,10 @@ export function isLockfileName(fileName: string): boolean {
   ].includes(fileName);
 }
 
+/**
+ * Returns whether a file name is a .NET project manifest (csproj or shared
+ * package management file).
+ */
 export function isNugetManifestFile(fileName: string): boolean {
   return (
     fileName.endsWith(".csproj") ||
@@ -237,6 +263,10 @@ export function isNugetManifestFile(fileName: string): boolean {
   );
 }
 
+/**
+ * Returns whether a file name is a language source file carrying strong
+ * demand evidence for its ecosystem.
+ */
 export function isLanguageSourceFile(fileName: string): boolean {
   return /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|rs|go|erl|hrl|ex|exs|jl|php|rb|swift|m|mm|kt|kts|java|cs)$/iu.test(
     fileName,

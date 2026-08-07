@@ -35,10 +35,21 @@ import {
   isNegativelyScored,
 } from "./selection.js";
 
+/**
+ * File name of the current activation manifest per host runtime root.
+ */
 export const ACTIVATION_MANIFEST_FILE = "activation-manifest.json";
+
+/**
+ * File name of the previous activation manifest snapshot used for diffs.
+ */
 export const ACTIVATION_PREVIOUS_MANIFEST_FILE =
   "activation-manifest.previous.json";
 
+/**
+ * Prints an activation diff between the current and previous manifests for
+ * every affected host (or a single requested host).
+ */
 export async function diffActivationState(
   projectRoot: string,
   args: string[],
@@ -83,6 +94,12 @@ export async function diffActivationState(
   }
 }
 
+/**
+ * Prints a truthful per-host explanation of an asset's activation state:
+ * whether it is active, its generation/budget context, and the concrete
+ * reason (recommendation order, staged-bundle breadth, or legacy negative
+ * score) behind that state (#426).
+ */
 export async function explainActivationState(
   projectRoot: string,
   args: string[],
@@ -198,6 +215,9 @@ export async function explainActivationState(
   console.log(lines.join("\n"));
 }
 
+/**
+ * Removes the entire activation output tree for a project root.
+ */
 export async function resetActivationState(projectRoot: string): Promise<void> {
   await removePath(join(projectRoot, "activate"));
   console.log(
@@ -205,6 +225,9 @@ export async function resetActivationState(projectRoot: string): Promise<void> {
   );
 }
 
+/**
+ * Returns the value of an optional CLI option, or undefined when absent.
+ */
 export function getOptionalOptionValue(
   args: string[],
   optionName: string,
@@ -233,6 +256,10 @@ export function parseHostTargetOption(
   );
 }
 
+/**
+ * Returns the deduplicated list of every valid host target: the shared
+ * target plus every registered adapter's recommendation host.
+ */
 export function getHostTargets(): HostTarget[] {
   return [
     ...new Set([
@@ -270,6 +297,10 @@ export function isActivationHost(value: HostTarget): value is ActivationHost {
   return ACTIVATION_HOSTS.includes(value as ActivationHost);
 }
 
+/**
+ * Computes the added/removed string diff between two arrays, treating each
+ * as a set, with both results sorted.
+ */
 export function diffStringSets(
   left: string[],
   right: string[],
@@ -287,6 +318,9 @@ export function diffStringSets(
   };
 }
 
+/**
+ * Formats a diff list for display, using "none" for empty lists.
+ */
 export function formatDiffList(values: string[]): string {
   return values.length > 0 ? values.join(", ") : "none";
 }
