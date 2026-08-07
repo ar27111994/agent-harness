@@ -7,6 +7,8 @@ coverage/
 !.env.example
 
 activate/
+!src/activate/
+!src/activate/**
 install/
 !src/install/
 !src/install/**

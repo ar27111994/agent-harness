@@ -6,6 +6,9 @@ import tseslint from "typescript-eslint";
 
 const cliOutputFiles = [
   "src/activate.ts",
+  "src/activate/help.ts",
+  "src/activate/selection.ts",
+  "src/activate/state.ts",
   "src/cli.ts",
   "src/discover.ts",
   "src/discover-help.ts",
