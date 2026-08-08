@@ -76,6 +76,8 @@
     "dist/manifest-validation/**/*.js",
     "dist/mirror/**/*.d.ts",
     "dist/mirror/**/*.js",
+    "dist/quarantine/**/*.d.ts",
+    "dist/quarantine/**/*.js",
     "dist/recommend/**/*.d.ts",
     "dist/recommend/**/*.js",
     "dist/types/**/*.d.ts",

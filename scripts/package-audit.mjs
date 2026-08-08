@@ -11,6 +11,14 @@ const DEFAULT_MAX_BUFFER = 10_000_000;
 const REQUIRED_PACKED_FILES = [
   "dist/cli.js",
   "dist/cli.d.ts",
+  // Split-domain runtime modules must ship with the tarball — the earlier
+  // activate/ split was silently excluded until pack-smoke caught it at
+  // runtime; pin every domain split here so the audit fails instead.
+  "dist/activate/help.js",
+  "dist/activate/selection.js",
+  "dist/activate/state.js",
+  "dist/quarantine/help.js",
+  "dist/quarantine/state.js",
   "README.md",
   "CHANGELOG.md",
   "LICENSE",
