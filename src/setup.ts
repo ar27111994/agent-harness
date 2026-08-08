@@ -4,11 +4,10 @@ import {
   type HostAdapter,
 } from "./host-adapters/registry.js";
 import {
+  handleUnknownCommand,
   hasHelpFlag,
-  isFlagLike,
   printSubcommandHelp,
-  printUnknownArgumentError,
-  rejectUnknownFlags,
+  hasUnknownFlag,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
@@ -19,6 +18,7 @@ import {
   runAdapterPreflight,
   runHostPreflight,
   type PreflightDiagnostic,
+  type PreflightFunctionOverrides,
 } from "./lib/preflight.js";
 
 /** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
@@ -61,39 +61,18 @@ export async function runSetup(
 
   switch (command) {
     case "doctor":
-      if (
-        rejectUnknownFlags(
-          rest,
-          new Set(["--host"]),
-          new Set(["--host"]),
-          "agent-harness setup doctor --help",
-        )
-      ) {
+      if (hasUnknownFlagsForSetupCommand(command, rest)) {
         return 1;
       }
       return (await runDoctor(rest, projectRoot)) ? 0 : 1;
     case "hosts":
-      if (
-        rejectUnknownFlags(
-          rest,
-          new Set(),
-          new Set(),
-          "agent-harness setup hosts --help",
-        )
-      ) {
+      if (hasUnknownFlagsForSetupCommand(command, rest)) {
         return 1;
       }
       printHosts();
       return 0;
     case "login":
-      if (
-        rejectUnknownFlags(
-          rest,
-          new Set(["--provider"]),
-          new Set(["--provider"]),
-          "agent-harness setup login --help",
-        )
-      ) {
+      if (hasUnknownFlagsForSetupCommand(command, rest)) {
         return 1;
       }
       printLoginGuidance(rest);
@@ -102,13 +81,57 @@ export async function runSetup(
       printSetupHelp();
       return 0;
     default:
-      if (isFlagLike(command)) {
-        printUnknownArgumentError(command);
-        return 1;
-      }
-      printSetupHelp();
-      return 1;
+      return handleUnknownCommand(command, printSetupHelp);
   }
+}
+
+/**
+ * Describes the known flags of a setup subcommand for the shared unknown-flag
+ * guard. Collapses the previously repeated `hasUnknownFlag(rest, new Set(...),
+ * new Set(...), usage)` blocks into one table (#431).
+ */
+interface SetupSubcommandFlagSpec {
+  knownFlags: ReadonlySet<string>;
+  flagsWithValues: ReadonlySet<string>;
+  usageHint: string;
+}
+
+const SETUP_SUBCOMMAND_FLAG_SPECS: Record<string, SetupSubcommandFlagSpec> = {
+  doctor: {
+    knownFlags: new Set(["--host"]),
+    flagsWithValues: new Set(["--host"]),
+    usageHint: "agent-harness setup doctor --help",
+  },
+  hosts: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness setup hosts --help",
+  },
+  login: {
+    knownFlags: new Set(["--provider"]),
+    flagsWithValues: new Set(["--provider"]),
+    usageHint: "agent-harness setup login --help",
+  },
+};
+
+/**
+ * Rejects flags that a setup subcommand does not declare in its flag spec,
+ * printing an unknown-option error with a usage pointer (#431).
+ */
+function hasUnknownFlagsForSetupCommand(
+  command: string,
+  rest: string[],
+): boolean {
+  const spec = SETUP_SUBCOMMAND_FLAG_SPECS[command];
+  if (spec === undefined) {
+    return false;
+  }
+  return hasUnknownFlag(
+    rest,
+    spec.knownFlags,
+    spec.flagsWithValues,
+    spec.usageHint,
+  );
 }
 
 /**
@@ -131,11 +154,7 @@ export async function runSetup(
  * Preflight functions the per-adapter runner delegates to. Exposed as an
  * injection seam so tests can force non-timeout failures deterministically.
  */
-export interface AdapterPreflightFunctions {
-  runHostPreflight: typeof runHostPreflight;
-  runAdapterPreflight: typeof runAdapterPreflight;
-  collectActivatedAssetPrerequisiteDiagnostics: typeof collectActivatedAssetPrerequisiteDiagnostics;
-}
+export type AdapterPreflightFunctions = PreflightFunctionOverrides;
 
 async function runAdapterPreflightWithTimeout(
   adapter: HostAdapter,
@@ -148,6 +167,14 @@ async function runAdapterPreflightWithTimeout(
     collectActivatedAssetPrerequisiteDiagnostics,
   },
 ): Promise<PreflightDiagnostic[]> {
+  // Resolve the shared optional seam to concrete functions so partial
+  // test overrides fall back to the real implementations.
+  const {
+    runHostPreflight: runHostPreflightFn = runHostPreflight,
+    runAdapterPreflight: runAdapterPreflightFn = runAdapterPreflight,
+    collectActivatedAssetPrerequisiteDiagnostics:
+      collectPrerequisiteDiagnosticsFn = collectActivatedAssetPrerequisiteDiagnostics,
+  } = preflight;
   const signal = AbortSignal.timeout(adapterTimeoutMs);
 
   // Create a combined signal that fires when EITHER the per-adapter timeout
@@ -172,17 +199,15 @@ async function runAdapterPreflightWithTimeout(
   try {
     return await Promise.race([
       (async () => [
-        ...(await preflight.runHostPreflight(adapter.lifecycleHost, {
+        ...(await runHostPreflightFn(adapter.lifecycleHost, {
           requireHostPaths:
             adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths,
         })),
-        ...(await preflight.runAdapterPreflight(adapter, combined.signal)),
+        ...(await runAdapterPreflightFn(adapter, combined.signal)),
         ...(projectRoot
-          ? await preflight.collectActivatedAssetPrerequisiteDiagnostics(
-              projectRoot,
-              adapter,
-              { missingEnvSeverity: "warning" },
-            )
+          ? await collectPrerequisiteDiagnosticsFn(projectRoot, adapter, {
+              missingEnvSeverity: "warning",
+            })
           : []),
       ])(),
       // Reject when the abort signal fires so Promise.race resolves immediately.

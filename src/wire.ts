@@ -6,7 +6,7 @@ import {
   hasHelpFlag,
   isFlagLike,
   printUnknownArgumentError,
-  rejectUnknownFlags,
+  hasUnknownFlag,
 } from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import {
@@ -65,7 +65,7 @@ export async function runWire(
   // Strict flag validation before any preflight work (#431): wire hosts only
   // accept the three mode flags.
   if (
-    rejectUnknownFlags(
+    hasUnknownFlag(
       rest,
       new Set(["--preview", "--apply", "--reset"]),
       new Set(),

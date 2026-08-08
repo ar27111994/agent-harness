@@ -6,7 +6,7 @@ import {
   hasHelpFlag,
   isFlagLike,
   printUnknownArgumentError,
-  rejectUnknownFlags,
+  hasUnknownFlag,
 } from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValues } from "./lib/cli-options.js";
@@ -29,6 +29,7 @@ import {
   formatPreflightDiagnostics,
   runAdapterPreflight,
   runHostPreflight,
+  type PreflightFunctionOverrides,
 } from "./lib/preflight.js";
 import { runWorkspacePipeline } from "./pipeline.js";
 
@@ -42,15 +43,12 @@ const WORKSPACE_KNOWN_FLAGS = new Set([
 const WORKSPACE_FLAGS_WITH_VALUES = new Set(["--intent"]);
 
 /**
- * Preflight functions the workspace runner delegates to. Exposed as an
- * injection seam so tests can exercise the prerequisite-diagnostics surface
- * deterministically without depending on installed host CLIs.
+ * Preflight functions the workspace runner delegates to, exposed through the
+ * shared `PreflightFunctionOverrides` seam so tests can exercise the
+ * prerequisite-diagnostics surface deterministically without depending on
+ * installed host CLIs.
  */
-export interface WorkspacePreflightFunctions {
-  runHostPreflight: typeof runHostPreflight;
-  runAdapterPreflight: typeof runAdapterPreflight;
-  collectActivatedAssetPrerequisiteDiagnostics: typeof collectActivatedAssetPrerequisiteDiagnostics;
-}
+export type WorkspacePreflightFunctions = PreflightFunctionOverrides;
 
 /**
  * Runs the end-to-end lifecycle for a registered adapter and then applies its
@@ -86,7 +84,7 @@ export async function runWorkspace(
   }
 
   if (
-    rejectUnknownFlags(
+    hasUnknownFlag(
       rest,
       WORKSPACE_KNOWN_FLAGS,
       WORKSPACE_FLAGS_WITH_VALUES,

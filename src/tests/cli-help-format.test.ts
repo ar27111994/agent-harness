@@ -7,7 +7,7 @@ import {
   isFlagLike,
   printSubcommandHelp,
   printUnknownArgumentError,
-  rejectUnknownFlags,
+  hasUnknownFlag,
   type SubcommandHelpEntry,
 } from "../cli-help-format.js";
 
@@ -454,7 +454,7 @@ void describe("printSubcommandHelp", () => {
 });
 
 // ---------------------------------------------------------------------------
-// isFlagLike / findUnknownFlag / printUnknownArgumentError / rejectUnknownFlags
+// isFlagLike / findUnknownFlag / printUnknownArgumentError / hasUnknownFlag
 // ---------------------------------------------------------------------------
 
 void describe("isFlagLike", () => {
@@ -569,13 +569,13 @@ void describe("printUnknownArgumentError", () => {
   });
 });
 
-void describe("rejectUnknownFlags", () => {
+void describe("hasUnknownFlag", () => {
   void it("returns false and prints nothing for known flags", () => {
     const messages: string[] = [];
     const originalError = console.error;
     console.error = (message?: unknown) => messages.push(String(message));
     try {
-      const rejected = rejectUnknownFlags(
+      const rejected = hasUnknownFlag(
         ["--quiet", "--no-sync"],
         new Set(["--quiet", "--no-sync"]),
         new Set(),
@@ -593,7 +593,7 @@ void describe("rejectUnknownFlags", () => {
     const originalError = console.error;
     console.error = (message?: unknown) => messages.push(String(message));
     try {
-      const rejected = rejectUnknownFlags(
+      const rejected = hasUnknownFlag(
         ["--bad-flag"],
         new Set(),
         new Set(),

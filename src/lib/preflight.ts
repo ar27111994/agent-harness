@@ -4,6 +4,7 @@ import { access } from "node:fs/promises";
 import { delimiter, dirname, join, win32 } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
+import type { collectActivatedAssetPrerequisiteDiagnostics } from "./asset-prerequisites.js";
 import type {
   HostAdapter,
   HostRuntimeSpec,
@@ -39,6 +40,18 @@ export interface RuntimeCommandResult {
   cancelled: boolean;
   exitCode: number | null;
   message: string;
+}
+
+/**
+ * Injection seam for the preflight function family used by the setup-doctor
+ * and workspace runners. Tests override individual members to drive
+ * deterministic preflight outcomes without depending on installed host
+ * CLIs; every member falls back to the real implementation when absent.
+ */
+export interface PreflightFunctionOverrides {
+  runHostPreflight?: typeof runHostPreflight;
+  runAdapterPreflight?: typeof runAdapterPreflight;
+  collectActivatedAssetPrerequisiteDiagnostics?: typeof collectActivatedAssetPrerequisiteDiagnostics;
 }
 
 /**

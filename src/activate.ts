@@ -12,11 +12,7 @@ import {
   toPosixPath,
   writeJsonFile,
 } from "./files.js";
-import {
-  hasHelpFlag,
-  isFlagLike,
-  printUnknownArgumentError,
-} from "./cli-help-format.js";
+import { handleUnknownCommand, hasHelpFlag } from "./cli-help-format.js";
 import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
 import { parseSessionIntent } from "./lib/session-intent.js";
 import { isPathWithinRoot, sanitizeAssetId } from "./lib/safe-paths.js";
@@ -111,12 +107,7 @@ export async function runActivate(
       printActivateHelp();
       return 0;
     default:
-      if (isFlagLike(command)) {
-        printUnknownArgumentError(command);
-        return 1;
-      }
-      printActivateHelp();
-      return 1;
+      return handleUnknownCommand(command, printActivateHelp);
   }
 }
 

@@ -85,7 +85,7 @@ export function findUnknownFlag(
  * in `knownFlags` (#431). Returns true when an unknown flag was found, so
  * the caller can bail out with a non-zero exit before executing.
  */
-export function rejectUnknownFlags(
+export function hasUnknownFlag(
   args: readonly string[],
   knownFlags: ReadonlySet<string>,
   flagsWithValues: ReadonlySet<string> = new Set(),
@@ -97,6 +97,29 @@ export function rejectUnknownFlags(
   }
   printUnknownArgumentError(unknown, usageHint);
   return true;
+}
+
+/**
+ * Handles an unrecognized subcommand token in a dispatcher `default` branch
+ * and returns the exit code (always 1).
+ *
+ * Flag-like first tokens are unknown options: they are named on stderr with
+ * a usage pointer instead of dumping parent help (#431). Non-flag unknown
+ * subcommands still show the domain's parent help with a non-zero exit.
+ * Collapses the repeated guard that previously appeared in every command
+ * dispatcher.
+ */
+export function handleUnknownCommand(
+  command: string,
+  fallback: () => void,
+): number {
+  if (isFlagLike(command)) {
+    printUnknownArgumentError(command);
+    return 1;
+  }
+
+  fallback();
+  return 1;
 }
 
 /**

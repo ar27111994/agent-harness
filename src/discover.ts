@@ -6,10 +6,9 @@ import {
   printCatalogStats,
 } from "./domains/discovery/catalog-inspection.js";
 import {
+  handleUnknownCommand,
   hasHelpFlag,
-  isFlagLike,
-  printUnknownArgumentError,
-  rejectUnknownFlags,
+  hasUnknownFlag,
 } from "./cli-help-format.js";
 
 import { readJsonLinesFile, toPosixPath } from "./files.js";
@@ -213,7 +212,7 @@ export async function runDiscover(
     }
     case "sync": {
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           new Set(["--full"]),
           new Set(),
@@ -250,7 +249,7 @@ export async function runDiscover(
     }
     case "select": {
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           DISCOVER_AI_ENRICH_FLAGS,
           new Set(),
@@ -275,7 +274,7 @@ export async function runDiscover(
     }
     case "full": {
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           DISCOVER_FULL_KNOWN_FLAGS,
           DISCOVER_FULL_FLAGS_WITH_VALUES,
@@ -404,7 +403,7 @@ export async function runDiscover(
     case "candidate-pool":
       // These subcommands take no options; any flag is unknown (#431).
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           new Set(),
           new Set(),
@@ -417,7 +416,7 @@ export async function runDiscover(
       return 0;
     case "enrich":
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           new Set(["--force", "--require-ai-enrich"]),
           new Set(),
@@ -437,7 +436,7 @@ export async function runDiscover(
       );
     case "stats":
       if (
-        rejectUnknownFlags(
+        hasUnknownFlag(
           rest,
           new Set(),
           new Set(),
@@ -484,15 +483,7 @@ export async function runDiscover(
       printDiscoverHelp();
       return 0;
     default:
-      // Flag-like first tokens are unknown options: name them instead of
-      // dumping the parent help (#431). Non-flag unknown subcommands still
-      // show parent help with a non-zero exit.
-      if (isFlagLike(command)) {
-        printUnknownArgumentError(command);
-        return 1;
-      }
-      printDiscoverHelp();
-      return 1;
+      return handleUnknownCommand(command, printDiscoverHelp);
   }
 }
 

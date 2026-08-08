@@ -11,11 +11,7 @@
 
 import { join } from "node:path";
 
-import {
-  hasHelpFlag,
-  isFlagLike,
-  printUnknownArgumentError,
-} from "./cli-help-format.js";
+import { handleUnknownCommand, hasHelpFlag } from "./cli-help-format.js";
 import {
   readJsonFileOrNull,
   readTextFileOrNull,
@@ -86,12 +82,7 @@ export async function runQuarantine(
       printQuarantineHelp();
       return 0;
     default:
-      if (isFlagLike(command)) {
-        printUnknownArgumentError(command);
-        return 1;
-      }
-      printQuarantineHelp();
-      return 1;
+      return handleUnknownCommand(command, printQuarantineHelp);
   }
 }
 

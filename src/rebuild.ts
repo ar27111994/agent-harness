@@ -1,10 +1,9 @@
 import { join } from "node:path";
 
 import {
+  handleUnknownCommand,
   hasHelpFlag,
-  isFlagLike,
   printSubcommandHelp,
-  printUnknownArgumentError,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { getRuntimeConfig } from "./config/runtime.js";
@@ -65,12 +64,7 @@ export async function runRebuild(
       printRebuildHelp();
       return 0;
     default:
-      if (isFlagLike(command)) {
-        printUnknownArgumentError(command);
-        return 1;
-      }
-      printRebuildHelp();
-      return 1;
+      return handleUnknownCommand(command, printRebuildHelp);
   }
 }
 
