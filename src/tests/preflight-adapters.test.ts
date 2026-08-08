@@ -521,6 +521,8 @@ void test("runRuntimeCommand refuses a resolved Windows wrapper with metacharact
   });
 
   await writeFile(join(tempRoot, "fixture-tool.CMD"), "@echo off\n", "utf8");
+  // POSIX resolution requires X_OK — grant it explicitly (no-op on win32).
+  await chmod(join(tempRoot, "fixture-tool.CMD"), 0o755);
   process.env.PATH = `${tempRoot}${delimiter}${previousPath ?? ""}`;
 
   const result = await preflightInternals.runRuntimeCommand(
