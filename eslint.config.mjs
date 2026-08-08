@@ -34,6 +34,7 @@ const cliOutputFiles = [
   "src/tests/cli-smoke.ts",
   "src/tests/detection-quality.ts",
   "src/tests/pack-smoke.ts",
+  "src/tests/perf-path-benchmark.ts",
   "src/tests/policy-coverage.ts",
   "src/tests/scan-benchmark.ts",
   "src/tests/workspace-smoke.ts",

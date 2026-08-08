@@ -44,6 +44,17 @@ export function buildTopRecommendationsForHost(
   demandContext: DemandContext,
   policy: RecommendationPolicy,
 ): RecommendationEntry[] {
+  const hostPolicy = policy.hosts[host];
+  // shouldEnforceConcernTarget is invariant across the whole selection loop
+  // (concern + demandContext + policy only), but its canonicalization walks
+  // every policy synonym. Precompute the enforced set once per host; a
+  // 1,000-candidate run was spending ~80% of wall time re-canonicalizing
+  // the same concerns in selectCandidatesForHost / computeCoverageGain.
+  const enforcedConcerns = buildEnforcedConcerns(
+    hostPolicy,
+    demandContext,
+    policy,
+  );
   const scoredCandidates = candidateBases
     .filter((base) => isEntryCompatibleWithRecommendationHost(base.entry, host))
     .filter((base) => base.entry.compatibilityMode !== "incompatible")
@@ -53,6 +64,7 @@ export function buildTopRecommendationsForHost(
         host,
         demandContext,
         policy,
+        enforcedConcerns,
       );
 
       return candidate
@@ -90,6 +102,7 @@ export function buildTopRecommendationsForHost(
     candidates,
     demandContext,
     policy,
+    enforcedConcerns,
   );
 
   return selectedCandidates.map((candidate, index) => {
@@ -262,6 +275,7 @@ function selectCandidatesForHost(
   candidates: CandidateRecommendation[],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  enforcedConcerns: ReadonlySet<string>,
 ): CandidateRecommendation[] {
   const hostPolicy = policy.hosts[host];
   const selectionState = createSelectionState();
@@ -286,6 +300,7 @@ function selectCandidatesForHost(
         hostPolicy,
         demandContext,
         policy,
+        enforcedConcerns,
       );
       if (!bestScore) {
         bestIndex = index;
@@ -326,6 +341,7 @@ function scoreCandidateAgainstSelection(
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  enforcedConcerns: ReadonlySet<string>,
 ): DynamicScore {
   const coverage = computeCoverageGain(
     candidate,
@@ -333,6 +349,7 @@ function scoreCandidateAgainstSelection(
     hostPolicy,
     demandContext,
     policy,
+    enforcedConcerns,
   );
   const diversity =
     (selectionState.sourceFamilyCounts[candidate.sourceFamily] ?? 0) > 0
@@ -387,6 +404,7 @@ function computeCoverageGain(
   hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  enforcedConcerns: ReadonlySet<string>,
 ): number {
   let score = 0;
 
@@ -400,7 +418,7 @@ function computeCoverageGain(
   }
 
   for (const target of hostPolicy.targetConcerns) {
-    if (!shouldEnforceConcernTarget(target.concern, demandContext, policy)) {
+    if (!enforcedConcerns.has(target.concern)) {
       continue;
     }
 
@@ -413,6 +431,26 @@ function computeCoverageGain(
   }
 
   return score;
+}
+
+/**
+ * Computes the set of host target concerns that have medium/strong demand
+ * evidence. Invariant for the whole host ranking run — identical to calling
+ * `shouldEnforceConcernTarget` per target, but done once instead of once per
+ * candidate per selection round.
+ */
+function buildEnforcedConcerns(
+  hostPolicy: RecommendationPolicy["hosts"][RecommendationHost],
+  demandContext: DemandContext,
+  policy: RecommendationPolicy,
+): ReadonlySet<string> {
+  return new Set(
+    hostPolicy.targetConcerns
+      .filter((target) =>
+        shouldEnforceConcernTarget(target.concern, demandContext, policy),
+      )
+      .map((target) => target.concern),
+  );
 }
 
 function computeRedundancyPenalty(

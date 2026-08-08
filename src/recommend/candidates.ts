@@ -285,6 +285,7 @@ export function buildCandidateRecommendation(
   host: RecommendationHost,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  enforcedConcerns?: ReadonlySet<string>,
 ): CandidateRecommendation | null {
   if (isSuppressedForHost(base.entry, host, base.searchTerms, policy)) {
     return null;
@@ -302,6 +303,7 @@ export function buildCandidateRecommendation(
     base.coverageTags,
     demandContext,
     policy,
+    enforcedConcerns,
   );
   const breakdown: RecommendationScoreBreakdown = {
     ...base.breakdown,
@@ -502,6 +504,7 @@ function computeHostPreference(
   coverageTags: string[],
   demandContext: DemandContext,
   policy: RecommendationPolicy,
+  enforcedConcerns?: ReadonlySet<string>,
 ): number {
   const hostPolicy = policy.hosts[host];
   let score = 0;
@@ -515,7 +518,9 @@ function computeHostPreference(
   for (const target of hostPolicy.targetConcerns) {
     if (
       coverageTags.includes(target.concern) &&
-      shouldEnforceConcernTarget(target.concern, demandContext, policy)
+      (enforcedConcerns !== undefined
+        ? enforcedConcerns.has(target.concern)
+        : shouldEnforceConcernTarget(target.concern, demandContext, policy))
     ) {
       score += Math.max(1, Math.round(target.weight / 2));
     }
