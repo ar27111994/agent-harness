@@ -409,3 +409,13 @@ void test("buildShellWrapperRefusal fail-closes .cmd wrappers with metacharacter
     "non-win32 platforms are not the wrapper class",
   );
 });
+
+void test("executeNativeCommand refuses a .cmd candidate with metacharacter args on any platform (#428)", async () => {
+  const result = await extensionInstallerInternals.executeNativeCommand(
+    "agent-harness-fixture-extension",
+    ["--install-extension", "github.copilot", "a&b"],
+    "win32",
+  );
+  assert.equal(result.exitCode, Number.MAX_SAFE_INTEGER);
+  assert.match(result.stderr, /strict VS Code pattern/u);
+});

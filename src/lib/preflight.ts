@@ -433,6 +433,7 @@ async function runRuntimeCommand(
   executable: string,
   args: string[],
   abortSignal?: AbortSignal,
+  platform: NodeJS.Platform = process.platform,
 ): Promise<RuntimeCommandResult> {
   // Short-circuit when already aborted — don't spawn at all.
   if (isAborted(abortSignal)) {
@@ -450,7 +451,7 @@ async function runRuntimeCommand(
   // making a dedicated post-resolution re-check redundant.
   const resolvedExecutable = await resolveRuntimeExecutable(
     executable,
-    process.platform,
+    platform,
     findExecutableOnPath,
     abortSignal,
   );
@@ -458,7 +459,7 @@ async function runRuntimeCommand(
   const spawnSpec = buildRuntimeCommandSpawnSpec({
     args,
     executable,
-    platform: process.platform,
+    platform,
     resolvedExecutable,
   });
 
@@ -471,7 +472,7 @@ async function runRuntimeCommand(
   const wrapperRefusal = buildWrapperRefusal(
     resolvedExecutable,
     args,
-    process.platform,
+    platform,
   );
   if (wrapperRefusal) {
     return wrapperRefusal;

@@ -5,7 +5,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import type * as FsPromises from "node:fs/promises";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
@@ -504,4 +504,32 @@ void test("buildWrapperRefusal fail-closes Windows shell wrappers with metachara
     preflightInternals.buildWrapperRefusal("tool.cmd", ["a&b"], "darwin"),
     null,
   );
+});
+
+void test("runRuntimeCommand refuses a resolved Windows wrapper with metacharacter args on any platform (#428)", async (t) => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-wrapper-refusal-"),
+  );
+  const previousPath = process.env.PATH;
+  t.after(async () => {
+    if (previousPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = previousPath;
+    }
+    await rm(tempRoot, { recursive: true, force: true });
+  });
+
+  await writeFile(join(tempRoot, "fixture-tool.CMD"), "@echo off\n", "utf8");
+  process.env.PATH = `${tempRoot}${delimiter}${previousPath ?? ""}`;
+
+  const result = await preflightInternals.runRuntimeCommand(
+    "fixture-tool",
+    ["--host", "a&b"],
+    undefined,
+    "win32",
+  );
+  assert.equal(result.cancelled, false);
+  assert.equal(result.exitCode, Number.MAX_SAFE_INTEGER);
+  assert.match(result.message, /Refusing to run Windows shell wrapper/u);
 });

@@ -234,16 +234,20 @@ export function verifyVsCodeExtensionInstalled(
 async function executeNativeCommand(
   executable: string,
   args: string[],
+  platform: NodeJS.Platform = process.platform,
 ): Promise<NativeCommandResult> {
   let lastError: unknown = null;
 
-  for (const candidateExecutable of buildExecutableCandidates(executable)) {
+  for (const candidateExecutable of buildExecutableCandidates(
+    executable,
+    platform,
+  )) {
     try {
       const hostCommandConfig = getRuntimeConfig().hostCommands;
       const refusal = buildShellWrapperRefusal(
         candidateExecutable,
         args,
-        process.platform,
+        platform,
       );
       if (refusal) {
         return refusal;
