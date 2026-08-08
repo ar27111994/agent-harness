@@ -43,12 +43,20 @@ const cliOutputFiles = [
 // Keep no-magic-numbers scoped to policy/runtime hot paths where numeric
 // thresholds directly affect user-visible safety, ranking, or resource limits.
 // Expanding it repository-wide would add noise in fixture-heavy modules; add
-// files here intentionally as they gain policy-style constants.
+// files here intentionally as they gain policy-style constants. The list is
+// re-pointed at the post-split module homes: the #435 wave moved the activate
+// and demand-signals policy constants into src/activate/selection.ts,
+// src/activate/state.ts, and the demand-dependency/file-classification/
+// manifest-enrichment modules, so the guard follows them.
 const magicThresholdFiles = [
   "src/activate.ts",
+  "src/activate/selection.ts",
+  "src/activate/state.ts",
   "src/config/runtime.ts",
   "src/domains/discovery/ai-enrichment.ts",
-  "src/domains/discovery/demand-signals.ts",
+  "src/domains/discovery/demand-dependency-extractors.ts",
+  "src/domains/discovery/demand-file-classification.ts",
+  "src/domains/discovery/demand-manifest-enrichment.ts",
   "src/domains/discovery/official-index-harvester.ts",
   "src/domains/discovery/source-sync.ts",
   "src/domains/discovery/source-sync/**/*.ts",
