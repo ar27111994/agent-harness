@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   harvestOfficialSkillIndexes,
   officialIndexHarvesterInternals,
@@ -83,7 +84,7 @@ void test("official index harvester parses entries, resolves repo-backed sources
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -345,7 +346,7 @@ void test("official index harvester resolves page repositories, caches them, and
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -536,7 +537,7 @@ void test("official index resolution helpers reject malformed search and duplica
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -764,7 +765,7 @@ void test("official index harvester ignores missing configs and unavailable fetc
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -818,7 +819,7 @@ void test("official index harvester skips malformed rows and resolves fallback r
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -982,7 +983,7 @@ void test("official index harvester respects AGENT_HARNESS_OFFICIAL_INDEX_MAX_IT
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     if (previousCapFlag === undefined) {
       delete process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;

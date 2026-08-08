@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   catalogInspectionInternals,
   inspectCatalog,
@@ -637,7 +638,7 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     return;
   }
 
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }
 
 function createDemandProfile(

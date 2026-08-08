@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 
+import { restoreEnvVar } from "./env-test-utils.js";
 import { writeJsonFile, writeJsonLinesFile } from "../files.js";
 import {
   CATALOG_OUTPUT_PATH,
@@ -65,11 +66,8 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
     assert.match(stdout, /Next steps:/u);
   } finally {
     process.stdout.write = originalStdoutWrite;
-    process.env.AGENT_HARNESS_HOME = previousEnv.AGENT_HARNESS_HOME;
-    process.env.APPDATA = previousEnv.APPDATA;
-    process.env.HOME = previousEnv.HOME;
-    process.env.USERPROFILE = previousEnv.USERPROFILE;
-    process.env.XDG_CONFIG_HOME = previousEnv.XDG_CONFIG_HOME;
+    for (const [name, value] of Object.entries(previousEnv))
+      restoreEnvVar(name, value);
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
@@ -129,11 +127,8 @@ void test("discover full prints visible phase progress before finishing", async 
     assert.match(stdout, /Selection outputs written to /u);
   } finally {
     process.stdout.write = originalStdoutWrite;
-    process.env.AGENT_HARNESS_HOME = previousEnv.AGENT_HARNESS_HOME;
-    process.env.APPDATA = previousEnv.APPDATA;
-    process.env.HOME = previousEnv.HOME;
-    process.env.USERPROFILE = previousEnv.USERPROFILE;
-    process.env.XDG_CONFIG_HOME = previousEnv.XDG_CONFIG_HOME;
+    for (const [name, value] of Object.entries(previousEnv))
+      restoreEnvVar(name, value);
     await rm(tempRoot, { force: true, recursive: true });
   }
 });

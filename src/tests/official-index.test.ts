@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   fetchOfficialIndexPageContent,
   fetchOfficialIndexPageInfo,
@@ -281,5 +282,5 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     return;
   }
 
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }

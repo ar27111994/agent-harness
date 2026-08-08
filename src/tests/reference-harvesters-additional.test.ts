@@ -13,6 +13,7 @@ import {
   selectDemandQueries,
 } from "../domains/discovery/reference-harvesters.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
 void test("selectDemandQueries extracts normalized demand signals and always includes base queries", () => {
@@ -199,7 +200,7 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     return;
   }
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }
 
 function buildDocsSource(): SourceDefinition {

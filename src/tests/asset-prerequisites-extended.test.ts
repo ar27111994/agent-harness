@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { writeJsonFile } from "../files.js";
 import { resolveHostAdapter } from "../host-adapters/registry.js";
 import {
@@ -27,17 +28,17 @@ void test("asset prerequisite diagnostics cover malformed env, host login, oauth
     if (previousGitHubToken === undefined) {
       delete process.env.GITHUB_TOKEN;
     } else {
-      process.env.GITHUB_TOKEN = previousGitHubToken;
+      restoreEnvVar("GITHUB_TOKEN", previousGitHubToken);
     }
     if (previousPersonalToken === undefined) {
       delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
     } else {
-      process.env.GITHUB_PERSONAL_ACCESS_TOKEN = previousPersonalToken;
+      restoreEnvVar("GITHUB_PERSONAL_ACCESS_TOKEN", previousPersonalToken);
     }
     if (previousMissingTwo === undefined) {
       delete process.env.MISSING_TWO;
     } else {
-      process.env.MISSING_TWO = previousMissingTwo;
+      restoreEnvVar("MISSING_TWO", previousMissingTwo);
     }
     clearRuntimeConfigForTests();
   });

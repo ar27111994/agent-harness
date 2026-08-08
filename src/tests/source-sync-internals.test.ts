@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { buildCatalogId } from "../domains/discovery/catalog-utils.js";
 import type { SourceSyncSourceState } from "../domains/discovery/source-sync.js";
 import { sourceSyncInternals } from "../domains/discovery/source-sync.js";
@@ -1351,7 +1352,7 @@ function installFetchMock(
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       return;
     }
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
   };
 }
 

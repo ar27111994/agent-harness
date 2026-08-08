@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   harvestLocalDirectorySource,
   harvestLocalManifestSource,
@@ -238,7 +239,7 @@ void test("local antigravity skill harvesting filters by install manifest", asyn
     if (previousHome === undefined) {
       delete process.env.AGENT_HARNESS_HOME;
     } else {
-      process.env.AGENT_HARNESS_HOME = previousHome;
+      restoreEnvVar("AGENT_HARNESS_HOME", previousHome);
     }
     clearRuntimeConfigForTests();
     await rm(root, { recursive: true, force: true });

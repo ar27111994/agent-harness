@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile, writeTextFile } from "../files.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { resolveAssetContent } from "../asset-content.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type { AssetCatalogEntry } from "../types.js";
@@ -83,7 +84,7 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     return;
   }
 
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }
 
 void test("resolveAssetContent returns null when the activation asset is missing", async () => {

@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   getDemandEvidenceStrength,
   shouldInspectFile,
@@ -797,7 +798,7 @@ void test("demand profiles prioritize root manifests before nested docs when sca
     if (previousMaxBytes === undefined) {
       delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
     } else {
-      process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+      restoreEnvVar("AGENT_HARNESS_SCAN_MAX_BYTES", previousMaxBytes);
     }
     clearRuntimeConfigForTests();
     await rm(root, { force: true, recursive: true });
@@ -1014,7 +1015,7 @@ void test("binary/asset files are deprioritised in scan order so source files ex
       if (previousMaxBytes === undefined) {
         delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
       } else {
-        process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+        restoreEnvVar("AGENT_HARNESS_SCAN_MAX_BYTES", previousMaxBytes);
       }
       clearRuntimeConfigForTests();
     }
@@ -1066,7 +1067,7 @@ void test("buildDemandProfile emits a [warn] line on stderr when scan is truncat
     if (previousMaxBytes === undefined) {
       delete process.env.AGENT_HARNESS_SCAN_MAX_BYTES;
     } else {
-      process.env.AGENT_HARNESS_SCAN_MAX_BYTES = previousMaxBytes;
+      restoreEnvVar("AGENT_HARNESS_SCAN_MAX_BYTES", previousMaxBytes);
     }
     clearRuntimeConfigForTests();
     await rm(root, { force: true, recursive: true });

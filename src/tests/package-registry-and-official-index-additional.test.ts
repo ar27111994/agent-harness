@@ -12,6 +12,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   buildPackageRegistryCatalogEntry,
   getPackageRegistryKind,
@@ -204,7 +205,7 @@ void test("official index harvester classifies skill, reference-pack, mcp-server
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -289,7 +290,7 @@ void test("official index harvester ignores entries with non-allowed repo owners
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });

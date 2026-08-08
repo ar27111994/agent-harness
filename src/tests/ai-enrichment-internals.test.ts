@@ -16,6 +16,7 @@ import {
   loadRuntimeConfig,
 } from "../config/runtime.js";
 import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { assertAiEnrichmentReport } from "../manifest-validation.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
@@ -900,7 +901,7 @@ function installFetchMock(
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       return;
     }
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
   };
 }
 

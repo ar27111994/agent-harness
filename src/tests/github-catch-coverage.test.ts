@@ -167,7 +167,7 @@ void test("fetchGitHubRepoSnapshotByRepoUrl falls back to cache when fetch throw
   } finally {
     globalThis.fetch = originalFetch;
     delete process.env.AGENT_HARNESS_HOME;
-    process.env.GITHUB_FETCH_MAX_ATTEMPTS = undefined;
+    delete process.env.GITHUB_FETCH_MAX_ATTEMPTS;
     clearRuntimeConfig();
     clearGitHubState();
     await rm(root, { recursive: true, force: true });

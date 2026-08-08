@@ -14,6 +14,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { runWorkspace } from "../workspace.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { runSetup } from "../setup.js";
 import { runRebuild } from "../rebuild.js";
 import { runWire } from "../wire.js";
@@ -396,7 +397,7 @@ void test("workspace prints and fails on prerequisite diagnostics from activated
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -579,7 +580,7 @@ void test("workspace passes multiple intents through the pipeline (#428)", async
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 

@@ -13,6 +13,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { runDiscover, discoverInternals } from "../discover.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { writeJsonFile } from "../files.js";
 import { clearRuntimeConfig } from "../config/runtime.js";
 
@@ -544,7 +545,7 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
     if (previousMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
   });
 
@@ -715,7 +716,7 @@ void test("discover catalog continues the repo slice when the batch does not wra
     if (previousMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
   });
 

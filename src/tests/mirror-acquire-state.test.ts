@@ -17,6 +17,7 @@ import {
   assertMirrorIndexEntry,
 } from "../manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   acquireMirrorArtifacts,
   mirrorAcquireInternals,
@@ -312,7 +313,7 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     return;
   }
 
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }
 
 function createOfficialIndexHtml(repoUrl: string): string {

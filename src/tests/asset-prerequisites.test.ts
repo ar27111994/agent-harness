@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { writeJsonFile } from "../files.js";
 import { resolveHostAdapter } from "../host-adapters/registry.js";
 import {
@@ -49,7 +50,7 @@ void test("missing and present environment prerequisites produce actionable diag
     if (previousOpenAiKey === undefined) {
       delete process.env.OPENAI_API_KEY;
     } else {
-      process.env.OPENAI_API_KEY = previousOpenAiKey;
+      restoreEnvVar("OPENAI_API_KEY", previousOpenAiKey);
     }
     clearRuntimeConfigForTests();
   });
@@ -77,12 +78,12 @@ void test("manual, host-login mismatch, and oauth prerequisites produce actionab
     if (previousGithubToken === undefined) {
       delete process.env.GITHUB_TOKEN;
     } else {
-      process.env.GITHUB_TOKEN = previousGithubToken;
+      restoreEnvVar("GITHUB_TOKEN", previousGithubToken);
     }
     if (previousPat === undefined) {
       delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
     } else {
-      process.env.GITHUB_PERSONAL_ACCESS_TOKEN = previousPat;
+      restoreEnvVar("GITHUB_PERSONAL_ACCESS_TOKEN", previousPat);
     }
     clearRuntimeConfigForTests();
   });

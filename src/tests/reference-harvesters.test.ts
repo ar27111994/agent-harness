@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   fetchVsCodeMarketplaceItemsForQuery,
   harvestReferenceItems,
@@ -85,7 +86,10 @@ void test("generic docs harvester respects configured reference caps", async (co
     if (previousMaxItems === undefined) {
       delete process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS;
     } else {
-      process.env.AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS = previousMaxItems;
+      restoreEnvVar(
+        "AGENT_HARNESS_GENERIC_REFERENCE_MAX_ITEMS",
+        previousMaxItems,
+      );
     }
     clearRuntimeConfigForTests();
   });
@@ -460,7 +464,7 @@ function restoreFetchMockFlag(previousValue: string | undefined): void {
     return;
   }
 
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousValue;
+  restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);
 }
 
 function buildDocsSource(): SourceDefinition {

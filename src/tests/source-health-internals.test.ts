@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { sourceHealthInternals } from "../domains/discovery/source-health.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { buildSourceHealthReport } from "../domains/discovery/source-health.js";
 import type { AssetCatalogEntry, SourceDefinition } from "../types.js";
 import type { SourceSyncState } from "../domains/discovery/source-sync/types.js";
@@ -171,7 +172,7 @@ void test("isEphemeralStateRoot uses AGENT_HARNESS_STATE_ROOT when set", () => {
     process.env.AGENT_HARNESS_STATE_ROOT = "/home/user/normal";
     assert.equal(isEphemeralStateRoot(), false);
   } finally {
-    if (prev !== undefined) process.env.AGENT_HARNESS_STATE_ROOT = prev;
+    if (prev !== undefined) restoreEnvVar("AGENT_HARNESS_STATE_ROOT", prev);
     else delete process.env.AGENT_HARNESS_STATE_ROOT;
   }
 });
@@ -403,7 +404,7 @@ void test("buildSourceHealthReport sets reasonCode when CI + dormant source", ()
     assert.equal(src.reasonCode, "ephemeral-ci-state-root");
     assert.equal(src.ciDetected, true);
   } finally {
-    if (prevCI !== undefined) process.env.CI = prevCI;
+    if (prevCI !== undefined) restoreEnvVar("CI", prevCI);
     else delete process.env.CI;
   }
 });
@@ -425,7 +426,7 @@ void test("buildSourceHealthReport omits reasonCode for active CI source", () =>
     assert.equal(src.reasonCode, undefined);
     assert.equal(src.ciDetected, true);
   } finally {
-    if (prevCI !== undefined) process.env.CI = prevCI;
+    if (prevCI !== undefined) restoreEnvVar("CI", prevCI);
     else delete process.env.CI;
   }
 });
@@ -451,12 +452,13 @@ void test("buildSourceHealthReport omits reasonCode outside CI even when dormant
     assert.equal(src.reasonCode, undefined);
     assert.equal(src.ciDetected, false);
   } finally {
-    if (prevCI !== undefined) process.env.CI = prevCI;
+    if (prevCI !== undefined) restoreEnvVar("CI", prevCI);
     else delete process.env.CI;
-    if (prevAgentCI !== undefined) process.env.AGENT_HARNESS_CI = prevAgentCI;
+    if (prevAgentCI !== undefined)
+      restoreEnvVar("AGENT_HARNESS_CI", prevAgentCI);
     else delete process.env.AGENT_HARNESS_CI;
     if (prevStateRoot !== undefined)
-      process.env.AGENT_HARNESS_STATE_ROOT = prevStateRoot;
+      restoreEnvVar("AGENT_HARNESS_STATE_ROOT", prevStateRoot);
     else delete process.env.AGENT_HARNESS_STATE_ROOT;
   }
 });

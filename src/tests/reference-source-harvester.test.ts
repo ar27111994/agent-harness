@@ -1,3 +1,4 @@
+import { restoreEnvVar } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -156,7 +157,7 @@ void test("reference source harvester returns harvested docs items and falls bac
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -214,7 +215,7 @@ void test("reference source harvester falls back to metadata when raw content is
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 

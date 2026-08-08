@@ -58,6 +58,7 @@ import {
   loadRuntimeConfig,
 } from "../config/runtime.js";
 import { packageRegistryHarvesterInternals } from "../domains/discovery/package-registry-harvester.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 import { writeJsonFile } from "../files.js";
 import { assertSelectionReport } from "../manifest-validation/discovery.js";
@@ -96,7 +97,7 @@ async function withFetchMock<T>(
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
   }
 }

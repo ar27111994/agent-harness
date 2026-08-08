@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   collectNpmMcpSearchQueriesFromDemandProfile,
   collectPackageCandidatesFromDemandProfile,
@@ -55,7 +56,7 @@ void test("MCP package discovery respects configured query caps", (context) => {
     if (previousLimit === undefined) {
       delete process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT;
     } else {
-      process.env.AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT = previousLimit;
+      restoreEnvVar("AGENT_HARNESS_NPM_MCP_SEARCH_QUERY_LIMIT", previousLimit);
     }
     clearRuntimeConfigForTests();
   });

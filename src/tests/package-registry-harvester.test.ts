@@ -1,3 +1,4 @@
+import { restoreEnvVar } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -240,7 +241,7 @@ void test("package registry harvester skips npm and pypi candidates when metadat
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -361,7 +362,7 @@ void test("package registry harvester enriches npm search results and pypi metad
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -468,7 +469,7 @@ void test("package registry harvester tolerates malformed search and sparse meta
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 
@@ -970,7 +971,7 @@ void test("searchRegistryByKind — hex searches via the Hex.pm API", async (con
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
   });
 

@@ -11,6 +11,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { harvestGitHubRepoSource } from "../domains/discovery/github-harvester.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import type { SelectionRegistry, SourceDefinition } from "../types.js";
 
 void test("github harvester classifies instruction, prompt-pack, workflow, and mcp-server paths", async (context) => {
@@ -90,7 +91,7 @@ void test("github harvester classifies instruction, prompt-pack, workflow, and m
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -185,7 +186,7 @@ void test("github harvester marks archived repos as archived releaseCadence", as
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -218,7 +219,7 @@ void test("github harvester handles errors gracefully and returns empty array", 
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -294,7 +295,7 @@ void test("github harvester classifies docs and notebooks as reference-packs", a
     if (previousFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });

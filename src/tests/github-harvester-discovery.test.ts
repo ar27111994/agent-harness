@@ -1,3 +1,4 @@
+import { restoreEnvVar } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -91,7 +92,7 @@ void test("github harvester classifies repository artifacts and carries reposito
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -221,7 +222,7 @@ void test("github harvester classifies Penpot MCP package server sources", async
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -331,7 +332,7 @@ void test("github harvester does not treat generic mcp package server directorie
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -420,7 +421,7 @@ void test("github harvester classifies adaptable multi-host assets without publi
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -506,7 +507,7 @@ void test("github harvester skips sources when fetching fails with non-Error val
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -581,7 +582,7 @@ void test("github harvester drops unrecognized repository files", async (context
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -648,7 +649,7 @@ void test("github harvester skips truncated repository trees", async (context) =
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -730,7 +731,7 @@ void test("github harvester reports guarded fetch failures and preserves native 
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -1007,7 +1008,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
     if (previousFetchMockFlag === undefined) {
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
     } else {
-      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
     await rm(projectRoot, { recursive: true, force: true });
   });
@@ -1315,7 +1316,7 @@ void test("malformed OMS files do not grant trust signals", async () => {
     globalThis.fetch = originalFetch;
     if (prevMockFlag === undefined)
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-    else process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = prevMockFlag;
+    else restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", prevMockFlag);
     await rm(projectRoot, { recursive: true, force: true });
   }
 });
@@ -1451,7 +1452,7 @@ void test("OMS PKI verification does not award trust when signature does not ver
     globalThis.fetch = originalFetch;
     if (prevMockFlag === undefined)
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-    else process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = prevMockFlag;
+    else restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", prevMockFlag);
     await rm(projectRoot, { recursive: true, force: true });
   }
 });

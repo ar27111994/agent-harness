@@ -13,6 +13,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
 
+import { restoreEnvVar } from "./env-test-utils.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { buildDemandProfile } from "../domains/discovery/demand-profile.js";
 import { syncPackagistRegistrySource } from "../domains/discovery/source-sync/registries/packagist.js";
@@ -134,11 +135,7 @@ void test("buildDemandProfile: truncation warn is emitted even when truncationRe
     );
   } finally {
     process.stderr.write = originalWrite;
-    if (prevMaxFiles === undefined) {
-      delete process.env["AGENT_HARNESS_SCAN_MAX_FILES"];
-    } else {
-      process.env["AGENT_HARNESS_SCAN_MAX_FILES"] = prevMaxFiles;
-    }
+    restoreEnvVar("AGENT_HARNESS_SCAN_MAX_FILES", prevMaxFiles);
     clearRuntimeConfigForTests();
     await rm(root, { recursive: true, force: true });
   }

@@ -12,6 +12,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { cliInternals } from "../cli.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { runDiscover, discoverInternals } from "../discover.js";
 import { runWorkspace } from "../workspace.js";
 import { runSetup } from "../setup.js";
@@ -613,7 +614,7 @@ void test("discover select applies the per-source cap and logs source-cap reject
     if (previousCap === undefined) {
       delete process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE;
     } else {
-      process.env.AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE = previousCap;
+      restoreEnvVar("AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE", previousCap);
     }
     clearRuntimeConfig();
   });
@@ -994,7 +995,7 @@ void test(
       if (previousFetchMockFlag === undefined) {
         delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       } else {
-        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+        restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
     });
 
@@ -1124,7 +1125,7 @@ void test(
       if (previousFetchMockFlag === undefined) {
         delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       } else {
-        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+        restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
     });
 
@@ -1222,7 +1223,7 @@ void test(
       if (previousFetchMockFlag === undefined) {
         delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       } else {
-        process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+        restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
     });
 

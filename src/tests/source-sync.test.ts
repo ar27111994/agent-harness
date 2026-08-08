@@ -15,6 +15,7 @@ import {
   SOURCE_SYNC_STATE_OUTPUT_PATH,
 } from "../domains/discovery/output-paths.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 
 type SourceSyncReport = {
   schemaVersion: 1;
@@ -1073,7 +1074,7 @@ function installFetchMock(
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       return;
     }
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
   };
 }
 

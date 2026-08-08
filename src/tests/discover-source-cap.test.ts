@@ -19,6 +19,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { computeAcceptanceRate } from "../discover-pipeline.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   applyRelevanceFilter,
   printDiscoveryBreadthSummary,
@@ -1197,12 +1198,18 @@ async function withSemanticScoringEnv(
     if (previousEnabled === undefined) {
       delete process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING;
     } else {
-      process.env.AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING = previousEnabled;
+      restoreEnvVar(
+        "AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING",
+        previousEnabled,
+      );
     }
     if (previousSimilarity === undefined) {
       delete process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY;
     } else {
-      process.env.AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY = previousSimilarity;
+      restoreEnvVar(
+        "AGENT_HARNESS_DISCOVERY_MIN_SIMILARITY",
+        previousSimilarity,
+      );
     }
     clearRuntimeConfig();
   }

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import { readJsonFile, writeJsonFile } from "../files.js";
 import { SOURCE_SYNC_STATE_OUTPUT_PATH } from "../domains/discovery/output-paths.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
@@ -443,7 +444,7 @@ function installFetchMock(
       delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
       return;
     }
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFetchMockFlag;
+    restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
   };
 }
 
