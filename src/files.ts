@@ -130,7 +130,10 @@ export async function readJsonFile<T>(
   filePath: string,
   validator?: JsonValidator<T>,
 ): Promise<T> {
-  const content = await readFile(filePath, "utf8");
+  const content = (await readFileWithTransientRetry(
+    filePath,
+    "utf8",
+  )) as string;
   let parsedContent: unknown;
 
   try {
@@ -175,7 +178,7 @@ export async function readTextFileOrNull(
   filePath: string,
 ): Promise<string | null> {
   try {
-    return await readFile(filePath, "utf8");
+    return (await readFileWithTransientRetry(filePath, "utf8")) as string;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -192,7 +195,7 @@ export async function readBinaryFileOrNull(
   filePath: string,
 ): Promise<Buffer | null> {
   try {
-    return await readFile(filePath);
+    return (await readFileWithTransientRetry(filePath)) as Buffer;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
       return null;
@@ -213,11 +216,62 @@ let jsonWriteRenameOverride: RenameFile | undefined;
 type RemoveFile = (path: string, options: { force?: boolean }) => Promise<void>;
 let jsonWriteRemoveOverride: RemoveFile | undefined;
 
+/**
+ * Test-only hook for simulating open failures in the atomic-reader path
+ * (#427/#428): readers retry the same Windows-transient window as the
+ * writer, so the churn contract (old | absent | complete-new, never a
+ * transient error) holds from both sides.
+ */
+type ReadFileOverride = (
+  filePath: string,
+  encoding?: BufferEncoding,
+) => Promise<string | Buffer>;
+let readFileOpenOverride: ReadFileOverride | undefined;
+
 const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 25;
 const MAX_WINDOWS_REPLACE_RETRIES = 4;
 
 async function delay(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Reads a file with a bounded retry on Windows-transient open failures.
+ *
+ * The atomic writer (renameJsonWriteTemp) already retries EPERM/EACCES on
+ * the destination during its remove-and-rename window; a concurrent READER
+ * opening the same path can hit the same momentary lock (AV scan, open
+ * handle, a competing writer's rename). Readers retry the identical bounded
+ * window so the atomic-write contract is symmetric: a reader observes old |
+ * absent | complete-new content — never a transient open error. ENOENT is
+ * never retried: absent is part of the contract and the OrNull readers map
+ * it to null unchanged.
+ */
+async function readFileWithTransientRetry(
+  filePath: string,
+  encoding?: BufferEncoding,
+): Promise<string | Buffer> {
+  let lastOpenFailure: unknown;
+
+  for (let attempt = 0; attempt <= MAX_WINDOWS_REPLACE_RETRIES; attempt += 1) {
+    try {
+      if (readFileOpenOverride !== undefined) {
+        return await readFileOpenOverride(filePath, encoding);
+      }
+      return await readFile(filePath, encoding);
+    } catch (error) {
+      const failingCode = (error as NodeJS.ErrnoException).code;
+      if (failingCode !== "EPERM" && failingCode !== "EACCES") {
+        throw error;
+      }
+      lastOpenFailure = error;
+      if (attempt < MAX_WINDOWS_REPLACE_RETRIES) {
+        await delay(WINDOWS_REPLACE_RETRY_BACKOFF_MS * 2 ** (attempt + 1));
+      }
+    }
+  }
+
+  throw lastOpenFailure;
 }
 
 /**
@@ -1203,5 +1257,9 @@ export const filesInternals = {
   /** Test-only: replaces the atomic-writer rename step (failure injection, #427). */
   setJsonWriteRenameOverride(override: RenameFile | undefined): void {
     jsonWriteRenameOverride = override;
+  },
+  /** Test-only: replaces the atomic-reader open step (failure injection, #427/#428). */
+  setReadFileOpenOverride(override: ReadFileOverride | undefined): void {
+    readFileOpenOverride = override;
   },
 };

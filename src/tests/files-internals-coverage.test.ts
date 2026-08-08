@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,6 +8,8 @@ import {
   createDirectoryLink,
   ensureDirectory,
   filesInternals,
+  readBinaryFileOrNull,
+  readJsonFile,
   readTextFileOrNull,
   writeJsonFile,
   writeTextFile,
@@ -217,6 +219,92 @@ void test("atomic replace rethrows non-EPERM destination removal errors (#428)",
   } finally {
     filesInternals.setJsonWriteRenameOverride(undefined);
     filesInternals.setJsonWriteRemoveOverride(undefined);
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("atomic readers retry a transient EPERM open and succeed (#427/#428)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-read-eperm-"));
+  const statePath = join(root, "state.json");
+  const eperm = Object.assign(new Error("injected EPERM"), { code: "EPERM" });
+  let calls = 0;
+  try {
+    await writeJsonFile(statePath, { schemaVersion: 1, seq: 7 });
+    filesInternals.setReadFileOpenOverride(async (filePath, encoding) => {
+      calls += 1;
+      if (calls === 1) {
+        throw eperm;
+      }
+      return readFile(filePath, encoding ?? "utf8");
+    });
+
+    const content = await readTextFileOrNull(statePath);
+    assert.ok(content !== null && content.includes('"seq": 7'));
+    assert.equal(calls, 2, "exactly one retry after the transient failure");
+  } finally {
+    filesInternals.setReadFileOpenOverride(undefined);
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("atomic readers rethrow after exhausting the transient-open retry window (#427/#428)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-read-exhaust-"));
+  const statePath = join(root, "state.json");
+  const eperm = Object.assign(new Error("injected EPERM"), { code: "EPERM" });
+  let calls = 0;
+  try {
+    await writeJsonFile(statePath, { schemaVersion: 1 });
+    filesInternals.setReadFileOpenOverride(async () => {
+      calls += 1;
+      throw eperm;
+    });
+
+    await assert.rejects(() => readJsonFile(statePath), /EPERM/u);
+    assert.equal(calls, 5, "initial try plus the four bounded retries");
+  } finally {
+    filesInternals.setReadFileOpenOverride(undefined);
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("atomic readers do not retry non-transient or absent files (#427/#428)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-read-failfast-"));
+  const statePath = join(root, "state.json");
+  const eisdir = Object.assign(new Error("injected EISDIR"), {
+    code: "EISDIR",
+  });
+  const enoent = Object.assign(new Error("injected ENOENT"), {
+    code: "ENOENT",
+  });
+  const calls: string[] = [];
+  try {
+    filesInternals.setReadFileOpenOverride(async () => {
+      calls.push("fail");
+      throw eisdir;
+    });
+    await assert.rejects(() => readTextFileOrNull(statePath), /EISDIR/u);
+    assert.equal(calls.length, 1, "non-transient failures must not retry");
+
+    // ENOENT is part of the atomic contract (absent) and must surface as
+    // null on the first attempt without retrying.
+    calls.length = 0;
+    filesInternals.setReadFileOpenOverride(async () => {
+      calls.push("missing");
+      throw enoent;
+    });
+    assert.equal(await readTextFileOrNull(statePath), null);
+    assert.equal(calls.length, 1, "absent files must not retry");
+
+    // Binary readers share the same retry semantics.
+    calls.length = 0;
+    filesInternals.setReadFileOpenOverride(async () => {
+      calls.push("binary");
+      throw enoent;
+    });
+    assert.equal(await readBinaryFileOrNull(statePath), null);
+    assert.equal(calls.length, 1);
+  } finally {
+    filesInternals.setReadFileOpenOverride(undefined);
     await rm(root, { force: true, recursive: true });
   }
 });
