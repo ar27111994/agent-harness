@@ -9,11 +9,13 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import type { HostAdapter } from "../host-adapters/registry.js";
 import {
   listHostAdapters,
@@ -92,7 +94,9 @@ function withFixtureAdapters<T>(
   });
 }
 
-async function makeStateRoot(): Promise<{
+async function makeStateRoot(t: {
+  after: (fn: () => void | Promise<void>) => void;
+}): Promise<{
   root: string;
   workspaceRoot: string;
   stateRoot: string;
@@ -100,13 +104,49 @@ async function makeStateRoot(): Promise<{
   const root = await mkdtemp(join(tmpdir(), "agent-harness-adapter-fallback-"));
   const workspaceRoot = join(root, "workspace");
   const stateRoot = join(root, "state");
+
+  // Hermetic host-config resolution: runWire/runSetup preflight the opencode
+  // host's requireHostPaths check against resolveDefaultOpenCodeConfigRoot().
+  // Point the config-dir env vars at the fixture and materialize the
+  // platform-appropriate opencode config root so the check is deterministic
+  // (without this, the tests pass/fail based on whether the real machine has
+  // an opencode config directory — a clean CI runner does not).
+  const homeDirectory = join(root, "home");
+  const appDataDirectory = join(root, "appdata");
+  const xdgConfigHome = join(root, "xdg");
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+  process.env.AGENT_HARNESS_HOME = homeDirectory;
+  process.env.APPDATA = appDataDirectory;
+  process.env.XDG_CONFIG_HOME = xdgConfigHome;
+  clearRuntimeConfigForTests();
+
+  const openCodeRoot =
+    process.platform === "win32"
+      ? join(appDataDirectory, "opencode")
+      : process.platform === "darwin"
+        ? join(homeDirectory, "Library", "Application Support", "opencode")
+        : join(xdgConfigHome, "opencode");
+  await mkdir(openCodeRoot, { recursive: true });
+
+  t.after(async () => {
+    restoreEnvVar("AGENT_HARNESS_HOME", previousEnv.AGENT_HARNESS_HOME);
+    restoreEnvVar("APPDATA", previousEnv.APPDATA);
+    restoreEnvVar("XDG_CONFIG_HOME", previousEnv.XDG_CONFIG_HOME);
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  });
+
   return { root, workspaceRoot, stateRoot };
 }
 
 // ─── wire.ts: requiresLifecycleHostPaths ?? mutatesHostPaths (#428) ──────────
 
 void test("wire preview resolves requiresLifecycleHostPaths through the mutatesHostPaths fallback", async (t) => {
-  const { root, workspaceRoot, stateRoot } = await makeStateRoot();
+  const { root, workspaceRoot, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
@@ -125,7 +165,7 @@ void test("wire preview resolves requiresLifecycleHostPaths through the mutatesH
 });
 
 void test("wire reset mode takes the reset diagnostics arm", async (t) => {
-  const { root, workspaceRoot, stateRoot } = await makeStateRoot();
+  const { root, workspaceRoot, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
@@ -146,7 +186,7 @@ void test("wire reset mode takes the reset diagnostics arm", async (t) => {
 // ─── workspace.ts: requiresLifecycleHostPaths ?? mutatesHostPaths (#428) ─────
 
 void test("workspace resolves requiresLifecycleHostPaths through the mutatesHostPaths fallback", async (t) => {
-  const { root, workspaceRoot, stateRoot } = await makeStateRoot();
+  const { root, workspaceRoot, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
@@ -226,7 +266,7 @@ void test("workspace resolves requiresLifecycleHostPaths through the mutatesHost
 // ─── setup doctor: requiresLifecycleHostPaths ?? mutatesHostPaths (#428) ─────
 
 void test("setup doctor prints the requiresLifecycleHostPaths fallback for adapters without the field", async (t) => {
-  const { root, stateRoot } = await makeStateRoot();
+  const { root, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
@@ -261,7 +301,7 @@ void test("setup doctor prints the requiresLifecycleHostPaths fallback for adapt
 // ─── setup login guidance: adapter runtime.guidance branch (#428) ────────────
 
 void test("setup login falls back to generic guidance when adapter runtime has no guidance", async (t) => {
-  const { root, stateRoot } = await makeStateRoot();
+  const { root, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });
@@ -291,7 +331,7 @@ void test("setup login falls back to generic guidance when adapter runtime has n
 // ─── setup hosts: printHosts runtime-metadata branches (#428) ────────────────
 
 void test("setup hosts prints runtime capabilities and none-placeholders for partial-runtime adapters", async (t) => {
-  const { root, stateRoot } = await makeStateRoot();
+  const { root, stateRoot } = await makeStateRoot(t);
   t.after(async () => {
     await rm(root, { recursive: true, force: true });
   });

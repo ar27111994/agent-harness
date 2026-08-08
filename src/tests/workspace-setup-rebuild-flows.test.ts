@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
+import { clearRuntimeConfig } from "../config/runtime.js";
 import { runWorkspace } from "../workspace.js";
 import { restoreEnvVar } from "./env-test-utils.js";
 import { runSetup } from "../setup.js";
@@ -20,6 +21,11 @@ import { runRebuild } from "../rebuild.js";
 import { runWire } from "../wire.js";
 import { writeJsonFile, writeJsonLinesFile } from "../files.js";
 import { createIsolatedCliEnvironment } from "./built-cli-harness.js";
+import {
+  SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
+  SOURCE_SYNC_STATE_OUTPUT_PATH,
+} from "../domains/discovery/output-paths.js";
+import type { AssetCatalogEntry } from "../types.js";
 
 async function makeIsolated(t: {
   after: (fn: () => void | Promise<void>) => void;
@@ -33,6 +39,35 @@ async function makeIsolated(t: {
     await rm(tempRoot, { recursive: true, force: true });
   });
   const isolated = await createIsolatedCliEnvironment(tempRoot);
+
+  // In-process runs (runWorkspace/runSetup) resolve host config through
+  // process.env + the cached runtime config — the isolated env object is
+  // only applied to spawned children. Redirect process.env to the same
+  // fixture roots and clear the cache so preflight's requireHostPaths check
+  // and the generated local sources resolve inside the fixture (the
+  // platform opencode config root is already materialized by
+  // createIsolatedCliEnvironment).
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    HOME: process.env.HOME,
+    USERPROFILE: process.env.USERPROFILE,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+  process.env.AGENT_HARNESS_HOME = isolated.env.AGENT_HARNESS_HOME;
+  process.env.APPDATA = isolated.env.APPDATA;
+  process.env.HOME = isolated.env.HOME;
+  process.env.USERPROFILE = isolated.env.USERPROFILE;
+  process.env.XDG_CONFIG_HOME = isolated.env.XDG_CONFIG_HOME;
+  clearRuntimeConfig();
+  t.after(() => {
+    restoreEnvVar("AGENT_HARNESS_HOME", previousEnv.AGENT_HARNESS_HOME);
+    restoreEnvVar("APPDATA", previousEnv.APPDATA);
+    restoreEnvVar("HOME", previousEnv.HOME);
+    restoreEnvVar("USERPROFILE", previousEnv.USERPROFILE);
+    restoreEnvVar("XDG_CONFIG_HOME", previousEnv.XDG_CONFIG_HOME);
+    clearRuntimeConfig();
+  });
 
   // The workspace pipeline and rebuild regenerate demand → sources →
   // catalog: provide the canonical checked-in-style inputs so those steps
@@ -61,6 +96,61 @@ async function makeIsolated(t: {
 // Enable fetch mocking so any network attempt fails fast instead of hanging.
 function withMockFetchEnv(): NodeJS.ProcessEnv {
   return { ...process.env, AGENT_HARNESS_TEST_FETCH_MOCKS: "1" };
+}
+
+/**
+ * Seeds the discovery inputs the workspace pipeline REGENERATES from: one
+ * indexed source marked complete in the sync state plus its entry artifacts.
+ * The pipeline overwrites any pre-seeded catalog, so without this the
+ * generated catalog is empty on machines without real host config dirs and
+ * the recommend phase fails with "no recommendations".
+ */
+async function seedIndexedDiscoverySource(
+  stateRoot: string,
+  sourceId: string,
+  entries: AssetCatalogEntry[],
+): Promise<void> {
+  await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      {
+        id: sourceId,
+        name: sourceId,
+        kind: "registry",
+        authorityTier: "official-first-party",
+        publisher: { name: "fixture" },
+        hosts: ["opencode"],
+        assetKinds: ["skill"],
+        discoveryMode: "catalog",
+        priority: 100,
+        enabled: true,
+        endpoints: { baseUrl: "https://example.com/registry" },
+        rules: {
+          officialPreferred: true,
+          allowMirror: true,
+          allowInstall: true,
+        },
+      },
+    ],
+  });
+  await writeJsonFile(join(stateRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    sources: [
+      {
+        sourceId,
+        coverageMode: "indexed",
+        status: "complete",
+        indexedEntryCount: entries.length,
+        lastSyncedAt: new Date().toISOString(),
+        cursors: [],
+      },
+    ],
+  });
+  await writeJsonLinesFile(
+    join(stateRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+    entries,
+  );
 }
 
 /**
@@ -312,7 +402,7 @@ void test("workspace prints and fails on prerequisite diagnostics from activated
 
   // A catalog + demand profile so selection produces a recommendation and
   // the pipeline stages real bundle locks (install progress is required).
-  const assetEntry = {
+  const assetEntry: AssetCatalogEntry = {
     id: "ws-entry",
     displayName: "ws-entry",
     assetKind: "skill",
@@ -363,10 +453,9 @@ void test("workspace prints and fails on prerequisite diagnostics from activated
       activationEligible: true,
     },
   };
-  await writeJsonLinesFile(
-    join(stateRoot, "discover", "catalog.assets.jsonl"),
-    [assetEntry],
-  );
+  // The pipeline regenerates the catalog from discovery state — seed the
+  // indexed source so recommend deterministically sees ws-entry.
+  await seedIndexedDiscoverySource(stateRoot, "fixture-source", [assetEntry]);
   await writeJsonFile(
     join(stateRoot, "discover", "output", "demand-profile.json"),
     {
@@ -496,62 +585,60 @@ void test("workspace passes multiple intents through the pipeline (#428)", async
       },
     ],
   });
-  await writeJsonLinesFile(
-    join(stateRoot, "discover", "catalog.assets.jsonl"),
-    [
-      {
-        id: "ws-entry",
-        displayName: "ws-entry",
-        assetKind: "skill",
-        hosts: ["opencode"],
-        compatibilityMode: "native",
-        source: {
-          sourceId: "fixture-source",
-          authorityTier: "official-first-party",
-          sourceKind: "docs",
-          sourcePriority: 100,
-          originUrl: "https://example.com/assets/ws-entry",
-          publisher: "Fixture",
-          publisherVerified: true,
-        },
-        trust: { score: 100, signals: [] },
-        capabilities: ["fixture", "testing"],
-        install: {
-          method: "local-file",
-          nativeHosts: ["opencode"],
-          manifestEntry: "ws-entry",
-        },
-        evidence: {
-          manifestFound: true,
-          readmeFound: true,
-          examplesFound: false,
-          docsLinked: true,
-          filePath: "ws-entry.md",
-          rootPath: "/fixture",
-        },
-        maintenance: {
-          lastUpdated: "2026-01-01T00:00:00.000Z",
-          stars: 0,
-          releaseCadence: "active",
-        },
-        risk: {
-          level: "low",
-          hasHooks: false,
-          hasExecScripts: false,
-          requiresNetwork: false,
-        },
-        contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
-        fit: { portfolioFit: 0.9, hostFit: 0.9 },
-        dedupe: { candidateRankHint: "fixture" },
-        status: {
-          cataloged: true,
-          mirrorEligible: true,
-          installEligible: true,
-          activationEligible: true,
-        },
-      },
-    ],
-  );
+  const entry: AssetCatalogEntry = {
+    id: "ws-entry",
+    displayName: "ws-entry",
+    assetKind: "skill",
+    hosts: ["opencode"],
+    compatibilityMode: "native",
+    source: {
+      sourceId: "fixture-source",
+      authorityTier: "official-first-party",
+      sourceKind: "docs",
+      sourcePriority: 100,
+      originUrl: "https://example.com/assets/ws-entry",
+      publisher: "Fixture",
+      publisherVerified: true,
+    },
+    trust: { score: 100, signals: [] },
+    capabilities: ["fixture", "testing"],
+    install: {
+      method: "local-file",
+      nativeHosts: ["opencode"],
+      manifestEntry: "ws-entry",
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      filePath: "ws-entry.md",
+      rootPath: "/fixture",
+    },
+    maintenance: {
+      lastUpdated: "2026-01-01T00:00:00.000Z",
+      stars: 0,
+      releaseCadence: "active",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.9, hostFit: 0.9 },
+    dedupe: { candidateRankHint: "fixture" },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
+  };
+  // The pipeline regenerates the catalog from discovery state — seed the
+  // indexed source so recommend deterministically sees ws-entry.
+  await seedIndexedDiscoverySource(stateRoot, "fixture-source", [entry]);
   await writeJsonFile(
     join(stateRoot, "discover", "output", "demand-profile.json"),
     {

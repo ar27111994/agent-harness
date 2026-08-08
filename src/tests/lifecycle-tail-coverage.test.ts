@@ -6,14 +6,19 @@
  */
 
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
 import { cliInternals } from "../cli.js";
+import { clearRuntimeConfig } from "../config/runtime.js";
 import { restoreEnvVar } from "./env-test-utils.js";
 import { runDiscover, discoverInternals } from "../discover.js";
+import {
+  SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
+  SOURCE_SYNC_STATE_OUTPUT_PATH,
+} from "../domains/discovery/output-paths.js";
 import { runWorkspace } from "../workspace.js";
 import { runSetup } from "../setup.js";
 import { runRebuild, rebuildInternals } from "../rebuild.js";
@@ -86,11 +91,51 @@ async function makeRoot(t: {
   t.after(async () => {
     await rm(projectRoot, { recursive: true, force: true });
   });
-  const { mkdir } = await import("node:fs/promises");
   const workspaceRoot = join(projectRoot, "workspace");
   const stateRoot = join(projectRoot, "state");
   await mkdir(workspaceRoot, { recursive: true });
   await mkdir(stateRoot, { recursive: true });
+
+  // Hermetic host-config resolution: doctor/wire preflight the opencode
+  // host's requireHostPaths check against resolveDefaultOpenCodeConfigRoot().
+  // Point the config-dir env vars at the fixture and materialize the
+  // platform-appropriate opencode config root so the suite does not depend
+  // on the real machine's opencode directory (or the opencode CLI being
+  // installed, which can mask the check by creating the dir on probe).
+  const homeDirectory = join(projectRoot, "home");
+  const appDataDirectory = join(projectRoot, "appdata");
+  const xdgConfigHome = join(projectRoot, "xdg");
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+  process.env.AGENT_HARNESS_HOME = homeDirectory;
+  process.env.APPDATA = appDataDirectory;
+  process.env.XDG_CONFIG_HOME = xdgConfigHome;
+  clearRuntimeConfig();
+
+  const openCodeRoot =
+    process.platform === "win32"
+      ? join(appDataDirectory, "opencode")
+      : process.platform === "darwin"
+        ? join(homeDirectory, "Library", "Application Support", "opencode")
+        : join(xdgConfigHome, "opencode");
+  const vsCodeSettingsDirectory =
+    process.platform === "win32"
+      ? join(appDataDirectory, "Code", "User")
+      : process.platform === "darwin"
+        ? join(homeDirectory, "Library", "Application Support", "Code", "User")
+        : join(xdgConfigHome, "Code", "User");
+  await mkdir(openCodeRoot, { recursive: true });
+  await mkdir(vsCodeSettingsDirectory, { recursive: true });
+
+  t.after(async () => {
+    restoreEnvVar("AGENT_HARNESS_HOME", previousEnv.AGENT_HARNESS_HOME);
+    restoreEnvVar("APPDATA", previousEnv.APPDATA);
+    restoreEnvVar("XDG_CONFIG_HOME", previousEnv.XDG_CONFIG_HOME);
+    clearRuntimeConfig();
+  });
 
   await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
     schemaVersion: 1,
@@ -947,22 +992,67 @@ void test(
       { recursive: true },
     );
 
-    // A catalog + demand profile so selection produces recommendations and the
-    // pipeline passes the recommend phase.
-    await writeJsonLinesFile(
-      join(stateRoot, "discover", "catalog.assets.jsonl"),
-      [
-        buildAsset("ws-entry", {
-          capabilities: [
-            "typescript",
-            "testing",
-            "node",
-            "integration",
-            "fixture",
-          ],
-        }),
+    // The workspace pipeline REGENERATES the catalog from its discovery
+    // inputs (it overwrites any pre-seeded catalog), so seed the discovery
+    // state deterministically: one indexed source marked complete in the
+    // sync state plus its entry artifact. The generated catalog then always
+    // contains ws-entry regardless of what host config dirs exist on the
+    // machine (a clean CI runner has none).
+    const wsEntry: AssetCatalogEntry = buildAsset("ws-entry", {
+      capabilities: ["typescript", "testing", "node", "integration", "fixture"],
+      source: {
+        sourceId: "fixture-strong-source",
+        sourceKind: "registry",
+        authorityTier: "official-first-party",
+        sourcePriority: 100,
+        originUrl: "https://example.com/assets/ws-entry",
+        publisher: "Fixture",
+        publisherVerified: true,
+      },
+    });
+    await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+      schemaVersion: 1,
+      sources: [
+        {
+          id: "fixture-strong-source",
+          name: "fixture-strong-source",
+          kind: "registry",
+          authorityTier: "official-first-party",
+          publisher: { name: "fixture" },
+          hosts: ["opencode"],
+          assetKinds: ["skill"],
+          discoveryMode: "catalog",
+          priority: 100,
+          enabled: true,
+          endpoints: { baseUrl: "https://example.com/registry" },
+          rules: {
+            officialPreferred: true,
+            allowMirror: true,
+            allowInstall: true,
+          },
+        },
       ],
+    });
+    await writeJsonFile(join(stateRoot, ...SOURCE_SYNC_STATE_OUTPUT_PATH), {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      sources: [
+        {
+          sourceId: "fixture-strong-source",
+          coverageMode: "indexed",
+          status: "complete",
+          indexedEntryCount: 1,
+          lastSyncedAt: new Date().toISOString(),
+          cursors: [],
+        },
+      ],
+    });
+    await writeJsonLinesFile(
+      join(stateRoot, ...SOURCE_SYNC_ENTRIES_OUTPUT_PATH),
+      [wsEntry],
     );
+
+    // A demand profile so selection keeps ws-entry and recommend produces it.
     await writeJsonFile(
       join(stateRoot, "discover", "output", "demand-profile.json"),
       {
