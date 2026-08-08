@@ -482,3 +482,21 @@ void test("stale-lock probe treats a vanished lock as not stale", async () => {
     await rm(root, { force: true, recursive: true });
   }
 });
+
+void test("path-exists classification handles non-error payloads defensively", async () => {
+  // The lock-open catch classifies by error code defensively; payloads that
+  // are not Error-like objects must be treated as non-contention so they
+  // fall through to the rethrow path instead of being swallowed.
+  assert.equal(
+    stateRootInternals.isPathExistsErrorForTests("not-an-error"),
+    false,
+  );
+  assert.equal(
+    stateRootInternals.isPathExistsErrorForTests({ code: "EEXIST" }),
+    true,
+  );
+  assert.equal(
+    stateRootInternals.isPathExistsErrorForTests({ code: "EPERM" }),
+    false,
+  );
+});

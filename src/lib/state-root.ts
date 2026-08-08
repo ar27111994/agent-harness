@@ -243,6 +243,10 @@ export const stateRootInternals = {
    */
   isStaleLockFileForTests: isStaleLockFile,
   /**
+   * Returns whether a filesystem error means the lock file already exists.
+   */
+  isPathExistsErrorForTests: isPathExistsError,
+  /**
    * Replaces the seed-lock timing policy (stale age / wait budget / poll
    * interval) so tests can exercise the stale-break and timeout branches
    * deterministically instead of waiting on real timers.
