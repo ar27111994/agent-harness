@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
  * they are exempt from the README/.env.example documentation requirement.
  */
 export const TEST_ONLY_ENV_VARS = new Set([
+  "AGENT_HARNESS_ARGV_ECHO_STATE",
   "AGENT_HARNESS_FAKE_CODE_STATE",
   "AGENT_HARNESS_TEST_FETCH_MOCKS",
 ]);
