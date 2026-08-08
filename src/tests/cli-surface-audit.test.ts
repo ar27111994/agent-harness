@@ -236,7 +236,10 @@ void test("every known subcommand has subcommand-specific --help", async () => {
       cwd: process.cwd(),
       env: {},
       stateRoot: "",
-      timeout: 10_000,
+      // Each spawn pays the CLI cold start (~2s idle, up to ~16s under CPU
+      // contention — see the version-probe probes); 51 children in this
+      // loop must never flake out on a loaded runner.
+      timeout: 90_000,
       args: [domain, subcommand, "--help"],
     });
 

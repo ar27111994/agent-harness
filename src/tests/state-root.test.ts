@@ -435,14 +435,15 @@ void test("concurrent prepareStateRoot calls never race managed-asset seeding", 
 void test("seed lock rethrows non-contention lock-open failures unchanged", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-"));
   try {
-    // A directory at the lock path makes open(..., "wx") fail with a
-    // non-EEXIST error (EISDIR/EPERM), proving unrelated failures propagate
-    // instead of being mistaken for lock contention.
-    const lockPath = join(root, STATE_ROOT_SEED_LOCK_FILE);
-    await mkdir(lockPath);
+    // A regular file as the state "root" makes open(<root>/lock, "wx")
+    // fail with a non-EEXIST error (ENOTDIR/ENOENT) on every platform —
+    // not a contention signal — proving unrelated failures propagate
+    // unchanged instead of being mistaken for lock contention.
+    const blockerPath = join(root, "not-a-directory");
+    await writeFile(blockerPath, "blocker", "utf8");
 
     await assert.rejects(
-      runWithStateRootSeedLock(root, async () => {}),
+      runWithStateRootSeedLock(blockerPath, async () => {}),
       (error: unknown) =>
         typeof error === "object" &&
         error !== null &&
@@ -450,9 +451,9 @@ void test("seed lock rethrows non-contention lock-open failures unchanged", asyn
         (error as { code: unknown }).code !== "EEXIST",
     );
     assert.equal(
-      await readFile(lockPath, "utf8").catch(() => null),
-      null,
-      "the lock-path directory must remain untouched after the failure",
+      await readFile(blockerPath, "utf8").catch(() => null),
+      "blocker",
+      "the blocking file must remain untouched after the failure",
     );
   } finally {
     await rm(root, { force: true, recursive: true });

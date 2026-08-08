@@ -145,7 +145,7 @@ void test("concurrent quarantine review writers leave valid, uncorrupted state (
         cwd: workspaceRoot,
         env,
         stateRoot,
-        timeout: 60_000,
+        timeout: 120_000,
         args: [
           "quarantine",
           "approve",
@@ -234,7 +234,7 @@ void test("readers observe complete state while concurrent writers churn the mir
       cwd: workspaceRoot,
       env,
       stateRoot,
-      timeout: 60_000,
+      timeout: 120_000,
       args: ["quarantine", "list"],
     });
     const writers = Array.from({ length: 6 }, (_, index) =>
@@ -242,7 +242,7 @@ void test("readers observe complete state while concurrent writers churn the mir
         cwd: workspaceRoot,
         env,
         stateRoot,
-        timeout: 60_000,
+        timeout: 120_000,
         args: [
           "quarantine",
           "approve",
