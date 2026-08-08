@@ -431,3 +431,53 @@ void test("concurrent prepareStateRoot calls never race managed-asset seeding", 
     await rm(root, { force: true, recursive: true });
   }
 });
+
+void test("seed lock rethrows non-contention lock-open failures unchanged", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-"));
+  try {
+    // A directory at the lock path makes open(..., "wx") fail with a
+    // non-EEXIST error (EISDIR/EPERM), proving unrelated failures propagate
+    // instead of being mistaken for lock contention.
+    const lockPath = join(root, STATE_ROOT_SEED_LOCK_FILE);
+    await mkdir(lockPath);
+
+    await assert.rejects(
+      runWithStateRootSeedLock(root, async () => {}),
+      (error: unknown) =>
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: unknown }).code !== "EEXIST",
+    );
+    assert.equal(
+      await readFile(lockPath, "utf8").catch(() => null),
+      null,
+      "the lock-path directory must remain untouched after the failure",
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("stale-lock probe treats a vanished lock as not stale", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-"));
+  try {
+    stateRootInternals.setSeedLockPolicyForTests({
+      staleAfterMs: 10,
+      waitBudgetMs: 5_000,
+      pollIntervalMs: 10,
+    });
+    // The stat-miss path: the holder removed the lock between our failed
+    // open and the stale probe — the probe must say "not stale" so the
+    // next loop iteration re-attempts acquisition instead of breaking it.
+    assert.equal(
+      await stateRootInternals.isStaleLockFileForTests(
+        join(root, STATE_ROOT_SEED_LOCK_FILE),
+      ),
+      false,
+    );
+  } finally {
+    resetSeedLockPolicy();
+    await rm(root, { force: true, recursive: true });
+  }
+});

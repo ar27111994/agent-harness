@@ -14,6 +14,7 @@ import test from "node:test";
 import { promisify } from "node:util";
 
 import { builtCliPath, repositoryRoot } from "./built-cli-harness.js";
+import { setupInternals } from "../setup.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -193,4 +194,16 @@ void test("isolated workspace sees the same unknown-option behavior (#431)", asy
 
   assert.match(result.stderr, /error: unknown option '--nope'/u);
   assert.equal(result.exitCode, 1);
+});
+
+void test("setup flag-spec guard is inert for subcommands without a spec", async () => {
+  // The dispatch switch only consults the guard for doctor/hosts/login;
+  // an unknown subcommand must never be misread as a flag rejection.
+  assert.equal(
+    await setupInternals.hasUnknownFlagsForSetupCommand(
+      "not-a-setup-subcommand",
+      ["--host"],
+    ),
+    false,
+  );
 });

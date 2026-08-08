@@ -238,6 +238,11 @@ export const stateRootInternals = {
    */
   runSeedSectionForTests: runWithStateRootSeedLock,
   /**
+   * Returns whether a lock file is old enough to be treated as abandoned
+   * crash litter, given the current seed-lock policy.
+   */
+  isStaleLockFileForTests: isStaleLockFile,
+  /**
    * Replaces the seed-lock timing policy (stale age / wait budget / poll
    * interval) so tests can exercise the stale-break and timeout branches
    * deterministically instead of waiting on real timers.

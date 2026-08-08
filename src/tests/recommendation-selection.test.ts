@@ -1363,3 +1363,53 @@ function createDemandProfile(
     evidence,
   };
 }
+
+void test("host preference fallback canonicalizes concerns without the precomputed set", () => {
+  const policy = buildPolicy({
+    recommendationLimit: 1,
+    targetConcerns: [{ concern: "backend", minimum: 1, weight: 200 }],
+  });
+  policy.concernKeywordMap = { backend: ["backend"] };
+  policy.synonyms = { "node-backend": ["backend"] };
+
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: ["backend"],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const policyContext = buildPolicySearchContext(policy);
+  const base = buildCandidateRecommendationBase(
+    buildCatalogEntry("backend-skill", "skill", 10, {
+      capabilities: ["skill", "backend"],
+    }),
+    demandContext,
+    policy,
+    policyContext,
+  );
+
+  assert.notEqual(base, null);
+  const candidate = buildCandidateRecommendation(
+    base as CandidateRecommendationBase,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+
+  assert.notEqual(candidate, null);
+  assert.ok(
+    (candidate?.breakdown.hostPreference ?? 0) >= 1,
+    "the no-set fallback must still enforce canonicalized concern targets",
+  );
+});

@@ -486,3 +486,26 @@ void test("buildSearchTerms with precomputed lookup is consistent across many va
   const withoutLookup = buildSearchTerms(values, policy);
   assert.deepEqual([...withLookup].sort(), [...withoutLookup].sort());
 });
+
+void test("normalizePhrase memo clears at its bound and stays correct", async () => {
+  const { normalizePhrase } = await import("../recommend/signals.js");
+
+  // Distinct raw phrases beyond the memo cap force the cache-clear branch;
+  // the results stay correct and the memo keeps working afterwards.
+  const first = "Boundary Phrase-Á";
+  assert.equal(normalizePhrase(first), "boundary-phrase");
+
+  for (let index = 0; index < 20_100; index += 1) {
+    assert.equal(
+      normalizePhrase(`Unique Phrase ${index}`),
+      `unique-phrase-${index}`,
+    );
+  }
+
+  assert.equal(
+    normalizePhrase("Boundary Phrase-Á"),
+    "boundary-phrase",
+    "normalization must remain correct across the cache-clearing boundary",
+  );
+  assert.equal(normalizePhrase("Unique Phrase 42"), "unique-phrase-42");
+});

@@ -634,6 +634,7 @@ function printSetupHelp(): void {
  */
 export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
+  hasUnknownFlagsForSetupCommand,
   parsePositiveIntegerEnv,
   runAdapterPreflightWithTimeout,
   runDoctor,
