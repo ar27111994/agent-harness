@@ -5,7 +5,7 @@ import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
 import type * as FsPromises from "node:fs/promises";
 import { createRequire, syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
+import { join } from "node:path";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
@@ -506,27 +506,13 @@ void test("buildWrapperRefusal fail-closes Windows shell wrappers with metachara
   );
 });
 
-void test("runRuntimeCommand refuses a resolved Windows wrapper with metacharacter args on any platform (#428)", async (t) => {
-  const tempRoot = await mkdtemp(
-    join(tmpdir(), "agent-harness-wrapper-refusal-"),
-  );
-  const previousPath = process.env.PATH;
-  t.after(async () => {
-    if (previousPath === undefined) {
-      delete process.env.PATH;
-    } else {
-      process.env.PATH = previousPath;
-    }
-    await rm(tempRoot, { recursive: true, force: true });
-  });
-
-  await writeFile(join(tempRoot, "fixture-tool.CMD"), "@echo off\n", "utf8");
-  // POSIX resolution requires X_OK — grant it explicitly (no-op on win32).
-  await chmod(join(tempRoot, "fixture-tool.CMD"), 0o755);
-  process.env.PATH = `${tempRoot}${delimiter}${previousPath ?? ""}`;
-
+void test("runRuntimeCommand refuses a resolved Windows wrapper with metacharacter args on any platform (#428)", async () => {
+  // Resolution falls back to the bare executable name when nothing is found
+  // on PATH (\`found ?? executable\`), so a \`.CMD\`-suffixed name reaches the
+  // wrapper-refusal check deterministically on every OS — no fixture file,
+  // PATH mutation, or platform-specific join semantics needed.
   const result = await preflightInternals.runRuntimeCommand(
-    "fixture-tool",
+    "fixture-tool.CMD",
     ["--host", "a&b"],
     undefined,
     "win32",
