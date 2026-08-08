@@ -1222,12 +1222,14 @@ The quality tooling includes:
 npm run quality:detection
 npm run quality:policy
 npm run benchmark:scan
+npm run benchmark:paths
 npm run validate:recommendations
 ```
 
 - `quality:detection` checks representative archetype fixtures and reports precision/recall-style metrics.
 - `quality:policy` verifies detector-emitted terms are represented in recommendation policy maps and writes draft suggestions for human review.
 - `benchmark:scan` enforces scan budget expectations.
+- `benchmark:paths` enforces 10-second wall-clock budgets on the recommend, activate-selection, and mirror-plan hot paths over a synthetic 1,000-entry catalog, so complexity regressions fail CI.
 - `validate:recommendations` evaluates golden recommendation fixtures and prints aggregate quality signals such as top-rank reason mix, top-rank confidence mix, broad-fallback frequency, and local-availability frequency.
 
 ## Environment variables
@@ -1631,7 +1633,7 @@ For release readiness, run:
 npm run validate:release
 ```
 
-The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, coverage-gated unit/integration tests, the dedicated self-hosting suite, scan budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. It also publishes a coverage summary into the GitHub Actions step summary for each run. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
+The CI quality workflow runs on Ubuntu, macOS, and Windows. It validates linting, formatting, types, coverage-gated unit/integration tests, the dedicated self-hosting suite, scan and lifecycle-path budgets, detection quality, policy coverage, isolated CLI smoke checks, packed artifact smoke checks, and recommendation fixtures. It also publishes a coverage summary into the GitHub Actions step summary for each run. The release workflow additionally runs production dependency audit and npm publish dry-run checks before tagged publication.
 
 For output/logging conventions and the current decision to prefer lightweight internal helpers over a full logging library, see [`LOGGING-STRATEGY.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/guides/LOGGING-STRATEGY.md).
 
