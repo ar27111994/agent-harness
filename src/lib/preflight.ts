@@ -468,15 +468,13 @@ async function runRuntimeCommand(
   // quoting. Legitimate wrapper callers (host CLI version probes) pass
   // static literal arguments; anything else must be refused before a shell
   // ever sees it.
-  if (
-    isWindowsShellWrapperPath(resolvedExecutable, process.platform) &&
-    args.some(containsShellMetaCharacters)
-  ) {
-    return {
-      cancelled: false,
-      exitCode: Number.MAX_SAFE_INTEGER,
-      message: `Refusing to run Windows shell wrapper with shell-metacharacter arguments: '${args.join("' '")}'. Host CLI wrapper arguments must be static literals.`,
-    };
+  const wrapperRefusal = buildWrapperRefusal(
+    resolvedExecutable,
+    args,
+    process.platform,
+  );
+  if (wrapperRefusal) {
+    return wrapperRefusal;
   }
 
   return new Promise((resolve) => {
@@ -584,6 +582,34 @@ export function isWindowsShellWrapperPath(
   return platform === "win32" && /\.(?:cmd|bat)$/iu.test(executablePath);
 }
 
+/**
+ * Returns the fail-closed refusal for a Windows shell wrapper invoked with
+ * shell-metacharacter arguments, or null when the command is safe to run.
+ *
+ * Extracted from {@link runRuntimeCommand} so the refusal decision (and the
+ * exact refusal payload) is exercised on every platform: the guard is
+ * parameterized by platform, letting tests force the win32 wrapper branch on
+ * non-Windows runners. callers keep passing `process.platform`.
+ */
+export function buildWrapperRefusal(
+  resolvedExecutable: string,
+  args: string[],
+  platform: NodeJS.Platform = process.platform,
+): { cancelled: false; exitCode: number; message: string } | null {
+  if (
+    isWindowsShellWrapperPath(resolvedExecutable, platform) &&
+    args.some(containsShellMetaCharacters)
+  ) {
+    return {
+      cancelled: false,
+      exitCode: Number.MAX_SAFE_INTEGER,
+      message: `Refusing to run Windows shell wrapper with shell-metacharacter arguments: '${args.join("' '")}'. Host CLI wrapper arguments must be static literals.`,
+    };
+  }
+
+  return null;
+}
+
 interface RuntimeCommandSpawnSpecOptions {
   executable: string;
   args: string[];
@@ -680,6 +706,7 @@ export async function checkPathExists(
 export const preflightInternals = {
   buildRuntimeCommandSpawnSpec,
   buildWindowsPowerShellCommand,
+  buildWrapperRefusal,
   checkRuntimeCommand,
   containsShellMetaCharacters,
   findExecutableOnPath,

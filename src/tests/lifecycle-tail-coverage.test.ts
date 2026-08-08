@@ -84,6 +84,30 @@ function buildAsset(
   };
 }
 
+/**
+ * Minimal registry source for the source-health summary fixture.
+ */
+function buildSummarySource(id: string): Record<string, unknown> {
+  return {
+    id,
+    name: id,
+    kind: "registry",
+    authorityTier: "official-compatible",
+    publisher: { name: "fixture" },
+    hosts: ["opencode"],
+    assetKinds: ["skill"],
+    discoveryMode: "catalog",
+    priority: 100,
+    enabled: true,
+    endpoints: { baseUrl: "https://example.com/registry" },
+    rules: {
+      officialPreferred: true,
+      allowMirror: true,
+      allowInstall: true,
+    },
+  };
+}
+
 async function makeRoot(t: {
   after: (fn: () => void | Promise<void>) => void;
 }): Promise<{ workspaceRoot: string; stateRoot: string }> {
@@ -733,6 +757,17 @@ void test("discover full --quiet/summary with a seeded failed source hit the sev
   const { mkdir } = await import("node:fs/promises");
   await mkdir(join(stateRoot, "state", "discover"), { recursive: true });
 
+  // The health report iterates the SOURCE REGISTRY, so the seeded sync
+  // states must also be registered in sources.json to appear in it.
+  await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      buildSummarySource("broken-source"),
+      buildSummarySource("stale-source-a"),
+      buildSummarySource("stale-source-b"),
+    ],
+  });
+
   await writeJsonFile(
     join(stateRoot, "state", "discover", "source-sync.json"),
     {
@@ -748,6 +783,30 @@ void test("discover full --quiet/summary with a seeded failed source hit the sev
           reason: "fetch failed",
           cursors: [],
           consecutiveFailures: 5,
+        },
+        // Two STALE sources sharing one failure reason exercise the
+        // summary's already-seen-reason map branch: failed sources map to
+        // error severity (excluded from the warning summary), stale sources
+        // map to warning severity with the sync reason attached.
+        {
+          sourceId: "stale-source-a",
+          coverageMode: "indexed",
+          status: "stale",
+          lastSyncedAt: new Date().toISOString(),
+          indexedEntryCount: 0,
+          reason: "fetch failed",
+          cursors: [],
+          consecutiveFailures: 2,
+        },
+        {
+          sourceId: "stale-source-b",
+          coverageMode: "indexed",
+          status: "stale",
+          lastSyncedAt: new Date().toISOString(),
+          indexedEntryCount: 0,
+          reason: "fetch failed",
+          cursors: [],
+          consecutiveFailures: 1,
         },
       ],
     },

@@ -376,3 +376,36 @@ void test("verifyVsCodeExtensionInstalled strips only trailing @version — IDs 
     "empty output should not match",
   );
 });
+
+void test("buildShellWrapperRefusal fail-closes .cmd wrappers with metacharacter args on every platform (#428)", () => {
+  const refusal = extensionInstallerInternals.buildShellWrapperRefusal(
+    "code.CMD",
+    ["--install-extension", "github.copilot", "a&b"],
+    "win32",
+  );
+  assert.ok(
+    refusal !== null,
+    "win32 .cmd wrapper + metachar args must be refused",
+  );
+  assert.equal(refusal?.exitCode, Number.MAX_SAFE_INTEGER);
+  assert.match(refusal?.stderr ?? "", /strict VS Code pattern/u);
+
+  assert.equal(
+    extensionInstallerInternals.buildShellWrapperRefusal(
+      "code.CMD",
+      ["--install-extension", "github.copilot"],
+      "win32",
+    ),
+    null,
+    "safe literal args on a wrapper pass through",
+  );
+  assert.equal(
+    extensionInstallerInternals.buildShellWrapperRefusal(
+      "code",
+      ["a&b"],
+      "linux",
+    ),
+    null,
+    "non-win32 platforms are not the wrapper class",
+  );
+});

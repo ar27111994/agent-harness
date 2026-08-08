@@ -240,20 +240,16 @@ async function executeNativeCommand(
   for (const candidateExecutable of buildExecutableCandidates(executable)) {
     try {
       const hostCommandConfig = getRuntimeConfig().hostCommands;
+      const refusal = buildShellWrapperRefusal(
+        candidateExecutable,
+        args,
+        process.platform,
+      );
+      if (refusal) {
+        return refusal;
+      }
       const runsThroughShell =
         shouldRunCandidateThroughShell(candidateExecutable);
-      // Fail closed: cmd.exe re-parses the raw command line of a .cmd/.bat
-      // invocation, so shell-metacharacter arguments cannot be made safe by
-      // quoting. Extension ids are strict-pattern filtered upstream; any
-      // metacharacter reaching this point must be refused, not executed.
-      if (runsThroughShell && args.some(containsShellMetaCharacters)) {
-        return {
-          exitCode: Number.MAX_SAFE_INTEGER,
-          stdout: "",
-          stderr:
-            "Refusing to run Windows shell wrapper with shell-metacharacter arguments. Extension ids must match the strict VS Code pattern.",
-        };
-      }
       const result = await execFileAsync(candidateExecutable, args, {
         shell: runsThroughShell,
         windowsHide: true,
@@ -284,6 +280,37 @@ function shouldRunCandidateThroughShell(
 ): boolean {
   const extension = extname(candidateExecutable).toLowerCase();
   return platform === "win32" && (extension === ".cmd" || extension === ".bat");
+}
+
+/**
+ * Returns the fail-closed refusal for a Windows shell wrapper invoked with
+ * shell-metacharacter arguments, or null when the command is safe to run.
+ *
+ * Extracted from {@link executeNativeCommand} so the refusal payload is
+ * exercised on every platform: the guard is parameterized by platform,
+ * letting tests force the win32 wrapper branch on non-Windows runners.
+ * Extension ids are strict-pattern filtered upstream; any metacharacter
+ * reaching this point must be refused, not executed (cmd.exe re-parses the
+ * raw command line, so quoting cannot make it safe).
+ */
+export function buildShellWrapperRefusal(
+  candidateExecutable: string,
+  args: string[],
+  platform: NodeJS.Platform = process.platform,
+): { exitCode: number; stdout: string; stderr: string } | null {
+  if (
+    shouldRunCandidateThroughShell(candidateExecutable, platform) &&
+    args.some(containsShellMetaCharacters)
+  ) {
+    return {
+      exitCode: Number.MAX_SAFE_INTEGER,
+      stdout: "",
+      stderr:
+        "Refusing to run Windows shell wrapper with shell-metacharacter arguments. Extension ids must match the strict VS Code pattern.",
+    };
+  }
+
+  return null;
 }
 
 function buildExecutableCandidates(
@@ -337,6 +364,7 @@ function quoteFormattedCommand(value: string): string {
  */
 export const extensionInstallerInternals = {
   buildExecutableCandidates,
+  buildShellWrapperRefusal,
   executeNativeCommand,
   formatCommand,
   shouldRunCandidateThroughShell,
