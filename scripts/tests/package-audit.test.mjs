@@ -7,6 +7,7 @@ import { dirname, join, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import {
+  REQUIRED_PACKED_FILES,
   buildNpmInvocation,
   resolvePackageAuditAction,
   runPackageAudit,
@@ -16,22 +17,9 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-const REQUIRED_FILES = [
-  "dist/cli.js",
-  "dist/cli.d.ts",
-  "README.md",
-  "CHANGELOG.md",
-  "LICENSE",
-  "docs/guides/V1-TO-V2-UPGRADE.md",
-  "docs/guides/V2-CONTRACT.md",
-  "docs/guides/TRUST-CENTER.md",
-  "docs/guides/SAFE-DEFAULTS.md",
-  "docs/guides/RELEASE-PROCESS.md",
-  "docs/playbooks/QUARANTINE-PLAYBOOK.md",
-  "docs/guides/HARNESS-MAINTENANCE-GUIDE.md",
-  "discover/sources.json",
-  "mirror/policy.json",
-];
+// The fixture represents a compliant package; derive it from the audit's
+// pinned required set so the two can never drift apart again.
+const REQUIRED_FILES = REQUIRED_PACKED_FILES;
 
 test("package audit accepts expected runtime and documentation files", async () => {
   const cwd = await createFixturePackage(REQUIRED_FILES);

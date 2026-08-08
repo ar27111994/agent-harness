@@ -8,7 +8,15 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_BUFFER = 10_000_000;
-const REQUIRED_PACKED_FILES = [
+
+/**
+ * Files every packed tarball must contain, pinned so missing runtime or
+ * trust documentation fails the release audit instead of shipping broken.
+ * The audit tests build their fixtures from this same list so the fixture
+ * always represents a compliant package (no drift between the checker and
+ * the check).
+ */
+export const REQUIRED_PACKED_FILES = [
   "dist/cli.js",
   "dist/cli.d.ts",
   // Split-domain runtime modules must ship with the tarball — the earlier
