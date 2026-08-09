@@ -500,3 +500,54 @@ void test("path-exists classification handles non-error payloads defensively", a
     false,
   );
 });
+
+void test("three concurrent seed-lock contenders serialize behind a live holder", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-three-"));
+  try {
+    stateRootInternals.setSeedLockPolicyForTests({
+      staleAfterMs: 60_000,
+      waitBudgetMs: 5_000,
+      pollIntervalMs: 5,
+    });
+
+    // The acquirable order is a genuine O_EXCL polling race, so the
+    // invariant under test is SERIALIZATION: sections never overlap, every
+    // contender runs exactly once, and the lock is removed afterwards.
+    let active = 0;
+    let maxActive = 0;
+    const ran: string[] = [];
+    const section = async (name: string): Promise<void> => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      ran.push(name);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      active -= 1;
+    };
+
+    const holder = runWithStateRootSeedLock(root, () => section("holder"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // Three contenders queue while the holder still owns the lock.
+    const contenders = ["contender-a", "contender-b", "contender-c"].map(
+      (name) => runWithStateRootSeedLock(root, () => section(name)),
+    );
+
+    await Promise.all([holder, ...contenders]);
+    assert.equal(maxActive, 1, "lock sections must never overlap");
+    assert.deepEqual(
+      [...ran].sort(),
+      ["contender-a", "contender-b", "contender-c", "holder"],
+      "every contender section must run exactly once",
+    );
+    assert.equal(
+      await readFile(join(root, STATE_ROOT_SEED_LOCK_FILE), "utf8").catch(
+        () => null,
+      ),
+      null,
+      "lock file must be removed after all contenders finish",
+    );
+  } finally {
+    resetSeedLockPolicy();
+    await rm(root, { recursive: true, force: true });
+  }
+});

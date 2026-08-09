@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   harvestLocalDirectorySource,
   harvestLocalManifestSource,
+  localHarvesterInternals,
 } from "../domains/discovery/local-harvesters.js";
 import { buildGeneratedLocalSources } from "../domains/discovery/local-sources.js";
 import type {
@@ -317,3 +318,53 @@ function buildSelectionRegistry(): SelectionRegistry {
     duplicateGroups: [],
   };
 }
+
+void test("cursor config classifier handles adversarial path shapes deterministically (review 2026-08-09)", () => {
+  const source = buildLocalSource("local-cursor-config", "/fixture", [
+    "cursor",
+  ]);
+
+  const classify = (relativePath: string): string | null => {
+    const classified = localHarvesterInternals.classifyLocalDirectoryFile(
+      source,
+      relativePath,
+    );
+    return classified?.assetKind ?? null;
+  };
+
+  // Positive controls (valid layouts still classify after the segment-scan
+  // rewrite).
+  assert.equal(classify("rules/frontend.mdc"), "instruction");
+  assert.equal(classify("plugins/team/rules/x.mdc"), "instruction");
+  assert.equal(classify("plugins/team/agents/x.md"), "agent");
+  assert.equal(classify("plugins/team/commands/x.md"), "prompt-pack");
+  assert.equal(classify("plugins/team/hooks/x.json"), "hook");
+  assert.equal(classify("plugins/team/skills/deep/SKILL.md"), "skill");
+
+  // Adversarial shapes from the CodeQL js/polynomial-redos alert notes:
+  // strings starting with the target dir followed by many repetitions of
+  // "./<target>/." must terminate with the deterministic null (they are not
+  // valid Cursor layouts and previously fed nested-quantifier regexes).
+  const rulesRepetition = "./rules/".repeat(500) + "x.mdc";
+  assert.equal(classify(rulesRepetition), null);
+  assert.equal(classify("a/rules/".repeat(500) + "x.mdc"), null);
+  assert.equal(classify("./skills/".repeat(500) + "SKILL.md"), null);
+  assert.equal(classify("a/hooks/".repeat(500) + "x.json"), null);
+
+  // A long plugins-prefix chain IS a valid layout under the language
+  // ("plugins/" + any dirs + target), so it must classify — and terminate.
+  assert.equal(classify("plugins/".repeat(300) + "rules/x.mdc"), "instruction");
+  assert.equal(classify("plugins/".repeat(300) + "agents/x.md"), "agent");
+  assert.equal(
+    classify("plugins/".repeat(300) + "commands/x.md"),
+    "prompt-pack",
+  );
+  assert.equal(classify("plugins/".repeat(300) + "hooks/x.json"), "hook");
+  assert.equal(
+    classify("plugins/".repeat(300) + "skills/deep/SKILL.md"),
+    "skill",
+  );
+
+  // Pathological single segments (no slashes) terminate as unmatched.
+  assert.equal(classify(`${"r".repeat(100_000)}.mdc`), null);
+});

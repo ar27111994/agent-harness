@@ -783,3 +783,90 @@ void test("atomic writeJsonFile churn never exposes partial JSON to readers (#42
     await rm(root, { recursive: true, force: true });
   }
 });
+
+void test("high-load atomic churn stress never exposes partial JSON to readers", async () => {
+  const root = await mkdtempFixture("atomic-churn-load");
+  try {
+    const statePath = join(root, "state.json");
+    await writeJsonFile(statePath, { schemaVersion: 1, seq: 0 });
+
+    // Heavier than the regular churn test: more writers, more rounds, and a
+    // larger payload widen the rename/remove window so reader atomicity is
+    // stress-tested rather than probed (review gap: the manual 45b4207
+    // stress was not committed).
+    const writerCount = 16;
+    const rounds = 20;
+    const writers = Array.from({ length: writerCount }, (_, writerIndex) =>
+      (async () => {
+        for (let round = 0; round < rounds; round += 1) {
+          try {
+            await writeJsonFile(statePath, {
+              schemaVersion: 1,
+              writer: writerIndex,
+              seq: round,
+              payload: "x".repeat(8192),
+            });
+          } catch {
+            // Writer retries may exhaust under artificial churn — expected.
+          }
+        }
+      })(),
+    );
+
+    let observedPartial = false;
+    let partialEvidence = "";
+    let observedInconsistent = false;
+    let observedReads = 0;
+    const readerErrors: string[] = [];
+    const readers = Array.from({ length: 8 }, () =>
+      (async () => {
+        for (let round = 0; round < rounds * 3; round += 1) {
+          let raw: string | null;
+          try {
+            raw = await readTextFileOrNull(statePath);
+          } catch (error) {
+            readerErrors.push(String(error));
+            continue;
+          }
+          if (raw === null) {
+            continue;
+          }
+          observedReads += 1;
+          try {
+            const parsed = JSON.parse(raw) as {
+              schemaVersion: number;
+              payload: string;
+            };
+            if (parsed.schemaVersion !== 1) {
+              observedInconsistent = true;
+              partialEvidence = raw.slice(0, 300);
+            }
+          } catch {
+            observedPartial = true;
+            partialEvidence = raw.slice(0, 300);
+          }
+        }
+      })(),
+    );
+
+    await Promise.all([...writers, ...readers]);
+    assert.equal(
+      observedPartial,
+      false,
+      `readers must never see partial JSON (evidence: ${partialEvidence || "none"})`,
+    );
+    assert.equal(
+      observedInconsistent,
+      false,
+      `readers must always see schema-valid docs (evidence: ${partialEvidence || "none"})`,
+    );
+    assert.ok(observedReads > 0, "readers made progress under load");
+    assert.deepEqual(
+      readerErrors,
+      [],
+      "readers must not hit transient open errors under load",
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
