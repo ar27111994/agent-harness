@@ -244,7 +244,9 @@ async function main(opts) {
 
 export { main, formatDriftReport };
 
-/* c8 ignore next 3 */
+// Direct-execution guard (no c8-ignore per the #428 AC): the truthy arm is
+// covered by the spawned direct-run test in
+// scripts/tests/check-env-readme-drift.test.mjs.
 if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().then((code) => process.exit(code));
 }

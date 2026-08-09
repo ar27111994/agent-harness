@@ -98,7 +98,10 @@ export async function main(configFile) {
   return 1;
 }
 
-/* c8 ignore next 3 */
+// Direct-execution guard (no c8-ignore per the #428 "no new ignore
+// comments" AC): the truthy arm is covered by the spawned direct-run test
+// in scripts/tests/check-coverage-exclusions.test.mjs, which the coverage
+// harness merges back into the gate's lcov.
 if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().then((code) => process.exit(code));
 }

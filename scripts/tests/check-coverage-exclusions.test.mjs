@@ -163,4 +163,27 @@ describe("main", () => {
       process.exit = origExit;
     }
   });
+
+  // #428 AC letter: the gate tool itself must not carry c8-ignore comments.
+  // Spawning the direct-execution guard (resolve(argv[1]) === import.meta.url
+  // truthy arm) covers those lines for real; the harness merges the child's
+  // lcov back into the gate.
+  it("runs the direct-execution entrypoint against the repo config and exits 0", async () => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const scriptPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "check-coverage-exclusions.mjs",
+    );
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      [scriptPath],
+      { cwd: repoRoot },
+    );
+    assert.match(`${stdout}${stderr}`, /coverage-exclusions check: OK/u);
+  });
 });

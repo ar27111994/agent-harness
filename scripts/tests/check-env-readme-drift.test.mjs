@@ -751,3 +751,24 @@ describe("main", () => {
     }
   });
 });
+
+describe("direct execution", () => {
+  it("runs the direct-execution entrypoint against the repo and exits 0", async () => {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const { dirname, join } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const scriptPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "check-env-readme-drift.mjs",
+    );
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      [scriptPath],
+      { cwd: repoRoot },
+    );
+    assert.match(`${stdout}${stderr}`, /env-readme drift check: OK/u);
+  });
+});
