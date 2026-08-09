@@ -132,13 +132,17 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
     "ard-export": {
       heading: "discover ard-export — Export catalog to ARD format",
       lines: [
-        "Usage: agent-harness discover ard-export",
+        "Usage: agent-harness discover ard-export [--quiet]",
         "",
         "Maps the selected catalog to the ARD v0.9 ai-catalog.json format and writes:",
-        "  .well-known/ai-catalog.json",
+        "  <state-root>/.well-known/ai-catalog.json",
         "",
         "ARD-compliant registries can then discover and index agent-harness as a",
-        "publisher.",
+        "publisher. Entries without a real update timestamp omit updatedAt",
+        "instead of publishing the epoch sentinel (#449).",
+        "",
+        "Options:",
+        "  --quiet  Suppress the completion line",
       ],
     },
     inspect: {

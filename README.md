@@ -203,7 +203,7 @@ Every `discover select` or `discover full` run builds a selected asset catalog. 
 
 ```bash
 agent-harness discover ard-export
-# → .well-known/ai-catalog.json
+# → <state-root>/.well-known/ai-catalog.json
 ```
 
 ARD registries crawl `/.well-known/ai-catalog.json` at your domain to index agent-harness assets alongside assets from other publishers. The export maps every `AssetCatalogEntry` to an ARD entry with:
@@ -212,6 +212,8 @@ ARD registries crawl `/.well-known/ai-catalog.json` at your domain to index agen
 - **Media type** (`application/mcp-server+json`, `application/ai-skill`, etc.) from AssetKind
 - **Trust manifest** — OMS signatures, publisher verification, compliance attestations
 - **Representative queries** — synthetic natural-language queries for semantic discovery
+
+The export path is relative to the active state root (`--state-root <path>`); by default that is the repository root, so `discover ard-export` writes `<state-root>/.well-known/ai-catalog.json`. Entries whose update timestamp is unknown (harvester epoch sentinel) omit `updatedAt` rather than publishing `1970-01-01` (#449).
 
 ### Consumer — ARD registry adapter
 

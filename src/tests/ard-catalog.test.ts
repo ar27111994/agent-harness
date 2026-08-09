@@ -6,11 +6,10 @@
  */
 
 import assert from "node:assert/strict";
-import { rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 
@@ -20,11 +19,12 @@ import {
   deriveArdTrustManifest,
   mapEntryToArd,
   extractErrorMessage,
+  resolveArdUpdatedAt,
   writeArdCatalog,
   type PrettierFormatter,
 } from "../ard-catalog.js";
 
-import type { AssetKind, SourceKind } from "../types.js";
+import type { AssetKind, SourceKind, AssetMaintenance } from "../types.js";
 import { buildEntry } from "./test-helpers.js";
 
 const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
@@ -461,6 +461,158 @@ void test("ASSET_KIND_TO_ARD_TYPE covers all AssetKind values", () => {
   for (const kind of kinds) {
     const ardType = ASSET_KIND_TO_ARD_TYPE[kind];
     assert.ok(typeof ardType === "string", `missing ARD type for ${kind}`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// resolveArdUpdatedAt / updatedAt omission (#449)
+// ---------------------------------------------------------------------------
+
+/**
+ * Builds a full AssetMaintenance fixture sharing the helper default for
+ * the non-timestamp fields.
+ */
+function maintenanceWith(lastUpdated: string): AssetMaintenance {
+  return { lastUpdated, stars: 0, releaseCadence: "occasional" };
+}
+
+/**
+ * Builds a minimal catalog entry with the required identity fields plus a
+ * maintenance override (the #449 tests only exercise update timestamps).
+ */
+function entryWithMaintenance(lastUpdated: string) {
+  return buildEntry({
+    id: "maintenance-test",
+    displayName: "Maintenance Test",
+    assetKind: "skill",
+    maintenance: maintenanceWith(lastUpdated),
+  });
+}
+
+void test("resolveArdUpdatedAt keeps real update timestamps", () => {
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("2026-06-15T10:30:00.000Z")),
+    "2026-06-15T10:30:00.000Z",
+  );
+
+  // A timestamp in the far future (harvested with a synthetic value) is
+  // still a real, parseable date — preserved as-is.
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("2030-01-01T00:00:00Z")),
+    "2030-01-01T00:00:00Z",
+  );
+});
+
+void test("resolveArdUpdatedAt treats epoch sentinels as unknown", () => {
+  // new Date(0).toISOString() — the package-registry harvester sentinel.
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("1970-01-01T00:00:00.000Z")),
+    undefined,
+  );
+  // The go-registry token-era form (no milliseconds) is also the epoch.
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("1970-01-01T00:00:00Z")),
+    undefined,
+  );
+  // Any pre-epoch date is equally meaningless as an "updated" date.
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("1969-12-31T23:59:59Z")),
+    undefined,
+  );
+});
+
+void test("resolveArdUpdatedAt treats missing and unparseable values as unknown", () => {
+  assert.equal(resolveArdUpdatedAt(entryWithMaintenance("")), undefined);
+  assert.equal(
+    resolveArdUpdatedAt(entryWithMaintenance("not-a-date")),
+    undefined,
+  );
+});
+
+void test("mapEntryToArd omits updatedAt for epoch-sentinel entries (#449)", () => {
+  const ard = mapEntryToArd(
+    entryWithMaintenance("1970-01-01T00:00:00.000Z"),
+    "test.io",
+    "2.0.0",
+  );
+  assert.equal(ard.updatedAt, undefined);
+  // JSON serialization must not leak the sentinel or a dangling key.
+  assert.doesNotMatch(JSON.stringify(ard), /updatedAt|1970/u);
+
+  const real = mapEntryToArd(
+    entryWithMaintenance("2026-06-15T10:30:00.000Z"),
+    "test.io",
+    "2.0.0",
+  );
+  assert.equal(real.updatedAt, "2026-06-15T10:30:00.000Z");
+});
+
+void test("writeArdCatalog never emits an epoch updatedAt (#449)", async () => {
+  const root = join(tmpdir(), `agent-harness-ard-epoch-${randomUUID()}`);
+
+  try {
+    const discoverDir = join(root, "discover", "output");
+    await mkdir(discoverDir, { recursive: true });
+
+    const realEntry = buildEntry({
+      id: "epoch-real",
+      displayName: "Real Update",
+      assetKind: "skill",
+      maintenance: maintenanceWith("2026-06-15T10:30:00.000Z"),
+    });
+    const sentinelEntry = buildEntry({
+      id: "epoch-sentinel",
+      displayName: "Sentinel Update",
+      assetKind: "skill",
+      maintenance: maintenanceWith("1970-01-01T00:00:00.000Z"),
+    });
+    const emptyEntry = buildEntry({
+      id: "epoch-empty",
+      displayName: "Empty Update",
+      assetKind: "skill",
+      maintenance: maintenanceWith(""),
+    });
+
+    await writeFile(
+      join(discoverDir, "catalog.selected.jsonl"),
+      [realEntry, sentinelEntry, emptyEntry]
+        .map((entry) => JSON.stringify(entry))
+        .join("\n") + "\n",
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(root, "2.0.0");
+    const raw = await readFile(result.filePath, "utf8");
+    const catalog = JSON.parse(raw) as {
+      entries: Array<Record<string, unknown>>;
+    };
+
+    assert.equal(catalog.entries.length, 3);
+    const byName = new Map(
+      catalog.entries.map((entry) => [entry["displayName"], entry] as const),
+    );
+    assert.equal(
+      byName.get("Real Update")?.["updatedAt"],
+      "2026-06-15T10:30:00.000Z",
+    );
+    assert.equal(
+      Object.hasOwn(byName.get("Sentinel Update") ?? {}, "updatedAt"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(byName.get("Empty Update") ?? {}, "updatedAt"),
+      false,
+    );
+    // The ticket's headline acceptance: zero entries start with 1970.
+    for (const entry of catalog.entries) {
+      const updatedAt = entry["updatedAt"];
+      assert.ok(
+        typeof updatedAt !== "string" || !updatedAt.startsWith("1970"),
+        `entry ${String(entry["displayName"])} must not carry an epoch updatedAt`,
+      );
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

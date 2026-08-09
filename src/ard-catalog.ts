@@ -46,7 +46,8 @@ export interface ArdCatalogEntry {
   capabilities: string[];
   representativeQueries: string[];
   version: string;
-  updatedAt: string;
+  /** Omitted when the source asset has no real update timestamp (#449). */
+  updatedAt?: string;
   tags: string[];
   trustManifest?: ArdTrustManifest;
 }
@@ -162,6 +163,29 @@ export function deriveArdTrustManifest(
 }
 
 /**
+ * Resolves the ARD `updatedAt` for an asset, never emitting the epoch
+ * sentinel that harvesters use when no update metadata exists (#449).
+ *
+ * Returns undefined (field omitted from the ARD entry) when the asset has
+ * no real update timestamp: a missing/empty value, an unparseable value,
+ * or a timestamp at-or-before the Unix epoch (1970-01-01) is treated as
+ * "unknown" rather than as a false date in the public catalog.
+ */
+export function resolveArdUpdatedAt(
+  entry: AssetCatalogEntry,
+): string | undefined {
+  const raw = entry.maintenance.lastUpdated;
+  if (!raw) {
+    return undefined;
+  }
+  const timestamp = Date.parse(raw);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return undefined;
+  }
+  return raw;
+}
+
+/**
  * Maps a single agent-harness AssetCatalogEntry to an ARD catalog entry.
  */
 export function mapEntryToArd(
@@ -191,7 +215,7 @@ export function mapEntryToArd(
     capabilities: entry.capabilities.slice(0, 20),
     representativeQueries: buildRepresentativeQueries(entry).slice(0, 10),
     version,
-    updatedAt: entry.maintenance.lastUpdated,
+    updatedAt: resolveArdUpdatedAt(entry),
     tags: [
       entry.assetKind,
       entry.source.sourceKind,
