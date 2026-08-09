@@ -171,10 +171,13 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
     "environment-index": {
       heading: "discover environment-index — Write query metadata",
       lines: [
-        "Usage: agent-harness discover environment-index",
+        "Usage: agent-harness discover environment-index [--json]",
         "",
         "Writes experimental read-only query metadata for the current workspace to:",
         "  discover/output/environment-index.json",
+        "",
+        "Options:",
+        "  --json  Also print the index as JSON to stdout",
       ],
     },
   };

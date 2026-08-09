@@ -891,7 +891,7 @@ For report-only vs due-only vs apply-safe update workflows, see [`ASSET-UPDATE-P
 npm run activate:host
 npm run activate:reset
 agent-harness activate rollback --host opencode --generation <generation-id>
-agent-harness activate diff --host <host> --baseline <state-root>
+agent-harness activate diff --host <host>
 agent-harness activate explain --host <host> --asset <asset-id>
 ```
 

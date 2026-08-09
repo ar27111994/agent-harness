@@ -98,10 +98,14 @@ export function printActivateSubcommandHelp(subcommand: string): void {
     rollback: {
       heading: "activate rollback — Roll back to previous generation",
       lines: [
-        "Usage: agent-harness activate rollback [--host <host>]",
+        "Usage: agent-harness activate rollback --host <host> --generation <generation-id>",
         "",
         "Points a host back to a previous install generation, reverting",
         "the active asset set to an earlier known-good state.",
+        "",
+        "Options:",
+        "  --host <host>                Target activation host (required)",
+        "  --generation <generation-id> Generation to restore (required)",
       ],
     },
     reset: {

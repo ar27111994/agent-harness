@@ -11,9 +11,9 @@ import {
   isFlagLike,
   printSubcommandHelp,
   printUnknownArgumentError,
-  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "../cli-help-format.js";
+import { RECOMMEND_SUBCOMMAND_FLAG_SPECS } from "../cli-flag-specs.js";
 import {
   parseSessionIntent,
   SESSION_INTENT_CHOICES,
@@ -46,43 +46,6 @@ import type {
   SelectionReport,
   SessionIntent,
 } from "../types.js";
-
-/**
- * Flag spec table for recommend subcommands (#445): the shared unknown-flag
- * guard rejects typo'd flags before any recommendation work or report write.
- */
-const RECOMMEND_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
-  report: {
-    knownFlags: new Set([
-      "--ai-review",
-      "--intent",
-      "--host",
-      "--review-limit",
-    ]),
-    flagsWithValues: new Set(["--intent", "--host", "--review-limit"]),
-    usageHint: "agent-harness recommend report --help",
-  },
-  explain: {
-    knownFlags: new Set(["--asset", "--host", "--json"]),
-    flagsWithValues: new Set(["--asset", "--host"]),
-    usageHint: "agent-harness recommend explain --help",
-  },
-  evaluate: {
-    knownFlags: new Set(["--write"]),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness recommend evaluate --help",
-  },
-  "ai-review": {
-    knownFlags: new Set(["--host", "--review-limit", "--apply", "--intent"]),
-    flagsWithValues: new Set(["--host", "--review-limit", "--intent"]),
-    usageHint: "agent-harness recommend ai-review --help",
-  },
-  "policy:print": {
-    knownFlags: new Set(["--host", "--compact"]),
-    flagsWithValues: new Set(["--host"]),
-    usageHint: "agent-harness recommend policy:print --help",
-  },
-};
 
 /**
  * Dispatches the recommend CLI command group.

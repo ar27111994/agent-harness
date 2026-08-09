@@ -11,9 +11,9 @@ import {
   hasHelpFlag,
   hasUnknownFlagsForSubcommands,
   printSubcommandHelp,
-  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
+import { MIRROR_SUBCOMMAND_FLAG_SPECS } from "./cli-flag-specs.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
 /**
@@ -27,48 +27,6 @@ export {
   resolveAllowedMirrorEvidenceFilePath,
   resolveAllowedMirrorEvidenceFilePathForRead,
 } from "./mirror/paths.js";
-
-/**
- * Flag spec table for mirror subcommands (#445): the shared unknown-flag
- * guard rejects typo'd flags before any mirror work or state write.
- */
-const MIRROR_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
-  plan: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness mirror plan --help",
-  },
-  locks: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness mirror locks --help",
-  },
-  acquire: {
-    knownFlags: new Set(["--batch-size"]),
-    flagsWithValues: new Set(["--batch-size"]),
-    usageHint: "agent-harness mirror acquire --help",
-  },
-  diff: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness mirror diff --help",
-  },
-  "bundle-explain": {
-    knownFlags: new Set(["--bundle", "--json"]),
-    flagsWithValues: new Set(["--bundle"]),
-    usageHint: "agent-harness bundle explain --help",
-  },
-  "explain-bundle": {
-    knownFlags: new Set(["--bundle", "--json"]),
-    flagsWithValues: new Set(["--bundle"]),
-    usageHint: "agent-harness bundle explain --help",
-  },
-  explain: {
-    knownFlags: new Set(["--asset", "--mirror"]),
-    flagsWithValues: new Set(["--asset", "--mirror"]),
-    usageHint: "agent-harness mirror explain --help",
-  },
-};
 
 /**
  * Dispatches the mirror CLI command group.
@@ -227,13 +185,17 @@ function printMirrorSubcommandHelp(subcommand: string): void {
       heading:
         "bundle explain — Explain why assets are present in a bundle lock",
       lines: [
-        "Usage: agent-harness bundle explain --bundle <bundleId>",
-        "       agent-harness bundle explain <bundleId>",
-        "       agent-harness mirror bundle-explain --bundle <bundleId>",
-        "       agent-harness mirror bundle-explain <bundleId>",
+        "Usage: agent-harness bundle explain --bundle <bundleId> [--json]",
+        "       agent-harness bundle explain <bundleId> [--json]",
+        "       agent-harness mirror bundle-explain --bundle <bundleId> [--json]",
+        "       agent-harness mirror bundle-explain <bundleId> [--json]",
         "",
         "Prints detailed bundle membership and provenance for a mirrored",
         "artifact, including which bundles reference it and its acquisition status.",
+        "",
+        "Options:",
+        "  --bundle <bundleId>  Bundle lock to explain (or pass as positional)",
+        "  --json               Output machine-readable JSON",
         "",
         "Alias: mirror bundle-explain",
       ],

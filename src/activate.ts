@@ -17,8 +17,8 @@ import {
   hasHelpFlag,
   hasUnknownFlagsForSubcommands,
   CliUsageError,
-  type SubcommandFlagSpec,
 } from "./cli-help-format.js";
+import { ACTIVATE_SUBCOMMAND_FLAG_SPECS } from "./cli-flag-specs.js";
 import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
 import { parseSessionIntent } from "./lib/session-intent.js";
 import { isPathWithinRoot, sanitizeAssetId } from "./lib/safe-paths.js";
@@ -26,39 +26,6 @@ import {
   printActivateHelp,
   printActivateSubcommandHelp,
 } from "./activate/help.js";
-
-/**
- * Flag spec table for activate subcommands (#445): the shared unknown-flag
- * guard rejects typo'd flags (e.g. --rec-host) before activation work or
- * state writes.
- */
-const ACTIVATE_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
-  host: {
-    knownFlags: new Set(["--host", "--recommendation-host", "--intent"]),
-    flagsWithValues: new Set(["--host", "--recommendation-host", "--intent"]),
-    usageHint: "agent-harness activate host --help",
-  },
-  diff: {
-    knownFlags: new Set(["--host"]),
-    flagsWithValues: new Set(["--host"]),
-    usageHint: "agent-harness activate diff --help",
-  },
-  explain: {
-    knownFlags: new Set(["--host", "--asset"]),
-    flagsWithValues: new Set(["--host", "--asset"]),
-    usageHint: "agent-harness activate explain --help",
-  },
-  rollback: {
-    knownFlags: new Set(["--host", "--generation"]),
-    flagsWithValues: new Set(["--host", "--generation"]),
-    usageHint: "agent-harness activate rollback --help",
-  },
-  reset: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness activate reset --help",
-  },
-};
 import {
   ACTIVATION_HOSTS,
   type ActivationHost,

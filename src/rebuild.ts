@@ -5,9 +5,9 @@ import {
   hasHelpFlag,
   hasUnknownFlagsForSubcommands,
   printSubcommandHelp,
-  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
+import { REBUILD_SUBCOMMAND_FLAG_SPECS } from "./cli-flag-specs.js";
 import { getRuntimeConfig } from "./config/runtime.js";
 import { readJsonFileOrNull, removePath, toPosixPath } from "./files.js";
 import { runDiscover } from "./discover.js";
@@ -27,23 +27,6 @@ import type {
 
 const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
-
-/**
- * Flag spec table for rebuild subcommands (#445): clean/full take no
- * options, so every flag is rejected before any state is removed.
- */
-const REBUILD_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
-  clean: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness rebuild clean --help",
-  },
-  full: {
-    knownFlags: new Set(),
-    flagsWithValues: new Set(),
-    usageHint: "agent-harness rebuild full --help",
-  },
-};
 
 /**
  * Dispatches the rebuild CLI command group.

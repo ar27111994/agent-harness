@@ -13,8 +13,8 @@ agent-harness workspace opencode --intent general
 # Step-by-step (recommended for first use)
 agent-harness discover full                    # Scan workspace, sync sources, select catalog
 agent-harness recommend report --host opencode # Score and rank recommendations
-agent-harness mirror plan --host opencode      # Plan mirror acquisition
-agent-harness mirror acquire --host opencode   # Download and pin assets
+agent-harness mirror plan                      # Plan mirror acquisition
+agent-harness mirror acquire                   # Download and pin assets
 agent-harness install bundle --host opencode   # Stage into lifecycle stores
 agent-harness install refresh                  # Sync staged assets with mirrors
 agent-harness activate host --host opencode    # Build host runtime views
@@ -57,8 +57,8 @@ agent-harness recommend explain --asset <id>   # Why an asset was selected/rejec
 ## Mirror
 
 ```bash
-agent-harness mirror plan --host <host>        # Preview mirror plan
-agent-harness mirror acquire --host <host>     # Download selected assets
+agent-harness mirror plan                      # Preview mirror plan
+agent-harness mirror acquire                   # Download selected assets
 agent-harness mirror diff                      # Compare local vs remote mirrors
 agent-harness mirror locks                     # Generate bundle lock files
 agent-harness mirror explain --asset <id>      # Mirror provenance for an asset
