@@ -7,6 +7,7 @@ This directory contains project documentation organized into four categories. Ea
 ```text
 docs/
 ├── README.md           ← this file — category overview and navigation
+├── cheatsheet.md       ← CLI quick-reference for common workflows
 ├── demo/               ← reproducible terminal demo sources and walkthroughs
 ├── guides/             ← how-to guides and reference-style technical docs
 ├── playbooks/          ← scenario-driven workflows for common agent-harness operations
@@ -36,6 +37,7 @@ Independent guides that explain how the harness works, how to maintain it, and h
 
 | File                                                                    | Description                                                                                             |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [`ADAPTER-DEVELOPMENT.md`](./guides/ADAPTER-DEVELOPMENT.md)             | How to create new host adapters                                                                         |
 | [`CATALOG-BREADTH.md`](./guides/CATALOG-BREADTH.md)                     | How to evaluate and expand catalog breadth during discovery                                             |
 | [`HARNESS-MAINTENANCE-GUIDE.md`](./guides/HARNESS-MAINTENANCE-GUIDE.md) | Day-to-day maintenance procedures for the harness repo                                                  |
 | [`LOGGING-STRATEGY.md`](./guides/LOGGING-STRATEGY.md)                   | CLI output and logging conventions, and why lightweight helpers were chosen over a full logging library |
@@ -48,6 +50,7 @@ Independent guides that explain how the harness works, how to maintain it, and h
 | [`TRUST-CENTER.md`](./guides/TRUST-CENTER.md)                           | v2 trust model, safe defaults, review-required paths, and security non-guarantees                       |
 | [`V1-TO-V2-UPGRADE.md`](./guides/V1-TO-V2-UPGRADE.md)                   | Migration notes from v1 to v2                                                                           |
 | [`V2-CONTRACT.md`](./guides/V2-CONTRACT.md)                             | The v2 adapter contract and public API commitments                                                      |
+| [`cheatsheet.md`](./cheatsheet.md)                                      | CLI quick-reference for common workflows (linked from the main README)                                  |
 
 ---
 

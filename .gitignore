@@ -58,3 +58,7 @@ SYSTEM.md
 plans/
 .planning/
 agent-harness-qa/
+
+# PowerShell module-analysis cache materialized at the repo root by
+# import-analysis tooling (review 2026-08-09 hygiene item).
+Microsoft/Windows/PowerShell/ModuleAnalysisCache/

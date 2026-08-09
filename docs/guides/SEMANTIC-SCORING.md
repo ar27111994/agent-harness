@@ -67,9 +67,6 @@ When `AGENT_HARNESS_DISCOVERY_SEMANTIC_SCORING=true` but `@xenova/transformers` 
 not installed (or model download fails), `agent-harness` automatically falls back to
 the keyword-overlap gate and prints a warning. No error is thrown and no data is lost.
 
-To force keyword-only mode regardless of the env var, pass `--no-semantic` to the
-`discover select` command (future flag — not yet implemented).
-
 ## Source Diversity
 
 Semantic scoring does **not** bypass the per-source-family cap
