@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import test from "node:test";
 
 import { restoreEnvVar } from "./env-test-utils.js";
+import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { writeJsonFile, writeJsonLinesFile } from "../files.js";
 import {
   CATALOG_OUTPUT_PATH,
@@ -141,6 +142,31 @@ void test("discover catalog handles large indexed source populations without ove
   const stateRoot = join(tempRoot, "state");
   const indexedEntryCount = 120_000;
 
+  // Hermetic host-config resolution: without redirecting the config-dir env
+  // vars, the generated LOCAL sources scan the real user config dirs
+  // (~/.agents/skills etc.), whose content varies per machine and inflates
+  // the catalog count — the serial single-process suite makes that state
+  // timing-dependent. Point the locals at empty fixture roots and restore
+  // afterwards.
+  const homeDirectory = join(tempRoot, "home");
+  const appDataDirectory = join(tempRoot, "appdata");
+  const xdgConfigHome = join(tempRoot, "xdg");
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    HOME: process.env.HOME,
+    USERPROFILE: process.env.USERPROFILE,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+  process.env.AGENT_HARNESS_HOME = homeDirectory;
+  process.env.APPDATA = appDataDirectory;
+  process.env.HOME = homeDirectory;
+  process.env.USERPROFILE = homeDirectory;
+  process.env.XDG_CONFIG_HOME = xdgConfigHome;
+  clearRuntimeConfigForTests();
+  await mkdir(join(xdgConfigHome, "opencode"), { recursive: true });
+  await mkdir(join(homeDirectory, ".agents", "skills"), { recursive: true });
+
   try {
     await mkdir(workspaceRoot, { recursive: true });
     await mkdir(stateRoot, { recursive: true });
@@ -214,6 +240,12 @@ void test("discover catalog handles large indexed source populations without ove
       ),
     );
   } finally {
+    restoreEnvVar("AGENT_HARNESS_HOME", previousEnv.AGENT_HARNESS_HOME);
+    restoreEnvVar("APPDATA", previousEnv.APPDATA);
+    restoreEnvVar("HOME", previousEnv.HOME);
+    restoreEnvVar("USERPROFILE", previousEnv.USERPROFILE);
+    restoreEnvVar("XDG_CONFIG_HOME", previousEnv.XDG_CONFIG_HOME);
+    clearRuntimeConfigForTests();
     await rm(tempRoot, { force: true, recursive: true });
   }
 });

@@ -27,6 +27,13 @@ void test("requiredCaptureGroup returns the guaranteed group and throws descript
     /optional group.*not guaranteed/u,
   );
 
+  // The same guard without a pattern still names the label (and exercises
+  // the pattern-less template arms of both error messages).
+  assert.throws(
+    () => requiredCaptureGroup(match, 1, "optional group bare"),
+    /optional group bare.*not guaranteed/u,
+  );
+
   // Absent match: descriptive error naming the pattern.
   assert.throws(
     () => requiredCaptureGroup(null, 1, "missing match", pattern),

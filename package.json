@@ -21,6 +21,7 @@
     "coding-agents",
     "developer-tools",
     "cli",
+    "mcp",
     "automation",
     "supply-chain",
     "reproducible-builds",
@@ -36,7 +37,10 @@
     "zed",
     "claude-code",
     "pi-agent",
-    "pi"
+    "pi",
+    "model-context-protocol",
+    "mcp-manager",
+    "mcp-server"
   ],
   "type": "module",
   "main": "dist/cli.js",
