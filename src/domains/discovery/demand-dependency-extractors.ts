@@ -45,6 +45,105 @@ export function containsAnyText(haystack: string, needles: string[]): boolean {
 }
 
 /**
+ * Second capture group index for extractor patterns that guarantee both
+ * groups (see {@link requiredCaptureGroup}); named so the no-magic-numbers
+ * guard accepts the index alongside the first group.
+ */
+const SECOND_CAPTURE_GROUP = 2;
+
+/**
+ * Returns capture group `groupIndex` from a regular expression match, or
+ * throws with a descriptive error when the match is absent or the group is
+ * optional in the pattern.
+ *
+ * This is the #433 guarded-lookup shape applied to regex extraction: the
+ * legacy extractors asserted `match[groupIndex]!` on mandatory groups —
+ * provably safe, but a non-null assertion. The throw arms are unreachable
+ * through the extractors (every caller checks the match first and every
+ * pattern guarantees the group); they are covered directly by the
+ * internals test suite.
+ */
+export function requiredCaptureGroup(
+  match: RegExpMatchArray | RegExpExecArray | null,
+  groupIndex: number,
+  label: string,
+  pattern?: RegExp,
+): string {
+  if (match === null) {
+    throw new Error(
+      `Failed to parse ${label}: no match found${pattern ? ` for ${pattern}` : ""}.`,
+    );
+  }
+
+  const group = match[groupIndex];
+  if (group === undefined) {
+    throw new Error(
+      `Failed to parse ${label}: capture group ${groupIndex} is not guaranteed${pattern ? ` by ${pattern}` : ""}.`,
+    );
+  }
+
+  return group;
+}
+
+/**
+ * Walks the lines of a sectioned config file (TOML `[section]` headers,
+ * YAML `name:` headers, ...), yielding every line with the section that was
+ * current BEFORE the line was processed.
+ *
+ * The legacy cargo/pyproject/pubspec extractors duplicated this walk
+ * verbatim (review DRY finding); a single iterator keeps section tracking,
+ * comment stripping, and header detection in one place. Headers are YIELDED
+ * (with `isHeader: true`) so callers can reset per-section state — every
+ * caller's original loop `continue`d on headers anyway.
+ *
+ * Line cleaning strips trailing inline comments by default
+ * (`stripInlineComments: false` preserves raw lines — YAML indentation
+ * matters), and `requireUnindentedHeader` restricts header detection to
+ * column-0 headers (YAML section markers).
+ */
+export function* walkSectionedLines(
+  content: string,
+  sectionHeaderPattern: RegExp,
+  options: {
+    stripInlineComments?: boolean;
+    requireUnindentedHeader?: boolean;
+  } = {},
+): Generator<{
+  section: string;
+  line: string;
+  rawLine: string;
+  isHeader: boolean;
+}> {
+  let currentSection = "";
+
+  for (const rawLine of content.split(/\r?\n/u)) {
+    const line =
+      options.stripInlineComments === false
+        ? rawLine.trim()
+        : rawLine.replace(/\s+#.*$/u, "").trim();
+    const sectionMatch =
+      options.requireUnindentedHeader === true && rawLine.startsWith(" ")
+        ? null
+        : sectionHeaderPattern.exec(line);
+    if (sectionMatch) {
+      currentSection = requiredCaptureGroup(
+        sectionMatch,
+        1,
+        "section header",
+        sectionHeaderPattern,
+      ).trim();
+    }
+
+    yield {
+      section: currentSection,
+      line,
+      rawLine,
+      isHeader: sectionMatch !== null,
+    };
+  }
+}
+
+/**
  * Extracts dependency names from Cargo.toml dependency sections
  * (`[dependencies]`, `[dev-dependencies]`, `[build-dependencies]`,
  * `[workspace.dependencies]`, and target-scoped variants), filtering the
@@ -52,23 +151,31 @@ export function containsAnyText(haystack: string, needles: string[]): boolean {
  */
 export function extractCargoDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
-  let currentSection = "";
+  const sectionPattern = /^\[([^\]]+)\]$/u;
+  const dependencyPattern = /^([A-Za-z0-9_-]+)\s*=/u;
 
-  for (const rawLine of content.split(/\r?\n/u)) {
-    const line = rawLine.replace(/\s+#.*$/u, "").trim();
-    const sectionMatch = /^\[([^\]]+)\]$/u.exec(line);
-    if (sectionMatch) {
-      currentSection = sectionMatch[1]!.trim();
+  for (const { section, line, isHeader } of walkSectionedLines(
+    content,
+    sectionPattern,
+  )) {
+    if (isHeader) {
       continue;
     }
 
-    if (!isCargoDependencySection(currentSection)) {
+    if (!isCargoDependencySection(section)) {
       continue;
     }
 
-    const dependencyMatch = /^([A-Za-z0-9_-]+)\s*=/u.exec(line);
+    const dependencyMatch = dependencyPattern.exec(line);
     if (dependencyMatch) {
-      dependencyNames.push(dependencyMatch[1]!);
+      dependencyNames.push(
+        requiredCaptureGroup(
+          dependencyMatch,
+          1,
+          "Cargo dependency name",
+          dependencyPattern,
+        ),
+      );
     }
   }
 
@@ -103,7 +210,14 @@ export function extractGoModuleDependencyNames(content: string): string[] {
     const requireMatch =
       /^(?:require\s+)?([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)\s+v?\d/iu.exec(line);
     if (requireMatch) {
-      dependencies.push(requireMatch[1]!);
+      dependencies.push(
+        requiredCaptureGroup(
+          requireMatch,
+          1,
+          "Go module path",
+          /^(?:require\s+)?([A-Za-z0-9_.-]+\/[A-Za-z0-9_./-]+)\s+v?\d/iu,
+        ),
+      );
     }
   }
   return uniqueStrings(dependencies);
@@ -115,21 +229,41 @@ export function extractGoModuleDependencyNames(content: string): string[] {
  */
 export function extractMavenDependencyNames(content: string): string[] {
   const dependencies: string[] = [];
-  for (const dependencyMatch of content.matchAll(
-    /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<\/dependency>/giu,
-  )) {
-    const groupId = dependencyMatch[1]!.trim();
-    const artifactId = dependencyMatch[2]!.trim();
+  const dependencyBlockPattern =
+    /<dependency>[\s\S]*?<groupId>([^<]+)<\/groupId>[\s\S]*?<artifactId>([^<]+)<\/artifactId>[\s\S]*?<\/dependency>/giu;
+  for (const dependencyMatch of content.matchAll(dependencyBlockPattern)) {
+    const groupId = requiredCaptureGroup(
+      dependencyMatch,
+      1,
+      "Maven groupId",
+      dependencyBlockPattern,
+    ).trim();
+    const artifactId = requiredCaptureGroup(
+      dependencyMatch,
+      SECOND_CAPTURE_GROUP,
+      "Maven artifactId",
+      dependencyBlockPattern,
+    ).trim();
     if (groupId && artifactId) {
       dependencies.push(`${groupId}:${artifactId}`);
     }
   }
 
-  for (const gradleMatch of content.matchAll(
-    /(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|androidTestImplementation|kapt|annotationProcessor|classpath)\s*\(?["']([^:"']+):([^:"']+)(?::[^"']+)?["']/giu,
-  )) {
-    const groupId = gradleMatch[1]!.trim();
-    const artifactId = gradleMatch[2]!.trim();
+  const gradlePattern =
+    /(?:implementation|api|compileOnly|runtimeOnly|testImplementation|testRuntimeOnly|androidTestImplementation|kapt|annotationProcessor|classpath)\s*\(?["']([^:"']+):([^:"']+)(?::[^"']+)?["']/giu;
+  for (const gradleMatch of content.matchAll(gradlePattern)) {
+    const groupId = requiredCaptureGroup(
+      gradleMatch,
+      1,
+      "Gradle dependency group",
+      gradlePattern,
+    ).trim();
+    const artifactId = requiredCaptureGroup(
+      gradleMatch,
+      SECOND_CAPTURE_GROUP,
+      "Gradle dependency artifact",
+      gradlePattern,
+    ).trim();
     if (groupId && artifactId) {
       dependencies.push(`${groupId}:${artifactId}`);
     }
@@ -150,7 +284,7 @@ export function extractNugetDependencyNames(content: string): string[] {
       ),
       ...content.matchAll(/<package\s+[^>]*id=["']([^"']+)["']/giu),
     ]
-      .map((match) => match[1]!.trim())
+      .map((match) => requiredCaptureGroup(match, 1, "NuGet package id").trim())
       .filter((value): value is string => Boolean(value)),
   );
 }
@@ -161,7 +295,14 @@ export function extractNugetDependencyNames(content: string): string[] {
 export function extractGemDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/^\s*gem\s+["']([^"']+)["']/gimu)]
-      .map((match) => match[1]!.trim())
+      .map((match) =>
+        requiredCaptureGroup(
+          match,
+          1,
+          "Gem name",
+          /^\s*gem\s+["']([^"']+)["']/gimu,
+        ).trim(),
+      )
       .filter((value): value is string => Boolean(value)),
   );
 }
@@ -191,7 +332,14 @@ export function extractComposerDependencyNames(content: string): string[] {
 export function extractSwiftDependencyNames(content: string): string[] {
   return uniqueStrings(
     [...content.matchAll(/\.package\s*\([^)]*url:\s*["']([^"']+)["']/giu)]
-      .map((match) => match[1]!.trim())
+      .map((match) =>
+        requiredCaptureGroup(
+          match,
+          1,
+          "Swift package URL",
+          /\.package\s*\([^)]*url:\s*["']([^"']+)["']/giu,
+        ).trim(),
+      )
       .filter((value): value is string => Boolean(value)),
   );
 }
@@ -203,35 +351,38 @@ export function extractSwiftDependencyNames(content: string): string[] {
  */
 export function extractPyProjectDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
-  let currentSection = "";
+  const sectionPattern = /^\[([^\]]+)\]$/u;
+  const quotedPattern = /["']([^"']+)["']/gu;
   let inDependencyList = false;
 
-  for (const rawLine of content.split(/\r?\n/u)) {
-    const line = rawLine.replace(/\s+#.*$/u, "").trim();
-    const sectionMatch = line.match(/^\[([^\]]+)\]$/u);
-    if (sectionMatch) {
-      currentSection = sectionMatch[1]!.trim();
+  for (const { section, line, isHeader } of walkSectionedLines(
+    content,
+    sectionPattern,
+  )) {
+    if (isHeader) {
       inDependencyList = false;
       continue;
     }
 
-    if (isPyProjectDependencyListStart(line, currentSection)) {
+    if (isPyProjectDependencyListStart(line, section)) {
       inDependencyList = true;
     }
 
     if (!inDependencyList) {
-      const poetryDependencyName = extractPoetryDependencyName(
-        line,
-        currentSection,
-      );
+      const poetryDependencyName = extractPoetryDependencyName(line, section);
       if (poetryDependencyName) {
         dependencyNames.push(poetryDependencyName);
       }
       continue;
     }
 
-    for (const dependencyMatch of line.matchAll(/["']([^"']+)["']/gu)) {
-      const dependencySpecifier = dependencyMatch[1]!.trim();
+    for (const dependencyMatch of line.matchAll(quotedPattern)) {
+      const dependencySpecifier = requiredCaptureGroup(
+        dependencyMatch,
+        1,
+        "pyproject dependency specifier",
+        quotedPattern,
+      ).trim();
       if (isPythonDirectReference(dependencySpecifier)) {
         continue;
       }
@@ -271,8 +422,19 @@ export function extractPoetryDependencyName(
     return null;
   }
 
-  const dependencyName = dependencyMatch[1]!;
-  const dependencySpec = dependencyMatch[2]!.trim();
+  const dependencyPattern = /^([A-Za-z0-9_.-]+)\s*=\s*(.+)$/u;
+  const dependencyName = requiredCaptureGroup(
+    dependencyMatch,
+    1,
+    "Poetry dependency name",
+    dependencyPattern,
+  );
+  const dependencySpec = requiredCaptureGroup(
+    dependencyMatch,
+    SECOND_CAPTURE_GROUP,
+    "Poetry dependency spec",
+    dependencyPattern,
+  ).trim();
   if (
     dependencyName.toLowerCase() === "python" ||
     isPythonDirectReference(dependencySpec) ||
@@ -366,30 +528,53 @@ export function isPlainPackageName(value: string | undefined): value is string {
  */
 export function extractPubspecDependencyNames(content: string): string[] {
   const dependencyNames: string[] = [];
-  let currentSection = "";
+  const sectionPattern = /^(\S[^:#]*):\s*$/u;
+  const dependencyPattern = /^(\s*)([A-Za-z0-9_]+):/u;
   let dependencyIndent: number | null = null;
 
-  for (const rawLine of content.split(/\r?\n/u)) {
-    const sectionMatch = /^(\S[^:#]*):\s*$/u.exec(rawLine);
-    if (sectionMatch && !rawLine.startsWith(" ")) {
-      currentSection = sectionMatch[1]!.trim();
+  for (const { section, rawLine, isHeader } of walkSectionedLines(
+    content,
+    sectionPattern,
+    { stripInlineComments: false, requireUnindentedHeader: true },
+  )) {
+    if (isHeader) {
       dependencyIndent = null;
       continue;
     }
 
-    if (!YAML_DEPENDENCY_SECTION_NAMES.has(currentSection)) {
+    if (!YAML_DEPENDENCY_SECTION_NAMES.has(section)) {
       continue;
     }
 
-    const dependencyMatch = /^(\s*)([A-Za-z0-9_]+):/u.exec(rawLine);
-    if (!dependencyMatch || dependencyMatch[1]!.length === 0) {
+    const dependencyMatch = dependencyPattern.exec(rawLine);
+    if (
+      !dependencyMatch ||
+      requiredCaptureGroup(
+        dependencyMatch,
+        1,
+        "pubspec dependency indent",
+        dependencyPattern,
+      ).length === 0
+    ) {
       continue;
     }
 
-    const indentLength = dependencyMatch[1]!.length;
+    const indentLength = requiredCaptureGroup(
+      dependencyMatch,
+      1,
+      "pubspec dependency indent",
+      dependencyPattern,
+    ).length;
     dependencyIndent ??= indentLength;
     if (indentLength === dependencyIndent) {
-      dependencyNames.push(dependencyMatch[2]!);
+      dependencyNames.push(
+        requiredCaptureGroup(
+          dependencyMatch,
+          SECOND_CAPTURE_GROUP,
+          "pubspec dependency name",
+          dependencyPattern,
+        ),
+      );
     }
   }
 
