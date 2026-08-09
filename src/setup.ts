@@ -6,8 +6,8 @@ import {
 import {
   handleUnknownCommand,
   hasHelpFlag,
+  hasUnknownFlagsForSubcommands,
   printSubcommandHelp,
-  hasUnknownFlag,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { collectActivatedAssetPrerequisiteDiagnostics } from "./lib/asset-prerequisites.js";
@@ -116,21 +116,18 @@ const SETUP_SUBCOMMAND_FLAG_SPECS: Record<string, SetupSubcommandFlagSpec> = {
 
 /**
  * Rejects flags that a setup subcommand does not declare in its flag spec,
- * printing an unknown-option error with a usage pointer (#431).
+ * printing an unknown-option error with a usage pointer (#431). Delegates
+ * to the shared subcommand flag-spec guard (#445) so every domain runs the
+ * same validation primitive.
  */
 function hasUnknownFlagsForSetupCommand(
   command: string,
   rest: string[],
 ): boolean {
-  const spec = SETUP_SUBCOMMAND_FLAG_SPECS[command];
-  if (spec === undefined) {
-    return false;
-  }
-  return hasUnknownFlag(
+  return hasUnknownFlagsForSubcommands(
+    SETUP_SUBCOMMAND_FLAG_SPECS,
+    command,
     rest,
-    spec.knownFlags,
-    spec.flagsWithValues,
-    spec.usageHint,
   );
 }
 

@@ -11,7 +11,12 @@
 
 import { join } from "node:path";
 
-import { handleUnknownCommand, hasHelpFlag } from "./cli-help-format.js";
+import {
+  handleUnknownCommand,
+  hasHelpFlag,
+  hasUnknownFlagsForSubcommands,
+  type SubcommandFlagSpec,
+} from "./cli-help-format.js";
 import {
   readJsonFileOrNull,
   readTextFileOrNull,
@@ -26,6 +31,43 @@ import {
   printQuarantineHelp,
   printQuarantineSubcommandHelp,
 } from "./quarantine/help.js";
+
+/**
+ * Flag spec table for quarantine subcommands (#445): the shared unknown-flag
+ * guard rejects typo'd flags before any review decision or state write.
+ */
+const QUARANTINE_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
+  list: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness quarantine list --help",
+  },
+  inspect: {
+    knownFlags: new Set(["--asset", "--mirror"]),
+    flagsWithValues: new Set(["--asset", "--mirror"]),
+    usageHint: "agent-harness quarantine inspect --help",
+  },
+  report: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness quarantine report --help",
+  },
+  approve: {
+    knownFlags: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    flagsWithValues: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    usageHint: "agent-harness quarantine approve --help",
+  },
+  reject: {
+    knownFlags: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    flagsWithValues: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    usageHint: "agent-harness quarantine reject --help",
+  },
+  pin: {
+    knownFlags: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    flagsWithValues: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
+    usageHint: "agent-harness quarantine pin --help",
+  },
+};
 import {
   buildQuarantineStateReport,
   findReviewTarget,
@@ -57,6 +99,17 @@ export async function runQuarantine(
   if (hasHelpFlag(rest)) {
     printQuarantineSubcommandHelp(command);
     return 0;
+  }
+
+  // Strict flag validation before any quarantine work (#445).
+  if (
+    hasUnknownFlagsForSubcommands(
+      QUARANTINE_SUBCOMMAND_FLAG_SPECS,
+      command,
+      rest,
+    )
+  ) {
+    return 1;
   }
 
   switch (command) {

@@ -20,6 +20,43 @@ export function hasHelpFlag(rest: string[]): boolean {
 }
 
 /**
+ * Describes the flags a subcommand accepts for the shared unknown-flag
+ * guard (#445). One entry per subcommand; subcommands that take no options
+ * use empty sets so every flag is rejected.
+ */
+export interface SubcommandFlagSpec {
+  knownFlags: ReadonlySet<string>;
+  flagsWithValues: ReadonlySet<string>;
+  usageHint: string;
+}
+
+/**
+ * Rejects flags that a subcommand does not declare in its flag spec table,
+ * printing an unknown-option error with a usage pointer (#431, #445).
+ *
+ * Returns true (and prints) when an undeclared flag is present; the caller
+ * must bail out with a non-zero exit before executing. Subcommands without a
+ * spec entry (unknown subcommands) are never misread as flag rejections —
+ * the caller's unknown-command handling owns those.
+ */
+export function hasUnknownFlagsForSubcommands(
+  specs: Readonly<Record<string, SubcommandFlagSpec>>,
+  subcommand: string,
+  rest: readonly string[],
+): boolean {
+  const spec = specs[subcommand];
+  if (spec === undefined) {
+    return false;
+  }
+  return hasUnknownFlag(
+    rest,
+    spec.knownFlags,
+    spec.flagsWithValues,
+    spec.usageHint,
+  );
+}
+
+/**
  * Returns true for tokens that look like options (`--flag`, `-f`) while
  * allowing the bare `-` (conventionally stdin) to pass as positional.
  */

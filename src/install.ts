@@ -10,11 +10,78 @@ import { reconcileInstallState, resetInstallState } from "./install/state.js";
 import {
   handleUnknownCommand,
   hasHelpFlag,
+  hasUnknownFlagsForSubcommands,
   printSubcommandHelp,
+  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 import { getOptionValue } from "./lib/cli-options.js";
+
+/**
+ * Flag spec table for install/stage subcommands (#445): the shared
+ * unknown-flag guard rejects typo'd flags before any install work or state
+ * write. Mirrors the documented flag surface in printInstallSubcommandHelp.
+ */
+const INSTALL_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
+  bundle: {
+    knownFlags: new Set([
+      "--bundle",
+      "--batch-size",
+      "--offset",
+      "--asset",
+      "--host",
+    ]),
+    flagsWithValues: new Set([
+      "--bundle",
+      "--batch-size",
+      "--offset",
+      "--asset",
+      "--host",
+    ]),
+    usageHint: "agent-harness install bundle --help",
+  },
+  native: {
+    knownFlags: new Set(["--host", "--operation", "--apply"]),
+    flagsWithValues: new Set(["--host", "--operation"]),
+    usageHint: "agent-harness install native --help",
+  },
+  refresh: {
+    knownFlags: new Set([
+      "--host",
+      "--apply",
+      "--due-only",
+      "--no-mirror-refresh",
+    ]),
+    flagsWithValues: new Set(["--host"]),
+    usageHint: "agent-harness install refresh --help",
+  },
+  reconcile: {
+    knownFlags: new Set(["--host"]),
+    flagsWithValues: new Set(["--host"]),
+    usageHint: "agent-harness install reconcile --help",
+  },
+  diff: {
+    knownFlags: new Set(["--host", "--left", "--right"]),
+    flagsWithValues: new Set(["--host", "--left", "--right"]),
+    usageHint: "agent-harness install diff --help",
+  },
+  explain: {
+    knownFlags: new Set(["--asset"]),
+    flagsWithValues: new Set(["--asset"]),
+    usageHint: "agent-harness install explain --help",
+  },
+  generations: {
+    knownFlags: new Set(["--host", "--generation", "--reason", "--keep"]),
+    flagsWithValues: new Set(["--host", "--generation", "--reason", "--keep"]),
+    usageHint: "agent-harness install generations --help",
+  },
+  reset: {
+    knownFlags: new Set(["--host"]),
+    flagsWithValues: new Set(["--host"]),
+    usageHint: "agent-harness install reset --help",
+  },
+};
 
 /**
  * Dispatches the install CLI command group.
@@ -30,6 +97,13 @@ export async function runInstall(
   if (hasHelpFlag(rest)) {
     printInstallSubcommandHelp(command);
     return 0;
+  }
+
+  // Strict flag validation before any install work (#445).
+  if (
+    hasUnknownFlagsForSubcommands(INSTALL_SUBCOMMAND_FLAG_SPECS, command, rest)
+  ) {
+    return 1;
   }
 
   switch (command) {

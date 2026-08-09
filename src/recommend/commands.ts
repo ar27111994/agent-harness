@@ -6,9 +6,11 @@ import { printCommandHelp } from "../lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
   hasHelpFlag,
+  hasUnknownFlagsForSubcommands,
   isFlagLike,
   printSubcommandHelp,
   printUnknownArgumentError,
+  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "../cli-help-format.js";
 import {
@@ -45,6 +47,43 @@ import type {
 } from "../types.js";
 
 /**
+ * Flag spec table for recommend subcommands (#445): the shared unknown-flag
+ * guard rejects typo'd flags before any recommendation work or report write.
+ */
+const RECOMMEND_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
+  report: {
+    knownFlags: new Set([
+      "--ai-review",
+      "--intent",
+      "--host",
+      "--review-limit",
+    ]),
+    flagsWithValues: new Set(["--intent", "--host", "--review-limit"]),
+    usageHint: "agent-harness recommend report --help",
+  },
+  explain: {
+    knownFlags: new Set(["--asset", "--host", "--json"]),
+    flagsWithValues: new Set(["--asset", "--host"]),
+    usageHint: "agent-harness recommend explain --help",
+  },
+  evaluate: {
+    knownFlags: new Set(["--write"]),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness recommend evaluate --help",
+  },
+  "ai-review": {
+    knownFlags: new Set(["--host", "--review-limit", "--apply", "--intent"]),
+    flagsWithValues: new Set(["--host", "--review-limit", "--intent"]),
+    usageHint: "agent-harness recommend ai-review --help",
+  },
+  "policy:print": {
+    knownFlags: new Set(["--host", "--compact"]),
+    flagsWithValues: new Set(["--host"]),
+    usageHint: "agent-harness recommend policy:print --help",
+  },
+};
+
+/**
  * Dispatches the recommend CLI command group.
  */
 export async function runRecommend(
@@ -61,6 +100,18 @@ export async function runRecommend(
   if (hasHelpFlag(rest)) {
     printRecommendSubcommandHelp(command);
     return 0;
+  }
+
+  // Strict flag validation before any recommendation work (#445). Unknown
+  // subcommands have no spec entry and fall through to the default handler.
+  if (
+    hasUnknownFlagsForSubcommands(
+      RECOMMEND_SUBCOMMAND_FLAG_SPECS,
+      command,
+      rest,
+    )
+  ) {
+    return 1;
   }
 
   switch (command) {

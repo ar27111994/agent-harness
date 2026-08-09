@@ -7,7 +7,7 @@
 
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -207,3 +207,175 @@ void test("setup flag-spec guard is inert for subcommands without a spec", async
     false,
   );
 });
+
+// ─── #445 full-domain sweep ─────────────────────────────────────────────────
+//
+// Every domain subcommand that previously parsed options ad hoc (recommend,
+// mirror, install, activate, quarantine, rebuild, discover inspect/diff/
+// environment-index/ard-export) must reject unknown flags with the same
+// `error: unknown option 'X'` + usage-pointer convention the discover/wire/
+// workspace/setup domains already use — before doing any work or writing
+// state.
+
+interface UnknownFlagCase {
+  domain: string;
+  subcommand: string;
+  flag: string;
+  /** Success-marker substring whose absence proves the command did not run. */
+  marker?: string;
+}
+
+const UNKNOWN_FLAG_SWEEP: UnknownFlagCase[] = [
+  {
+    domain: "mirror",
+    subcommand: "plan",
+    flag: "--bogus",
+    marker: "Mirror plan written",
+  },
+  { domain: "mirror", subcommand: "locks", flag: "--bogus" },
+  {
+    domain: "mirror",
+    subcommand: "acquire",
+    flag: "--batch-szie",
+    marker: "Mirror acquire complete",
+  },
+  { domain: "mirror", subcommand: "diff", flag: "--bogus" },
+  { domain: "mirror", subcommand: "explain", flag: "--bogus" },
+  { domain: "mirror", subcommand: "bundle-explain", flag: "--bogus" },
+  { domain: "bundle", subcommand: "explain", flag: "--bogus" },
+  { domain: "install", subcommand: "bundle", flag: "--bogus" },
+  { domain: "install", subcommand: "native", flag: "--bogus" },
+  { domain: "install", subcommand: "refresh", flag: "--bogus" },
+  { domain: "install", subcommand: "reconcile", flag: "--bogus" },
+  { domain: "install", subcommand: "diff", flag: "--bogus" },
+  { domain: "install", subcommand: "explain", flag: "--bogus" },
+  { domain: "install", subcommand: "generations", flag: "--bogus" },
+  { domain: "install", subcommand: "reset", flag: "--bogus" },
+  { domain: "stage", subcommand: "bundle", flag: "--bogus" },
+  {
+    domain: "activate",
+    subcommand: "host",
+    flag: "--rec-host",
+    marker: "Activation views written",
+  },
+  { domain: "activate", subcommand: "diff", flag: "--bogus" },
+  { domain: "activate", subcommand: "explain", flag: "--bogus" },
+  { domain: "activate", subcommand: "rollback", flag: "--bogus" },
+  { domain: "activate", subcommand: "reset", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "list", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "inspect", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "report", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "approve", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "reject", flag: "--bogus" },
+  { domain: "quarantine", subcommand: "pin", flag: "--bogus" },
+  { domain: "rebuild", subcommand: "clean", flag: "--bogus" },
+  { domain: "rebuild", subcommand: "full", flag: "--bogus" },
+  {
+    domain: "recommend",
+    subcommand: "report",
+    flag: "--bogus",
+    marker: "Building recommendation report",
+  },
+  { domain: "recommend", subcommand: "explain", flag: "--bogus" },
+  { domain: "recommend", subcommand: "evaluate", flag: "--bogus" },
+  { domain: "recommend", subcommand: "ai-review", flag: "--bogus" },
+  { domain: "recommend", subcommand: "policy:print", flag: "--bogus" },
+  { domain: "discover", subcommand: "inspect", flag: "--bogus" },
+  { domain: "discover", subcommand: "diff", flag: "--bogus" },
+  { domain: "discover", subcommand: "environment-index", flag: "--bogus" },
+  { domain: "discover", subcommand: "ard-export", flag: "--bogus" },
+];
+
+void test("every domain subcommand rejects unknown flags, exits non-zero, and does not run (#445)", async () => {
+  for (const entry of UNKNOWN_FLAG_SWEEP) {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-flag-sweep-"));
+    const args = [
+      entry.domain,
+      entry.subcommand,
+      entry.flag,
+      ...(entry.domain === "mirror" && entry.subcommand === "acquire"
+        ? ["5"]
+        : []),
+      "--state-root",
+      tempRoot,
+    ];
+    const result = await runCliExpectFailure(args);
+
+    assert.match(
+      result.stderr,
+      new RegExp(`unknown option '${entry.flag}'`, "u"),
+      `${entry.domain} ${entry.subcommand} ${entry.flag} must name the unknown option`,
+    );
+    assert.equal(
+      result.exitCode,
+      1,
+      `${entry.domain} ${entry.subcommand} ${entry.flag} must exit 1`,
+    );
+    if (entry.marker) {
+      assert.doesNotMatch(
+        result.stdout,
+        new RegExp(escapeRegExp(entry.marker), "u"),
+        `${entry.domain} ${entry.subcommand} must not run (marker '${entry.marker}' absent)`,
+      );
+    }
+  }
+});
+
+void test("unknown-flag rejection happens before any state mutation, in-process (#445)", async () => {
+  const { cliInternals } = await import("../cli.js");
+  for (const entry of UNKNOWN_FLAG_SWEEP) {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-flag-sweep-"));
+    const exitCode = await cliInternals.runDomainCommand(
+      entry.domain,
+      [entry.subcommand, entry.flag],
+      tempRoot,
+      tempRoot,
+    );
+    assert.equal(
+      exitCode,
+      1,
+      `${entry.domain} ${entry.subcommand} ${entry.flag} must exit 1`,
+    );
+    const created = await readdir(tempRoot);
+    assert.deepEqual(
+      created,
+      [],
+      `${entry.domain} ${entry.subcommand} ${entry.flag} must not create state`,
+    );
+  }
+});
+
+void test("--help still short-circuits before unknown-flag validation on every sweep domain (#445)", async () => {
+  const helpCases = [
+    ["mirror", "acquire", "--help"],
+    ["install", "native", "--help"],
+    ["activate", "host", "--help"],
+    ["quarantine", "list", "--help"],
+    ["rebuild", "clean", "--help"],
+    ["recommend", "evaluate", "--help"],
+    ["discover", "inspect", "--help"],
+  ] as const;
+  for (const args of helpCases) {
+    const help = await runCliExpectSuccess([...args]);
+    assert.ok(
+      help.length > 0,
+      `${args.join(" ")} --help must print help and exit 0`,
+    );
+  }
+  // help also wins when an unknown flag accompanies it.
+  const mixedHelp = await runCliExpectSuccess([
+    "mirror",
+    "acquire",
+    "--batch-szie",
+    "5",
+    "--help",
+  ]);
+  assert.match(mixedHelp, /mirror acquire/u);
+});
+
+/**
+ * Escapes regex metacharacters for literal substring matching.
+ */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}

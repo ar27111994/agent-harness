@@ -448,12 +448,42 @@ export async function runDiscover(
       await printCatalogStats(projectRoot);
       return 0;
     case "diff":
+      if (
+        hasUnknownFlag(
+          rest,
+          new Set(["--baseline", "--json"]),
+          new Set(["--baseline"]),
+          "agent-harness discover diff --help",
+        )
+      ) {
+        return 1;
+      }
       await writeDiscoverDiffReport(projectRoot, rest);
       return 0;
     case "environment-index":
+      if (
+        hasUnknownFlag(
+          rest,
+          new Set(["--json"]),
+          new Set(),
+          "agent-harness discover environment-index --help",
+        )
+      ) {
+        return 1;
+      }
       await writeEnvironmentIndex(projectRoot, rest);
       return 0;
     case "ard-export": {
+      if (
+        hasUnknownFlag(
+          rest,
+          new Set(["--quiet"]),
+          new Set(),
+          "agent-harness discover ard-export --help",
+        )
+      ) {
+        return 1;
+      }
       // Try to resolve a real version from the workspace root (not --state-root)
       // so the ARD catalog carries the correct publisher version.
       const { readFile } = await import("node:fs/promises");
@@ -477,6 +507,16 @@ export async function runDiscover(
       return 0;
     }
     case "inspect":
+      if (
+        hasUnknownFlag(
+          rest,
+          new Set(["--source", "--id", "--limit"]),
+          new Set(["--source", "--id", "--limit"]),
+          "agent-harness discover inspect --help",
+        )
+      ) {
+        return 1;
+      }
       await inspectCatalog(projectRoot, rest);
       return 0;
     case "help":

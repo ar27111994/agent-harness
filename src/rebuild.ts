@@ -3,7 +3,9 @@ import { join } from "node:path";
 import {
   handleUnknownCommand,
   hasHelpFlag,
+  hasUnknownFlagsForSubcommands,
   printSubcommandHelp,
+  type SubcommandFlagSpec,
   type SubcommandHelpEntry,
 } from "./cli-help-format.js";
 import { getRuntimeConfig } from "./config/runtime.js";
@@ -27,6 +29,23 @@ const MIRROR_ACQUIRE_STATE_PATH = ["state", "mirror", "acquire-state.json"];
 const INSTALL_PROGRESS_STATE_PATH = ["state", "install", "progress.json"];
 
 /**
+ * Flag spec table for rebuild subcommands (#445): clean/full take no
+ * options, so every flag is rejected before any state is removed.
+ */
+const REBUILD_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> = {
+  clean: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness rebuild clean --help",
+  },
+  full: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness rebuild full --help",
+  },
+};
+
+/**
  * Dispatches the rebuild CLI command group.
  */
 export async function runRebuild(
@@ -40,6 +59,13 @@ export async function runRebuild(
   if (hasHelpFlag(rest)) {
     printRebuildSubcommandHelp(command);
     return 0;
+  }
+
+  // Strict flag validation before any state removal (#445).
+  if (
+    hasUnknownFlagsForSubcommands(REBUILD_SUBCOMMAND_FLAG_SPECS, command, rest)
+  ) {
+    return 1;
   }
 
   switch (command) {
