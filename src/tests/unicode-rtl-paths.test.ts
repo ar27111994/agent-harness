@@ -23,6 +23,7 @@ import {
   buildAssetLifecycleFingerprint,
   buildAssetLifecycleFingerprintReport,
 } from "../domains/discovery/asset-fingerprints.js";
+import { mirrorAcquireInternals } from "../mirror/acquire.js";
 import {
   readJsonLinesFile,
   readTextFileOrNull,
@@ -446,3 +447,39 @@ function buildMirrorEntry(
     status: options.status ?? "approved",
   };
 }
+
+void test("NFKC prompt-injection folding precedes mirror-id sanitization (confusables collapse identically)", () => {
+  // The mirror acquire path folds prompt content with NFKC BEFORE deriving
+  // the mirror id, so full-width/confusable spellings must sanitize down to
+  // the SAME ASCII-safe id — otherwise the same logical skill could get
+  // distinct mirror ids depending on which unicode variant an attacker
+  // writes. The quarantine suite covers the fold itself; this pins the
+  // fold at the sanitize step (review gap 4).
+  const fullWidth = "ｈｅｌｌｏ－ａｇｅｎｔ";
+  const halfWidth = "hello-agent";
+  const withZeroWidthJoiner = "hello\u200d-agent";
+  const withCombiningMark = "he\u0301llo-agent";
+
+  const foldedFullWidth =
+    mirrorAcquireInternals.normalizePromptInjectionText(fullWidth);
+  assert.equal(
+    sanitizeMirrorId(foldedFullWidth),
+    sanitizeMirrorId(halfWidth),
+    "full-width confusables fold to the same sanitized id",
+  );
+  assert.equal(
+    sanitizeMirrorId(
+      mirrorAcquireInternals.normalizePromptInjectionText(withZeroWidthJoiner),
+    ),
+    sanitizeMirrorId(halfWidth),
+    "zero-width characters fold away before sanitization",
+  );
+  assert.equal(
+    sanitizeMirrorId(
+      mirrorAcquireInternals.normalizePromptInjectionText(withCombiningMark),
+    ),
+    sanitizeMirrorId("héllo-agent"),
+    "canonically equivalent combining-mark spellings fold to the same sanitized id",
+  );
+  assert.match(sanitizeMirrorId(foldedFullWidth), /^[a-zA-Z0-9_-]+$/u);
+});

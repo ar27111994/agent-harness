@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
 import { restoreEnvVar } from "./env-test-utils.js";
+import { toPosixPath } from "../files.js";
 import {
   getDemandEvidenceStrength,
   shouldInspectFile,
@@ -1203,3 +1204,27 @@ async function writeFixtureFile(
   await mkdir(dirname(full), { recursive: true });
   await writeFile(full, content, "utf8");
 }
+
+void test("demand profile distinguishes an empty working dir from a missing one", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-demand-empty-vs-missing-"),
+  );
+  try {
+    const emptyRoot = join(root, "empty-workspace");
+    await mkdir(emptyRoot, { recursive: true });
+
+    // Existing-but-empty: a valid empty profile, never an error.
+    const emptyProfile = await buildDemandProfile(emptyRoot);
+    assert.equal(emptyProfile.summary.scannedFiles, 0);
+    assert.equal(emptyProfile.summary.matchedFiles, 0);
+    assert.equal(emptyProfile.signals.languages.length, 0);
+    assert.equal(emptyProfile.scanRoot, toPosixPath(emptyRoot));
+
+    // Missing root: the recursive scan cannot list a nonexistent directory
+    // and must surface the ENOENT rather than silently report "empty".
+    const missingRoot = join(root, "missing-workspace");
+    await assert.rejects(() => buildDemandProfile(missingRoot), /ENOENT/u);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
