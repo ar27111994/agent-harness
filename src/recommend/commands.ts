@@ -5,6 +5,7 @@ import { readJsonFile, readJsonFileOrNull, writeJsonFile } from "../files.js";
 import { printCommandHelp } from "../lib/cli-output.js";
 import { getOptionValue, getOptionValues } from "../lib/cli-options.js";
 import {
+  CliUsageError,
   hasHelpFlag,
   hasUnknownFlagsForSubcommands,
   isFlagLike,
@@ -256,7 +257,10 @@ async function explainRecommendation(
     const note = json
       ? " (note: --json is a format flag, not an asset ID)"
       : "";
-    throw new Error(`recommend explain requires --asset <assetId>${note}`);
+    throw new CliUsageError(
+      `recommend explain requires --asset <assetId>${note}`,
+      "agent-harness recommend explain --help",
+    );
   }
 
   const report = await readJsonFile<RecommendationReport>(
@@ -268,8 +272,9 @@ async function explainRecommendation(
   if (requestedHostRaw !== undefined) {
     requestedHost = resolveRecommendationHost(requestedHostRaw);
     if (!requestedHost) {
-      throw new Error(
+      throw new CliUsageError(
         `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHostChoices().join(", ")}`,
+        "agent-harness recommend explain --help",
       );
     }
   }
@@ -508,8 +513,9 @@ async function printRecommendationPolicy(
 
   const resolvedHost = resolveRecommendationHost(requestedHost);
   if (!resolvedHost) {
-    throw new Error(
+    throw new CliUsageError(
       `recommend policy:print requires --host to be one of: ${getRecommendationHostChoices().join(", ")}`,
+      "agent-harness recommend policy:print --help",
     );
   }
 
@@ -576,8 +582,9 @@ function getRequestedReviewHost(
 
   const requestedHost = resolveRecommendationHost(requestedHostRaw);
   if (!requestedHost) {
-    throw new Error(
+    throw new CliUsageError(
       `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHostChoices().join(", ")}`,
+      "agent-harness recommend report --help",
     );
   }
 
@@ -601,7 +608,10 @@ function getReviewLimit(args: string[]): number | undefined {
 
   const reviewLimit = Number.parseInt(reviewLimitRaw, 10);
   if (!Number.isFinite(reviewLimit) || reviewLimit <= 0) {
-    throw new Error(`Invalid --review-limit value: ${reviewLimitRaw}`);
+    throw new CliUsageError(
+      `Invalid --review-limit value: ${reviewLimitRaw}`,
+      "agent-harness recommend report --help",
+    );
   }
 
   return reviewLimit;

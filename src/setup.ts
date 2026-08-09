@@ -75,8 +75,7 @@ export async function runSetup(
       if (hasUnknownFlagsForSetupCommand(command, rest)) {
         return 1;
       }
-      printLoginGuidance(rest);
-      return 0;
+      return printLoginGuidance(rest);
     case "help":
       printSetupHelp();
       return 0;
@@ -430,7 +429,12 @@ async function runDoctor(
   return !hasErrors;
 }
 
-function printLoginGuidance(args: string[]): void {
+/**
+ * Prints provider-specific login/OAuth guidance and returns a non-zero exit
+ * code when the requested provider is unknown (#446) — a failure reported
+ * with "Unknown login provider" previously exited 0.
+ */
+function printLoginGuidance(args: string[]): number {
   const provider = getOptionValue(args, "--provider") ?? args[0] ?? "github";
   const normalizedProvider = provider.toLowerCase();
   const guidanceByProvider = buildLoginGuidanceByProvider();
@@ -439,16 +443,18 @@ function printLoginGuidance(args: string[]): void {
     guidanceByProvider[normalizedProvider] ??
     (adapter ? buildAdapterLoginGuidance(adapter) : undefined);
   if (!guidance) {
-    console.log(
-      `Unknown login provider '${provider}'. Known providers: ${getLoginProviderNames(guidanceByProvider).join(", ")}`,
+    process.stderr.write(
+      `error: Unknown login provider '${provider}'. Known providers: ${getLoginProviderNames(guidanceByProvider).join(", ")}\n`,
     );
-    return;
+    process.stderr.write("Run 'agent-harness setup login --help' for usage.\n");
+    return 1;
   }
 
   console.log(`# ${normalizedProvider} login guidance`);
   for (const line of guidance) {
     console.log(`- ${line}`);
   }
+  return 0;
 }
 
 function buildLoginGuidanceByProvider(): Record<string, string[]> {

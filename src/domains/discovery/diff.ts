@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { CliUsageError } from "../../cli-help-format.js";
 import {
   readJsonFile,
   readJsonFileOrNull,
@@ -169,7 +170,10 @@ function getRequiredOptionValue(args: string[], optionName: string): string {
   const optionIndex = args.indexOf(optionName);
   const value = optionIndex === -1 ? undefined : args[optionIndex + 1];
   if (!value || value.startsWith("--")) {
-    throw new Error(`discover diff requires ${optionName} <stateRoot>`);
+    throw new CliUsageError(
+      `discover diff requires ${optionName} <stateRoot>`,
+      "agent-harness discover diff --help",
+    );
   }
 
   return value;

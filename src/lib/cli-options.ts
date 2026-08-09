@@ -1,6 +1,10 @@
+import { CliUsageError } from "../cli-help-format.js";
+
 /**
  * Returns the value following a CLI option, failing fast when the option is
  * present without a concrete value.
+ *
+ * @throws {CliUsageError} When the option is present without a value.
  */
 export function getOptionValue(
   args: readonly string[],
@@ -14,7 +18,7 @@ export function getOptionValue(
 
   const value = args[optionIndex + 1];
   if (!value || value.startsWith("--")) {
-    throw new Error(`Missing value for '${optionName}'.`);
+    throw new CliUsageError(`Missing value for '${optionName}'.`);
   }
 
   return value;
@@ -35,7 +39,9 @@ export function getSingleOptionValue(
   }
 
   if (values.length > 1) {
-    throw new Error(`Option '${optionName}' may only be provided once.`);
+    throw new CliUsageError(
+      `Option '${optionName}' may only be provided once.`,
+    );
   }
 
   return values[0];
@@ -58,7 +64,7 @@ export function getOptionValues(
 
     const value = args[index + 1];
     if (!value || value.startsWith("--")) {
-      throw new Error(`Missing value for '${optionName}'.`);
+      throw new CliUsageError(`Missing value for '${optionName}'.`);
     }
 
     values.push(value);
@@ -77,7 +83,7 @@ export function hasSingleFlag(
   const count = args.filter((arg) => arg === flagName).length;
 
   if (count > 1) {
-    throw new Error(`Flag '${flagName}' may only be provided once.`);
+    throw new CliUsageError(`Flag '${flagName}' may only be provided once.`);
   }
 
   return count === 1;

@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { CliUsageError } from "../cli-help-format.js";
 import {
   executeExtensionInstallAction,
   formatExtensionInstallActions,
@@ -50,17 +51,21 @@ export async function manageNativeInstall(
   const adapter = resolveHostAdapter(hostName);
 
   if (!adapter) {
-    throw new Error(formatActionableDiagnostic(unknownHostDiagnostic(hostName)));
+    throw new CliUsageError(
+      formatActionableDiagnostic(unknownHostDiagnostic(hostName)),
+      "agent-harness install native --help",
+    );
   }
 
   if (!adapter.nativeInstall) {
-    throw new Error(
+    throw new CliUsageError(
       formatActionableDiagnostic(
         unsupportedNativeInstallDiagnostic({
           displayName: adapter.displayName,
           hostId: adapter.id,
         }),
       ),
+      "agent-harness install native --help",
     );
   }
 
@@ -196,8 +201,9 @@ function parseNativeInstallOperation(value: string): NativeInstallCliOperation {
     return value;
   }
 
-  throw new Error(
+  throw new CliUsageError(
     `Invalid native install operation '${value}'. Must be one of: plan, install, verify, remove.`,
+    "agent-harness install native --help",
   );
 }
 

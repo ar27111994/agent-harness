@@ -57,6 +57,41 @@ export function hasUnknownFlagsForSubcommands(
 }
 
 /**
+ * Marks an error caused by invalid user input (bad flag value, missing
+ * required option, unknown provider, not-found lookup target) rather than
+ * an internal defect (#446).
+ *
+ * The CLI entry point prints these as a one-line actionable message without
+ * stack frames; any other error keeps its full stack so genuine bugs stay
+ * debuggable. Argument-validation helpers across domains throw this type so
+ * user mistakes never surface `at ... (file://...)` frames on stderr.
+ */
+export class CliUsageError extends Error {
+  readonly usageHint?: string;
+
+  constructor(message: string, usageHint?: string) {
+    super(message);
+    this.name = "CliUsageError";
+    this.usageHint = usageHint;
+  }
+}
+
+/**
+ * Prints a user-input error as a one-line actionable message plus a usage
+ * pointer, without internal stack frames (#446). The usage hint comes from
+ * the error itself when the throwing site knows its subcommand; otherwise it
+ * falls back to the caller-provided domain (or the generic top-level help).
+ */
+export function printCliUsageError(
+  error: CliUsageError,
+  fallbackHint = "agent-harness <command> --help",
+): void {
+  console.error(`error: ${error.message}`);
+  const hint = error.usageHint ?? fallbackHint;
+  console.error(`Run '${hint}' for usage.`);
+}
+
+/**
  * Returns true for tokens that look like options (`--flag`, `-f`) while
  * allowing the bare `-` (conventionally stdin) to pass as positional.
  */

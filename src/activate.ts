@@ -16,6 +16,7 @@ import {
   handleUnknownCommand,
   hasHelpFlag,
   hasUnknownFlagsForSubcommands,
+  CliUsageError,
   type SubcommandFlagSpec,
 } from "./cli-help-format.js";
 import { getOptionValue, getOptionValues } from "./lib/cli-options.js";
@@ -514,7 +515,10 @@ async function rollbackActivation(
   const generationId = getOptionValue(args, "--generation");
 
   if (!host || !generationId) {
-    throw new Error("rollback requires --host and --generation");
+    throw new CliUsageError(
+      "rollback requires --host and --generation",
+      "agent-harness activate rollback --help",
+    );
   }
 
   const generationPath = join(
@@ -525,7 +529,10 @@ async function rollbackActivation(
     `${generationId}.json`,
   );
   if (!(await pathExists(generationPath))) {
-    throw new Error(`generation not found: ${toPosixPath(generationPath)}`);
+    throw new CliUsageError(
+      `generation not found: ${toPosixPath(generationPath)}`,
+      "agent-harness activate rollback --help",
+    );
   }
 
   const generation = await readJsonFile<InstallGenerationManifest>(

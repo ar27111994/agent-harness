@@ -9,6 +9,7 @@
 
 import { join } from "node:path";
 
+import { CliUsageError } from "../cli-help-format.js";
 import {
   readJsonFileOrNull,
   removePath,
@@ -111,7 +112,10 @@ export async function explainActivationState(
   );
 
   if (!assetId) {
-    throw new Error("explain requires --asset <assetId>");
+    throw new CliUsageError(
+      "explain requires --asset <assetId>",
+      "agent-harness activate explain --help",
+    );
   }
 
   const hosts = requestedHost ? [requestedHost] : ACTIVATION_HOSTS;
@@ -251,7 +255,7 @@ export function parseHostTargetOption(
     return value;
   }
 
-  throw new Error(
+  throw new CliUsageError(
     `Invalid ${optionName} value: ${value}. Must be one of: ${targets.join(", ")}`,
   );
 }
@@ -285,7 +289,7 @@ export function parseActivationHostOption(
     return hostTarget;
   }
 
-  throw new Error(
+  throw new CliUsageError(
     `Invalid ${optionName} value: ${hostTarget}. Must be one of: ${ACTIVATION_HOSTS.join(", ")}`,
   );
 }

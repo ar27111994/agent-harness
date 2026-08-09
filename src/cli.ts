@@ -9,7 +9,11 @@ import { resolveProjectRoot } from "./files.js";
 import { clearGitHubState } from "./github.js";
 import { runInstall } from "./install.js";
 import { printCommandHelp } from "./lib/cli-output.js";
-import { printUnknownArgumentError } from "./cli-help-format.js";
+import {
+  printUnknownArgumentError,
+  CliUsageError,
+  printCliUsageError,
+} from "./cli-help-format.js";
 import { runMirror } from "./mirror.js";
 import { runRecommend } from "./recommend.js";
 import { runQuarantine } from "./quarantine.js";
@@ -94,7 +98,23 @@ async function main(): Promise<number> {
     ),
   );
 
-  return runDomainCommand(domain, args, workingDirectory, projectRoot);
+  try {
+    return await runDomainCommand(domain, args, workingDirectory, projectRoot);
+  } catch (error) {
+    // User-input errors print a one-line actionable message with a usage
+    // pointer instead of an internal stack trace (#446); anything else
+    // propagates so genuine bugs keep full stacks at the top-level catch.
+    if (error instanceof CliUsageError) {
+      printCliUsageError(
+        error,
+        domain === undefined
+          ? "agent-harness <command> --help"
+          : `agent-harness ${domain} --help`,
+      );
+      return 1;
+    }
+    throw error;
+  }
 }
 
 /**

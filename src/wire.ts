@@ -3,8 +3,10 @@
 import { fileURLToPath } from "node:url";
 
 import {
+  CliUsageError,
   hasHelpFlag,
   isFlagLike,
+  printCliUsageError,
   printUnknownArgumentError,
   hasUnknownFlag,
 } from "./cli-help-format.js";
@@ -196,7 +198,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       process.exitCode = exitCode;
     })
     .catch((error: unknown) => {
-      console.error(error);
+      // User-input errors print one-line actionable messages without
+      // internal stack frames (#446); genuine bugs keep their stacks.
+      if (error instanceof CliUsageError) {
+        printCliUsageError(error, "agent-harness wire --help");
+      } else {
+        console.error(error);
+      }
       process.exitCode = 1;
     });
 }

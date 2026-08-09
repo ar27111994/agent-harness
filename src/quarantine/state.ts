@@ -11,6 +11,7 @@
 
 import { join } from "node:path";
 
+import { CliUsageError } from "../cli-help-format.js";
 import { readJsonLinesFile } from "../files.js";
 import { getOptionValue } from "../lib/cli-options.js";
 import { assertMirrorIndexEntry } from "../manifest-validation.js";
@@ -88,7 +89,10 @@ export async function findReviewTarget(
   const requestedAssetId = getOptionValue(args, "--asset") ?? args[0];
   const requestedMirrorId = getOptionValue(args, "--mirror");
   if (!requestedAssetId && !requestedMirrorId) {
-    throw new Error("quarantine review commands require --asset or --mirror");
+    throw new CliUsageError(
+      "quarantine review commands require --asset or --mirror",
+      "agent-harness quarantine review --help",
+    );
   }
 
   const entries = await readMirrorIndex(projectRoot);
@@ -98,7 +102,10 @@ export async function findReviewTarget(
       candidate.mirrorId === requestedMirrorId,
   );
   if (!entry) {
-    throw new Error("No matching mirror artifact found for quarantine review.");
+    throw new CliUsageError(
+      "No matching mirror artifact found for quarantine review.",
+      "agent-harness quarantine --help",
+    );
   }
 
   return entry;

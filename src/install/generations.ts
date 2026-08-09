@@ -9,6 +9,7 @@ import {
   toPosixPath,
   writeJsonFile,
 } from "../files.js";
+import { CliUsageError } from "../cli-help-format.js";
 import { getOptionValue } from "../lib/cli-options.js";
 import {
   assertInstallGenerationManifest,
@@ -31,8 +32,9 @@ function validateHost(
     return undefined;
   }
   if (!INSTALL_HOSTS.includes(value as (typeof INSTALL_HOSTS)[number])) {
-    throw new Error(
+    throw new CliUsageError(
       `Invalid host value: ${value}. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
+      "agent-harness install generations --help",
     );
   }
   return value as BundleLock["host"];
@@ -43,8 +45,9 @@ function validateGenerationId(value: string | undefined): string | undefined {
     return undefined;
   }
   if (!GENERATION_ID_PATTERN.test(value)) {
-    throw new Error(
+    throw new CliUsageError(
       `Invalid generation ID: ${value}. Must contain only alphanumeric characters, dots, underscores, and hyphens.`,
+      "agent-harness install generations --help",
     );
   }
   return value;
@@ -109,7 +112,10 @@ export async function explainInstalledAsset(
   const assetId = getOptionValue(args, "--asset") ?? args[0];
 
   if (!assetId) {
-    throw new Error("explain requires --asset <assetId>");
+    throw new CliUsageError(
+      "explain requires --asset <assetId>",
+      "agent-harness install explain --help",
+    );
   }
 
   const lines: string[] = [];
@@ -182,7 +188,10 @@ export async function manageInstallGenerations(
       await pruneInstallGenerations(projectRoot, args.slice(1));
       return;
     default:
-      throw new Error(`Unknown install generations command '${subcommand}'`);
+      throw new CliUsageError(
+        `Unknown install generations command '${subcommand}'`,
+        "agent-harness install generations --help",
+      );
   }
 }
 
@@ -216,7 +225,10 @@ async function pinInstallGeneration(
   const reason = getOptionValue(args, "--reason");
 
   if (!host || !generationId) {
-    throw new Error("generations pin/unpin requires --host and --generation");
+    throw new CliUsageError(
+      "generations pin/unpin requires --host and --generation",
+      "agent-harness install generations pin --help",
+    );
   }
 
   const generationPath = join(

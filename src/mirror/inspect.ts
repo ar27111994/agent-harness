@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import { CliUsageError } from "../cli-help-format.js";
 import {
   readJsonFile,
   readJsonFileOrNull,
@@ -82,7 +83,10 @@ export async function explainMirrorArtifact(
   const requestedAssetId = getOptionValue(args, "--asset") ?? args[0];
   const requestedMirrorId = getOptionValue(args, "--mirror");
   if (!requestedAssetId && !requestedMirrorId) {
-    throw new Error("mirror explain requires --asset or --mirror");
+    throw new CliUsageError(
+      "mirror explain requires --asset or --mirror",
+      "agent-harness mirror explain --help",
+    );
   }
 
   const entries = await readJsonLinesFile<MirrorIndexEntry>(
@@ -95,7 +99,10 @@ export async function explainMirrorArtifact(
       candidate.mirrorId === requestedMirrorId,
   );
   if (!entry) {
-    throw new Error("No matching mirror artifact found.");
+    throw new CliUsageError(
+      "No matching mirror artifact found.",
+      "agent-harness mirror explain --help",
+    );
   }
 
   const rawRoot = join(
@@ -135,7 +142,10 @@ export async function explainBundleLock(
   const bundleId = getOptionValue(args, "--bundle") ?? args[0];
   const json = args.includes("--json");
   if (!bundleId) {
-    throw new Error("bundle explain requires --bundle <bundleId> or a positional bundle ID");
+    throw new CliUsageError(
+      "bundle explain requires --bundle <bundleId> or a positional bundle ID",
+      "agent-harness bundle explain --help",
+    );
   }
 
   const bundleLock = await readJsonFile<BundleLock>(

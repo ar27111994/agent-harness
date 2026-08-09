@@ -1,5 +1,6 @@
 import type { SessionIntent } from "../types.js";
 import { replaceRunsWithDash, trimDashes } from "./safe-paths.js";
+import { CliUsageError } from "../cli-help-format.js";
 
 /**
  * Enumerates the supported session intent values accepted by the CLI and reports.
@@ -237,7 +238,7 @@ export function parseSessionIntent(
     return aliasedIntent;
   }
 
-  throw new Error(
+  throw new CliUsageError(
     `Invalid ${optionName} value '${value}'. Must be one of: ${SESSION_INTENTS.join(", ")}`,
   );
 }
