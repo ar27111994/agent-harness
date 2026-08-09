@@ -494,7 +494,17 @@ function classifyCursorConfigFile(
   source: SourceDefinition,
   relativePath: string,
 ): ClassifiedLocalFile | null {
-  if (/^(?:plugins\/.+\/)?rules\/.+\.(?:mdc|md)$/iu.test(relativePath)) {
+  // Linear, non-backtracking path matchers: the optional plugins prefix and
+  // the trailing file segment both use `(?:[^/]+/)*` (each directory level is
+  // delimited by a literal slash, so the grouping is unambiguous), and the
+  // final segment is a single `[^/]+` before the literal extension. Avoids
+  // nested `.+` quantifiers, which made the previous patterns polynomial on
+  // adversarial paths (CodeQL js/polynomial-redos).
+  if (
+    /^(?:plugins\/(?:[^/]+\/)*)?rules\/(?:[^/]+\/)*[^/]+\.(?:mdc|md)$/iu.test(
+      relativePath,
+    )
+  ) {
     return buildNativeLocalFile(source, "instruction");
   }
 
@@ -502,19 +512,35 @@ function classifyCursorConfigFile(
     return buildNativeLocalFile(source, "instruction");
   }
 
-  if (/^(?:plugins\/.+\/)?agents\/.+\.md$/iu.test(relativePath)) {
+  if (
+    /^(?:plugins\/(?:[^/]+\/)*)?agents\/(?:[^/]+\/)*[^/]+\.md$/iu.test(
+      relativePath,
+    )
+  ) {
     return buildNativeLocalFile(source, "agent");
   }
 
-  if (/^(?:plugins\/.+\/)?commands\/.+\.md$/iu.test(relativePath)) {
+  if (
+    /^(?:plugins\/(?:[^/]+\/)*)?commands\/(?:[^/]+\/)*[^/]+\.md$/iu.test(
+      relativePath,
+    )
+  ) {
     return buildNativeLocalFile(source, "prompt-pack");
   }
 
-  if (/^(?:plugins\/.+\/)?skills\/.+\/SKILL\.md$/iu.test(relativePath)) {
+  if (
+    /^(?:plugins\/(?:[^/]+\/)*)?skills\/(?:[^/]+\/)*[^/]+\/SKILL\.md$/iu.test(
+      relativePath,
+    )
+  ) {
     return buildNativeLocalFile(source, "skill");
   }
 
-  if (/^(?:plugins\/.+\/)?hooks\/.+\.json$/iu.test(relativePath)) {
+  if (
+    /^(?:plugins\/(?:[^/]+\/)*)?hooks\/(?:[^/]+\/)*[^/]+\.json$/iu.test(
+      relativePath,
+    )
+  ) {
     return buildNativeLocalFile(source, "hook");
   }
 

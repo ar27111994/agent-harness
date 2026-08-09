@@ -14,9 +14,49 @@ export function sanitizeMirrorId(value: string): string {
  */
 export function sanitizeAssetId(value: string): string {
   const base =
-    value.replace(/[^a-zA-Z0-9_-]+/gu, "-").replace(/^-+|-+$/gu, "") || "asset";
+    replaceRunsWithDash(value, isSafeAssetIdCharacter).replace(
+      /^-+|-+$/gu,
+      "",
+    ) || "asset";
   const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
   return `${base}-${suffix}`;
+}
+
+/**
+ * Returns whether the character is safe to keep verbatim in a sanitized
+ * asset id.
+ */
+function isSafeAssetIdCharacter(character: string): boolean {
+  return /[a-zA-Z0-9_-]/u.test(character);
+}
+
+/**
+ * Replaces each maximal run of characters for which `isAllowed` returns
+ * false with a single "-" (linear, no regex backtracking).
+ *
+ * Equivalent to `value.replace(/[^...]+/g, "-")` for a single class, but a
+ * regex with a `+` over a negated character class is flagged by CodeQL as a
+ * polynomial-reDoS risk on adversarial input; a plain one-character-at-a-time
+ * scan is unconditionally linear.
+ */
+export function replaceRunsWithDash(
+  value: string,
+  isAllowed: (character: string) => boolean,
+): string {
+  let result = "";
+  let inRun = false;
+
+  for (const character of value) {
+    if (isAllowed(character)) {
+      result += character;
+      inRun = false;
+    } else if (!inRun) {
+      result += "-";
+      inRun = true;
+    }
+  }
+
+  return result;
 }
 
 /**
