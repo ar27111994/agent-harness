@@ -12,6 +12,7 @@ import type {
 import { getRuntimeConfig } from "../../config/runtime.js";
 import { readJsonFileOrNull, writeJsonFile } from "../../files.js";
 import { fetchJsonWithGuards, fetchTextWithGuards } from "../../lib/http.js";
+import { replaceRunsWithDash, trimDashes } from "../../lib/safe-paths.js";
 import { buildOfficialIndexAssetStatus } from "../../official-index.js";
 import {
   buildCandidateRankHint,
@@ -1029,11 +1030,18 @@ function extractOfficialSkillRepoUrls(
 }
 
 function normalizeOfficialSkillSlug(slug: string): string {
-  return slug
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/gu, "-")
-    .replace(/^-+|-+$/gu, "");
+  // Linear run-collapse + dash trim (no regex backtracking on the slug).
+  return trimDashes(
+    replaceRunsWithDash(slug.trim().toLowerCase(), isOfficialSlugCharacter),
+  );
+}
+
+/**
+ * Returns whether the character is safe to keep verbatim in an official
+ * skill slug.
+ */
+function isOfficialSlugCharacter(character: string): boolean {
+  return /[a-z0-9-]/u.test(character);
 }
 
 function isAllowedOfficialRepoOwner(

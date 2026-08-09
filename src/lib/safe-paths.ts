@@ -14,12 +14,30 @@ export function sanitizeMirrorId(value: string): string {
  */
 export function sanitizeAssetId(value: string): string {
   const base =
-    replaceRunsWithDash(value, isSafeAssetIdCharacter).replace(
-      /^-+|-+$/gu,
-      "",
-    ) || "asset";
+    trimDashes(replaceRunsWithDash(value, isSafeAssetIdCharacter)) || "asset";
   const suffix = createHash("sha256").update(value).digest("hex").slice(0, 12);
   return `${base}-${suffix}`;
+}
+
+/**
+ * Removes leading and trailing "-" characters in a single linear pass.
+ *
+ * Equivalent to `value.replace(/^-+|-+$/gu, "")`; the regex form is flagged
+ * by CodeQL as a polynomial-ReDoS risk on adversarial input, the scan is
+ * not.
+ */
+export function trimDashes(value: string): string {
+  let start = 0;
+  let end = value.length;
+
+  while (start < end && value[start] === "-") {
+    start += 1;
+  }
+  while (end > start && value[end - 1] === "-") {
+    end -= 1;
+  }
+
+  return value.slice(start, end);
 }
 
 /**

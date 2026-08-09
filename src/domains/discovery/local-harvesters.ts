@@ -490,70 +490,89 @@ function classifyClaudeCodeConfigFile(
   return null;
 }
 
+/**
+ * Returns the index of the target directory segment in a Cursor config
+ * relative path, or -1 when the path does not place the target at a valid
+ * depth. Valid layouts: "<target>/..." (depth 0) or
+ * "plugins/<dirs>/<target>/..." (depth >= 2 under the plugins root — one
+ * plugin dir is required because the legacy regexes consumed at least one
+ * segment between "plugins/" and the target). Pure segment scan — no regex
+ * is applied to the path, so adversarial relative paths cannot trigger
+ * regex backtracking (CodeQL js/polynomial-redos).
+ */
+function findCursorTargetSegment(
+  relativePath: string,
+  targetDirectory: string,
+): number {
+  const segments = relativePath.split("/");
+  const hasPluginsRoot = segments[0] === "plugins";
+  return segments.findIndex(
+    (segment, index) =>
+      segment === targetDirectory &&
+      (hasPluginsRoot ? index >= 2 : index === 0),
+  );
+}
+
 function classifyCursorConfigFile(
   source: SourceDefinition,
   relativePath: string,
 ): ClassifiedLocalFile | null {
-  // Linear, non-backtracking path matchers: the optional plugins prefix and
-  // the trailing file segment both use `(?:[^/]+/)*` (each directory level is
-  // delimited by a literal slash, so the grouping is unambiguous), and the
-  // final segment is a single `[^/]+` before the literal extension. Avoids
-  // nested `.+` quantifiers, which made the previous patterns polynomial on
-  // adversarial paths (CodeQL js/polynomial-redos).
+  const segments = relativePath.split("/");
+  const fileName = segments[segments.length - 1].toLowerCase();
+  const targetIndex = findCursorTargetSegment(relativePath, "rules");
   if (
-    /^(?:plugins\/(?:[^/]+\/)*)?rules\/(?:[^/]+\/)*[^/]+\.(?:mdc|md)$/iu.test(
-      relativePath,
-    )
+    targetIndex >= 0 &&
+    (fileName.endsWith(".mdc") || fileName.endsWith(".md"))
   ) {
     return buildNativeLocalFile(source, "instruction");
   }
 
-  if (/^\.cursorrules$/iu.test(relativePath)) {
+  if (relativePath === ".cursorrules") {
     return buildNativeLocalFile(source, "instruction");
   }
 
-  if (
-    /^(?:plugins\/(?:[^/]+\/)*)?agents\/(?:[^/]+\/)*[^/]+\.md$/iu.test(
-      relativePath,
-    )
-  ) {
+  const agentsIndex = findCursorTargetSegment(relativePath, "agents");
+  if (agentsIndex >= 0 && fileName.endsWith(".md")) {
     return buildNativeLocalFile(source, "agent");
   }
 
-  if (
-    /^(?:plugins\/(?:[^/]+\/)*)?commands\/(?:[^/]+\/)*[^/]+\.md$/iu.test(
-      relativePath,
-    )
-  ) {
+  const commandsIndex = findCursorTargetSegment(relativePath, "commands");
+  if (commandsIndex >= 0 && fileName.endsWith(".md")) {
     return buildNativeLocalFile(source, "prompt-pack");
   }
 
+  const skillsIndex = findCursorTargetSegment(relativePath, "skills");
   if (
-    /^(?:plugins\/(?:[^/]+\/)*)?skills\/(?:[^/]+\/)*[^/]+\/SKILL\.md$/iu.test(
-      relativePath,
-    )
+    skillsIndex >= 0 &&
+    fileName === "skill.md" &&
+    skillsIndex + 1 < segments.length - 1
   ) {
     return buildNativeLocalFile(source, "skill");
   }
 
+  const hooksIndex = findCursorTargetSegment(relativePath, "hooks");
+  if (hooksIndex >= 0 && fileName.endsWith(".json")) {
+    return buildNativeLocalFile(source, "hook");
+  }
+
+  if (relativePath === "hooks.json") {
+    return buildNativeLocalFile(source, "hook");
+  }
+
   if (
-    /^(?:plugins\/(?:[^/]+\/)*)?hooks\/(?:[^/]+\/)*[^/]+\.json$/iu.test(
-      relativePath,
-    )
+    fileName === "mcp.json" &&
+    (segments.length === 1 ||
+      (segments[0] === "plugins" && segments.length >= 3))
   ) {
-    return buildNativeLocalFile(source, "hook");
-  }
-
-  if (/^hooks\.json$/iu.test(relativePath)) {
-    return buildNativeLocalFile(source, "hook");
-  }
-
-  if (/^(?:plugins\/.+\/)?mcp\.json$/iu.test(relativePath)) {
     return buildNativeLocalFile(source, "mcp-server");
   }
 
   if (
-    /^(?:plugins\/.+\/)?\.cursor-plugin\/plugin\.json$/iu.test(relativePath)
+    segments.length >= 2 &&
+    segments[segments.length - 2].toLowerCase() === ".cursor-plugin" &&
+    fileName === "plugin.json" &&
+    (segments.length === 2 ||
+      (segments[0] === "plugins" && segments.length >= 4))
   ) {
     return buildNativeLocalFile(source, "plugin");
   }

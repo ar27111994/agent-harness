@@ -1,5 +1,5 @@
 import type { SessionIntent } from "../types.js";
-import { replaceRunsWithDash } from "./safe-paths.js";
+import { replaceRunsWithDash, trimDashes } from "./safe-paths.js";
 
 /**
  * Enumerates the supported session intent values accepted by the CLI and reports.
@@ -257,12 +257,10 @@ function normalizeSessionIntentValue(value: string | undefined): string {
     return "general";
   }
 
-  // Linear run-collapse (a `+` over a negated class is a CodeQL
-  // polynomial-reDoS risk on adversarial input; the one-pass scan is not).
-  return replaceRunsWithDash(trimmedValue, isIntentValueCharacter).replace(
-    /^-+|-+$/gu,
-    "",
-  );
+  // Linear run-collapse + dash trim (a `+` over a negated class and the
+  // anchored dash trim are CodeQL polynomial-ReDoS risks on adversarial
+  // input; the one-pass scans are not).
+  return trimDashes(replaceRunsWithDash(trimmedValue, isIntentValueCharacter));
 }
 
 /**

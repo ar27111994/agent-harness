@@ -115,6 +115,7 @@ void test("local Cursor config harvesting recognizes native components", async (
   try {
     await writeText(join(root, ".cursorrules"), "Keep edits focused.\n");
     await writeText(join(root, "rules", "frontend.mdc"), "# Frontend\n");
+    await writeText(join(root, "rules", "security.md"), "# Security\n");
     await writeText(join(root, "commands", "review.md"), "Review changes.\n");
     await writeText(join(root, "agents", "security.md"), "# Security\n");
     await writeText(
@@ -132,6 +133,10 @@ void test("local Cursor config harvesting recognizes native components", async (
     await writeText(
       join(root, "mcp.json"),
       '{"mcpServers":{"repo":{"command":"node","args":["server.js"]}}}',
+    );
+    await writeText(
+      join(root, "plugins", "team", "mcp.json"),
+      '{"mcpServers":{"team":{"command":"node","args":["team.js"]}}}',
     );
     await writeText(
       join(root, "plugins", "team", ".cursor-plugin", "plugin.json"),
@@ -157,12 +162,14 @@ void test("local Cursor config harvesting recognizes native components", async (
 
     assert.equal(kindByPath.get(".cursorrules"), "instruction");
     assert.equal(kindByPath.get("rules/frontend.mdc"), "instruction");
+    assert.equal(kindByPath.get("rules/security.md"), "instruction");
     assert.equal(kindByPath.get("commands/review.md"), "prompt-pack");
     assert.equal(kindByPath.get("agents/security.md"), "agent");
     assert.equal(kindByPath.get("skills/api-designer/SKILL.md"), "skill");
     assert.equal(kindByPath.get("hooks.json"), "hook");
     assert.equal(kindByPath.get("plugins/team/hooks/deploy.json"), "hook");
     assert.equal(kindByPath.get("mcp.json"), "mcp-server");
+    assert.equal(kindByPath.get("plugins/team/mcp.json"), "mcp-server");
     assert.equal(
       kindByPath.get("plugins/team/.cursor-plugin/plugin.json"),
       "plugin",
