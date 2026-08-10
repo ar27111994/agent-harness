@@ -632,6 +632,8 @@ The discovery configuration is assembled from multiple checked-in inputs on purp
 
 If you want the widest practical candidate pool before judging recommendation quality, start with `agent-harness discover breadth`. That first-class command runs the full breadth-oriented discovery pass and prints whether the bottleneck currently looks like demand detection, source coverage, selection filtering, or ranking. For the step-by-step workflow and agent-operated version, use [`DISCOVERY-BREADTH-PLAYBOOK.md`](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/DISCOVERY-BREADTH-PLAYBOOK.md).
 
+`discover breadth` is a full discovery pass: it **replaces** the catalog and selection outputs in the state root. Recommendations, mirror bundle locks, install generations, and activation manifests built from the previous catalog are then stale — the command prints a warning naming the affected artifacts (with the previous catalog size vs the new one in its summary), and you must re-run `recommend report` and the affected mirror/install/activate commands afterwards.
+
 Every command group accepts `--help` or `-h` and exits before preparing lifecycle state. Examples:
 
 ```bash

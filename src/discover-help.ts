@@ -388,6 +388,20 @@ export function printDiscoverBreadthHelp(): void {
           "  Useful for surveying available assets before narrowing down.",
         description: "",
       },
+      {
+        command:
+          "  REPLACES the discovery outputs: recommendations, mirror locks,",
+        description: "",
+      },
+      {
+        command:
+          "  install generations, and activation manifests built from the",
+        description: "",
+      },
+      {
+        command: "  previous catalog are invalidated (a warning lists them).",
+        description: "",
+      },
     ],
     sections: [
       {

@@ -34,7 +34,7 @@ agent-harness discover full --sync-all          # Sync all sources (skip demand 
 agent-harness discover catalog                 # Build full asset catalog
 agent-harness discover select                  # Filter catalog by demand + policy
 agent-harness discover full                    # Run full pipeline (demand → select)
-agent-harness discover breadth                 # Breadth pass: demand → catalog → bottleneck assessment
+agent-harness discover breadth                 # Breadth pass: demand → catalog → bottleneck assessment (REPLACES discovery outputs; warns when lifecycle state goes stale)
 agent-harness discover index                   # Build full paginated catalog index (500 pages/source default)
 agent-harness discover recall                  # Recall-focused candidate review pass
 agent-harness discover candidate-pool          # Inspect the candidate queue

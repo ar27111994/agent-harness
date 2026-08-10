@@ -131,7 +131,8 @@ export function buildStratifiedRejectionSample<T extends { reason: string }>(
 /**
  * Summarizes and assesses a breadth discovery pass: prints the demand-signal
  * count, indexed source count, operational source count, and the bottleneck
- * assessment with next steps.
+ * assessment with next steps. When `previousCatalogEntryCount` is provided
+ * the catalog line also reports how the pool changed versus the prior pass.
  */
 export function printDiscoveryBreadthSummary(input: {
   demandProfile: DemandProfile;
@@ -139,6 +140,7 @@ export function printDiscoveryBreadthSummary(input: {
   enabledSources: SourceDefinition[];
   catalogEntries: AssetCatalogEntry[];
   selectionReport: SelectionReport;
+  previousCatalogEntryCount?: number | null;
 }): void {
   const demandSignalCount = countDemandSignals(input.demandProfile);
   const indexedSourceCount = input.sourceIndex.enabledSources.filter(
@@ -163,7 +165,11 @@ export function printDiscoveryBreadthSummary(input: {
     `Sources: ${input.sourceIndex.sourceCount} enabled (${indexedSourceCount} indexed, ${operationalSourceCount} operational)`,
   );
   console.log(
-    `Selection: ${input.catalogEntries.length} catalog entries -> ${input.selectionReport.selectedCount} selected / ${input.selectionReport.rejectedCount} rejected`,
+    `Selection: ${input.catalogEntries.length} catalog entries -> ${input.selectionReport.selectedCount} selected / ${input.selectionReport.rejectedCount} rejected` +
+      (input.previousCatalogEntryCount === null ||
+      input.previousCatalogEntryCount === undefined
+        ? ""
+        : ` (previous pass: ${input.previousCatalogEntryCount})`),
   );
   console.log("Next steps:");
   for (const nextStep of assessment.nextSteps) {

@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import { copyFile, mkdir } from "node:fs/promises";
+import { copyFile, mkdir, readdir, readFile } from "node:fs/promises";
 
 import {
   inspectCatalog,
@@ -11,7 +11,7 @@ import {
   hasUnknownFlag,
 } from "./cli-help-format.js";
 
-import { readJsonLinesFile, toPosixPath } from "./files.js";
+import { readJsonLinesFile, pathExists, toPosixPath } from "./files.js";
 import { getRuntimeConfig } from "./config/runtime.js";
 import {
   orchestrateAiEnrichment,
@@ -28,6 +28,7 @@ import {
 } from "./domains/discovery/source-sync.js";
 import {
   CATALOG_INDEX_OUTPUT_PATH,
+  CATALOG_OUTPUT_PATH,
   SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
 } from "./domains/discovery/output-paths.js";
 import {
@@ -615,6 +616,18 @@ async function runDiscoveryBreadth(
   workingDirectory: string,
   projectRoot: string,
 ): Promise<void> {
+  // Breadth is a full discovery pass that REPLACES the catalog/selection
+  // outputs, silently invalidating lifecycle state built from the previous
+  // catalog (recommendations, mirror locks, install generations, activation
+  // manifests). Warn before overwriting and report the pool-size delta in
+  // the summary (#452).
+  const invalidation = await buildBreadthStateInvalidationReport(projectRoot);
+  if (invalidation.invalidatedArtifacts.length > 0) {
+    console.log(
+      `[discover breadth] Warning: this pass REPLACES the discovery outputs. Lifecycle state built from the previous catalog is now stale: ${invalidation.invalidatedArtifacts.join(", ")}. Re-run 'agent-harness recommend report' and the affected mirror/install/activate commands to rebuild it.`,
+    );
+  }
+
   logDiscoverPhase("discover breadth", 1, 5, "Scanning workspace demand");
   const demandProfile = await generateDemandProfile(
     workingDirectory,
@@ -635,7 +648,102 @@ async function runDiscoveryBreadth(
     enabledSources,
     catalogEntries,
     selectionReport,
+    previousCatalogEntryCount: invalidation.priorCatalogEntryCount,
   });
+}
+
+/**
+ * Builds the breadth state-invalidation report (#452): the previous catalog
+ * entry count (line count of discover/catalog.assets.jsonl, null when no
+ * prior pass exists) and the lifecycle artifacts built from the previous
+ * catalog that a breadth pass will invalidate (recommendations, mirror
+ * locks, install generations, activation manifests).
+ */
+export async function buildBreadthStateInvalidationReport(
+  stateRoot: string,
+): Promise<{
+  priorCatalogEntryCount: number | null;
+  invalidatedArtifacts: string[];
+}> {
+  const invalidatedArtifacts: string[] = [];
+
+  if (await pathExists(join(stateRoot, "state", "recommendations.json"))) {
+    invalidatedArtifacts.push("state/recommendations.json");
+  }
+  const mirrorLocks = await listMatchingFileNames(
+    join(stateRoot, "mirror", "bundles"),
+    (name) => name.endsWith(".lock.json"),
+    4,
+  );
+  for (const lockName of mirrorLocks.slice(0, 3)) {
+    invalidatedArtifacts.push(`mirror/bundles/${lockName}`);
+  }
+  if (mirrorLocks.length > 3) {
+    invalidatedArtifacts.push(
+      `mirror/bundles (+${mirrorLocks.length - 3} more lock files)`,
+    );
+  }
+  if (await directoryHasAnyEntry(join(stateRoot, "install", "generations"))) {
+    invalidatedArtifacts.push("install/generations");
+  }
+  for (const hostName of await listDirectoryNames(
+    join(stateRoot, "activate"),
+  )) {
+    invalidatedArtifacts.push(`activate/${hostName}`);
+  }
+
+  return {
+    priorCatalogEntryCount: await countCatalogEntryLines(
+      join(stateRoot, ...CATALOG_OUTPUT_PATH),
+    ),
+    invalidatedArtifacts,
+  };
+}
+
+/**
+ * Counts the non-empty lines of a JSONL catalog file, or null when absent.
+ */
+async function countCatalogEntryLines(
+  catalogPath: string,
+): Promise<number | null> {
+  const content = await readFile(catalogPath, "utf8").catch(() => null);
+  if (content === null) {
+    return null;
+  }
+  return content.split("\n").filter((line) => line.trim().length > 0).length;
+}
+
+/**
+ * Lists file names in a directory matching a predicate, capped for display.
+ * Missing directories contribute nothing.
+ */
+async function listMatchingFileNames(
+  directory: string,
+  matches: (name: string) => boolean,
+  limit: number,
+): Promise<string[]> {
+  return (await readdir(directory).catch(() => []))
+    .filter(matches)
+    .slice(0, limit);
+}
+
+/**
+ * Returns whether a directory contains at least one entry.
+ */
+async function directoryHasAnyEntry(directory: string): Promise<boolean> {
+  return (await readdir(directory).catch(() => [])).length > 0;
+}
+
+/**
+ * Lists immediate subdirectory names of a directory.
+ */
+async function listDirectoryNames(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true }).catch(
+    () => [],
+  );
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
 }
 
 /**
@@ -643,6 +751,7 @@ async function runDiscoveryBreadth(
  */
 export const discoverInternals = {
   applyPerSourceCap,
+  buildBreadthStateInvalidationReport,
   computeAcceptanceRate,
   computeSourceDiversityWarning,
   computeDemandRelevantSourceIds,

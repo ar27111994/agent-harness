@@ -115,6 +115,8 @@ agent-harness recommend report --intent <intent>
 
 If you are not diagnosing breadth and just want the normal end-to-end path for a host, use `agent-harness workspace <host>` instead. `discover breadth` is the recall-first diagnostic command, not the host wiring entrypoint.
 
+A breadth pass is a full discovery pass: it **replaces** the catalog and selection outputs in the state root, so recommendations, mirror bundle locks, install generations, and activation manifests built from the previous catalog are stale afterwards. The command prints a warning naming the affected artifacts and reports the previous catalog size vs the new one; re-run `agent-harness recommend report` and the affected mirror/install/activate commands afterwards (#452).
+
 If you want to see the exact underlying sequence, `discover breadth` is effectively the recall-first wrapper around:
 
 ```bash

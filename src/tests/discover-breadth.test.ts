@@ -12,7 +12,7 @@ import {
   SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
   SOURCE_SYNC_STATE_OUTPUT_PATH,
 } from "../domains/discovery/output-paths.js";
-import { runDiscover } from "../discover.js";
+import { runDiscover, discoverInternals } from "../discover.js";
 
 void test("discover breadth runs the full breadth workflow and prints guidance", async () => {
   const tempRoot = await mkdtemp(
@@ -69,6 +69,130 @@ void test("discover breadth runs the full breadth workflow and prints guidance",
     process.stdout.write = originalStdoutWrite;
     for (const [name, value] of Object.entries(previousEnv))
       restoreEnvVar(name, value);
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("discover breadth warns about invalidated lifecycle state and reports prior catalog size (#452)", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-discover-breadth-stale-"),
+  );
+  const workspaceRoot = join(tempRoot, "workspace");
+  const stateRoot = join(tempRoot, "state");
+  const localSourceRoot = join(tempRoot, "local-source");
+  const homeRoot = join(tempRoot, "home");
+  const appDataRoot = join(tempRoot, "appdata");
+  const xdgConfigRoot = join(tempRoot, "xdg");
+  const stdoutChunks: string[] = [];
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const previousEnv = {
+    AGENT_HARNESS_HOME: process.env.AGENT_HARNESS_HOME,
+    APPDATA: process.env.APPDATA,
+    HOME: process.env.HOME,
+    USERPROFILE: process.env.USERPROFILE,
+    XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
+  };
+
+  try {
+    await prepareDiscoveryFixture({
+      workspaceRoot,
+      stateRoot,
+      localSourceRoot,
+      homeRoot,
+      appDataRoot,
+      xdgConfigRoot,
+    });
+
+    // Simulate a prior discovery pass + lifecycle state built from it.
+    await writeJsonLinesFile(join(stateRoot, ...CATALOG_OUTPUT_PATH), [
+      { id: "prior/one" },
+      { id: "prior/two" },
+    ]);
+    await mkdir(join(stateRoot, "state"), { recursive: true });
+    await writeJsonFile(join(stateRoot, "state", "recommendations.json"), {
+      entries: [],
+    });
+    await mkdir(join(stateRoot, "mirror", "bundles"), { recursive: true });
+    await writeFile(
+      join(stateRoot, "mirror", "bundles", "copilot-core.lock.json"),
+      "{}",
+    );
+    await mkdir(join(stateRoot, "install", "generations", "gen-1"), {
+      recursive: true,
+    });
+    await mkdir(join(stateRoot, "activate", "codex"), { recursive: true });
+
+    process.stdout.write = ((chunk: string | Uint8Array) => {
+      stdoutChunks.push(
+        typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8"),
+      );
+      return true;
+    }) as typeof process.stdout.write;
+
+    assert.equal(await runDiscover(["breadth"], workspaceRoot, stateRoot), 0);
+
+    const stdout = stdoutChunks.join("");
+    assert.match(
+      stdout,
+      /\[discover breadth\] Warning: this pass REPLACES the discovery outputs/u,
+    );
+    assert.match(stdout, /state\/recommendations\.json/u);
+    assert.match(stdout, /mirror\/bundles\/copilot-core\.lock\.json/u);
+    assert.match(stdout, /install\/generations/u);
+    assert.match(stdout, /activate\/codex/u);
+    assert.match(stdout, /\(previous pass: 2\)/u);
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    for (const [name, value] of Object.entries(previousEnv))
+      restoreEnvVar(name, value);
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("breadth state invalidation report enumerates lifecycle artifacts and caps mirror locks (#452)", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-breadth-report-"),
+  );
+  try {
+    // Empty state root: no prior catalog, no invalidated artifacts.
+    assert.deepEqual(
+      await discoverInternals.buildBreadthStateInvalidationReport(tempRoot),
+      { priorCatalogEntryCount: null, invalidatedArtifacts: [] },
+    );
+
+    await writeJsonLinesFile(
+      join(tempRoot, "discover", "catalog.assets.jsonl"),
+      [{ id: "a" }, { id: "b" }, { id: "c" }],
+    );
+    await writeJsonFile(join(tempRoot, "state", "recommendations.json"), {});
+    await mkdir(join(tempRoot, "mirror", "bundles"), { recursive: true });
+    for (const name of [
+      "a.lock.json",
+      "b.lock.json",
+      "c.lock.json",
+      "d.lock.json",
+      "not-a-lock.txt",
+    ]) {
+      await writeFile(join(tempRoot, "mirror", "bundles", name), "{}");
+    }
+    await mkdir(join(tempRoot, "install", "generations", "g1"), {
+      recursive: true,
+    });
+    await mkdir(join(tempRoot, "activate", "opencode"), { recursive: true });
+
+    const report =
+      await discoverInternals.buildBreadthStateInvalidationReport(tempRoot);
+    assert.equal(report.priorCatalogEntryCount, 3);
+    assert.deepEqual(report.invalidatedArtifacts, [
+      "state/recommendations.json",
+      "mirror/bundles/a.lock.json",
+      "mirror/bundles/b.lock.json",
+      "mirror/bundles/c.lock.json",
+      "mirror/bundles (+1 more lock files)",
+      "install/generations",
+      "activate/opencode",
+    ]);
+  } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
 });
