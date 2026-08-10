@@ -1,6 +1,6 @@
 {
   "name": "@ar27111994/agent-harness",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "ARD-compatible agent-asset supply-chain CLI — discover, rank, mirror, stage, activate, wire for Copilot, OpenCode, Cursor, Zed, Claude Code, Pi, Codex.",
   "license": "MIT",
   "author": "ar27111994",

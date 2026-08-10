@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-08-10
+
+### Added
+
+- **Breadth-pass state-invalidation warning** — `discover breadth` is a full discovery pass that replaces the catalog/selection outputs; it now inspects the state root first and warns, naming the lifecycle artifacts built from the previous catalog that are now stale (recommendations.json, mirror bundle locks, install generations, activation manifests), and its summary reports the previous catalog size vs the new one (#452)
+- **Coverage-truth gates extended to live-fetch paths** — the ARD registry sync, VS Code Marketplace popularity/category sweeps, package-registry search delegates, and the official-index per-index cap are no longer hidden behind `c8 ignore start|stop` blocks; real mocked-HTTP contract tests now cover pagination, cursors, caps, failures, and shape handling, and `scripts/check-coverage-exclusions.mjs` fails the gate when a new inline ignore block appears in product code without an allowlisted, documented justification (#451)
+- **ARD registry sync actually fetches** — the adapter called `fetchJsonWithGuards` without `allowedOrigins`, so the origin guard rejected every request and the consumer could never sync; it now uses the source-sync fetch layer (`fetchRequiredJson` + `getAllowedOrigins`) with retries and standard headers (#451)
+
+### Fixed
+
+- **Declared dependencies select correctly** — scoped dependency evidence (`npm:@duckdb/node-api`, `pypi:duckdb`, …) now contributes each distinctive package-identity token as an independent high-signal term, so official DuckDB skills are selected instead of being rejected on demand-relevance while coincidental-token junk (WordPress, cargo crates, lookalike PyPI packages) passed (#443)
+- **Ranking attributes asset-side evidence only** — `matchedSignals` evidence counts now describe evidence about the asset (its own terms and provenance), never the workspace's demand evidence; `fit:exact-stack` requires ecosystem affinity, declared-dependency identity in the asset's curated identity, and no language contradiction, so single-token collisions no longer top the rankings (#444)
+- **Unknown CLI flags rejected across every domain** — `recommend`, `mirror`, `install`, `activate`, `quarantine`, `rebuild`, and `discover inspect` now reject unknown `--flag` tokens with a clean error and usage hint before doing work, matching the #431 fix's coverage of discover/wire/workspace/setup (#445)
+- **User-input failures print clean one-line errors** — argument-validation failures across activate/recommend/discover-diff/mirror-explain/quarantine/install-generations no longer print raw stacks, and `setup login --provider <unknown>` exits non-zero (#446)
+- **wire reset restores pre-apply state for every host** — Codex's adapter-created `marketplace.json` is removed on reset (pre-existing files keep their entries removed), OpenCode re-apply no longer poisons the gitignore snapshot (a pre-existing user gitignore survives byte-for-byte), and VS Code deletes an adapter-created `settings.json` instead of leaving empty managed keys while preserving user keys added after apply (#447)
+- **Native installer no longer uses `shell: true` concatenation** — `.cmd`/`.bat` wrappers run through PowerShell single-quoted literals (shared `windows-shell.ts` helpers with preflight), eliminating Node DEP0190 and keeping the fail-closed metacharacter refusal (#448)
+- **ARD export emits no epoch dates** — catalog entries with the `1970-01-01` maintenance sentinel no longer publish false `updatedAt` values in `ai-catalog.json`; the export target path is documented as `<state-root>/.well-known/ai-catalog.json` (#449)
+- **README/cheatsheet flags match the CLI** — non-existent flags (`activate diff --baseline`, `mirror plan/acquire --host`) are gone from the docs and the doc cross-check parses every example against the flag tables; `activate rollback`, `discover environment-index`, and `bundle explain` help list all supported flags (#450)
+- **Coverage roadmap describes the truth** — `COVERAGE-100-ROADMAP.md` previously claimed `.c8rc.json` excludes `dist/*.js` (it does not: only `dist/tests/**`, `dist/types/**`, `scripts/tests/**`) and carried stale test counts; both corrected, and the remaining inline ignore blocks are itemized with justifications (#451)
+- **Doc/env nits** — `docs/README.md` (the documentation index) is linked from the README, plain `CI=true` behavior is documented next to `AGENT_HARNESS_CI`, `OPENAI_API_KEY` appears in the README env section as an asset prerequisite, the stale "171/170+ sources" claims are normalized to the measured 50+ sources, and the cheatsheet timeout value is marked as an example (default: no deadline) (#453)
+
 ### Added
 
 - **Lifecycle path budget gates** — `benchmark:paths` enforces 10-second wall-clock budgets on the recommend, activate-selection, and mirror-plan hot paths over a synthetic 1,000-entry catalog; it runs in `validate:quality` alongside `benchmark:scan` so complexity regressions fail CI (#428 hardening)
