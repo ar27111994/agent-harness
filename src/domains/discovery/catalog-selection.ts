@@ -1,6 +1,9 @@
 import { splitIntoKeywords } from "./catalog-utils.js";
 import { hasDesignSystemSignals, SPECIALIZED_GATES } from "./demand-helpers.js";
-import { stripPackageManifestEntryPrefix } from "../../lib/package-manifest-entry.js";
+import {
+  extractPackageManifestEntry,
+  stripPackageManifestEntryPrefix,
+} from "../../lib/package-manifest-entry.js";
 import type {
   AssetCatalogEntry,
   AssetContextCost,
@@ -425,6 +428,33 @@ function addDemandSignal(
     return;
   }
 
+  // Package-manifest entries (npm:@scope/pkg, pypi:pkg, cargo:pkg, …) are
+  // declarations of what the workspace ACTUALLY uses: every non-generic
+  // token of the bare package identity must act as an independent
+  // high-signal term. Diluting them into a combined phrase (as generic
+  // signals are) made `npm:@duckdb/node-api` require a {duckdb,node,api}
+  // multi-token match, which rejected official DuckDB skills whose terms
+  // contain only `duckdb` (#443). Generic tokens (node, api, …) still
+  // classify as low signal so they cannot alone pass assets.
+  if (isPackageManifestSignal(value)) {
+    for (const keyword of keywords) {
+      if (
+        classifyDemandKeyword(
+          keyword,
+          catalogTermDocumentFrequency,
+          catalogEntryCount,
+        ) === "low"
+      ) {
+        lowSignalTerms.add(keyword);
+      } else {
+        exactHighSignalTerms.add(keyword);
+        stackAnchorTerms?.add(keyword);
+        primaryStackAnchorTerms?.add(keyword);
+      }
+    }
+    return;
+  }
+
   const uncommonKeywords = keywords.filter(
     (keyword) =>
       !LOW_SIGNAL_TERMS.has(keyword) &&
@@ -561,6 +591,15 @@ function buildCatalogTermData(
 
 function stripPackageEvidencePrefix(value: string): string {
   return stripPackageManifestEntryPrefix(value);
+}
+
+/**
+ * Returns whether a demand signal value carries a package-manifest registry
+ * prefix (npm:, pypi:, cargo:, hex:, maven:, …) — i.e. it is a declaration
+ * of an actual dependency rather than a detected concern/framework label.
+ */
+function isPackageManifestSignal(value: string): boolean {
+  return extractPackageManifestEntry(value) !== null;
 }
 
 function buildEntryTermSet(entry: AssetCatalogEntry): Set<string> {

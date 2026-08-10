@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
@@ -6,6 +9,7 @@ import {
   buildRejectionSummary,
   catalogSelectionInternals,
 } from "../domains/discovery/catalog-selection.js";
+import { buildDemandProfile } from "../domains/discovery/demand-profile.js";
 import { interactnoteFullDemandProfile } from "./fixtures/interactnote-full-demand-profile.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
@@ -577,6 +581,163 @@ void test("selection relevance admits executable MCP metadata paths only", () =>
     rejectedEntries.map((entry) => entry.id),
     ["metadata-docs"],
   );
+});
+
+// ---------------------------------------------------------------------------
+// Declared-dependency matching (#443)
+// ---------------------------------------------------------------------------
+
+void test("scoped package dependencies contribute individual exact terms, not a combined phrase (#443)", () => {
+  const demandProfile = createDemandProfile({
+    tooling: ["npm:@duckdb/node-api", "pypi:duckdb"],
+  });
+  const terms = catalogSelectionInternals.buildDemandTermSet(
+    demandProfile,
+    new Map(),
+    1,
+  );
+
+  // The bare package identity token is a strong, independent signal.
+  assert.ok(terms.exactHighSignalTerms.has("duckdb"));
+  assert.ok(terms.stackAnchorTerms.has("duckdb"));
+  // Tooling-derived anchors are deliberately non-primary (only languages,
+  // frameworks, and package managers feed primary stack anchors).
+  assert.ok(!terms.primaryStackAnchorTerms.has("duckdb"));
+  // Generic split tokens must NOT ride along as exact signals.
+  assert.ok(!terms.exactHighSignalTerms.has("node"));
+  assert.ok(!terms.exactHighSignalTerms.has("api"));
+  // ... and duckdb must never be trapped inside a multi-token phrase.
+  for (const phrase of terms.highSignalPhrases) {
+    assert.ok(
+      !phrase.includes("duckdb"),
+      `phrase [${phrase.join(", ")}] must not dilute the package identity`,
+    );
+  }
+});
+
+void test("official DuckDB skills are selected when the workspace declares @duckdb/node-api (#443)", () => {
+  const duckdbSkill = createEntry("official-index:duckdb:attach-db", [
+    "duckdb",
+    "attach",
+    "db",
+    "database",
+    "file",
+    "querying",
+  ]);
+  const unrelatedWordPress = createEntry(
+    "official-index:WordPress:wp-plugin-development",
+    ["wordpress", "php", "plugin"],
+  );
+  const coincidentalCrate = createEntry("cargo-registry:cargo:node-cli", [
+    "node",
+    "cli",
+    "command",
+  ]);
+  const demandProfile = createDemandProfile({
+    tooling: ["npm:@duckdb/node-api"],
+  });
+
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [duckdbSkill, unrelatedWordPress, coincidentalCrate],
+      demandProfile,
+    );
+
+  assert.ok(
+    selectedEntries.some(
+      (entry) => entry.id === "official-index:duckdb:attach-db",
+    ),
+    "declared-dependency match must be selected",
+  );
+  assert.ok(
+    rejectedEntries.some(
+      (entry) => entry.id === "official-index:WordPress:wp-plugin-development",
+    ),
+    "off-ecosystem entry with no package identity overlap must be rejected",
+  );
+  // `node`/`cli` overlap alone (low-signal tokens) does not bypass the
+  // package-identity gate for an undeclared ecosystem.
+  assert.ok(
+    rejectedEntries.some(
+      (entry) => entry.id === "cargo-registry:cargo:node-cli",
+    ),
+    "coincidental crate-name tokens must not be selected on a node package signal",
+  );
+});
+
+void test("non-package multi-token signals keep phrase-matching behavior (#443)", () => {
+  const demandProfile = createDemandProfile({
+    tooling: ["web-scraping-automation"],
+  });
+  const phraseMatch = createEntry("scraper-skill", [
+    "web",
+    "scraping",
+    "automation",
+  ]);
+  const singleToken = createEntry("web-only-skill", ["web", "design"]);
+  const { selectedEntries, rejectedEntries } =
+    filterCatalogEntriesByDemandRelevance(
+      [phraseMatch, singleToken],
+      demandProfile,
+    );
+
+  assert.ok(
+    selectedEntries.some((entry) => entry.id === "scraper-skill"),
+    "multi-token generic signals still match as phrases",
+  );
+  assert.ok(
+    rejectedEntries.some((entry) => entry.id === "web-only-skill"),
+    "a single token of a generic phrase must not match",
+  );
+});
+
+void test("single-token package entries stay exact signals (#443)", () => {
+  const duckdbSkill = createEntry("official-index:duckdb:install-duckdb", [
+    "duckdb",
+    "install",
+  ]);
+  const demandProfile = createDemandProfile({
+    tooling: ["pypi:duckdb"],
+  });
+  const { selectedEntries } = filterCatalogEntriesByDemandRelevance(
+    [duckdbSkill],
+    demandProfile,
+  );
+  assert.equal(selectedEntries.length, 1);
+});
+
+void test("end-to-end: package.json @duckdb/node-api dependency selects DuckDB skills (#443)", async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-duckdb-"));
+  try {
+    await writeFile(
+      join(tempRoot, "package.json"),
+      JSON.stringify({
+        name: "duckdb-workspace",
+        dependencies: { "@duckdb/node-api": "^1.0.0" },
+      }),
+      "utf8",
+    );
+    const demandProfile = await buildDemandProfile(tempRoot);
+    assert.ok(
+      demandProfile.signals.tooling.includes("npm:@duckdb/node-api"),
+      "dependency must surface as registry-qualified tooling",
+    );
+
+    const duckdbSkill = createEntry("official-index:duckdb:query", [
+      "duckdb",
+      "query",
+      "sql",
+    ]);
+    const { selectedEntries, rejectedEntries } =
+      filterCatalogEntriesByDemandRelevance([duckdbSkill], demandProfile);
+    assert.deepEqual(
+      selectedEntries.map((entry) => entry.id),
+      ["official-index:duckdb:query"],
+    );
+    assert.deepEqual(rejectedEntries, []);
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
 });
 
 function createDemandProfile(
