@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   mkdir,
   mkdtemp,
+  open,
   readFile,
   rm,
   utimes,
@@ -456,6 +457,85 @@ void test("seed lock rethrows non-contention lock-open failures unchanged", asyn
       "the blocking file must remain untouched after the failure",
     );
   } finally {
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("seed lock retries transient EPERM/EACCES lock-open contention and succeeds (R1)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-r1-"));
+  try {
+    for (const code of ["EPERM", "EACCES"]) {
+      const lockRoot = join(root, code);
+      await mkdir(lockRoot, { recursive: true });
+      let attempts = 0;
+      stateRootInternals.setSeedLockOpenOverrideForTests(async (lockPath) => {
+        attempts += 1;
+        if (attempts <= 2) {
+          // Windows delete-pending window: open("wx") yields EPERM/EACCES
+          // even though the lock is not permanently held (finding R1).
+          const error = new Error(
+            `${code} during the holder's delete-pending window`,
+          ) as NodeJS.ErrnoException;
+          error.code = code;
+          throw error;
+        }
+        return open(lockPath, "wx");
+      });
+      stateRootInternals.setSeedLockPolicyForTests({
+        staleAfterMs: 10_000,
+        waitBudgetMs: 5_000,
+        pollIntervalMs: 5,
+      });
+
+      let sectionRan = false;
+      await runWithStateRootSeedLock(lockRoot, async () => {
+        sectionRan = true;
+      });
+
+      assert.equal(
+        sectionRan,
+        true,
+        `${code}: transient window must pass and the section must run`,
+      );
+      assert.ok(
+        attempts >= 3,
+        `${code}: open must be retried until the transient window passes (got ${attempts} attempts)`,
+      );
+    }
+  } finally {
+    stateRootInternals.setSeedLockOpenOverrideForTests(undefined);
+    resetSeedLockPolicy();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
+void test("seed lock exhausts the wait budget for persistent EPERM contention with guidance (R1)", async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), "agent-harness-seed-lock-r1-timeout-"),
+  );
+  try {
+    stateRootInternals.setSeedLockPolicyForTests({
+      staleAfterMs: 10_000,
+      waitBudgetMs: 60,
+      pollIntervalMs: 5,
+    });
+    stateRootInternals.setSeedLockOpenOverrideForTests(async () => {
+      const error = new Error("EPERM") as NodeJS.ErrnoException;
+      error.code = "EPERM";
+      throw error;
+    });
+
+    await assert.rejects(
+      runWithStateRootSeedLock(root, async () => {}),
+      (error: unknown) =>
+        error instanceof Error &&
+        /Timed out waiting for another process/u.test(error.message) &&
+        !/EPERM/u.test(error.message),
+      "persistent EPERM contention must surface the descriptive timeout guidance, not a raw EPERM crash",
+    );
+  } finally {
+    stateRootInternals.setSeedLockOpenOverrideForTests(undefined);
+    resetSeedLockPolicy();
     await rm(root, { force: true, recursive: true });
   }
 });

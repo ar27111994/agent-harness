@@ -84,6 +84,17 @@ const DEFAULT_SEED_LOCK_POLICY: StateRootSeedLockPolicy = {
 let seedLockPolicy: StateRootSeedLockPolicy = DEFAULT_SEED_LOCK_POLICY;
 
 /**
+ * Test-only failure-injection seam (#427/#428 pattern, finding R1):
+ * replaces the lock-open step so tests can force transient EPERM/EACCES
+ * contention deterministically instead of racing the real delete-pending
+ * window. `undefined` (the default) restores the real `open(lockPath, "wx")`.
+ */
+type SeedLockOpenOverride = (
+  lockPath: string,
+) => Promise<Awaited<ReturnType<typeof open>>>;
+let seedLockOpenOverride: SeedLockOpenOverride | undefined;
+
+/**
  * Resolves state root from the provided inputs.
  */
 export function resolveStateRoot(
@@ -134,9 +145,11 @@ export async function runWithStateRootSeedLock(
   for (;;) {
     let lockHandle: Awaited<ReturnType<typeof open>>;
     try {
-      lockHandle = await open(lockPath, "wx");
+      lockHandle = seedLockOpenOverride
+        ? await seedLockOpenOverride(lockPath)
+        : await open(lockPath, "wx");
     } catch (error) {
-      if (!isPathExistsError(error)) {
+      if (!isPathExistsError(error) && !isTransientLockOpenError(error)) {
         throw error;
       }
       if (await isStaleLockFile(lockPath)) {
@@ -260,6 +273,15 @@ export const stateRootInternals = {
   resetSeedLockPolicyForTests(): void {
     seedLockPolicy = DEFAULT_SEED_LOCK_POLICY;
   },
+  /**
+   * Test-only failure injection: replaces the lock-open step (finding R1).
+   * Pass `undefined` to restore the real open.
+   */
+  setSeedLockOpenOverrideForTests(
+    override: SeedLockOpenOverride | undefined,
+  ): void {
+    seedLockOpenOverride = override;
+  },
 };
 
 function isPathWithinRoot(containerPath: string, innerPath: string): boolean {
@@ -277,6 +299,26 @@ function isPathExistsError(error: unknown): boolean {
       ? String((error as { code: unknown }).code)
       : "";
   return code === "EEXIST";
+}
+
+/**
+ * Returns whether a filesystem error is transient seed-lock contention.
+ *
+ * On Windows, open(path, "wx") during the holder's close→rm delete-pending
+ * window returns EPERM (ERROR_ACCESS_DENIED) — or occasionally EACCES —
+ * rather than EEXIST, because the directory entry still exists while the
+ * delete is pending. Treating only EEXIST as contention crashed with a raw
+ * stack under the rare race (#428 class; finding R1). These codes are
+ * therefore treated as "the lock is effectively present" and retried under
+ * the same stale-break + wait-budget policy; a genuine permission problem
+ * then surfaces as the descriptive timeout guidance instead of a crash.
+ */
+function isTransientLockOpenError(error: unknown): boolean {
+  const code =
+    typeof error === "object" && error !== null && "code" in error
+      ? String((error as { code: unknown }).code)
+      : "";
+  return code === "EPERM" || code === "EACCES";
 }
 
 /** Returns whether a lock file is old enough to be abandoned crash litter. */
