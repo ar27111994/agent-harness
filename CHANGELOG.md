@@ -85,6 +85,13 @@ All notable changes to this project will be documented in this file.
 - **Allowed env-var documentation drift** — every `AGENT_HARNESS_*` variable read in `src/` must now appear in both README and `.env.example` (test-only hooks exempt); the drift guard scans `process.env.X` and `env.X` binding styles and 9 previously undocumented variables are now documented (#429)
 - **Package metadata truthfulness** — npm `description` no longer claims an MCP-server role; no MCP protocol server exists (`mcp-server` is an asset kind classifier) (#425)
 
+### Breaking Changes
+
+- **Unknown options are now rejected** — `recommend`, `mirror`, `install`, `activate`, `quarantine`, and `rebuild` subcommands previously ignored unknown flags silently; they now print a clean one-line error and exit 1. Scripts passing undocumented flags will start failing (#445)
+- **User-input failures exit non-zero with a clean message** — CLI user-input errors print `error: <msg>` (plus a usage hint where one exists) and exit 1 instead of dumping raw stack traces; `setup login` with an unknown provider now exits non-zero instead of 0 (#446)
+- **ARD export drops `updatedAt` for epoch-sentinel catalog entries** — entries whose `updatedAt` was the epoch sentinel (1970-01-01) no longer emit the field; consumers must treat a missing `updatedAt` as unknown rather than parsing it as the epoch (#449)
+- **Recommendation ranking and `fit:exact-stack` gating tightened** — evidence strength now describes the asset side only (workspace-side signals are no longer attributed to assets), and `fit:exact-stack` requires ecosystem affinity plus declared-dependency identity, so single-token collisions no longer push unrelated assets to the top of exact-stack results (#444)
+
 ## [2.0.0] - 2026-08-02
 
 ### Breaking Changes
