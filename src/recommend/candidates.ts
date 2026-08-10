@@ -13,6 +13,7 @@ import {
 } from "./signals.js";
 import type {
   AssetCatalogEntry,
+  DemandEvidenceStrength,
   RecommendationBasis,
   RecommendationPolicy,
   RecommendationScoreBreakdown,
@@ -151,6 +152,24 @@ export function buildCandidateRecommendationBase(
     policy,
     resolvedSynonymLookup,
   );
+  // Asset-side evidence provenance (#444): every search term is tagged with
+  // the strength class of the asset content that produced it — curated
+  // identity/metadata first, file locations next, registry provenance last
+  // (first-wins so stronger sources dominate).
+  const assetTermStrength = buildAssetTermStrength(
+    entry,
+    policy,
+    resolvedSynonymLookup,
+  );
+  // Asset IDENTITY terms: curated identity only (id/displayName/manifest
+  // entry), no capabilities, paths, or registry provenance. Used to
+  // distinguish a declared-dependency identity match from a coincidental
+  // token in unrelated content (#444).
+  const assetIdentityTerms = buildSearchTerms(
+    [entry.id, entry.displayName, entry.install.manifestEntry ?? ""],
+    policy,
+    resolvedSynonymLookup,
+  );
 
   if (
     isSuppressedBySpecializedDemandGate(entry, rawKeywordTerms, demandContext)
@@ -168,12 +187,31 @@ export function buildCandidateRecommendationBase(
     searchTerms,
     demandContext,
     policy,
+    assetTermStrength,
+  );
+  const assetEcosystemCompat = computeAssetEcosystemCompat(
+    entry,
+    demandContext,
+  );
+  const demandLanguageTerms = new Set(
+    demandContext.terms
+      .filter((term) => term.signalType === "languages")
+      .map((term) => term.canonicalTerm),
   );
   const matchQuality = analyzeMatchQuality(
     matchedSignals,
     capabilitySearchTerms,
     resolvedPolicyContext.wrapperLikeTerms,
     resolvedPolicyContext.genericToolingTerms,
+    {
+      assetEcosystemCompat,
+      assetIdentityTerms,
+      assetContradictsDemandLanguage: computeAssetLanguageContradiction(
+        assetIdentityTerms,
+        demandLanguageTerms,
+      ),
+      packageIdentityByTerm: demandContext.packageIdentityByTerm,
+    },
   );
   const availableLocally = isLocallyAvailable(entry);
   const recommendationBasis = determineRecommendationBasis(
@@ -334,11 +372,82 @@ export function buildCandidateRecommendation(
   };
 }
 
+/**
+ * Context for exact-stack eligibility analysis (#444): whether the asset's
+ * registry ecosystem matches the workspace's package managers, the asset's
+ * curated identity terms, and the per-term declared-package identity tokens
+ * from the demand side.
+ */
+interface ExactStackEligibilityContext {
+  assetEcosystemCompat: boolean;
+  assetIdentityTerms: ReadonlySet<string>;
+  assetContradictsDemandLanguage: boolean;
+  packageIdentityByTerm: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
+/**
+ * Language tokens distinctive enough to detect an ecosystem contradiction in
+ * an asset's curated identity (#444). Collision-prone tokens (go, c, r,
+ * sql, bash, html, css) are deliberately excluded so display names like
+ * "go-to-market" or "c-sharpening" cannot false-positive.
+ */
+const KNOWN_ECOSYSTEM_LANGUAGE_TOKENS = new Set([
+  "javascript",
+  "typescript",
+  "python",
+  "java",
+  "rust",
+  "ruby",
+  "php",
+  "csharp",
+  "cpp",
+  "kotlin",
+  "swift",
+  "dart",
+  "scala",
+  "perl",
+  "lua",
+  "elixir",
+  "erlang",
+  "julia",
+  "haskell",
+  "clojure",
+  "ocaml",
+  "matlab",
+  "objective-c",
+  "visual-basic",
+  "vba",
+]);
+
+/**
+ * Returns whether the asset's curated identity claims a programming
+ * language the workspace does NOT use (#444): e.g. a WordPress skill whose
+ * identity contains `php` must not receive fit:exact-stack in a
+ * TypeScript/JavaScript workspace, no matter which token coincidentally
+ * matched a workspace demand term. Assets whose identity names no
+ * distinctive language pass.
+ */
+function computeAssetLanguageContradiction(
+  assetIdentityTerms: ReadonlySet<string>,
+  demandLanguageTerms: ReadonlySet<string>,
+): boolean {
+  for (const term of assetIdentityTerms) {
+    if (
+      KNOWN_ECOSYSTEM_LANGUAGE_TOKENS.has(term) &&
+      !demandLanguageTerms.has(term)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function analyzeMatchQuality(
   matchedSignals: RecommendationSignalMatch[],
   capabilitySearchTerms: Set<string>,
   wrapperLikeTerms: Set<string>,
   genericToolingTerms: Set<string>,
+  eligibility: ExactStackEligibilityContext,
 ): MatchQuality {
   const exactnessEligible = !isWrapperLikeAsset(
     capabilitySearchTerms,
@@ -350,20 +459,44 @@ function analyzeMatchQuality(
 
   for (const match of matchedSignals) {
     if (exactnessEligible) {
-      if (
-        match.signalType === "frameworks" ||
-        match.signalType === "packageManagers"
-      ) {
-        exactStackWeight += match.weight;
-        continue;
-      }
+      // fit:exact-stack requires plausible ecosystem affinity and — for
+      // declared-dependency terms — the dependency's identity in the
+      // asset's own curated identity (not a coincidental token in
+      // capabilities/descriptions/paths) (#444).
+      const packageIdentityTokens = eligibility.packageIdentityByTerm.get(
+        match.term,
+      );
+      const passesEcosystemGate =
+        match.signalType !== "frameworks" &&
+        match.signalType !== "packageManagers" &&
+        match.signalType !== "tooling"
+          ? true
+          : eligibility.assetEcosystemCompat;
+      const passesIdentityGate =
+        packageIdentityTokens === undefined
+          ? true
+          : setsIntersect(
+              eligibility.assetIdentityTerms,
+              packageIdentityTokens,
+            );
+      const passesLanguageGate = !eligibility.assetContradictsDemandLanguage;
 
-      if (
-        match.signalType === "tooling" &&
-        isSpecificToolingSignal(match.term, genericToolingTerms)
-      ) {
-        exactStackWeight += match.weight;
-        continue;
+      if (passesEcosystemGate && passesIdentityGate && passesLanguageGate) {
+        if (
+          match.signalType === "frameworks" ||
+          match.signalType === "packageManagers"
+        ) {
+          exactStackWeight += match.weight;
+          continue;
+        }
+
+        if (
+          match.signalType === "tooling" &&
+          isSpecificToolingSignal(match.term, genericToolingTerms)
+        ) {
+          exactStackWeight += match.weight;
+          continue;
+        }
       }
     }
 
@@ -386,6 +519,89 @@ function analyzeMatchQuality(
       exactStackWeight === 0 &&
       ecosystemWeight === 0,
   };
+}
+
+/**
+ * Returns whether the asset's registry ecosystem is plausibly compatible
+ * with the workspace's detected package managers (#444): a package-registry
+ * asset whose registry maps to a package-manager family that the workspace
+ * does NOT use cannot receive exact-stack credit (e.g. a Rust crate from
+ * cargo-registry in an npm workspace). Non-package-registry assets (repo,
+ * official-index, marketplace, local kinds) are ecosystem-agnostic and pass.
+ */
+function computeAssetEcosystemCompat(
+  entry: AssetCatalogEntry,
+  demandContext: DemandContext,
+): boolean {
+  if (entry.source.sourceKind !== "package-registry") {
+    return true;
+  }
+  if (demandContext.packageManagers.size === 0) {
+    return true;
+  }
+  const sourceIdLower = entry.source.sourceId.toLowerCase();
+  const sourceIdMatch = REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
+    sourceIdLower.includes(substring),
+  );
+  if (!sourceIdMatch) {
+    return true;
+  }
+  return demandContext.packageManagers.has(sourceIdMatch[1]);
+}
+
+/**
+ * Builds the asset-side term-provenance map (#444): each search term is
+ * tagged with the strength class of the asset content that produced it.
+ * Curated identity/metadata (id, displayName, capabilities) counts as
+ * strong, file locations (paths, manifest entry) as medium, registry
+ * provenance (sourceId, publisher) as weak. First occurrence wins so
+ * stronger sources dominate shared terms.
+ */
+function buildAssetTermStrength(
+  entry: AssetCatalogEntry,
+  policy: RecommendationPolicy,
+  synonymLookup: Map<string, string>,
+): Map<string, DemandEvidenceStrength> {
+  const provenance = new Map<string, DemandEvidenceStrength>();
+  const record = (values: string[], strength: DemandEvidenceStrength): void => {
+    for (const value of values) {
+      if (!value) {
+        continue;
+      }
+      for (const term of buildSearchTerms([value], policy, synonymLookup)) {
+        if (!provenance.has(term)) {
+          provenance.set(term, strength);
+        }
+      }
+    }
+  };
+
+  record([entry.id, entry.displayName, ...entry.capabilities], "strong");
+  record(
+    [
+      entry.install.relativePath ?? "",
+      entry.install.manifestEntry ?? "",
+      entry.evidence.filePath ?? "",
+    ],
+    "medium",
+  );
+  record([entry.source.sourceId, entry.source.publisher], "weak");
+  return provenance;
+}
+
+/**
+ * Returns whether two term sets share at least one value.
+ */
+function setsIntersect(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
+  for (const value of right) {
+    if (left.has(value)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function isWrapperLikeAsset(

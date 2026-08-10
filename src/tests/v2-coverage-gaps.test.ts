@@ -398,6 +398,7 @@ void test("computeEcosystemMismatchPenalty: returns 0 for package-registry sourc
     hasSignals: true,
     activeDomainGroups: new Set(["backend"]),
     packageManifestEntries: new Set<string>(),
+    packageIdentityByTerm: new Map<string, ReadonlySet<string>>(),
     demandKeywords: new Set(["backend"]),
     // packageManagers is non-empty so the `size === 0` early-return does NOT fire
     packageManagers: new Set(["npm"]),

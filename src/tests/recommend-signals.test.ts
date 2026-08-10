@@ -5,6 +5,7 @@ import {
   buildDemandContext,
   collectMatchedSignals,
 } from "../recommend/signals.js";
+import type { DemandEvidenceStrength } from "../types/discovery.js";
 import type {
   DemandProfile,
   RecommendationHostPolicy,
@@ -69,10 +70,19 @@ void test("recommend signal weighting prefers strong evidence over repeated weak
 
   const policy = buildPolicy();
   const demandContext = buildDemandContext(profile, policy);
+  // Asset-side provenance (#444): the reported evidence fields describe the
+  // ASSET's own content that hit each demand term — never the workspace's
+  // demand-side evidence counts.
+  const assetTermStrength: ReadonlyMap<string, DemandEvidenceStrength> =
+    new Map([
+      ["apify", "strong"],
+      ["integration", "weak"],
+    ]);
   const matches = collectMatchedSignals(
     new Set(["apify", "integration"]),
     demandContext,
     policy,
+    assetTermStrength,
   );
 
   const apifyMatch = matches.find((match) => match.term === "apify");
@@ -82,20 +92,34 @@ void test("recommend signal weighting prefers strong evidence over repeated weak
 
   assert.ok(apifyMatch);
   assert.ok(integrationMatch);
+  // One asset-side term hit per demand term, weighted by the asset's own
+  // provenance strength.
+  assert.equal(apifyMatch.evidenceCount, 1);
   assert.equal(apifyMatch.weightedEvidenceCount, 3);
   assert.deepEqual(apifyMatch.evidenceStrengthCounts, {
     strong: 1,
     medium: 0,
     weak: 0,
   });
-  assert.equal(integrationMatch.evidenceCount, 2);
+  assert.equal(integrationMatch.evidenceCount, 1);
   assert.equal(integrationMatch.weightedEvidenceCount, 1);
   assert.deepEqual(integrationMatch.evidenceStrengthCounts, {
     strong: 0,
     medium: 0,
-    weak: 2,
+    weak: 1,
   });
   assert.ok(apifyMatch.weight > integrationMatch.weight);
+
+  // Without a provenance map the histogram is deliberately absent — no
+  // demand-side evidence may leak into an asset's match record (#444).
+  const unprovenanced = collectMatchedSignals(
+    new Set(["apify"]),
+    demandContext,
+    policy,
+  );
+  assert.equal(unprovenanced[0]?.evidenceCount, 1);
+  assert.equal(unprovenanced[0]?.weightedEvidenceCount, undefined);
+  assert.equal(unprovenanced[0]?.evidenceStrengthCounts, undefined);
 });
 
 void test("recommend demand context normalizes broader manifest prefixes", () => {
@@ -267,7 +291,7 @@ void test("recommend signal helpers canonicalize search terms and add inferred t
   );
 });
 
-void test("recommend signal weighting preserves zero-weight evidence buckets", () => {
+void test("recommend signal weighting floors zero-evidence terms with asset-side weak provenance", () => {
   const matches = collectMatchedSignals(
     new Set(["placeholder"]),
     {
@@ -288,13 +312,24 @@ void test("recommend signal weighting preserves zero-weight evidence buckets", (
       hasSignals: true,
       activeDomainGroups: new Set<string>(),
       packageManifestEntries: new Set<string>(),
+      packageIdentityByTerm: new Map<string, ReadonlySet<string>>(),
       demandKeywords: new Set(["placeholder"]),
       packageManagers: new Set<string>(),
     },
     buildPolicy(),
+    new Map<string, DemandEvidenceStrength>(),
   );
 
-  assert.equal(matches[0]?.weightedEvidenceCount, 0);
+  // The demand term carries zero workspace evidence: weight floors at the
+  // minimum, and the buckets describe the ASSET side only (one hit with
+  // unknown provenance counts as weak) — never a workspace claim (#444).
+  assert.equal(matches[0]?.evidenceCount, 1);
+  assert.equal(matches[0]?.weightedEvidenceCount, 1);
+  assert.deepEqual(matches[0]?.evidenceStrengthCounts, {
+    strong: 0,
+    medium: 0,
+    weak: 1,
+  });
   assert.equal(matches[0]?.weight, 1);
 });
 

@@ -1337,6 +1337,7 @@ function createEmptyDemandContext() {
     hasSignals: false,
     activeDomainGroups: new Set<string>(),
     packageManifestEntries: new Set<string>(),
+    packageIdentityByTerm: new Map<string, ReadonlySet<string>>(),
     demandKeywords: new Set<string>(),
     packageManagers: new Set<string>(),
   };

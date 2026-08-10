@@ -34,6 +34,7 @@ function createDemandContextWithManagers(
     hasSignals: packageManagers.length > 0,
     activeDomainGroups: new Set(),
     packageManifestEntries: new Set(),
+    packageIdentityByTerm: new Map(),
     demandKeywords: new Set(),
     packageManagers: new Set(packageManagers),
   };

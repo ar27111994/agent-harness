@@ -18,6 +18,14 @@ export interface DemandTermContext {
   evidenceCount: number;
   evidenceStrengthCounts: Record<DemandEvidenceStrength, number>;
   matchTerms: Set<string>;
+  /**
+   * Distinctive identity tokens of a declared dependency when this term was
+   * registered from a package-manifest entry (npm:…, pypi:…, cargo:…):
+   * the bare package name's tokens minus generic package-noise tokens
+   * (node, api, cli, …) plus the scope name for `@scope/pkg`. Undefined for
+   * terms that are not package declarations (#444).
+   */
+  packageIdentityTokens?: ReadonlySet<string>;
 }
 
 /**
@@ -28,6 +36,13 @@ export interface DemandContext {
   hasSignals: boolean;
   activeDomainGroups: Set<string>;
   packageManifestEntries: Set<string>;
+  /**
+   * Maps a demand term's canonical form to the distinctive identity tokens
+   * of the declared package it came from (see DemandTermContext.
+   * packageIdentityTokens). Used by match-quality analysis to require
+   * asset-side package identity before awarding exact-stack (#444).
+   */
+  packageIdentityByTerm: Map<string, ReadonlySet<string>>;
   demandKeywords: Set<string>;
   /**
    * Normalised set of package-manager family names detected in the workspace
