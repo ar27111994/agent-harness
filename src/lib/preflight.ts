@@ -575,12 +575,16 @@ export function buildWrapperRefusal(
 ): { cancelled: false; exitCode: number; message: string } | null {
   if (
     isWindowsShellWrapperPath(resolvedExecutable, platform) &&
-    args.some(containsShellMetaCharacters)
+    (args.some(containsShellMetaCharacters) ||
+      // The executable path itself can carry cmd-expansion characters
+      // (a PATH directory named e.g. "100% real") that cmd.exe would
+      // re-parse inside the wrapper invocation (S1 hardening).
+      containsShellMetaCharacters(resolvedExecutable))
   ) {
     return {
       cancelled: false,
       exitCode: Number.MAX_SAFE_INTEGER,
-      message: `Refusing to run Windows shell wrapper with shell-metacharacter arguments: '${args.join("' '")}'. Host CLI wrapper arguments must be static literals.`,
+      message: `Refusing to run Windows shell wrapper with shell-metacharacter arguments or executable path: '${args.join("' '")}'. Host CLI wrapper arguments must be static literals.`,
     };
   }
 

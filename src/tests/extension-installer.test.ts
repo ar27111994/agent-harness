@@ -438,6 +438,23 @@ void test("buildShellWrapperRefusal fail-closes .cmd wrappers with metacharacter
     null,
     "non-win32 platforms are not the wrapper class",
   );
+  assert.ok(
+    extensionInstallerInternals.buildShellWrapperRefusal(
+      "C:\\Tools\\100% real\\code.cmd",
+      ["--install-extension", "github.copilot"],
+      "win32",
+    ) !== null,
+    "a wrapper executable path carrying cmd-expansion characters must be refused even with safe args (S1)",
+  );
+  assert.equal(
+    extensionInstallerInternals.buildShellWrapperRefusal(
+      "C:\\Tools\\code.cmd",
+      ["--install-extension", "github.copilot"],
+      "win32",
+    ),
+    null,
+    "a plain wrapper path with safe args passes",
+  );
 });
 
 void test("executeNativeCommand refuses a .cmd candidate with metacharacter args on any platform (#428)", async () => {

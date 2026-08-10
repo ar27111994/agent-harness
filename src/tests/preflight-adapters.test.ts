@@ -504,6 +504,24 @@ void test("buildWrapperRefusal fail-closes Windows shell wrappers with metachara
     preflightInternals.buildWrapperRefusal("tool.cmd", ["a&b"], "darwin"),
     null,
   );
+  // S1: a wrapper executable path carrying cmd-expansion characters is
+  // refused even with static-literal arguments.
+  assert.ok(
+    preflightInternals.buildWrapperRefusal(
+      "C:/Tools/100% real/fixture-tool.CMD",
+      ["--version"],
+      "win32",
+    ) !== null,
+    "cmd-expansion characters in the executable path must refuse the wrapper",
+  );
+  assert.match(
+    preflightInternals.buildWrapperRefusal(
+      "C:/Tools/100% real/fixture-tool.CMD",
+      ["--version"],
+      "win32",
+    )?.message ?? "",
+    /executable path/u,
+  );
 });
 
 void test("runRuntimeCommand refuses a resolved Windows wrapper with metacharacter args on any platform (#428)", async () => {
