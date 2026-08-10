@@ -36,6 +36,12 @@ import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
 import { patchVsCodeSettings, readVsCodeSettings } from "./vscode-settings.js";
 import { printWirePreviewManifest } from "./native-wire.js";
+import {
+  captureManagedTextFileSnapshots,
+  validateManagedTextFileSnapshots,
+} from "./native-utils.js";
+import type { ManagedTextFileSnapshot } from "../types.js";
+import { assertWirePlanManifest } from "../manifest-validation.js";
 
 /**
  * Provides wire vs code for the lifecycle pipeline.
@@ -153,6 +159,13 @@ export async function wireVsCode(options: {
     profileManifest,
   );
 
+  // Snapshot the user settings file before any managed keys are patched so
+  // reset can distinguish an adapter-created settings.json (removed) from a
+  // pre-existing one (stripped of managed keys) (#447).
+  const settingsTextFileSnapshots = await captureManagedTextFileSnapshots([
+    vscodeUserSettingsPath,
+  ]);
+
   await writeJsonFile(
     join(generationRoot, "wire-plan.json"),
     buildVsCodeWirePlan(
@@ -160,6 +173,7 @@ export async function wireVsCode(options: {
       currentRoot,
       materializedPaths,
       sharedMcpAssetIds,
+      settingsTextFileSnapshots,
     ),
   );
   await writeJsonFile(
@@ -169,6 +183,7 @@ export async function wireVsCode(options: {
       currentRoot,
       materializedPaths,
       sharedMcpAssetIds,
+      settingsTextFileSnapshots,
     ),
   );
   await replaceDirectoryLink(currentRoot, generationRoot);
@@ -573,12 +588,42 @@ async function resetVsCodeWireIn(
     "copilot-instructions.md",
   );
   await removeManagedWorkspaceInstructions(destinationPath);
+  // Read the pre-apply settings snapshot from the previous wire plan so
+  // reset can remove an adapter-created settings.json instead of leaving
+  // an empty managed-keys file behind (#447).
+  const settingsSnapshot = await readVsCodeSettingsSnapshot(
+    curatedRoot,
+    vscodeUserSettingsPath,
+  );
   await removePath(curatedRoot);
   await resetVsCodeUserSettings({
     curatedRoot,
     currentRoot: join(curatedRoot, "current"),
     vscodeUserSettingsPath,
+    settingsSnapshot,
   });
+}
+
+/**
+ * Reads the pre-apply settings snapshot from the previous VS Code wire plan.
+ * Returns undefined when no plan or no matching snapshot entry exists (older
+ * plans), in which case reset falls back to stripping managed keys only.
+ */
+async function readVsCodeSettingsSnapshot(
+  curatedRoot: string,
+  vscodeUserSettingsPath: string,
+): Promise<ManagedTextFileSnapshot | undefined> {
+  const previousWirePlan = validateManagedTextFileSnapshots(
+    await readJsonFileOrNull<WirePlanManifest>(
+      join(curatedRoot, "wire-plan.json"),
+      assertWirePlanManifest,
+    ),
+    [vscodeUserSettingsPath],
+    join(curatedRoot, "wire-plan.json"),
+  );
+  return previousWirePlan?.textFileSnapshots?.find(
+    (entry) => entry.path === toPosixPath(vscodeUserSettingsPath),
+  );
 }
 
 function buildVsCodeWirePlan(
@@ -586,6 +631,7 @@ function buildVsCodeWirePlan(
   curatedRoot: string,
   materializedPaths: MaterializedVsCodePaths,
   sharedMcpAssetIds: string[],
+  textFileSnapshots: ManagedTextFileSnapshot[],
 ): WirePlanManifest {
   return {
     schemaVersion: 1,
@@ -610,6 +656,7 @@ function buildVsCodeWirePlan(
       ...materializedPaths.promptPackFiles.map(toPosixPath),
       ...materializedPaths.referencePackFiles.map(toPosixPath),
     ],
+    textFileSnapshots,
     notes: [
       "User-scoped AI path settings are patched in VS Code settings.json.",
       "Workspace copilot instructions are materialized locally for Copilot consumption.",
@@ -623,6 +670,7 @@ async function resetVsCodeUserSettings(paths: {
   curatedRoot: string;
   currentRoot: string;
   vscodeUserSettingsPath: string;
+  settingsSnapshot?: ManagedTextFileSnapshot;
 }): Promise<void> {
   const currentSettings = await readVsCodeSettings(
     paths.vscodeUserSettingsPath,
@@ -670,6 +718,35 @@ async function resetVsCodeUserSettings(paths: {
     "github.copilot.chat.codeGeneration.instructions":
       nextCodeGenerationInstructions,
   };
+
+  // Keys that stripped to nothing must be passed as undefined so jsonc
+  // `modify` removes them from the file — an empty object would leave a
+  // fabricated managed key behind in a file that never had it (#447).
+  const mutableSettings = nextSettings as Record<string, unknown>;
+  for (const key of Object.keys(mutableSettings)) {
+    const value = mutableSettings[key];
+    if (
+      value === undefined ||
+      (typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value) &&
+        Object.keys(value as Record<string, unknown>).length === 0)
+    ) {
+      mutableSettings[key] = undefined;
+    }
+  }
+
+  const hasRemainingSettings = Object.values(mutableSettings).some(
+    (value) => value !== undefined,
+  );
+  if (paths.settingsSnapshot?.content === null && !hasRemainingSettings) {
+    // The adapter created settings.json and no non-managed keys remain:
+    // remove the file so reset restores the byte-identical pre-apply state
+    // (#447). When the user added own keys after apply they are preserved
+    // below instead.
+    await removePath(paths.vscodeUserSettingsPath);
+    return;
+  }
 
   await patchVsCodeSettings(paths.vscodeUserSettingsPath, nextSettings);
 }

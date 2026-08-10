@@ -249,9 +249,7 @@ export async function resetCodexNativeHost(
   );
   await removePath(join(workspaceRoot, ".agents", "skills", "agent-harness"));
   await removePath(join(workspaceRoot, ".agents", "plugins", "agent-harness"));
-  await removeCodexPluginMarketplaceEntry(
-    join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
-  );
+  await resetCodexPluginMarketplace(workspaceRoot, textFileSnapshots);
   await removeEmptyParentDirectories(
     join(workspaceRoot, ".agents", "plugins"),
     workspaceRoot,
@@ -268,6 +266,32 @@ export async function resetCodexNativeHost(
     join(workspaceRoot, ".codex"),
     workspaceRoot,
   );
+}
+
+/**
+ * Restores the Codex plugin marketplace file to its pre-apply state (#447):
+ * when the adapter created the file (snapshot content is null) the file is
+ * removed entirely; otherwise the agent-harness entry is removed and every
+ * top-level key is preserved.
+ */
+async function resetCodexPluginMarketplace(
+  workspaceRoot: string,
+  textFileSnapshots: ManagedTextFileSnapshot[] | undefined,
+): Promise<void> {
+  const marketplacePath = join(
+    workspaceRoot,
+    ".agents",
+    "plugins",
+    "marketplace.json",
+  );
+  const marketplaceSnapshot = textFileSnapshots?.find(
+    (entry) => entry.path === toPosixPath(marketplacePath),
+  );
+  if (marketplaceSnapshot?.content === null) {
+    await removePath(marketplacePath);
+    return;
+  }
+  await removeCodexPluginMarketplaceEntry(marketplacePath);
 }
 
 async function removeCodexPluginMarketplaceEntry(

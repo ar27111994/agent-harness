@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import type { Dirent, Stats } from "node:fs";
-import { mkdir, mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -1295,6 +1303,86 @@ void test("VS Code wire apply creates copilot-instructions.md even without profi
     afterReset,
     null,
     "copilot-instructions.md should be removed on reset when it only contains managed content",
+  );
+});
+
+void test("VS Code wire reset removes an adapter-created settings.json (#447)", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-447-"));
+  const previousEnv = rememberEnv([
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "XDG_CONFIG_HOME",
+  ]);
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  process.env.APPDATA = root;
+  process.env.XDG_CONFIG_HOME = root;
+  clearRuntimeConfigForTests();
+
+  context.after(async () => {
+    restoreEnv(previousEnv);
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const projectRoot = join(root, "project");
+  const workspaceRoot = join(root, "workspace");
+  const settingsPath = resolveVsCodeUserSettingsPath();
+  assert.equal(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "fixture starts without settings.json",
+  );
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "apply" });
+  assert.notEqual(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "apply must create settings.json with managed keys",
+  );
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "reset" });
+  assert.equal(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "reset must remove the adapter-created settings.json (#447)",
+  );
+});
+
+void test("VS Code wire reset preserves user settings added after apply (#447)", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-447-user-"));
+  const previousEnv = rememberEnv([
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "XDG_CONFIG_HOME",
+  ]);
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  process.env.APPDATA = root;
+  process.env.XDG_CONFIG_HOME = root;
+  clearRuntimeConfigForTests();
+
+  context.after(async () => {
+    restoreEnv(previousEnv);
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const projectRoot = join(root, "project");
+  const workspaceRoot = join(root, "workspace");
+  const settingsPath = resolveVsCodeUserSettingsPath();
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "apply" });
+  // The user adds their own settings after apply.
+  await writeFile(settingsPath, JSON.stringify({ "editor.fontSize": 14 }));
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "reset" });
+  assert.deepEqual(
+    JSON.parse((await readTextFileOrNull(settingsPath)) ?? "{}"),
+    { "editor.fontSize": 14 },
+    "reset must strip managed keys but preserve user-owned settings",
   );
 });
 

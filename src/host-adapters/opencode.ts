@@ -18,6 +18,7 @@ import {
 import { assertWirePlanManifest } from "../manifest-validation.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import { readSharedMcpAssetIds } from "../lib/shared-mcp.js";
+import { captureManagedTextFileSnapshots } from "./native-utils.js";
 import {
   applyHostNativeFilePayloads,
   collectHostNativeFilePayloads,
@@ -181,6 +182,19 @@ export async function wireOpenCode(options: {
   );
 
   const createdLinkPaths: string[] = [];
+  // On re-apply the .gitignore written by the previous apply is still
+  // present (the re-apply cleanup above does not touch it), so its fresh
+  // snapshot would record the overlay entries instead of the true
+  // pre-apply state — and a later reset would then restore rather than
+  // remove the adapter-created file. Restore the previous plan's
+  // snapshots for the gitignore first so the capture below records the
+  // original content (or absence) again (#447).
+  if (previousWirePlan?.textFileSnapshots !== undefined) {
+    await restoreManagedTextFileSnapshot(
+      gitignorePath,
+      previousWirePlan.textFileSnapshots,
+    );
+  }
   // Snapshot both AGENTS.md and .opencode/.gitignore before mutating them so
   // that wire --reset can restore either file to its pre-apply state.
   // gitignorePath is already declared above (used for allowedTextFilePaths).
@@ -918,21 +932,6 @@ function isPathWithinRoot(pathValue: string, rootPath: string): boolean {
     relativePath === "" ||
     (!relativePath.startsWith("..") && !isAbsolute(relativePath))
   );
-}
-
-async function captureManagedTextFileSnapshots(
-  paths: string[],
-): Promise<ManagedTextFileSnapshot[]> {
-  const snapshots: ManagedTextFileSnapshot[] = [];
-
-  for (const filePath of paths) {
-    snapshots.push({
-      path: toPosixPath(filePath),
-      content: await readTextFileOrNull(filePath),
-    });
-  }
-
-  return snapshots;
 }
 
 async function restoreManagedTextFileSnapshot(

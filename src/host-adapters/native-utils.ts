@@ -140,6 +140,27 @@ export async function restoreManagedTextFileSnapshot(
 }
 
 /**
+ * Captures pre-apply text-file snapshots for the given paths: each entry
+ * records the file's content, or null when the file did not exist. Reset
+ * paths use the null marker to distinguish adapter-created files (removed)
+ * from pre-existing ones (restored/stripped) (#447).
+ */
+export async function captureManagedTextFileSnapshots(
+  paths: string[],
+): Promise<ManagedTextFileSnapshot[]> {
+  const snapshots: ManagedTextFileSnapshot[] = [];
+
+  for (const filePath of paths) {
+    snapshots.push({
+      path: toPosixPath(filePath),
+      content: await readTextFileOrNull(filePath),
+    });
+  }
+
+  return snapshots;
+}
+
+/**
  * Restores a managed section from a text-file snapshot, scoped to a single
  * markerId. Other managed sections in the file are preserved.
  *

@@ -47,6 +47,7 @@ import {
 } from "./codex-native.js";
 import {
   buildAssetMarkdown,
+  captureManagedTextFileSnapshots,
   describeJsonValue,
   directoryNameForAssetKind,
   isBenignRemoveDirectoryRace,
@@ -634,25 +635,13 @@ function resolveManagedTextFileSnapshotPaths(
         join(workspaceRoot, "SYSTEM.md"),
       ];
     case "codex":
-      return [join(workspaceRoot, "AGENTS.md")];
+      return [
+        join(workspaceRoot, "AGENTS.md"),
+        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+      ];
     default:
       return [];
   }
-}
-
-async function captureManagedTextFileSnapshots(
-  paths: string[],
-): Promise<ManagedTextFileSnapshot[]> {
-  const snapshots: ManagedTextFileSnapshot[] = [];
-
-  for (const filePath of paths) {
-    snapshots.push({
-      path: toPosixPath(filePath),
-      content: await readTextFileOrNull(filePath),
-    });
-  }
-
-  return snapshots;
 }
 
 /** Lookup table mapping AssetKind to managed file names. */

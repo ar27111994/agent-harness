@@ -541,6 +541,28 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
           await pathExists(join(fixture.workspaceRoot, ".codex")),
           false,
         );
+        // Pre-existing marketplace.json survives reset with the
+        // agent-harness entry removed (#447).
+        assert.deepEqual(
+          JSON.parse(
+            await readFile(
+              join(
+                fixture.workspaceRoot,
+                ".agents",
+                "plugins",
+                "marketplace.json",
+              ),
+              "utf8",
+            ),
+          ),
+          {
+            schemaVersion: 2,
+            plugins: [
+              { name: "existing", path: "./existing" },
+              "ignored malformed entry",
+            ],
+          },
+        );
       }
     } finally {
       await fixture.cleanup();
@@ -914,17 +936,19 @@ void test("Pi and Codex native wire reset removes managed-only files and setting
           null,
         );
       } else {
-        // Marketplace preserved with plugins:[] so .agents directory persists
-        assert.ok(
-          (await readTextFileOrNull(
+        // The adapter created marketplace.json on a fresh workspace, so
+        // reset removes it entirely (#447) — no phantom managed file.
+        assert.equal(
+          await readTextFileOrNull(
             join(
               fixture.workspaceRoot,
               ".agents",
               "plugins",
               "marketplace.json",
             ),
-          )) !== null,
-          "marketplace.json preserved with plugins:[]",
+          ),
+          null,
+          "adapter-created marketplace.json must be removed on reset",
         );
         assert.equal(
           await pathExists(join(fixture.workspaceRoot, ".codex")),
