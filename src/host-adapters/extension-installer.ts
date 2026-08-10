@@ -2,7 +2,11 @@ import { execFile } from "node:child_process";
 import { extname } from "node:path";
 import { promisify } from "node:util";
 
-import { containsShellMetaCharacters } from "../lib/preflight.js";
+import {
+  buildWindowsPowerShellCommand,
+  containsShellMetaCharacters,
+  isWindowsShellWrapperPath,
+} from "../lib/windows-shell.js";
 import { getRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
@@ -252,14 +256,20 @@ async function executeNativeCommand(
       if (refusal) {
         return refusal;
       }
-      const runsThroughShell =
-        shouldRunCandidateThroughShell(candidateExecutable);
-      const result = await execFileAsync(candidateExecutable, args, {
-        shell: runsThroughShell,
-        windowsHide: true,
-        timeout: hostCommandConfig.nativeTimeoutMs,
-        maxBuffer: hostCommandConfig.nativeMaxBufferBytes,
-      });
+      const commandSpec = buildNativeCommandSpec(
+        candidateExecutable,
+        args,
+        platform,
+      );
+      const result = await execFileAsync(
+        commandSpec.executable,
+        commandSpec.args,
+        {
+          windowsHide: true,
+          timeout: hostCommandConfig.nativeTimeoutMs,
+          maxBuffer: hostCommandConfig.nativeMaxBufferBytes,
+        },
+      );
       return {
         exitCode: 0,
         stdout: result.stdout,
@@ -278,12 +288,35 @@ async function executeNativeCommand(
   return toNativeCommandResult(lastError);
 }
 
-function shouldRunCandidateThroughShell(
-  candidateExecutable: string,
+/**
+ * Returns the spawn spec for a native host command (#448): direct execution
+ * for regular executables, or a PowerShell single-quoted invocation for
+ * Windows .cmd/.bat wrappers. Node's `shell: true` option concatenates
+ * arguments unescaped (DEP0190) and cmd.exe re-parses the raw command line;
+ * PowerShell keeps every token a single-quoted literal, so no shell
+ * interpretation occurs and no deprecation warning is emitted. Callers must
+ * still run the fail-closed metacharacter refusal before executing.
+ */
+export function buildNativeCommandSpec(
+  executable: string,
+  args: string[],
   platform: NodeJS.Platform = process.platform,
-): boolean {
-  const extension = extname(candidateExecutable).toLowerCase();
-  return platform === "win32" && (extension === ".cmd" || extension === ".bat");
+): { executable: string; args: string[] } {
+  if (!isWindowsShellWrapperPath(executable, platform)) {
+    return { executable, args };
+  }
+
+  return {
+    executable: "powershell.exe",
+    args: [
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      buildWindowsPowerShellCommand(executable, args),
+    ],
+  };
 }
 
 /**
@@ -303,7 +336,7 @@ export function buildShellWrapperRefusal(
   platform: NodeJS.Platform = process.platform,
 ): { exitCode: number; stdout: string; stderr: string } | null {
   if (
-    shouldRunCandidateThroughShell(candidateExecutable, platform) &&
+    isWindowsShellWrapperPath(candidateExecutable, platform) &&
     args.some(containsShellMetaCharacters)
   ) {
     return {
@@ -368,9 +401,9 @@ function quoteFormattedCommand(value: string): string {
  */
 export const extensionInstallerInternals = {
   buildExecutableCandidates,
+  buildNativeCommandSpec,
   buildShellWrapperRefusal,
   executeNativeCommand,
   formatCommand,
-  shouldRunCandidateThroughShell,
   toNativeCommandResult,
 };

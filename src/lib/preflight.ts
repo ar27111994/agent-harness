@@ -13,6 +13,12 @@ import {
   resolveDefaultOpenCodeConfigRoot,
   resolveVsCodeUserSettingsPath,
 } from "./paths.js";
+import {
+  buildWindowsPowerShellCommand,
+  containsShellMetaCharacters,
+  isWindowsShellWrapperPath,
+  quotePowerShellLiteral,
+} from "./windows-shell.js";
 
 /**
  * Defines the supported preflight severity values.
@@ -554,36 +560,6 @@ function resolveFoundExecutable(
 }
 
 /**
- * Defines characters that cmd.exe (the target of .cmd/.bat wrappers)
- * interprets even inside quoted arguments: operators, redirection, batch
- * variable expansion, delayed expansion, and quote characters. Arguments
- * containing any of these must never cross into a wrapper invocation —
- * Windows batch-file argument parsing cannot be made safe for them by
- * quoting alone (cmd.exe re-parses the raw command line). The NUL byte is
- * checked separately to keep control characters out of the regex literal.
- */
-const CMD_SHELL_META_PATTERN = /[&|<>^%!"\r\n]/u;
-
-/**
- * Returns true when a value contains characters that cmd.exe interprets in
- * wrapper command lines regardless of quoting.
- */
-export function containsShellMetaCharacters(value: string): boolean {
-  return value.includes("\u0000") || CMD_SHELL_META_PATTERN.test(value);
-}
-
-/**
- * Returns whether an executable path is a Windows shell wrapper (.cmd /
- * .bat) that must be invoked through a shell.
- */
-export function isWindowsShellWrapperPath(
-  executablePath: string,
-  platform: NodeJS.Platform = process.platform,
-): boolean {
-  return platform === "win32" && /\.(?:cmd|bat)$/iu.test(executablePath);
-}
-
-/**
  * Returns the fail-closed refusal for a Windows shell wrapper invoked with
  * shell-metacharacter arguments, or null when the command is safe to run.
  *
@@ -649,19 +625,6 @@ function buildRuntimeCommandSpawnSpec(
       buildWindowsPowerShellCommand(options.executable, options.args),
     ],
   };
-}
-
-function buildWindowsPowerShellCommand(
-  executable: string,
-  args: string[],
-): string {
-  const quotedExecutable = quotePowerShellLiteral(executable);
-  const quotedArgs = args.map((argument) => quotePowerShellLiteral(argument));
-  return [`& ${quotedExecutable}`, ...quotedArgs].join(" ");
-}
-
-function quotePowerShellLiteral(value: string): string {
-  return `'${value.replace(/'/gu, "''")}'`;
 }
 
 /**

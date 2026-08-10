@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { preflightInternals } from "../lib/preflight.js";
+import { restoreEnvVar } from "./env-test-utils.js";
 import {
   buildExtensionInstallActions,
   buildVsCodeExtensionInstallActions,
@@ -459,6 +460,99 @@ void test(
         "a shell wrapper must never be invoked with metacharacter arguments",
       );
     } finally {
+      await rm(tempRoot, { force: true, recursive: true });
+    }
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Extension installer: shell-free PowerShell wrapper execution (#448)
+// ---------------------------------------------------------------------------
+
+void test("extension installer builds shell-free PowerShell specs for .cmd wrappers on every platform (#448)", () => {
+  const spec = extensionInstallerInternals.buildNativeCommandSpec(
+    "C:\\Tools\\cli.cmd",
+    ["--flag=has space", "a'b", "a&b"],
+    "win32",
+  );
+
+  assert.deepEqual(
+    spec,
+    {
+      executable: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& 'C:\\Tools\\cli.cmd' '--flag=has space' 'a''b' 'a&b'",
+      ],
+    },
+    "wrapper execution must be a single-quoted PowerShell literal command — no shell:true concatenation (DEP0190)",
+  );
+  // The spawn spec carries no `shell` option; execFile defaults to
+  // shell:false, so Node never emits DEP0190 for wrapper invocations.
+  assert.equal(Object.hasOwn(spec, "shell"), false);
+  assert.deepEqual(
+    extensionInstallerInternals.buildNativeCommandSpec(
+      "C:\\Tools\\cli.exe",
+      ["--version"],
+      "win32",
+    ),
+    { executable: "C:\\Tools\\cli.exe", args: ["--version"] },
+    "non-wrapper executables keep direct execution",
+  );
+});
+
+void test(
+  "extension installer .cmd wrapper round-trips safe arguments verbatim without DEP0190 (#448)",
+  { skip: process.platform !== "win32" },
+  async () => {
+    const tempRoot = await mkdtemp(
+      join(tmpdir(), "agent-harness-ext-installer-cmd-"),
+    );
+    const envKey = "AGENT_HARNESS_ARGV_ECHO_STATE";
+    const originalEnvValue = process.env[envKey];
+    try {
+      const scriptPath = await createArgvEchoFixture(tempRoot);
+      const statePath = join(tempRoot, "argv-state.json");
+      const binDir = join(tempRoot, "bin");
+      await mkdir(binDir, { recursive: true });
+      const wrapperPath = join(binDir, "fake-ext.cmd");
+      await writeFile(
+        wrapperPath,
+        `@echo off\r\n"${process.execPath}" "${scriptPath}" %*\r\n`,
+        "utf8",
+      );
+      process.env[envKey] = statePath;
+
+      const safeArgs = ["--install-extension", "github.copilot", "--force"];
+      const result = await extensionInstallerInternals.executeNativeCommand(
+        wrapperPath,
+        safeArgs,
+      );
+
+      assert.equal(
+        result.exitCode,
+        0,
+        `wrapper invocation must succeed, got: ${result.stderr}`,
+      );
+      assert.equal(
+        result.stderr.includes("DEP0190"),
+        false,
+        "no shell:true deprecation warning may reach stderr",
+      );
+      const received = JSON.parse(
+        await readFile(statePath, "utf8"),
+      ) as string[];
+      assert.deepEqual(
+        received,
+        safeArgs,
+        "safe wrapper arguments must survive the PowerShell literal round-trip verbatim",
+      );
+    } finally {
+      restoreEnvVar(envKey, originalEnvValue);
       await rm(tempRoot, { force: true, recursive: true });
     }
   },

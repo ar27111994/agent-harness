@@ -238,30 +238,60 @@ void test("extension installer internals cover command formatting and native err
     ),
     '"C:/Program Files/Code/code.cmd" --install-extension publisher.extension "--flag=has space"',
   );
-  assert.equal(
-    extensionInstallerInternals.shouldRunCandidateThroughShell(
+  assert.deepEqual(
+    extensionInstallerInternals.buildNativeCommandSpec(
       "code.cmd",
+      ["--list-extensions", "has space"],
       "win32",
     ),
-    true,
+    {
+      executable: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& 'code.cmd' '--list-extensions' 'has space'",
+      ],
+    },
+    "win32 .cmd wrappers must run through a single-quoted PowerShell literal command, not shell:true concatenation (#448)",
   );
-  assert.equal(
-    extensionInstallerInternals.shouldRunCandidateThroughShell(
+  assert.deepEqual(
+    extensionInstallerInternals.buildNativeCommandSpec(
       "code.bat",
+      ["--version"],
       "win32",
     ),
-    true,
+    {
+      executable: "powershell.exe",
+      args: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "& 'code.bat' '--version'",
+      ],
+    },
   );
-  assert.equal(
-    extensionInstallerInternals.shouldRunCandidateThroughShell(
+  assert.deepEqual(
+    extensionInstallerInternals.buildNativeCommandSpec(
       "code.cmd",
+      ["--version"],
       "linux",
     ),
-    false,
+    { executable: "code.cmd", args: ["--version"] },
+    "non-win32 platforms keep direct execution",
   );
-  assert.equal(
-    extensionInstallerInternals.shouldRunCandidateThroughShell("code", "win32"),
-    false,
+  assert.deepEqual(
+    extensionInstallerInternals.buildNativeCommandSpec(
+      "code",
+      ["--version"],
+      "win32",
+    ),
+    { executable: "code", args: ["--version"] },
+    "bare executable names are not wrapper candidates on win32",
   );
   assert.deepEqual(
     extensionInstallerInternals.toNativeCommandResult({ code: 7 }),
