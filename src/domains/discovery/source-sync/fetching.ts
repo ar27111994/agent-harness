@@ -196,7 +196,7 @@ export async function fetchRequiredText(
  */
 export interface SourceSyncJsonRequest {
   /** HTTP method; defaults to GET (or POST when a body is present). */
-  method?: string;
+  method?: "GET" | "POST";
   /** Serialized request body (e.g. a JSON search payload). */
   body?: string;
   /** Extra headers merged over the standard source-sync headers. */

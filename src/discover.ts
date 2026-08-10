@@ -1,4 +1,5 @@
 import { join } from "node:path";
+import type { Dirent } from "node:fs";
 import { copyFile, mkdir, readdir, readFile } from "node:fs/promises";
 
 import {
@@ -487,7 +488,6 @@ export async function runDiscover(
       }
       // Try to resolve a real version from the workspace root (not --state-root)
       // so the ARD catalog carries the correct publisher version.
-      const { readFile } = await import("node:fs/promises");
       let pkgVersion: string | undefined;
       try {
         const pkgRaw = await readFile("package.json", "utf8");
@@ -722,28 +722,46 @@ async function listMatchingFileNames(
   matches: (name: string) => boolean,
   limit: number,
 ): Promise<string[]> {
-  return (await readdir(directory).catch(() => []))
-    .filter(matches)
-    .slice(0, limit);
+  return (await readdirSafe(directory)).filter(matches).slice(0, limit);
 }
 
 /**
  * Returns whether a directory contains at least one entry.
  */
 async function directoryHasAnyEntry(directory: string): Promise<boolean> {
-  return (await readdir(directory).catch(() => [])).length > 0;
+  return (await readdirSafe(directory)).length > 0;
 }
 
 /**
  * Lists immediate subdirectory names of a directory.
  */
 async function listDirectoryNames(directory: string): Promise<string[]> {
-  const entries = await readdir(directory, { withFileTypes: true }).catch(
-    () => [],
-  );
+  const entries = await readdirSafe(directory, true);
   return entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name);
+}
+
+/**
+ * Reads a directory listing, treating an absent/unreadable directory as
+ * empty (the state-invalidation report is display-only best effort).
+ */
+async function readdirSafe(directory: string): Promise<string[]>;
+async function readdirSafe(
+  directory: string,
+  withFileTypes: true,
+): Promise<Dirent[]>;
+async function readdirSafe(
+  directory: string,
+  withFileTypes?: true,
+): Promise<string[] | Dirent[]> {
+  try {
+    return withFileTypes === true
+      ? await readdir(directory, { withFileTypes: true })
+      : await readdir(directory);
+  } catch {
+    return [];
+  }
 }
 
 /**

@@ -522,6 +522,25 @@ function analyzeMatchQuality(
 }
 
 /**
+ * Resolves the package-manager family an asset's registry belongs to, when
+ * the asset is a package-registry entry whose source id matches a known
+ * registry ecosystem. Returns undefined for non-package-registry assets and
+ * for unknown registry sources. Single source of truth for both exact-stack
+ * eligibility (#444) and ecosystem-mismatch penalisation (F3 extraction).
+ */
+function resolveRegistryEcosystemFamily(
+  entry: AssetCatalogEntry,
+): string | undefined {
+  if (entry.source.sourceKind !== "package-registry") {
+    return undefined;
+  }
+  const sourceIdLower = entry.source.sourceId.toLowerCase();
+  return REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
+    sourceIdLower.includes(substring),
+  )?.[1];
+}
+
+/**
  * Returns whether the asset's registry ecosystem is plausibly compatible
  * with the workspace's detected package managers (#444): a package-registry
  * asset whose registry maps to a package-manager family that the workspace
@@ -533,20 +552,11 @@ function computeAssetEcosystemCompat(
   entry: AssetCatalogEntry,
   demandContext: DemandContext,
 ): boolean {
-  if (entry.source.sourceKind !== "package-registry") {
-    return true;
-  }
   if (demandContext.packageManagers.size === 0) {
     return true;
   }
-  const sourceIdLower = entry.source.sourceId.toLowerCase();
-  const sourceIdMatch = REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
-    sourceIdLower.includes(substring),
-  );
-  if (!sourceIdMatch) {
-    return true;
-  }
-  return demandContext.packageManagers.has(sourceIdMatch[1]);
+  const family = resolveRegistryEcosystemFamily(entry);
+  return family === undefined || demandContext.packageManagers.has(family);
 }
 
 /**
@@ -925,21 +935,11 @@ function computeEcosystemMismatchPenalty(
   demandContext: DemandContext,
   penalty: number,
 ): number {
-  if (entry.source.sourceKind !== "package-registry") {
-    return 0;
-  }
   if (demandContext.packageManagers.size === 0) {
     return 0;
   }
-  const sourceIdLower = entry.source.sourceId.toLowerCase();
-  const sourceIdMatch = REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
-    sourceIdLower.includes(substring),
-  );
-  if (!sourceIdMatch) {
-    return 0;
-  }
-  const [, family] = sourceIdMatch;
-  if (demandContext.packageManagers.has(family)) {
+  const family = resolveRegistryEcosystemFamily(entry);
+  if (family === undefined || demandContext.packageManagers.has(family)) {
     return 0;
   }
   // Total ecosystem mismatch: the workspace has package-manager signals but

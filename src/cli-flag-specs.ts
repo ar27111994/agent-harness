@@ -258,8 +258,9 @@ export const RECOMMEND_SUBCOMMAND_FLAG_SPECS: Record<
  * Maps every flag-spec domain to its subcommand flag table — the single
  * source of truth both for the CLI unknown-flag guards (#445) and for the
  * doc/examples cross-check that asserts documented commands parse cleanly
- * (#450). Domains with inline guards (discover/wire/workspace/setup) are
- * not listed here.
+ * (#450). Domains with per-dispatcher inline guards (discover/wire/workspace)
+ * are not listed here; setup was migrated to the shared table guard in the
+ * #445/#446 wave.
  */
 export const DOMAIN_SUBCOMMAND_FLAG_SPECS: Record<
   string,
