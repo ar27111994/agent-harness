@@ -150,7 +150,7 @@ AGENT_HARNESS_SCAN_MAX_DEPTH=14                # Max directory depth
 AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_FOR_INDEX_BUILD=500  # Pages per source in index build
 AGENT_HARNESS_MAX_ENTRIES_PER_SOURCE=200       # Max catalog entries per source
 AGENT_HARNESS_DISCOVERY_INDEX_MAX_AGE_DAYS=7   # Index freshness threshold
-AGENT_HARNESS_TIMEOUT_SECONDS=120              # Deadline for long operations (10–3600)
+AGENT_HARNESS_TIMEOUT_SECONDS=120              # Example value — deadline for long operations (default: no deadline)
 ```
 
 ## Quick Troubleshooting

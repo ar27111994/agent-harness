@@ -89,6 +89,7 @@ The core model is deliberately boring in the best way: one command surface, a ho
 
 ## Key Playbooks
 
+- [Documentation index](https://github.com/ar27111994/agent-harness/blob/main/docs/README.md) — hub for per-host references, playbooks, and guides
 - [Agent setup playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/AGENT-SETUP-PLAYBOOK.md)
 - [Discovery breadth playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/DISCOVERY-BREADTH-PLAYBOOK.md)
 - [Demand detection playbook](https://github.com/ar27111994/agent-harness/blob/main/docs/playbooks/DEMAND-DETECTION-PLAYBOOK.md)
@@ -365,7 +366,7 @@ A packaged CLI keeps checked-in discovery and mirror policy assets read-only and
 
 ### Building a comprehensive catalog
 
-The default `discover full` builds a demand-driven catalog — fast for per-workspace use but limited in breadth (~11,500 entries from 171 sources). To build a truly comprehensive catalog across millions of available assets, use the two-phase offline index workflow:
+The default `discover full` builds a demand-driven catalog — fast for per-workspace use but limited in breadth (~11,500+ entries from 50+ sources). To build a truly comprehensive catalog across millions of available assets, use the two-phase offline index workflow:
 
 **Phase 1 (offline, one-time or CI):** Build the full index across all sources.
 
@@ -597,7 +598,7 @@ agent-harness discover environment-index
 
 ### Reducing source health noise
 
-`discover full` produces source health warnings for every configured source. With 171+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Three flags help manage output and performance:
+`discover full` produces source health warnings for every configured source. With 50+ sources, most warnings are expected — e.g. "entries produced but none survived selection" for registries irrelevant to your workspace. Three flags help manage output and performance:
 
 - **`--quiet`**: suppress expected warnings; only severe/error conditions are shown
 - **`--summary`**: print aggregate warning counts grouped by reason instead of per-source lines
@@ -606,7 +607,7 @@ agent-harness discover environment-index
 ```bash
 agent-harness discover full --quiet    # only errors, warnings suppressed
 agent-harness discover full --summary  # aggregate breakdown by reason
-agent-harness discover full --sync-all # full sync of all 170+ sources
+agent-harness discover full --sync-all # full sync of all 50+ sources
 ```
 
 Demand-based filtering (#419) automatically narrows source sync to only ecosystem-relevant sources. After demand detection, `discover full` prints a summary like "Detected TypeScript project. Syncing 12/47 demand-relevant sources (35 skipped)." This reduces first-run sync time from 5+ minutes to under 60 seconds for typical single-stack projects. Use `--sync-all` for the legacy full-sync behaviour, or `--no-sync` to skip sync entirely.
@@ -1247,6 +1248,8 @@ Optional GitHub tokens improve API throughput during discovery and GitHub-backed
 ```bash
 GITHUB_PERSONAL_ACCESS_TOKEN=
 # GITHUB_TOKEN=
+# OPENAI_API_KEY — recognized asset prerequisite: when present, OpenAI
+# provider assets that require it are marked installable.
 # Override the ARD publisher FQDN used for identity and attestation metadata.
 # AGENT_HARNESS_ARD_PUBLISHER_FQDN=
 ```
@@ -1311,7 +1314,8 @@ AGENT_HARNESS_PREFLIGHT_COMMAND_TIMEOUT_MS=15000
 # Cumulative wall-clock budget for `setup doctor` host preflight checks.
 # AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS=
 # Force CI-mode behavior (ephemeral state-root heuristics, enrichment CI
-# semantics) without a real CI runner.
+# semantics) without a real CI runner. A bare CI=true is also recognized as
+# CI mode for external CI runners.
 # AGENT_HARNESS_CI=true
 ```
 
