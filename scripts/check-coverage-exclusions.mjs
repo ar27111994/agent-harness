@@ -13,8 +13,8 @@
  * Exit 0 when the exclusion list contains only allowed entries, 1 otherwise.
  */
 
-import { readFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { readFile, readdir } from "node:fs/promises";
+import { resolve, dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
@@ -51,6 +51,61 @@ export function parseCoverageConfig(configContent) {
  */
 export function findDisallowedExclusions(exclude) {
   return exclude.filter((entry) => !ALLOWED_COVERAGE_EXCLUSIONS.has(entry));
+}
+
+/**
+ * Product files that may contain `c8 ignore start|stop` blocks. Every entry
+ * must be justified in docs/reference/COVERAGE-100-ROADMAP.md; adding a new
+ * ignore block anywhere else fails the gate (#451).
+ */
+export const ALLOWED_INLINE_IGNORE_FILES = new Set([
+  "src/domains/discovery/semantic-scoring.ts",
+  "src/package-registries.ts",
+]);
+
+/**
+ * Returns product files containing a `c8 ignore start` block that are not in
+ * the allowlist. Scans src/ recursively, skipping test files, and returns
+ * repo-relative POSIX paths sorted alphabetically.
+ * @param {string} sourceRoot
+ * @param {ReadonlySet<string>} [allowed]
+ * @returns {Promise<string[]>}
+ */
+export async function findUnallowlistedInlineIgnoreBlocks(
+  sourceRoot,
+  allowed = ALLOWED_INLINE_IGNORE_FILES,
+) {
+  const offenders = [];
+  const srcRoot = resolve(sourceRoot, "src");
+  const stack = [srcRoot];
+
+  while (stack.length > 0) {
+    const currentDir = stack.pop();
+    const entries = await readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const entryPath = join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === "tests" && currentDir === srcRoot) {
+          continue; // Test files are excluded from the gate; ignores there are irrelevant.
+        }
+        stack.push(entryPath);
+        continue;
+      }
+      if (!entry.name.endsWith(".ts")) {
+        continue;
+      }
+      const relativePath = relative(sourceRoot, entryPath).replace(/\\/gu, "/");
+      if (allowed.has(relativePath)) {
+        continue;
+      }
+      const content = await readFile(entryPath, "utf8");
+      if (content.includes("c8 ignore start")) {
+        offenders.push(relativePath);
+      }
+    }
+  }
+
+  return offenders.sort();
 }
 
 /**
@@ -98,10 +153,41 @@ export async function main(configFile) {
   return 1;
 }
 
+/**
+ * Runs the inline-ignore-block guard. Accepts an optional source root so the
+ * failure path is directly testable; defaults to the repo root.
+ * @param {string} [sourceRoot]
+ * @returns {Promise<number>} exit code
+ */
+export async function mainInlineIgnores(sourceRoot) {
+  const rootDir =
+    sourceRoot ?? resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const offenders = await findUnallowlistedInlineIgnoreBlocks(rootDir);
+  if (offenders.length === 0) {
+    console.log(
+      "inline-ignore-blocks check: OK — all c8 ignore start blocks are allowlisted and justified in COVERAGE-100-ROADMAP.md.",
+    );
+    return 0;
+  }
+
+  console.error(
+    "inline-ignore-blocks check: FAIL — c8 ignore start block(s) in product files outside the allowlist:",
+  );
+  for (const file of offenders) {
+    console.error(`  - ${file}`);
+  }
+  console.error(
+    "Remove the ignore block and write real tests, or add the file to ALLOWED_INLINE_IGNORE_FILES with a justification in docs/reference/COVERAGE-100-ROADMAP.md.",
+  );
+  return 1;
+}
+
 // Direct-execution guard (no c8-ignore per the #428 "no new ignore
 // comments" AC): the truthy arm is covered by the spawned direct-run test
 // in scripts/tests/check-coverage-exclusions.test.mjs, which the coverage
 // harness merges back into the gate's lcov.
 if (resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().then((code) => process.exit(code));
+  Promise.all([main(), mainInlineIgnores()]).then((codes) => {
+    process.exit(Math.max(...codes));
+  });
 }

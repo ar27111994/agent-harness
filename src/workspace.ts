@@ -3,10 +3,8 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  CliUsageError,
   hasHelpFlag,
   isFlagLike,
-  printCliUsageError,
   printUnknownArgumentError,
   hasUnknownFlag,
 } from "./cli-help-format.js";
@@ -296,13 +294,9 @@ if (
       process.exitCode = exitCode;
     })
     .catch((error: unknown) => {
-      // User-input errors print one-line actionable messages without
-      // internal stack frames (#446); genuine bugs keep their stacks.
-      if (error instanceof CliUsageError) {
-        printCliUsageError(error, "agent-harness workspace --help");
-      } else {
-        console.error(error);
-      }
+      // Workspace never throws CliUsageError (user-input failures return
+      // exit codes); any rejection here is a genuine bug and keeps its stack.
+      console.error(error);
       process.exitCode = 1;
     });
 }

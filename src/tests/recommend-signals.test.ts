@@ -147,6 +147,121 @@ void test("recommend demand context normalizes broader manifest prefixes", () =>
   assert.ok(demandContext.packageManifestEntries.has("afnetworking"));
 });
 
+void test("recommend demand context upgrades a bare-name term with package identity when the manifest form arrives (#444)", () => {
+  const profile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: {
+      scannedFiles: 2,
+      matchedFiles: 2,
+    },
+    signals: {
+      languages: [],
+      packageManagers: ["npm"],
+      frameworks: [],
+      concerns: [],
+      tooling: [],
+    },
+    evidence: [
+      {
+        path: "docs/duckdb.md",
+        fileName: "duckdb.md",
+        evidenceStrength: "weak",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          // A bare name token with the SAME canonical phrase arrives before
+          // the manifest declaration (evidence ordering is not guaranteed);
+          // the term must adopt the package identity from the package form.
+          tooling: ["npm-duckdb-node-api"],
+        },
+      },
+      {
+        path: "files/package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: ["npm:@duckdb/node-api"],
+        },
+      },
+    ],
+  };
+
+  const demandContext = buildDemandContext(profile, buildPolicy());
+
+  const term = demandContext.terms.find(
+    (entry) => entry.canonicalTerm === "npm-duckdb-node-api",
+  );
+  assert.ok(term, "the shared canonical term must exist");
+  assert.ok(
+    term?.packageIdentityTokens?.has("duckdb"),
+    "bare-name term must be upgraded with the declared package identity",
+  );
+  assert.deepEqual(
+    [...(demandContext.packageIdentityByTerm.get("npm-duckdb-node-api") ?? [])],
+    ["duckdb"],
+  );
+  assert.equal(term?.evidenceStrengthCounts.strong, 1);
+  assert.equal(term?.evidenceStrengthCounts.weak, 1);
+});
+
+void test("recommend demand context treats all-generic package identities as no identity (#444)", () => {
+  const profile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: [],
+    },
+    evidence: [
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: ["npm:node-api"],
+        },
+      },
+    ],
+  };
+
+  const demandContext = buildDemandContext(profile, buildPolicy());
+
+  const term = demandContext.terms.find(
+    (entry) => entry.canonicalTerm === "npm-node-api",
+  );
+  assert.ok(term, "the declared package term must exist");
+  assert.equal(
+    term?.packageIdentityTokens,
+    undefined,
+    "an identity made only of generic tokens (node, api) must not be attributed",
+  );
+  assert.equal(
+    demandContext.packageIdentityByTerm.has("npm-node-api"),
+    false,
+    "no identity entry may exist for an all-generic package",
+  );
+});
+
 void test("recommend demand context keeps session intent signals without a demand profile", () => {
   const demandContext = buildDemandContext(null, buildPolicy(), "devops");
 

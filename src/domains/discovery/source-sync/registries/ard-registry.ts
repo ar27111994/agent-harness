@@ -26,9 +26,10 @@ import {
 import {
   asRecord,
   getString,
+  getAllowedOrigins,
+  fetchRequiredJson,
   SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP,
 } from "../fetching.js";
-import { fetchJsonWithGuards } from "../../../../lib/http.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
 // ---------------------------------------------------------------------------
@@ -80,19 +81,20 @@ function normalizeScoreToPortfolioFit(score?: number): number {
  * Syncs an ARD-compliant registry via POST /search with pageToken-based
  * pagination (#327).
  */
-/* c8 ignore start -- requires live ARD endpoint; unit-tested via internals */
 export async function syncArdRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
-  const previousCursor = restoreFiniteCursorState(
-    getPreviousCursorStates(context.previousState)[0],
-    {
-      cursorId: "pageToken",
-      nextToken: undefined,
-      completed: false,
-    },
-  );
+  const previousCursorStates = getPreviousCursorStates(context.previousState);
+  // restoreFiniteCursorState resets a completed cursor to its initial
+  // position: like the other finite source-sync adapters, a completed ARD
+  // run restarts fresh on the next run (refresh semantics) so entries are
+  // re-observed and never pruned as missing (#327/#451).
+  const previousCursor = restoreFiniteCursorState(previousCursorStates[0], {
+    cursorId: "pageToken",
+    nextToken: undefined,
+    completed: false,
+  });
   const apiUrl = source.endpoints.apiUrl ?? source.endpoints.searchUrl;
   if (!apiUrl) {
     return {
@@ -112,18 +114,6 @@ export async function syncArdRegistrySource(
   let totalPages = 0;
   const effectiveMaxPages = getEffectiveMaxPagesPerRun(context);
 
-  if (previousCursor.completed) {
-    return {
-      sourceId: source.id,
-      coverageMode: "indexed",
-      status: "complete",
-      indexedEntryCount: 0,
-      cursors: [
-        { cursorId: "pageToken", nextToken: undefined, completed: true },
-      ],
-    };
-  }
-
   const allReferrals: unknown[] = [];
   const queryText = buildArdQueryText(context.demandProfile);
 
@@ -142,12 +132,16 @@ export async function syncArdRegistrySource(
       ...(pageToken ? { pageToken } : {}),
     });
 
-    const data = await fetchJsonWithGuards(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    });
-    if (data === null) break;
+    const data = await fetchRequiredJson(
+      apiUrl,
+      getAllowedOrigins(apiUrl),
+      {},
+      {
+        method: "POST",
+        body,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
     const response = asRecord(data);
 
     const results = Array.isArray(response.results) ? response.results : [];
@@ -300,7 +294,6 @@ export async function syncArdRegistrySource(
     ],
   };
 }
-/* c8 ignore stop */
 
 /**
  * Expose internals for unit testing.

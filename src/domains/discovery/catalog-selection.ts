@@ -449,7 +449,9 @@ function addDemandSignal(
       } else {
         exactHighSignalTerms.add(keyword);
         stackAnchorTerms?.add(keyword);
-        primaryStackAnchorTerms?.add(keyword);
+        // Package-manifest entries are tooling-only, and tooling signals
+        // never feed primary stack anchors — primary anchors would always
+        // be undefined here, so the call would be dead code.
       }
     }
     return;

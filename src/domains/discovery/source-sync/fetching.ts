@@ -191,6 +191,19 @@ export async function fetchRequiredText(
 }
 
 /**
+ * Describes an HTTP request override for JSON fetches: the method, a
+ * serialized body, and headers merged over the standard source-sync headers.
+ */
+export interface SourceSyncJsonRequest {
+  /** HTTP method; defaults to GET (or POST when a body is present). */
+  method?: string;
+  /** Serialized request body (e.g. a JSON search payload). */
+  body?: string;
+  /** Extra headers merged over the standard source-sync headers. */
+  headers?: HeadersInit;
+}
+
+/**
  * Fetches the URL as parsed JSON with retry-on-transient-failure.
  * Throws when all retry attempts are exhausted or the request hits a
  * non-transient failure.
@@ -199,6 +212,7 @@ export async function fetchRequiredJson(
   url: string,
   allowedOrigins: readonly string[],
   options: SourceSyncFetchOptions = {},
+  request: SourceSyncJsonRequest = {},
 ): Promise<unknown> {
   return fetchWithRetry(
     url,
@@ -206,9 +220,11 @@ export async function fetchRequiredJson(
       requireNonNull(
         await fetchJsonWithGuards(url, {
           allowedOrigins,
-          headers: SOURCE_SYNC_HEADERS,
+          headers: { ...SOURCE_SYNC_HEADERS, ...request.headers },
           maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
           timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
+          method: request.method,
+          body: request.body,
         }),
         url,
       ),

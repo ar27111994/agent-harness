@@ -203,6 +203,196 @@ void test("source sync keeps entry files unchanged when vscode marketplace entri
   }
 });
 
+void test("marketplace sync tracks popularity sweep cursors and resumes partial sweeps", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-vscode-pop-"),
+  );
+  const calls: number[] = [];
+  const cleanupFetch = installFetchMock(async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      filters?: Array<{ pageNumber?: number }>;
+    };
+    const pageNumber = body.filters?.[0]?.pageNumber ?? 1;
+    calls.push(pageNumber);
+    if (pageNumber === 1) {
+      return jsonResponse({
+        results: [
+          {
+            extensions: Array.from({ length: 100 }, (_, index) => ({
+              publisher: { publisherName: "Acme" },
+              extensionName: `pop-${index}`,
+              displayName: `Popular ${index}`,
+              shortDescription: "popular",
+              url: `https://marketplace.visualstudio.com/items?itemName=Acme.pop-${index}`,
+              lastUpdated: "2026-05-10T00:00:00.000Z",
+            })),
+          },
+        ],
+      });
+    }
+    return jsonResponse({ results: [{ extensions: [] }] });
+  });
+
+  try {
+    await writeDiscoveryScaffold(projectRoot, {
+      frameworks: ["react"],
+    });
+
+    await withEnv(
+      {
+        AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED: "false",
+        AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "2",
+      },
+      async () => {
+        clearRuntimeConfigForTests();
+        await syncIndexedSources(projectRoot);
+
+        const report = await readJsonFile<SourceSyncReport>(
+          join(projectRoot, "discover", "output", "source-sync.json"),
+        );
+        const source = report.sources.find(
+          (entry) => entry.sourceId === "vscode-marketplace",
+        );
+        assert.equal(source?.status, "partial");
+        assert.ok(
+          source?.cursors.some(
+            (cursor) =>
+              cursor.cursorId === "__popularity__install-count" &&
+              cursor.nextToken === "2" &&
+              cursor.completed === false,
+          ),
+          "popularity sweep cursor must record the in-flight page",
+        );
+
+        clearRuntimeConfigForTests();
+        await syncIndexedSources(projectRoot);
+
+        const resumed = await readJsonFile<SourceSyncReport>(
+          join(projectRoot, "discover", "output", "source-sync.json"),
+        );
+        const resumedSource = resumed.sources.find(
+          (entry) => entry.sourceId === "vscode-marketplace",
+        );
+        assert.equal(resumedSource?.status, "complete");
+        assert.ok(
+          resumedSource?.cursors.some(
+            (cursor) =>
+              cursor.cursorId === "__popularity__install-count" &&
+              cursor.completed === true,
+          ),
+          "resumed popularity sweep must complete and close its cursor",
+        );
+      },
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+void test("marketplace sync fetches demand-derived category sweeps, tracks partial pages, and closes cursors on resume", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-source-sync-vscode-cat-"),
+  );
+  const calls: number[] = [];
+  const cleanupFetch = installFetchMock(async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      filters?: Array<{ pageNumber?: number }>;
+    };
+    const pageNumber = body.filters?.[0]?.pageNumber ?? 1;
+    calls.push(pageNumber);
+    // Full first page for every sweep (category + tier-3 query), empty
+    // afterwards: each sweep pauses one page in and resumes to completion.
+    if (pageNumber === 1) {
+      return jsonResponse({
+        results: [
+          {
+            extensions: Array.from({ length: 100 }, (_, index) => ({
+              publisher: { publisherName: "Acme" },
+              extensionName: `cat-${index}`,
+              displayName: `Category ${index}`,
+              shortDescription: "category",
+              url: `https://marketplace.visualstudio.com/items?itemName=Acme.cat-${index}`,
+              lastUpdated: "2026-05-10T00:00:00.000Z",
+            })),
+          },
+        ],
+      });
+    }
+    return jsonResponse({ results: [{ extensions: [] }] });
+  });
+
+  try {
+    await writeDiscoveryScaffold(projectRoot, {
+      frameworks: ["react"],
+    });
+
+    await withEnv(
+      {
+        AGENT_HARNESS_VSCODE_MARKETPLACE_MAX_QUERIES: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_SYNC_PAGE_SIZE: "1",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_POPULARITY_SWEEP_PAGES: "0",
+        AGENT_HARNESS_VSCODE_MARKETPLACE_CATEGORY_SWEEP_ENABLED: "true",
+        AGENT_HARNESS_SOURCE_SYNC_MAX_PAGES_PER_RUN: "1",
+      },
+      async () => {
+        clearRuntimeConfigForTests();
+        await syncIndexedSources(projectRoot);
+
+        const report = await readJsonFile<SourceSyncReport>(
+          join(projectRoot, "discover", "output", "source-sync.json"),
+        );
+        const source = report.sources.find(
+          (entry) => entry.sourceId === "vscode-marketplace",
+        );
+        assert.equal(source?.status, "partial");
+        const categoryCursors = source?.cursors.filter((cursor) =>
+          cursor.cursorId.startsWith("__cat__"),
+        );
+        assert.deepEqual(
+          categoryCursors?.map((cursor) => cursor.cursorId).sort(),
+          [
+            "__cat__Formatters",
+            "__cat__Linters",
+            "__cat__Programming Languages",
+          ],
+          "demand signals (typescript) must map to the known category sweep cursors",
+        );
+        assert.ok(
+          categoryCursors?.every(
+            (cursor) => cursor.nextToken === "2" && cursor.completed === false,
+          ),
+          "full category pages must leave in-flight cursors for the next run",
+        );
+
+        clearRuntimeConfigForTests();
+        await syncIndexedSources(projectRoot);
+
+        const resumed = await readJsonFile<SourceSyncReport>(
+          join(projectRoot, "discover", "output", "source-sync.json"),
+        );
+        const resumedSource = resumed.sources.find(
+          (entry) => entry.sourceId === "vscode-marketplace",
+        );
+        assert.equal(resumedSource?.status, "complete");
+        const resumedCursors = resumedSource?.cursors.filter((cursor) =>
+          cursor.cursorId.startsWith("__cat__"),
+        );
+        assert.ok(
+          resumedCursors?.every((cursor) => cursor.completed === true),
+          "empty category pages must close every category cursor on resume",
+        );
+      },
+    );
+  } finally {
+    cleanupFetch();
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
 async function writeDiscoveryScaffold(
   projectRoot: string,
   options: { frameworks: string[] },

@@ -702,6 +702,94 @@ void test("searchRegistryByKind — pub returns empty array", async () => {
   assert.deepEqual(result, [], "pub has no search API");
 });
 
+void test("searchRegistryByKind — network delegate arms extract names for every search-backed kind (#451)", async (context) => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+
+  const seenUrls: string[] = [];
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    seenUrls.push(url);
+
+    if (url.startsWith("https://registry.npmjs.org/-/v1/search")) {
+      return jsonResponse({
+        objects: [{ package: { name: "npm-search-hit" } }],
+      });
+    }
+    if (url.startsWith("https://crates.io/api/v1/crates")) {
+      return jsonResponse({ crates: [{ name: "cargo-search-hit" }] });
+    }
+    if (url.startsWith("https://azuresearch-usnc.nuget.org/query")) {
+      return jsonResponse({ data: [{ id: "nuget-search-hit" }] });
+    }
+    if (url.startsWith("https://search.maven.org/solrsearch/select")) {
+      return jsonResponse({
+        response: { docs: [{ id: "maven-search-hit" }] },
+      });
+    }
+    if (url.startsWith("https://packagist.org/search.json")) {
+      return jsonResponse({ results: [{ name: "packagist-search-hit" }] });
+    }
+    if (url.startsWith("https://rubygems.org/api/v1/search.json")) {
+      return jsonResponse([{ name: "gem-search-hit" }]);
+    }
+
+    return new Response("not found", { status: 404 });
+  };
+
+  context.after(() => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+    }
+  });
+
+  const cases: Array<{
+    kind: Parameters<
+      typeof packageRegistryHarvesterInternals.searchRegistryByKind
+    >[0];
+    expected: string;
+  }> = [
+    { kind: "npm", expected: "npm-search-hit" },
+    { kind: "cargo", expected: "cargo-search-hit" },
+    { kind: "nuget", expected: "nuget-search-hit" },
+    { kind: "maven", expected: "maven-search-hit" },
+    { kind: "packagist", expected: "packagist-search-hit" },
+    { kind: "gem", expected: "gem-search-hit" },
+  ];
+
+  for (const { kind, expected } of cases) {
+    const result = await packageRegistryHarvesterInternals.searchRegistryByKind(
+      kind,
+      "search-term",
+      10,
+    );
+    assert.deepEqual(
+      result,
+      [expected],
+      `${kind} delegate must extract the result name`,
+    );
+  }
+
+  assert.equal(seenUrls.length, 6);
+  assert.ok(
+    seenUrls.some((url) => url.includes("crates.io/api/v1/crates")),
+    "cargo arm must call crates.io",
+  );
+  assert.ok(
+    seenUrls.some((url) => url.includes("azuresearch-usnc.nuget.org")),
+    "nuget arm must call the NuGet v3 endpoint",
+  );
+});
+
 void test("discoverAdjacentPackages — static matrix path: returns adjacent packages when adjacentToolingEnabled and demand signals present", async () => {
   // maxTerms: 0 disables live registry search entirely (no network).
   // The static adjacency matrix (getAdjacentPackagesForSignals) runs for npm.

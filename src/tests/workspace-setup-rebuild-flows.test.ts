@@ -235,7 +235,7 @@ void test("setup login prints provider guidance for valid and unknown providers 
   assert.equal(github, 0);
 
   const unknown = await runSetup(["login", "--provider", "nope"], stateRoot);
-  assert.equal(unknown, 0);
+  assert.equal(unknown, 1);
 
   // Bare login defaults to the first provider and still exits 0.
   const bare = await runSetup(["login"], stateRoot);

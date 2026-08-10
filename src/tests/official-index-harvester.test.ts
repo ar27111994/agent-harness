@@ -205,6 +205,115 @@ void test("official index harvester parses entries, resolves repo-backed sources
   );
 });
 
+void test("official index harvester honors per-index cap before inserting secondary repo sources (#451)", async (context) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-official-index-cap-"),
+  );
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  const previousMaxItems =
+    process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX = "1";
+
+  globalThis.fetch = async (input) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (
+      url === "https://raw.githubusercontent.com/acme/official/main/index.md"
+    ) {
+      return new Response(
+        [
+          "# Anthropic",
+          "**[Workflow Kit](https://officialskills.sh/anthropics/skills/workflow-kit)** - Reference cookbook for testing workflows.",
+          "Repo: https://github.com/anthropics/workflow-kit",
+          "",
+          "# Scopeblind",
+          "**[MCP Gateway](https://officialskills.sh/scopeblind/skills/mcp-gateway)** - MCP server plugin for gateway access.",
+          "Repo: https://github.com/scopeblind/mcp-gateway",
+        ].join("\n"),
+        {
+          status: 200,
+          headers: { "content-type": "text/plain; charset=utf-8" },
+        },
+      );
+    }
+
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  context.after(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+    }
+    restoreEnvVar(
+      "AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX",
+      previousMaxItems,
+    );
+    await rm(projectRoot, { recursive: true, force: true });
+  });
+
+  await writeJsonFile(
+    join(projectRoot, "discover", "official-skills-indexes.json"),
+    {
+      schemaVersion: 1,
+      indexes: [
+        {
+          id: "official-index",
+          kind: "markdown",
+          url: "https://raw.githubusercontent.com/acme/official/main/index.md",
+        },
+      ],
+    },
+  );
+  await writeJsonFile(
+    join(projectRoot, "discover", "official-upstreams.json"),
+    {
+      schemaVersion: 1,
+      owners: {
+        anthropics: ["anthropics"],
+        scopeblind: ["scopeblind"],
+      },
+    },
+  );
+  await writeJsonFile(join(projectRoot, "discover", "sources.json"), {
+    schemaVersion: 1,
+    sources: [
+      buildSource(
+        "anthropics-workflow-kit",
+        "https://github.com/anthropics/workflow-kit",
+        "official-first-party",
+      ),
+      buildSource(
+        "scopeblind-gateway",
+        "https://github.com/scopeblind/mcp-gateway",
+        "official-first-party",
+      ),
+    ],
+  });
+
+  runtimeConfigInternals.resetCacheForTesting();
+  const entries = await harvestOfficialSkillIndexes(
+    projectRoot,
+    buildDemandProfile(),
+  );
+  runtimeConfigInternals.resetCacheForTesting();
+
+  // Cap 1: the first primary entry consumes the slot; the secondary
+  // repo-backed source for the same index entry is blocked by the
+  // per-index cap and the entry loop stops (#451).
+  assert.deepEqual(entries.map((entry) => entry.id).sort(), [
+    "official-index:anthropics:workflow-kit",
+  ]);
+});
+
 void test("official index harvester resolves page repositories, caches them, and reports unresolved and ambiguous entries", async (context) => {
   const projectRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-official-index-"),

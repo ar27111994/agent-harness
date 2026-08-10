@@ -241,7 +241,6 @@ async function searchRegistryByKind(
 ): Promise<string[]> {
   switch (registryKind) {
     case "npm":
-      /* c8 ignore next 4 -- delegates to fetchNpmPackageSearch, tested in package-registries.test.ts */
       return (await fetchNpmPackageSearch(query))
         .slice(0, limit)
         .map((r) => r.name)
@@ -249,7 +248,6 @@ async function searchRegistryByKind(
     case "pypi":
       // PyPI has no public keyword-search API; fall back to empty.
       return [];
-    /* c8 ignore start -- cargo/nuget/maven/packagist/gem delegate to registry helpers tested independently in package-registries.test.ts */
     case "cargo":
       return (await fetchCratesIoSearch(query, limit))
         .map((r) => r.name)
@@ -270,7 +268,6 @@ async function searchRegistryByKind(
       return (await fetchRubyGemsSearch(query, limit))
         .map((r) => r.name)
         .filter(Boolean);
-    /* c8 ignore stop */
     case "go":
     case "swift":
     case "pub":

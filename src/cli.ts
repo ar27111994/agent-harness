@@ -104,13 +104,10 @@ async function main(): Promise<number> {
     // User-input errors print a one-line actionable message with a usage
     // pointer instead of an internal stack trace (#446); anything else
     // propagates so genuine bugs keep full stacks at the top-level catch.
+    // `domain` is always defined here: help/version requests short-circuit
+    // before the try, so the hint template cannot render "undefined".
     if (error instanceof CliUsageError) {
-      printCliUsageError(
-        error,
-        domain === undefined
-          ? "agent-harness <command> --help"
-          : `agent-harness ${domain} --help`,
-      );
+      printCliUsageError(error, `agent-harness ${domain} --help`);
       return 1;
     }
     throw error;

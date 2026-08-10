@@ -194,7 +194,6 @@ export async function syncVsCodeMarketplaceSource(
     },
   );
 
-  /* c8 ignore start -- popularity sweep cursor tracking and outer gate; covered by source-sync-vscode-marketplace integration tests when POPULARITY_SWEEP_PAGES>0 */
   if (popularitySweepPages > 0) {
     if (!popularitySweep.completed) {
       status = "partial";
@@ -205,11 +204,9 @@ export async function syncVsCodeMarketplaceSource(
       completed: popularitySweep.completed,
     });
   }
-  /* c8 ignore stop */
 
   // ── Tier 2: Category sweep ───────────────────────────────────────────────
 
-  /* c8 ignore start -- category sweep outer gate and body; covered by source-sync-vscode-marketplace integration tests when CATEGORY_SWEEP_ENABLED=true */
   if (categorySweepEnabled) {
     const demandSignals = context.demandProfile
       ? [
@@ -244,7 +241,6 @@ export async function syncVsCodeMarketplaceSource(
       });
     }
   }
-  /* c8 ignore stop */
 
   // ── Tier 3: Alphabetical demand-query pagination ──────────────────────────
 

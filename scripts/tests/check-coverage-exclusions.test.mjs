@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
   findDisallowedExclusions,
+  findUnallowlistedInlineIgnoreBlocks,
   main,
+  mainInlineIgnores,
   parseCoverageConfig,
 } from "../check-coverage-exclusions.mjs";
 
@@ -66,6 +68,99 @@ describe("findDisallowedExclusions", () => {
 
   it("handles an empty exclude list", () => {
     assert.deepEqual(findDisallowedExclusions([]), []);
+  });
+});
+
+describe("findUnallowlistedInlineIgnoreBlocks", () => {
+  async function createFixture() {
+    const root = await mkdtemp(join(tmpdir(), "inline-ignore-scan-"));
+    const write = async (relativePath, content) => {
+      const path = join(root, relativePath);
+      await mkdir(join(path, ".."), { recursive: true });
+      await writeFile(path, content);
+    };
+    await write(
+      "src/allowed-file.ts",
+      "/* c8 ignore start */\n/* c8 ignore stop */\n",
+    );
+    await write(
+      "src/domains/offender.ts",
+      "function x() {}\n/* c8 ignore start */\nfunction y() {}\n/* c8 ignore stop */\n",
+    );
+    await write("src/clean.ts", "function z() {}\n");
+    await write("src/note.json", '{"note": true}\n');
+    await write(
+      "src/tests/inside-tests.ts",
+      "/* c8 ignore start */\n/* c8 ignore stop */\n",
+    );
+    return root;
+  }
+
+  it("flags product files with ignore blocks outside the allowlist", async () => {
+    const root = await createFixture();
+    try {
+      const offenders = await findUnallowlistedInlineIgnoreBlocks(
+        root,
+        new Set(["src/allowed-file.ts"]),
+      );
+      assert.deepEqual(offenders, ["src/domains/offender.ts"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("ignores test files entirely", async () => {
+    const root = await createFixture();
+    try {
+      const offenders = await findUnallowlistedInlineIgnoreBlocks(
+        root,
+        new Set(),
+      );
+      assert.deepEqual(offenders, [
+        "src/allowed-file.ts",
+        "src/domains/offender.ts",
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns an empty list for a clean tree", async () => {
+    const root = await mkdtemp(join(tmpdir(), "inline-ignore-clean-"));
+    try {
+      await rm(root, { recursive: true, force: true });
+      await mkdir(join(root, "src"), { recursive: true });
+      await writeFile(join(root, "src", "clean.ts"), "export const x = 1;\n");
+      assert.deepEqual(
+        await findUnallowlistedInlineIgnoreBlocks(root, new Set()),
+        [],
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts every remaining product block file in the repo (#451)", async () => {
+    const { dirname } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+    assert.deepEqual(await findUnallowlistedInlineIgnoreBlocks(repoRoot), []);
+  });
+
+  it("mainInlineIgnores exits 1 and lists offenders for an unallowlisted block", async () => {
+    const root = await createFixture();
+    const logs = [];
+    const origError = console.error;
+    console.error = (...args) => logs.push(args.join(" "));
+    try {
+      const code = await mainInlineIgnores(root);
+      assert.equal(code, 1);
+      assert.match(logs.join(""), /inline-ignore-blocks check: FAIL/u);
+      assert.match(logs.join(""), /src\/domains\/offender\.ts/u);
+    } finally {
+      console.error = origError;
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 

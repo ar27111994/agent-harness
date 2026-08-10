@@ -299,7 +299,7 @@ Status labels:
 
 ## 12. Test suite and validation harness
 
-**Status:** Partial _(v2.0.0: 100% statement/branch/function/line gate now enforced in CI and verified locally at 776 passing tests; branch-residual suites added for all major domains)_
+**Status:** Partial _(v2.0.0: 100% statement/branch/function/line gate now enforced in CI and verified locally; branch-residual suites added for all major domains; v2.1.0 extended the gate to the live-fetch sync/harvest paths with mocked-HTTP contract tests)_
 
 ### Test harness current state
 
