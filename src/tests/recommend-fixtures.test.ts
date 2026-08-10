@@ -35,6 +35,7 @@ void test("recommendation fixtures cover every release evaluation scenario", () 
     "shared-source-saturation",
     "false-positive-suppression",
     "dependency-self-echo",
+    "ecosystem-exact-stack-gates",
     "design-tool-recall",
     "native-host-policy-coverage",
   ]);

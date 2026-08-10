@@ -55,6 +55,7 @@ export function buildRecommendationFixtures(): RecommendationEvaluationFixture[]
     buildSharedSourceSaturationFixture(),
     buildFalsePositiveSuppressionFixture(),
     buildDependencySelfEchoFixture(),
+    buildEcosystemExactStackFixture(),
     buildDesignToolRecallFixture(),
     buildNativeHostPolicyFixture(),
   ];
@@ -958,6 +959,73 @@ function buildDependencySelfEchoFixture(): RecommendationEvaluationFixture {
         host: "copilot-vscode",
         requiredAssetIds: ["duckdb-domain-skill"],
         forbiddenTopAssetIds: ["duckdb-package-self-echo"],
+      },
+    ],
+  };
+}
+
+function buildEcosystemExactStackFixture(): RecommendationEvaluationFixture {
+  return {
+    schemaVersion: 1,
+    id: "ecosystem-exact-stack-gates",
+    description:
+      "A TypeScript npm workspace declaring @duckdb/node-api and c8 must rank the declared DuckDB asset above off-ecosystem name-token lookalikes (a Rust node-cli crate, a c8-named VS Code theme) — the #443/#444 regression class the evaluate gate must catch.",
+    demandProfile: createDemandProfile({
+      languages: ["typescript"],
+      packageManagers: ["npm"],
+      frameworks: ["node-cli"],
+      concerns: ["data"],
+      tooling: ["npm:@duckdb/node-api", "npm:c8"],
+    }),
+    catalogEntries: [
+      createAsset("duckdb-skill", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["duckdb", "data", "analytics", "sql"],
+        sourceId: "official-index:duckdb",
+        publisher: "duckdb",
+        authorityTier: "official-first-party",
+      }),
+      createAsset("cargo-node-cli", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["node-cli", "node", "cli"],
+        sourceId: "cargo-registry",
+        sourceKind: "package-registry",
+        publisher: "crates-io",
+      }),
+      createAsset("vscode-raw-theme", {
+        assetKind: "extension",
+        hosts: ["copilot-vscode"],
+        capabilities: ["c8", "theme", "color"],
+        sourceId: "vscode-marketplace",
+        publisher: "raw-themes",
+      }),
+      createAsset("npm-duckdb-api", {
+        assetKind: "skill",
+        hosts: ["copilot-vscode"],
+        capabilities: ["duckdb", "node", "api"],
+        sourceId: "npm-registry",
+        sourceKind: "package-registry",
+        publisher: "duckdb",
+        manifestEntry: "duckdb",
+      }),
+    ],
+    expectations: [
+      {
+        host: "copilot-vscode",
+        requiredAssetIds: ["duckdb-skill"],
+        rankedAbove: [
+          {
+            higherAssetId: "duckdb-skill",
+            lowerAssetId: "cargo-node-cli",
+          },
+          {
+            higherAssetId: "npm-duckdb-api",
+            lowerAssetId: "vscode-raw-theme",
+          },
+        ],
+        requiredAssetKinds: [{ assetKind: "skill", minimum: 2 }],
       },
     ],
   };
