@@ -318,7 +318,12 @@ void test("ard registry sync handles failures, malformed shapes, and missing end
   const failureRoot = await mkdtemp(
     join(tmpdir(), "agent-harness-source-sync-ard-http-"),
   );
+  let fetchAttempts = 0;
   const failureCleanup = installFetchMock(async () => {
+    // A 503 is transient: the guard layer must retry (bounded, 1 + 3)
+    // before giving up — assert the count so a retry regression (3 → 30)
+    // cannot pass silently (G2).
+    fetchAttempts += 1;
     return new Response("<html>retry later</html>", { status: 503 });
   });
   try {
@@ -333,6 +338,11 @@ void test("ard registry sync handles failures, malformed shapes, and missing end
     assert.equal(source?.status, "failed");
     assert.equal(source?.indexedEntryCount, 0);
     assert.equal(source?.consecutiveFailures, 1);
+    assert.equal(
+      fetchAttempts,
+      4,
+      "persistent 503 must be retried exactly 1 + 3 times before failing",
+    );
   } finally {
     failureCleanup();
     await rm(failureRoot, { force: true, recursive: true });
@@ -590,12 +600,26 @@ function installFetchMock(
     input: RequestInfo | URL,
     init?: RequestInit,
   ) => Promise<Response> | Response,
+  expectedUrlPrefix: string = ARD_URL,
 ): () => void {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
 
-  globalThis.fetch = async (input, init) => responder(input, init);
+  globalThis.fetch = async (input, init) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (!url.startsWith(expectedUrlPrefix)) {
+      // Endpoint-shape drift must fail the mock loudly (G1) instead of
+      // passing while silently fetching a different URL.
+      throw new Error(`Unexpected fetch: ${url}`);
+    }
+    return responder(input, init);
+  };
 
   return () => {
     globalThis.fetch = originalFetch;

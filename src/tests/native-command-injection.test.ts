@@ -336,22 +336,22 @@ void test("shell-metacharacter detection covers every cmd.exe interpretation", (
     "--flag=value",
     "a;b",
     "",
-  ].filter((value) => !preflightInternals.containsShellMetaCharacters(value));
-  assert.deepEqual(
-    safeArguments,
-    [
-      "--version",
-      "plain",
-      "has spaces",
-      "single'quote",
-      "dot.star_plus-dash",
-      "a/b",
-      "--flag=value",
-      "a;b",
-      "",
-    ],
-    "safe arguments (including semicolons) must pass the metacharacter guard",
-  );
+  ];
+  // Independent oracle (G3): validate each safe value against a separate
+  // hostile-character pattern, not against the function under test, so a
+  // regression in the detection itself cannot pass by construction.
+  for (const value of safeArguments) {
+    assert.equal(
+      containsEveryMetaCharacter(value),
+      false,
+      `oracle: ${JSON.stringify(value)} must be metachar-free`,
+    );
+    assert.equal(
+      preflightInternals.containsShellMetaCharacters(value),
+      false,
+      `guard: ${JSON.stringify(value)} must pass the metacharacter guard`,
+    );
+  }
 
   assert.equal(
     preflightInternals.isWindowsShellWrapperPath(

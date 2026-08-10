@@ -475,17 +475,34 @@ function reorderJsonValue(value: unknown): unknown {
   );
 }
 
+const VSCODE_MARKETPLACE_API_PREFIX =
+  "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery";
+
 function installFetchMock(
   responder: (
     input: RequestInfo | URL,
     init?: RequestInit,
   ) => Promise<Response> | Response,
+  expectedUrlPrefix: string = VSCODE_MARKETPLACE_API_PREFIX,
 ): () => void {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
 
-  globalThis.fetch = async (input, init) => responder(input, init);
+  globalThis.fetch = async (input, init) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+    if (!url.startsWith(expectedUrlPrefix)) {
+      // Endpoint-shape drift must fail the mock loudly (G1) instead of
+      // passing while silently fetching a different URL.
+      throw new Error(`Unexpected fetch: ${url}`);
+    }
+    return responder(input, init);
+  };
 
   return () => {
     globalThis.fetch = originalFetch;

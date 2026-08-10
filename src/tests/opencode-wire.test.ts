@@ -285,6 +285,42 @@ void test("OpenCode re-apply preserves a pre-existing user gitignore and reset r
   }
 });
 
+void test("OpenCode wire reset on a workspace that was never applied is a clean no-op (G4)", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+    await writeTextFile(
+      join(fixture.workspaceRoot, "AGENTS.md"),
+      "User authored AGENTS\n",
+    );
+
+    // Never applied: no wire plan, no overlay, no snapshots.
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "reset",
+    });
+
+    assert.equal(
+      await readTextFileOrNull(join(fixture.workspaceRoot, "AGENTS.md")),
+      "User authored AGENTS\n",
+      "user AGENTS.md must remain byte-identical when nothing was applied",
+    );
+    assert.equal(
+      await pathExists(join(fixture.workspaceRoot, ".opencode")),
+      false,
+      "no overlay directory may be created by reset",
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("OpenCode wire apply writes a fallback activation manifest when activation state is missing", async () => {
   const fixture = await createOpenCodeFixture();
 
