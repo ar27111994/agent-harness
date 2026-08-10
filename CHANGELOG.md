@@ -25,8 +25,6 @@ All notable changes to this project will be documented in this file.
 - **Coverage roadmap describes the truth** — `COVERAGE-100-ROADMAP.md` previously claimed `.c8rc.json` excludes `dist/*.js` (it does not: only `dist/tests/**`, `dist/types/**`, `scripts/tests/**`) and carried stale test counts; both corrected, and the remaining inline ignore blocks are itemized with justifications (#451)
 - **Doc/env nits** — `docs/README.md` (the documentation index) is linked from the README, plain `CI=true` behavior is documented next to `AGENT_HARNESS_CI`, `OPENAI_API_KEY` appears in the README env section as an asset prerequisite, the stale "171/170+ sources" claims are normalized to the measured 50+ sources, and the cheatsheet timeout value is marked as an example (default: no deadline) (#453)
 
-### Added
-
 - **Lifecycle path budget gates** — `benchmark:paths` enforces 10-second wall-clock budgets on the recommend, activate-selection, and mirror-plan hot paths over a synthetic 1,000-entry catalog; it runs in `validate:quality` alongside `benchmark:scan` so complexity regressions fail CI (#428 hardening)
 - **HTTP wire-format test suite** — the GitHub fetch path and response readers are now exercised against a real localhost TCP server (content-length vs chunked framing, error bodies, rate-limit headers, retry-after, connection refusal, stall aborts, byte-limit truncation) instead of only mocked `Response` objects (#428 hardening)
 - **Cross-process contention tests** — eight concurrent CLI writers plus reader/writer churn against one state root assert the atomic-write contract holds across real OS processes (no torn state, no `.tmp-*` litter) (#428 hardening)
@@ -45,8 +43,6 @@ All notable changes to this project will be documented in this file.
 - **hex-registry (Hex.pm)** — Elixir/Erlang ecosystem package registry via sitemap-based sync at https://hex.pm/sitemap.xml. Automatically included when demand signals detect Elixir, Erlang, mix, hex, or rebar
 - **conan-registry (ConanCenter)** — C/C++ ecosystem package registry via sitemap-based sync at https://conan.io/sitemap.xml. Automatically included when demand signals detect C, C++, cmake, meson, or conan
 - **pub-dev-registry (pub.dev)** — Dart/Flutter ecosystem package registry via JSON API paginated sync at https://pub.dev/api/package-names. Automatically included when demand signals detect Dart, Flutter, or pub
-
-### Fixed
 
 - **Review-2026-08-09 gap wave** — the from-scratch review verdict was READY with a defined minor set, now closed:
   - **Named regression tests**: NFKC prompt-injection folding is pinned through `sanitizeMirrorId` (full-width/zero-width confusables fold to the same ASCII-safe id; canonically equivalent combining-mark spellings sanitize identically); a property suite proves `restoreEnvVar` never leaks the literal `"undefined"` string; demand profiles distinguish an empty working dir (valid empty profile) from a missing one (ENOENT surfaces)

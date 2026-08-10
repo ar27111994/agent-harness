@@ -36,8 +36,8 @@ agent-harness discover select                  # Filter catalog by demand + poli
 agent-harness discover full                    # Run full pipeline (demand → select)
 agent-harness discover breadth                 # Breadth pass: demand → catalog → bottleneck assessment (REPLACES discovery outputs; warns when lifecycle state goes stale)
 agent-harness discover index                   # Build full paginated catalog index (500 pages/source default)
-agent-harness discover recall                  # Recall-focused candidate review pass
-agent-harness discover candidate-pool          # Inspect the candidate queue
+agent-harness discover recall                  # Alias of discover breadth (REPLACES discovery outputs)
+agent-harness discover candidate-pool          # Alias of discover breadth (REPLACES discovery outputs)
 agent-harness discover stats                   # Catalog statistics summary
 agent-harness discover diff                    # Diff discovery outputs across runs
 agent-harness discover inspect                 # Inspect catalog entries and provenance

@@ -22,7 +22,7 @@ This repository manages a curated asset supply chain for OpenCode, GitHub Copilo
 
 Requirements:
 
-- Node.js 22+
+- Node.js 23+ (the coverage gate requires `--test-isolation=none`, shipped in Node 23)
 - npm
 
 Install dependencies:
@@ -172,7 +172,7 @@ real data-loss bugs in this codebase (see `src/activate.ts`).
 
 ### Atomic writes
 
-Use `writeJsonFileAtomically` for any discovery or catalog artifact.
+Use `writeJsonFile` for any discovery or catalog artifact.
 Never delete-then-write; always write-to-temp then rename. Node's `rename`
 provides atomic replacement on all supported platforms without a pre-delete
 step.
@@ -205,7 +205,7 @@ check — never compare raw strings with `startsWith()`.
 - **Never modify `dist/` directly** — it is build output, overwritten by
   `npm run build`.
 - **Never commit `.env` or credentials** — see `.env.example` for variables.
-- **Wire commands mutate the live workspace** — always use `--dry-run` first;
+- **Wire commands mutate the live workspace** — always use `--preview` first;
   `--apply` writes to the real host config.
 - **Activation swap is destructive** — if `activate host` fails mid-swap, run
   `activate reset` to restore the previous runtime root.

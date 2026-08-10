@@ -1,6 +1,6 @@
 # Source Sync Decomposition Plan
 
-`src/domains/discovery/source-sync.ts` was intentionally held stable through v2.0.0. Implementation of this decomposition is now tracked by [#270](https://github.com/ar27111994/agent-harness/issues/270) and targets the `release/v2.0.0-open-tickets` branch.
+`src/domains/discovery/source-sync.ts` was intentionally held stable through v2.0.0. **Status: IMPLEMENTED** — the decomposition (dispatch table, per-kind sync adapters, cursor/entries state, reporting) shipped in the v2.0.0-v2.1.0 waves; this document is retained as the design record ([#270](https://github.com/ar27111994/agent-harness/issues/270)).
 
 ## Goals
 

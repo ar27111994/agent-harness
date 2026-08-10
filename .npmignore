@@ -42,7 +42,7 @@ tsconfig.json
 # Planning/local-only docs
 AGENTS.md
 docs/reference/IMPLEMENTATION-PLAN.md
-docs/reference/Roadmap.md
+docs/reference/COVERAGE-100-ROADMAP.md
 docs/reference/FUTURE-IMPROVEMENTS.md
 CONTRIBUTING.md
 

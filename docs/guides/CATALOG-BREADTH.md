@@ -1,6 +1,6 @@
 # Building a Comprehensive Agent Asset Catalog
 
-agent-harness v2.0.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500 entries from 171 sources). This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
+agent-harness v2.0.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500+ entries from 50+ configured sources). This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
 
 ## The Two-Phase Architecture
 
@@ -68,7 +68,7 @@ All major registries have indexed source adapters with cursor-based pagination:
 | NuGet               | `nuget.ts`     | 50        | 500 entries |
 | Packagist (PHP)     | `packagist.ts` | 50        | 500 entries |
 | RubyGems            | sitemap        | —         | 500 entries |
-| Swift Package Index | sitemap        | —         | 500 entries |
+| Swift Package Index | disabled       | —         | —           |
 
 Each registry caps at `SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP` (500 entries per source). For production, raise `sourceSyncMaxPagesForIndexBuild` to 0 and run the full index build repeatedly over scheduled CI to build up the catalog over multiple runs.
 
@@ -77,7 +77,7 @@ Each registry caps at `SOURCE_SYNC_INDEXED_REGISTRY_ENTRY_CAP` (500 entries per 
 GitHub sources are harvested via:
 
 1. **Awesome-lists** (`discover/official-skills-indexes.json`) — 16 curated indexes
-2. **Source packs** (`discover/source-packs/official.json` + `community.json`) — 20+ repos
+2. **Source packs** (`discover/source-packs/official.json` + `community.json`) — 20 repo sources
 3. **Demand-driven** — per-workspace GitHub topic searches
 
 Adding a `GITHUB_TOKEN` is the single highest-impact change — it raises the API rate limit from 60 to 5,000 requests per hour.
