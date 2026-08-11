@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { extname } from "node:path";
+import { extname, win32 } from "node:path";
 import { promisify } from "node:util";
 
 import {
@@ -7,6 +7,7 @@ import {
   containsShellMetaCharacters,
   isWindowsShellWrapperPath,
 } from "../lib/windows-shell.js";
+import { findExecutableOnPath } from "../lib/preflight.js";
 import { getRuntimeConfig } from "../config/runtime.js";
 import type { AssetCatalogEntry } from "../types.js";
 
@@ -247,9 +248,19 @@ async function executeNativeCommand(
     platform,
   )) {
     try {
+      // Resolve wrapper candidates to their absolute PATH location BEFORE
+      // the executable-path metacharacter refusal and the PowerShell
+      // command: a bare name like `code.cmd` is PATH-resolved by cmd.exe
+      // only at invocation time, so a wrapper living under a cmd-expansion
+      // directory (e.g. C:\Tools\100% real\code.cmd) would bypass a
+      // name-only check (review).
       const hostCommandConfig = getRuntimeConfig().hostCommands;
-      const refusal = buildShellWrapperRefusal(
+      const resolvedExecutable = await resolveWrapperExecutable(
         candidateExecutable,
+        platform,
+      );
+      const refusal = buildShellWrapperRefusal(
+        resolvedExecutable,
         args,
         platform,
       );
@@ -257,7 +268,7 @@ async function executeNativeCommand(
         return refusal;
       }
       const commandSpec = buildNativeCommandSpec(
-        candidateExecutable,
+        resolvedExecutable,
         args,
         platform,
       );
@@ -320,8 +331,44 @@ export function buildNativeCommandSpec(
 }
 
 /**
+ * Resolves a Windows shell-wrapper candidate to its absolute PATH
+ * location, or returns the candidate unchanged when it is not a wrapper,
+ * is already absolute, or cannot be found (the invocation then fails with
+ * ENOENT exactly like today).
+ *
+ * Exposed through {@link extensionInstallerInternals} so tests can pin the
+ * resolution→refusal and resolution→PowerShell-command chains on any
+ * platform with an injected env.
+ */
+export async function resolveWrapperExecutable(
+  candidateExecutable: string,
+  platform: NodeJS.Platform = process.platform,
+  options: { env?: NodeJS.ProcessEnv } = {},
+): Promise<string> {
+  if (!isWindowsShellWrapperPath(candidateExecutable, platform)) {
+    return candidateExecutable;
+  }
+  // The wrapper gate above already implies `platform === "win32"` (wrapper
+  // paths are a Windows concept), so the absolute check is strictly the
+  // win32 form — no platform ternary, no dead branch.
+  if (win32.isAbsolute(candidateExecutable)) {
+    return candidateExecutable;
+  }
+  const resolved = await findExecutableOnPath(candidateExecutable, {
+    platform,
+    env: options.env,
+  });
+  return resolved ?? candidateExecutable;
+}
+
+/**
  * Returns the fail-closed refusal for a Windows shell wrapper invoked with
  * shell-metacharacter arguments, or null when the command is safe to run.
+ *
+ * The executable path checked here MUST be the RESOLVED absolute location
+ * (see {@link resolveWrapperExecutable}) — a bare name has no path
+ * metacharacters by definition, while cmd.exe sees the expanded path at
+ * invocation time.
  *
  * Extracted from {@link executeNativeCommand} so the refusal payload is
  * exercised on every platform: the guard is parameterized by platform,
@@ -331,17 +378,18 @@ export function buildNativeCommandSpec(
  * raw command line, so quoting cannot make it safe).
  */
 export function buildShellWrapperRefusal(
-  candidateExecutable: string,
+  executablePath: string,
   args: string[],
   platform: NodeJS.Platform = process.platform,
 ): { exitCode: number; stdout: string; stderr: string } | null {
   if (
-    isWindowsShellWrapperPath(candidateExecutable, platform) &&
+    isWindowsShellWrapperPath(executablePath, platform) &&
     (args.some(containsShellMetaCharacters) ||
-      // The executable path itself can carry cmd-expansion characters
-      // (a PATH directory named e.g. "100% real") that cmd.exe would
-      // re-parse inside the wrapper invocation (S1 hardening).
-      containsShellMetaCharacters(candidateExecutable))
+      // The resolved executable path itself can carry cmd-expansion
+      // characters (a PATH directory named e.g. "100% real") that cmd.exe
+      // would re-parse inside the wrapper invocation (S1 hardening,
+      // review: checked against the RESOLVED path).
+      containsShellMetaCharacters(executablePath))
   ) {
     return {
       exitCode: Number.MAX_SAFE_INTEGER,
@@ -409,5 +457,6 @@ export const extensionInstallerInternals = {
   buildShellWrapperRefusal,
   executeNativeCommand,
   formatCommand,
+  resolveWrapperExecutable,
   toNativeCommandResult,
 };

@@ -219,6 +219,108 @@ void test("PowerShell wrapper specs invoke the VALIDATED resolved executable, no
   );
 });
 
+void test("wrapper candidates resolve to absolute PATH locations BEFORE the executable-path metachar refusal (review)", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ext-resolve-meta-"),
+  );
+  try {
+    // A wrapper living under a cmd-expansion directory: the bare name
+    // `code.cmd` has no metacharacters, but cmd.exe sees the expanded
+    // path at invocation time — the refusal must run against the
+    // RESOLVED location (review).
+    const hostileDir = join(tempRoot, "100% real");
+    await mkdir(hostileDir, { recursive: true });
+    await writeFile(join(hostileDir, "code.cmd"), "@echo off\r\n", "utf8");
+
+    const previousPath = process.env.PATH;
+    process.env.PATH = hostileDir;
+    try {
+      const result = await extensionInstallerInternals.executeNativeCommand(
+        "code.cmd",
+        ["--version"],
+        "win32",
+      );
+      assert.equal(
+        result.exitCode,
+        Number.MAX_SAFE_INTEGER,
+        "a wrapper resolved under a cmd-expansion directory must be refused",
+      );
+      assert.match(result.stderr, /Refusing/u);
+    } finally {
+      restoreEnvVar("PATH", previousPath);
+    }
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
+void test("wrapper resolution feeds the PowerShell command with the resolved absolute path (review)", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ext-resolve-clean-"),
+  );
+  try {
+    const cleanDir = join(tempRoot, "clean-tools");
+    await mkdir(cleanDir, { recursive: true });
+    await writeFile(join(cleanDir, "code.cmd"), "@echo off\r\n", "utf8");
+
+    const internal = extensionInstallerInternals;
+    const resolved = await internal.resolveWrapperExecutable(
+      "code.cmd",
+      "win32",
+      {
+        env: { ...process.env, PATH: cleanDir },
+      },
+    );
+    assert.equal(
+      resolved,
+      join(cleanDir, "code.cmd"),
+      "the bare wrapper name must resolve to its absolute PATH location",
+    );
+
+    const spec = internal.buildNativeCommandSpec(
+      resolved,
+      ["--version"],
+      "win32",
+    );
+    assert.equal(spec.executable, "powershell.exe");
+    const command = spec.args[spec.args.length - 1] ?? "";
+    assert.ok(
+      command.includes(`& '${join(cleanDir, "code.cmd")}' '--version'`),
+      `the PowerShell command must invoke the resolved absolute path, got: ${command}`,
+    );
+    assert.equal(
+      command.includes("'code.cmd' '--version'"),
+      false,
+      "the bare candidate name must never reach the PowerShell command",
+    );
+
+    assert.equal(
+      await internal.resolveWrapperExecutable("code.cmd", "win32", {
+        env: { ...process.env, PATH: join(tempRoot, "empty-path") },
+      }),
+      "code.cmd",
+      "an unresolvable wrapper name falls back to the raw candidate (ENOENT at execution, like today)",
+    );
+    assert.equal(
+      await internal.resolveWrapperExecutable("C:\\Tools\\cli.cmd", "win32"),
+      "C:\\Tools\\cli.cmd",
+      "an already-absolute wrapper path is returned unchanged",
+    );
+    assert.equal(
+      await internal.resolveWrapperExecutable("/opt/tools/cli.cmd", "linux"),
+      "/opt/tools/cli.cmd",
+      "wrapper paths are a Windows concept: non-win32 platforms return the candidate unchanged via the wrapper gate",
+    );
+    assert.equal(
+      await internal.resolveWrapperExecutable("node", "linux"),
+      "node",
+      "non-wrapper candidates are never resolved",
+    );
+  } finally {
+    await rm(tempRoot, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // End-to-end: spawned runtime commands preserve hostile argv verbatim
 // ---------------------------------------------------------------------------

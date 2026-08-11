@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { access } from "node:fs/promises";
-import { delimiter, dirname, join, win32 } from "node:path";
+import { delimiter, dirname, extname, join, win32 } from "node:path";
 
 import { getRuntimeConfig } from "../config/runtime.js";
 import type { collectActivatedAssetPrerequisiteDiagnostics } from "./asset-prerequisites.js";
@@ -349,7 +349,16 @@ function getExecutableAccessMode(platform: NodeJS.Platform): number {
   return platform === "win32" ? constants.F_OK : constants.X_OK;
 }
 
-async function findExecutableOnPath(
+/**
+ * Searches PATH for an executable, honoring PATHEXT on Windows.
+ *
+ * Exported for shared use by host-command executors (extension installer)
+ * that must validate the RESOLVED executable — a bare wrapper name is
+ * only PATH-resolved at invocation time by cmd.exe, so path-level checks
+ * (e.g. cmd-expansion metacharacters in a PATH directory) must run
+ * against the resolved absolute location (review).
+ */
+export async function findExecutableOnPath(
   executableName: string,
   options: FindExecutableOptions = {},
 ): Promise<string | null> {
@@ -364,7 +373,23 @@ async function findExecutableOnPath(
   const extensions = getExecutableSearchExtensions(platform, env);
   const accessMode = getExecutableAccessMode(platform);
 
+  // On Windows a name that already carries an extension (e.g. `code.cmd`
+  // from an executable-candidate list) resolves as-is; appending PATHEXT
+  // suffixes to it would search for `code.cmd.EXE` etc. and never match.
+  // Try the exact name first, then the PATHEXT compositions.
+  const hasExplicitExtension =
+    platform === "win32" && extname(executableName).length > 0;
+
   for (const pathEntry of pathEntries) {
+    if (hasExplicitExtension) {
+      const exactCandidate = joinPath(pathEntry, executableName);
+      try {
+        await accessPath(exactCandidate, accessMode);
+        return exactCandidate;
+      } catch {
+        // Fall through to the PATHEXT compositions.
+      }
+    }
     for (const extension of extensions) {
       const candidate = joinPath(pathEntry, `${executableName}${extension}`);
       try {
