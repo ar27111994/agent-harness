@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import type { access } from "node:fs/promises";
 import { extname, win32 } from "node:path";
 import { promisify } from "node:util";
 
@@ -338,12 +339,14 @@ export function buildNativeCommandSpec(
  *
  * Exposed through {@link extensionInstallerInternals} so tests can pin the
  * resolution→refusal and resolution→PowerShell-command chains on any
- * platform with an injected env.
+ * platform with an injected env and an injected access probe (the
+ * composed win32-style candidates only exist on a real Windows
+ * filesystem otherwise).
  */
 export async function resolveWrapperExecutable(
   candidateExecutable: string,
   platform: NodeJS.Platform = process.platform,
-  options: { env?: NodeJS.ProcessEnv } = {},
+  options: { env?: NodeJS.ProcessEnv; accessPath?: typeof access } = {},
 ): Promise<string> {
   if (!isWindowsShellWrapperPath(candidateExecutable, platform)) {
     return candidateExecutable;
@@ -357,6 +360,7 @@ export async function resolveWrapperExecutable(
   const resolved = await findExecutableOnPath(candidateExecutable, {
     platform,
     env: options.env,
+    accessPath: options.accessPath,
   });
   return resolved ?? candidateExecutable;
 }
