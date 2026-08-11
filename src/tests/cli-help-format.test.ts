@@ -8,7 +8,9 @@ import {
   printSubcommandHelp,
   printUnknownArgumentError,
   hasUnknownFlag,
+  hasUnknownFlagsForSubcommands,
   type SubcommandHelpEntry,
+  type SubcommandFlagSpec,
 } from "../cli-help-format.js";
 
 // ---------------------------------------------------------------------------
@@ -607,6 +609,68 @@ void describe("hasUnknownFlag", () => {
       );
     } finally {
       console.error = originalError;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasUnknownFlagsForSubcommands
+// ---------------------------------------------------------------------------
+
+void describe("hasUnknownFlagsForSubcommands", () => {
+  const specs: Readonly<Record<string, SubcommandFlagSpec>> = {
+    report: {
+      // Value-taking flags are declared in BOTH sets (domain convention).
+      knownFlags: new Set(["--json", "--host"]),
+      flagsWithValues: new Set(["--host"]),
+      usageHint: "agent-harness recommend report --help",
+    },
+    "ai-review": {
+      knownFlags: new Set(["--apply", "--host", "--review-limit"]),
+      flagsWithValues: new Set(["--host", "--review-limit"]),
+      usageHint: "agent-harness recommend ai-review --help",
+    },
+  };
+
+  void it("rejects unknown flags for a known subcommand", () => {
+    const messages: string[] = [];
+    const originalError = console.error;
+    console.error = (message?: unknown) => messages.push(String(message));
+    try {
+      const rejected = hasUnknownFlagsForSubcommands(specs, "report", [
+        "--bogus",
+      ]);
+      assert.equal(rejected, true);
+      assert.match(messages[0] ?? "", /unknown option '--bogus'/u);
+      assert.equal(
+        hasUnknownFlagsForSubcommands(specs, "report", ["--json"]),
+        false,
+      );
+      assert.equal(
+        hasUnknownFlagsForSubcommands(specs, "report", ["--host", "codex"]),
+        false,
+      );
+    } finally {
+      console.error = originalError;
+    }
+  });
+
+  void it("treats inherited Object.prototype names as unknown subcommands (review)", () => {
+    // `specs["constructor"]` would resolve the inherited Function before
+    // the own-property guard; the guard must route these to the caller's
+    // unknown-command handling (false) instead of crashing on a non-spec.
+    for (const name of [
+      "constructor",
+      "toString",
+      "valueOf",
+      "hasOwnProperty",
+      "__proto__",
+    ]) {
+      assert.equal(
+        hasUnknownFlagsForSubcommands(specs, name, ["--bogus"]),
+        false,
+        `'${name}' must be treated as an unknown subcommand`,
+      );
     }
   });
 });

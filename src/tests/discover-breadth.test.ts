@@ -13,6 +13,7 @@ import {
   SOURCE_SYNC_STATE_OUTPUT_PATH,
 } from "../domains/discovery/output-paths.js";
 import { runDiscover, discoverInternals } from "../discover.js";
+import { discoverPipelineInternals } from "../discover-pipeline.js";
 
 void test("discover breadth runs the full breadth workflow and prints guidance", async () => {
   const tempRoot = await mkdtemp(
@@ -102,6 +103,10 @@ void test("discover breadth warns about invalidated lifecycle state and reports 
       appDataRoot,
       xdgConfigRoot,
     });
+    // The redirected env must take effect: without clearing the cached
+    // runtime config, host-config resolution from an earlier test in this
+    // single-process suite would poison this fixture (review finding).
+    clearRuntimeConfigForTests();
 
     // Simulate a prior discovery pass + lifecycle state built from it.
     await writeJsonLinesFile(join(stateRoot, ...CATALOG_OUTPUT_PATH), [
@@ -140,9 +145,10 @@ void test("discover breadth warns about invalidated lifecycle state and reports 
     assert.match(stdout, /mirror\/bundles\/copilot-core\.lock\.json/u);
     assert.match(stdout, /install\/generations/u);
     assert.match(stdout, /activate\/codex/u);
-    assert.match(stdout, /\(previous pass: 2\)/u);
+    assert.match(stdout, /\(previous pass: 2, [+-]?\d+\)/u);
   } finally {
     process.stdout.write = originalStdoutWrite;
+    clearRuntimeConfigForTests();
     for (const [name, value] of Object.entries(previousEnv))
       restoreEnvVar(name, value);
     await rm(tempRoot, { force: true, recursive: true });
@@ -195,6 +201,61 @@ void test("breadth state invalidation report enumerates lifecycle artifacts and 
   } finally {
     await rm(tempRoot, { force: true, recursive: true });
   }
+});
+
+void test("breadth invalidation report counts ALL mirror locks beyond the three shown (review)", async () => {
+  const tempRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-breadth-locks-"),
+  );
+  try {
+    // Six locks: the report names three and must count the REAL remainder
+    // (3 more), not a display-cap artifact (the old 4-entry cap made the
+    // "+N more" math wrong for directories with more than four locks).
+    await mkdir(join(tempRoot, "mirror", "bundles"), { recursive: true });
+    for (const name of ["a", "b", "c", "d", "e", "f"]) {
+      await writeFile(
+        join(tempRoot, "mirror", "bundles", `${name}.lock.json`),
+        "{}",
+      );
+    }
+
+    const report =
+      await discoverInternals.buildBreadthStateInvalidationReport(tempRoot);
+    assert.deepEqual(
+      report.invalidatedArtifacts.filter((artifact) =>
+        artifact.startsWith("mirror/bundles"),
+      ),
+      [
+        "mirror/bundles/a.lock.json",
+        "mirror/bundles/b.lock.json",
+        "mirror/bundles/c.lock.json",
+        "mirror/bundles (+3 more lock files)",
+      ],
+    );
+  } finally {
+    await rm(tempRoot, { force: true, recursive: true });
+  }
+});
+
+void test("breadth summary delta formatting carries the sign for growth and shrinkage (review)", () => {
+  // The signed delta arm (delta > 0) needs an explicit unit pin: the
+  // end-to-end breadth fixture only ever shrinks its catalog (previous > 0,
+  // new == 0), so the growth suffix would otherwise stay uncovered.
+  assert.equal(
+    discoverPipelineInternals.formatCatalogEntryDelta(3, 1),
+    " (previous pass: 1, +2)",
+    "growth must be reported with an explicit plus sign",
+  );
+  assert.equal(
+    discoverPipelineInternals.formatCatalogEntryDelta(1, 3),
+    " (previous pass: 3, -2)",
+    "shrinkage carries the natural minus sign",
+  );
+  assert.equal(
+    discoverPipelineInternals.formatCatalogEntryDelta(3, 3),
+    " (previous pass: 3, 0)",
+    "an unchanged pool reports zero without a sign",
+  );
 });
 
 void test("discover full prints visible phase progress before finishing", async () => {

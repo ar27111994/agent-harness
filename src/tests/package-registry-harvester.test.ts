@@ -781,11 +781,19 @@ void test("searchRegistryByKind — network delegate arms extract names for ever
 
   assert.equal(seenUrls.length, 6);
   assert.ok(
-    seenUrls.some((url) => url.includes("crates.io/api/v1/crates")),
+    seenUrls.some((url) => {
+      const parsed = new URL(url);
+      return (
+        parsed.hostname === "crates.io" &&
+        parsed.pathname.startsWith("/api/v1/crates")
+      );
+    }),
     "cargo arm must call crates.io",
   );
   assert.ok(
-    seenUrls.some((url) => url.includes("azuresearch-usnc.nuget.org")),
+    seenUrls.some(
+      (url) => new URL(url).hostname === "azuresearch-usnc.nuget.org",
+    ),
     "nuget arm must call the NuGet v3 endpoint",
   );
 });

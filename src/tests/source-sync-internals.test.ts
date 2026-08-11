@@ -1213,6 +1213,58 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
   }
 });
 
+void test("fetchRequiredJson defaults the HTTP method per the documented contract (review)", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  const seen: Array<{ url: string; method?: string }> = [];
+  globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
+    seen.push({ url: String(input), method: init?.method });
+    return jsonResponse({ ok: true });
+  }) as typeof fetch;
+  try {
+    await sourceSyncInternals.fetchRequiredJson(
+      "https://example.com/json-method",
+      ["https://example.com"],
+      {},
+      { body: "{}" },
+    );
+    await sourceSyncInternals.fetchRequiredJson(
+      "https://example.com/json-get",
+      ["https://example.com"],
+    );
+    await sourceSyncInternals.fetchRequiredJson(
+      "https://example.com/json-post",
+      ["https://example.com"],
+      {},
+      { method: "POST", body: "{}" },
+    );
+
+    assert.equal(
+      seen[0]?.method,
+      "POST",
+      "a body without an explicit method must default to POST (Fetch forbids GET with a body)",
+    );
+    assert.equal(
+      seen[1]?.method,
+      "GET",
+      "no body and no method must default to GET",
+    );
+    assert.equal(
+      seen[2]?.method,
+      "POST",
+      "an explicit method must be preserved",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousFetchMockFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+    }
+  }
+});
+
 function buildIndexedEntry(
   id: string,
   capabilities: string[],

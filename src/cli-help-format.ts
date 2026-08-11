@@ -44,10 +44,14 @@ export function hasUnknownFlagsForSubcommands(
   subcommand: string,
   rest: readonly string[],
 ): boolean {
-  const spec = specs[subcommand];
-  if (spec === undefined) {
+  // Own-property lookup only: `specs["constructor"]` / `specs["toString"]`
+  // would resolve inherited Object.prototype members to functions, which
+  // are not SubcommandFlagSpec and would crash hasUnknownFlag instead of
+  // letting the caller's unknown-command handling own them.
+  if (!Object.prototype.hasOwnProperty.call(specs, subcommand)) {
     return false;
   }
+  const spec = specs[subcommand];
   return hasUnknownFlag(
     rest,
     spec.knownFlags,

@@ -540,6 +540,37 @@ void test("seed lock exhausts the wait budget for persistent EPERM contention wi
   }
 });
 
+void test("seed lock rethrows non-contention payloads of every shape unchanged (R1)", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-shapes-"));
+  try {
+    // isTransientLockOpenError's shared code-extraction ternary has a
+    // false arm (`: ""`) that is only reachable through payloads that are
+    // not objects, are null, or carry no `code` property. Every such shape
+    // must propagate unchanged instead of being swallowed or
+    // misclassified as lock contention.
+    const payloads: unknown[] = [
+      "plain string payload",
+      null,
+      { message: "no code property" },
+      Object.create(null),
+    ];
+    for (const payload of payloads) {
+      stateRootInternals.setSeedLockOpenOverrideForTests(async () => {
+        throw payload;
+      });
+      await assert.rejects(
+        runWithStateRootSeedLock(root, async () => {}),
+        (error: unknown) => error === payload,
+        "a non-contention payload must propagate unchanged",
+      );
+    }
+  } finally {
+    stateRootInternals.setSeedLockOpenOverrideForTests(undefined);
+    resetSeedLockPolicy();
+    await rm(root, { force: true, recursive: true });
+  }
+});
+
 void test("stale-lock probe treats a vanished lock as not stale", async () => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-seed-lock-"));
   try {

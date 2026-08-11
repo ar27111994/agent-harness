@@ -7,6 +7,8 @@ import {
   isFlagLike,
   printUnknownArgumentError,
   hasUnknownFlag,
+  CliUsageError,
+  printCliUsageError,
 } from "./cli-help-format.js";
 import { resolveProjectRoot } from "./files.js";
 import { getOptionValues } from "./lib/cli-options.js";
@@ -59,6 +61,32 @@ export async function runWorkspace(
   workingDirectory: string,
   projectRoot: string,
   preflight: Partial<WorkspacePreflightFunctions> = {},
+): Promise<number> {
+  try {
+    return await runWorkspaceInner(
+      args,
+      workingDirectory,
+      projectRoot,
+      preflight,
+    );
+  } catch (error) {
+    // Shared argument parsers (getOptionValues, parseSessionIntent) throw
+    // CliUsageError for user typos; those must surface as the clean
+    // one-line + usage-hint form (#446), never a raw stack from the
+    // direct-exec rejection handler below.
+    if (error instanceof CliUsageError) {
+      printCliUsageError(error, "agent-harness workspace <host> --help");
+      return 1;
+    }
+    throw error;
+  }
+}
+
+async function runWorkspaceInner(
+  args: string[],
+  workingDirectory: string,
+  projectRoot: string,
+  preflight: Partial<WorkspacePreflightFunctions>,
 ): Promise<number> {
   const [target = "help", ...rest] = args;
 
@@ -294,8 +322,9 @@ if (
       process.exitCode = exitCode;
     })
     .catch((error: unknown) => {
-      // Workspace never throws CliUsageError (user-input failures return
-      // exit codes); any rejection here is a genuine bug and keeps its stack.
+      // User-input failures are converted inside runWorkspace (CliUsageError
+      // prints as a one-line error + usage hint and returns exit 1); any
+      // rejection that reaches here is a genuine bug and keeps its stack.
       console.error(error);
       process.exitCode = 1;
     });

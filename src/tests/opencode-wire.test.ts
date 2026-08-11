@@ -285,6 +285,102 @@ void test("OpenCode re-apply preserves a pre-existing user gitignore and reset r
   }
 });
 
+void test("OpenCode re-apply preserves user edits made between applies (review)", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+    await writeTextFile(
+      join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      "dist\n.env\n",
+    );
+    await writeTextFile(
+      join(fixture.workspaceRoot, "AGENTS.md"),
+      "# My agents file\n\nuser authored\n",
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+
+    // The user edits both files BETWEEN applies: a custom gitignore line
+    // and an AGENTS.md note outside the managed section.
+    const applied = await readTextFileOrNull(
+      join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+    );
+    assert.ok(applied !== null && applied.includes("pnpm-lock.yaml"));
+    await writeFile(
+      join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      `${applied ?? ""}user-custom-ignore\n`,
+      "utf8",
+    );
+    await writeFile(
+      join(fixture.workspaceRoot, "AGENTS.md"),
+      "# My agents file\n\nuser authored\n\nuser note between applies\n",
+      "utf8",
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+
+    const reapplied =
+      (await readTextFileOrNull(
+        join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      )) ?? "";
+    assert.ok(
+      reapplied.includes("user-custom-ignore"),
+      "re-apply must keep user gitignore lines added between applies",
+    );
+    assert.ok(
+      reapplied.startsWith("dist\n.env\n"),
+      "re-apply must keep the original user baseline",
+    );
+    assert.ok(
+      reapplied.includes("node_modules"),
+      "re-apply must keep the harness-owned entries present",
+    );
+    const reappliedAgents =
+      (await readTextFileOrNull(join(fixture.workspaceRoot, "AGENTS.md"))) ??
+      "";
+    assert.ok(
+      reappliedAgents.includes("user note between applies"),
+      "re-apply must keep user AGENTS.md edits outside the managed section",
+    );
+
+    // Reset restores the true pre-apply state: baseline + user edits only.
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "reset",
+    });
+    assert.equal(
+      await readTextFileOrNull(
+        join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      ),
+      "dist\n.env\nuser-custom-ignore\n",
+      "reset restores the user baseline plus the between-apply edit, without harness entries",
+    );
+    const resetAgents =
+      (await readTextFileOrNull(join(fixture.workspaceRoot, "AGENTS.md"))) ??
+      "";
+    assert.ok(
+      resetAgents.includes("user note between applies"),
+      "reset must not wipe user edits made between applies",
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("OpenCode wire reset on a workspace that was never applied is a clean no-op (G4)", async () => {
   const fixture = await createOpenCodeFixture();
 

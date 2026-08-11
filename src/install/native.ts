@@ -51,20 +51,26 @@ export async function manageNativeInstall(
   const adapter = resolveHostAdapter(hostName);
 
   if (!adapter) {
+    // #446 contract: CliUsageError carries a ONE-LINE message (printCliUsageError
+    // prefixes only the first line with `error:`); the full actionable
+    // diagnostic goes through the separate diagnostic output path first
+    // (the same convention the wire dispatcher uses for unknown hosts).
+    const diagnostic = unknownHostDiagnostic(hostName);
+    console.error(formatActionableDiagnostic(diagnostic));
     throw new CliUsageError(
-      formatActionableDiagnostic(unknownHostDiagnostic(hostName)),
+      diagnostic.summary,
       "agent-harness install native --help",
     );
   }
 
   if (!adapter.nativeInstall) {
+    const diagnostic = unsupportedNativeInstallDiagnostic({
+      displayName: adapter.displayName,
+      hostId: adapter.id,
+    });
+    console.error(formatActionableDiagnostic(diagnostic));
     throw new CliUsageError(
-      formatActionableDiagnostic(
-        unsupportedNativeInstallDiagnostic({
-          displayName: adapter.displayName,
-          hostId: adapter.id,
-        }),
-      ),
+      diagnostic.summary,
       "agent-harness install native --help",
     );
   }

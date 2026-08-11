@@ -161,8 +161,14 @@ export async function runRecommend(
         projectRoot,
         policy,
         report: deterministicReport,
-        host: getRequestedReviewHost(rest),
-        reviewLimit: getReviewLimit(rest),
+        host: getRequestedReviewHost(
+          rest,
+          "agent-harness recommend ai-review --help",
+        ),
+        reviewLimit: getReviewLimit(
+          rest,
+          "agent-harness recommend ai-review --help",
+        ),
         apply: rest.includes("--apply"),
       });
       if (rest.includes("--apply")) {
@@ -537,6 +543,7 @@ export const recommendCommandInternals = {
 
 function getRequestedReviewHost(
   args: string[],
+  usageHint = "agent-harness recommend report --help",
 ): RecommendationHost | undefined {
   const requestedHostRaw = getOptionValue(args, "--host");
   if (!requestedHostRaw) {
@@ -547,7 +554,7 @@ function getRequestedReviewHost(
   if (!requestedHost) {
     throw new CliUsageError(
       `Invalid --host value: ${requestedHostRaw}. Must be one of: ${getRecommendationHostChoices().join(", ")}`,
-      "agent-harness recommend report --help",
+      usageHint,
     );
   }
 
@@ -563,7 +570,10 @@ function parseSessionIntents(args: string[]): readonly SessionIntent[] {
   return rawValues.map((v) => parseSessionIntent(v));
 }
 
-function getReviewLimit(args: string[]): number | undefined {
+function getReviewLimit(
+  args: string[],
+  usageHint = "agent-harness recommend report --help",
+): number | undefined {
   const reviewLimitRaw = getOptionValue(args, "--review-limit");
   if (!reviewLimitRaw) {
     return undefined;
@@ -573,7 +583,7 @@ function getReviewLimit(args: string[]): number | undefined {
   if (!Number.isFinite(reviewLimit) || reviewLimit <= 0) {
     throw new CliUsageError(
       `Invalid --review-limit value: ${reviewLimitRaw}`,
-      "agent-harness recommend report --help",
+      usageHint,
     );
   }
 

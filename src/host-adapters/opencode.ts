@@ -182,18 +182,17 @@ export async function wireOpenCode(options: {
   );
 
   const createdLinkPaths: string[] = [];
-  // On re-apply the .gitignore written by the previous apply is still
-  // present (the re-apply cleanup above does not touch it), so its fresh
-  // snapshot would record the overlay entries instead of the true
-  // pre-apply state — and a later reset would then restore rather than
-  // remove the adapter-created file. Restore the previous plan's
-  // snapshots for the gitignore first so the capture below records the
-  // original content (or absence) again (#447).
-  if (previousWirePlan?.textFileSnapshots !== undefined) {
-    await restoreManagedTextFileSnapshot(
-      gitignorePath,
-      previousWirePlan.textFileSnapshots,
-    );
+  // On re-apply the managed content written by the previous apply is still
+  // present. Two constraints: (a) the fresh snapshot must record the TRUE
+  // pre-apply state (so reset removes/restores adapter-owned content, not
+  // itself — #447), and (b) user edits made BETWEEN applies must survive
+  // (restoring the previous plan's snapshot over the current files would
+  // silently delete them — review). So strip ONLY adapter-owned content
+  // from the current files (the marked AGENTS.md section; the gitignore
+  // entry lines) before capturing.
+  if (previousWirePlan !== null && previousWirePlan !== undefined) {
+    await removeManagedAgentsSection(localAgentsPath);
+    await stripOpenCodeOverlayGitignoreEntries(gitignorePath);
   }
   // Snapshot both AGENTS.md and .opencode/.gitignore before mutating them so
   // that wire --reset can restore either file to its pre-apply state.
@@ -268,6 +267,20 @@ export async function wireOpenCode(options: {
 }
 
 /**
+ * Entries the harness owns in `.opencode/.gitignore` (npm install artefacts
+ * that must be excluded from OpenCode overlay scanning). Shared by the
+ * ensure (upsert) and strip (re-apply/ownership) paths so the two always
+ * agree on what counts as adapter-owned.
+ */
+const OPENCODE_OVERLAY_GITIGNORE_REQUIRED_ENTRIES = [
+  "node_modules",
+  "package-lock.json",
+  "bun.lockb",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+] as const;
+
+/**
  * Idempotently writes `.opencode/.gitignore` so OpenCode's overlay scanner
  * skips npm-install artefacts (node_modules, package-lock.json, etc.).
  * If the file already exists and already contains all required entries,
@@ -282,13 +295,6 @@ async function ensureOpenCodeOverlayGitignore(
   // Entries to exclude from OpenCode overlay scanning (npm install artefacts).
   // The .gitignore itself is excluded by the overlay scanner by default — entries
   // here target package-manager lockfiles and the node_modules directory.
-  const REQUIRED_ENTRIES = [
-    "node_modules",
-    "package-lock.json",
-    "bun.lockb",
-    "yarn.lock",
-    "pnpm-lock.yaml",
-  ] as const;
 
   const gitignorePath = join(workspaceRoot, ".opencode", ".gitignore");
   const existing = (await readTextFileOrNull(gitignorePath)) ?? "";
@@ -299,7 +305,7 @@ async function ensureOpenCodeOverlayGitignore(
       .filter((line) => line.length > 0 && !line.startsWith("#")),
   );
 
-  const missing = REQUIRED_ENTRIES.filter(
+  const missing = OPENCODE_OVERLAY_GITIGNORE_REQUIRED_ENTRIES.filter(
     (entry) => !existingEntries.has(entry),
   );
   if (missing.length === 0) {
@@ -316,6 +322,39 @@ async function ensureOpenCodeOverlayGitignore(
       : preamble + "\n" + additions + "\n";
 
   await writeTextFile(gitignorePath, next);
+}
+
+/**
+ * Removes ONLY the harness-owned entries from `.opencode/.gitignore`,
+ * preserving every user line (comments, blanks, custom entries) and the
+ * file itself when anything user-authored remains.
+ *
+ * Re-apply calls this BEFORE capturing the reset snapshot: the previous
+ * apply's entries are still present and must not be recorded as
+ * pre-apply state (#447), while user edits made between applies must
+ * survive the re-apply (review).
+ */
+async function stripOpenCodeOverlayGitignoreEntries(
+  gitignorePath: string,
+): Promise<void> {
+  const existing = await readTextFileOrNull(gitignorePath);
+  if (existing === null) {
+    return;
+  }
+  const owned = new Set<string>(OPENCODE_OVERLAY_GITIGNORE_REQUIRED_ENTRIES);
+  const kept = existing
+    .split(/\r?\n/)
+    .filter((line) => !owned.has(line.trim()));
+  const next = kept.join("\n");
+  if (next.trim().length === 0) {
+    // The file was adapter-created (only owned entries); reset semantics
+    // then record it as ABSENT so wire --reset removes it.
+    await removePath(gitignorePath);
+    return;
+  }
+  if (next !== existing) {
+    await writeTextFile(gitignorePath, next);
+  }
 }
 
 /**

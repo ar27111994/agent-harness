@@ -126,6 +126,28 @@ void test("built workspace.js entry guard catches runWorkspace rejections (#428)
   assert.equal(result.exitCode, 1);
 });
 
+void test("built workspace.js entry guard converts user-input CliUsageError to a clean one-line error (review)", async () => {
+  // parseSessionIntent throws CliUsageError for a bad --intent value; the
+  // runWorkspace wrapper must print the one-line error + usage hint (#446)
+  // instead of letting the raw stack reach the rejection handler.
+  const result = await runEntry("workspace.js", [
+    "opencode",
+    "--intent",
+    "not-an-intent",
+  ]);
+  assert.equal(result.exitCode, 1);
+  assert.match(result.stderr, /error: Invalid --intent value 'not-an-intent'/u);
+  assert.match(
+    result.stderr,
+    /Run 'agent-harness workspace <host> --help' for usage\./u,
+  );
+  assert.doesNotMatch(
+    result.stderr,
+    /\bat .+\(.+\)/u,
+    "user-input failures must not surface stack frames",
+  );
+});
+
 void test("built workspace.js entry guard routes help and prints it (#428)", async () => {
   const result = await runEntry("workspace.js", ["help"]);
   assert.equal(result.exitCode, 0);
@@ -138,4 +160,17 @@ void test("built workspace.js entry guard routes help and prints it (#428)", asy
 void test("built cli.js entry guard routes single non-domain args to the unknown-command path (#428)", async () => {
   const result = await runEntry("cli.js", ["bogus-single"]);
   assert.equal(result.exitCode, 1);
+});
+
+void test("built cli.js entry guard rejects unknown flags on the help subcommand (review)", async () => {
+  // The flag-spec tables now carry a help entry with empty flag sets, so
+  // `quarantine help --bogus` fails strict validation instead of silently
+  // printing help and exiting 0.
+  const result = await runEntry("cli.js", ["quarantine", "help", "--bogus"]);
+  assert.equal(result.exitCode, 1);
+  assert.match(result.stderr, /unknown option '--bogus'/u);
+  assert.match(
+    result.stderr,
+    /Run 'agent-harness quarantine help' for usage\./u,
+  );
 });

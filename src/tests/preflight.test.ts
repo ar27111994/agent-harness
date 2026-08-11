@@ -60,7 +60,14 @@ void test("adapter runtime preflight builds Windows wrapper spawn specs", () => 
     "-ExecutionPolicy",
     "Bypass",
   ]);
-  assert.equal(wrapperSpec.args.at(-1), "& 'fake-wrapper' '--version'");
+  // The spawn spec must invoke the VALIDATED resolved executable, never the
+  // bare configured name (review): PowerShell would re-resolve `fake-wrapper`
+  // through PATH and could pick a different wrapper than the one the
+  // wrapper-refusal checks validated against.
+  assert.equal(
+    wrapperSpec.args.at(-1),
+    "& 'C:\\Tools\\fake-wrapper.cmd' '--version'",
+  );
 
   assert.deepEqual(
     preflightInternals.buildRuntimeCommandSpawnSpec({

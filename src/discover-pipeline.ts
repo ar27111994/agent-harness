@@ -169,13 +169,29 @@ export function printDiscoveryBreadthSummary(input: {
       (input.previousCatalogEntryCount === null ||
       input.previousCatalogEntryCount === undefined
         ? ""
-        : ` (previous pass: ${input.previousCatalogEntryCount})`),
+        : formatCatalogEntryDelta(
+            input.catalogEntries.length,
+            input.previousCatalogEntryCount,
+          )),
   );
   console.log("Next steps:");
   for (const nextStep of assessment.nextSteps) {
     console.log(`- ${nextStep}`);
   }
 }
+
+function formatCatalogEntryDelta(current: number, previous: number): string {
+  const delta = current - previous;
+  return ` (previous pass: ${previous}, ${delta > 0 ? "+" : ""}${delta})`;
+}
+
+/**
+ * Exposes breadth-summary helpers for focused tests (the accepted
+ * internals-seam pattern; production behavior does not depend on it).
+ */
+export const discoverPipelineInternals = {
+  formatCatalogEntryDelta,
+};
 
 function countDemandSignals(demandProfile: DemandProfile): number {
   return new Set([

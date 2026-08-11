@@ -7,6 +7,20 @@ import type { SubcommandFlagSpec } from "./cli-help-format.js";
 export type { SubcommandFlagSpec } from "./cli-help-format.js";
 
 /**
+ * Builds the flag spec for the `help` subcommand: help takes no options,
+ * so EVERY flag is rejected. Without an entry, the shared guard returns
+ * false for a missing spec and `help --invalid` would silently print help
+ * and exit 0, bypassing strict validation (review).
+ */
+function helpSubcommandSpec(domain: string): SubcommandFlagSpec {
+  return {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: `agent-harness ${domain} help`,
+  };
+}
+
+/**
  * Flag spec table for mirror subcommands (#445): the shared unknown-flag
  * guard rejects typo'd flags before any mirror work or state write.
  */
@@ -47,6 +61,7 @@ export const MIRROR_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> =
       flagsWithValues: new Set(["--asset", "--mirror"]),
       usageHint: "agent-harness mirror explain --help",
     },
+    help: helpSubcommandSpec("mirror"),
   };
 
 /**
@@ -118,6 +133,7 @@ export const INSTALL_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> =
       flagsWithValues: new Set(["--host"]),
       usageHint: "agent-harness install reset --help",
     },
+    help: helpSubcommandSpec("install"),
   };
 
 /**
@@ -154,6 +170,7 @@ export const ACTIVATE_SUBCOMMAND_FLAG_SPECS: Record<
     flagsWithValues: new Set(),
     usageHint: "agent-harness activate reset --help",
   },
+  help: helpSubcommandSpec("activate"),
 };
 
 /**
@@ -194,6 +211,7 @@ export const QUARANTINE_SUBCOMMAND_FLAG_SPECS: Record<
     flagsWithValues: new Set(["--asset", "--mirror", "--reason", "--reviewer"]),
     usageHint: "agent-harness quarantine pin --help",
   },
+  help: helpSubcommandSpec("quarantine"),
 };
 
 /**
@@ -212,6 +230,7 @@ export const REBUILD_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> =
       flagsWithValues: new Set(),
       usageHint: "agent-harness rebuild full --help",
     },
+    help: helpSubcommandSpec("rebuild"),
   };
 
 /**
@@ -252,6 +271,7 @@ export const RECOMMEND_SUBCOMMAND_FLAG_SPECS: Record<
     flagsWithValues: new Set(["--host"]),
     usageHint: "agent-harness recommend policy:print --help",
   },
+  help: helpSubcommandSpec("recommend"),
 };
 
 /**

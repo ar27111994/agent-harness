@@ -1,6 +1,6 @@
 # Building a Comprehensive Agent Asset Catalog
 
-agent-harness v2.0.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500+ entries from 50+ configured sources). This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
+agent-harness v2.1.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500+ entries from 50+ configured sources). This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
 
 ## The Two-Phase Architecture
 

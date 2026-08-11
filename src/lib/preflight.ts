@@ -626,7 +626,11 @@ function buildRuntimeCommandSpawnSpec(
       "-ExecutionPolicy",
       "Bypass",
       "-Command",
-      buildWindowsPowerShellCommand(options.executable, options.args),
+      // Invoke the VALIDATED resolved path, never the bare configured
+      // command: PowerShell would resolve a bare name (e.g. `code`) through
+      // PATH again and could pick a different wrapper than the one
+      // buildWrapperRefusal / isWindowsShellWrapperPath validated (review).
+      buildWindowsPowerShellCommand(options.resolvedExecutable, options.args),
     ],
   };
 }

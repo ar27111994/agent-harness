@@ -1130,6 +1130,50 @@ void test("matching ecosystem incurs zero ecosystem mismatch penalty", () => {
   );
 });
 
+void test("absent language signals never block exact-stack fit (review)", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "composer.json",
+        fileName: "composer.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          // NO language evidence: the workspace's language usage is unknown,
+          // so the php-tagged package identity must NOT be treated as a
+          // contradiction (an empty set means unknown, not "uses none").
+          languages: [],
+          packageManagers: ["composer"],
+          frameworks: [],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const packagistEntry = buildCatalogEntry(
+    "packagist-registry:packagist:vendor%2Ftool",
+    "plugin",
+    80,
+    {
+      sourceId: "packagist-registry",
+      sourceKind: "package-registry",
+      capabilities: ["php", "composer", "tool"],
+    },
+  );
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [packagistEntry],
+    demandContext,
+    policy,
+  );
+  assert.ok(
+    recommendations[0]?.reasons.includes("fit:exact-stack"),
+    "an empty workspace language set must not block exact-stack for a composer-declared package",
+  );
+});
+
 function buildPolicy(
   overrides: Partial<RecommendationPolicy["hosts"]["copilot-vscode"]> = {},
 ): RecommendationPolicy {

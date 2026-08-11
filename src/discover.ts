@@ -673,7 +673,6 @@ export async function buildBreadthStateInvalidationReport(
   const mirrorLocks = await listMatchingFileNames(
     join(stateRoot, "mirror", "bundles"),
     (name) => name.endsWith(".lock.json"),
-    4,
   );
   for (const lockName of mirrorLocks.slice(0, 3)) {
     invalidatedArtifacts.push(`mirror/bundles/${lockName}`);
@@ -714,15 +713,14 @@ async function countCatalogEntryLines(
 }
 
 /**
- * Lists file names in a directory matching a predicate, capped for display.
+ * Lists file names in a directory matching a predicate.
  * Missing directories contribute nothing.
  */
 async function listMatchingFileNames(
   directory: string,
   matches: (name: string) => boolean,
-  limit: number,
 ): Promise<string[]> {
-  return (await readdirSafe(directory)).filter(matches).slice(0, limit);
+  return (await readdirSafe(directory)).filter(matches);
 }
 
 /**

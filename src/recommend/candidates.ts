@@ -431,6 +431,13 @@ function computeAssetLanguageContradiction(
   assetIdentityTerms: ReadonlySet<string>,
   demandLanguageTerms: ReadonlySet<string>,
 ): boolean {
+  // An EMPTY demand language set means the workspace's language usage is
+  // UNKNOWN, not "uses none of these". Treating unknown as a contradiction
+  // would block fit:exact-stack for otherwise compatible package/tooling
+  // matches; only an explicit, non-empty language difference contradicts.
+  if (demandLanguageTerms.size === 0) {
+    return false;
+  }
   for (const term of assetIdentityTerms) {
     if (
       KNOWN_ECOSYSTEM_LANGUAGE_TOKENS.has(term) &&

@@ -14,6 +14,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { CliUsageError } from "../cli-help-format.js";
 import { runRecommend } from "../recommend/commands.js";
 import type {
   AssetCatalogEntry,
@@ -868,7 +869,33 @@ void test("recommend ai-review rejects invalid host values", async () => {
             projectRoot,
             projectRoot,
           ),
-        /Invalid --host value: not-a-host/u,
+        (error: unknown) =>
+          error instanceof CliUsageError &&
+          /Invalid --host value: not-a-host/u.test(error.message) &&
+          error.usageHint === "agent-harness recommend ai-review --help",
+        "ai-review must point invalid --host input at the ai-review help",
+      );
+    });
+  });
+});
+
+void test("recommend ai-review rejects invalid review limits with the ai-review hint", async () => {
+  await withDisabledAiReviewEnv(async () => {
+    await withRecommendationWorkspace(async (projectRoot) => {
+      await seedRecommendationInputs(projectRoot);
+
+      await assert.rejects(
+        () =>
+          runRecommend(
+            ["ai-review", "--review-limit", "0"],
+            projectRoot,
+            projectRoot,
+          ),
+        (error: unknown) =>
+          error instanceof CliUsageError &&
+          /Invalid --review-limit value: 0/u.test(error.message) &&
+          error.usageHint === "agent-harness recommend ai-review --help",
+        "ai-review must point invalid --review-limit input at the ai-review help",
       );
     });
   });

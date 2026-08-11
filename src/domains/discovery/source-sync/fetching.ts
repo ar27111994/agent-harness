@@ -223,7 +223,12 @@ export async function fetchRequiredJson(
           headers: { ...SOURCE_SYNC_HEADERS, ...request.headers },
           maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
           timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-          method: request.method,
+          // Documented contract implemented: a body without an explicit
+          // method defaults to POST; no body defaults to GET. Leaving the
+          // method undefined here would make fetch throw a TypeError for a
+          // body-bearing request (Fetch spec forbids GET/HEAD with a body).
+          method:
+            request.method ?? (request.body === undefined ? "GET" : "POST"),
           body: request.body,
         }),
         url,

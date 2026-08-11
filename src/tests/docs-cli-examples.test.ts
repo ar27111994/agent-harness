@@ -13,7 +13,8 @@
  */
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -290,14 +291,25 @@ async function extractFencedExamples(filePath: string): Promise<CliExample[]> {
   const text = await readFile(filePath, "utf8");
   const lines = text.split("\n");
   const examples: CliExample[] = [];
-  let inFence = false;
+  // Track the OPENING fence's info string (bash / sh / json / …); null
+  // means outside a fence. Toggling on ANY `` ``` `` line — not just bare
+  // or bash-tagged ones — keeps state correct when a non-bash block sits
+  // between bash blocks (a bare closing ` ``` ` would otherwise flip the
+  // state and swallow/emit the wrong lines, review finding).
+  let fenceInfo: string | null = null;
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
-    if (/^\s*```(?:bash|sh)?\s*$/u.test(line)) {
-      inFence = !inFence;
+    const fenceMatch = /^\s*```(.*)$/u.exec(line);
+    if (fenceMatch) {
+      fenceInfo = fenceInfo === null ? (fenceMatch[1] ?? "").trim() : null;
       continue;
     }
-    if (!inFence) continue;
+    if (fenceInfo === null) continue;
+    // Only bash/sh (or unspecified) blocks carry shell examples; json etc.
+    // blocks are skipped without affecting the fence state.
+    if (fenceInfo !== "" && fenceInfo !== "bash" && fenceInfo !== "sh") {
+      continue;
+    }
     const tokens = stripEnvPrefixes(tokenizeDocLine(line));
     if (tokens[0] !== "agent-harness") continue;
     examples.push({
@@ -451,3 +463,37 @@ async function captureStdout(
   assert.equal(code, 0, "help invocation must exit 0");
   return output.join("\n");
 }
+
+void test("fence scanning skips non-bash blocks without inverting state (review)", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "agent-harness-doc-examples-"));
+  const filePath = join(dir, "doc.md");
+  try {
+    await writeFile(
+      filePath,
+      [
+        "```bash",
+        "agent-harness discover sources",
+        "```",
+        "",
+        "```json",
+        '{"command": "agent-harness recommend report"}',
+        "```",
+        "",
+        "```sh",
+        "agent-harness recommend report",
+        "```",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const examples = await extractFencedExamples(filePath);
+    assert.deepEqual(
+      examples.map((example) => example.line.trim()),
+      ["agent-harness discover sources", "agent-harness recommend report"],
+      "only bash/sh fenced lines are examples, and a non-bash block between them must not invert the fence state",
+    );
+  } finally {
+    await rm(dir, { force: true, recursive: true });
+  }
+});

@@ -13,6 +13,7 @@ import {
   writeJsonLinesFile,
   writeTextFile,
 } from "../files.js";
+import { CliUsageError } from "../cli-help-format.js";
 import {
   diffInstallState,
   explainInstalledAsset,
@@ -1096,13 +1097,26 @@ void test("manageNativeInstall builds a native install plan from selected activa
 });
 
 void test("manageNativeInstall rejects unsupported and invalid operations", async () => {
+  // #446 contract: CliUsageError messages are ONE LINE; the full actionable
+  // diagnostic is routed through the separate diagnostic output path.
   await assert.rejects(
     manageNativeInstall(process.cwd(), ["--host", "not-a-host"]),
-    /Unsupported host adapter/u,
+    (error: unknown) =>
+      error instanceof CliUsageError &&
+      error.message ===
+        "'not-a-host' is not a registered host target or alias." &&
+      !error.message.includes("\n"),
+    "unknown host must surface a single-line summary",
   );
   await assert.rejects(
     manageNativeInstall(process.cwd(), ["--host", "zed"]),
-    /Unsupported native install capability/u,
+    (error: unknown) =>
+      error instanceof CliUsageError &&
+      /does not expose a native install\/verify\/remove provider/u.test(
+        error.message,
+      ) &&
+      !error.message.includes("\n"),
+    "unsupported native install must surface a single-line summary",
   );
   await assert.rejects(
     manageNativeInstall(process.cwd(), [

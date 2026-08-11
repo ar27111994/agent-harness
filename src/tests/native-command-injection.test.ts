@@ -193,6 +193,32 @@ void test("PowerShell wrapper command quotes hostile arguments as literals", () 
   assert.equal(roundTrip, "& 'fake.exe' 'a&b' 'x|y' 'a;b'");
 });
 
+void test("PowerShell wrapper specs invoke the VALIDATED resolved executable, not the bare command (review)", () => {
+  // A bare configured command (`code`) must never reach the PowerShell
+  // command string: PowerShell would re-resolve it through PATH and could
+  // pick a different wrapper than the one buildWrapperRefusal /
+  // isWindowsShellWrapperPath validated against.
+  const spec = preflightInternals.buildRuntimeCommandSpawnSpec({
+    executable: "code",
+    resolvedExecutable: "C:\\Users\\me\\AppData\\Local\\Programs\\code.cmd",
+    args: ["--version"],
+    platform: "win32",
+  });
+  assert.equal(spec.executable, "powershell.exe");
+  const command = spec.args[spec.args.length - 1] ?? "";
+  assert.ok(
+    command.includes(
+      "& 'C:\\Users\\me\\AppData\\Local\\Programs\\code.cmd' '--version'",
+    ),
+    `PowerShell must invoke the resolved wrapper path, got: ${command}`,
+  );
+  assert.equal(
+    command.includes("'code' '--version'"),
+    false,
+    "the bare configured name must never reach the PowerShell command",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // End-to-end: spawned runtime commands preserve hostile argv verbatim
 // ---------------------------------------------------------------------------
