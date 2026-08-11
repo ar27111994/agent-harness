@@ -114,6 +114,21 @@ The harness will never silently:
 
 When a supported adapter exposes native install operations, they must be called explicitly through native-install commands and the adapter runtime must pass preflight checks.
 
+### Host CLI execution model (no shell concatenation)
+
+The harness never executes host CLIs through a shell with concatenated
+arguments (`child_process` `shell: true`). Windows `.cmd`/`.bat` wrappers run
+through `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass`
+with every argument passed as a single-quoted PowerShell literal, and any
+argument carrying shell metacharacters (`& | < > ^ % ! "`, newlines, NUL) is
+refused before a command is built — for preflight runtime probes, the native
+extension installer, and native-command specs alike (src/lib/windows-shell.ts
+is the shared, fail-closed implementation). This is what keeps extension ids
+(which derive from marketplace data — untrusted input) safe: there is no
+shell-concatenation path to abuse. The deprecation-class hazard this
+eliminates is the Node DEP0190 `shell: true` argument-concatenation warning
+that motivated the change.
+
 ## Safe defaults by lifecycle phase
 
 | Phase               | Safe default                                                                      | Review-required actions                                                            |
