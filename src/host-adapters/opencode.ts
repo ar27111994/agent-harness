@@ -195,9 +195,10 @@ export async function wireOpenCode(options: {
     await removeManagedAgentsSection(localAgentsPath);
     await stripOpenCodeOverlayGitignoreEntries(
       gitignorePath,
-      new Set(
-        previousWirePlan.gitignoreOwnedEntries ??
-          OPENCODE_OVERLAY_GITIGNORE_REQUIRED_ENTRIES,
+      inferOpenCodeGitignoreOwnedEntries(
+        previousWirePlan,
+        gitignorePath,
+        OPENCODE_OVERLAY_GITIGNORE_REQUIRED_ENTRIES,
       ),
     );
   }
@@ -335,6 +336,51 @@ async function ensureOpenCodeOverlayGitignore(
 
   await writeTextFile(gitignorePath, next);
   return missing;
+}
+
+/**
+ * Resolves the gitignore entries a previous apply OWNS for strip purposes.
+ *
+ * Preference order:
+ * 1. `gitignoreOwnedEntries` recorded by current plans — exact ownership.
+ * 2. Plans from before that field existed: infer from the previous plan's
+ *    .opencode/.gitignore text snapshot. A NULL baseline means the file
+ *    did not exist before the previous apply, so every required entry now
+ *    present was harness-added. A NON-NULL baseline means only the
+ *    required entries missing from the baseline were added — a user's
+ *    pre-existing `node_modules` (or any other required line) is theirs.
+ * 3. No snapshot entry at all: ownership cannot be inferred. Skip
+ *    stripping (empty set) — over-preservation never deletes user lines,
+ *    and the next apply records exact ownership going forward (review).
+ */
+function inferOpenCodeGitignoreOwnedEntries(
+  previousWirePlan: WirePlanManifest,
+  gitignorePath: string,
+  requiredEntries: readonly string[],
+): ReadonlySet<string> {
+  if (previousWirePlan.gitignoreOwnedEntries !== undefined) {
+    return new Set(previousWirePlan.gitignoreOwnedEntries);
+  }
+
+  const baseline = previousWirePlan.textFileSnapshots?.find(
+    (entry) => entry.path === toPosixPath(gitignorePath),
+  );
+  if (baseline === undefined) {
+    return new Set<string>();
+  }
+  if (baseline.content === null) {
+    return new Set(requiredEntries);
+  }
+
+  const baselineEntries = new Set(
+    baseline.content
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith("#")),
+  );
+  return new Set(
+    requiredEntries.filter((entry) => !baselineEntries.has(entry)),
+  );
 }
 
 /**
