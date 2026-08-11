@@ -1785,6 +1785,6 @@ void test("install refresh rejects unsupported host filters", async () => {
       "--host",
       "not-a-host",
     ]),
-    /Invalid --host value 'not-a-host'/u,
+    /Unknown --host 'not-a-host'/u,
   );
 });

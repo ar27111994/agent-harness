@@ -550,11 +550,21 @@ void test("reconcileInstallState rejects unknown --host values", async () => {
   try {
     await assert.rejects(
       () => reconcileInstallState(projectRoot, "nonexistent"),
-      /Unknown --host/u,
+      (error: unknown) =>
+        error instanceof CliUsageError &&
+        /Unknown --host 'nonexistent'/u.test(error.message),
     );
     await assert.rejects(
       () => reconcileInstallState(projectRoot, ""),
-      /Invalid --host/u,
+      (error: unknown) =>
+        error instanceof CliUsageError &&
+        /Invalid --host value/u.test(error.message),
+    );
+    await assert.rejects(
+      () => reconcileInstallState(projectRoot, "  "),
+      (error: unknown) =>
+        error instanceof CliUsageError &&
+        /Invalid --host value/u.test(error.message),
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
@@ -569,7 +579,9 @@ void test("resetInstallState rejects unknown --host values", async () => {
   try {
     await assert.rejects(
       () => resetInstallState(projectRoot, "nonexistent"),
-      /Unknown --host/u,
+      (error: unknown) =>
+        error instanceof CliUsageError &&
+        /Unknown --host 'nonexistent'/u.test(error.message),
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });

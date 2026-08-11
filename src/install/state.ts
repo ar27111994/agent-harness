@@ -30,26 +30,11 @@ import {
   INSTALL_PROGRESS_SNAPSHOT_OUTPUT_PATH,
   INSTALL_PROGRESS_STATE_OUTPUT_PATH,
 } from "./paths.js";
-import { getInstallableAssets, INSTALL_HOSTS } from "./utils.js";
-
-/**
- * Validates that a user-supplied --host value matches a known install host.
- * Rejects empty, unknown, and traversal-like inputs.
- */
-function validateInstallHost(value: string | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error(
-      `Invalid --host value. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
-    );
-  }
-  if (!INSTALL_HOSTS.includes(value as (typeof INSTALL_HOSTS)[number])) {
-    throw new Error(
-      `Unknown --host '${value}'. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
-    );
-  }
-  return value;
-}
+import {
+  getInstallableAssets,
+  INSTALL_HOSTS,
+  validateInstallHostValue,
+} from "./utils.js";
 
 /**
  * Updates update install progress state state with the provided inputs.
@@ -117,7 +102,10 @@ export async function reconcileInstallState(
   projectRoot: string,
   hostFilter?: string,
 ): Promise<void> {
-  const validatedHost = validateInstallHost(hostFilter);
+  const validatedHost = validateInstallHostValue(
+    hostFilter,
+    "agent-harness install reconcile --help",
+  );
 
   const mirrorIndexEntries = await readJsonLinesFile<MirrorIndexEntry>(
     join(projectRoot, "mirror", "index.jsonl"),
@@ -234,7 +222,10 @@ export async function resetInstallState(
   projectRoot: string,
   hostFilter?: string,
 ): Promise<void> {
-  const validatedHost = validateInstallHost(hostFilter);
+  const validatedHost = validateInstallHostValue(
+    hostFilter,
+    "agent-harness install reset --help",
+  );
 
   if (validatedHost) {
     await removePath(join(projectRoot, "install", validatedHost));

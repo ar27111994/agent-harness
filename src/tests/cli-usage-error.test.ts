@@ -6,8 +6,7 @@
  */
 
 import assert from "node:assert/strict";
-import { rm } from "node:fs/promises";
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -230,6 +229,79 @@ void test("setup login with a valid provider still exits 0 (#446)", async (conte
   assert.match(stdout, /github login guidance/u);
 });
 
+// ─── review wave: install --host validation and bundle-lookup misses ───────
+
+void test("install reconcile with an invalid host prints a clean error (review)", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const result = await runCliExpectFailure([
+    "install",
+    "reconcile",
+    "--host",
+    "nosuchhost",
+    "--state-root",
+    tempRoot,
+  ]);
+  assertStackFreeStderr(
+    result,
+    /error: Unknown --host 'nosuchhost'\./u,
+    "install reconcile --host nosuchhost",
+  );
+});
+
+void test("install reset with an invalid host prints a clean error (review)", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const result = await runCliExpectFailure([
+    "install",
+    "reset",
+    "--host",
+    "nosuchhost",
+    "--state-root",
+    tempRoot,
+  ]);
+  assertStackFreeStderr(
+    result,
+    /error: Unknown --host 'nosuchhost'\./u,
+    "install reset --host nosuchhost",
+  );
+});
+
+void test("install refresh with an invalid host prints a clean error (review)", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const result = await runCliExpectFailure([
+    "install",
+    "refresh",
+    "--host",
+    "nosuchhost",
+    "--state-root",
+    tempRoot,
+  ]);
+  assertStackFreeStderr(
+    result,
+    /error: Unknown --host 'nosuchhost'\./u,
+    "install refresh --host nosuchhost",
+  );
+});
+
+void test("bundle explain with an unknown bundle prints a clean error (review)", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const result = await runCliExpectFailure([
+    "bundle",
+    "explain",
+    "no-such-bundle",
+    "--state-root",
+    tempRoot,
+  ]);
+  assertStackFreeStderr(
+    result,
+    /error: Bundle lock not found: 'no-such-bundle'\./u,
+    "bundle explain no-such-bundle",
+  );
+});
+
 // ─── error class + formatter units ──────────────────────────────────────────
 
 void test("CliUsageError is an Error carrying the message and usage hint (#446)", () => {
@@ -328,11 +400,18 @@ void test("main() rethrows internal (non-user-input) errors for stackful top-lev
   const stateRoot = join(tempRoot, "state");
   const originalArgv = process.argv;
   try {
-    // `mirror bundle-explain <missing>` hits readJsonFile on an absent
-    // lock file — an internal failure, not a user-input validation error.
-    // main() must propagate the ORIGINAL internal error (reject) rather
-    // than swallow it as a CliUsageError, so the outer catch keeps full
-    // stack context (#446, review: assert the identity, not just the class).
+    // `mirror bundle-explain <bundle>` on an EXISTING but corrupt lock file
+    // hits a JSON parse failure — an internal data-integrity error, not a
+    // user-input validation error (a MISSING lock is CliUsageError; a
+    // malformed one is a real bug). main() must propagate the ORIGINAL
+    // internal error (reject) rather than swallow it as a CliUsageError, so
+    // the outer catch keeps full stack context (#446, review).
+    await mkdir(join(stateRoot, "mirror", "bundles"), { recursive: true });
+    await writeFile(
+      join(stateRoot, "mirror", "bundles", "broken-bundle.lock.json"),
+      "{ this is not json",
+      "utf8",
+    );
     process.argv = [
       process.execPath,
       "dist/cli.js",
@@ -341,15 +420,15 @@ void test("main() rethrows internal (non-user-input) errors for stackful top-lev
       stateRoot,
       "mirror",
       "bundle-explain",
-      "not-a-real-bundle",
+      "broken-bundle",
     ];
     await assert.rejects(
       cliInternals.main(),
       (error: unknown) =>
         !(error instanceof CliUsageError) &&
         error instanceof Error &&
-        (error as NodeJS.ErrnoException).code === "ENOENT",
-      "internal errors must propagate as the original filesystem error (ENOENT on the absent lock file)",
+        /Unexpected token|JSON/u.test(error.message),
+      "internal errors must propagate as the original parse error (corrupt lock file)",
     );
   } finally {
     process.argv = originalArgv;

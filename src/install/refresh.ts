@@ -62,7 +62,7 @@ import {
   INSTALL_REFRESH_STATE_OUTPUT_PATH,
   NATIVE_INSTALL_STATE_OUTPUT_PATH,
 } from "./paths.js";
-import { INSTALL_HOSTS } from "./utils.js";
+import { INSTALL_HOSTS, validateInstallHostValue } from "./utils.js";
 
 const MAX_REFRESH_BATCHES = 200;
 const RISKY_EXECUTABLE_ASSET_KINDS = new Set<AssetKind>([
@@ -89,7 +89,10 @@ export async function manageInstallRefresh(
   workingDirectory: string,
   args: string[],
 ): Promise<void> {
-  const requestedHost = parseInstallHost(getOptionValue(args, "--host"));
+  const requestedHost = validateInstallHostValue(
+    getOptionValue(args, "--host"),
+    "agent-harness install refresh --help",
+  );
   const hosts = requestedHost ? [requestedHost] : [...INSTALL_HOSTS];
   const installConfig = getRuntimeConfig().install;
   const refreshPolicy = installConfig.refreshPolicy;
@@ -254,20 +257,6 @@ async function writeInstallRefreshState(
     reviewRequiredCount,
     quarantinedCount,
   } satisfies InstallRefreshState);
-}
-
-function parseInstallHost(value: string | undefined): (typeof INSTALL_HOSTS)[number] | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  if (!INSTALL_HOSTS.includes(value as (typeof INSTALL_HOSTS)[number])) {
-    throw new Error(
-      `Invalid --host value '${value}'. Must be one of: ${INSTALL_HOSTS.join(", ")}`,
-    );
-  }
-
-  return value as (typeof INSTALL_HOSTS)[number];
 }
 
 interface RefreshMirrorStateOptions {
@@ -951,7 +940,6 @@ function printInstallRefreshReport(
  */
 export const installRefreshInternals = {
   isInstallRefreshDue,
-  parseInstallHost,
   shouldRefreshMirrorState,
   refreshMirrorStateIfRequested,
   refreshMirrorState,

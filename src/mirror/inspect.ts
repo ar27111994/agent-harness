@@ -148,9 +148,22 @@ export async function explainBundleLock(
     );
   }
 
-  const bundleLock = await readJsonFile<BundleLock>(
-    join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
-  );
+  let bundleLock: BundleLock;
+  try {
+    bundleLock = await readJsonFile<BundleLock>(
+      join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
+    );
+  } catch (error) {
+    // #446 contract (review): a not-found bundle lock is a user-input lookup
+    // miss, not an internal failure — one-line error, no stack.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new CliUsageError(
+        `Bundle lock not found: '${bundleId}'. Run 'agent-harness mirror plan' or 'mirror acquire' to generate bundle locks.`,
+        "agent-harness bundle explain --help",
+      );
+    }
+    throw error;
+  }
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
     assertAssetCatalogEntry,

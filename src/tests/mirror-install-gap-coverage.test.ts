@@ -15,6 +15,7 @@ import {
   writeTextFile,
 } from "../files.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { validateInstallHostValue } from "../install/utils.js";
 import { installBundleInternals, installBundles } from "../install/bundle.js";
 import {
   diffInstallState,
@@ -1123,13 +1124,26 @@ void test("install refresh internals cover scheduling, host parsing, and refresh
       true,
     );
     assert.equal(
-      installRefreshInternals.parseInstallHost(undefined),
+      validateInstallHostValue(
+        undefined,
+        "agent-harness install refresh --help",
+      ),
       undefined,
     );
-    assert.equal(installRefreshInternals.parseInstallHost("shared"), "shared");
+    assert.equal(
+      validateInstallHostValue(
+        "shared",
+        "agent-harness install refresh --help",
+      ),
+      "shared",
+    );
     assert.throws(
-      () => installRefreshInternals.parseInstallHost("bad-host"),
-      /Invalid --host value 'bad-host'/u,
+      () =>
+        validateInstallHostValue(
+          "bad-host",
+          "agent-harness install refresh --help",
+        ),
+      /Unknown --host 'bad-host'/u,
     );
     assert.equal(
       installRefreshInternals.decideInstallRefreshPolicy("stale", "manual")
