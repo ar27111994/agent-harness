@@ -183,7 +183,12 @@ export async function fetchJsonWithGuards(
     return null;
   }
 
-  const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  let withoutBom: string;
+  if (text.charCodeAt(0) === 0xfeff) {
+    withoutBom = text.slice(1);
+  } else {
+    withoutBom = text;
+  }
   try {
     return JSON.parse(withoutBom) as unknown;
   } catch {

@@ -119,7 +119,7 @@ export async function manageNativeInstall(
   );
 
   if (operation === "plan") {
-    printNativeInstallPlan(adapter, includedActions, planByExtensionId);
+    printNativeInstallPlan(adapter, includedActions, plans);
     printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
     return;
   }
@@ -127,7 +127,7 @@ export async function manageNativeInstall(
   // Only MUTATING operations require --apply; verify is read-only and runs
   // directly (original contract, review).
   if ((operation === "install" || operation === "remove") && !apply) {
-    printNativeInstallPlan(adapter, includedActions, planByExtensionId);
+    printNativeInstallPlan(adapter, includedActions, plans);
     printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
     console.log(
       `Native ${operation} is mutating. Re-run with --apply to execute it.`,
@@ -255,7 +255,7 @@ async function collectNativeInstallAssetPlans(
 function printNativeInstallPlan(
   adapter: HostAdapter,
   actions: ExtensionInstallAction[],
-  planByExtensionId: ReadonlyMap<string, NativeInstallAssetPlan>,
+  plans: readonly NativeInstallAssetPlan[],
 ): void {
   console.log(`Native install plan for ${adapter.displayName}:`);
   if (actions.length === 0) {
@@ -265,26 +265,33 @@ function printNativeInstallPlan(
   for (const line of formatExtensionInstallActions(actions)) {
     console.log(`  ${line}`);
   }
-  for (const action of actions) {
-    const plan = planByExtensionId.get(action.extensionId);
-    if (!plan) {
+  // #444 review: every plan entry carries an explicit status line — the
+  // match basis (workspace recommendation or activation-manifest keep) and
+  // the fact that native installs are NOT mirrored (host CLI installs).
+  // Iterating PLANS filtered by the included action set keeps the status
+  // lines 1:1 with the installed actions and naturally skips excluded plans
+  // (no lookup-by-action map, no unreachable miss branch).
+  const includedExtensionIds = new Set(
+    actions.map((action) => action.extensionId),
+  );
+  for (const plan of plans) {
+    if (!includedExtensionIds.has(plan.extensionId)) {
       continue;
     }
-    // #444 review: every plan entry carries an explicit status line — the
-    // match basis (workspace recommendation or activation-manifest keep) and
-    // the fact that native installs are NOT mirrored (host CLI installs).
-    const basis = plan.recommendation
-      ? `basis: ${plan.recommendation.recommendationBasis}${
-          plan.recommendation.reasons.some((reason) =>
-            reason.startsWith("fit:"),
-          )
-            ? ` (${plan.recommendation.reasons
-                .filter((reason) => reason.startsWith("fit:"))
-                .join(", ")})`
-            : ""
-        }`
-      : "basis: no workspace recommendation (kept from activation manifest)";
-    console.log(`    ${action.extensionId}: ${basis} — native install via host CLI (not mirrored)`);
+    let basis: string;
+    if (plan.recommendation) {
+      const fitReasons = plan.recommendation.reasons.filter((reason) =>
+        reason.startsWith("fit:"),
+      );
+      if (fitReasons.length > 0) {
+        basis = `basis: ${plan.recommendation.recommendationBasis} (${fitReasons.join(", ")})`;
+      } else {
+        basis = `basis: ${plan.recommendation.recommendationBasis}`;
+      }
+    } else {
+      basis = "basis: no workspace recommendation (kept from activation manifest)";
+    }
+    console.log(`    ${plan.extensionId}: ${basis} — native install via host CLI (not mirrored)`);
   }
 }
 
@@ -304,9 +311,11 @@ function printExcludedCoincidentalExtensions(
       plan?.recommendation?.matchedSignals
         .map((match) => `${match.signalType}:${match.term}`)
         .join(", ") ?? "";
-    console.log(
-      `  ${action.host}:${action.extensionId}${terms ? ` (matched only: ${terms})` : ""}`,
-    );
+    let line = `  ${action.host}:${action.extensionId}`;
+    if (terms.length > 0) {
+      line += ` (matched only: ${terms})`;
+    }
+    console.log(line);
   }
 }
 

@@ -2,6 +2,7 @@ import { join } from "node:path";
 
 import { CliUsageError } from "../cli-help-format.js";
 import {
+  pathExists,
   readJsonFile,
   readJsonFileOrNull,
   readJsonLinesFile,
@@ -148,22 +149,19 @@ export async function explainBundleLock(
     );
   }
 
-  let bundleLock: BundleLock;
-  try {
-    bundleLock = await readJsonFile<BundleLock>(
-      join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`),
+  const lockPath = join(projectRoot, "mirror", "bundles", `${bundleId}.lock.json`);
+  // #446 contract (review): a not-found bundle lock is a user-input lookup
+  // miss, not an internal failure — one-line error, no stack. Checking
+  // presence BEFORE reading (instead of catching ENOENT) keeps the branch
+  // instrumentation unambiguous and the corrupt-file case a natural
+  // internal error.
+  if (!(await pathExists(lockPath))) {
+    throw new CliUsageError(
+      `Bundle lock not found: '${bundleId}'. Run 'agent-harness mirror plan' or 'mirror acquire' to generate bundle locks.`,
+      "agent-harness bundle explain --help",
     );
-  } catch (error) {
-    // #446 contract (review): a not-found bundle lock is a user-input lookup
-    // miss, not an internal failure — one-line error, no stack.
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new CliUsageError(
-        `Bundle lock not found: '${bundleId}'. Run 'agent-harness mirror plan' or 'mirror acquire' to generate bundle locks.`,
-        "agent-harness bundle explain --help",
-      );
-    }
-    throw error;
   }
+  const bundleLock = await readJsonFile<BundleLock>(lockPath);
   const selectedEntries = await readJsonLinesFile<AssetCatalogEntry>(
     join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
     assertAssetCatalogEntry,
