@@ -1217,9 +1217,17 @@ void test("fetchRequiredJson defaults the HTTP method per the documented contrac
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
-  const seen: Array<{ url: string; method?: string }> = [];
+  const seen: Array<{
+    url: string;
+    method?: string;
+    headers?: Record<string, string>;
+  }> = [];
   globalThis.fetch = (async (input: unknown, init?: RequestInit) => {
-    seen.push({ url: String(input), method: init?.method });
+    seen.push({
+      url: String(input),
+      method: init?.method,
+      headers: init?.headers as Record<string, string> | undefined,
+    });
     return jsonResponse({ ok: true });
   }) as typeof fetch;
   try {
@@ -1239,6 +1247,16 @@ void test("fetchRequiredJson defaults the HTTP method per the documented contrac
       {},
       { method: "POST", body: "{}" },
     );
+    // Custom headers may arrive in ANY HeadersInit form; a Headers
+    // instance must merge over the base set (review).
+    await sourceSyncInternals.fetchRequiredJson(
+      "https://example.com/json-headers",
+      ["https://example.com"],
+      {},
+      {
+        headers: new Headers({ "x-custom": "v1", Accept: "application/json" }),
+      },
+    );
 
     assert.equal(
       seen[0]?.method,
@@ -1248,12 +1266,27 @@ void test("fetchRequiredJson defaults the HTTP method per the documented contrac
     assert.equal(
       seen[1]?.method,
       "GET",
-      "no body and no method must default to GET",
+      "no body and no method flows as an undefined method that the transport resolves to GET",
     );
     assert.equal(
       seen[2]?.method,
       "POST",
       "an explicit method must be preserved",
+    );
+    assert.equal(
+      seen[3]?.headers?.["x-custom"],
+      "v1",
+      "a Headers-instance custom header must be forwarded",
+    );
+    assert.equal(
+      seen[3]?.headers?.["user-agent"],
+      "agent-harness",
+      "the base source-sync headers must survive the merge (lowercased by Headers normalization)",
+    );
+    assert.equal(
+      seen[3]?.headers?.["accept"],
+      "application/json",
+      "a custom header must override the base set value",
     );
   } finally {
     globalThis.fetch = originalFetch;

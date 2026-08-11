@@ -6,85 +6,21 @@
  */
 
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { rm } from "node:fs/promises";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
 
 import { CliUsageError, printCliUsageError } from "../cli-help-format.js";
-import { builtCliPath, repositoryRoot } from "./built-cli-harness.js";
+import {
+  type BuiltCliRunResult,
+  runCliExpectFailure,
+  runCliExpectSuccess,
+} from "./built-cli-harness.js";
 import { cliInternals } from "../cli.js";
 import { getOptionValue } from "../lib/cli-options.js";
 import { parseSessionIntent } from "../lib/session-intent.js";
-
-const execFileAsync = promisify(execFile);
-
-interface CliFailure {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-/**
- * Runs the built CLI expecting a non-zero exit and returns exit code plus
- * captured output.
- */
-async function runCliExpectFailure(args: string[]): Promise<CliFailure> {
-  try {
-    await execFileAsync(
-      process.execPath,
-      [builtCliPath, "--no-dotenv", ...args],
-      {
-        cwd: repositoryRoot,
-        env: {
-          ...process.env,
-          NODE_V8_COVERAGE: undefined,
-          AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
-        },
-        timeout: 60_000,
-        windowsHide: true,
-        encoding: "utf8",
-      },
-    );
-    assert.fail(`expected non-zero exit for args: ${args.join(" ")}`);
-  } catch (error) {
-    const failure = error as {
-      code?: number;
-      stdout?: string;
-      stderr?: string;
-    };
-    assert.ok(
-      typeof failure.code === "number" && failure.code !== 0,
-      `args ${args.join(" ")} must exit non-zero`,
-    );
-    return {
-      exitCode: failure.code ?? 1,
-      stdout: String(failure.stdout ?? ""),
-      stderr: String(failure.stderr ?? ""),
-    };
-  }
-}
-
-async function runCliExpectSuccess(args: string[]): Promise<string> {
-  const result = await execFileAsync(
-    process.execPath,
-    [builtCliPath, "--no-dotenv", ...args],
-    {
-      cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        NODE_V8_COVERAGE: undefined,
-        AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
-      },
-      timeout: 60_000,
-      windowsHide: true,
-      encoding: "utf8",
-    },
-  );
-  return String(result.stdout);
-}
 
 /**
  * Asserts the stderr of a user-input failure is a clean one-liner: no
@@ -92,7 +28,7 @@ async function runCliExpectSuccess(args: string[]): Promise<string> {
  * usage pointer.
  */
 function assertStackFreeStderr(
-  result: CliFailure,
+  result: BuiltCliRunResult,
   messagePattern: RegExp,
   context: string,
 ): void {
@@ -117,8 +53,9 @@ function assertStackFreeStderr(
 
 // ─── ticket repros (spawned, built CLI) ─────────────────────────────────────
 
-void test("activate host with an invalid host prints a clean error (#446)", async () => {
+void test("activate host with an invalid host prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "activate",
     "host",
@@ -134,8 +71,9 @@ void test("activate host with an invalid host prints a clean error (#446)", asyn
   );
 });
 
-void test("recommend report with an invalid intent prints a clean error (#446)", async () => {
+void test("recommend report with an invalid intent prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "recommend",
     "report",
@@ -151,8 +89,9 @@ void test("recommend report with an invalid intent prints a clean error (#446)",
   );
 });
 
-void test("discover diff without --baseline prints a clean error (#446)", async () => {
+void test("discover diff without --baseline prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "discover",
     "diff",
@@ -166,8 +105,9 @@ void test("discover diff without --baseline prints a clean error (#446)", async 
   );
 });
 
-void test("mirror explain without --asset/--mirror prints a clean error (#446)", async () => {
+void test("mirror explain without --asset/--mirror prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "mirror",
     "explain",
@@ -181,8 +121,9 @@ void test("mirror explain without --asset/--mirror prints a clean error (#446)",
   );
 });
 
-void test("quarantine approve with a missing artifact prints a clean error (#446)", async () => {
+void test("quarantine approve with a missing artifact prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "quarantine",
     "approve",
@@ -198,8 +139,9 @@ void test("quarantine approve with a missing artifact prints a clean error (#446
   );
 });
 
-void test("install generations pin without --generation prints a clean error (#446)", async () => {
+void test("install generations pin without --generation prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "install",
     "generations",
@@ -216,8 +158,9 @@ void test("install generations pin without --generation prints a clean error (#4
   );
 });
 
-void test("install native with an invalid operation prints a clean error (#446)", async () => {
+void test("install native with an invalid operation prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "install",
     "native",
@@ -235,8 +178,9 @@ void test("install native with an invalid operation prints a clean error (#446)"
   );
 });
 
-void test("recommend policy:print with an invalid host prints a clean error (#446)", async () => {
+void test("recommend policy:print with an invalid host prints a clean error (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "recommend",
     "policy:print",
@@ -252,8 +196,9 @@ void test("recommend policy:print with an invalid host prints a clean error (#44
   );
 });
 
-void test("setup login with an unknown provider exits non-zero (#446)", async () => {
+void test("setup login with an unknown provider exits non-zero (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const result = await runCliExpectFailure([
     "setup",
     "login",
@@ -271,8 +216,9 @@ void test("setup login with an unknown provider exits non-zero (#446)", async ()
   assert.notEqual(result.exitCode, 0);
 });
 
-void test("setup login with a valid provider still exits 0 (#446)", async () => {
+void test("setup login with a valid provider still exits 0 (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const stdout = await runCliExpectSuccess([
     "setup",
     "login",
@@ -333,8 +279,9 @@ void test("shared option/intent validators throw CliUsageError (#446)", () => {
 
 // ─── in-process main() path (#446) ──────────────────────────────────────────
 
-void test("main() maps user-input errors to a clean one-line exit without stacks (#446)", async () => {
+void test("main() maps user-input errors to a clean one-line exit without stacks (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const stateRoot = join(tempRoot, "state");
   const originalArgv = process.argv;
   const stderr: string[] = [];
@@ -375,15 +322,17 @@ void test("main() maps user-input errors to a clean one-line exit without stacks
   }
 });
 
-void test("main() rethrows internal (non-user-input) errors for stackful top-level handling (#446)", async () => {
+void test("main() rethrows internal (non-user-input) errors for stackful top-level handling (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
   const stateRoot = join(tempRoot, "state");
   const originalArgv = process.argv;
   try {
     // `mirror bundle-explain <missing>` hits readJsonFile on an absent
     // lock file — an internal failure, not a user-input validation error.
-    // main() must propagate it (reject) rather than swallow it as a
-    // CliUsageError, so the outer catch keeps full stack context.
+    // main() must propagate the ORIGINAL internal error (reject) rather
+    // than swallow it as a CliUsageError, so the outer catch keeps full
+    // stack context (#446, review: assert the identity, not just the class).
     process.argv = [
       process.execPath,
       "dist/cli.js",
@@ -396,8 +345,11 @@ void test("main() rethrows internal (non-user-input) errors for stackful top-lev
     ];
     await assert.rejects(
       cliInternals.main(),
-      (error: unknown) => !(error instanceof CliUsageError),
-      "internal errors must propagate unchanged",
+      (error: unknown) =>
+        !(error instanceof CliUsageError) &&
+        error instanceof Error &&
+        (error as NodeJS.ErrnoException).code === "ENOENT",
+      "internal errors must propagate as the original filesystem error (ENOENT on the absent lock file)",
     );
   } finally {
     process.argv = originalArgv;

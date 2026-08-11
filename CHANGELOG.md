@@ -87,7 +87,7 @@ All notable changes to this project will be documented in this file.
 
 ### Breaking Changes
 
-- **Unknown options are now rejected** — `recommend`, `mirror`, `install`, `activate`, `quarantine`, and `rebuild` subcommands previously ignored unknown flags silently; they now print a clean one-line error and exit 1. Scripts passing undocumented flags will start failing (#445)
+- **Unknown options are now rejected** — `recommend`, `mirror`, `install`, `activate`, `quarantine`, `rebuild`, and `discover inspect` subcommands previously ignored unknown flags silently; they now print a clean one-line error and exit 1. Scripts passing undocumented flags will start failing (#445)
 - **User-input failures exit non-zero with a clean message** — CLI user-input errors print `error: <msg>` (plus a usage hint where one exists) and exit 1 instead of dumping raw stack traces; `setup login` with an unknown provider now exits non-zero instead of 0 (#446)
 - **ARD export drops `updatedAt` for epoch-sentinel catalog entries** — entries whose `updatedAt` was the epoch sentinel (1970-01-01) no longer emit the field; consumers must treat a missing `updatedAt` as unknown rather than parsing it as the epoch (#449)
 - **Recommendation ranking and `fit:exact-stack` gating tightened** — evidence strength now describes the asset side only (workspace-side signals are no longer attributed to assets), and `fit:exact-stack` requires ecosystem affinity plus declared-dependency identity, so single-token collisions no longer push unrelated assets to the top of exact-stack results (#444)

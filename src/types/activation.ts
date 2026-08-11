@@ -107,6 +107,13 @@ export interface WirePlanManifest {
   nativeConfigOperations?: NativeConfigOperation[];
   textFileSnapshots?: ManagedTextFileSnapshot[];
   /**
+   * Entries THIS apply added to `.opencode/.gitignore` (a subset of the
+   * required overlay entries that were missing at apply time). Re-apply
+   * strips exactly these — never a user's pre-existing required entry —
+   * so reset restores the user's file faithfully (review).
+   */
+  gitignoreOwnedEntries?: string[];
+  /**
    * Documents the npm install step that OpenCode runs inside its overlay
    * directory (.opencode/) to load plugins. This is performed by OpenCode
    * itself (not by wire --apply), but is recorded here so users and tooling

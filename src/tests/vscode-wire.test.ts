@@ -1350,6 +1350,60 @@ void test("VS Code wire reset removes an adapter-created settings.json (#447)", 
   );
 });
 
+void test("VS Code wire re-apply preserves the null origin so reset removes the adapter-created settings.json (review)", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-reapply-"));
+  const previousEnv = rememberEnv([
+    "HOME",
+    "USERPROFILE",
+    "APPDATA",
+    "XDG_CONFIG_HOME",
+  ]);
+  process.env.HOME = root;
+  process.env.USERPROFILE = root;
+  process.env.APPDATA = root;
+  process.env.XDG_CONFIG_HOME = root;
+  clearRuntimeConfigForTests();
+
+  context.after(async () => {
+    restoreEnv(previousEnv);
+    clearRuntimeConfigForTests();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  const projectRoot = join(root, "project");
+  const workspaceRoot = join(root, "workspace");
+  const settingsPath = resolveVsCodeUserSettingsPath();
+  assert.equal(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "fixture starts without settings.json",
+  );
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "apply" });
+  assert.notEqual(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "apply must create settings.json with managed keys",
+  );
+
+  // Re-apply: the settings file written by the first apply is present, but
+  // the wire plan must keep the ORIGINAL null snapshot (review) so a later
+  // reset still treats the file as adapter-created.
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "apply" });
+  assert.notEqual(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "re-apply keeps the managed settings file in place",
+  );
+
+  await wireVsCode({ projectRoot, workspaceRoot, mode: "reset" });
+  assert.equal(
+    await readTextFileOrNull(settingsPath),
+    null,
+    "reset after re-apply must remove the adapter-created settings.json",
+  );
+});
+
 void test("VS Code wire reset preserves user settings added after apply (#447)", async (context) => {
   const root = await mkdtemp(join(tmpdir(), "agent-harness-vscode-447-user-"));
   const previousEnv = rememberEnv([

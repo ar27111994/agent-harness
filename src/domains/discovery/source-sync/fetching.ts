@@ -195,11 +195,11 @@ export async function fetchRequiredText(
  * serialized body, and headers merged over the standard source-sync headers.
  */
 export interface SourceSyncJsonRequest {
-  /** HTTP method; defaults to GET (or POST when a body is present). */
+  /** HTTP method; left undefined when no body is present, defaults to POST when a body is provided. */
   method?: "GET" | "POST";
   /** Serialized request body (e.g. a JSON search payload). */
   body?: string;
-  /** Extra headers merged over the standard source-sync headers. */
+  /** Extra headers merged over the standard source-sync headers (any HeadersInit form). */
   headers?: HeadersInit;
 }
 
@@ -214,21 +214,27 @@ export async function fetchRequiredJson(
   options: SourceSyncFetchOptions = {},
   request: SourceSyncJsonRequest = {},
 ): Promise<unknown> {
+  // Normalize custom headers through the Headers API so Headers objects,
+  // pair arrays, and records merge uniformly over the base set (review).
+  const headers = new Headers(SOURCE_SYNC_HEADERS);
+  for (const [name, value] of new Headers(request.headers ?? {})) {
+    headers.set(name, value);
+  }
   return fetchWithRetry(
     url,
     async () =>
       requireNonNull(
         await fetchJsonWithGuards(url, {
           allowedOrigins,
-          headers: { ...SOURCE_SYNC_HEADERS, ...request.headers },
+          headers,
           maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
           timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
-          // Documented contract implemented: a body without an explicit
-          // method defaults to POST; no body defaults to GET. Leaving the
-          // method undefined here would make fetch throw a TypeError for a
-          // body-bearing request (Fetch spec forbids GET/HEAD with a body).
+          // A body without an explicit method must default to POST (the
+          // Fetch spec forbids GET/HEAD with a body — including an empty
+          // string body); without a body the method stays undefined so
+          // fetch applies its natural GET default (review).
           method:
-            request.method ?? (request.body === undefined ? "GET" : "POST"),
+            request.method ?? (request.body !== undefined ? "POST" : undefined),
           body: request.body,
         }),
         url,

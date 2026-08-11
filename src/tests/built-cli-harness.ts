@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -104,6 +105,86 @@ export async function runBuiltCli(options: {
     stdout: String(result.stdout),
     stderr: String(result.stderr),
   };
+}
+
+/**
+ * Runs the built CLI expecting a non-zero exit and returns exit code plus
+ * captured output. execFile rejects on non-zero exits, so the rejection is
+ * converted into a structured result.
+ */
+export async function runCliExpectFailure(
+  args: string[],
+  options: { cwd?: string } = {},
+): Promise<BuiltCliRunResult> {
+  const cwd = options.cwd ?? repositoryRoot;
+  try {
+    await execFileAsync(
+      process.execPath,
+      [builtCliPath, "--no-dotenv", ...args],
+      {
+        cwd,
+        env: {
+          ...process.env,
+          NODE_V8_COVERAGE: undefined,
+          AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
+        },
+        timeout: 60_000,
+        windowsHide: true,
+        encoding: "utf8",
+      },
+    );
+    assert.fail(`expected non-zero exit for args: ${args.join(" ")}`);
+  } catch (error) {
+    const failure = error as {
+      code?: number;
+      stdout?: string;
+      stderr?: string;
+    };
+    assert.ok(
+      typeof failure.code === "number" && failure.code !== 0,
+      `args ${args.join(" ")} must exit non-zero`,
+    );
+    return {
+      exitCode: failure.code ?? 1,
+      stdout: String(failure.stdout ?? ""),
+      stderr: String(failure.stderr ?? ""),
+    };
+  }
+}
+
+/**
+ * Runs the built CLI expecting a zero exit and returns stdout.
+ */
+export async function runCliExpectSuccess(
+  args: string[],
+  options: { cwd?: string } = {},
+): Promise<string> {
+  const cwd = options.cwd ?? repositoryRoot;
+  const result = await execFileAsync(
+    process.execPath,
+    [builtCliPath, "--no-dotenv", ...args],
+    {
+      cwd,
+      env: {
+        ...process.env,
+        NODE_V8_COVERAGE: undefined,
+        AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
+      },
+      timeout: 60_000,
+      windowsHide: true,
+      encoding: "utf8",
+    },
+  );
+  return String(result.stdout);
+}
+
+/**
+ * Describes a structured built-CLI failure result.
+ */
+export interface BuiltCliRunResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
 }
 
 function resolveVsCodeSettingsDirectory(

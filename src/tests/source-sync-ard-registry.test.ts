@@ -239,6 +239,11 @@ void test("ard registry sync honors the per-run page cap and resumes the cursor"
       },
     );
 
+    // The cached runtime config was built while AGENT_HARNESS_SOURCE_SYNC_MAX_
+    // PAGES_PER_RUN was "1"; clear it AFTER withEnv restores the previous
+    // value so later tests re-resolve the default (review).
+    clearRuntimeConfigForTests();
+
     assert.deepEqual(
       calls.map((call) => call.pageToken),
       [undefined, "page-2"],
@@ -246,6 +251,7 @@ void test("ard registry sync honors the per-run page cap and resumes the cursor"
     );
   } finally {
     cleanupFetch();
+    clearRuntimeConfigForTests();
     await rm(projectRoot, { force: true, recursive: true });
   }
 });

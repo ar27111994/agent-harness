@@ -381,6 +381,73 @@ void test("OpenCode re-apply preserves user edits made between applies (review)"
   }
 });
 
+void test("OpenCode re-apply keeps a user's pre-existing required gitignore entry (review)", async () => {
+  const fixture = await createOpenCodeFixture();
+
+  try {
+    await writeOpenCodeActivationFixture(
+      fixture.projectRoot,
+      fixture.workspaceRoot,
+      fixture.assets,
+    );
+    // The user's OWN gitignore already contains node_modules (one of the
+    // harness's required overlay entries) before the first apply. The
+    // wire plan must record only the entries the harness ADDS, so re-apply
+    // strips exactly those and reset restores the user's line.
+    await writeTextFile(
+      join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      "dist\nnode_modules\n",
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+    const applied =
+      (await readTextFileOrNull(
+        join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      )) ?? "";
+    assert.ok(
+      applied.includes("package-lock.json"),
+      "apply adds the missing required entries",
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "apply",
+    });
+    const reapplied =
+      (await readTextFileOrNull(
+        join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      )) ?? "";
+    assert.ok(
+      reapplied.includes("node_modules"),
+      "re-apply must keep the user's pre-existing node_modules line",
+    );
+    assert.ok(
+      reapplied.startsWith("dist\n"),
+      "re-apply keeps the user baseline intact",
+    );
+
+    await wireOpenCode({
+      projectRoot: fixture.projectRoot,
+      workspaceRoot: fixture.workspaceRoot,
+      mode: "reset",
+    });
+    assert.equal(
+      await readTextFileOrNull(
+        join(fixture.workspaceRoot, ".opencode", ".gitignore"),
+      ),
+      "dist\nnode_modules\n",
+      "reset restores the user's file including their own node_modules line",
+    );
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 void test("OpenCode wire reset on a workspace that was never applied is a clean no-op (G4)", async () => {
   const fixture = await createOpenCodeFixture();
 

@@ -6,87 +6,16 @@
  */
 
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
-import { mkdtemp, readdir } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { promisify } from "node:util";
 
-import { builtCliPath, repositoryRoot } from "./built-cli-harness.js";
+import {
+  runCliExpectFailure,
+  runCliExpectSuccess,
+} from "./built-cli-harness.js";
 import { setupInternals } from "../setup.js";
-
-const execFileAsync = promisify(execFile);
-
-interface CliFailure {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-}
-
-/**
- * Runs the built CLI expecting a non-zero exit and returns exit code plus
- * captured output. execFile rejects on non-zero exits, so the rejection is
- * converted into a structured result.
- */
-async function runCliExpectFailure(
-  args: string[],
-  options: { cwd?: string } = {},
-): Promise<CliFailure> {
-  const cwd = options.cwd ?? repositoryRoot;
-  try {
-    await execFileAsync(
-      process.execPath,
-      [builtCliPath, "--no-dotenv", ...args],
-      {
-        cwd,
-        env: {
-          ...process.env,
-          NODE_V8_COVERAGE: undefined,
-          AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
-        },
-        timeout: 60_000,
-        windowsHide: true,
-        encoding: "utf8",
-      },
-    );
-    assert.fail(`expected non-zero exit for args: ${args.join(" ")}`);
-  } catch (error) {
-    const failure = error as {
-      code?: number;
-      stdout?: string;
-      stderr?: string;
-    };
-    assert.ok(
-      typeof failure.code === "number" && failure.code !== 0,
-      `args ${args.join(" ")} must exit non-zero`,
-    );
-    return {
-      exitCode: failure.code ?? 1,
-      stdout: String(failure.stdout ?? ""),
-      stderr: String(failure.stderr ?? ""),
-    };
-  }
-}
-
-async function runCliExpectSuccess(args: string[]): Promise<string> {
-  const result = await execFileAsync(
-    process.execPath,
-    [builtCliPath, "--no-dotenv", ...args],
-    {
-      cwd: repositoryRoot,
-      env: {
-        ...process.env,
-        NODE_V8_COVERAGE: undefined,
-        AGENT_HARNESS_TEST_FETCH_MOCKS: "1",
-      },
-      timeout: 60_000,
-      windowsHide: true,
-      encoding: "utf8",
-    },
-  );
-  return String(result.stdout);
-}
 
 void test("unknown top-level option prints an error, no help dump, exit 1 (#431)", async () => {
   const result = await runCliExpectFailure(["--invalid-flag"]);
@@ -286,9 +215,16 @@ const UNKNOWN_FLAG_SWEEP: UnknownFlagCase[] = [
   { domain: "discover", subcommand: "ard-export", flag: "--bogus" },
 ];
 
-void test("every domain subcommand rejects unknown flags, exits non-zero, and does not run (#445)", async () => {
+void test("every domain subcommand rejects unknown flags, exits non-zero, and does not run (#445)", async (context) => {
+  const tempRoots: string[] = [];
+  context.after(() =>
+    Promise.all(
+      tempRoots.map((root) => rm(root, { recursive: true, force: true })),
+    ),
+  );
   for (const entry of UNKNOWN_FLAG_SWEEP) {
     const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-flag-sweep-"));
+    tempRoots.push(tempRoot);
     const args = [
       entry.domain,
       entry.subcommand,
@@ -303,7 +239,7 @@ void test("every domain subcommand rejects unknown flags, exits non-zero, and do
 
     assert.match(
       result.stderr,
-      new RegExp(`unknown option '${entry.flag}'`, "u"),
+      new RegExp(`unknown option '${escapeRegExp(entry.flag)}'`, "u"),
       `${entry.domain} ${entry.subcommand} ${entry.flag} must name the unknown option`,
     );
     assert.equal(
@@ -321,10 +257,17 @@ void test("every domain subcommand rejects unknown flags, exits non-zero, and do
   }
 });
 
-void test("unknown-flag rejection happens before any state mutation, in-process (#445)", async () => {
+void test("unknown-flag rejection happens before any state mutation, in-process (#445)", async (context) => {
   const { cliInternals } = await import("../cli.js");
+  const tempRoots: string[] = [];
+  context.after(() =>
+    Promise.all(
+      tempRoots.map((root) => rm(root, { recursive: true, force: true })),
+    ),
+  );
   for (const entry of UNKNOWN_FLAG_SWEEP) {
     const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-flag-sweep-"));
+    tempRoots.push(tempRoot);
     const exitCode = await cliInternals.runDomainCommand(
       entry.domain,
       [entry.subcommand, entry.flag],
@@ -360,6 +303,14 @@ void test("--help still short-circuits before unknown-flag validation on every s
     assert.ok(
       help.length > 0,
       `${args.join(" ")} --help must print help and exit 0`,
+    );
+    // Assert each command's OWN help content is present, not just that
+    // stdout is non-empty (review): a wrong help short-circuit would still
+    // print something.
+    assert.match(
+      help,
+      new RegExp(escapeRegExp(`${args[0]} ${args[1]}`), "u"),
+      `${args.join(" ")} --help must print ${args[0]} ${args[1]} help content`,
     );
   }
   // help also wins when an unknown flag accompanies it.

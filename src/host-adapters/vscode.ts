@@ -161,10 +161,20 @@ export async function wireVsCode(options: {
 
   // Snapshot the user settings file before any managed keys are patched so
   // reset can distinguish an adapter-created settings.json (removed) from a
-  // pre-existing one (stripped of managed keys) (#447).
-  const settingsTextFileSnapshots = await captureManagedTextFileSnapshots([
+  // pre-existing one (stripped of managed keys) (#447). On re-apply the
+  // settings file written by the PREVIOUS apply is still present, so
+  // re-capturing would record the managed keys (or the file's existence)
+  // as the pre-apply state; preserve the ORIGINAL snapshot instead (null
+  // origin stays null, user origin keeps its pre-first-apply content),
+  // review.
+  const previousSettingsSnapshot = await readVsCodeSettingsSnapshot(
+    curatedRoot,
     vscodeUserSettingsPath,
-  ]);
+  );
+  const settingsTextFileSnapshots =
+    previousSettingsSnapshot === undefined
+      ? await captureManagedTextFileSnapshots([vscodeUserSettingsPath])
+      : [previousSettingsSnapshot];
 
   await writeJsonFile(
     join(generationRoot, "wire-plan.json"),
