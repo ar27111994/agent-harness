@@ -12,6 +12,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
+import { pathExists } from "../files.js";
+
 const execFileAsync = promisify(execFile);
 
 const CLI = join(import.meta.dirname, "..", "..", "dist", "cli.js");
@@ -125,33 +127,66 @@ void test("wire cursor --apply and --reset round-trip", async () => {
   );
 
   try {
-    // Apply and reset should complete without unhandled exceptions.
-    // With empty bundles, both may return non-zero — that's expected.
-    // The important thing is they don't throw or crash.
-    const applyResult = await runCli([
-      "--state-root",
-      projectRoot,
-      "wire",
-      "cursor",
-      "--apply",
-    ]);
-    const resetResult = await runCli([
-      "--state-root",
-      projectRoot,
-      "wire",
-      "cursor",
-      "--reset",
-    ]);
+    // Apply and reset with empty bundles: the commands may return non-zero
+    // ("no actionable assets"), but the round-trip must (review):
+    // - never crash with an internal stack (no file:// frames),
+    // - be re-runnable in sequence (apply → reset → apply → reset),
+    // - leave no managed cursor files behind after the final reset.
+    const applyResult = await runCli(
+      ["--state-root", projectRoot, "wire", "cursor", "--apply"],
+      { cwd: projectRoot },
+    );
+    const resetResult = await runCli(
+      ["--state-root", projectRoot, "wire", "cursor", "--reset"],
+      { cwd: projectRoot },
+    );
+    const applyAgain = await runCli(
+      ["--state-root", projectRoot, "wire", "cursor", "--apply"],
+      { cwd: projectRoot },
+    );
+    const resetAgain = await runCli(
+      ["--state-root", projectRoot, "wire", "cursor", "--reset"],
+      { cwd: projectRoot },
+    );
 
-    // Both commands should return an exit code (not crash).
-    assert.ok(
-      typeof applyResult.exitCode === "number",
-      "wire apply should return an exit code",
-    );
-    assert.ok(
-      typeof resetResult.exitCode === "number",
-      "wire reset should return an exit code",
-    );
+    for (const [step, result] of [
+      ["wire apply", applyResult],
+      ["wire reset", resetResult],
+      ["wire re-apply", applyAgain],
+      ["wire re-reset", resetAgain],
+    ] as const) {
+      assert.ok(
+        typeof result.exitCode === "number",
+        `${step} should return an exit code`,
+      );
+      assert.ok(
+        result.exitCode === 0 || result.exitCode === 1,
+        `${step} exit code must be 0 (clean) or 1 (user-level outcome), got ${result.exitCode}`,
+      );
+      assert.doesNotMatch(
+        result.stderr,
+        /\bfile:\/\//u,
+        `${step} must not print internal stack frames`,
+      );
+      assert.doesNotMatch(
+        result.stderr,
+        /^\s*at /mu,
+        `${step} must not print stack frame lines`,
+      );
+    }
+
+    // After the final reset, no adapter-created managed cursor files remain
+    // in the workspace (wire writes the project-local overlay in the cwd).
+    for (const managedPath of [
+      join(projectRoot, ".cursor", "rules"),
+      join(projectRoot, ".cursor", "mcp.json"),
+    ]) {
+      assert.equal(
+        await pathExists(managedPath),
+        false,
+        `reset must remove adapter-created ${managedPath}`,
+      );
+    }
   } finally {
     await rm(projectRoot, { recursive: true, force: true });
   }

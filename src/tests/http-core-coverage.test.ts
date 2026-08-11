@@ -370,3 +370,65 @@ function restoreEnv(name: string, value: string | undefined): void {
 
   process.env[name] = value;
 }
+
+// ─── review: JSON-injection semantics on fetched feeds ─────────────────────
+
+async function withFetchMock(
+  body: string,
+  run: () => Promise<void>,
+): Promise<void> {
+  const originalFetch = globalThis.fetch;
+  const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  globalThis.fetch = async () => new Response(body, { status: 200 });
+  try {
+    await run();
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+    }
+  }
+}
+
+void test("fetchJsonWithGuards strips a UTF-8 BOM before parsing (review)", async () => {
+  await withFetchMock(
+    `\uFEFF${JSON.stringify({ payload: "bom-survivor" })}`,
+    async () => {
+      const result = await fetchJsonWithGuards("https://example.com/bom", {
+        allowedOrigins: ["https://example.com"],
+      });
+      assert.deepEqual(result, { payload: "bom-survivor" });
+    },
+  );
+});
+
+void test("fetchJsonWithGuards keeps duplicate-key last-wins semantics pinned (review)", async () => {
+  await withFetchMock('{"dupe":1,"dupe":2}', async () => {
+    const result = await fetchJsonWithGuards("https://example.com/dupe", {
+      allowedOrigins: ["https://example.com"],
+    });
+    assert.deepEqual(result, { dupe: 2 }, "JSON.parse last-wins is deliberate");
+  });
+});
+
+void test("fetchJsonWithGuards keeps __proto__-key feeds as safe own data (review)", async () => {
+  await withFetchMock('{"__proto__":{"polluted":true},"ok":1}', async () => {
+    const result = (await fetchJsonWithGuards("https://example.com/proto", {
+      allowedOrigins: ["https://example.com"],
+    })) as Record<string, unknown>;
+    assert.equal(result.ok, 1);
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(result, "__proto__"),
+      true,
+      "the key arrives as a plain own property, never touching the prototype",
+    );
+    assert.equal(
+      ({} as Record<string, unknown>).polluted,
+      undefined,
+      "no prototype pollution",
+    );
+  });
+});

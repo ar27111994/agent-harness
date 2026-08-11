@@ -50,6 +50,25 @@ assert.ok(
 );
 assert.ok(averageRecall >= 0.8, `recall ${averageRecall} below budget`);
 
+// Review: per-fixture floors so one weak archetype cannot hide behind the
+// averages — every fixture must detect at least half of its expected
+// concerns (recall >= 0.5) and stay precise (precision >= 0.5), and every
+// fixture must be inspected at all.
+for (const result of results) {
+  assert.ok(
+    result.inspected,
+    `fixture "${result.archetype}" (${result.concerns}) must be inspectable`,
+  );
+  assert.ok(
+    result.precision >= 0.5,
+    `fixture "${result.archetype}" precision ${result.precision} below per-fixture floor`,
+  );
+  assert.ok(
+    result.recall >= 0.5,
+    `fixture "${result.archetype}" recall ${result.recall} below per-fixture floor`,
+  );
+}
+
 console.log(
   JSON.stringify(
     {

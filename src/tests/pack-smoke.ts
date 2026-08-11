@@ -1,9 +1,19 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+
+// Single source of truth (package-audit doctrine): the packed-tarball entry
+// list lives in scripts/package-audit.mjs; require(esm) (Node >= 22.12) is
+// the typed, suppression-free way for a TS test to consume it.
+const require = createRequire(import.meta.url);
+const { REQUIRED_PACKED_FILES } =
+  require("../../scripts/package-audit.mjs") as {
+    REQUIRED_PACKED_FILES: readonly string[];
+  };
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = dirname(
@@ -46,6 +56,30 @@ try {
     timeout: 120_000,
     windowsHide: true,
   });
+
+  // Review: inspect the tarball CONTENTS, not just installability — a files
+  // whitelist drift (e.g. a dropped discover/seeds or docs file) would pass
+  // `setup hosts` but break consumers. `tar -tf` lists entries verbatim and
+  // ships on all three CI platforms. The basename + cwd form avoids MSYS GNU
+  // tar misreading a `C:\...` argument as a remote host.
+  const tarList = await execFileAsync("tar", ["-tf", packedFileName], {
+    cwd: repositoryRoot,
+    maxBuffer: 10_000_000,
+    timeout: 60_000,
+    windowsHide: true,
+  });
+  const tarLines = tarList.stdout.split(/\r?\n/u);
+  // One source of truth (package-audit doctrine): the tarball must contain
+  // every entry the release audit pins, verbatim, prefixed by the npm
+  // `package/` root.
+  for (const entry of REQUIRED_PACKED_FILES) {
+    if (!tarLines.includes(`package/${entry}`)) {
+      throw new Error(`packed tarball missing required entry: ${entry}`);
+    }
+  }
+  if (tarLines.some((line) => line.includes("node_modules"))) {
+    throw new Error("packed tarball must not contain node_modules entries");
+  }
 
   const installedCli = join(
     workspaceRoot,

@@ -168,6 +168,11 @@ export async function fetchBytesWithGuards(
 
 /**
  * Fetches JSON with the same URL and response-size guards as text fetches.
+ *
+ * A UTF-8 BOM (common on Windows-authored files) is stripped before parsing:
+ * a BOM'd feed would otherwise fail `JSON.parse` and silently sync nothing
+ * (review). Duplicate keys keep JSON.parse's standard last-wins semantics —
+ * pinned by tests so the behavior stays deliberate.
  */
 export async function fetchJsonWithGuards(
   url: string,
@@ -178,8 +183,9 @@ export async function fetchJsonWithGuards(
     return null;
   }
 
+  const withoutBom = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   try {
-    return JSON.parse(text) as unknown;
+    return JSON.parse(withoutBom) as unknown;
   } catch {
     return null;
   }

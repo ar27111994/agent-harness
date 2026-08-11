@@ -24,7 +24,15 @@ import type { InstallProgressState } from "../types/install.js";
 import type { MirrorAcquireState, MirrorIndexEntry } from "../types/mirror.js";
 
 const packageRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const hosts = ["vscode", "opencode", "cursor", "zed", "claude-code", "pi"];
+const hosts = [
+  "vscode",
+  "opencode",
+  "cursor",
+  "zed",
+  "claude-code",
+  "pi",
+  "codex",
+];
 
 const tempRoot = await mkdtemp(
   join(tmpdir(), "agent-harness-workspace-smoke-"),
