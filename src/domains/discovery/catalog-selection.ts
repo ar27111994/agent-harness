@@ -143,9 +143,12 @@ function selectRelevantEntries(
     // violation — fail loudly with context instead of asserting via `!`.
     const entryTerms = catalogTermData.entryTermsByEntry.get(entry);
     if (entryTerms === undefined) {
+      // Internal invariant violation with readable context (review: the
+      // documented chained-error shape is { cause: error } for REAL
+      // underlying failures; here there is none, so the context belongs in
+      // the message, not in a string-valued cause).
       throw new Error(
-        `catalog term index missing entry during demand relevance filtering: ${entry.id}`,
-        { cause: "entryTermsByEntry was built from a different entry set" },
+        `catalog term index missing entry during demand relevance filtering: ${entry.id} (entryTermsByEntry was built from a different entry set)`,
       );
     }
     if (isEntryRelevantToDemand(entry, entryTerms, demandTerms)) {
@@ -448,10 +451,10 @@ function addDemandSignal(
         lowSignalTerms.add(keyword);
       } else {
         exactHighSignalTerms.add(keyword);
-        stackAnchorTerms?.add(keyword);
         // Package-manifest entries are tooling-only, and tooling signals
-        // never feed primary stack anchors — primary anchors would always
-        // be undefined here, so the call would be dead code.
+        // never feed primary stack anchors — the stackAnchorTerms call was
+        // dead here (package manifests never reach the non-tooling branch
+        // below), so it is removed rather than left as speculative code.
       }
     }
     return;
