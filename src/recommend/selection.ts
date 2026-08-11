@@ -133,6 +133,9 @@ export function buildTopRecommendationsForHost(
       taskModes: candidate.taskModes,
       matchedSignals: candidate.matchedSignals,
       scoreBreakdown: candidate.breakdown,
+      ...(candidate.coincidentalMatchOnly
+        ? { coincidentalMatchOnly: true }
+        : {}),
     };
   });
 }

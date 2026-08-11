@@ -1056,7 +1056,7 @@ void test("native install internals cover default planning and adapters without 
       ),
     );
     assert.deepEqual(
-      await installNativeInternals.collectNativeInstallAssets(projectRoot, {
+      await installNativeInternals.collectNativeInstallAssetPlans(projectRoot, {
         id: "fixture-host",
         displayName: "Fixture Host",
         lifecycleHost: "copilot-vscode",

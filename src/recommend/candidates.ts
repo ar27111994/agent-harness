@@ -321,6 +321,27 @@ export function buildCandidateRecommendationBase(
   };
   breakdown.total = calculateBreakdownTotal(breakdown);
 
+  // #444 AC3 (review): a recommendation whose ONLY declared-package matches
+  // are tokens outside the asset's curated identity is a single-token
+  // coincidence (e.g. a marketplace theme whose description contains the
+  // workspace's `c8` dependency). Such assets earn no exact-stack/ecosystem
+  // credit and native install plans exclude them by default.
+  const coincidentalMatchOnly =
+    matchQuality.exactStackWeight === 0 &&
+    matchQuality.ecosystemWeight === 0 &&
+    matchedSignals.some((match) => {
+      const tokens = demandContext.packageIdentityByTerm.get(match.term);
+      return (
+        tokens !== undefined && !setsIntersect(assetRawIdentityTerms, tokens)
+      );
+    }) &&
+    !matchedSignals.some((match) => {
+      const tokens = demandContext.packageIdentityByTerm.get(match.term);
+      return (
+        tokens !== undefined && setsIntersect(assetRawIdentityTerms, tokens)
+      );
+    });
+
   return {
     entry,
     sourceFamily: deriveSourceFamily(entry),
@@ -341,6 +362,7 @@ export function buildCandidateRecommendationBase(
     ),
     searchTerms,
     breakdown,
+    coincidentalMatchOnly,
   };
 }
 
@@ -399,6 +421,7 @@ export function buildCandidateRecommendation(
     duplicateGroup: base.duplicateGroup,
     reasons: [...base.reasons],
     breakdown,
+    coincidentalMatchOnly: base.coincidentalMatchOnly,
   };
 }
 

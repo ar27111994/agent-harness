@@ -111,6 +111,7 @@ function createCandidateRecommendation(
     taskModes: [],
     matchedSignals: [],
     reasons: [],
+    coincidentalMatchOnly: false,
     breakdown: {
       authority: 0,
       compatibility: 0,

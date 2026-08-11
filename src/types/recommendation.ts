@@ -258,6 +258,14 @@ export interface RecommendationEntry {
   taskModes: string[];
   matchedSignals: RecommendationSignalMatch[];
   scoreBreakdown: RecommendationScoreBreakdown;
+  /**
+   * True when the asset matched the workspace ONLY through declared-package
+   * tokens that are absent from its curated identity (review, #444): a
+   * single-token coincidence (e.g. a marketplace theme whose description
+   * contains the workspace's `c8` dependency) rather than a real match.
+   * Native install plans exclude these by default with a visible note.
+   */
+  coincidentalMatchOnly?: boolean;
 }
 
 /**

@@ -4,6 +4,7 @@ import { CliUsageError } from "../cli-help-format.js";
 import {
   executeExtensionInstallAction,
   formatExtensionInstallActions,
+  resolveVsCodeExtensionId,
   type ExtensionInstallAction,
   type ExtensionInstallOperation,
   type NativeInstallResult,
@@ -25,12 +26,15 @@ import {
   runNativeInstallPreflight,
 } from "../lib/preflight.js";
 import { readJsonFileOrNull, writeJsonFile } from "../files.js";
-import { assertAssetCatalogEntry } from "../manifest-validation.js";
+import { assertAssetCatalogEntry, assertRecommendationReport } from "../manifest-validation.js";
 import type {
   ActivationManifest,
   AssetCatalogEntry,
   CopilotWorkspaceProfileManifest,
+  RecommendationEntry,
+  RecommendationReport,
 } from "../types.js";
+import { REPORT_FILE_PATH } from "../recommend/constants.js";
 import { NATIVE_INSTALL_STATE_OUTPUT_PATH } from "./paths.js";
 import { sanitizeAssetId } from "./utils.js";
 
@@ -75,7 +79,8 @@ export async function manageNativeInstall(
     );
   }
 
-  const assets = await collectNativeInstallAssets(projectRoot, adapter);
+  const plans = await collectNativeInstallAssetPlans(projectRoot, adapter);
+  const assets = plans.map((plan) => plan.asset);
   const actions = adapter.nativeInstall.collectActions(assets);
 
   if (actions.length === 0) {
@@ -91,18 +96,46 @@ export async function manageNativeInstall(
     return;
   }
 
+  // #444 AC3 (review): extensions whose ONLY recommendation match is a
+  // single-token coincidence (declared-package token absent from the curated
+  // identity) are excluded from the plan AND from apply/remove execution,
+  // with a visible note — the harness must not propose or install lookalikes
+  // (e.g. a theme whose marketplace description contains the workspace's `c8`
+  // dependency).
+  const planByExtensionId = new Map<string, NativeInstallAssetPlan>();
+  for (const plan of plans) {
+    planByExtensionId.set(plan.extensionId, plan);
+  }
+  const coincidentalExtensionIds = new Set(
+    plans
+      .filter((plan) => plan.recommendation?.coincidentalMatchOnly === true)
+      .map((plan) => plan.extensionId),
+  );
+  const includedActions = actions.filter(
+    (action) => !coincidentalExtensionIds.has(action.extensionId),
+  );
+  const excludedActions = actions.filter((action) =>
+    coincidentalExtensionIds.has(action.extensionId),
+  );
+
   if (operation === "plan") {
-    printNativeInstallPlan(adapter, actions);
+    printNativeInstallPlan(adapter, includedActions, planByExtensionId);
+    printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
     return;
   }
 
+  // Only MUTATING operations require --apply; verify is read-only and runs
+  // directly (original contract, review).
   if ((operation === "install" || operation === "remove") && !apply) {
+    printNativeInstallPlan(adapter, includedActions, planByExtensionId);
+    printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
     console.log(
       `Native ${operation} is mutating. Re-run with --apply to execute it.`,
     );
-    printNativeInstallPlan(adapter, actions);
     return;
   }
+
+  printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
 
   const diagnostics = await runNativeInstallPreflight(adapter);
   if (diagnostics.length > 0) {
@@ -111,7 +144,7 @@ export async function manageNativeInstall(
   assertNoPreflightErrors(diagnostics);
 
   const results: NativeInstallResult[] = [];
-  for (const action of actions) {
+  for (const action of includedActions) {
     const result = await executeExtensionInstallAction(action, operation);
     results.push(result);
     console.log(
@@ -129,10 +162,41 @@ export async function manageNativeInstall(
   }
 }
 
-async function collectNativeInstallAssets(
+/**
+ * One activation-manifest asset resolved for the native install plan, with
+ * its workspace recommendation (when available) and its host extension id.
+ */
+interface NativeInstallAssetPlan {
+  asset: AssetCatalogEntry;
+  recommendation?: RecommendationEntry;
+  extensionId: string;
+}
+
+/**
+ * Loads the per-host recommendations from the persisted report, keyed by
+ * catalog asset id. A missing or unreadable report yields an empty map —
+ * the plan then shows "no workspace recommendation" status lines instead of
+ * guessing a basis.
+ */
+async function loadRecommendationsByAssetId(
   projectRoot: string,
   adapter: HostAdapter,
-): Promise<AssetCatalogEntry[]> {
+): Promise<Map<string, RecommendationEntry>> {
+  const report = await readJsonFileOrNull<RecommendationReport>(
+    join(projectRoot, ...REPORT_FILE_PATH),
+    assertRecommendationReport,
+  );
+  const byAssetId = new Map<string, RecommendationEntry>();
+  for (const entry of report?.topByHost[adapter.lifecycleHost] ?? []) {
+    byAssetId.set(entry.assetId, entry);
+  }
+  return byAssetId;
+}
+
+async function collectNativeInstallAssetPlans(
+  projectRoot: string,
+  adapter: HostAdapter,
+): Promise<NativeInstallAssetPlan[]> {
   const nativeInstall = adapter.nativeInstall;
   if (!nativeInstall) {
     return [];
@@ -158,27 +222,91 @@ async function collectNativeInstallAssets(
     assetIds.add(assetId);
   }
 
-  const assets: AssetCatalogEntry[] = [];
+  const recommendations = await loadRecommendationsByAssetId(
+    projectRoot,
+    adapter,
+  );
+
+  const plans: NativeInstallAssetPlan[] = [];
   for (const assetId of assetIds) {
     const asset = await readJsonFileOrNull<AssetCatalogEntry>(
       join(activationRoot, sanitizeAssetId(assetId), "asset.json"),
       assertAssetCatalogEntry,
     );
-    if (asset && asset.assetKind === nativeInstall.assetKind) {
-      assets.push(asset);
+    if (!asset || asset.assetKind !== nativeInstall.assetKind) {
+      continue;
     }
+    const extensionId = resolveVsCodeExtensionId(asset);
+    if (extensionId === undefined) {
+      continue;
+    }
+    plans.push({
+      asset,
+      extensionId,
+      recommendation: recommendations.get(asset.id),
+    });
   }
 
-  return assets.sort((left, right) => left.id.localeCompare(right.id));
+  return plans.sort((left, right) =>
+    left.asset.id.localeCompare(right.asset.id),
+  );
 }
 
 function printNativeInstallPlan(
   adapter: HostAdapter,
   actions: ExtensionInstallAction[],
+  planByExtensionId: ReadonlyMap<string, NativeInstallAssetPlan>,
 ): void {
   console.log(`Native install plan for ${adapter.displayName}:`);
+  if (actions.length === 0) {
+    console.log("  (no extensions remain after excluding single-token coincidences)");
+    return;
+  }
   for (const line of formatExtensionInstallActions(actions)) {
     console.log(`  ${line}`);
+  }
+  for (const action of actions) {
+    const plan = planByExtensionId.get(action.extensionId);
+    if (!plan) {
+      continue;
+    }
+    // #444 review: every plan entry carries an explicit status line — the
+    // match basis (workspace recommendation or activation-manifest keep) and
+    // the fact that native installs are NOT mirrored (host CLI installs).
+    const basis = plan.recommendation
+      ? `basis: ${plan.recommendation.recommendationBasis}${
+          plan.recommendation.reasons.some((reason) =>
+            reason.startsWith("fit:"),
+          )
+            ? ` (${plan.recommendation.reasons
+                .filter((reason) => reason.startsWith("fit:"))
+                .join(", ")})`
+            : ""
+        }`
+      : "basis: no workspace recommendation (kept from activation manifest)";
+    console.log(`    ${action.extensionId}: ${basis} — native install via host CLI (not mirrored)`);
+  }
+}
+
+function printExcludedCoincidentalExtensions(
+  excludedActions: ExtensionInstallAction[],
+  planByExtensionId: ReadonlyMap<string, NativeInstallAssetPlan>,
+): void {
+  if (excludedActions.length === 0) {
+    return;
+  }
+  console.log(
+    "Excluded from plan (single-token coincidence — no workspace identity match):",
+  );
+  for (const action of excludedActions) {
+    const plan = planByExtensionId.get(action.extensionId);
+    const terms =
+      plan?.recommendation?.matchedSignals
+        .map((match) => `${match.signalType}:${match.term}`)
+        .join(", ") ?? "";
+    console.log(
+      `  ${action.host}:${action.extensionId}${terms ? ` (matched only: ${terms})` : ""}`,
+    );
   }
 }
 
@@ -217,6 +345,6 @@ function parseNativeInstallOperation(value: string): NativeInstallCliOperation {
  * Exposes narrow native install internals for focused asset collection tests.
  */
 export const installNativeInternals = {
-  collectNativeInstallAssets,
+  collectNativeInstallAssetPlans,
   parseNativeInstallOperation,
 };

@@ -67,6 +67,8 @@ export interface CandidateRecommendation {
   duplicateGroup?: string;
   reasons: string[];
   breakdown: RecommendationScoreBreakdown;
+  /** See `RecommendationEntry.coincidentalMatchOnly`. */
+  coincidentalMatchOnly: boolean;
 }
 
 /**
@@ -85,6 +87,8 @@ export interface CandidateRecommendationBase {
   reasons: string[];
   searchTerms: Set<string>;
   breakdown: RecommendationScoreBreakdown;
+  /** See `RecommendationEntry.coincidentalMatchOnly`. */
+  coincidentalMatchOnly: boolean;
 }
 
 /**

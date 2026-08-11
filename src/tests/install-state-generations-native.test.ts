@@ -47,7 +47,10 @@ import type {
   InstalledBundleManifest,
   InstalledPackageManifest,
   MirrorIndexEntry,
+  RecommendationEntry,
+  RecommendationReport,
 } from "../types.js";
+import { HOST_TARGETS } from "../manifest-validation/primitives.js";
 
 function buildAsset(
   id: string,
@@ -1102,6 +1105,224 @@ void test("manageNativeInstall builds a native install plan from selected activa
     assert.equal(
       await pathExists(join(projectRoot, ...NATIVE_INSTALL_STATE_OUTPUT_PATH)),
       false,
+    );
+  } finally {
+    await rm(projectRoot, { force: true, recursive: true });
+  }
+});
+
+function buildRecommendationEntry(
+  assetId: string,
+  overrides: Partial<RecommendationEntry> = {},
+): RecommendationEntry {
+  return {
+    assetId,
+    host: "copilot-vscode",
+    rank: 1,
+    score: 10,
+    reasons: [],
+    assetKind: "extension",
+    sourceId: "fixture-source",
+    sourceFamily: "fixture-source",
+    availableLocally: false,
+    recommendationBasis: "workspace-fit",
+    contextSizeClass: "small",
+    estimatedPromptWeight: 1,
+    selectionStage: "top-by-host",
+    coverageTags: [],
+    taskModes: [],
+    matchedSignals: [],
+    scoreBreakdown: {
+      authority: 1,
+      compatibility: 1,
+      portfolioFit: 1,
+      trust: 1,
+      sourcePriority: 1,
+      demand: 1,
+      hostPreference: 1,
+      coverage: 1,
+      diversity: 1,
+      assetKindDiversityPenalty: 0,
+      freshness: 1,
+      costPenalty: 0,
+      riskPenalty: 0,
+      negativePenalty: 0,
+      ecosystemMismatchPenalty: 0,
+      redundancyPenalty: 0,
+      budgetPenalty: 0,
+      total: 10,
+    },
+    ...overrides,
+  };
+}
+
+function buildNativePlanRecommendationReport(
+  copilotVscodeEntries: RecommendationEntry[],
+): RecommendationReport {
+  return {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    policyVersion: 1,
+    sessionIntent: "general",
+    recommendations: copilotVscodeEntries,
+    topByHost: Object.fromEntries(
+      HOST_TARGETS.map((host) => [
+        host,
+        host === "copilot-vscode" ? copilotVscodeEntries : [],
+      ]),
+    ) as RecommendationReport["topByHost"],
+    hostSummaries: Object.fromEntries(
+      HOST_TARGETS.map((host) => [
+        host,
+        {
+          host,
+          recommendationLimit: 20,
+          recommendationLimitSource: "policy",
+          recommendationLimitOverrideMode: "preserve",
+          recommendationLimitOverrideModeSource: "policy",
+          activationBudget: 20,
+          selectedCount: 0,
+          totalEstimatedPromptWeight: 0,
+          selectedAssetIds: [],
+          byAssetKind: {},
+          bySourceFamily: {},
+          byConcern: {},
+          concernBuckets: {},
+          taskModeBuckets: {},
+        },
+      ]),
+    ) as RecommendationReport["hostSummaries"],
+    suggestedBundles: [],
+  };
+}
+
+void test("manageNativeInstall excludes single-token coincidence extensions from the plan with an explicit note (review, #444 AC3)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-native-coincidence-"),
+  );
+  const output: string[] = [];
+
+  try {
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "activate",
+        "copilot-vscode",
+        "workspace-profile-manifest.json",
+      ),
+      {
+        schemaVersion: 1,
+        generatedAt: new Date().toISOString(),
+        profileId: "fixture",
+        workspaceRoot: projectRoot,
+        bundleIds: ["copilot-core"],
+        selectedAssetIds: [],
+        selectedInstructionIds: [],
+        selectedAgentIds: [],
+        selectedWorkflowIds: [],
+        selectedExtensionIds: ["real-ext", "coin-ext"],
+        activationBudget: 10,
+      } satisfies CopilotWorkspaceProfileManifest,
+    );
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "activate",
+        "copilot-vscode",
+        "activation-manifest.json",
+      ),
+      {
+        schemaVersion: 1,
+        host: "copilot-vscode",
+        generatedAt: new Date().toISOString(),
+        activeBundles: ["copilot-core"],
+        activeAssets: ["real-ext", "coin-ext"],
+        runtimeRoot: join(projectRoot, "activate", "copilot-vscode"),
+        notes: [],
+      } satisfies ActivationManifest,
+    );
+    // A genuine TypeScript tooling extension and a lookalike whose ONLY match
+    // is the workspace's `c8` dependency token (absent from its identity).
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "activate",
+        "copilot-vscode",
+        sanitizeAssetId("real-ext"),
+        "asset.json",
+      ),
+      buildAsset("real-ext", { capabilities: ["typescript", "testing"] }),
+    );
+    await writeJsonFile(
+      join(
+        projectRoot,
+        "activate",
+        "copilot-vscode",
+        sanitizeAssetId("coin-ext"),
+        "asset.json",
+      ),
+      buildAsset("coin-ext", { capabilities: ["c8", "theme", "color"] }),
+    );
+    // The persisted recommendation report flags coin-ext as coincidence-only.
+    await writeJsonFile(
+      join(projectRoot, "state", "recommendations.json"),
+      buildNativePlanRecommendationReport([
+        buildRecommendationEntry("real-ext"),
+        buildRecommendationEntry("coin-ext", {
+          reasons: [],
+          coincidentalMatchOnly: true,
+          matchedSignals: [
+            {
+              term: "npm-c8",
+              signalType: "tooling",
+              weight: 9,
+              evidenceCount: 1,
+              weightedEvidenceCount: 3,
+              evidenceStrengthCounts: { strong: 1, medium: 0, weak: 0 },
+            },
+          ],
+        }),
+      ]),
+    );
+
+    t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
+      output.push(args.map((value) => String(value)).join(" "));
+    });
+
+    await manageNativeInstall(projectRoot, [
+      "--host",
+      "vscode",
+      "--operation",
+      "plan",
+    ]);
+
+    const planText = output.join("\n");
+    // The real extension stays in the plan with an explicit basis status
+    // line; the coincidence-only lookalike is excluded with visible terms.
+    assert.match(
+      planText,
+      /fixture\.real-ext install=/u,
+      "real extension kept",
+    );
+    assert.match(
+      planText,
+      /basis: workspace-fit — native install via host CLI \(not mirrored\)/u,
+      "explicit status line for the kept extension",
+    );
+    assert.doesNotMatch(
+      planText,
+      /fixture\.coin-ext install=/u,
+      "coincidence extension must NOT produce an install action",
+    );
+    assert.match(
+      planText,
+      /Excluded from plan \(single-token coincidence/u,
+      "exclusion note present",
+    );
+    assert.match(
+      planText,
+      /copilot-vscode:fixture\.coin-ext \(matched only: tooling:npm-c8\)/u,
+      "exclusion note names the coincidental term",
     );
   } finally {
     await rm(projectRoot, { force: true, recursive: true });
