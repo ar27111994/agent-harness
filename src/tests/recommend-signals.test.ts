@@ -4,8 +4,10 @@ import test from "node:test";
 import {
   buildDemandContext,
   collectMatchedSignals,
+  DEFAULT_IDENTITY_MATCH_MULTIPLIER,
 } from "../recommend/signals.js";
 import type { DemandEvidenceStrength } from "../types/discovery.js";
+import type { DemandContext } from "../recommend/model.js";
 import type {
   DemandProfile,
   RecommendationHostPolicy,
@@ -447,6 +449,139 @@ void test("recommend signal weighting floors zero-evidence terms with asset-side
   });
   assert.equal(matches[0]?.weight, 1);
 });
+
+// ─── review: declared-dependency identity multiplier (#443/#444) ────────────
+
+function buildIdentityTestDemandContext(
+  packageIdentityTokens: ReadonlySet<string> | undefined,
+): DemandContext {
+  return {
+    terms: [
+      {
+        key: "tooling:npm:@duckdb/node-api",
+        canonicalTerm: "npm:@duckdb/node-api",
+        signalType: "tooling",
+        evidenceCount: 1,
+        evidenceStrengthCounts: { strong: 1, medium: 0, weak: 0 },
+        matchTerms: new Set(["npm:@duckdb/node-api", "duckdb"]),
+        packageIdentityTokens,
+      },
+    ],
+    hasSignals: true,
+    activeDomainGroups: new Set<string>(),
+    packageManifestEntries: new Set<string>(["@duckdb/node-api"]),
+    packageIdentityByTerm: new Map<string, ReadonlySet<string>>(
+      packageIdentityTokens === undefined
+        ? []
+        : [["npm:@duckdb/node-api", packageIdentityTokens]],
+    ),
+    demandKeywords: new Set<string>(),
+    packageManagers: new Set<string>(["npm"]),
+  };
+}
+
+void test("identity multiplier: declared-dependency identity match boosts the signal weight", () => {
+  const policy = buildPolicy();
+  const baseToolingWeight =
+    policy.scoring.demandSignalWeights.tooling *
+    computeWeightedEvidenceCountForTest();
+  // The asset's curated identity contains the dependency's bare package name.
+  const matches = collectMatchedSignals(
+    new Set(["duckdb"]),
+    buildIdentityTestDemandContext(new Set(["duckdb"])),
+    policy,
+    new Map<string, DemandEvidenceStrength>([["duckdb", "strong"]]),
+    new Set(["official-index", "duckdb", "install", "duckdb"]),
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(
+    matches[0]?.weight,
+    Math.max(
+      1,
+      Math.round(baseToolingWeight * DEFAULT_IDENTITY_MATCH_MULTIPLIER),
+    ),
+    "identity-confirmed declared-dependency match must be multiplied",
+  );
+});
+
+void test("identity multiplier: token outside the curated identity gets no boost", () => {
+  const policy = buildPolicy();
+  const matches = collectMatchedSignals(
+    new Set(["duckdb"]),
+    buildIdentityTestDemandContext(new Set(["duckdb"])),
+    policy,
+    new Map<string, DemandEvidenceStrength>([["duckdb", "strong"]]),
+    // Curated identity does NOT contain the bare dependency name — a
+    // lookalike extension whose description merely mentions duckdb.
+    new Set(["c8e4", "raw", "theme"]),
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(
+    matches[0]?.weight,
+    Math.max(1, Math.round(policy.scoring.demandSignalWeights.tooling * 3)),
+    "a coincidental token outside the identity must not receive the multiplier",
+  );
+});
+
+void test("identity multiplier: terms without package identity get no boost", () => {
+  const policy = buildPolicy();
+  const matches = collectMatchedSignals(
+    new Set(["duckdb"]),
+    buildIdentityTestDemandContext(undefined),
+    policy,
+    new Map<string, DemandEvidenceStrength>([["duckdb", "strong"]]),
+    new Set(["duckdb"]),
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(
+    matches[0]?.weight,
+    Math.max(1, Math.round(policy.scoring.demandSignalWeights.tooling * 3)),
+    "a non-package identity term must keep the base weight",
+  );
+});
+
+void test("identity multiplier: two unrelated assets with identical demand overlap carry different matched signals (#444 AC4, review)", () => {
+  const policy = buildPolicy();
+  const demandContext = buildIdentityTestDemandContext(new Set(["duckdb"]));
+  const assetSideEvidence = new Map<string, DemandEvidenceStrength>([
+    ["duckdb", "strong"],
+  ]);
+  // Both assets intersect the SAME demand term on the same token. The first
+  // is the official duckdb skill (its curated identity contains the bare
+  // package name); the second is a lookalike whose identity has nothing to do
+  // with duckdb (only its description/capabilities mention it).
+  const officialDuckdbSignals = collectMatchedSignals(
+    new Set(["duckdb"]),
+    demandContext,
+    policy,
+    assetSideEvidence,
+    new Set(["official-index", "duckdb", "install-duckdb"]),
+  );
+  const lookalikeSignals = collectMatchedSignals(
+    new Set(["duckdb"]),
+    demandContext,
+    policy,
+    assetSideEvidence,
+    new Set(["c8e4", "raw", "theme"]),
+  );
+  assert.equal(officialDuckdbSignals.length, 1);
+  assert.equal(lookalikeSignals.length, 1);
+  assert.notEqual(
+    officialDuckdbSignals[0]?.weight,
+    lookalikeSignals[0]?.weight,
+    "identical demand overlap must NOT produce identical matched signals when the asset identity differs",
+  );
+  assert.equal(
+    officialDuckdbSignals[0]?.weight,
+    lookalikeSignals[0]!.weight! * DEFAULT_IDENTITY_MATCH_MULTIPLIER,
+    "the identity-confirmed match must carry the multiplier the coincidence does not",
+  );
+});
+
+function computeWeightedEvidenceCountForTest(): number {
+  // mirrors the policy-side weighted evidence count for 1 strong evidence
+  return 3;
+}
 
 function buildPolicy(): RecommendationPolicy {
   const hostPolicy: RecommendationHostPolicy = {

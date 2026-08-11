@@ -164,11 +164,28 @@ export function buildCandidateRecommendationBase(
   // Asset IDENTITY terms: curated identity only (id/displayName/manifest
   // entry), no capabilities, paths, or registry provenance. Used to
   // distinguish a declared-dependency identity match from a coincidental
-  // token in unrelated content (#444).
+  // token in unrelated content (#444). TWO representations serve different
+  // gates (review):
+  // - canonicalized terms (resolvedSynonymLookup) feed the language-
+  //   contradiction gate: the workspace's demand languages are canonicalized
+  //   too, so both sides must be compared in the same synonym-collapsed
+  //   space (e.g. `java` collapses to `backend` on both sides).
+  // - RAW terms (no synonym lookup) feed the declared-dependency identity
+  //   gate and the identity multiplier: package-identity tokens are raw
+  //   manifest tokens (`@duckdb/node-api` → `duckdb`), and the policy
+  //   synonym table maps `duckdb -> data` (an alias of the "data" concern) —
+  //   a canonicalized identity would silently lose the very token the
+  //   declared-dependency gates compare against, making the official duckdb
+  //   skill fail its own identity match.
   const assetIdentityTerms = buildSearchTerms(
     [entry.id, entry.displayName, entry.install.manifestEntry ?? ""],
     policy,
     resolvedSynonymLookup,
+  );
+  const assetRawIdentityTerms = buildSearchTerms(
+    [entry.id, entry.displayName, entry.install.manifestEntry ?? ""],
+    policy,
+    new Map<string, string>(),
   );
 
   if (
@@ -183,20 +200,32 @@ export function buildCandidateRecommendationBase(
     return null;
   }
 
+  const demandLanguageTerms = new Set(
+    demandContext.terms
+      .filter((term) => term.signalType === "languages")
+      .map((term) => term.canonicalTerm),
+  );
+  // Ecosystem gates only count PROGRAMMING languages as ecosystem evidence
+  // (review): document languages like markdown/json/text say nothing about
+  // the workspace's stack, so they must neither deny exact-stack nor trigger
+  // the mismatch penalty. KNOWN_ECOSYSTEM_LANGUAGE_TOKENS is the same set the
+  // identity-contradiction gate uses.
+  const programmingDemandLanguages = new Set(
+    [...demandLanguageTerms].filter((term) =>
+      KNOWN_ECOSYSTEM_LANGUAGE_TOKENS.has(term),
+    ),
+  );
   const matchedSignals = collectMatchedSignals(
     searchTerms,
     demandContext,
     policy,
     assetTermStrength,
+    assetRawIdentityTerms,
   );
   const assetEcosystemCompat = computeAssetEcosystemCompat(
     entry,
     demandContext,
-  );
-  const demandLanguageTerms = new Set(
-    demandContext.terms
-      .filter((term) => term.signalType === "languages")
-      .map((term) => term.canonicalTerm),
+    programmingDemandLanguages,
   );
   const matchQuality = analyzeMatchQuality(
     matchedSignals,
@@ -205,7 +234,7 @@ export function buildCandidateRecommendationBase(
     resolvedPolicyContext.genericToolingTerms,
     {
       assetEcosystemCompat,
-      assetIdentityTerms,
+      assetIdentityTerms: assetRawIdentityTerms,
       assetContradictsDemandLanguage: computeAssetLanguageContradiction(
         assetIdentityTerms,
         demandLanguageTerms,
@@ -283,6 +312,7 @@ export function buildCandidateRecommendationBase(
     ecosystemMismatchPenalty: computeEcosystemMismatchPenalty(
       entry,
       demandContext,
+      programmingDemandLanguages,
       policy.scoring.ecosystemMismatchPenalty,
     ),
     redundancyPenalty: 0,
@@ -529,17 +559,36 @@ function analyzeMatchQuality(
 }
 
 /**
- * Resolves the package-manager family an asset's registry belongs to, when
- * the asset is a package-registry entry whose source id matches a known
- * registry ecosystem. Returns undefined for non-package-registry assets and
- * for unknown registry sources. Single source of truth for both exact-stack
- * eligibility (#444) and ecosystem-mismatch penalisation (F3 extraction).
+ * Source families that are unambiguously tied to one programming language,
+ * for NON-package-registry assets (review, #443/#444): an `official-index`
+ * or marketplace asset published under one of these families declares the
+ * family language, so a workspace whose detected languages exclude it cannot
+ * plausibly share the asset's stack. The map is deliberately small — only
+ * families where the language identity is unambiguous — and extensible.
+ */
+const KNOWN_SOURCE_FAMILY_LANGUAGES = new Map<string, string>([
+  ["wordpress", "php"],
+  ["drupal", "php"],
+  ["joomla", "php"],
+]);
+
+/**
+ * Resolves the ecosystem family an asset belongs to. For package-registry
+ * assets this is the registry's package-manager family; for non-package
+ * assets with an unambiguous source-family language (e.g. an
+ * `official-index:WordPress` skill), it is that language. Returns undefined
+ * for unknown or ecosystem-agnostic sources. Single source of truth for both
+ * exact-stack eligibility (#444) and ecosystem-mismatch penalisation (F3
+ * extraction, review extension).
  */
 function resolveRegistryEcosystemFamily(
   entry: AssetCatalogEntry,
 ): string | undefined {
   if (entry.source.sourceKind !== "package-registry") {
-    return undefined;
+    const familyLanguage = KNOWN_SOURCE_FAMILY_LANGUAGES.get(
+      deriveSourceFamily(entry).toLowerCase(),
+    );
+    return familyLanguage;
   }
   const sourceIdLower = entry.source.sourceId.toLowerCase();
   return REGISTRY_ECOSYSTEM_ENTRIES.find(([substring]) =>
@@ -548,22 +597,33 @@ function resolveRegistryEcosystemFamily(
 }
 
 /**
- * Returns whether the asset's registry ecosystem is plausibly compatible
- * with the workspace's detected package managers (#444): a package-registry
- * asset whose registry maps to a package-manager family that the workspace
- * does NOT use cannot receive exact-stack credit (e.g. a Rust crate from
- * cargo-registry in an npm workspace). Non-package-registry assets (repo,
- * official-index, marketplace, local kinds) are ecosystem-agnostic and pass.
+ * Returns whether the asset's ecosystem is plausibly compatible with the
+ * workspace's detected package managers AND languages (#444, review): a
+ * package-registry asset whose registry maps to a package-manager family the
+ * workspace does NOT use cannot receive exact-stack credit (e.g. a Rust crate
+ * from cargo-registry in an npm workspace), and a non-package-registry asset
+ * published under an unambiguous source-family language the workspace does
+ * NOT use is equally incompatible (e.g. an `official-index:WordPress` skill
+ * in a TypeScript workspace). Ecosystem-agnostic sources pass.
  */
 function computeAssetEcosystemCompat(
   entry: AssetCatalogEntry,
   demandContext: DemandContext,
+  demandLanguageTerms: ReadonlySet<string>,
 ): boolean {
-  if (demandContext.packageManagers.size === 0) {
+  if (
+    demandContext.packageManagers.size === 0 &&
+    demandLanguageTerms.size === 0
+  ) {
     return true;
   }
   const family = resolveRegistryEcosystemFamily(entry);
-  return family === undefined || demandContext.packageManagers.has(family);
+  if (family === undefined) {
+    return true;
+  }
+  return (
+    demandContext.packageManagers.has(family) || demandLanguageTerms.has(family)
+  );
 }
 
 /**
@@ -940,13 +1000,21 @@ const REGISTRY_ECOSYSTEM_ENTRIES: ReadonlyArray<readonly [string, string]> = [
 function computeEcosystemMismatchPenalty(
   entry: AssetCatalogEntry,
   demandContext: DemandContext,
+  demandLanguageTerms: ReadonlySet<string>,
   penalty: number,
 ): number {
-  if (demandContext.packageManagers.size === 0) {
+  if (
+    demandContext.packageManagers.size === 0 &&
+    demandLanguageTerms.size === 0
+  ) {
     return 0;
   }
   const family = resolveRegistryEcosystemFamily(entry);
-  if (family === undefined || demandContext.packageManagers.has(family)) {
+  if (
+    family === undefined ||
+    demandContext.packageManagers.has(family) ||
+    demandLanguageTerms.has(family)
+  ) {
     return 0;
   }
   // Total ecosystem mismatch: the workspace has package-manager signals but
@@ -1131,4 +1199,6 @@ function isSuppressedForHost(
  */
 export const candidatesInternals = {
   computeEcosystemMismatchPenalty,
+  computeAssetEcosystemCompat,
+  KNOWN_SOURCE_FAMILY_LANGUAGES,
 };

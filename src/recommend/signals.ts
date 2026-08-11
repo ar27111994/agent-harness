@@ -72,6 +72,16 @@ function buildPackageIdentityTokens(
 }
 
 /**
+ * Default multiplier applied to a matched signal's weight when the asset's
+ * CURATED IDENTITY contains a declared dependency's package-identity token
+ * (review, #443/#444): the strongest possible demand match — the workspace
+ * declares `@duckdb/node-api` and the asset IS the official duckdb skill —
+ * must outrank merely-exact-stack tiles. Configurable per-workspace through
+ * `policy.scoring.identityMatchMultiplier`.
+ */
+export const DEFAULT_IDENTITY_MATCH_MULTIPLIER = 4;
+
+/**
  * Collects matched signals from the provided inputs.
  *
  * @param assetTermStrength - Optional per-asset provenance map (term →
@@ -80,12 +90,18 @@ function buildPackageIdentityTokens(
  *   of the asset's own terms hit the demand term, and their provenance
  *   strength) instead of the workspace's demand-side evidence (#444). The
  *   match weight still reflects demand intensity.
+ * @param assetIdentityTerms - Optional curated-identity term set
+ *   (id/displayName/manifest entry only). When provided, a demand term whose
+ *   declared-package identity tokens appear in the asset's curated identity
+ *   receives the identity-match multiplier — declared-dependency identity is
+ *   the strongest match class (review).
  */
 export function collectMatchedSignals(
   searchTerms: Set<string>,
   demandContext: DemandContext,
   policy: RecommendationPolicy,
   assetTermStrength?: ReadonlyMap<string, DemandEvidenceStrength>,
+  assetIdentityTerms?: ReadonlySet<string>,
 ): RecommendationSignalMatch[] {
   return demandContext.terms
     .filter((term) => intersects(searchTerms, term.matchTerms))
@@ -98,6 +114,14 @@ export function collectMatchedSignals(
         weightedEvidenceCount;
       const termMultiplier =
         policy.scoring.demandTermMultipliers[term.canonicalTerm] ?? 1;
+      const identityMatch =
+        assetIdentityTerms !== undefined &&
+        term.packageIdentityTokens !== undefined &&
+        intersects(assetIdentityTerms, term.packageIdentityTokens);
+      const identityMultiplier = identityMatch
+        ? (policy.scoring.identityMatchMultiplier ??
+          DEFAULT_IDENTITY_MATCH_MULTIPLIER)
+        : 1;
       const assetEvidence = computeAssetSideEvidence(
         searchTerms,
         term.matchTerms,
@@ -107,7 +131,10 @@ export function collectMatchedSignals(
       return {
         term: term.canonicalTerm,
         signalType: term.signalType,
-        weight: Math.max(1, Math.round(baseWeight * termMultiplier)),
+        weight: Math.max(
+          1,
+          Math.round(baseWeight * termMultiplier * identityMultiplier),
+        ),
         evidenceCount: assetEvidence.evidenceCount,
         weightedEvidenceCount: assetEvidence.weightedEvidenceCount,
         evidenceStrengthCounts: assetEvidence.evidenceStrengthCounts,
@@ -679,7 +706,10 @@ export function normalizePhrase(value: string): string {
   return normalized;
 }
 
-function intersects(left: Set<string>, right: Set<string>): boolean {
+function intersects(
+  left: ReadonlySet<string>,
+  right: ReadonlySet<string>,
+): boolean {
   for (const value of left) {
     if (right.has(value)) {
       return true;

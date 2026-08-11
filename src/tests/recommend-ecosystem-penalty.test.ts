@@ -1,13 +1,18 @@
 /**
- * Tests for `computeEcosystemMismatchPenalty` (#278).
+ * Tests for `computeEcosystemMismatchPenalty` (#278, review extension).
  *
  * Validates that:
- * 1. A 2× penalty is applied for a total mismatch (workspace has PM signals,
- *    none match the registry's ecosystem).
- * 2. No penalty is applied when the workspace has no PM signals.
+ * 1. A 2× penalty is applied for a total mismatch (workspace has PM/language
+ *    signals, none match the registry's ecosystem).
+ * 2. No penalty is applied when the workspace has no PM/language signals.
  * 3. No penalty is applied when the registry matches the workspace's PM.
- * 4. No penalty is applied for non-package-registry source kinds.
- * 5. At report level: packagist entries do NOT appear in the top 20 for an
+ * 4. No penalty is applied for ecosystem-agnostic non-package-registry source
+ *    kinds, and a 2× penalty for non-package-registry sources published under
+ *    an unambiguous source-family language the workspace does not use (e.g.
+ *    an official-index:WordPress skill in a TypeScript workspace, review).
+ * 5. `computeAssetEcosystemCompat` extends the same contract to the
+ *    exact-stack eligibility gate.
+ * 6. At report level: packagist entries do NOT appear in the top 20 for an
  *    npm/TypeScript workspace even when their names overlap keyword tokens.
  */
 
@@ -20,7 +25,11 @@ import { loadRecommendationPolicy } from "../recommend/policy.js";
 import { buildRecommendationReport } from "../recommend/report.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
-const { computeEcosystemMismatchPenalty } = candidatesInternals;
+const {
+  computeEcosystemMismatchPenalty,
+  computeAssetEcosystemCompat,
+  KNOWN_SOURCE_FAMILY_LANGUAGES,
+} = candidatesInternals;
 
 // ---------------------------------------------------------------------------
 // Shared fixture helpers
@@ -38,6 +47,10 @@ function createDemandContextWithManagers(
     demandKeywords: new Set(),
     packageManagers: new Set(packageManagers),
   };
+}
+
+function createDemandLanguages(...languages: string[]): ReadonlySet<string> {
+  return new Set(languages);
 }
 
 function createPackageRegistryEntry(sourceId: string): AssetCatalogEntry {
@@ -106,14 +119,24 @@ function createEntry(
 void test("ecosystem penalty: total mismatch (npm workspace + packagist entry) returns 2× penalty", () => {
   const entry = createPackageRegistryEntry("packagist-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(penalty, 80, "total mismatch must return 2× the base penalty");
 });
 
 void test("ecosystem penalty: no PM signals → 0 penalty (conservative, new workspace)", () => {
   const entry = createPackageRegistryEntry("packagist-registry");
   const context = createDemandContextWithManagers(); // empty
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(
     penalty,
     0,
@@ -124,7 +147,12 @@ void test("ecosystem penalty: no PM signals → 0 penalty (conservative, new wor
 void test("ecosystem penalty: ecosystem matches → 0 penalty", () => {
   const entry = createPackageRegistryEntry("npm-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(
     penalty,
     0,
@@ -135,7 +163,12 @@ void test("ecosystem penalty: ecosystem matches → 0 penalty", () => {
 void test("ecosystem penalty: non-package-registry source kind → 0 penalty", () => {
   const entry = createRepoEntry("packagist-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(
     penalty,
     0,
@@ -146,21 +179,36 @@ void test("ecosystem penalty: non-package-registry source kind → 0 penalty", (
 void test("ecosystem penalty: unknown sourceId (no map match) → 0 penalty", () => {
   const entry = createPackageRegistryEntry("custom-private-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(penalty, 0, "must not penalise unmapped sourceIds");
 });
 
 void test("ecosystem penalty: pypi mismatch in npm workspace → 2× penalty", () => {
   const entry = createPackageRegistryEntry("pypi-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(penalty, 80, "pypi in npm workspace must return 2× penalty");
 });
 
 void test("ecosystem penalty: crates mismatch in npm workspace → 2× penalty", () => {
   const entry = createPackageRegistryEntry("crates-io-registry");
   const context = createDemandContextWithManagers("npm");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(
     penalty,
     80,
@@ -171,7 +219,12 @@ void test("ecosystem penalty: crates mismatch in npm workspace → 2× penalty",
 void test("ecosystem penalty: mixed workspace (npm + composer) → 0 penalty for packagist", () => {
   const entry = createPackageRegistryEntry("packagist-registry");
   const context = createDemandContextWithManagers("npm", "composer");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(
     penalty,
     0,
@@ -182,8 +235,102 @@ void test("ecosystem penalty: mixed workspace (npm + composer) → 0 penalty for
 void test("ecosystem penalty: pip workspace → 0 penalty for pypi", () => {
   const entry = createPackageRegistryEntry("pypi-registry");
   const context = createDemandContextWithManagers("pip");
-  const penalty = computeEcosystemMismatchPenalty(entry, context, 40);
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(),
+    40,
+  );
   assert.equal(penalty, 0, "must not penalise pypi when workspace uses pip");
+});
+
+// ─── review: source-family language dimension (official-index etc.) ─────────
+
+void test("ecosystem penalty: official-index:WordPress skill in a TypeScript workspace → 2× penalty", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers("npm");
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages("typescript", "javascript"),
+    40,
+  );
+  assert.equal(
+    penalty,
+    80,
+    "a WordPress-family skill in a TS/JS workspace must be a total ecosystem mismatch",
+  );
+});
+
+void test("ecosystem penalty: official-index:WordPress skill in a PHP workspace → 0 penalty", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers("composer");
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages("php"),
+    40,
+  );
+  assert.equal(
+    penalty,
+    0,
+    "a WordPress-family skill in a PHP workspace matches",
+  );
+});
+
+void test("ecosystem penalty: language-only mismatch (no PM signals, PHP workspace) → 2× penalty", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers(); // no PM signals
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages("typescript"),
+    40,
+  );
+  assert.equal(
+    penalty,
+    80,
+    "language evidence alone is enough to detect the mismatch (review)",
+  );
+});
+
+void test("ecosystem compat: WordPress skill is not exact-stack compatible with a TS workspace (review)", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers("npm");
+  assert.equal(
+    computeAssetEcosystemCompat(
+      entry,
+      context,
+      createDemandLanguages("typescript"),
+    ),
+    false,
+    "WordPress-family skill must fail the exact-stack ecosystem gate in a TS workspace",
+  );
+  assert.equal(
+    computeAssetEcosystemCompat(entry, context, createDemandLanguages("php")),
+    true,
+    "WordPress-family skill passes the gate in a PHP workspace",
+  );
+});
+
+void test("ecosystem compat: ecosystem-agnostic official-index sources stay compatible (review)", () => {
+  const entry = createEntry("official-index:duckdb", "docs");
+  entry.source.publisher = "duckdb";
+  const context = createDemandContextWithManagers("npm");
+  assert.equal(
+    computeAssetEcosystemCompat(
+      entry,
+      context,
+      createDemandLanguages("typescript"),
+    ),
+    true,
+    "unmapped official-index families remain ecosystem-agnostic",
+  );
+  assert.equal(KNOWN_SOURCE_FAMILY_LANGUAGES.get("wordpress"), "php");
 });
 
 // ---------------------------------------------------------------------------

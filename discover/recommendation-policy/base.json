@@ -314,7 +314,8 @@
       "bazel": 1.05,
       "pnpm-workspace": 1.05
     },
-    "assetKindDiversityPenalty": 5
+    "assetKindDiversityPenalty": 5,
+    "identityMatchMultiplier": 4
   },
   "hostDefaults": {
     "suppressedAssetIdPatterns": [

@@ -57,6 +57,13 @@ export interface RecommendationScoringPolicy {
   assetKindDiversityPenalty: number;
   overlapPenalty: number;
   demandTermMultipliers: Record<string, number>;
+  /**
+   * Multiplier applied to a matched signal's weight when the asset's curated
+   * identity contains a declared dependency's package-identity token
+   * (review, #443/#444). Optional — falls back to
+   * `DEFAULT_IDENTITY_MATCH_MULTIPLIER` when absent.
+   */
+  identityMatchMultiplier?: number;
 }
 
 /**

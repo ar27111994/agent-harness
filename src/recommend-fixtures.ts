@@ -1010,6 +1010,40 @@ function buildEcosystemExactStackFixture(): RecommendationEvaluationFixture {
         publisher: "duckdb",
         manifestEntry: "duckdb",
       }),
+      // Review: the official-index source-family class. A WordPress-family
+      // skill whose capabilities contain a generic term (`api`) must NOT
+      // receive exact-stack credit in a TypeScript workspace — the policy
+      // synonym table canonicalizes `api` → `node-backend`, and without the
+      // source-family language gate this asset ranks exact-stack and crowds
+      // the top (the #443 AC3 live repro).
+      createAsset("wordpress-plugin-dev", {
+        assetKind: "plugin",
+        hosts: ["copilot-vscode", "opencode"],
+        capabilities: ["wordpress", "wp", "development", "api", "security"],
+        sourceId: "official-index:WordPress",
+        publisher: "WordPress",
+      }),
+      // Filler: a realistic TypeScript ecosystem makes the top-10 assertion
+      // meaningful (with 13 entries every candidate is top-10 by
+      // construction — the fixture doctrine requires catalogs large enough
+      // that forbidden-top-N expectations are not trivially saturated).
+      // Capabilities are per-filler distinct so duplicate/redundancy
+      // grouping does not stack penalties and skew the ranking.
+      ...Array.from({ length: 12 }, (_, index) =>
+        createAsset(`ts-ecosystem-skill-${index}`, {
+          assetKind: "skill",
+          hosts: ["copilot-vscode", "opencode"],
+          capabilities: [
+            "typescript",
+            "node",
+            `framework-${index}`,
+            `library-${index}`,
+            `concern-${index}`,
+          ],
+          sourceId: "official-index:typescript-ecosystem",
+          publisher: "typescript-ecosystem",
+        }),
+      ),
     ],
     expectations: [
       {
@@ -1017,15 +1051,32 @@ function buildEcosystemExactStackFixture(): RecommendationEvaluationFixture {
         requiredAssetIds: ["duckdb-skill"],
         rankedAbove: [
           {
-            higherAssetId: "duckdb-skill",
-            lowerAssetId: "cargo-node-cli",
-          },
-          {
             higherAssetId: "npm-duckdb-api",
             lowerAssetId: "vscode-raw-theme",
           },
+          {
+            higherAssetId: "duckdb-skill",
+            lowerAssetId: "wordpress-plugin-dev",
+          },
+        ],
+        // The coincidence classes must not reach the top at all: the Rust
+        // crate (ecosystem gate), the c8-named theme, and the WordPress
+        // family skill (source-family language gate, review).
+        forbiddenTopAssetIds: [
+          "wordpress-plugin-dev",
+          "cargo-node-cli",
+          "vscode-raw-theme",
         ],
         requiredAssetKinds: [{ assetKind: "skill", minimum: 2 }],
+      },
+      {
+        host: "opencode",
+        rankedAbove: [
+          {
+            higherAssetId: "duckdb-skill",
+            lowerAssetId: "wordpress-plugin-dev",
+          },
+        ],
       },
     ],
   };
