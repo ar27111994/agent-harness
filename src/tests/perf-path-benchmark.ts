@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 
 import { selectActivationCandidates } from "../activate/selection.js";
+import { filterCatalogEntriesByDemandRelevance } from "../domains/discovery/catalog-selection.js";
 import { readJsonFile } from "../files.js";
 import { generateMirrorPlan } from "../mirror/plan.js";
 import { loadRecommendationPolicy } from "../recommend/policy.js";
@@ -254,6 +255,88 @@ async function main(): Promise<void> {
     );
     report.scaleCatalogSize = SCALE_CATALOG_SIZE;
     report.scaleRecommendElapsedMs = Math.round(scaleElapsedMs);
+
+    // ------------------------------------------------------------------
+    // Selection scale case (review T1): demand-relevance filtering is the
+    // hottest per-run path (every discover/recommend invocation classifies
+    // the whole catalog), but the only "large" test was 210 entries with
+    // no budget. A 10K-entry run under a generous budget with a hard
+    // non-empty guard gives a super-linear regression a tripwire.
+    // ------------------------------------------------------------------
+    const SELECTION_CATALOG_SIZE = 10_000;
+    const SELECTION_BUDGET_MS = 10_000;
+    const selectionEntries = Array.from(
+      { length: SELECTION_CATALOG_SIZE },
+      (_, index) => {
+        const entry = buildCatalogEntry(index);
+        // A RARE identity token (2% of the catalog, well under the 20%
+        // catalog-common share) so the demand term classifies as an exact
+        // high-signal term instead of being demoted to low — with
+        // homogeneous fixtures every term is catalog-common.
+        entry.capabilities = [
+          ...entry.capabilities,
+          ...(index % 50 === 0 ? ["duckdb-probe"] : []),
+        ];
+        return entry;
+      },
+    );
+    const selectionDemandProfile: DemandProfile = {
+      schemaVersion: 1,
+      generatedAt: new Date().toISOString(),
+      scanRoot: "C:/fixture",
+      summary: {
+        scannedFiles: 1,
+        matchedFiles: 1,
+      },
+      signals: {
+        languages: [],
+        packageManagers: [],
+        frameworks: [],
+        concerns: [],
+        tooling: ["duckdb-probe"],
+      },
+      evidence: [
+        {
+          path: "package.json",
+          fileName: "package.json",
+          matchedSignals: {
+            languages: [],
+            packageManagers: [],
+            frameworks: [],
+            concerns: [],
+            tooling: ["duckdb-probe"],
+          },
+        },
+      ],
+    };
+    const selectionStartedAt = performance.now();
+    const { selectedEntries, rejectedEntries } =
+      filterCatalogEntriesByDemandRelevance(
+        selectionEntries,
+        selectionDemandProfile,
+      );
+    const selectionElapsedMs = performance.now() - selectionStartedAt;
+    assert.ok(
+      selectedEntries.length + rejectedEntries.length ===
+        SELECTION_CATALOG_SIZE,
+      "demand relevance must classify every entry",
+    );
+    assert.equal(
+      selectedEntries.length,
+      Math.floor(SELECTION_CATALOG_SIZE / 50),
+      "exactly the entries carrying the rare demand token must be selected",
+    );
+    assert.ok(
+      rejectedEntries.length > 0,
+      "entries without the demand token must be rejected",
+    );
+    assert.ok(
+      selectionElapsedMs < SELECTION_BUDGET_MS,
+      `selection exceeded budget (${selectionElapsedMs}ms for ${SELECTION_CATALOG_SIZE} entries)`,
+    );
+    report.selectionCatalogSize = SELECTION_CATALOG_SIZE;
+    report.selectionRelevantEntries = selectedEntries.length;
+    report.selectionElapsedMs = Math.round(selectionElapsedMs);
 
     // ------------------------------------------------------------------
     // activate: candidate selection under budget over 1,000 manifests
