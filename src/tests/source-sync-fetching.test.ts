@@ -11,11 +11,13 @@ import {
   getAllowedOrigins,
   getAllowedOrigin,
   fetchWithRetry,
+  fetchRequiredText,
   hasHttpStatus,
   isNonTransientError,
   SOURCE_SYNC_MAX_RETRIES,
   SOURCE_SYNC_RETRY_BASE_DELAY_MS,
   SOURCE_SYNC_FETCH_MAX_BYTES,
+  SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES,
   SOURCE_SYNC_TIMEOUT_MS,
   SOURCE_SYNC_HEADERS,
 } from "../domains/discovery/source-sync/fetching.js";
@@ -85,6 +87,90 @@ void test("fetchRequiredText retry constants can be overridden via options", asy
   assert.equal(options.retryBaseDelayMs, 500);
   assert.equal(options.maxBytes, 1_000_000);
   assert.equal(options.timeoutMs, 15_000);
+});
+
+// ── Response byte-cap wiring (review T2) ────────────────────────────────
+
+const CAP_PROBE_URL = "https://agenticresourcediscovery.org/fixtures/cap.json";
+const CAP_PROBE_ORIGINS = ["https://agenticresourcediscovery.org"];
+
+void test("fetchRequiredText aborts over-cap responses through the guarded fetch layer (review T2)", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  try {
+    // Control: a small body under the 5MB default cap returns normally.
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    await assert.doesNotReject(
+      fetchRequiredText(CAP_PROBE_URL, CAP_PROBE_ORIGINS, {
+        timeoutMs: 5_000,
+      }),
+      "an under-cap registry response must pass through fetchRequiredText",
+    );
+
+    // Over-cap: a 6MB body against the 5MB default — the guarded reader
+    // must abort the response instead of buffering it (memory-exhaustion
+    // bound). The abort surfaces as the generic guarded-fetch failure on
+    // every retry; maxRetries: 0 keeps this deterministic and fast.
+    const bigBody = new Uint8Array(6 * 1024 * 1024).fill(0x61);
+    globalThis.fetch = async () =>
+      new Response(bigBody, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    await assert.rejects(
+      fetchRequiredText(CAP_PROBE_URL, CAP_PROBE_ORIGINS, {
+        maxRetries: 0,
+        timeoutMs: 5_000,
+      }),
+      /Failed to fetch/u,
+      "an over-cap registry response must abort through the guarded fetch layer",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+    }
+  }
+});
+
+void test("the packagist 25MB response budget is enforced through the same cap path (review T2)", async () => {
+  const originalFetch = globalThis.fetch;
+  const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  try {
+    // packagist.ts passes SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES explicitly;
+    // a body one byte over that budget must abort exactly like the 5MB
+    // default.
+    const overLarge = new Uint8Array(SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES + 1);
+    globalThis.fetch = async () =>
+      new Response(overLarge, {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    await assert.rejects(
+      fetchRequiredText(CAP_PROBE_URL, CAP_PROBE_ORIGINS, {
+        maxBytes: SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES,
+        maxRetries: 0,
+        timeoutMs: 5_000,
+      }),
+      /Failed to fetch/u,
+      "a response over the 25MB Packagist budget must abort through the guarded fetch layer",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previousFlag === undefined) {
+      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    } else {
+      process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+    }
+  }
 });
 
 // ── Stale-data fallback: consecutive failure tracking ───────────────────
