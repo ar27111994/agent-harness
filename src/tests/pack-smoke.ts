@@ -23,11 +23,17 @@ const npmCliPath = process.env.npm_execpath;
 
 const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-pack-smoke-"));
 let packedTarballPath: string | null = null;
+// Cold CI runners (Windows hosted agents with real-time AV scanning) can
+// take well over two minutes on `npm install` of the packed tarball. The
+// bounds below are hard anti-hang limits, set generous enough that a
+// healthy run never trips them (review: 120s was flaked once on
+// windows-latest while ubuntu/macos passed the same commit).
+const NPM_STEP_TIMEOUT_MS = 300_000;
 try {
   const packResult = await runNpm(["pack", "--json", "--ignore-scripts"], {
     cwd: repositoryRoot,
     maxBuffer: 10_000_000,
-    timeout: 120_000,
+    timeout: NPM_STEP_TIMEOUT_MS,
     windowsHide: true,
   });
   const packedFiles = JSON.parse(packResult.stdout) as Array<{
@@ -47,13 +53,13 @@ try {
   await runNpm(["init", "-y"], {
     cwd: workspaceRoot,
     maxBuffer: 5_000_000,
-    timeout: 120_000,
+    timeout: NPM_STEP_TIMEOUT_MS,
     windowsHide: true,
   });
   await runNpm(["install", packedTarballPath, "--ignore-scripts"], {
     cwd: workspaceRoot,
     maxBuffer: 10_000_000,
-    timeout: 120_000,
+    timeout: NPM_STEP_TIMEOUT_MS,
     windowsHide: true,
   });
 
@@ -103,7 +109,7 @@ try {
         AGENT_HARNESS_STATE_ROOT: stateRoot,
       },
       maxBuffer: 5_000_000,
-      timeout: 120_000,
+      timeout: NPM_STEP_TIMEOUT_MS,
       windowsHide: true,
     },
   );

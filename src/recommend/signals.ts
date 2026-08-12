@@ -440,6 +440,15 @@ function computeWeightedEvidenceCount(
   return 0;
 }
 
+/**
+ * Exposes narrow recommend-signals internals for focused tests — the
+ * weighted-evidence computation is the single source of truth for expected
+ * match weights, so tests must never hardcode the bucket value (review).
+ */
+export const recommendSignalsInternals = {
+  computeWeightedEvidenceCount,
+};
+
 function buildActiveDomainGroups(
   terms: DemandTermContext[],
   policy: RecommendationPolicy,

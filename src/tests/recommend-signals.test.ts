@@ -5,6 +5,7 @@ import {
   buildDemandContext,
   collectMatchedSignals,
   DEFAULT_IDENTITY_MATCH_MULTIPLIER,
+  recommendSignalsInternals,
 } from "../recommend/signals.js";
 import {
   buildCandidateRecommendation,
@@ -489,7 +490,7 @@ void test("identity multiplier: declared-dependency identity match boosts the si
   const policy = buildPolicy();
   const baseToolingWeight =
     policy.scoring.demandSignalWeights.tooling *
-    computeWeightedEvidenceCountForTest();
+    ONE_STRONG_EVIDENCE_WEIGHTED_COUNT;
   // The asset's curated identity contains the dependency's bare package name.
   const matches = collectMatchedSignals(
     new Set(["duckdb"]),
@@ -527,7 +528,7 @@ void test("identity multiplier: token outside the curated identity gets no boost
       1,
       Math.round(
         policy.scoring.demandSignalWeights.tooling *
-          computeWeightedEvidenceCountForTest(),
+          ONE_STRONG_EVIDENCE_WEIGHTED_COUNT,
       ),
     ),
     "a coincidental token outside the identity must not receive the multiplier",
@@ -550,7 +551,7 @@ void test("identity multiplier: terms without package identity get no boost", ()
       1,
       Math.round(
         policy.scoring.demandSignalWeights.tooling *
-          computeWeightedEvidenceCountForTest(),
+          ONE_STRONG_EVIDENCE_WEIGHTED_COUNT,
       ),
     ),
     "a non-package identity term must keep the base weight",
@@ -770,10 +771,15 @@ void test("identity multiplier survives at candidate level: identity-matched ass
   );
 });
 
-function computeWeightedEvidenceCountForTest(): number {
-  // mirrors the policy-side weighted evidence count for 1 strong evidence
-  return 3;
-}
+// The production weighted-evidence bucket for ONE strong evidence record —
+// derived from the shared helper so expected weights can never drift from
+// the implementation (review: was a hardcoded 3).
+const ONE_STRONG_EVIDENCE_WEIGHTED_COUNT =
+  recommendSignalsInternals.computeWeightedEvidenceCount({
+    strong: 1,
+    medium: 0,
+    weak: 0,
+  });
 
 function buildCandidateTestEntry(
   id: string,
