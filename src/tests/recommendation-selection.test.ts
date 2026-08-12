@@ -1174,6 +1174,44 @@ void test("absent language signals never block exact-stack fit (review)", () => 
   );
 });
 
+void test("document-only language evidence can never contradict a language-tagged stack (review)", () => {
+  const policy = buildEcosystemPolicy();
+  const demandContext = buildDemandContext(
+    createDemandProfile([
+      {
+        path: "docs/guide.md",
+        fileName: "guide.md",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          // markdown/json/text say NOTHING about the programming stack —
+          // only programming languages can contradict an asset identity
+          // (review); the composer declaration carries the ecosystem.
+          languages: ["markdown"],
+          packageManagers: ["composer"],
+          frameworks: [],
+          concerns: [],
+          tooling: [],
+        },
+      },
+    ]),
+    policy,
+  );
+  const phpToolEntry = buildCatalogEntry("php-helper", "plugin", 80, {
+    sourceKind: "repo",
+    capabilities: ["php", "composer", "tool"],
+  });
+  const recommendations = buildRecommendationsForTest(
+    "copilot-vscode",
+    [phpToolEntry],
+    demandContext,
+    policy,
+  );
+  assert.ok(
+    recommendations[0]?.reasons.includes("fit:exact-stack"),
+    "document-only language evidence must not block exact-stack for a php-tagged asset identity",
+  );
+});
+
 function buildPolicy(
   overrides: Partial<RecommendationPolicy["hosts"]["copilot-vscode"]> = {},
 ): RecommendationPolicy {

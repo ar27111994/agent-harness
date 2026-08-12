@@ -155,10 +155,8 @@ void test("wire cursor --apply and --reset round-trip", async () => {
       ["wire re-apply", applyAgain],
       ["wire re-reset", resetAgain],
     ] as const) {
-      assert.ok(
-        typeof result.exitCode === "number",
-        `${step} should return an exit code`,
-      );
+      // Review: the typeof check was vacuous — runCli always returns a
+      // number exit code. The meaningful contract is the 0-or-1 enum below.
       assert.ok(
         result.exitCode === 0 || result.exitCode === 1,
         `${step} exit code must be 0 (clean) or 1 (user-level outcome), got ${result.exitCode}`,

@@ -235,9 +235,13 @@ export function buildCandidateRecommendationBase(
     {
       assetEcosystemCompat,
       assetIdentityTerms: assetRawIdentityTerms,
+      // Contradiction only counts PROGRAMMING languages (review): document
+      // languages like markdown/json/text say nothing about the workspace's
+      // stack, so a docs-only workspace has an UNKNOWN programming-language
+      // set and must never be contradicted by a php-tagged asset identity.
       assetContradictsDemandLanguage: computeAssetLanguageContradiction(
         assetIdentityTerms,
-        demandLanguageTerms,
+        programmingDemandLanguages,
       ),
       packageIdentityByTerm: demandContext.packageIdentityByTerm,
     },
@@ -596,6 +600,69 @@ const KNOWN_SOURCE_FAMILY_LANGUAGES = new Map<string, string>([
 ]);
 
 /**
+ * Package-manager family → canonical ecosystem programming language
+ * (review): a workspace that declares a package manager is using that
+ * ecosystem's language even when no separate language signal was detected
+ * (composer ⇒ php, cargo ⇒ rust, pip ⇒ python, …). This makes
+ * `computeAssetEcosystemCompat` and `computeEcosystemMismatchPenalty`
+ * treat package-manager families as equivalent to their ecosystem
+ * languages, so a composer-only workspace matches assets resolving to
+ * `php` (packagist entries and WordPress-family skills alike) without an
+ * explicit php language signal — and a language-only workspace matches
+ * the registry of its language's ecosystem.
+ */
+const PACKAGE_MANAGER_ECOSYSTEM_LANGUAGES = new Map<string, string>([
+  ["pnpm", "javascript"],
+  ["npm", "javascript"],
+  ["yarn", "javascript"],
+  ["bun", "javascript"],
+  ["composer", "php"],
+  ["pip", "python"],
+  ["bundler", "ruby"],
+  ["nuget", "csharp"],
+  ["cargo", "rust"],
+  ["pub", "dart"],
+  ["hex", "elixir"],
+  ["cabal", "haskell"],
+  ["maven-gradle", "java"],
+  ["cocoapods", "objective-c"],
+  ["swiftpm", "swift"],
+  ["conan", "cpp"],
+  ["vcpkg", "cpp"],
+]);
+
+/**
+ * Returns whether an asset's resolved ecosystem family is compatible with
+ * the workspace's package-manager AND programming-language evidence.
+ * Direct hits win first; then the family's ecosystem language is matched
+ * against the demand language set (a packagist `composer` family matches a
+ * php-language workspace); finally each declared package manager's
+ * ecosystem language is matched against the family (a composer-only
+ * workspace matches a `php` family from wordpress/drupal/joomla sources).
+ * Single source of truth for exact-stack eligibility (#444) and the
+ * ecosystem-mismatch penalty — the two must never disagree (review).
+ */
+function ecosystemFamilyMatchesDemand(
+  family: string,
+  packageManagers: ReadonlySet<string>,
+  demandLanguageTerms: ReadonlySet<string>,
+): boolean {
+  if (packageManagers.has(family) || demandLanguageTerms.has(family)) {
+    return true;
+  }
+  const familyLanguage = PACKAGE_MANAGER_ECOSYSTEM_LANGUAGES.get(family);
+  if (familyLanguage !== undefined && demandLanguageTerms.has(familyLanguage)) {
+    return true;
+  }
+  for (const packageManager of packageManagers) {
+    if (PACKAGE_MANAGER_ECOSYSTEM_LANGUAGES.get(packageManager) === family) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Resolves the ecosystem family an asset belongs to. For package-registry
  * assets this is the registry's package-manager family; for non-package
  * assets with an unambiguous source-family language (e.g. an
@@ -644,8 +711,13 @@ function computeAssetEcosystemCompat(
   if (family === undefined) {
     return true;
   }
-  return (
-    demandContext.packageManagers.has(family) || demandLanguageTerms.has(family)
+  // Package-manager families are equivalent to their ecosystem languages
+  // (review): composer ↔ php, cargo ↔ rust, … — a workspace that declares
+  // the manager uses the language even without a separate language signal.
+  return ecosystemFamilyMatchesDemand(
+    family,
+    demandContext.packageManagers,
+    demandLanguageTerms,
   );
 }
 
@@ -1033,10 +1105,18 @@ function computeEcosystemMismatchPenalty(
     return 0;
   }
   const family = resolveRegistryEcosystemFamily(entry);
+  if (family === undefined) {
+    return 0;
+  }
+  // Same equivalence as the compat gate (review): composer ↔ php etc., so a
+  // composer-only workspace is NOT penalized for php-family assets and a
+  // php-language workspace is NOT penalized for packagist entries.
   if (
-    family === undefined ||
-    demandContext.packageManagers.has(family) ||
-    demandLanguageTerms.has(family)
+    ecosystemFamilyMatchesDemand(
+      family,
+      demandContext.packageManagers,
+      demandLanguageTerms,
+    )
   ) {
     return 0;
   }

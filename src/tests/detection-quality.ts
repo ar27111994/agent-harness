@@ -5,9 +5,27 @@ import {
   isDetectorInspectableFile,
 } from "../domains/discovery/detectors.js";
 import { createEmptySignalSet } from "../domains/discovery/signals.js";
-import { ROADMAP_DETECTION_FIXTURES } from "./detection-fixtures.js";
+import {
+  type DetectionFixture,
+  ROADMAP_DETECTION_FIXTURES,
+} from "./detection-fixtures.js";
 
-const fixtures = ROADMAP_DETECTION_FIXTURES;
+// The roadmap fixtures are all positive detection cases. A NEGATIVE control
+// is added HERE (not to the shared roadmap list) because the detector
+// registry currently recognizes every inspectable shape: an unknown binary
+// blob is the honest negative — nothing to detect, and the harness must not
+// hallucinate concerns for it. Should a future detector claim .bin files,
+// the control's zero-emission assertion below would force a deliberate
+// decision instead of silently blurring the negative case.
+const fixtures: DetectionFixture[] = [
+  ...ROADMAP_DETECTION_FIXTURES,
+  {
+    archetype: "negative-control",
+    fileName: "blob.bin",
+    filePath: "assets/unknown/blob.bin",
+    expectedConcerns: [],
+  },
+];
 
 const results = fixtures.map((fixture) => {
   const signals = createEmptySignalSet();
@@ -26,14 +44,23 @@ const results = fixtures.map((fixture) => {
   const truePositiveConcerns = signals.concerns.filter((concern) =>
     expectedConcernSet.has(concern),
   ).length;
+  // A fixture that expects NOTHING (negative control) that also emits
+  // nothing is perfectly precise and perfectly recalled — 0/0 must not be
+  // reported as 0 precision, and NaN recall must never poison the averages.
   const precision =
     signals.concerns.length === 0
-      ? 0
+      ? fixture.expectedConcerns.length === 0
+        ? 1
+        : 0
       : truePositiveConcerns / signals.concerns.length;
-  const recall = expectedMatches / fixture.expectedConcerns.length;
+  const recall =
+    fixture.expectedConcerns.length === 0
+      ? 1
+      : expectedMatches / fixture.expectedConcerns.length;
 
   return {
     archetype: fixture.archetype,
+    fileName: fixture.fileName,
     inspected,
     precision,
     recall,
@@ -51,21 +78,36 @@ assert.ok(
 assert.ok(averageRecall >= 0.8, `recall ${averageRecall} below budget`);
 
 // Review: per-fixture floors so one weak archetype cannot hide behind the
-// averages — every fixture must detect at least half of its expected
-// concerns (recall >= 0.5) and stay precise (precision >= 0.5), and every
-// fixture must be inspected at all.
-for (const result of results) {
+// averages — every POSITIVE fixture must detect at least half of its
+// expected concerns (recall >= 0.5) and stay precise (precision >= 0.5).
+// Negative controls skip the floors entirely (they expect nothing) but must
+// never hallucinate concerns (review: guard the recall floor against
+// fixtures with no expected concerns).
+for (let index = 0; index < results.length; index += 1) {
+  const fixture = fixtures[index];
+  const result = results[index];
+  const expectsNoConcerns = fixture.expectedConcerns.length === 0;
   assert.ok(
-    result.inspected,
-    `fixture "${result.archetype}" (${result.concerns}) must be inspectable`,
+    expectsNoConcerns || result.inspected,
+    `fixture "${result.archetype}" (${result.fileName}) must be inspectable when concerns are expected`,
   );
+  if (expectsNoConcerns) {
+    assert.equal(
+      result.concerns.length,
+      0,
+      `negative control fixture "${fixture.fileName}" must not hallucinate concerns, got ${JSON.stringify(
+        result.concerns,
+      )}`,
+    );
+    continue;
+  }
   assert.ok(
     result.precision >= 0.5,
-    `fixture "${result.archetype}" precision ${result.precision} below per-fixture floor`,
+    `fixture "${result.archetype}" (${result.fileName}) precision ${result.precision} below per-fixture floor`,
   );
   assert.ok(
     result.recall >= 0.5,
-    `fixture "${result.archetype}" recall ${result.recall} below per-fixture floor`,
+    `fixture "${result.archetype}" (${result.fileName}) recall ${result.recall} below per-fixture floor`,
   );
 }
 

@@ -77,7 +77,11 @@ try {
       throw new Error(`packed tarball missing required entry: ${entry}`);
     }
   }
-  if (tarLines.some((line) => line.includes("node_modules"))) {
+  // Review: detect node_modules only as a COMPLETE path component, never as
+  // an arbitrary substring — a file like `package/node_modules-policy.md`
+  // is a legitimate packed document, while any `package/node_modules/...`
+  // entry is a packaging leak.
+  if (tarLines.some((line) => line.split("/").includes("node_modules"))) {
     throw new Error("packed tarball must not contain node_modules entries");
   }
 

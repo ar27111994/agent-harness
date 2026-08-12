@@ -102,10 +102,7 @@ export async function manageNativeInstall(
   // with a visible note — the harness must not propose or install lookalikes
   // (e.g. a theme whose marketplace description contains the workspace's `c8`
   // dependency).
-  const flaggedPlans = plans.filter(
-    (plan): plan is NativeInstallAssetPlan & { recommendation: RecommendationEntry } =>
-      plan.recommendation?.coincidentalMatchOnly === true,
-  );
+  const flaggedPlans = selectCoincidentalPlans(plans);
   const coincidentalExtensionIds = new Set(
     flaggedPlans.map((plan) => plan.extensionId),
   );
@@ -168,10 +165,28 @@ interface NativeInstallAssetPlan {
 }
 
 /**
+ * Plans whose ONLY recommendation match is a single-token coincidence:
+ * declared-package tokens absent from the asset's curated identity
+ * (review, #444 AC3). Shared by the plan builder and the exclusion printer
+ * so both derive the exclusion set from one predicate/type-guard pair.
+ */
+function selectCoincidentalPlans(
+  plans: readonly NativeInstallAssetPlan[],
+): Array<NativeInstallAssetPlan & { recommendation: RecommendationEntry }> {
+  return plans.filter(
+    (plan): plan is NativeInstallAssetPlan & { recommendation: RecommendationEntry } =>
+      plan.recommendation?.coincidentalMatchOnly === true,
+  );
+}
+
+/**
  * Loads the per-host recommendations from the persisted report, keyed by
- * catalog asset id. A missing or unreadable report yields an empty map —
- * the plan then shows "no workspace recommendation" status lines instead of
- * guessing a basis.
+ * catalog asset id. A MISSING report (ENOENT — no report generated yet)
+ * yields an empty map, and the plan then shows "no workspace
+ * recommendation" status lines instead of guessing a basis. Unreadable,
+ * malformed, or schema-invalid reports are data-integrity errors: they
+ * throw through readJsonFileOrNull/assertRecommendationReport and are
+ * NEVER silently treated as empty (review).
  */
 async function loadRecommendationsByAssetId(
   projectRoot: string,
@@ -293,10 +308,7 @@ function printNativeInstallPlan(
 function printExcludedCoincidentalExtensions(
   plans: readonly NativeInstallAssetPlan[],
 ): void {
-  const flaggedPlans = plans.filter(
-    (plan): plan is NativeInstallAssetPlan & { recommendation: RecommendationEntry } =>
-      plan.recommendation?.coincidentalMatchOnly === true,
-  );
+  const flaggedPlans = selectCoincidentalPlans(plans);
   if (flaggedPlans.length === 0) {
     return;
   }

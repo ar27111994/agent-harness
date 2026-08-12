@@ -36,6 +36,7 @@ import {
 } from "../install/state.js";
 import { sanitizeAssetId, sanitizeMirrorId } from "../lib/safe-paths.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
+import { REPORT_FILE_PATH } from "../recommend/constants.js";
 import { getInstallableAssets } from "../install/utils.js";
 import type {
   ActivationManifest,
@@ -1347,7 +1348,7 @@ void test("manageNativeInstall excludes single-token coincidence extensions from
     // coincidence-only; real-ext carries a real exact-stack reason and
     // kept-ext has NO entry (kept from the activation manifest).
     await writeJsonFile(
-      join(projectRoot, "state", "recommendations.json"),
+      join(projectRoot, ...REPORT_FILE_PATH),
       buildNativePlanRecommendationReport([
         buildRecommendationEntry("real-ext", {
           reasons: ["fit:exact-stack"],
@@ -1527,7 +1528,7 @@ void test("manageNativeInstall prints the empty-plan notice when every extension
       buildAsset("only-coin", { capabilities: ["c8", "theme"] }),
     );
     await writeJsonFile(
-      join(projectRoot, "state", "recommendations.json"),
+      join(projectRoot, ...REPORT_FILE_PATH),
       buildNativePlanRecommendationReport([
         buildRecommendationEntry("only-coin", {
           reasons: [],

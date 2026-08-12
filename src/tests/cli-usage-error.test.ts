@@ -231,59 +231,25 @@ void test("setup login with a valid provider still exits 0 (#446)", async (conte
 
 // ─── review wave: install --host validation and bundle-lookup misses ───────
 
-void test("install reconcile with an invalid host prints a clean error (review)", async (context) => {
-  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
-  context.after(() => rm(tempRoot, { recursive: true, force: true }));
-  const result = await runCliExpectFailure([
-    "install",
-    "reconcile",
-    "--host",
-    "nosuchhost",
-    "--state-root",
-    tempRoot,
-  ]);
-  assertStackFreeStderr(
-    result,
-    /error: Unknown --host 'nosuchhost'\./u,
-    "install reconcile --host nosuchhost",
-  );
-});
-
-void test("install reset with an invalid host prints a clean error (review)", async (context) => {
-  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
-  context.after(() => rm(tempRoot, { recursive: true, force: true }));
-  const result = await runCliExpectFailure([
-    "install",
-    "reset",
-    "--host",
-    "nosuchhost",
-    "--state-root",
-    tempRoot,
-  ]);
-  assertStackFreeStderr(
-    result,
-    /error: Unknown --host 'nosuchhost'\./u,
-    "install reset --host nosuchhost",
-  );
-});
-
-void test("install refresh with an invalid host prints a clean error (review)", async (context) => {
-  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
-  context.after(() => rm(tempRoot, { recursive: true, force: true }));
-  const result = await runCliExpectFailure([
-    "install",
-    "refresh",
-    "--host",
-    "nosuchhost",
-    "--state-root",
-    tempRoot,
-  ]);
-  assertStackFreeStderr(
-    result,
-    /error: Unknown --host 'nosuchhost'\./u,
-    "install refresh --host nosuchhost",
-  );
-});
+for (const subcommand of ["reconcile", "reset", "refresh"] as const) {
+  void test(`install ${subcommand} with an invalid host prints a clean error (review)`, async (context) => {
+    const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+    context.after(() => rm(tempRoot, { recursive: true, force: true }));
+    const result = await runCliExpectFailure([
+      "install",
+      subcommand,
+      "--host",
+      "nosuchhost",
+      "--state-root",
+      tempRoot,
+    ]);
+    assertStackFreeStderr(
+      result,
+      /error: Unknown --host 'nosuchhost'\./u,
+      `install ${subcommand} --host nosuchhost`,
+    );
+  });
+}
 
 void test("bundle explain with an unknown bundle prints a clean error (review)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));

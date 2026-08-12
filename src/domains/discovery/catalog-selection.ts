@@ -451,10 +451,16 @@ function addDemandSignal(
         lowSignalTerms.add(keyword);
       } else {
         exactHighSignalTerms.add(keyword);
-        // Package-manifest entries are tooling-only, and tooling signals
-        // never feed primary stack anchors — the stackAnchorTerms call was
-        // dead here (package manifests never reach the non-tooling branch
-        // below), so it is removed rather than left as speculative code.
+        // Package-manifest entries are declarations of what the workspace
+        // ACTUALLY uses, so their non-generic identity tokens anchor the
+        // stack exactly like single-token declarations: a multipart
+        // `npm:@duckdb/node-api` must protect a trusted-local duckdb entry
+        // from generic-overlap rejection identically to a bare `duckdb`
+        // signal (#443). Tooling-derived anchors are deliberately
+        // NON-primary — primaryStackAnchorTerms stays reserved for
+        // languages, frameworks, and package managers (see the tooling call
+        // site below), so manifests never override primary-anchor semantics.
+        stackAnchorTerms?.add(keyword);
       }
     }
     return;

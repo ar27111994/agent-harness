@@ -71,6 +71,17 @@ function assertRecommendationEntry(entry: unknown, context: string): void {
       `${context}.classificationConfidenceLevel`,
     );
   }
+  // Optional flag (review, #444): present ONLY when the recommendation is a
+  // single-token coincidence; legacy reports that omit it are preserved —
+  // consumers must treat an absent property as false.
+  if (
+    Object.prototype.hasOwnProperty.call(entryRecord, "coincidentalMatchOnly")
+  ) {
+    assertBoolean(
+      entryRecord.coincidentalMatchOnly,
+      `${context}.coincidentalMatchOnly`,
+    );
+  }
   assertString(entryRecord.sourceId, `${context}.sourceId`);
   assertString(entryRecord.sourceFamily, `${context}.sourceFamily`);
   if (Object.prototype.hasOwnProperty.call(entryRecord, "availableLocally")) {
@@ -573,6 +584,26 @@ function assertRecommendationScoring(value: unknown, context: string): void {
     scoring.demandTermMultipliers,
     `${context}.demandTermMultipliers`,
   );
+  // Optional identity multiplier (review, #443/#444): when present it must
+  // be a finite number GREATER THAN zero (zero or negative values would
+  // silently erase declared-dependency matches, and NaN/Infinity would
+  // poison every weighted signal). Absent is fine — legacy policies fall
+  // back to DEFAULT_IDENTITY_MATCH_MULTIPLIER at runtime.
+  if (scoring.identityMatchMultiplier !== undefined) {
+    const identityMatchMultiplier = assertNumber(
+      scoring.identityMatchMultiplier,
+      `${context}.identityMatchMultiplier`,
+    );
+    if (
+      !Number.isFinite(identityMatchMultiplier) ||
+      identityMatchMultiplier <= 0
+    ) {
+      fail(
+        `${context}.identityMatchMultiplier`,
+        "expected a finite number greater than zero",
+      );
+    }
+  }
 }
 
 function assertRecommendationHostPolicy(

@@ -1,4 +1,9 @@
 import { execFile } from "node:child_process";
+// TYPE-only import (consistent-type-imports): `access` is used ONLY in the
+// `typeof access` type query below (never as a runtime value here, unlike
+// src/lib/preflight.ts where it is also passed as a default probe).
+// `typeof` on a type-only import is valid TypeScript in a TYPE position —
+// verified against tsc --strict (review).
 import type { access } from "node:fs/promises";
 import { extname, win32 } from "node:path";
 import { promisify } from "node:util";

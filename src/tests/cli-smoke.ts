@@ -86,8 +86,11 @@ async function assertSmokeStep(
     result.stdout.length > 0 || result.stderr.length > 0,
     `${step}: must produce output`,
   );
+  // Error lines are checked against the COMBINED output, not stderr alone
+  // (review): a CLI command that writes `error:` to stdout and still exits
+  // cleanly must fail the smoke just like one that uses stderr.
   assert.doesNotMatch(
-    result.stderr,
+    `${result.stdout}\n${result.stderr}`,
     /error:/iu,
     `${step}: must not emit an error line`,
   );

@@ -6,9 +6,14 @@ import {
   collectMatchedSignals,
   DEFAULT_IDENTITY_MATCH_MULTIPLIER,
 } from "../recommend/signals.js";
+import {
+  buildCandidateRecommendation,
+  buildCandidateRecommendationBase,
+} from "../recommend/candidates.js";
 import type { DemandEvidenceStrength } from "../types/discovery.js";
 import type { DemandContext } from "../recommend/model.js";
 import type {
+  AssetCatalogEntry,
   DemandProfile,
   RecommendationHostPolicy,
   RecommendationPolicy,
@@ -518,7 +523,13 @@ void test("identity multiplier: token outside the curated identity gets no boost
   assert.equal(matches.length, 1);
   assert.equal(
     matches[0]?.weight,
-    Math.max(1, Math.round(policy.scoring.demandSignalWeights.tooling * 3)),
+    Math.max(
+      1,
+      Math.round(
+        policy.scoring.demandSignalWeights.tooling *
+          computeWeightedEvidenceCountForTest(),
+      ),
+    ),
     "a coincidental token outside the identity must not receive the multiplier",
   );
 });
@@ -535,7 +546,13 @@ void test("identity multiplier: terms without package identity get no boost", ()
   assert.equal(matches.length, 1);
   assert.equal(
     matches[0]?.weight,
-    Math.max(1, Math.round(policy.scoring.demandSignalWeights.tooling * 3)),
+    Math.max(
+      1,
+      Math.round(
+        policy.scoring.demandSignalWeights.tooling *
+          computeWeightedEvidenceCountForTest(),
+      ),
+    ),
     "a non-package identity term must keep the base weight",
   );
 });
@@ -578,9 +595,245 @@ void test("identity multiplier: two unrelated assets with identical demand overl
   );
 });
 
+void test("package identity map is first-wins per canonical term (review)", () => {
+  const policy = buildPolicy();
+  // Two DIFFERENT package declarations collapse to the same canonical term
+  // through the synonym table while their identity token sets differ. The
+  // FIRST registration's tokens must win for BOTH consumers — the term
+  // record and the packageIdentityByTerm map — never overwritten by later
+  // evidence (review: map must mirror the record's first-wins guard).
+  policy.synonyms = {
+    "shared-alias": ["npm-foo-bar", "pip-bar-baz"],
+  };
+  const profile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: {
+      scannedFiles: 2,
+      matchedFiles: 2,
+    },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: [],
+    },
+    evidence: [
+      {
+        path: "files/package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: ["npm:@foo/bar"],
+        },
+      },
+      {
+        path: "files/pyproject.toml",
+        fileName: "pyproject.toml",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: ["pip:bar-baz"],
+        },
+      },
+    ],
+  };
+
+  const demandContext = buildDemandContext(profile, policy);
+
+  const term = demandContext.terms.find(
+    (entry) => entry.canonicalTerm === "shared-alias",
+  );
+  assert.ok(term, "the shared canonical term must exist");
+  assert.deepEqual(
+    [...(term?.packageIdentityTokens ?? [])].sort(),
+    ["bar", "foo"],
+    "the term record keeps the FIRST registration's identity tokens",
+  );
+  assert.deepEqual(
+    [...(demandContext.packageIdentityByTerm.get("shared-alias") ?? [])].sort(),
+    ["bar", "foo"],
+    "packageIdentityByTerm keeps the FIRST registration's tokens (first-wins, matching the term record)",
+  );
+  assert.equal(
+    term?.evidenceCount,
+    2,
+    "both registrations must still merge into one term record",
+  );
+});
+
+void test("identity multiplier survives at candidate level: identity-matched asset outranks the coincidental lookalike up to the demand cap (review)", () => {
+  const policy = buildPolicy();
+  const demandProfile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: {
+      scannedFiles: 1,
+      matchedFiles: 1,
+    },
+    signals: {
+      languages: ["typescript"],
+      packageManagers: [],
+      frameworks: [],
+      concerns: [],
+      tooling: ["npm:@duckdb/node-api"],
+    },
+    evidence: [
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: ["typescript"],
+          packageManagers: [],
+          frameworks: [],
+          concerns: [],
+          tooling: ["npm:@duckdb/node-api"],
+        },
+      },
+    ],
+  };
+  const demandContext = buildDemandContext(demandProfile, policy);
+
+  // Otherwise-identical assets: the identity-matched one carries the
+  // declared dependency in its curated identity (manifest entry); the
+  // coincidental one only mentions duckdb in capabilities. Demands are
+  // tooling + one language only, so NO pm/framework exact-stack bonus can
+  // push the coincidental candidate toward the cap.
+  const identityEntry = buildCandidateTestEntry(
+    "duckdb-official",
+    ["duckdb", "typescript"],
+    "@duckdb/node-api",
+  );
+  const coincidentalEntry = buildCandidateTestEntry(
+    "c8e4-raw-theme",
+    ["duckdb", "typescript"],
+    undefined,
+  );
+
+  const identityBase = buildCandidateRecommendationBase(
+    identityEntry,
+    demandContext,
+    policy,
+  );
+  const coincidentalBase = buildCandidateRecommendationBase(
+    coincidentalEntry,
+    demandContext,
+    policy,
+  );
+  assert.ok(identityBase, "identity asset base must build");
+  assert.ok(coincidentalBase, "coincidental asset base must build");
+
+  const identityCandidate = buildCandidateRecommendation(
+    identityBase,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+  const coincidentalCandidate = buildCandidateRecommendation(
+    coincidentalBase,
+    "copilot-vscode",
+    demandContext,
+    policy,
+  );
+  assert.ok(identityCandidate, "identity candidate must rank");
+  assert.ok(coincidentalCandidate, "coincidental candidate must rank");
+
+  assert.equal(
+    identityCandidate?.breakdown.demand,
+    policy.scoring.demandMatchCap,
+    "matched identity signals plus the exactness bonus must reach the demand cap",
+  );
+  assert.ok(
+    (coincidentalCandidate?.breakdown.demand ?? 0) <
+      (identityCandidate?.breakdown.demand ?? 0),
+    "the coincidental lookalike must score strictly below the identity-matched asset",
+  );
+  assert.ok(
+    (identityCandidate?.breakdown.demand ?? 0) <= policy.scoring.demandMatchCap,
+    "the identity-matched candidate must never exceed the demand cap",
+  );
+  assert.ok(
+    (identityCandidate?.breakdown.total ?? 0) >
+      (coincidentalCandidate?.breakdown.total ?? 0),
+    "the identity-match advantage must survive into the final candidate total",
+  );
+});
+
 function computeWeightedEvidenceCountForTest(): number {
   // mirrors the policy-side weighted evidence count for 1 strong evidence
   return 3;
+}
+
+function buildCandidateTestEntry(
+  id: string,
+  capabilities: string[],
+  manifestEntry: string | undefined,
+): AssetCatalogEntry {
+  return {
+    id,
+    displayName: id,
+    assetKind: "skill",
+    hosts: ["copilot-vscode"],
+    compatibilityMode: "native",
+    source: {
+      sourceId: `repo-${id}`,
+      authorityTier: "trusted-community",
+      sourceKind: "repo",
+      sourcePriority: 60,
+      originUrl: `https://example.com/${id}`,
+      publisher: `repo-${id}`,
+      publisherVerified: false,
+    },
+    trust: { score: 60, signals: ["fixture"] },
+    capabilities,
+    install: {
+      method: "local-file",
+      relativePath: undefined,
+      manifestEntry,
+    },
+    evidence: {
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
+      filePath: `hacks/${id}/README.md`,
+      classification: undefined,
+    },
+    maintenance: {
+      lastUpdated: new Date().toISOString(),
+      stars: 0,
+      releaseCadence: "test",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.9, hostFit: 0.9 },
+    dedupe: {
+      duplicateGroup: `group-${id}`,
+      candidateRankHint: "test",
+    },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
+  };
 }
 
 function buildPolicy(): RecommendationPolicy {

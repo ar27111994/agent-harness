@@ -333,6 +333,96 @@ void test("ecosystem compat: ecosystem-agnostic official-index sources stay comp
   assert.equal(KNOWN_SOURCE_FAMILY_LANGUAGES.get("wordpress"), "php");
 });
 
+// ─── review: package-manager families ≡ ecosystem languages (composer ↔ php) ─
+
+void test("ecosystem penalty: composer-only workspace (no php language signal) → 0 penalty for php-family skill", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers("composer");
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages(), // no php language signal — composer implies php
+    40,
+  );
+  assert.equal(
+    penalty,
+    0,
+    "a composer declaration must be equivalent to a php language signal for php-family sources",
+  );
+});
+
+void test("ecosystem compat: composer-only workspace passes the gate for a php-family skill (review)", () => {
+  const entry = createEntry("official-index:WordPress", "docs");
+  entry.source.publisher = "WordPress";
+  const context = createDemandContextWithManagers("composer");
+  assert.equal(
+    computeAssetEcosystemCompat(entry, context, createDemandLanguages()),
+    true,
+    "composer-only demand must not deny exact-stack for php-family assets",
+  );
+});
+
+void test("ecosystem penalty: php-language-only workspace → 0 penalty for packagist registry (review)", () => {
+  const entry = createPackageRegistryEntry("packagist-registry");
+  const context = createDemandContextWithManagers(); // no PM signal
+  const penalty = computeEcosystemMismatchPenalty(
+    entry,
+    context,
+    createDemandLanguages("php"),
+    40,
+  );
+  assert.equal(
+    penalty,
+    0,
+    "a php language signal must be equivalent to a composer declaration for packagist entries",
+  );
+});
+
+void test("ecosystem compat: language-only matches the registry of that language's ecosystem (review)", () => {
+  const packagist = createPackageRegistryEntry("packagist-registry");
+  const npm = createPackageRegistryEntry("npm-registry");
+  const context = createDemandContextWithManagers(); // no PM signals
+  assert.equal(
+    computeAssetEcosystemCompat(
+      packagist,
+      context,
+      createDemandLanguages("php"),
+    ),
+    true,
+    "php-language-only demand must pass the gate for composer-family registries",
+  );
+  assert.equal(
+    computeAssetEcosystemCompat(
+      npm,
+      context,
+      createDemandLanguages("javascript"),
+    ),
+    true,
+    "javascript-language-only demand must pass the gate for the npm registry",
+  );
+});
+
+void test("ecosystem equivalence never erases a REAL mismatch: composer workspace + npm-registry entry still penalized (review)", () => {
+  const entry = createPackageRegistryEntry("npm-registry");
+  const context = createDemandContextWithManagers("composer");
+  assert.equal(
+    computeEcosystemMismatchPenalty(
+      entry,
+      context,
+      createDemandLanguages(),
+      40,
+    ),
+    80,
+    "composer ↔ php equivalence must not make npm-registry entries compatible",
+  );
+  assert.equal(
+    computeAssetEcosystemCompat(entry, context, createDemandLanguages()),
+    false,
+    "composer-only demand must still deny exact-stack for npm-registry assets",
+  );
+});
+
 // ---------------------------------------------------------------------------
 // Integration test: report-level ranking confirms packagist entries are
 // suppressed below npm entries for an npm/TypeScript workspace

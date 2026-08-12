@@ -50,7 +50,16 @@ void test("whitespace-only and extension-less filenames round-trip through the f
   const root = await mkdtemp(join(tmpdir(), "ah-edge-name-"));
   context.after(() => rm(root, { recursive: true, force: true }));
 
-  for (const name of ["   ", "no-extension-file", ".hidden", "a b c"]) {
+  // A whitespace-only name cannot round-trip on Windows: the Win32 API
+  // strips trailing spaces/dots from file names, so `join(root, "   ")`
+  // collapses toward the directory itself and writeFile surfaces an OS
+  // error (EISDIR/ENOENT/EPERM) — OS behavior, not harness mangling. The
+  // name is excluded on win32 only; every other filename round-trips.
+  const names =
+    process.platform === "win32"
+      ? ["no-extension-file", ".hidden", "a b c"]
+      : ["   ", "no-extension-file", ".hidden", "a b c"];
+  for (const name of names) {
     const filePath = join(root, name);
     await writeTextFile(filePath, `content:${name}`);
     assert.equal(
@@ -133,7 +142,7 @@ void test("empty and extension-less JSONL inputs produce empty entry lists (revi
   assert.equal(await pathExists(whitespacePath), true);
 });
 
-void test("hostile names normalize through sanitizers without traversal or jsons: syntax abuse (review)", () => {
+void test("hostile names normalize through sanitizers without traversal or JSON syntax abuse (review)", () => {
   const hostile = [
     "../..\\..\\evil",
     "a/../../b",

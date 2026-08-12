@@ -126,6 +126,48 @@ void test("executable preflight handles empty PATH and default Windows extension
   }
 });
 
+void test("explicit-extension executables resolve exact-name only (review: absent code.cmd must not select code.cmd.EXE)", async () => {
+  // Regression for the PATHEXT composition hole: a candidate named
+  // `code.cmd` must NEVER resolve to `code.cmd.EXE` when the exact file is
+  // absent — the caller named a .cmd wrapper, not a PATHEXT lookalike.
+  const notFound = await preflightInternals.findExecutableOnPath("code.cmd", {
+    accessPath: async (candidate) => {
+      if (String(candidate).endsWith("code.cmd.EXE")) {
+        return;
+      }
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    },
+    env: {
+      PATH: "C:\\Tools;C:\\Other",
+      PATHEXT: ".EXE;.CMD;.BAT",
+    } as NodeJS.ProcessEnv,
+    platform: "win32",
+  });
+  assert.equal(
+    notFound,
+    null,
+    "explicit-extension names must not fall through to PATHEXT compositions",
+  );
+
+  // And when the exact file EXISTS, it wins immediately — even though a
+  // PATHEXT composition also exists (exact-first, never composed).
+  const exact = await preflightInternals.findExecutableOnPath("code.cmd", {
+    accessPath: async (candidate) => {
+      if (String(candidate).endsWith("code.cmd")) {
+        return;
+      }
+      throw Object.assign(new Error("missing"), { code: "ENOENT" });
+    },
+    env: { PATH: "C:\\Tools" } as NodeJS.ProcessEnv,
+    platform: "win32",
+  });
+  assert.equal(
+    exact,
+    "C:\\Tools\\code.cmd",
+    "the exact filename must resolve without PATHEXT composition",
+  );
+});
+
 // ── isAborted coverage (#355) ──────────────────────────────────────────
 
 void test("isAborted: returns false when signal is undefined", () => {

@@ -223,7 +223,14 @@ export function buildDemandContext(
     const key = `${signalType}:${canonicalTerm}`;
     const matchTerms = buildSearchTerms([rawTerm], policy, synonymLookup);
     const packageIdentityTokens = buildPackageIdentityTokens(rawTerm);
-    if (packageIdentityTokens !== undefined) {
+    // First-wins per canonical term, mirroring the term-record guard below:
+    // every consumer of `packageIdentityByTerm` must see the SAME initial
+    // package identity a canonical term was registered with, regardless of
+    // later evidence order or signal-type keys (review).
+    if (
+      packageIdentityTokens !== undefined &&
+      !packageIdentityByTerm.has(canonicalTerm)
+    ) {
       packageIdentityByTerm.set(canonicalTerm, packageIdentityTokens);
     }
     const existing = demandTermMap.get(key);

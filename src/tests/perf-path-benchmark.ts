@@ -239,8 +239,17 @@ async function main(): Promise<void> {
       scaleElapsedMs < SCALE_BUDGET_MS,
       `scale recommend exceeded budget (${scaleElapsedMs}ms for ${SCALE_CATALOG_SIZE} entries)`,
     );
+    // The 1K baseline is a rate gate, not a linearity denominator: when the
+    // baseline is tiny (fast machine, warm caches), the ratio `10K / 1K`
+    // is dominated by fixed overhead and would flag healthy runs as
+    // super-linear. The denominator is floored at a minimum baseline
+    // duration; the absolute 60s scale budget above remains the hard bound
+    // (review).
+    const MIN_LINEARITY_BASELINE_MS = 250;
     assert.ok(
-      scaleElapsedMs < recommendElapsedMs * SCALE_LINEARITY_FACTOR,
+      scaleElapsedMs <
+        Math.max(recommendElapsedMs, MIN_LINEARITY_BASELINE_MS) *
+          SCALE_LINEARITY_FACTOR,
       `scale recommend looks super-linear: 1K=${Math.round(recommendElapsedMs)}ms, 10K=${Math.round(scaleElapsedMs)}ms (allow ${SCALE_LINEARITY_FACTOR}× for cache/GC noise)`,
     );
     report.scaleCatalogSize = SCALE_CATALOG_SIZE;

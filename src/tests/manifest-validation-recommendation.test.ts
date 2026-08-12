@@ -131,6 +131,80 @@ void test("recommendation policy validators reject missing host policies and tol
   );
 });
 
+void test("identityMatchMultiplier validates as finite and greater than zero when present (review)", () => {
+  // A finite positive multiplier is accepted…
+  const withMultiplier = createRecommendationPolicy();
+  (
+    withMultiplier.scoring as { identityMatchMultiplier?: number }
+  ).identityMatchMultiplier = 4;
+  assert.doesNotThrow(
+    () => assertRecommendationPolicy(withMultiplier, "policy"),
+    "a finite positive multiplier must be accepted",
+  );
+
+  // …and every degenerate value is rejected: zero/negative would silently
+  // erase declared-dependency matches, Infinity/NaN poison the weighting.
+  for (const bad of [
+    0,
+    -1,
+    Number.POSITIVE_INFINITY,
+    Number.NaN,
+    "4" as unknown as number,
+  ]) {
+    const policy = createRecommendationPolicy();
+    (
+      policy.scoring as { identityMatchMultiplier?: number }
+    ).identityMatchMultiplier = bad;
+    assert.throws(
+      () => assertRecommendationPolicy(policy, "policy"),
+      /identityMatchMultiplier/u,
+      `multiplier ${String(bad)} must be rejected`,
+    );
+  }
+
+  // Legacy policies that omit the field stay valid (runtime default applies).
+  assert.doesNotThrow(
+    () => assertRecommendationPolicy(createRecommendationPolicy(), "policy"),
+    "an omitted multiplier must stay valid for legacy policies",
+  );
+});
+
+void test("coincidentalMatchOnly validates as an optional boolean on report entries (review)", () => {
+  const report = createRecommendationReport();
+  const entry = report.topByHost["copilot-vscode"][0] as {
+    coincidentalMatchOnly?: unknown;
+  };
+
+  entry.coincidentalMatchOnly = true;
+  assert.doesNotThrow(
+    () => assertRecommendationReport(report, "report"),
+    "true must be accepted",
+  );
+  entry.coincidentalMatchOnly = false;
+  assert.doesNotThrow(
+    () => assertRecommendationReport(report, "report"),
+    "false must be accepted",
+  );
+  entry.coincidentalMatchOnly = "true";
+  assert.throws(
+    () => assertRecommendationReport(report, "report"),
+    /coincidentalMatchOnly/u,
+    "a string must be rejected",
+  );
+  entry.coincidentalMatchOnly = 1;
+  assert.throws(
+    () => assertRecommendationReport(report, "report"),
+    /coincidentalMatchOnly/u,
+    "a number must be rejected",
+  );
+
+  delete entry.coincidentalMatchOnly;
+  assert.doesNotThrow(
+    () => assertRecommendationReport(report, "report"),
+    "legacy reports that omit the flag must stay valid",
+  );
+});
+
 void test("recommendation policy validators accept preset refs and reject invalid override modes", () => {
   assert.doesNotThrow(() =>
     assertRecommendationPolicyBaseOverride(

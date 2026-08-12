@@ -374,9 +374,12 @@ export async function findExecutableOnPath(
   const accessMode = getExecutableAccessMode(platform);
 
   // On Windows a name that already carries an extension (e.g. `code.cmd`
-  // from an executable-candidate list) resolves as-is; appending PATHEXT
-  // suffixes to it would search for `code.cmd.EXE` etc. and never match.
-  // Try the exact name first, then the PATHEXT compositions.
+  // from an executable-candidate list) resolves AS-IS: only the exact
+  // filename is searched across PATH and the PATHEXT composition loop is
+  // skipped entirely — appending PATHEXT suffixes to it would search for
+  // `code.cmd.EXE` etc. and could select a file the caller did NOT name
+  // (review: absent code.cmd must never resolve to an existing
+  // code.cmd.EXE). Extensionless names keep the full PATHEXT probing.
   const hasExplicitExtension =
     platform === "win32" && extname(executableName).length > 0;
 
@@ -387,7 +390,9 @@ export async function findExecutableOnPath(
         await accessPath(exactCandidate, accessMode);
         return exactCandidate;
       } catch {
-        // Fall through to the PATHEXT compositions.
+        // Explicit-extension names are exact-only: no PATHEXT composition
+        // fallback (see above), continue with the next PATH entry.
+        continue;
       }
     }
     for (const extension of extensions) {

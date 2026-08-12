@@ -615,6 +615,33 @@ void test("scoped package dependencies contribute individual exact terms, not a 
   }
 });
 
+void test("multipart package-manifest declarations anchor the stack like single-token ones, never primary (review)", () => {
+  // ONLY the multipart form — no single-token sibling — so the anchor must
+  // come from the multipart branch itself (review: the two token-count
+  // forms must treat the same bare package identity identically).
+  const demandProfile = createDemandProfile({
+    tooling: ["npm:@duckdb/node-api"],
+  });
+  const terms = catalogSelectionInternals.buildDemandTermSet(
+    demandProfile,
+    new Map(),
+    1,
+  );
+
+  assert.ok(terms.exactHighSignalTerms.has("duckdb"));
+  assert.ok(
+    terms.stackAnchorTerms.has("duckdb"),
+    "a multipart manifest identity token must be a stack anchor, identical to the single-token treatment",
+  );
+  assert.ok(
+    !terms.primaryStackAnchorTerms.has("duckdb"),
+    "tooling-derived anchors stay deliberately non-primary",
+  );
+  // Generic split tokens must not anchor anything.
+  assert.ok(!terms.stackAnchorTerms.has("node"));
+  assert.ok(!terms.stackAnchorTerms.has("api"));
+});
+
 void test("official DuckDB skills are selected when the workspace declares @duckdb/node-api (#443)", () => {
   const duckdbSkill = createEntry("official-index:duckdb:attach-db", [
     "duckdb",
