@@ -60,28 +60,48 @@ export async function runSetup(
   }
 
   switch (command) {
-    case "doctor":
-      if (hasUnknownFlagsForSetupCommand(command, rest)) {
-        return 1;
+    case "doctor": {
+      const rejection = rejectUnknownSetupFlags(command, rest);
+      if (rejection !== null) {
+        return rejection;
       }
       return (await runDoctor(rest, projectRoot)) ? 0 : 1;
-    case "hosts":
-      if (hasUnknownFlagsForSetupCommand(command, rest)) {
-        return 1;
+    }
+    case "hosts": {
+      const rejection = rejectUnknownSetupFlags(command, rest);
+      if (rejection !== null) {
+        return rejection;
       }
       printHosts();
       return 0;
-    case "login":
-      if (hasUnknownFlagsForSetupCommand(command, rest)) {
-        return 1;
+    }
+    case "login": {
+      const rejection = rejectUnknownSetupFlags(command, rest);
+      if (rejection !== null) {
+        return rejection;
       }
       return printLoginGuidance(rest);
+    }
     case "help":
       printSetupHelp();
       return 0;
     default:
       return handleUnknownCommand(command, printSetupHelp);
   }
+}
+
+/**
+ * Returns 1 when the given setup subcommand received a flag it does not
+ * declare (the shared blocker has already printed the unknown-option error
+ * with the subcommand's usage hint), or null when execution may proceed.
+ * Single rejection point for every setup subcommand — previously the same
+ * two-line guard block was triplicated at each case (review S1).
+ */
+function rejectUnknownSetupFlags(
+  command: string,
+  rest: string[],
+): number | null {
+  return hasUnknownFlagsForSetupCommand(command, rest) ? 1 : null;
 }
 
 /**
