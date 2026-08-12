@@ -327,6 +327,18 @@ async function main(): Promise<void> {
       "exactly the entries carrying the rare demand token must be selected",
     );
     assert.ok(
+      selectedEntries.every((entry) =>
+        entry.capabilities.includes("duckdb-probe"),
+      ),
+      "every selected entry must carry the rare demand token",
+    );
+    assert.ok(
+      rejectedEntries.every(
+        (entry) => !entry.capabilities.includes("duckdb-probe"),
+      ),
+      "every rejected entry must lack the rare demand token",
+    );
+    assert.ok(
       rejectedEntries.length > 0,
       "entries without the demand token must be rejected",
     );
@@ -336,6 +348,7 @@ async function main(): Promise<void> {
     );
     report.selectionCatalogSize = SELECTION_CATALOG_SIZE;
     report.selectionRelevantEntries = selectedEntries.length;
+    report.selectionRejectedEntries = rejectedEntries.length;
     report.selectionElapsedMs = Math.round(selectionElapsedMs);
 
     // ------------------------------------------------------------------

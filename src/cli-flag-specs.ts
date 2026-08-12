@@ -121,12 +121,12 @@ export const DISCOVER_SUBCOMMAND_FLAG_SPECS: Record<
   recall: {
     knownFlags: new Set(),
     flagsWithValues: new Set(),
-    usageHint: "agent-harness discover breadth --help",
+    usageHint: "agent-harness discover recall --help",
   },
   "candidate-pool": {
     knownFlags: new Set(),
     flagsWithValues: new Set(),
-    usageHint: "agent-harness discover breadth --help",
+    usageHint: "agent-harness discover candidate-pool --help",
   },
   enrich: {
     knownFlags: new Set(["--force", "--require-ai-enrich"]),
