@@ -65,8 +65,6 @@ export async function runMirror(
       await diffMirrorIndex(projectRoot);
       return 0;
     case "bundle-explain":
-      await explainBundleLock(projectRoot, rest);
-      return 0;
     case "explain-bundle":
       await explainBundleLock(projectRoot, rest);
       return 0;

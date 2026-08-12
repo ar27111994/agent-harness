@@ -21,6 +21,18 @@ function helpSubcommandSpec(domain: string): SubcommandFlagSpec {
 }
 
 /**
+ * Shared flag spec for `mirror bundle-explain` and its alias
+ * `mirror explain-bundle` (review S2): both spellings dispatch to the same
+ * command, so one spec object serves both table keys — a flag added to one
+ * can never drift out of the other.
+ */
+const BUNDLE_EXPLAIN_SPEC: SubcommandFlagSpec = {
+  knownFlags: new Set(["--bundle", "--json"]),
+  flagsWithValues: new Set(["--bundle"]),
+  usageHint: "agent-harness bundle explain --help",
+};
+
+/**
  * Flag spec table for mirror subcommands (#445): the shared unknown-flag
  * guard rejects typo'd flags before any mirror work or state write.
  */
@@ -46,16 +58,8 @@ export const MIRROR_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> =
       flagsWithValues: new Set(),
       usageHint: "agent-harness mirror diff --help",
     },
-    "bundle-explain": {
-      knownFlags: new Set(["--bundle", "--json"]),
-      flagsWithValues: new Set(["--bundle"]),
-      usageHint: "agent-harness bundle explain --help",
-    },
-    "explain-bundle": {
-      knownFlags: new Set(["--bundle", "--json"]),
-      flagsWithValues: new Set(["--bundle"]),
-      usageHint: "agent-harness bundle explain --help",
-    },
+    "bundle-explain": BUNDLE_EXPLAIN_SPEC,
+    "explain-bundle": BUNDLE_EXPLAIN_SPEC,
     explain: {
       knownFlags: new Set(["--asset", "--mirror"]),
       flagsWithValues: new Set(["--asset", "--mirror"]),
