@@ -394,6 +394,51 @@ void test("main() maps user-input errors to a clean one-line exit without stacks
   }
 });
 
+void test("main() maps an in-process bundle-explain miss to a clean error (review)", async (context) => {
+  const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
+  context.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const stateRoot = join(tempRoot, "state");
+  const originalArgv = process.argv;
+  const stderr: string[] = [];
+  const originalError = console.error;
+  const originalStderrWrite = process.stderr.write;
+  console.error = (...args: unknown[]) => {
+    stderr.push(args.map((value) => String(value)).join(" "));
+  };
+  process.stderr.write = ((chunk: unknown): boolean => {
+    stderr.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    process.argv = [
+      process.execPath,
+      "dist/cli.js",
+      "--no-dotenv",
+      "--state-root",
+      stateRoot,
+      "mirror",
+      "bundle-explain",
+      "no-such-bundle",
+    ];
+    const exitCode = await cliInternals.main();
+    assert.equal(exitCode, 1);
+    const stderrText = stderr.join("\n");
+    assert.match(
+      stderrText,
+      /error: Bundle lock not found: 'no-such-bundle'\./u,
+    );
+    assert.doesNotMatch(stderrText, /\bfile:\/\//u, "no stack frames");
+    assert.match(
+      stderrText,
+      /Run 'agent-harness bundle explain --help' for usage\./u,
+    );
+  } finally {
+    process.argv = originalArgv;
+    console.error = originalError;
+    process.stderr.write = originalStderrWrite;
+  }
+});
+
 void test("main() rethrows internal (non-user-input) errors for stackful top-level handling (#446)", async (context) => {
   const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-usage-err-"));
   context.after(() => rm(tempRoot, { recursive: true, force: true }));

@@ -102,25 +102,20 @@ export async function manageNativeInstall(
   // with a visible note — the harness must not propose or install lookalikes
   // (e.g. a theme whose marketplace description contains the workspace's `c8`
   // dependency).
-  const planByExtensionId = new Map<string, NativeInstallAssetPlan>();
-  for (const plan of plans) {
-    planByExtensionId.set(plan.extensionId, plan);
-  }
+  const flaggedPlans = plans.filter(
+    (plan): plan is NativeInstallAssetPlan & { recommendation: RecommendationEntry } =>
+      plan.recommendation?.coincidentalMatchOnly === true,
+  );
   const coincidentalExtensionIds = new Set(
-    plans
-      .filter((plan) => plan.recommendation?.coincidentalMatchOnly === true)
-      .map((plan) => plan.extensionId),
+    flaggedPlans.map((plan) => plan.extensionId),
   );
   const includedActions = actions.filter(
     (action) => !coincidentalExtensionIds.has(action.extensionId),
   );
-  const excludedActions = actions.filter((action) =>
-    coincidentalExtensionIds.has(action.extensionId),
-  );
 
   if (operation === "plan") {
     printNativeInstallPlan(adapter, includedActions, plans);
-    printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
+    printExcludedCoincidentalExtensions(flaggedPlans);
     return;
   }
 
@@ -128,14 +123,14 @@ export async function manageNativeInstall(
   // directly (original contract, review).
   if ((operation === "install" || operation === "remove") && !apply) {
     printNativeInstallPlan(adapter, includedActions, plans);
-    printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
+    printExcludedCoincidentalExtensions(flaggedPlans);
     console.log(
       `Native ${operation} is mutating. Re-run with --apply to execute it.`,
     );
     return;
   }
 
-  printExcludedCoincidentalExtensions(excludedActions, planByExtensionId);
+  printExcludedCoincidentalExtensions(flaggedPlans);
 
   const diagnostics = await runNativeInstallPreflight(adapter);
   if (diagnostics.length > 0) {
@@ -296,22 +291,26 @@ function printNativeInstallPlan(
 }
 
 function printExcludedCoincidentalExtensions(
-  excludedActions: ExtensionInstallAction[],
-  planByExtensionId: ReadonlyMap<string, NativeInstallAssetPlan>,
+  plans: readonly NativeInstallAssetPlan[],
 ): void {
-  if (excludedActions.length === 0) {
+  const flaggedPlans = plans.filter(
+    (plan): plan is NativeInstallAssetPlan & { recommendation: RecommendationEntry } =>
+      plan.recommendation?.coincidentalMatchOnly === true,
+  );
+  if (flaggedPlans.length === 0) {
     return;
   }
   console.log(
     "Excluded from plan (single-token coincidence — no workspace identity match):",
   );
-  for (const action of excludedActions) {
-    const plan = planByExtensionId.get(action.extensionId);
-    const terms =
-      plan?.recommendation?.matchedSignals
-        .map((match) => `${match.signalType}:${match.term}`)
-        .join(", ") ?? "";
-    let line = `  ${action.host}:${action.extensionId}`;
+  for (const plan of flaggedPlans) {
+    // Excluded-by-construction: the type guard above guarantees the
+    // recommendation exists (a flag cannot be recorded without it).
+    const recommendation = plan.recommendation;
+    const terms = recommendation.matchedSignals
+      .map((match) => `${match.signalType}:${match.term}`)
+      .join(", ");
+    let line = `  ${recommendation.host}:${plan.extensionId}`;
     if (terms.length > 0) {
       line += ` (matched only: ${terms})`;
     }

@@ -393,7 +393,11 @@ async function withFetchMock(
   }
 }
 
-void test("fetchJsonWithGuards strips a UTF-8 BOM before parsing (review)", async () => {
+void test("fetchJsonWithGuards parses a BOM-prefixed response end-to-end (review)", async () => {
+  // The WHATWG decoder behind Response.text() strips the leading BOM, so a
+  // BOM'd feed must still parse — pinned end-to-end so the contract stays
+  // deliberate (a BOM reaching JSON.parse would fail it and silently sync
+  // nothing).
   await withFetchMock(
     `\uFEFF${JSON.stringify({ payload: "bom-survivor" })}`,
     async () => {
