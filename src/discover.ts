@@ -9,8 +9,9 @@ import {
 import {
   handleUnknownCommand,
   hasHelpFlag,
-  hasUnknownFlag,
+  hasUnknownFlagsForSubcommands,
 } from "./cli-help-format.js";
+import { DISCOVER_SUBCOMMAND_FLAG_SPECS } from "./cli-flag-specs.js";
 
 import { readJsonLinesFile, pathExists, toPosixPath } from "./files.js";
 import { getRuntimeConfig } from "./config/runtime.js";
@@ -66,21 +67,23 @@ import {
  */
 export { buildDemandProfile } from "./domains/discovery/demand-profile.js";
 
-const DISCOVER_AI_ENRICH_FLAGS = new Set([
-  "--ai-enrich",
-  "--no-ai-enrich",
-  "--force",
-  "--require-ai-enrich",
-]);
-const DISCOVER_FULL_KNOWN_FLAGS = new Set([
-  ...DISCOVER_AI_ENRICH_FLAGS,
-  "--quiet",
-  "--summary",
-  "--no-sync",
-  "--sync-all",
-  "--max-scan-bytes",
-]);
-const DISCOVER_FULL_FLAGS_WITH_VALUES = new Set(["--max-scan-bytes"]);
+/**
+ * Rejects flags a discover subcommand does not declare through the shared
+ * subcommand flag-spec guard (review S3): discover now uses the same
+ * table-driven primitive as mirror/install/activate/quarantine/rebuild/
+ * recommend instead of per-case ad-hoc `hasUnknownFlag(rest, new Set(...))`
+ * blocks.
+ */
+function hasUnknownFlagsForDiscoverCommand(
+  command: string,
+  rest: string[],
+): boolean {
+  return hasUnknownFlagsForSubcommands(
+    DISCOVER_SUBCOMMAND_FLAG_SPECS,
+    command,
+    rest,
+  );
+}
 
 /** Minimum number of sources before the first-run --no-sync hint appears. */
 const FIRST_RUN_SYNC_HINT_MIN_SOURCES = 6;
@@ -213,14 +216,7 @@ export async function runDiscover(
       return 0;
     }
     case "sync": {
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--full"]),
-          new Set(),
-          "agent-harness discover sync --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       const forceFullFlag = rest.includes("--full");
@@ -250,14 +246,7 @@ export async function runDiscover(
       return 0;
     }
     case "select": {
-      if (
-        hasUnknownFlag(
-          rest,
-          DISCOVER_AI_ENRICH_FLAGS,
-          new Set(),
-          "agent-harness discover select --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
@@ -275,14 +264,7 @@ export async function runDiscover(
       );
     }
     case "full": {
-      if (
-        hasUnknownFlag(
-          rest,
-          DISCOVER_FULL_KNOWN_FLAGS,
-          DISCOVER_FULL_FLAGS_WITH_VALUES,
-          "agent-harness discover full --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
@@ -404,27 +386,13 @@ export async function runDiscover(
     case "recall":
     case "candidate-pool":
       // These subcommands take no options; any flag is unknown (#431).
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(),
-          new Set(),
-          "agent-harness discover breadth --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       await runDiscoveryBreadth(workingDirectory, projectRoot);
       return 0;
     case "enrich":
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--force", "--require-ai-enrich"]),
-          new Set(),
-          "agent-harness discover enrich --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       return handleAiEnrichmentResult(
@@ -437,53 +405,25 @@ export async function runDiscover(
         }),
       );
     case "stats":
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(),
-          new Set(),
-          "agent-harness discover stats --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       await printCatalogStats(projectRoot);
       return 0;
     case "diff":
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--baseline", "--json"]),
-          new Set(["--baseline"]),
-          "agent-harness discover diff --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       await writeDiscoverDiffReport(projectRoot, rest);
       return 0;
     case "environment-index":
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--json"]),
-          new Set(),
-          "agent-harness discover environment-index --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       await writeEnvironmentIndex(projectRoot, rest);
       return 0;
     case "ard-export": {
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--quiet"]),
-          new Set(),
-          "agent-harness discover ard-export --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       // Try to resolve a real version from the workspace root (not --state-root)
@@ -508,14 +448,7 @@ export async function runDiscover(
       return 0;
     }
     case "inspect":
-      if (
-        hasUnknownFlag(
-          rest,
-          new Set(["--source", "--id", "--limit"]),
-          new Set(["--source", "--id", "--limit"]),
-          "agent-harness discover inspect --help",
-        )
-      ) {
+      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
         return 1;
       }
       await inspectCatalog(projectRoot, rest);
