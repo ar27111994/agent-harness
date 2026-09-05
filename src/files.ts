@@ -258,7 +258,7 @@ async function readFileWithTransientRetry(
       if (readFileOpenOverride !== undefined) {
         return await readFileOpenOverride(filePath, encoding);
       }
-      return await readFile(filePath, encoding);
+      return await readFile(filePath, encoding ?? null);
     } catch (error) {
       const failingCode = (error as NodeJS.ErrnoException).code;
       if (failingCode !== "EPERM" && failingCode !== "EACCES") {
