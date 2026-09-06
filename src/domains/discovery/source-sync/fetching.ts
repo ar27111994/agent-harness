@@ -164,6 +164,26 @@ function requireNonNull<T>(value: T | null, url: string): T {
   return value;
 }
 
+/** Adds the request URL while retaining HTTP status for retry classification. */
+async function fetchRequiredValue<T>(
+  url: string,
+  fetchValue: () => Promise<T | null>,
+): Promise<T> {
+  try {
+    return requireNonNull(await fetchValue(), url);
+  } catch (error) {
+    if (error instanceof Error && hasHttpStatus(error)) {
+      const contextualError = new Error(
+        `Failed to fetch ${url}: ${error.message}`,
+        { cause: error },
+      ) as Error & { status: number };
+      contextualError.status = error.status;
+      throw contextualError;
+    }
+    throw error;
+  }
+}
+
 /**
  * Fetches the URL as plain text with retry-on-transient-failure.
  * Throws when all retry attempts are exhausted or the request hits a
@@ -176,15 +196,15 @@ export async function fetchRequiredText(
 ): Promise<string> {
   return fetchWithRetry(
     url,
-    async () =>
-      requireNonNull(
-        await fetchTextWithGuards(url, {
+    () =>
+      fetchRequiredValue(url, () =>
+        fetchTextWithGuards(url, {
           allowedOrigins,
           headers: SOURCE_SYNC_HEADERS,
           maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+          throwOnHttpError: true,
           timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
         }),
-        url,
       ),
     options,
   );
@@ -222,12 +242,13 @@ export async function fetchRequiredJson(
   }
   return fetchWithRetry(
     url,
-    async () =>
-      requireNonNull(
-        await fetchJsonWithGuards(url, {
+    () =>
+      fetchRequiredValue(url, () =>
+        fetchJsonWithGuards(url, {
           allowedOrigins,
           headers,
           maxBytes: options.maxBytes ?? SOURCE_SYNC_FETCH_MAX_BYTES,
+          throwOnHttpError: true,
           timeoutMs: options.timeoutMs ?? SOURCE_SYNC_TIMEOUT_MS,
           // A body without an explicit method must default to POST (the
           // Fetch spec forbids GET/HEAD with a body — including an empty
@@ -237,7 +258,6 @@ export async function fetchRequiredJson(
             request.method ?? (request.body !== undefined ? "POST" : undefined),
           body: request.body,
         }),
-        url,
       ),
     options,
   );

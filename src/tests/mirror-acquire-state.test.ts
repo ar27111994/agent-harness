@@ -17,7 +17,7 @@ import {
   assertMirrorIndexEntry,
 } from "../manifest-validation/mirror.js";
 import { assertMirrorAcquireCheckpoint } from "../mirror/acquire-state.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import {
   acquireMirrorArtifacts,
   mirrorAcquireInternals,
@@ -309,7 +309,7 @@ function createGitBlobSha(content: Buffer): string {
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
 
@@ -639,7 +639,7 @@ void test("acquireMirrorArtifacts mirrors pinned github-tree assets between lega
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (url) => {
     const requestUrl = String(url);
@@ -710,7 +710,7 @@ void test("acquireMirrorArtifacts mirrors official-index packages when commit lo
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const skillMarkdownContent = Buffer.from("# Cloudflare\n", "utf8");
   const skillReadmeContent = Buffer.from("See SKILL.md\n", "utf8");
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (url) => {
     const requestUrl = String(url);
@@ -848,7 +848,7 @@ void test("acquireMirrorArtifacts falls back to later official-index repo candid
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const oversizedRepoUrl =
     "https://github.com/cloudflare/cloudflare-skills/tree/main/skills/cloudflare";
   const oversizedTree = Array.from(
@@ -1029,7 +1029,7 @@ void test("acquireMirrorArtifacts mirrors official-index packages with more than
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const repoUrl =
     "https://github.com/cloudflare/skills/tree/main/skills/cloudflare";
   const packageFiles = Array.from({ length: 60 }, (_, index) => {
@@ -1182,7 +1182,7 @@ void test("acquireMirrorArtifacts mirrors official-index packages with files bet
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const repoUrl =
     "https://github.com/figma/mcp-server-guide/tree/main/skills/figma-use";
   const skillMarkdownContent = Buffer.from("# Figma Use\n", "utf8");
@@ -1325,7 +1325,7 @@ void test("acquireMirrorArtifacts falls back to official-index page content when
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const repoUrl =
     "https://github.com/cloudflare/cloudflare-skills/tree/main/skills/cloudflare";
   const oversizedTree = Array.from(
@@ -1480,7 +1480,7 @@ void test("acquireMirrorArtifacts records official-index total-byte cap skips wi
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const repoUrl =
     "https://github.com/cloudflare/skills/tree/main/skills/cloudflare";
   const oversizedFileCount =
@@ -1623,7 +1623,7 @@ void test("acquireMirrorArtifacts records official-index file-count cap skips wi
   const projectRoot = await createAcquireFixture([entry]);
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const repoUrl =
     "https://github.com/cloudflare/skills/tree/main/skills/cloudflare";
   const oversizedTree = Array.from(

@@ -4,6 +4,13 @@
  * travel across test files and into every spawned child).
  */
 
+import { httpInternals } from "../lib/http.js";
+
+/** Explicitly enables the guarded-fetch mock path for a controlled test. */
+export function setHttpTestFetchMocks(enabled: boolean): void {
+  httpInternals.setTestFetchMocksForTests(enabled);
+}
+
 /**
  * Restores one environment variable to a previously captured value.
  *
@@ -18,6 +25,9 @@ export function restoreEnvVar(
   name: string,
   previous: string | undefined,
 ): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(previous === "1");
+  }
   if (previous === undefined) {
     delete process.env[name];
     return;

@@ -3,7 +3,8 @@
  *
  * Reads .well-known/ai-catalog.json and verifies that at least 80% of
  * entries carry resolvable HTTP/HTTPS URLs rather than content-addressing
- * hashes or plain names.
+ * hashes or plain names. ARD 1.0 inline `data` entries are valid and are
+ * counted separately from URL-backed entries.
  *
  * Tickets: #380
  */
@@ -44,6 +45,7 @@ export function validateArdUrls(catalogPath) {
         httpCount: 0,
         hashCount: 0,
         nameCount: 0,
+        inlineDataCount: 0,
         missingCount: 0,
         invalidEntryCount: 0,
         fraction: 0,
@@ -63,6 +65,7 @@ export function validateArdUrls(catalogPath) {
         httpCount: 0,
         hashCount: 0,
         nameCount: 0,
+        inlineDataCount: 0,
         missingCount: 0,
         invalidEntryCount: 0,
         fraction: 0,
@@ -80,6 +83,7 @@ export function validateArdUrls(catalogPath) {
         httpCount: 0,
         hashCount: 0,
         nameCount: 0,
+        inlineDataCount: 0,
         missingCount: 0,
         invalidEntryCount: 0,
         fraction: 0,
@@ -91,6 +95,7 @@ export function validateArdUrls(catalogPath) {
   let httpCount = 0;
   let hashCount = 0;
   let nameCount = 0;
+  let inlineDataCount = 0;
   let missingCount = 0;
   let invalidEntryCount = 0;
 
@@ -100,10 +105,16 @@ export function validateArdUrls(catalogPath) {
       continue;
     }
     const url = entry.url;
-    if (!url) {
-      missingCount++;
-    } else if (isHttpUrl(url)) {
+    const hasInlineData =
+      entry.data !== null &&
+      typeof entry.data === "object" &&
+      !Array.isArray(entry.data);
+    if (isHttpUrl(url)) {
       httpCount++;
+    } else if (hasInlineData) {
+      inlineDataCount++;
+    } else if (!url) {
+      missingCount++;
     } else if (isHashUrl(url)) {
       hashCount++;
     } else {
@@ -124,13 +135,13 @@ export function validateArdUrls(catalogPath) {
     errors.push(
       `ARD URL quality below threshold: ${httpCount}/${total} HTTP (${(fraction * 100).toFixed(1)}%)` +
         ` — minimum required: ${(MIN_HTTP_FRACTION * 100).toFixed(0)}%.` +
-        ` Hash: ${hashCount}, Name: ${nameCount}, Missing: ${missingCount}.`,
+        ` Hash: ${hashCount}, Name: ${nameCount}, Inline data: ${inlineDataCount}, Missing: ${missingCount}.`,
     );
   }
 
   if (missingCount > 0) {
     errors.push(
-      `${missingCount} entries have a missing or empty url — every ARD entry must have a resolvable url.`,
+      `${missingCount} entries have neither a usable url nor inline data — every ARD entry must have one of those fields.`,
     );
   }
 
@@ -142,6 +153,7 @@ export function validateArdUrls(catalogPath) {
       httpCount,
       hashCount,
       nameCount,
+      inlineDataCount,
       missingCount,
       invalidEntryCount,
       fraction,
@@ -165,7 +177,7 @@ export function main(options = {}) {
   const s = result.stats;
   console.log(
     `ARD URL quality: ${s.httpCount}/${s.total} HTTP (${(s.fraction * 100).toFixed(1)}%)` +
-      ` — ${s.hashCount} hash, ${s.nameCount} name, ${s.missingCount} missing`,
+      ` — ${s.hashCount} hash, ${s.nameCount} name, ${s.inlineDataCount} inline data, ${s.missingCount} missing`,
   );
   return result;
 }

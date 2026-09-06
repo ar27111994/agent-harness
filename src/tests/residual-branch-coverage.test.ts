@@ -498,7 +498,7 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
     assert.equal(await readTextFileOrNull(agentsPath), "before\nafter\n");
 
     assert.deepEqual(
-      nativeWireInternals.buildCodexHooksManifest(
+      nativeWireInternals.buildLegacyCodexHooksManifest(
         [
           {
             assetId: "hook-without-file",
@@ -515,7 +515,6 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
             displayName: "Hook With File",
           },
         ],
-        [join(root, "hook.md")],
         { "hook-with-file": join(root, "hook.md") },
       ),
       {
@@ -533,6 +532,41 @@ void test("host adapter residual helpers cover duplicate snapshots and error for
           },
         ],
       },
+    );
+
+    const hookPath = join(root, "hook.md");
+    const relativeManifest = nativeWireInternals.buildLegacyCodexHooksManifest(
+      [
+        {
+          assetId: "hook-relative",
+          assetKind: "hook",
+          compatibilityMode: "adaptable",
+          content: "# Hook\n",
+          displayName: "Hook Relative",
+        },
+      ],
+      { "hook-relative": hookPath },
+      join(root, "manifest", "hooks.json"),
+    );
+    assert.equal(
+      (relativeManifest?.hooks as Array<Record<string, unknown>>)[0]?.source,
+      "../hook.md",
+    );
+    const legacyManifest = nativeWireInternals.buildLegacyCodexHooksManifest(
+      [
+        {
+          assetId: "hook-relative",
+          assetKind: "hook",
+          compatibilityMode: "adaptable",
+          content: "# Hook\n",
+          displayName: "Hook Relative",
+        },
+      ],
+      {},
+    );
+    assert.equal(
+      (legacyManifest?.hooks as Array<Record<string, unknown>>)[0]?.source,
+      "hook-relative",
     );
   } finally {
     await rm(root, { recursive: true, force: true });

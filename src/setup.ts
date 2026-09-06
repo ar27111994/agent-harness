@@ -23,10 +23,7 @@ import {
 
 /** Default per-adapter wall-clock timeout for `setup doctor` (ms). */
 const DOCTOR_ADAPTER_TIMEOUT_MS = 30_000;
-/**
- * Parses a positive integer from an environment variable string, falling back
- * to `defaultValue` when the variable is absent or not a positive integer.
- */
+
 function parsePositiveIntegerEnv(
   value: string | undefined,
   defaultValue: number,
@@ -35,9 +32,7 @@ function parsePositiveIntegerEnv(
     return defaultValue;
   }
   const trimmed = value.trim();
-  // Use Number() instead of parseInt() to reject floats like "5.5".
   const parsed = Number(trimmed);
-  // Also reject hex/octal/scientific notation by checking the string is pure digits.
   if (/^\d+$/.test(trimmed) && Number.isInteger(parsed) && parsed > 0) {
     return parsed;
   }
@@ -53,7 +48,6 @@ export async function runSetup(
 ): Promise<number> {
   const [command = "doctor", ...rest] = args;
 
-  // Detect --help flag and show subcommand-specific help (#383).
   if (hasHelpFlag(rest)) {
     printSetupSubcommandHelp(command);
     return 0;
@@ -62,24 +56,18 @@ export async function runSetup(
   switch (command) {
     case "doctor": {
       const rejection = rejectUnknownSetupFlags(command, rest);
-      if (rejection !== null) {
-        return rejection;
-      }
+      if (rejection !== null) return rejection;
       return (await runDoctor(rest, projectRoot)) ? 0 : 1;
     }
     case "hosts": {
       const rejection = rejectUnknownSetupFlags(command, rest);
-      if (rejection !== null) {
-        return rejection;
-      }
+      if (rejection !== null) return rejection;
       printHosts();
       return 0;
     }
     case "login": {
       const rejection = rejectUnknownSetupFlags(command, rest);
-      if (rejection !== null) {
-        return rejection;
-      }
+      if (rejection !== null) return rejection;
       return printLoginGuidance(rest);
     }
     case "help":
@@ -90,13 +78,6 @@ export async function runSetup(
   }
 }
 
-/**
- * Returns 1 when the given setup subcommand received a flag it does not
- * declare (the shared blocker has already printed the unknown-option error
- * with the subcommand's usage hint), or null when execution may proceed.
- * Single rejection point for every setup subcommand — previously the same
- * two-line guard block was triplicated at each case (review S1).
- */
 function rejectUnknownSetupFlags(
   command: string,
   rest: string[],
@@ -104,11 +85,6 @@ function rejectUnknownSetupFlags(
   return hasUnknownFlagsForSetupCommand(command, rest) ? 1 : null;
 }
 
-/**
- * Describes the known flags of a setup subcommand for the shared unknown-flag
- * guard. Collapses the previously repeated `hasUnknownFlag(rest, new Set(...),
- * new Set(...), usage)` blocks into one table (#431).
- */
 interface SetupSubcommandFlagSpec {
   knownFlags: ReadonlySet<string>;
   flagsWithValues: ReadonlySet<string>;
@@ -133,12 +109,6 @@ const SETUP_SUBCOMMAND_FLAG_SPECS: Record<string, SetupSubcommandFlagSpec> = {
   },
 };
 
-/**
- * Rejects flags that a setup subcommand does not declare in its flag spec,
- * printing an unknown-option error with a usage pointer (#431). Delegates
- * to the shared subcommand flag-spec guard (#445) so every domain runs the
- * same validation primitive.
- */
 function hasUnknownFlagsForSetupCommand(
   command: string,
   rest: string[],
@@ -150,26 +120,7 @@ function hasUnknownFlagsForSetupCommand(
   );
 }
 
-/**
- * Prints adapter metadata and preflight diagnostics, returning whether all
- * required checks passed.
- *
- * All adapter preflights run concurrently. A per-adapter wall-clock timeout
- * (default 5 s, env `AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS`) caps the
- * maximum wall time for any single adapter's check. This prevents a stalling
- * host CLI (e.g. cursor, zed waiting for IPC) from blocking the entire loop.
- */
-
-/**
- * Runs preflight checks for a single adapter with a wall-clock timeout.
- * If the adapter stalls, a synthetic timeout diagnostic is returned instead
- * of blocking the entire doctor loop. Used by both `runDoctor` and
- * `runDoctorWithAdapters`.
- */
-/**
- * Preflight functions the per-adapter runner delegates to. Exposed as an
- * injection seam so tests can force non-timeout failures deterministically.
- */
+/** Optional preflight hooks used to make setup-doctor tests deterministic. */
 export type AdapterPreflightFunctions = PreflightFunctionOverrides;
 
 async function runAdapterPreflightWithTimeout(
@@ -183,8 +134,6 @@ async function runAdapterPreflightWithTimeout(
     collectActivatedAssetPrerequisiteDiagnostics,
   },
 ): Promise<PreflightDiagnostic[]> {
-  // Resolve the shared optional seam to concrete functions so partial
-  // test overrides fall back to the real implementations.
   const {
     runHostPreflight: runHostPreflightFn = runHostPreflight,
     runAdapterPreflight: runAdapterPreflightFn = runAdapterPreflight,
@@ -193,10 +142,6 @@ async function runAdapterPreflightWithTimeout(
   } = preflight;
   const signal = AbortSignal.timeout(adapterTimeoutMs);
 
-  // Create a combined signal that fires when EITHER the per-adapter timeout
-  // or the cumulative timeout fires. This ensures child processes spawned
-  // during preflight checks are actually killed rather than running in the
-  // background after the doctor has already returned a timeout diagnostic.
   const combined = new AbortController();
   const wireSignal = (source: AbortSignal): void => {
     if (source.aborted) {
@@ -208,9 +153,7 @@ async function runAdapterPreflightWithTimeout(
     });
   };
   wireSignal(signal);
-  if (cumulativeSignal) {
-    wireSignal(cumulativeSignal);
-  }
+  if (cumulativeSignal) wireSignal(cumulativeSignal);
 
   try {
     return await Promise.race([
@@ -226,9 +169,6 @@ async function runAdapterPreflightWithTimeout(
             })
           : []),
       ])(),
-      // Reject when the abort signal fires so Promise.race resolves immediately.
-      // AbortSignal.timeout always aborts with a TimeoutError reason, so the
-      // rejection payload is that reason itself — no fallback branch exists.
       new Promise<never>((_, reject) => {
         signal.addEventListener("abort", () => reject(signal.reason), {
           once: true,
@@ -236,34 +176,65 @@ async function runAdapterPreflightWithTimeout(
       }),
     ]);
   } catch (err) {
+    // The outer doctor runner owns the cumulative timeout diagnostic. Do not
+    // relabel a cumulative abort as an adapter-specific timeout here.
+    if (cumulativeSignal?.aborted) {
+      throw err;
+    }
     if (err instanceof DOMException && err.name === "TimeoutError") {
-      return [
-        {
-          severity: "warning",
-          code: `${adapter.id}-doctor-timeout`,
-          message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-          action:
-            "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
-        },
-      ];
+      return [doctorTimeoutDiagnostic(adapter, adapterTimeoutMs)];
     }
-    // If the combined signal was already aborted (per-adapter or cumulative
-    // timeout, possibly during cleanup), return a timeout diagnostic. This
-    // must check the COMBINED controller: the cumulative deadline can fire
-    // while the per-adapter timer is still running.
-    if (combined.signal.aborted) {
-      return [
-        {
-          severity: "warning",
-          code: `${adapter.id}-doctor-timeout`,
-          message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
-          action:
-            "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
-        },
-      ];
-    }
+    // DELETED the prior `if (signal.aborted) return doctorTimeoutDiagnostic`
+    // fallback: `signal` is AbortSignal.timeout(adapterTimeoutMs) and the only
+    // reject source keyed on it (the race's abort listener) always rejects
+    // with `signal.reason`, which IS a DOMException TimeoutError. So every
+    // signal-abort lands on the DOMException arm above and this branch could
+    // never be reached (verified empirically: a plain error thrown after the
+    // abort still settles the race via the DOMException reason first). A plain
+    // (non-timeout) error from the pipeline reaches `throw err` below.
     throw err;
   }
+}
+
+function doctorTimeoutDiagnostic(
+  adapter: HostAdapter,
+  adapterTimeoutMs: number,
+): PreflightDiagnostic {
+  return {
+    severity: "warning",
+    code: `${adapter.id}-doctor-timeout`,
+    message: `Preflight check timed out after ${adapterTimeoutMs}ms.`,
+    action:
+      "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+  };
+}
+
+function cumulativeTimeoutDiagnostic(
+  adapter: HostAdapter,
+  cumulativeTimeoutMs: number,
+  adapterTimeoutMs: number,
+): PreflightDiagnostic {
+  return {
+    severity: "warning",
+    code: `${adapter.id}-cumulative-timeout`,
+    message: `Preflight check exceeded cumulative timeout of ${cumulativeTimeoutMs}ms (per-adapter timeout: ${adapterTimeoutMs}ms).`,
+    action:
+      "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
+  };
+}
+
+function isAdapterReady(diagnostics: readonly PreflightDiagnostic[]): boolean {
+  return !diagnostics.some(
+    (diagnostic) =>
+      diagnostic.severity === "warning" || diagnostic.severity === "error",
+  );
+}
+
+function formatLifecycleHost(adapter: HostAdapter): string {
+  if (adapter.lifecycleHost === adapter.recommendationHost) {
+    return `Lifecycle host: ${adapter.lifecycleHost}`;
+  }
+  return `Lifecycle host: ${adapter.lifecycleHost} (reused lifecycle implementation for ${adapter.id})`;
 }
 
 async function runDoctor(
@@ -272,9 +243,6 @@ async function runDoctor(
   options: {
     preflightRunner?: typeof runAdapterPreflightWithTimeout;
     preflight?: AdapterPreflightFunctions;
-    // Injection seam (#428 follow-up): tests can pre-abort the cumulative
-    // signal to exercise the already-aborted race branch (lazy scheduling
-    // path) without waiting on a real timeout timer.
     cumulativeSignal?: AbortSignal;
   } = {},
 ): Promise<boolean> {
@@ -287,7 +255,9 @@ async function runDoctor(
     : listHostAdapters();
 
   if (adapters.length === 0) {
-    console.log(`No registered host adapter matched '${hostName}'.`);
+    process.stderr.write(
+      `error: No registered host adapter matched '${hostName}'.\n`,
+    );
     return false;
   }
 
@@ -298,36 +268,25 @@ async function runDoctor(
     process.env.AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS,
     DOCTOR_ADAPTER_TIMEOUT_MS,
   );
-
-  // Derive the cumulative default from the resolved per-adapter timeout
-  // plus headroom for the worst-case sequential runtime preflight budget
-  // (two checks at the default hostCommands.preflightTimeoutMs of 15s each).
-  // This ensures the cumulative timeout scales with any user-configured
-  // per-adapter timeout rather than being pinned to a fixed constant.
   const cumulativeTimeoutMs = parsePositiveIntegerEnv(
     process.env.AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS,
     adapterTimeoutMs + 2 * 10_000,
   );
 
-  // Print progress immediately so the user sees activity — a hung doctor
-  // that prints nothing for 15+ seconds is indistinguishable from a crash.
-  console.error(
-    `Checking host readiness for ${adapters.length} adapter(s) (timeout: ${cumulativeTimeoutMs}ms)...`,
+  // Progress belongs on stderr; stdout is reserved for the structured human
+  // report and final aggregate verdict. Label both timeout scopes explicitly.
+  process.stderr.write(
+    `Checking host readiness for ${adapters.length} adapter(s) (per-adapter timeout: ${adapterTimeoutMs}ms; cumulative timeout: ${cumulativeTimeoutMs}ms)...\n`,
   );
 
-  // Run all adapter preflights concurrently so one stalling CLI does not
-  // block the others. Each adapter is individually guarded by a wall-clock
-  // timeout; if it fires we emit a synthetic timeout diagnostic and continue.
-  // A cumulative timeout at the top level prevents the overall run from
-  // hanging indefinitely even when all adapters collectively exceed budget.
   const cumulativeSignal =
     options.cumulativeSignal ?? AbortSignal.timeout(cumulativeTimeoutMs);
   const adapterResults = await Promise.allSettled(
     adapters.map(async (adapter) => {
       const adapterLabel = `${adapter.displayName} (${adapter.id})`;
-      console.error(`  Checking ${adapterLabel}...`);
+      process.stderr.write(`  Checking ${adapterLabel}...\n`);
       try {
-        const result = await Promise.race([
+        return await Promise.race([
           resolvePreflight(
             adapter,
             adapterTimeoutMs,
@@ -335,12 +294,6 @@ async function runDoctor(
             cumulativeSignal,
             options.preflight,
           ),
-          // Reject immediately when cumulativeSignal is already aborted,
-          // then register listener with once: true so it cleans up after firing.
-          // Structurally unreachable through the default AbortSignal.timeout
-          // path (races are created synchronously before any timer fires);
-          // exercised directly via the cumulativeSignal injection seam for
-          // the future lazy-scheduling case.
           new Promise<never>((_, reject) => {
             if (cumulativeSignal.aborted) {
               reject(
@@ -358,37 +311,25 @@ async function runDoctor(
                 ),
               { once: true },
             );
-          }).catch((): PreflightDiagnostic[] => {
-            // The cumulative deadline fired before this adapter finished and
-            // the race resolved through the abort path. Resolve with a
-            // synthetic timeout diagnostic instead of undefined (#428 —
-            // undefined here crashed the per-adapter summary with a
-            // "reading 'length' of undefined" TypeError).
-            return [
-              {
-                severity: "warning",
-                code: `${adapter.id}-cumulative-timeout`,
-                message: `Preflight check timed out after cumulative timeout of ${cumulativeTimeoutMs}ms.`,
-                action:
-                  "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
-              },
-            ];
-          }),
+          }).catch((): PreflightDiagnostic[] => [
+            cumulativeTimeoutDiagnostic(
+              adapter,
+              cumulativeTimeoutMs,
+              adapterTimeoutMs,
+            ),
+          ]),
         ]);
-        return result;
       } catch (err) {
         if (err instanceof DOMException && err.name === "TimeoutError") {
-          console.error(
-            `    timed out after ${cumulativeTimeoutMs}ms cumulative budget`,
+          process.stderr.write(
+            `    timed out after ${cumulativeTimeoutMs}ms cumulative budget\n`,
           );
           return [
-            {
-              severity: "warning",
-              code: `${adapter.id}-cumulative-timeout`,
-              message: `Preflight check timed out after cumulative timeout of ${cumulativeTimeoutMs}ms.`,
-              action:
-                "Increase AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS or check for hanging host processes.",
-            },
+            cumulativeTimeoutDiagnostic(
+              adapter,
+              cumulativeTimeoutMs,
+              adapterTimeoutMs,
+            ),
           ] satisfies PreflightDiagnostic[];
         }
         throw err;
@@ -397,30 +338,22 @@ async function runDoctor(
   );
 
   let hasErrors = false;
+  let readyCount = 0;
 
   for (const [resultIndex, result] of adapterResults.entries()) {
-    // Promise.allSettled only rejects on uncaught throws. Our inner async
-    // function always resolves (the race resolves either way), so a rejection
-    // here is a genuine internal error — surface it with the adapter identity.
+    const adapter = adapters[resultIndex];
     if (result.status === "rejected") {
-      // map/allSettled keep results index-aligned with adapters, so the
-      // adapter at this index is defined by construction; direct access
-      // fails loudly if that invariant ever breaks.
-      const adapterId = adapters[resultIndex].id;
-      console.log(
-        `\n# (${adapterId} — preflight threw unexpectedly)\n[error] ${String(result.reason)}`,
+      process.stderr.write(
+        `[error] ${adapter.id}-doctor-internal-error: ${String(result.reason)}\n`,
       );
       hasErrors = true;
       continue;
     }
 
-    const adapter = adapters[resultIndex];
     const diagnostics = result.value;
     console.log(`\n# ${adapter.displayName} (${adapter.id})`);
-    console.log(`Lifecycle host: ${adapter.lifecycleHost}`);
+    console.log(formatLifecycleHost(adapter));
     console.log(`Recommendation host: ${adapter.recommendationHost}`);
-    // requiresLifecycleHostPaths is optional on HostAdapter; the fallback is
-    // live behavior for adapters that only declare mutatesHostPaths.
     console.log(
       `Requires lifecycle host paths: ${adapter.requiresLifecycleHostPaths ?? adapter.mutatesHostPaths}`,
     );
@@ -439,21 +372,20 @@ async function runDoctor(
     }
 
     if (diagnostics.length > 0) {
-      console.log(formatPreflightDiagnostics(diagnostics));
+      process.stderr.write(`${formatPreflightDiagnostics(diagnostics)}\n`);
     }
     if (diagnostics.some((diagnostic) => diagnostic.severity === "error")) {
       hasErrors = true;
     }
+    if (isAdapterReady(diagnostics)) {
+      readyCount += 1;
+    }
   }
 
+  console.log(`${readyCount}/${adapters.length} hosts ready`);
   return !hasErrors;
 }
 
-/**
- * Prints provider-specific login/OAuth guidance and returns a non-zero exit
- * code when the requested provider is unknown (#446) — a failure reported
- * with "Unknown login provider" previously exited 0.
- */
 function printLoginGuidance(args: string[]): number {
   const provider = getOptionValue(args, "--provider") ?? args[0] ?? "github";
   const normalizedProvider = provider.toLowerCase();
@@ -471,9 +403,7 @@ function printLoginGuidance(args: string[]): number {
   }
 
   console.log(`# ${normalizedProvider} login guidance`);
-  for (const line of guidance) {
-    console.log(`- ${line}`);
-  }
+  for (const line of guidance) console.log(`- ${line}`);
   return 0;
 }
 
@@ -572,9 +502,6 @@ function printHosts(): void {
   }
 }
 
-/**
- * Prints help for a specific setup subcommand (#383).
- */
 function printSetupSubcommandHelp(subcommand: string): void {
   const helpTexts: Record<string, SubcommandHelpEntry> = {
     doctor: {
@@ -582,13 +509,20 @@ function printSetupSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness setup doctor [--host <host>]",
         "",
-        "Checks whether the required host CLIs are installed and accessible on",
-        "PATH. Runs adapter preflights concurrently with per-adapter timeouts.",
+        "Checks required host CLIs and adapter prerequisites concurrently.",
+        "Warnings mean the affected host is not ready, but are informational:",
+        "exit 0 means the doctor completed without a hard error; exit 1 means a",
+        "hard preflight/internal failure. The final 'N/M hosts ready' line is the",
+        "readiness verdict for users and scripts.",
+        "",
+        "Lifecycle host reuse: Cursor reuses copilot-vscode lifecycle mechanics;",
+        "Zed, Claude Code, Pi, and Codex reuse OpenCode lifecycle mechanics.",
         "",
         "Options:",
         "  --host <host>   Limit check to a specific host adapter",
         "",
-        "Env: AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS (default: 5000)",
+        `Env: AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS (default: ${DOCTOR_ADAPTER_TIMEOUT_MS})`,
+        "Env: AGENT_HARNESS_SETUP_DOCTOR_TIMEOUT_MS (cumulative run budget)",
       ],
     },
     hosts: {
@@ -630,10 +564,7 @@ function printSetupHelp(): void {
         description:
           "Check config, host readiness, capabilities, and guided setup notes",
       },
-      {
-        command: "hosts",
-        description: "List registered host adapters",
-      },
+      { command: "hosts", description: "List registered host adapters" },
       {
         command: "login",
         description: "Print provider-specific login/OAuth guidance",
@@ -648,33 +579,22 @@ function printSetupHelp(): void {
   });
 }
 
-/**
- * Exposes narrow setup internals for focused concurrency and timeout tests.
- *
- * `runDoctorWithAdapters` accepts an explicit adapter list and timeout so tests
- * can inject a mock adapter with a blocking preflight without touching the
- * global adapter registry.
- */
+/** Exposes setup-doctor helpers for focused tests. */
 export const setupInternals = {
   DOCTOR_ADAPTER_TIMEOUT_MS,
   hasUnknownFlagsForSetupCommand,
   parsePositiveIntegerEnv,
   runAdapterPreflightWithTimeout,
   runDoctor,
-  /** Run the doctor loop over an explicit adapter list with separate timeouts. */
+  isAdapterReady,
+  formatLifecycleHost,
   async runDoctorWithAdapters(
     adapters: HostAdapter[],
     adapterTimeoutMs: number,
     projectRoot?: string,
     cumulativeTimeoutMs?: number,
-    // Injection seam (#428): tests can substitute the per-adapter preflight
-    // runner to exercise the aggregator's rejection/error branches without
-    // relying on experimental module mocks.
     preflightRunner:
       typeof runAdapterPreflightWithTimeout | undefined = undefined,
-    // Injection seam (#428 follow-up): tests can pre-abort the cumulative
-    // signal to exercise the already-aborted race branch (lazy scheduling
-    // path) without waiting on a real timeout timer.
     cumulativeSignal: AbortSignal | undefined = undefined,
   ): Promise<{
     hasErrors: boolean;
@@ -703,11 +623,33 @@ export const setupInternals = {
 
     for (const [resultIndex, result] of adapterResults.entries()) {
       if (result.status === "rejected") {
-        hasErrors = true;
-        // map/allSettled keep results index-aligned with adapters, so the
-        // adapter at this index is defined by construction; direct access
-        // fails loudly if that invariant ever breaks.
         const adapterId = adapters[resultIndex].id;
+        if (effectiveCumulativeSignal.aborted) {
+          results.push({
+            adapterId,
+            diagnostics: [
+              cumulativeTimeoutDiagnostic(
+                adapters[resultIndex],
+                effectiveCumulativeMs,
+                adapterTimeoutMs,
+              ),
+            ],
+          });
+          continue;
+        }
+        if (
+          result.reason instanceof DOMException &&
+          result.reason.name === "TimeoutError"
+        ) {
+          results.push({
+            adapterId,
+            diagnostics: [
+              doctorTimeoutDiagnostic(adapters[resultIndex], adapterTimeoutMs),
+            ],
+          });
+          continue;
+        }
+        hasErrors = true;
         results.push({
           adapterId,
           diagnostics: [

@@ -12,7 +12,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import {
   buildPackageRegistryCatalogEntry,
   getPackageRegistryKind,
@@ -161,7 +161,7 @@ void test("official index harvester classifies skill, reference-pack, mcp-server
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -203,7 +203,7 @@ void test("official index harvester classifies skill, reference-pack, mcp-server
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
@@ -254,7 +254,7 @@ void test("official index harvester ignores entries with non-allowed repo owners
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -288,7 +288,7 @@ void test("official index harvester ignores entries with non-allowed repo owners
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }

@@ -11,10 +11,7 @@ import {
 } from "./cli-help-format.js";
 import { printCommandHelp } from "./lib/cli-output.js";
 
-/**
- * Prints subcommand-specific help for discover, falling back to the parent
- * help or the full/breadth help pages (with aliases) as appropriate.
- */
+/** Prints help for one discover subcommand. */
 export function printDiscoverSubcommandHelp(subcommand: string): void {
   const helpTexts: Record<string, SubcommandHelpEntry> = {
     sources: {
@@ -22,13 +19,13 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness discover sources",
         "",
-        "Scans all configured discovery sources (registries, repos, marketplaces,",
-        "source packs) and writes a refreshed source-index to:",
+        "Scans all configured asset-producing discovery sources (registries, repos,",
+        "marketplaces, source packs) and writes a refreshed source-index to:",
         "  discover/output/source-index.json",
         "",
         "The source index is used by subsequent 'discover sync' and 'discover full'",
-        "runs. Re-run this command after adding or removing sources in",
-        "discover/sources.json or discover/source-packs/.",
+        "runs. Docs-kind metadata sources are intentionally excluded from enabled",
+        "asset-source counts. Re-run after changing discover/sources.json or packs.",
         "",
         "Options:",
         "  --state-root <path>   Override state directory",
@@ -51,11 +48,13 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness discover catalog",
         "",
-        "Harvests all configured local and remote discovery sources and writes the",
+        "Harvests configured asset-producing local and remote sources and writes the",
         "full asset catalog to:",
         "  discover/output/catalog.assets.jsonl",
         "",
-        "Run 'discover sync' first to populate remote source data.",
+        "'discover sync' is optional: run it first to refresh/persist indexed remote",
+        "source data, or run catalog directly to use existing index state plus the",
+        "live/rotating harvest paths available to each source.",
       ],
     },
     sync: {
@@ -63,7 +62,7 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness discover sync [--full]",
         "",
-        "Fetches and persists data from all configured discovery sources. Uses the",
+        "Fetches and persists data from configured indexed discovery sources. Uses the",
         "local index when fresh, performs live harvest otherwise.",
         "",
         "Options:",
@@ -134,7 +133,7 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
       lines: [
         "Usage: agent-harness discover ard-export [--quiet]",
         "",
-        "Maps the selected catalog to the ARD v0.9 ai-catalog.json format and writes:",
+        "Maps the selected catalog to the ARD 1.0 ai-catalog.json format and writes:",
         "  <state-root>/.well-known/ai-catalog.json",
         "",
         "ARD-compliant registries can then discover and index agent-harness as a",
@@ -197,9 +196,7 @@ export function printDiscoverSubcommandHelp(subcommand: string): void {
   });
 }
 
-/**
- * Prints the parent discover command help (all subcommands and options).
- */
+/** Prints the top-level discover command help. */
 export function printDiscoverHelp(): void {
   printCommandHelp({
     heading: "discover commands:",
@@ -212,12 +209,12 @@ export function printDiscoverHelp(): void {
       {
         command: "sources",
         description:
-          "Summarize enabled discovery sources into discover/output/source-index.json",
+          "Summarize enabled asset-producing sources into discover/output/source-index.json",
       },
       {
         command: "sync",
         description:
-          "Persist indexed discovery results — uses local index when fresh, live harvest otherwise (see 'discover index')",
+          "Optionally refresh/persist indexed discovery results — uses local index when fresh, live harvest otherwise",
       },
       {
         command: "index",
@@ -226,7 +223,8 @@ export function printDiscoverHelp(): void {
       },
       {
         command: "catalog",
-        description: "Harvest local sources into discover/catalog.assets.jsonl",
+        description:
+          "Build discover/output/catalog.assets.jsonl; prior sync is optional",
       },
       {
         command: "select",
@@ -243,14 +241,8 @@ export function printDiscoverHelp(): void {
         description:
           "Run the widest practical discovery pass and print candidate-pool guidance",
       },
-      {
-        command: "recall",
-        description: "Alias for discover breadth",
-      },
-      {
-        command: "candidate-pool",
-        description: "Alias for discover breadth",
-      },
+      { command: "recall", description: "Alias for discover breadth" },
+      { command: "candidate-pool", description: "Alias for discover breadth" },
       {
         command: "stats",
         description:
@@ -284,6 +276,13 @@ export function printDiscoverHelp(): void {
     ],
     sections: [
       {
+        title: "Pipeline order:",
+        lines: [
+          "demand-profile -> sources -> sync (optional refresh) -> catalog -> select -> recommend report",
+          "Use 'discover full' for the discover portion; mutable outputs live under <state-root>/discover/output.",
+        ],
+      },
+      {
         title: "AI enrichment options:",
         lines: [
           "--ai-enrich         Explicitly request enrichment after select/full",
@@ -296,9 +295,7 @@ export function printDiscoverHelp(): void {
   });
 }
 
-/**
- * Prints help for `discover full`.
- */
+/** Prints help for the complete discover pipeline. */
 export function printDiscoverFullHelp(): void {
   printCommandHelp({
     heading: "discover full — Run the complete discovery pipeline in one pass",
@@ -308,18 +305,12 @@ export function printDiscoverFullHelp(): void {
         description:
           "  agent-harness discover full [--no-sync] [--sync-all] [--ai-enrich] [--no-ai-enrich] [--quiet] [--summary] [--max-scan-bytes N]",
       },
-      {
-        command: "Steps executed in order:",
-        description: "",
-      },
+      { command: "Steps executed in order:", description: "" },
       {
         command: "  1. demand-profile",
         description: "Scan the working directory for demand signals",
       },
-      {
-        command: "  2. sources",
-        description: "Refresh the source index",
-      },
+      { command: "  2. sources", description: "Refresh the source index" },
       {
         command: "  3. sync",
         description: "Sync indexed sources to local state",
@@ -339,7 +330,7 @@ export function printDiscoverFullHelp(): void {
         lines: [
           "--ai-enrich         Run AI enrichment after selection",
           "--no-ai-enrich      Skip AI enrichment",
-          "--no-sync           Skip indexed source sync (use existing state)",
+          "--no-sync           Skip indexed source sync (use existing state/live harvest paths)",
           "--sync-all          Sync all enabled sources (skip demand-based filtering)",
           "--quiet             Suppress expected source health warnings",
           "--summary           Print aggregate warning breakdown by reason",
@@ -361,18 +352,13 @@ export function printDiscoverFullHelp(): void {
   });
 }
 
-/**
- * Prints help for `discover breadth` (aliases: recall, candidate-pool).
- */
+/** Prints help for the broad discovery sweep and its aliases. */
 export function printDiscoverBreadthHelp(): void {
   printCommandHelp({
     heading:
       "discover breadth — Run the widest practical discovery pass (aliases: recall, candidate-pool)",
     entries: [
-      {
-        command: "Description:",
-        description: "",
-      },
+      { command: "Description:", description: "" },
       {
         command:
           "  Runs demand-profile followed by a maximally broad discovery",

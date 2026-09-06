@@ -13,9 +13,11 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { runDiscover, discoverInternals } from "../discover.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { harvestCatalogSourceEntries } from "../discover-pipeline.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { writeJsonFile } from "../files.js";
 import { clearRuntimeConfig } from "../config/runtime.js";
+import type { SelectionRegistry, SourceDefinition } from "../types.js";
 
 async function makeDiscoverRoot(t: {
   after: (fn: () => void | Promise<void>) => void;
@@ -56,6 +58,60 @@ async function makeDiscoverRoot(t: {
 
   return { workspaceRoot, stateRoot };
 }
+
+void test("discover catalog dispatches docs sources through the reference harvester", async (t) => {
+  const { workspaceRoot } = await makeDiscoverRoot(t);
+  const originalFetch = globalThis.fetch;
+  const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+  setHttpTestFetchMocks(true);
+  globalThis.fetch = async () =>
+    new Response("# Reference docs\n\nUseful guidance.", { status: 200 });
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+    restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
+  });
+
+  const source = {
+    id: "docs-dispatch",
+    name: "Docs Dispatch",
+    kind: "docs",
+    authorityTier: "official-first-party",
+    hosts: ["codex"],
+    assetKinds: ["reference-pack"],
+    discoveryMode: "catalog",
+    priority: 90,
+    enabled: true,
+    endpoints: { docsUrl: "https://example.com/docs" },
+    rules: {
+      officialPreferred: true,
+      allowMirror: true,
+      allowInstall: false,
+    },
+  } as unknown as SourceDefinition;
+  const selectionRegistry = {
+    schemaVersion: 1,
+    selectionPolicies: {
+      officialBeatsPopularity: true,
+      starsAreTieBreakerOnly: true,
+      preferNativeOverAdaptable: true,
+      preferLowerRiskWhenEquivalent: true,
+      preferLowerContextCostWhenEquivalent: true,
+      communityDefaultPolicy: "catalog-only-unless-promoted",
+    },
+    rankingOrder: [],
+    duplicateGroups: [],
+  } as SelectionRegistry;
+
+  const entries = await harvestCatalogSourceEntries(
+    source,
+    "docs",
+    null,
+    selectionRegistry,
+    workspaceRoot,
+  );
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0]?.source.sourceId, "docs-dispatch");
+});
 
 void test("discover sync/index/select/full complete on an empty source universe (#428)", async (t) => {
   const { workspaceRoot, stateRoot } = await makeDiscoverRoot(t);
@@ -230,6 +286,13 @@ void test("discover --help for a non-specific subcommand prints parent help (#42
 
 void test("discover full and breadth reject unknown flags before running (#428)", async (t) => {
   const { workspaceRoot, stateRoot } = await makeDiscoverRoot(t);
+  for (const command of ["sync", "select", "enrich", "stats"]) {
+    assert.equal(
+      await runDiscover([command, "--bogus"], workspaceRoot, stateRoot),
+      1,
+      `discover ${command} --bogus must exit 1`,
+    );
+  }
   assert.equal(
     await runDiscover(["full", "--bogus"], workspaceRoot, stateRoot),
     1,
@@ -300,7 +363,7 @@ void test("first-run sync hint stays silent when prior sync state exists (#428)"
   );
 });
 
-void test("printSourceHealthSummary prints severe counts in quiet mode (#428)", (t) => {
+void test("printSourceHealthSummary prints error counts in quiet mode (#428)", (t) => {
   const output: string[] = [];
   t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
     output.push(args.map((value) => String(value)).join(" "));
@@ -308,15 +371,15 @@ void test("printSourceHealthSummary prints severe counts in quiet mode (#428)", 
   discoverInternals.printSourceHealthSummary(
     {
       sourceCount: 3,
-      severeCount: 2,
+      errorCount: 2,
       warningCount: 40,
       sources: [],
     } as never,
     { quietMode: true, summaryMode: false },
   );
   assert.ok(
-    output.join("\n").includes("2 severe issue(s)"),
-    `expected the severe quiet line, got: ${output.join("\n")}`,
+    output.join("\n").includes("2 errors require attention"),
+    `expected the error quiet line, got: ${output.join("\n")}`,
   );
 });
 
@@ -328,7 +391,7 @@ void test("printSourceHealthSummary aggregates warning reasons in summary mode (
   discoverInternals.printSourceHealthSummary(
     {
       sourceCount: 2,
-      severeCount: 0,
+      errorCount: 0,
       warningCount: 2,
       sources: [
         {
@@ -372,12 +435,12 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
     buildCatalogSource({
       id: "synced-docs",
       name: "synced-docs",
-      kind: "docs",
+      kind: "registry",
     }),
     buildCatalogSource({
       id: "synced-empty",
       name: "synced-empty",
-      kind: "docs",
+      kind: "registry",
     }),
   ];
   await writeJsonFile(join(stateRoot, "discover", "sources.json"), {
@@ -386,7 +449,7 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
   });
 
   // Seed indexed-source state so catalog reuses the cached entries for the
-  // docs source instead of harvesting it.
+  // registry source instead of harvesting it.
   const { mkdir } = await import("node:fs/promises");
   await mkdir(join(stateRoot, "state", "discover"), { recursive: true });
   await writeJsonFile(
@@ -427,7 +490,7 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
       source: {
         sourceId: "synced-docs",
         authorityTier: "trusted-community",
-        sourceKind: "docs",
+        sourceKind: "registry",
         sourcePriority: 50,
         originUrl: "https://example.com/synced-docs",
         publisher: "docs-publisher",
@@ -489,7 +552,7 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
   // recursive tree, and readme. Anything else fails loudly.
   const originalFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async (input: RequestInfo | URL) => {
     const url =
       typeof input === "string"
@@ -543,7 +606,7 @@ void test("discover catalog harvests the repo slice with fetch mocks (#428)", as
   t.after(() => {
     globalThis.fetch = originalFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
@@ -666,7 +729,7 @@ void test("discover catalog continues the repo slice when the batch does not wra
 
   const originalFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async (input: RequestInfo | URL) => {
     const url =
       typeof input === "string"
@@ -714,7 +777,7 @@ void test("discover catalog continues the repo slice when the batch does not wra
   t.after(() => {
     globalThis.fetch = originalFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
@@ -742,7 +805,7 @@ void test("printSourceHealthSummary renders the empty breakdown suffix in summar
   discoverInternals.printSourceHealthSummary(
     {
       sourceCount: 1,
-      severeCount: 0,
+      errorCount: 0,
       warningCount: 0,
       sources: [],
     } as never,

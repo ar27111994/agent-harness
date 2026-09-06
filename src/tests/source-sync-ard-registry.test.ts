@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { readJsonFile, readJsonLinesFile, writeJsonFile } from "../files.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
@@ -63,8 +63,9 @@ void test("ard registry sync paginates, persists referrals, and resumes cursors 
           },
           {
             displayName: "MCP Server",
-            type: "application/mcp-server",
+            type: "application/mcp-server+json",
             url: "https://example.com/mcp-server",
+            metadata: { assetKind: "not-a-real-kind" },
             data: { assetKind: "mcp-server" },
           },
         ],
@@ -123,6 +124,15 @@ void test("ard registry sync paginates, persists referrals, and resumes cursors 
     );
     assert.ok(duckdbEntry, "duckdb entry must be indexed");
     assert.equal(duckdbEntry?.assetKind, "skill");
+    const mcpEntry = entries.find(
+      (entry) => entry.displayName === "MCP Server",
+    );
+    assert.ok(mcpEntry, "MCP entry must be indexed");
+    assert.equal(
+      mcpEntry?.assetKind,
+      "mcp-server",
+      "unsupported round-trip kinds must fall back to the ARD media type",
+    );
     assert.ok(
       (duckdbEntry?.trust as { signals?: string[] })?.signals?.includes(
         "ard-signed",
@@ -610,7 +620,7 @@ function installFetchMock(
 ): () => void {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input, init) => {
     const url =
@@ -630,7 +640,7 @@ function installFetchMock(
   return () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
       return;
     }
     restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);

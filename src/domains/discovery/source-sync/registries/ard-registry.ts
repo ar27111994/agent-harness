@@ -4,11 +4,9 @@
  * Consumes ARD-compliant registries via POST /search, maps results to
  * AssetCatalogEntry, persists federated referrals, and supports cursor-based
  * pagination via pageToken.
- *
- * Spec: https://agenticresourcediscovery.org/spec (§7)
  */
 
-import type { SourceDefinition } from "../../../../types.js";
+import type { AssetKind, SourceDefinition } from "../../../../types.js";
 import { buildReferenceSourceCatalogEntry } from "../../reference-source-harvester.js";
 import { splitIntoKeywords, uniqueStrings } from "../../catalog-utils.js";
 import {
@@ -32,11 +30,29 @@ import {
 } from "../fetching.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
-// ---------------------------------------------------------------------------
-// Helpers (mapping functions imported from ../../../../ard/types.js)
-// ---------------------------------------------------------------------------
+const DEFAULT_PORTFOLIO_FIT = 0.5;
+const ARD_SCORE_MAX = 100;
+const SYNTHETIC_CAPABILITY_QUERY_LIMIT = 3;
+const ARD_REPRESENTATIVE_QUERY_LIMIT = 5;
+const ASSET_KINDS = new Set<AssetKind>([
+  "skill",
+  "plugin",
+  "mcp-server",
+  "agent",
+  "instruction",
+  "workflow",
+  "hook",
+  "extension",
+  "prompt-pack",
+  "reference-pack",
+  "payable-api",
+  "acp-agent",
+]);
 
-/** Extracts trust signals from ARD trustManifest (inbound from registry). */
+function isAssetKind(value: string | undefined): value is AssetKind {
+  return value !== undefined && ASSET_KINDS.has(value as AssetKind);
+}
+
 function extractArdTrustSignals(tm?: Record<string, unknown>): string[] {
   const signals: string[] = [];
   if (!tm) return signals;
@@ -45,10 +61,12 @@ function extractArdTrustSignals(tm?: Record<string, unknown>): string[] {
   const attestations = Array.isArray(tm.attestations) ? tm.attestations : [];
   if (attestations.length > 0) {
     signals.push("ard-compliance-attested");
-    for (const a of attestations) {
-      const att = asRecord(a);
-      if (getString(att.type) === "SOC2-Type2") signals.push("ard-soc2");
-      if (getString(att.type) === "HIPAA-Audit") signals.push("ard-hipaa");
+    for (const item of attestations) {
+      const attestation = asRecord(item);
+      if (getString(attestation.type) === "SOC2-Type2")
+        signals.push("ard-soc2");
+      if (getString(attestation.type) === "HIPAA-Audit")
+        signals.push("ard-hipaa");
     }
   }
   if (tm.signature) signals.push("ard-signed");
@@ -56,40 +74,23 @@ function extractArdTrustSignals(tm?: Record<string, unknown>): string[] {
   return signals;
 }
 
-/** Computes trust score from ARD signals using centralized constants. */
 function computeArdTrustScore(signals: string[]): number {
   let score = 0;
-  for (const signal of signals) {
-    score += TRUST_SIGNAL_SCORE_BOOST[signal] ?? 0;
-  }
+  for (const signal of signals) score += TRUST_SIGNAL_SCORE_BOOST[signal] ?? 0;
   return score;
 }
 
-/** Normalizes ARD semantic score (0–100) to portfolioFit (0.0–1.0). */
 function normalizeScoreToPortfolioFit(score?: number): number {
-  const DEFAULT_FIT = 0.5;
-  const SCORE_MAX = 100;
-  if (score === undefined) return DEFAULT_FIT;
-  return Math.max(0, Math.min(1, score / SCORE_MAX));
+  if (score === undefined) return DEFAULT_PORTFOLIO_FIT;
+  return Math.max(0, Math.min(1, score / ARD_SCORE_MAX));
 }
 
-// ---------------------------------------------------------------------------
-// Sync
-// ---------------------------------------------------------------------------
-
-/**
- * Syncs an ARD-compliant registry via POST /search with pageToken-based
- * pagination (#327).
- */
+/** Syncs an ARD-compliant registry via POST /search. */
 export async function syncArdRegistrySource(
   source: SourceDefinition,
   context: SourceSyncContext,
 ): Promise<SourceSyncSourceState> {
   const previousCursorStates = getPreviousCursorStates(context.previousState);
-  // restoreFiniteCursorState resets a completed cursor to its initial
-  // position: like the other finite source-sync adapters, a completed ARD
-  // run restarts fresh on the next run (refresh semantics) so entries are
-  // re-observed and never pruned as missing (#327/#451).
   const previousCursor = restoreFiniteCursorState(previousCursorStates[0], {
     cursorId: "pageToken",
     nextToken: undefined,
@@ -113,7 +114,6 @@ export async function syncArdRegistrySource(
   let totalIndexed = 0;
   let totalPages = 0;
   const effectiveMaxPages = getEffectiveMaxPagesPerRun(context);
-
   const allReferrals: unknown[] = [];
   const queryText = buildArdQueryText(context.demandProfile);
 
@@ -143,7 +143,6 @@ export async function syncArdRegistrySource(
       },
     );
     const response = asRecord(data);
-
     const results = Array.isArray(response.results) ? response.results : [];
     let pageIndexed = 0;
 
@@ -157,23 +156,27 @@ export async function syncArdRegistrySource(
       const originUrl =
         getString(result.url) ?? getString(result.source) ?? apiUrl;
 
-      // Prefer the round-tripped agent-harness AssetKind from ARD data;
-      // fall back to media-type inference when absent or invalid.
-      const assetKind = (getString(
-        (result.data as Record<string, unknown> | undefined)?.["assetKind"],
-      ) || ardTypeToAssetKind(ardType)) as
-        "skill" | "mcp-server" | "agent" | "reference-pack" | "payable-api";
+      // ARD 1.0 provides `metadata` for primitive custom extensions. Agent
+      // Harness writes its round-trip AssetKind there when a URL is present;
+      // older federated catalogs may still carry the same field in `data`.
+      const metadata = asOptionalRecord(result.metadata);
+      const inlineData = asOptionalRecord(result.data);
+      const roundTripAssetKind =
+        getString(metadata?.assetKind) ?? getString(inlineData?.assetKind);
+      const assetKind = isAssetKind(roundTripAssetKind)
+        ? roundTripAssetKind
+        : ardTypeToAssetKind(ardType);
 
       const resultCapabilities = Array.isArray(result.capabilities)
-        ? result.capabilities.filter((c): c is string => typeof c === "string")
+        ? result.capabilities.filter(
+            (capability): capability is string =>
+              typeof capability === "string",
+          )
         : [];
       const resultTags = Array.isArray(result.tags)
-        ? result.tags.filter((t): t is string => typeof t === "string")
+        ? result.tags.filter((tag): tag is string => typeof tag === "string")
         : [];
 
-      // Only official-first-party sources may extract trust signals from
-      // self-declared trustManifest fields. Community sources cannot
-      // self-attest identity, compliance, or signatures.
       const trustSignals =
         source.authorityTier === "official-first-party"
           ? extractArdTrustSignals(
@@ -205,7 +208,6 @@ export async function syncArdRegistrySource(
         },
       );
 
-      // Augment trust with ARD-derived signals
       const ardTrustScore = computeArdTrustScore(trustSignals);
       if (ardTrustScore > 0) {
         entry.trust = {
@@ -215,7 +217,6 @@ export async function syncArdRegistrySource(
         };
       }
 
-      // Normalize semantic score to portfolio fit
       const rawScore =
         typeof result.score === "number" ? result.score : undefined;
       entry.fit = {
@@ -223,44 +224,30 @@ export async function syncArdRegistrySource(
         portfolioFit: normalizeScoreToPortfolioFit(rawScore),
       };
 
-      // Build synthetic representativeQueries for semantic scoring (#327).
-      const synthQueries: string[] = [];
-      synthQueries.push(
+      const syntheticQueries = [
         `What ${assetKind} assets are available from ${source.id}?`,
-      );
-      synthQueries.push(
         `Find ${displayName.toLowerCase()} for agent workflows`,
-      );
-      const MAX_SYNTH_QUERIES = 5;
-      for (const cap of resultCapabilities.slice(0, MAX_SYNTH_QUERIES)) {
-        synthQueries.push(`Install a ${assetKind} for ${cap}`);
-      }
-      if (synthQueries.length > 0) {
-        entry.representativeQueries = synthQueries;
-      }
+        ...resultCapabilities
+          .slice(0, SYNTHETIC_CAPABILITY_QUERY_LIMIT)
+          .map((capability) => `Install a ${assetKind} for ${capability}`),
+      ].slice(0, ARD_REPRESENTATIVE_QUERY_LIMIT);
+      entry.representativeQueries = syntheticQueries;
 
       upsertIndexedCatalogEntry(context, entry);
-      totalIndexed++;
-      pageIndexed++;
+      totalIndexed += 1;
+      pageIndexed += 1;
     }
 
-    totalPages++;
-
-    // Accumulate referrals across all pages for a single persistence write.
-    const referrals = response.referrals;
-    if (Array.isArray(referrals) && referrals.length > 0) {
-      allReferrals.push(...referrals);
+    totalPages += 1;
+    if (Array.isArray(response.referrals) && response.referrals.length > 0) {
+      allReferrals.push(...response.referrals);
     }
 
     const nextToken = getString(response.pageToken);
-    if (nextToken && pageIndexed > 0) {
-      pageToken = nextToken;
-    } else {
-      completed = true;
-    }
+    if (nextToken && pageIndexed > 0) pageToken = nextToken;
+    else completed = true;
   }
 
-  // Persist all accumulated referrals in one write after pagination completes.
   if (allReferrals.length > 0) {
     const { writeJsonFile } = await import("../../../../files.js");
     const { join } = await import("node:path");
@@ -280,8 +267,6 @@ export async function syncArdRegistrySource(
   return {
     sourceId: source.id,
     coverageMode: "indexed",
-    // Any non-complete stop (cap, maxPages, empty page) is partial.
-    // Only explicitly completed runs return "complete".
     status: completed ? "complete" : "partial",
     lastSyncedAt: new Date().toISOString(),
     indexedEntryCount: totalIndexed,
@@ -295,12 +280,17 @@ export async function syncArdRegistrySource(
   };
 }
 
-/**
- * Expose internals for unit testing.
- */
+function asOptionalRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+/** Exposes ARD registry conversion helpers for focused tests. */
 export const ardRegistryInternals = {
   ardTypeToAssetKind,
   extractArdTrustSignals,
   computeArdTrustScore,
   normalizeScoreToPortfolioFit,
+  asOptionalRecord,
 };

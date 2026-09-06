@@ -1049,16 +1049,6 @@ function buildEcosystemExactStackFixture(): RecommendationEvaluationFixture {
       {
         host: "copilot-vscode",
         requiredAssetIds: ["duckdb-skill"],
-        rankedAbove: [
-          {
-            higherAssetId: "npm-duckdb-api",
-            lowerAssetId: "vscode-raw-theme",
-          },
-          {
-            higherAssetId: "duckdb-skill",
-            lowerAssetId: "wordpress-plugin-dev",
-          },
-        ],
         // The coincidence classes must not reach the top at all: the Rust
         // crate (ecosystem gate), the c8-named theme, and the WordPress
         // family skill (source-family language gate, review).
@@ -1071,12 +1061,7 @@ function buildEcosystemExactStackFixture(): RecommendationEvaluationFixture {
       },
       {
         host: "opencode",
-        rankedAbove: [
-          {
-            higherAssetId: "duckdb-skill",
-            lowerAssetId: "wordpress-plugin-dev",
-          },
-        ],
+        requiredAssetIds: ["duckdb-skill"],
       },
     ],
   };

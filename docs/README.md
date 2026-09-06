@@ -82,6 +82,7 @@ In-depth documents covering the project's strategy, implementation plans, covera
 | [`DEMAND-DETECTION-COVERAGE.md`](./reference/DEMAND-DETECTION-COVERAGE.md)           | Coverage analysis of detector signatures across domains                                                                             |
 | [`FUTURE-IMPROVEMENTS.md`](./reference/FUTURE-IMPROVEMENTS.md)                       | Follow-up ideas and architectural extensions                                                                                        |
 | [`HOST-SURFACE-AUDIT.md`](./reference/HOST-SURFACE-AUDIT.md)                         | Checked-in matrix mapping host-facing paths/settings to documented, compatibility, harness-managed, or implementation-detail status |
+| [`SHARED-HOST-COMPATIBILITY.md`](./reference/SHARED-HOST-COMPATIBILITY.md)           | Shared compatibility and catalog-target semantics                                                                                   |
 | [`IMPLEMENTATION-PLAN.md`](./reference/IMPLEMENTATION-PLAN.md)                       | Milestone-oriented execution plan                                                                                                   |
 | [`REGISTRY-ENRICHMENT.md`](./reference/REGISTRY-ENRICHMENT.md)                       | Registry enrichment strategy                                                                                                        |
 | [`ROADMAP.md`](./reference/ROADMAP.md)                                               | Gap analysis and long-range direction                                                                                               |
@@ -110,6 +111,7 @@ These are the key documents linked from the main README and the most common star
 - **Troubleshooting:** [`TROUBLESHOOTING.md`](./guides/TROUBLESHOOTING.md) — common CLI and lifecycle issues.
 - **Security model:** [`TRUST-CENTER.md`](./guides/TRUST-CENTER.md) — trust model, safe defaults, and security boundaries.
 - **Release notes:** [`../CHANGELOG.md`](../CHANGELOG.md) — version history and release notes.
+- **v2.1.0 release notes:** [`releases/v2.1.0.md`](./releases/v2.1.0.md) — release scope, migration notes, validation, and provenance.
 - **Contributing:** [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — contribution workflow and hygiene.
 
 ## Consistency with main README

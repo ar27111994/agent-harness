@@ -119,7 +119,20 @@ void test("native host adapters are registered with expected lifecycle hosts", (
   const piAdapter = resolveHostAdapter("pi");
   assert.ok(piAdapter);
   assert.equal(piAdapter.recommendationHost, "pi");
-  assertWireCapabilities(piAdapter, ALL_ASSET_KINDS);
+  assertWireCapabilities(piAdapter, [
+    "skill",
+    "instruction",
+    "prompt-pack",
+    "reference-pack",
+    "extension",
+  ]);
+  assertStageOnlyCapabilities(piAdapter, [
+    "agent",
+    "plugin",
+    "hook",
+    "workflow",
+    "mcp-server",
+  ]);
 
   const codexAdapter = resolveHostAdapter("codex");
   assert.ok(codexAdapter);
@@ -1189,7 +1202,6 @@ async function assertNativeHostExtras(
     const pluginManifest = await readFile(
       join(
         workspaceRoot,
-        ".agents",
         "plugins",
         "agent-harness",
         ".codex-plugin",
@@ -1248,6 +1260,29 @@ function assertWireCapabilities(
         .find((capability) => capability.assetKind === assetKind)
         ?.behaviors.includes("wire"),
       `${adapter.id} should wire ${assetKind}`,
+    );
+  }
+}
+
+function assertStageOnlyCapabilities(
+  adapter: HostAdapter | null | undefined,
+  assetKinds: readonly AssetKind[],
+): void {
+  assert.ok(adapter);
+  for (const assetKind of assetKinds) {
+    const capability: HostAdapter["capabilities"][number] | undefined =
+      adapter.capabilities.find(
+        (candidate) => candidate.assetKind === assetKind,
+      );
+    assert.ok(capability, `${adapter.id} should register ${assetKind}`);
+    assert.ok(
+      capability.behaviors.includes("stage"),
+      `${adapter.id} should stage ${assetKind}`,
+    );
+    assert.equal(
+      capability.behaviors.includes("wire"),
+      false,
+      `${adapter.id} should keep ${assetKind} stage-only`,
     );
   }
 }

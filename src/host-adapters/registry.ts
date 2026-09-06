@@ -141,12 +141,21 @@ const claudeCodeCapabilities: HostCapability[] = nativeReferenceCapabilities;
 
 const codexCapabilities: HostCapability[] = nativeReferenceCapabilities;
 
-const piCapabilities: HostCapability[] = nativeReferenceCapabilities.map(
-  (capability) =>
-    capability.assetKind === "mcp-server"
-      ? { assetKind: capability.assetKind, behaviors: ["stage", "wire"] }
-      : capability,
-);
+// Pi's current native adapter wires instructions, skills, prompt templates,
+// references, and extensions. MCP has no native Pi surface; agent/plugin/
+// hook/workflow assets remain stage-only projections.
+const piCapabilities: HostCapability[] = [
+  { assetKind: "instruction", behaviors: ["stage", "wire"] },
+  { assetKind: "skill", behaviors: ["stage", "wire"] },
+  { assetKind: "prompt-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "reference-pack", behaviors: ["stage", "wire"] },
+  { assetKind: "extension", behaviors: ["stage", "wire"] },
+  { assetKind: "agent", behaviors: ["stage"] },
+  { assetKind: "plugin", behaviors: ["stage"] },
+  { assetKind: "hook", behaviors: ["stage"] },
+  { assetKind: "workflow", behaviors: ["stage"] },
+  { assetKind: "mcp-server", behaviors: ["stage"] },
+];
 
 const DEFAULT_HOST_ADAPTERS: HostAdapter[] = [
   {

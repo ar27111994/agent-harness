@@ -1,12 +1,19 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const DEFAULT_TIMEOUT_MS = 120_000;
+// Anti-hang bound for the packed-package smoke's spawn steps (npm pack,
+// npm install, installed-CLI exec). A cold ubuntu/macos/windows hosted runner
+// with a fresh npm cache plus real-time AV can exceed 120s on `npm install` of
+// a local tarball while warm/local runs finish in ~3s; SIGTERM at exactly the
+// execFile timeout with empty stdout/stderr is the cold-runner signature, not a
+// hang. 300s matches the `smoke:pack` counterpart (NPM_STEP_TIMEOUT_MS).
+const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_BUFFER = 10_000_000;
 
 /**
@@ -49,6 +56,23 @@ const FORBIDDEN_PACKED_PATH_PATTERNS = [
   /^.*\.tgz$/u,
 ];
 
+/**
+ * Normalizes npm's `pack --json` payload into a list of pack records. npm <12
+ * emits an ARRAY of pack objects; npm 12+ emits an OBJECT keyed by package
+ * name (`{ "@scope/name": { files, filename, ... } }`). Returning the full
+ * object/array as a flat list lets callers treat the result uniformly without
+ * breaking on either shape (review: npm-12 pack --json format change).
+ * Returns the flattened list (possibly empty).
+ */
+export function toPackRecordList(value) {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return Object.values(value);
+  }
+  return [];
+}
+
 export async function runPackageAudit({ cwd = process.cwd() } = {}) {
   const packResult = await runNpm(
     ["pack", "--dry-run", "--json", "--ignore-scripts"],
@@ -56,7 +80,7 @@ export async function runPackageAudit({ cwd = process.cwd() } = {}) {
       cwd,
     },
   );
-  const packEntries = JSON.parse(packResult.stdout);
+  const packEntries = toPackRecordList(JSON.parse(packResult.stdout));
   const pack = packEntries[0];
   if (!pack || !Array.isArray(pack.files)) {
     throw new Error("npm pack --dry-run did not return a package file list.");
@@ -109,7 +133,7 @@ export async function runPackedPackageSmoke({ cwd = process.cwd() } = {}) {
     const packResult = await runNpm(["pack", "--json", "--ignore-scripts"], {
       cwd,
     });
-    const packEntries = JSON.parse(packResult.stdout);
+    const packEntries = toPackRecordList(JSON.parse(packResult.stdout));
     const packedFileName = packEntries[0]?.filename;
     if (!packedFileName) {
       throw new Error("npm pack did not report a tarball filename.");
@@ -157,20 +181,90 @@ export async function runPackedPackageSmoke({ cwd = process.cwd() } = {}) {
   }
 }
 
+/**
+ * Resolves the path to npm's JS CLI so `npm` can be launched shell-less via
+ * `node <npm-cli>`. This avoids `shell: true` entirely — the DEP0190 doctrine
+ * forbids passing args through a shell on Windows (args concatenate unescaped,
+ * cmd.exe re-parses them), and `npm.cmd` cannot be spawned directly by
+ * `execFile` without a shell. Resolution order:
+ *   1. an explicit npmExecPath option (tests inject a fake npm here);
+ *   2. process.env.npm_execpath (set by `npm run` under the real gate);
+ *   3. npm_config_prefix/node_modules/npm/bin/npm-cli.js — plus the POSIX
+ *      `lib/node_modules` layout distro packages use (prefix/lib/node_modules);
+ *   4. the node install's bundled npm (dirname(process.execPath)/node_modules)
+ *      and its POSIX lib sibling (dirname/../lib/node_modules).
+ * Each candidate is checked with existsSync; the first existing path wins, so a
+ * guessed-but-absent layout never launches a dead `node <path>`. When no
+ * candidate exists the resolver returns "" so buildNpmInvocation can fall back
+ * to bare `npm` — the POSIX `npm` is a shell-script with a shebang and spawns
+ * cleanly shell-less, while on Windows there is no shell-less bare launcher
+ * (review / CodeRabbit: a nonexistent default must not defeat the fallback).
+ */
+export function resolveNpmCliPath(options = {}, exists = existsSync) {
+  const explicit =
+    options.npmExecPath !== undefined
+      ? options.npmExecPath
+      : process.env.npm_execpath;
+  if (explicit) return explicit;
+  const candidates = [];
+  const prefix = options.npmConfigPrefix ?? process.env.npm_config_prefix;
+  const execDir = dirname(process.execPath).replaceAll("\\", "/");
+  if (prefix) {
+    candidates.push(
+      posixJoin(prefix, "node_modules", "npm", "bin", "npm-cli.js"),
+    );
+    // POSIX distro packages install node_modules under prefix/lib.
+    candidates.push(
+      posixJoin(prefix, "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+    );
+  }
+  candidates.push(
+    posixJoin(execDir, "node_modules", "npm", "bin", "npm-cli.js"),
+  );
+  // POSIX: the bundled npm may sit next to the lib tree (execDir/../lib).
+  candidates.push(
+    posix.join(
+      execDir,
+      "..",
+      "lib",
+      "node_modules",
+      "npm",
+      "bin",
+      "npm-cli.js",
+    ),
+  );
+  return candidates.find((candidate) => exists(candidate)) ?? "";
+}
+
+const posixJoin = (...parts) => posix.join(...parts);
+
 export function buildNpmInvocation(args, options = {}) {
-  const npmCliPath = options.npmExecPath ?? process.env.npm_execpath;
-  const platform = options.platform ?? process.platform;
   const nodeExecPath = options.nodeExecPath ?? process.execPath;
-  const command = npmCliPath
-    ? nodeExecPath
-    : platform === "win32"
-      ? "npm.cmd"
-      : "npm";
-  const commandArgs = npmCliPath ? [npmCliPath, ...args] : args;
+  const npmCliPath = resolveNpmCliPath(options, options.exists);
+  const platform = options.platform ?? process.platform;
+  if (npmCliPath) {
+    // Always node + npm-cli, shell-less (DEP0190: never a shell).
+    return {
+      command: nodeExecPath,
+      commandArgs: [npmCliPath, ...args],
+      shell: false,
+    };
+  }
+  // No npm JS CLI was found. Bare `npm` is a shell-script shebang on POSIX and
+  // spawns cleanly with shell: false — the doctrine violation is Windows
+  // `npm.cmd`, which cannot launch shell-less. Reintroducing bare `npm` on
+  // win32 would reopen the DEP0190 trap the audit exists to prevent, so that
+  // combination fails loudly with a descriptive error instead of a dead path.
+  if (platform === "win32") {
+    throw new Error(
+      "Cannot resolve an npm JS CLI (node_modules/npm/bin/npm-cli.js absent); " +
+        "bare npm.cmd cannot be spawned shell-less (DEP0190).",
+    );
+  }
   return {
-    command,
-    commandArgs,
-    shell: !npmCliPath && platform === "win32",
+    command: "npm",
+    commandArgs: [...args],
+    shell: false,
   };
 }
 

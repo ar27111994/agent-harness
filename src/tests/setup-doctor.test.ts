@@ -300,6 +300,85 @@ void test(
   },
 );
 
+// A bare DOMException TimeoutError rejection with an un-aborted cumulative
+// signal must surface the per-adapter doctor timeout diagnostic — NOT the
+// cumulative-timeout diagnostic. The cumulative arm is covered above; this
+// drives the adapter-specific arm so both branches of the
+// cumulative-vs-adapter discrimination are exercised (review thread
+// ...6bbJOK).
+void test("runDoctorWithAdapters: a per-adapter TimeoutError surfaces doctor-timeout when the cumulative signal is not aborted", async () => {
+  const adapter = buildNoRuntimeAdapter("adapter-timeout-test");
+  const preflightRunner = async (): Promise<PreflightDiagnostic[]> => {
+    throw new DOMException("adapter timed out", "TimeoutError");
+  };
+
+  const { results } = await runDoctorWithAdapters(
+    [adapter],
+    5_000,
+    undefined,
+    60_000, // cumulative signal will NOT fire within this test
+    preflightRunner,
+  );
+
+  assert.equal(results.length, 1);
+  const diags = results[0].diagnostics;
+  assert.equal(diags.length, 1);
+  assert.equal(diags[0].code, "adapter-timeout-test-doctor-timeout");
+  assert.equal(diags[0].severity, "warning");
+});
+
+// A stalling preflight plus a tiny per-adapter timeout drives the
+// DOMException TimeoutError arm of runAdapterPreflightWithTimeout (the signal
+// is AbortSignal.timeout(...), whose abort listener rejects the race with a
+// TimeoutError DOMException). Call the timed wrapper directly (not through
+// runDoctorWithAdapters, whose own cumulative signal would mask the adapter
+// timeout) via the injectable preflight override (review thread ...bbJOK).
+void test("runAdapterPreflight surfaces doctor-timeout from a stalling preflight", async () => {
+  const adapter = buildNoRuntimeAdapter("stall-timeout-test");
+  const diagnostics = await setupInternals.runAdapterPreflightWithTimeout(
+    adapter,
+    30, // tiny per-adapter timeout — fires long before any cumulative budget
+    undefined,
+    undefined, // no cumulative signal
+    {
+      runHostPreflight: async () => [],
+      runAdapterPreflight: async () => {
+        // Never resolve — forces the per-adapter signal to abort the race.
+        // The trailing `return []` is unreachable at runtime (the await above
+        // never resolves) but keeps the function type-conformant.
+        await new Promise<never>(() => {});
+        return [];
+      },
+      collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+    },
+  );
+
+  assert.equal(diagnostics.length, 1);
+  assert.equal(diagnostics[0].code, "stall-timeout-test-doctor-timeout");
+  assert.equal(diagnostics[0].severity, "warning");
+});
+
+void test("runAdapterPreflight rethrows a plain preflight error when neither timeout fires", async () => {
+  const adapter = buildNoRuntimeAdapter("plain-err-test");
+  const plainError = new Error("boom");
+  await assert.rejects(
+    setupInternals.runAdapterPreflightWithTimeout(
+      adapter,
+      60_000,
+      undefined,
+      undefined,
+      {
+        runHostPreflight: async () => [],
+        runAdapterPreflight: async () => {
+          throw plainError;
+        },
+        collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+      },
+    ),
+    (error: unknown) => error === plainError,
+  );
+});
+
 void test("runAdapterPreflight returns skipped diagnostic when AbortSignal is already aborted", async () => {
   const adapter = buildNoRuntimeAdapter("pre-aborted");
   const signal = AbortSignal.abort();
@@ -411,6 +490,30 @@ void test("runDoctorWithAdapters accepts separate cumulativeTimeoutMs", async ()
   assert.equal(hasErrors, false);
 });
 
+void test("runDoctorWithAdapters maps adapter TimeoutError rejections", async () => {
+  const adapter = buildNoRuntimeAdapter("adapter-timeout");
+  const { results, hasErrors } = await runDoctorWithAdapters(
+    [adapter],
+    5_000,
+    undefined,
+    30_000,
+    async () => {
+      throw new DOMException("adapter timed out", "TimeoutError");
+    },
+  );
+
+  assert.equal(hasErrors, false);
+  assert.deepEqual(results[0]?.diagnostics, [
+    {
+      severity: "warning",
+      code: "adapter-timeout-doctor-timeout",
+      message: "Preflight check timed out after 5000ms.",
+      action:
+        "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+    },
+  ]);
+});
+
 void test("setup doctor flags error-severity diagnostics through the injected runner (#428)", async () => {
   const ok = await setupInternals.runDoctor(["doctor"], undefined, {
     preflightRunner: async (): Promise<PreflightDiagnostic[]> => [
@@ -437,9 +540,10 @@ void test("setup doctor resolves cumulative TimeoutError rejections to diagnosti
 
 void test("setup doctor surfaces uncaught adapter throws in the summary (#428)", async (t) => {
   const output: string[] = [];
-  t.mock.method(globalThis.console, "log", (...args: unknown[]) => {
-    output.push(args.map((value) => String(value)).join(" "));
-  });
+  t.mock.method(process.stderr, "write", ((chunk: string | Uint8Array) => {
+    output.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write);
   const ok = await setupInternals.runDoctor(["doctor"], undefined, {
     preflightRunner: async (): Promise<PreflightDiagnostic[]> => {
       throw new Error("preflight exploded");
@@ -447,7 +551,11 @@ void test("setup doctor surfaces uncaught adapter throws in the summary (#428)",
   });
   assert.equal(ok, false, "uncaught adapter throws fail the doctor run");
   assert.ok(
-    output.some((line) => line.includes("preflight threw unexpectedly")),
+    output.some(
+      (line) =>
+        line.includes("doctor-internal-error") &&
+        line.includes("preflight exploded"),
+    ),
     `expected the unexpected-throw summary, got: ${output.join("\n")}`,
   );
 });

@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "open-vsx-registry",
+      "name": "Open VSX Registry",
+      "repo": "https://open-vsx.org/api/-/search",
+      "kind": "registry",
+      "authorityTier": "official-compatible",
+      "publisher": "Eclipse Foundation",
+      "publisherVerified": true,
+      "hosts": ["copilot-vscode", "cursor"],
+      "assetKinds": ["extension"],
+      "priority": 90,
+      "enabled": true
+    },
+    {
+      "id": "anthropic-claude-plugins-official",
+      "name": "Anthropic Claude Plugins Official",
+      "repo": "https://github.com/anthropics/claude-plugins-official",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Anthropic",
+      "publisherVerified": true,
+      "hosts": ["claude-code"],
+      "assetKinds": [
+        "plugin",
+        "skill",
+        "agent",
+        "hook",
+        "prompt-pack",
+        "mcp-server"
+      ],
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "openai-codex-repo",
+      "name": "OpenAI Codex",
+      "repo": "https://github.com/openai/codex",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "OpenAI",
+      "publisherVerified": true,
+      "hosts": ["codex"],
+      "assetKinds": [
+        "plugin",
+        "skill",
+        "agent",
+        "instruction",
+        "mcp-server",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "plugins/**",
+        "skills/**",
+        "agents/**",
+        ".codex/**",
+        "docs/**"
+      ],
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "opencode-official-repo",
+      "name": "OpenCode Official Repository",
+      "repo": "https://github.com/sst/opencode",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "SST",
+      "publisherVerified": true,
+      "hosts": ["opencode"],
+      "assetKinds": [
+        "plugin",
+        "skill",
+        "agent",
+        "instruction",
+        "mcp-server",
+        "reference-pack"
+      ],
+      "includePaths": [
+        "packages/opencode/**",
+        "packages/plugin/**",
+        "packages/sdk/**",
+        "README.md"
+      ],
+      "priority": 100,
+      "enabled": true
+    },
+    {
+      "id": "opencode-ecosystem-docs",
+      "name": "OpenCode Ecosystem Docs",
+      "repo": "https://opencode.ai/docs/ecosystem",
+      "kind": "docs",
+      "authorityTier": "official-first-party",
+      "publisher": "SST",
+      "publisherVerified": true,
+      "hosts": ["opencode"],
+      "assetKinds": ["plugin", "mcp-server", "reference-pack"],
+      "priority": 98,
+      "enabled": false
+    },
+    {
+      "id": "pi-official-skills",
+      "name": "Pi Official Skills",
+      "repo": "https://github.com/badlogic/pi-skills",
+      "kind": "repo",
+      "authorityTier": "official-first-party",
+      "publisher": "Pi",
+      "publisherVerified": true,
+      "hosts": ["pi"],
+      "assetKinds": ["skill", "instruction", "prompt-pack", "reference-pack"],
+      "priority": 100,
+      "enabled": true
+    }
+  ]
+}

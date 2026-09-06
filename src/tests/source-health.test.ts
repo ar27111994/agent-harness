@@ -64,16 +64,12 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     buildEntry(
       "official-unverified-duplicate-a",
       "official-unverified-duplicates",
-      {
-        duplicateGroup: "official-unverified-duplicates",
-      },
+      { duplicateGroup: "official-unverified-duplicates" },
     ),
     buildEntry(
       "official-unverified-duplicate-b",
       "official-unverified-duplicates",
-      {
-        duplicateGroup: "official-unverified-duplicates",
-      },
+      { duplicateGroup: "official-unverified-duplicates" },
     ),
   ];
   const syncState: SourceSyncState = {
@@ -110,8 +106,6 @@ void test("source health report distinguishes active, dormant, stale, failed, an
         coverageMode: "indexed",
         status: "stale",
         indexedEntryCount: 30,
-        // consecutiveFailures and reason deliberately absent
-        // to exercise the ?? fallback paths in source-health.ts.
         cursors: [],
       },
     ],
@@ -125,13 +119,18 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     syncState,
   );
 
-  assert.equal(report.severeCount, 3);
+  assert.equal(report.errorCount, 3);
   assert.equal(report.warningCount, 6);
+  assert.equal(
+    report.errorCount,
+    report.sources.filter((source) => source.severity === "error").length,
+  );
+  assert.equal(
+    report.warningCount,
+    report.sources.filter((source) => source.severity === "warning").length,
+  );
   assert.equal(sourceStatus(report, "active-source"), "active");
-  // dormant-source has no syncState entry — it was never synced in this
-  // state root, so it should be reported as "never-synced", not "dormant".
   assert.equal(sourceStatus(report, "dormant-source"), "never-synced");
-  // Reason must be non-empty and mention the source id.
   assert.ok(
     (sourceEntry(report, "dormant-source")?.reasons[0]?.length ?? 0) > 0,
     "never-synced entry must have a non-empty reason",
@@ -139,15 +138,11 @@ void test("source health report distinguishes active, dormant, stale, failed, an
   assert.equal(sourceStatus(report, "stale-source"), "stale");
   assert.equal(sourceStatus(report, "failed-source"), "broken");
   assert.equal(sourceStatus(report, "stale-sync-source"), "stale");
-  // stale-sync-source has 1 consecutive failure → warning, not error.
   assert.equal(sourceEntry(report, "stale-sync-source")?.severity, "warning");
-  // stale-escalated-source has 3 consecutive failures → still warning
-  // (stale status always maps to warning severity).
   assert.equal(
     sourceEntry(report, "stale-escalated-source")?.severity,
     "warning",
   );
-  // stale-no-meta-source has no consecutiveFailures or reason → ?? fallbacks.
   assert.ok(
     sourceEntry(report, "stale-no-meta-source")?.reasons[0]?.includes(
       "stale data",
@@ -212,6 +207,28 @@ void test("source health report distinguishes active, dormant, stale, failed, an
     { schemaVersion: 1, generatedAt: "2026-01-01T00:00:00.000Z", sources: [] },
   );
   assert.equal(sourceEntry(noEntryReport, "empty-source")?.duplicateRate, 0);
+});
+
+void test("source health reports validate against the vendored schema", async () => {
+  const report = buildSourceHealthReport(
+    [buildSource("schema-source")],
+    [],
+    [],
+    [],
+  );
+  const schema = JSON.parse(
+    await readFile(
+      join(process.cwd(), "discover", "schema", "source-health.schema.json"),
+      "utf8",
+    ),
+  ) as Record<string, unknown>;
+  const { validateJsonSchema } =
+    await import("../../scripts/validate-ard-schema.mjs");
+
+  assert.deepEqual(
+    validateJsonSchema(JSON.parse(JSON.stringify(report)), schema),
+    [],
+  );
 });
 
 void test("source health writer emits health, drift, and maintenance reports", async () => {
@@ -339,47 +356,32 @@ void test("dormant sources (synced but zero entries) carry kind-specific non-emp
     "repo-dormant",
   ]) {
     const entry = sourceEntry(report, id);
-    assert.equal(
-      entry?.status,
-      "dormant",
-      `${id} should be dormant (synced but zero entries)`,
-    );
+    assert.equal(entry?.status, "dormant");
     assert.ok(
       (entry?.reasons[0]?.length ?? 0) > 0,
       `${id} dormant entry must have a non-empty reason string`,
     );
   }
 
-  // registry-kind reason should mention the source id
   assert.ok(
     sourceEntry(report, "pkg-reg-dormant")?.reasons[0]?.includes(
       "pkg-reg-dormant",
     ),
-    "registry dormant reason should reference the source id",
   );
-
-  // local-directory reason should mention path / manifest
   assert.ok(
     sourceEntry(report, "local-dir-dormant")
       ?.reasons[0]?.toLowerCase()
       .includes("path"),
-    "local-directory dormant reason should mention path",
   );
-
-  // local-manifest reason should mention manifest file
   assert.ok(
     sourceEntry(report, "local-manifest-dormant")
       ?.reasons[0]?.toLowerCase()
       .includes("manifest"),
-    "local-manifest dormant reason should mention manifest",
   );
-
-  // repo-kind dormant reason should mention cache isolation
   assert.ok(
     sourceEntry(report, "repo-dormant")
       ?.reasons[0]?.toLowerCase()
       .includes("cache"),
-    "repo dormant reason should mention cache isolation",
   );
 });
 
@@ -399,28 +401,18 @@ void test("never-synced sources carry kind-specific non-empty reasons and differ
 
   for (const id of ["never-repo", "never-registry", "never-local-dir"]) {
     const entry = sourceEntry(report, id);
-    assert.equal(
-      entry?.status,
-      "never-synced",
-      `${id} should be never-synced (no sync state entry)`,
-    );
+    assert.equal(entry?.status, "never-synced");
     assert.ok(
       (entry?.reasons[0]?.length ?? 0) > 0,
       `${id} never-synced entry must have a non-empty reason string`,
     );
-    assert.equal(
-      entry?.severity,
-      "warning",
-      `${id} never-synced entry should carry warning severity`,
-    );
+    assert.equal(entry?.severity, "warning");
   }
 
-  // repo-kind never-synced should mention the GitHub API cache
   assert.ok(
     sourceEntry(report, "never-repo")
       ?.reasons[0]?.toLowerCase()
       .includes("github"),
-    "repo never-synced reason should mention GitHub API cache",
   );
 });
 
@@ -443,9 +435,7 @@ function buildSource(
     discoveryMode: "catalog",
     priority: 70,
     enabled: true,
-    endpoints: {
-      repo: `https://example.com/${id}`,
-    },
+    endpoints: { repo: `https://example.com/${id}` },
     rules: {
       officialPreferred: true,
       allowMirror: true,
@@ -497,14 +487,8 @@ function buildEntry(
       hasExecScripts: false,
       requiresNetwork: false,
     },
-    contextCost: {
-      sizeClass: "small",
-      estimatedPromptWeight: 1,
-    },
-    fit: {
-      portfolioFit: 0.5,
-      hostFit: 0.8,
-    },
+    contextCost: { sizeClass: "small", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.5, hostFit: 0.8 },
     dedupe: {
       duplicateGroup: options.duplicateGroup,
       candidateRankHint: "fixture",

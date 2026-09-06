@@ -1,4 +1,4 @@
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -19,11 +19,11 @@ void test("package registry fetch helpers normalize responses and tolerate failu
   const previousFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const calls: string[] = [];
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
@@ -299,11 +299,11 @@ void test("fetchHexSearch — normalizes Hex.pm API responses and filters empty 
   const previousFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const calls: string[] = [];
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
@@ -348,11 +348,11 @@ void test("fetchHexSearch — returns [] on empty query without network and on m
   const previousFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   let fetchCalls = 0;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }
@@ -383,11 +383,11 @@ void test("fetchHexSearch — caps per_page to 100 and tolerates fetch failure",
   const previousFetch = globalThis.fetch;
   const previousMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const calls: string[] = [];
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   t.after(() => {
     globalThis.fetch = previousFetch;
     if (previousMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousMockFlag);
     }

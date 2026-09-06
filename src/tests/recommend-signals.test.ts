@@ -771,6 +771,54 @@ void test("identity multiplier survives at candidate level: identity-matched ass
   );
 });
 
+void test("candidate scoring explains collision-only marketplace matches", () => {
+  const policy = buildPolicy();
+  const demandProfile: DemandProfile = {
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    scanRoot: "C:/fixture",
+    summary: { scannedFiles: 1, matchedFiles: 1 },
+    signals: {
+      languages: [],
+      packageManagers: [],
+      frameworks: ["apify"],
+      concerns: [],
+      tooling: ["npm:apify-actor-memory-expression"],
+    },
+    evidence: [
+      {
+        path: "package.json",
+        fileName: "package.json",
+        evidenceStrength: "strong",
+        matchedSignals: {
+          languages: [],
+          packageManagers: [],
+          frameworks: ["apify"],
+          concerns: [],
+          tooling: ["npm:apify-actor-memory-expression"],
+        },
+      },
+    ],
+  };
+  const demandContext = buildDemandContext(demandProfile, policy);
+  const base = buildCandidateRecommendationBase(
+    buildCandidateTestEntry(
+      "labview-benchmark-actor",
+      ["labview", "benchmark", "actor"],
+      undefined,
+      { sourceKind: "marketplace", readmeFound: false },
+    ),
+    demandContext,
+    policy,
+  );
+
+  assert.ok(base, "collision-only marketplace candidate must build");
+  assert.equal(base.coincidentalMatchOnly, true);
+  assert.ok(
+    base.reasons.includes("evidence:token-coincidence-no-semantic-evidence"),
+  );
+});
+
 // The production weighted-evidence bucket for ONE strong evidence record —
 // derived from the shared helper so expected weights can never drift from
 // the implementation (review: was a hardcoded 3).
@@ -785,6 +833,10 @@ function buildCandidateTestEntry(
   id: string,
   capabilities: string[],
   manifestEntry: string | undefined,
+  options: {
+    sourceKind?: AssetCatalogEntry["source"]["sourceKind"];
+    readmeFound?: boolean;
+  } = {},
 ): AssetCatalogEntry {
   return {
     id,
@@ -795,7 +847,7 @@ function buildCandidateTestEntry(
     source: {
       sourceId: `repo-${id}`,
       authorityTier: "trusted-community",
-      sourceKind: "repo",
+      sourceKind: options.sourceKind ?? "repo",
       sourcePriority: 60,
       originUrl: `https://example.com/${id}`,
       publisher: `repo-${id}`,
@@ -810,7 +862,7 @@ function buildCandidateTestEntry(
     },
     evidence: {
       manifestFound: true,
-      readmeFound: true,
+      readmeFound: options.readmeFound ?? true,
       examplesFound: false,
       docsLinked: true,
       filePath: `hacks/${id}/README.md`,

@@ -24,15 +24,15 @@ agent-harness discover ard-export
 # Validate the result
 node -e "
   const c = require('./.well-known/ai-catalog.json');
-  if (!c.generatedAt || !c.entries || !c.entries.length) {
+  if (!c.entries || !c.entries.length) {
     console.error('FAIL: ARD catalog is empty — release blocked.');
     process.exit(1);
   }
-  console.log('OK: %d entries, generated %s', c.entries.length, c.generatedAt);
+  console.log('OK: %d entries', c.entries.length);
 "
 ```
 
-If `generatedAt` is empty or `entries` is empty, the release must **fail** — publishing an empty ARD catalog violates the v0.9 spec. The regeneration step must run against a populated catalog before tagging and publishing.
+If `entries` is empty, the release must **fail** — publishing an empty ARD 1.0 catalog violates the release contract. The regeneration step must run against a populated catalog before tagging and publishing.
 
 ## Local release candidate gate
 
@@ -156,13 +156,15 @@ After the local gate passes and the changelog is ready:
 ```bash
 git status --short
 npm version <version> --no-git-tag-version
-npm run check:version-sync
 git add package.json package-lock.json CHANGELOG.md
 git commit -m "chore(release): prepare v<version>"
 git tag v<version>
+npm run check:version-sync
 git push origin <branch>
 git push origin v<version>
 ```
+
+`check:version-sync` runs a tag-vs-manifest guard (#467): the manifest version must **not regress** at or below the highest released git tag unless it has a matching tag of its own. A **forward bump** — the manifest ahead of the latest released tag with no matching tag yet — is the normal pre-release state and passes, because the release workflow creates the `v<version>` tag on main when the release is cut. The guard therefore fails only on a genuine regression or re-tag (e.g. publishing `2.0.0` when `v2.0.0` already exists on main with no matching new tag). A `v`-prefix is required for the guard to treat a tag as a release tag, and prerelease tags (`vX.Y.Z-*`) never stand in as the "latest released" version. On a shallow CI checkout with no tags fetched, the guard is skipped; the workflows fetch full history (`fetch-depth: 0`) so releases are verified. Running the check after `git tag v<version>` (as in the block above) additionally confirms the freshly created tag is recognized before pushing.
 
 If `npm version` is not used, update both `package.json` and `package-lock.json` manually and keep `npm run check:version-sync` green.
 

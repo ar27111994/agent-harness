@@ -23,7 +23,7 @@ import {
 import { ardRegistryInternals } from "../domains/discovery/source-sync/registries/ard-registry.js";
 import {
   mergeCodexPluginMarketplace,
-  buildCodexHooksManifest,
+  buildLegacyCodexHooksManifest,
 } from "../host-adapters/codex-native.js";
 import { mapEntryToArd } from "../ard-catalog.js";
 import { buildEntry } from "./test-helpers.js";
@@ -428,7 +428,7 @@ void test("mergeCodexPluginMarketplace filters existing agent-harness entry and 
       schemaVersion: 1,
       plugins: [
         { name: "other-plugin", path: "./other" },
-        { name: "agent-harness", path: "./old-agent-harness" },
+        { name: "agent-harness", path: "./agent-harness" },
       ],
     });
     await mergeCodexPluginMarketplace(mktPath);
@@ -447,8 +447,8 @@ void test("mergeCodexPluginMarketplace filters existing agent-harness entry and 
   }
 });
 
-void test("buildCodexHooksManifest handles hooks without files and without manifest dir", () => {
-  const manifestNoFile = buildCodexHooksManifest(
+void test("buildLegacyCodexHooksManifest handles hooks without files and without manifest dir", () => {
+  const manifestNoFile = buildLegacyCodexHooksManifest(
     [
       {
         assetId: "hook-no-file",
@@ -458,7 +458,6 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
         displayName: "Hook No File",
       },
     ],
-    [],
     {},
   );
   assert.equal(
@@ -470,7 +469,7 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
     "hook-no-file",
   );
   // File without matching content path entry falls back to asset ID
-  const manifestNoDir = buildCodexHooksManifest(
+  const manifestNoDir = buildLegacyCodexHooksManifest(
     [
       {
         assetId: "hook-with-file",
@@ -480,7 +479,6 @@ void test("buildCodexHooksManifest handles hooks without files and without manif
         displayName: "Hook With File",
       },
     ],
-    ["/path/to/hook.md"],
     {},
   );
   assert.equal(
@@ -660,7 +658,7 @@ void test("buildCodexHookSource returns hookFile when manifestDirectory undefine
   const assetId = "my-hook";
   const assetSlug = sanitizeAssetId(assetId);
   const hookPath = `/tmp/hooks/${assetSlug}/hook.md`;
-  const result = buildCodexHooksManifest(
+  const result = buildLegacyCodexHooksManifest(
     [
       {
         assetId,
@@ -670,7 +668,6 @@ void test("buildCodexHookSource returns hookFile when manifestDirectory undefine
         displayName: "My Hook",
       },
     ],
-    [hookPath],
     { [assetId]: hookPath },
   );
   const hooks = (result as Record<string, unknown>).hooks as Array<

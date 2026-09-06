@@ -1,4 +1,4 @@
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -21,7 +21,7 @@ void test("github harvester classifies repository artifacts and carries reposito
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -65,6 +65,7 @@ void test("github harvester classifies repository artifacts and carries reposito
           },
           { path: "hooks/audit.js", type: "blob", sha: "5" },
           { path: "mcp-server/index.ts", type: "blob", sha: "6" },
+          { path: "src/server.py", type: "blob", sha: "11" },
           { path: "SECURITY.md", type: "blob", sha: "7" },
           { path: "LICENSE", type: "blob", sha: "8" },
           { path: ".github/workflows/ci.yml", type: "blob", sha: "9" },
@@ -90,7 +91,7 @@ void test("github harvester classifies repository artifacts and carries reposito
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -116,6 +117,7 @@ void test("github harvester classifies repository artifacts and carries reposito
   );
   assert.equal(byPath.get("hooks/audit.js")?.assetKind, "hook");
   assert.equal(byPath.get("mcp-server/index.ts")?.assetKind, "mcp-server");
+  assert.equal(byPath.get("src/server.py")?.assetKind, "mcp-server");
   assert.deepEqual(byPath.get("mcp-server/index.ts")?.hosts, ["shared"]);
   assert.equal(byPath.get("hooks/audit.js")?.risk.level, "medium");
   assert.equal(
@@ -150,7 +152,7 @@ void test("github harvester classifies Penpot MCP package server sources", async
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -220,7 +222,7 @@ void test("github harvester classifies Penpot MCP package server sources", async
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -273,7 +275,7 @@ void test("github harvester does not treat generic mcp package server directorie
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -330,7 +332,7 @@ void test("github harvester does not treat generic mcp package server directorie
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -360,7 +362,7 @@ void test("github harvester classifies adaptable multi-host assets without publi
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -419,7 +421,7 @@ void test("github harvester classifies adaptable multi-host assets without publi
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -492,7 +494,7 @@ void test("github harvester skips sources when fetching fails with non-Error val
   const originalConsoleWarn = globalThis.console.warn;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const warnings: string[] = [];
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () => {
     throw "network offline";
@@ -505,7 +507,7 @@ void test("github harvester skips sources when fetching fails with non-Error val
     globalThis.fetch = originalFetch;
     globalThis.console.warn = originalConsoleWarn;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -530,7 +532,7 @@ void test("github harvester drops unrecognized repository files", async (context
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -580,7 +582,7 @@ void test("github harvester drops unrecognized repository files", async (context
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -604,7 +606,7 @@ void test("github harvester skips truncated repository trees", async (context) =
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -647,7 +649,7 @@ void test("github harvester skips truncated repository trees", async (context) =
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -672,7 +674,7 @@ void test("github harvester reports guarded fetch failures and preserves native 
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const warningMessages: string[] = [];
   const originalWarn = console.warn;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -729,7 +731,7 @@ void test("github harvester reports guarded fetch failures and preserves native 
     console.warn = originalWarn;
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -806,6 +808,7 @@ function buildSource(): SourceDefinition {
       allowMirror: true,
       allowInstall: true,
     },
+    mcpServerPaths: ["src/server.py"],
   };
 }
 
@@ -880,7 +883,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
   const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-oms-trust-"));
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -1006,7 +1009,7 @@ void test("github harvester emits oms-signed signal for assets with skill.oms.si
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -1159,7 +1162,7 @@ void test("malformed OMS files do not grant trust signals", async () => {
   const projectRoot = await mkdtemp(join(tmpdir(), "ah-malformed-oms-"));
   const originalFetch = globalThis.fetch;
   const prevMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input: unknown) => {
     const url =
@@ -1314,8 +1317,7 @@ void test("malformed OMS files do not grant trust signals", async () => {
     }
   } finally {
     globalThis.fetch = originalFetch;
-    if (prevMockFlag === undefined)
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    if (prevMockFlag === undefined) setHttpTestFetchMocks(false);
     else restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", prevMockFlag);
     await rm(projectRoot, { recursive: true, force: true });
   }
@@ -1337,7 +1339,7 @@ void test("OMS PKI verification does not award trust when signature does not ver
   const projectRoot = await mkdtemp(join(tmpdir(), "ah-oms-pki-fail-"));
   const originalFetch = globalThis.fetch;
   const prevMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input: unknown) => {
     const url =
@@ -1450,8 +1452,7 @@ void test("OMS PKI verification does not award trust when signature does not ver
     }
   } finally {
     globalThis.fetch = originalFetch;
-    if (prevMockFlag === undefined)
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    if (prevMockFlag === undefined) setHttpTestFetchMocks(false);
     else restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", prevMockFlag);
     await rm(projectRoot, { recursive: true, force: true });
   }
@@ -1462,6 +1463,34 @@ void test("OMS PKI verification does not award trust when signature does not ver
 // ---------------------------------------------------------------------------
 
 const { isDependencyDirectoryPath } = githubHarvesterInternals;
+
+void test("github path filters reject excluded paths and preserve explicit manifests", () => {
+  const source = {
+    ...buildSource(),
+    includePaths: ["packages/**"],
+    excludePaths: ["packages/private/**"],
+  };
+  assert.equal(
+    githubHarvesterInternals.matchesSourcePathFilters(
+      "packages/private/index.ts",
+      source,
+    ),
+    false,
+  );
+  assert.equal(
+    githubHarvesterInternals.matchesSourcePathFilters(
+      "packages/public/index.ts",
+      source,
+    ),
+    true,
+  );
+  assert.equal(
+    githubHarvesterInternals.isImplementationOnlyRepositoryPath(
+      "src/plugin.json",
+    ),
+    false,
+  );
+});
 
 void test("isDependencyDirectoryPath detects node_modules prefix", () => {
   assert.equal(isDependencyDirectoryPath("node_modules/foo"), true);

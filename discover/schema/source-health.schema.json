@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-harness.dev/schema/source-health.schema.json",
+  "title": "Agent Harness source health report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "sourceCount",
+    "errorCount",
+    "warningCount",
+    "sources"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "sourceCount": { "type": "integer", "minimum": 0 },
+    "errorCount": { "type": "integer", "minimum": 0 },
+    "warningCount": { "type": "integer", "minimum": 0 },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sourceId",
+          "kind",
+          "authorityTier",
+          "status",
+          "severity",
+          "coverageMode",
+          "syncStatus",
+          "harvestedEntries",
+          "indexedEntries",
+          "selectedEntries",
+          "rejectedEntries",
+          "duplicateRate",
+          "reasons",
+          "suggestedAction",
+          "ciDetected"
+        ],
+        "properties": {
+          "sourceId": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "authorityTier": { "type": "string", "minLength": 1 },
+          "status": {
+            "enum": [
+              "active",
+              "dormant",
+              "never-synced",
+              "stale",
+              "broken",
+              "ambiguous-trust",
+              "newly-productive"
+            ]
+          },
+          "severity": { "enum": ["ok", "warning", "error"] },
+          "coverageMode": { "type": "string" },
+          "syncStatus": { "type": "string" },
+          "harvestedEntries": { "type": "integer", "minimum": 0 },
+          "indexedEntries": { "type": "integer", "minimum": 0 },
+          "selectedEntries": { "type": "integer", "minimum": 0 },
+          "rejectedEntries": { "type": "integer", "minimum": 0 },
+          "duplicateRate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reasons": { "type": "array", "items": { "type": "string" } },
+          "suggestedAction": {
+            "enum": [
+              "none",
+              "review-source",
+              "refresh-sync",
+              "disable-or-replace",
+              "verify-official-owner"
+            ]
+          },
+          "ciDetected": { "type": "boolean" },
+          "reasonCode": { "type": "string" }
+        }
+      }
+    }
+  }
+}

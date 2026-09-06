@@ -1,7 +1,9 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import assert from "node:assert/strict";
+
+import { removeTreeWithRetries } from "../lib/retry-remove.js";
 
 import {
   createIsolatedCliEnvironment,
@@ -74,7 +76,7 @@ try {
 
   console.log(`CLI smoke completed with isolated workspace ${workspaceRoot}`);
 } finally {
-  await rm(tempRoot, { force: true, recursive: true });
+  await removeTreeWithRetries(tempRoot);
 }
 
 async function assertSmokeStep(

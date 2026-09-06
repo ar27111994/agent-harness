@@ -1,4 +1,4 @@
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -97,7 +97,7 @@ void test("pinned lookup honors Node single-result callback mode", async () => {
 void test("guarded fetches preserve caller abort signals", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const controller = new AbortController();
   let observedSignal: AbortSignal | undefined;
 
@@ -126,7 +126,7 @@ void test("guarded fetches preserve caller abort signals", async (context) => {
 void test("guarded fetches time out stalled response bodies", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -263,7 +263,7 @@ void test("guarded public URL validation rejects private DNS answers", async () 
 void test("guarded fetches disable automatic cross-origin redirects", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   let observedRedirectMode: RequestRedirect | undefined;
 
   globalThis.fetch = async (_url, init) => {
@@ -287,7 +287,7 @@ void test("guarded fetches disable automatic cross-origin redirects", async (con
 void test("npm package search normalizes package names and keywords", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const responsePayload = JSON.stringify({
     objects: [
       {
@@ -337,7 +337,7 @@ void test("npm package search skips blank queries", async () => {
 void test("PyPI metadata fetch validates response shape before use", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const responsePayload = JSON.stringify({
     info: {
       name: 42,
@@ -411,7 +411,7 @@ const publicHostnameResolver: HostnameResolver = async () => [
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
 

@@ -14,6 +14,8 @@ Claude Code is a project-local native adapter. It reuses the OpenCode-compatible
 - <https://code.claude.com/docs/en/slash-commands>
 - <https://code.claude.com/docs/en/sub-agents>
 - <https://code.claude.com/docs/en/hooks>
+- <https://code.claude.com/docs/en/plugins>
+- <https://code.claude.com/docs/en/plugin-marketplaces>
 - <https://code.claude.com/docs/en/settings>
 
 ## Supported behavior
@@ -24,10 +26,12 @@ Claude Code is a project-local native adapter. It reuses the OpenCode-compatible
 - writes `.claude/agents/agent-harness.md`
 - writes `.claude/skills/agent-harness/SKILL.md`
 - writes `.claude/commands/agent-harness.md`
+- writes `.claude-plugin/marketplace.json` with a managed local `./plugins/agent-harness` source
+- writes `plugins/agent-harness/.claude-plugin/plugin.json` with version and author metadata
 - maps selected Claude Code command-like assets from `workflow` and `prompt-pack` recommendations into the managed command context
 - includes selected instruction, agent, skill, workflow, and prompt-pack content in the matching managed Claude files
 - materializes selected assets of every supported asset kind under `.claude/agent-harness/`
-- surfaces plugins, hooks, extensions, reference packs, and MCP assets as managed project-readable references
+- surfaces hooks, extensions, reference packs, and MCP assets as managed project-readable references unless they carry compatible Claude-native payloads
 - writes `activate/claude-code/wire-preview-claude-code.json`
 - writes `activate/claude-code/wire-plan.json` on apply
 - avoids global Claude Code profile mutation

@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import {
   cp,
@@ -778,7 +779,7 @@ void test("recommend report persists applied ai review adjustments", async (t) =
     process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
     process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
       "https://example.com";
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     clearRuntimeConfigForTests();
 
     globalThis.fetch = async () =>
@@ -1284,6 +1285,9 @@ function createCatalogEntries(): AssetCatalogEntry[] {
 }
 
 function restoreEnv(name: string, value: string | undefined): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(value === "1");
+  }
   if (value === undefined) {
     delete process.env[name];
     return;

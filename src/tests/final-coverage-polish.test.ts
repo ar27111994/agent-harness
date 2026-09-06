@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -108,7 +109,7 @@ void test("GitHub-backed fetchers attach configured authorization headers", asyn
   process.env.GITHUB_TOKEN = "fixture-token";
   delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
   process.env.AGENT_HARNESS_GITHUB_FETCH_RETRIES = "1";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async (_input, init) => {
@@ -661,6 +662,9 @@ void test("small error and fallback helpers keep non-Error values deterministic"
 });
 
 function restoreProcessEnv(name: string, value: string | undefined): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(value === "1");
+  }
   if (value === undefined) {
     delete process.env[name];
   } else {

@@ -54,9 +54,8 @@ export async function loadSourceRegistry(
   );
   const sourcePackDirectory = join(projectRoot, "discover", "source-packs");
 
-  const registryWithLocalSeeds = mergeSourceDefinitions(
-    baseRegistry,
-    buildGeneratedLocalSources(),
+  const registryWithLocalSeeds = applyMetadataOnlySourcePolicy(
+    mergeSourceDefinitions(baseRegistry, buildGeneratedLocalSources()),
   );
 
   if (!(await pathExists(sourcePackDirectory))) {
@@ -136,10 +135,30 @@ export async function loadSourceRegistry(
     }
   }
 
-  return applySourceVerification(projectRoot, {
-    ...registryWithLocalSeeds,
-    sources: [...registryWithLocalSeeds.sources, ...generatedSources],
-  });
+  return applySourceVerification(
+    projectRoot,
+    applyMetadataOnlySourcePolicy({
+      ...registryWithLocalSeeds,
+      sources: [...registryWithLocalSeeds.sources, ...generatedSources],
+    }),
+  );
+}
+
+/**
+ * Docs-kind sources are provenance/context references, not asset-producing
+ * distribution surfaces. Keep them in the registry for documentation and
+ * verification, but disable them before enabled-source counts, health,
+ * harvesting, and selection are computed.
+ */
+function applyMetadataOnlySourcePolicy(
+  registry: SourceRegistry,
+): SourceRegistry {
+  return {
+    ...registry,
+    sources: registry.sources.map((source) =>
+      source.kind === "docs" ? { ...source, enabled: false } : source,
+    ),
+  };
 }
 
 async function applySourceVerification(
@@ -480,4 +499,5 @@ function humanizeSlug(value: string): string {
 /** Exposes source-registry internals for focused unit testing. */
 export const sourceRegistryInternals = {
   assertRequiredEnumArray,
+  applyMetadataOnlySourcePolicy,
 } as const;

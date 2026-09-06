@@ -44,6 +44,7 @@ import {
   resetCodexNativeHost,
   buildCodexPluginManifest,
   buildCodexHooksManifest,
+  buildLegacyCodexHooksManifest,
 } from "./codex-native.js";
 import {
   buildAssetMarkdown,
@@ -127,12 +128,19 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
       [".claude", "agents", "agent-harness.md"],
       [".claude", "skills", "agent-harness", "SKILL.md"],
       [".claude", "commands", "agent-harness.md"],
+      [".claude-plugin", "marketplace.json"],
+      ["plugins", "agent-harness", ".claude-plugin", "plugin.json"],
+      ["plugins", "agent-harness", "skills", "agent-harness", "SKILL.md"],
+      ["plugins", "agent-harness", "agents", "agent-harness.md"],
+      ["plugins", "agent-harness", "commands", "agent-harness.md"],
       [".claude", "agent-harness"],
+      [".claude", "settings.json"],
+      [".mcp.json"],
     ],
     notes: [
-      "Claude Code native wire-in writes project CLAUDE.md context and .claude/rules/agent-harness.md.",
-      "Selected agents, skills, workflows, and prompt packs are exposed through .claude/agents/agent-harness.md, .claude/skills/agent-harness, and .claude/commands/agent-harness.md.",
-      "Project MCP server definitions are not synthesized without structured server configuration.",
+      "Claude Code project instructions are written to CLAUDE.md and .claude/CLAUDE.md.",
+      "Native rules, agents, skills, and commands are projected under .claude/.",
+      "A standards-compliant local plugin is materialized under plugins/agent-harness and registered in .claude-plugin/marketplace.json.",
     ],
   },
   pi: {
@@ -164,15 +172,19 @@ const NATIVE_HOST_SPECS: Record<NativeWireHost, NativeHostSpec> = {
     targetPathSegments: [
       ["AGENTS.md"],
       [".agents", "skills", "agent-harness", "SKILL.md"],
-      [".agents", "plugins", "agent-harness"],
+      [".agents", "plugins", "marketplace.json"],
+      ["plugins", "agent-harness", ".codex-plugin", "plugin.json"],
+      ["plugins", "agent-harness", "skills", "agent-harness", "SKILL.md"],
+      [".codex", "agents"],
       [".codex", "agent-harness"],
       [".codex", "config.toml"],
-      [".codex", "hooks.json"],
     ],
     notes: [
-      "Codex wire-in writes project AGENTS.md context and repo-local Open Agent Skills under .agents/skills.",
-      "Reference assets are materialized under .codex/agent-harness for reviewable project context.",
-      "Plugin, MCP, hook, and rules activation require structured Codex-native config and trusted-project review; global Codex config and plugin caches are not modified.",
+      "Codex project instructions are written to AGENTS.md.",
+      "Open Agent Skills are projected under .agents/skills/agent-harness.",
+      "Repo/team plugin metadata is written to .agents/plugins/marketplace.json and plugins/agent-harness/.",
+      "Custom agent assets are emitted as .codex/agents/*.toml profiles.",
+      "Synthetic hook manifests are not generated; unsupported hook schema is omitted.",
     ],
   },
 };
@@ -786,4 +798,5 @@ export const nativeWireInternals = {
   validateManagedTextFileSnapshots,
   buildCodexPluginManifest,
   buildCodexHooksManifest,
+  buildLegacyCodexHooksManifest,
 };

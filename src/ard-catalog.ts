@@ -1,219 +1,149 @@
 /**
- * ARD (Agentic Resource Discovery) catalog export.
+ * ARD (Agentic Resource Discovery) 1.0 catalog export.
  *
- * Maps the agent-harness asset catalog to the ARD v0.9 `ai-catalog.json` format
- * and writes it to `.well-known/ai-catalog.json` so ARD-compliant registries
- * (GitHub Agent Finder, HuggingFace Discover, Google Agent Registry) can
- * discover and index agent-harness assets.
- *
- * Spec: https://agenticresourcediscovery.org/spec
- * Tickets: #325, #327, #328, #329
+ * Maps selected Agent Harness assets to the current public ai-catalog schema
+ * and writes `.well-known/ai-catalog.json` atomically.
  */
 
 import { mkdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import type { AssetCatalogEntry } from "./types.js";
 import { STOPWORD_TOKENS } from "./domains/discovery/catalog-utils.js";
+import {
+  ARD_SPEC_VERSION,
+  ASSET_KIND_TO_ARD_TYPE,
+  getArdPublisherFqdn,
+} from "./ard/types.js";
+import type { AssetCatalogEntry } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// ARD Schema Types (§3)
-// ---------------------------------------------------------------------------
-
-/** ARD compliance attestation (§3.5). */
-export interface ArdAttestation {
-  type: string;
-  uri?: string;
-  description?: string;
-}
-
-/** ARD trust manifest (§3.5). */
+/** ARD 1.0 trust manifest subset emitted by Agent Harness. */
 export interface ArdTrustManifest {
-  identity?: string;
-  identityType?: "spiffe" | "did" | "x509" | "domain" | "oauth";
-  attestations?: ArdAttestation[];
-  signature?: string;
+  identity: string;
+  identityType?: "spiffe" | "did" | "https" | "other";
 }
 
-/** Single ARD catalog entry (§3.3). */
-export interface ArdCatalogEntry {
+interface ArdCatalogEntryBase {
   identifier: string;
   displayName: string;
   type: string;
-  url?: string;
-  data?: Record<string, unknown>;
   description?: string;
-  capabilities: string[];
-  representativeQueries: string[];
-  version: string;
-  /** Omitted when the source asset has no real update timestamp (#449). */
+  capabilities?: string[];
+  representativeQueries?: string[];
+  version?: string;
   updatedAt?: string;
-  tags: string[];
+  tags?: string[];
+  metadata?: Record<string, string | number | boolean | null>;
   trustManifest?: ArdTrustManifest;
 }
 
-/** Top-level ARD catalog object. */
+/** ARD requires exactly one of `url` and `data`. */
+export type ArdCatalogEntry = ArdCatalogEntryBase &
+  (
+    | { url: string; data?: never }
+    | { data: Record<string, unknown>; url?: never }
+  );
+
+/** Current public ARD ai-catalog root object. */
 export interface ArdCatalog {
-  $schema: string;
-  publisher: string;
-  version: string;
-  generatedAt: string;
+  specVersion: typeof ARD_SPEC_VERSION;
+  host?: {
+    displayName: string;
+    identifier?: string;
+    documentationUrl?: string;
+    trustManifest?: ArdTrustManifest;
+  };
   entries: ArdCatalogEntry[];
 }
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-import {
-  ARD_PUBLISHER_FQDN,
-  ARD_SCHEMA_URI,
-  ASSET_KIND_TO_ARD_TYPE,
-  TRUST_SIGNAL_TO_ATTESTATION,
-  getArdPublisherFqdn,
-} from "./ard/types.js";
 
 /** Re-export publisher FQDN helper for external callers. */
 export { getArdPublisherFqdn };
 
-// ---------------------------------------------------------------------------
-// Mapping
-// ---------------------------------------------------------------------------
-
 /**
- * Builds an ARD URN identifier from source and asset metadata.
- *
- * Format: urn:ai:<publisher-fqdn>:<namespace>:<agent-name>
- * Per ARD §4.2.1 — domain is the trust anchor.
+ * Builds a current ARD identifier.
+ * Format: `urn:air:<publisher>:<namespace>:<asset-name>`.
  */
 export function buildArdUrn(
   entry: AssetCatalogEntry,
   publisherFqdn: string,
 ): string {
-  const namespace = entry.source.sourceKind;
-  // Sanitised slug: replace path/URI separators, truncate to bound.
-  const sanitized = entry.id.replace(/[/:@]/g, "-").slice(0, 50);
-  // Stable DJB2-style hash from the complete original ID — ensures entries
-  // differing only after truncation or character replacement get distinct URNs.
+  const namespace = sanitizeUrnSegment(entry.source.sourceKind, "asset");
+  const sanitized = sanitizeUrnSegment(entry.id, "asset").slice(0, 50);
   let hash = 5381;
-  for (let i = 0; i < entry.id.length; i++) {
-    hash = ((hash << 5) + hash + entry.id.charCodeAt(i)) | 0;
+  for (let index = 0; index < entry.id.length; index += 1) {
+    hash = ((hash << 5) + hash + entry.id.charCodeAt(index)) | 0;
   }
   const hashSuffix = (hash >>> 0).toString(16).padStart(8, "0");
-  const agentName = `${sanitized}-${hashSuffix}`;
-  return `urn:ai:${publisherFqdn}:${namespace}:${agentName}`;
+  return `urn:air:${sanitizePublisherFqdn(publisherFqdn)}:${namespace}:${sanitized}-${hashSuffix}`;
+}
+
+function sanitizePublisherFqdn(value: string): string {
+  const sanitized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.-]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
+  return sanitized || "agent-harness.local";
+}
+
+function sanitizeUrnSegment(value: string, fallback: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/gu, "-")
+    .replace(/^-+|-+$/gu, "");
+  return sanitized || fallback;
 }
 
 /**
- * Derives ARD trust manifest signals from agent-harness trust data.
- *
- * Generates trust manifests for all entries with non-trivial authority tiers,
- * not just those with explicit publisherVerified or trust signals.
- * Official-first-party and official-compatible sources always receive
- * identity-based trust manifests. Ticket: #399.
+ * Emits a minimal ARD 1.0 trust identity only when Agent Harness has a reason
+ * to claim publisher identity. Local trust flags are not converted into ARD
+ * attestations because the public schema requires verifiable URI/mediaType
+ * evidence for every attestation.
  */
 export function deriveArdTrustManifest(
   entry: AssetCatalogEntry,
 ): ArdTrustManifest | undefined {
-  const attestations: ArdAttestation[] = [];
-
-  for (const signal of entry.trust.signals) {
-    const attestation = TRUST_SIGNAL_TO_ATTESTATION[signal];
-    if (attestation) {
-      attestations.push(attestation);
-    }
-  }
-
-  // Derive publisher identity from verified sources.
-  const fqdn = getArdPublisherFqdn();
-  const isVerifiedPublisher = entry.source.publisherVerified;
-
-  // Build identity for all sources that carry meaningful trust signals:
-  // verified publishers, official tiers, or existing trust attestations.
-  const authorityTier = entry.source.authorityTier;
-  const hasMeaningfulTier =
-    authorityTier === "official-first-party" ||
-    authorityTier === "official-compatible" ||
-    authorityTier === "trusted-community";
-
-  const identity =
-    isVerifiedPublisher || (hasMeaningfulTier && fqdn)
-      ? `domain:${fqdn}`
-      : undefined;
-
-  // For verified publishers, add the publisher-verified attestation
-  // if it isn't already present from trust signals.
+  const meaningfulTier =
+    entry.source.authorityTier === "official-first-party" ||
+    entry.source.authorityTier === "official-compatible" ||
+    entry.source.authorityTier === "trusted-community";
   if (
-    isVerifiedPublisher &&
-    !attestations.some((a) => a.type === "Publisher-Verified")
+    !entry.source.publisherVerified &&
+    !meaningfulTier &&
+    entry.trust.signals.length === 0
   ) {
-    attestations.unshift(TRUST_SIGNAL_TO_ATTESTATION["publisher-verified"]);
+    return undefined;
   }
-
-  if (!identity && attestations.length === 0) return undefined;
 
   return {
-    identity,
-    // identityType is always "domain" when identity is set; undefined arm is
-    // defensive for types that don't match the current publisher model.
-    /* c8 ignore next 2 */
-    identityType: identity ? "domain" : undefined,
-    attestations: attestations.length > 0 ? attestations : undefined,
+    identity: `https://${getArdPublisherFqdn()}`,
+    identityType: "https",
   };
 }
 
-/**
- * Resolves the ARD `updatedAt` for an asset, never emitting the epoch
- * sentinel that harvesters use when no update metadata exists (#449).
- *
- * Returns undefined (field omitted from the ARD entry) when the asset has
- * no real update timestamp: a missing/empty value, an unparseable value,
- * or a timestamp at-or-before the Unix epoch (1970-01-01) is treated as
- * "unknown" rather than as a false date in the public catalog.
- */
+/** Omits missing, invalid, or epoch-sentinel update timestamps. */
 export function resolveArdUpdatedAt(
   entry: AssetCatalogEntry,
 ): string | undefined {
   const raw = entry.maintenance.lastUpdated;
-  if (!raw) {
-    return undefined;
-  }
+  if (!raw) return undefined;
   const timestamp = Date.parse(raw);
-  if (!Number.isFinite(timestamp) || timestamp <= 0) {
-    return undefined;
-  }
-  return raw;
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return undefined;
+  return new Date(timestamp).toISOString();
 }
 
-/**
- * Maps a single agent-harness AssetCatalogEntry to an ARD catalog entry.
- */
+/** Maps one Agent Harness asset to a schema-valid ARD 1.0 entry. */
 export function mapEntryToArd(
   entry: AssetCatalogEntry,
   publisherFqdn: string,
   version: string,
 ): ArdCatalogEntry {
-  const ardType =
-    // All AssetKind values are mapped; fallback guards future kinds.
-    /* c8 ignore next */
-    ASSET_KIND_TO_ARD_TYPE[entry.assetKind] ?? "application/ai-skill";
-
-  return {
+  const common: ArdCatalogEntryBase = {
     identifier: buildArdUrn(entry, publisherFqdn),
     displayName: entry.displayName,
-    type: ardType,
-    // originUrl is the resolvable access URL; manifestEntry is an internal
-    // content-addressing hash — use it only as a fallback when originUrl is
-    // missing (which should not happen for any correctly harvested entry).
-    /* c8 ignore next */
-    url: entry.source.originUrl ?? entry.install.manifestEntry,
-    // classification is set by all harvesters; fallback is defensive.
-    /* c8 ignore next 2 */
-    description: entry.evidence.classification
-      ? `${entry.assetKind} asset from ${entry.source.sourceId} (${entry.source.sourceKind})`
-      : `Agent asset from ${entry.source.sourceId}`,
+    type: ASSET_KIND_TO_ARD_TYPE[entry.assetKind] ?? "application/ai-skill",
+    description: `${entry.assetKind} asset from ${entry.source.sourceId} (${entry.source.sourceKind})`,
     capabilities: entry.capabilities.slice(0, 20),
-    representativeQueries: buildRepresentativeQueries(entry).slice(0, 10),
+    representativeQueries: buildRepresentativeQueries(entry).slice(0, 5),
     version,
     updatedAt: resolveArdUpdatedAt(entry),
     tags: [
@@ -223,54 +153,68 @@ export function mapEntryToArd(
       ...entry.hosts.slice(0, 5),
       entry.source.authorityTier,
     ],
+    metadata: {
+      assetKind: entry.assetKind,
+      sourceId: entry.source.sourceId,
+      compatibilityMode: entry.compatibilityMode,
+    },
     trustManifest: deriveArdTrustManifest(entry),
-    // Preserve the agent-harness AssetKind in ARD data for round‑trip import.
-    data: { assetKind: entry.assetKind },
+  };
+
+  const originUrl = resolveHttpUrl(entry.source.originUrl);
+  if (originUrl) {
+    return { ...common, url: originUrl };
+  }
+
+  // The public schema allows inline data instead of a URL. This fallback keeps
+  // local/catalog-only entries valid without inventing a resolvable URL.
+  return {
+    ...common,
+    data: {
+      assetKind: entry.assetKind,
+      sourceId: entry.source.sourceId,
+      compatibilityMode: entry.compatibilityMode,
+      manifestEntry: entry.install.manifestEntry ?? null,
+    },
   };
 }
 
-/**
- * Builds synthetic representative queries from capabilities.
- * Filters out stopwords and low-quality tokens before query generation.
- * Tickets: #400, #406.
- */
-function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
-  const queries: string[] = [];
-  const display = entry.displayName.toLowerCase();
-
-  queries.push(
-    `What ${entry.assetKind} assets are available from ${entry.source.sourceId}?`,
-  );
-  // hosts[0] is always set by harvesters; fallback is defensive.
-  /* c8 ignore next */
-  queries.push(`Find ${display} for ${entry.hosts[0] ?? "agent"} workflows`);
-
-  // Filter capabilities to meaningful terms — exclude stopwords and noise.
-  const meaningfulCaps = entry.capabilities
-    .filter((cap) => {
-      const lower = cap.toLowerCase();
-      if (lower.length < 2) return false;
-      if (/^\d+$/u.test(lower)) return false;
-      if (STOPWORD_TOKENS.has(lower)) return false;
-      return true;
-    })
-    .slice(0, 5);
-
-  for (const cap of meaningfulCaps) {
-    queries.push(`Install a ${entry.assetKind} for ${cap}`);
+function resolveHttpUrl(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:"
+      ? parsed.toString()
+      : undefined;
+  } catch {
+    return undefined;
   }
-
-  return queries;
 }
 
-// ---------------------------------------------------------------------------
-// Export
-// ---------------------------------------------------------------------------
+function buildRepresentativeQueries(entry: AssetCatalogEntry): string[] {
+  const queries = [
+    `What ${entry.assetKind} assets are available from ${entry.source.sourceId}?`,
+    `Find ${entry.displayName.toLowerCase()} for ${entry.hosts[0] ?? "agent"} workflows`,
+  ];
 
-/**
- * Formatter function signature for injecting Prettier (or a mock) into
- * writeArdCatalog for testing the unavailable path.
- */
+  const meaningfulCapabilities = entry.capabilities
+    .filter((capability) => {
+      const normalized = capability.toLowerCase();
+      return (
+        normalized.length >= 2 &&
+        !/^\d+$/u.test(normalized) &&
+        !STOPWORD_TOKENS.has(normalized)
+      );
+    })
+    .slice(0, 3);
+
+  for (const capability of meaningfulCapabilities) {
+    queries.push(`Install a ${entry.assetKind} for ${capability}`);
+  }
+  return [...new Set(queries)].slice(0, 5);
+}
+
+/** Formatter signature injected by tests or backed by Prettier at runtime. */
 export type PrettierFormatter = (
   source: string,
   options: {
@@ -280,26 +224,13 @@ export type PrettierFormatter = (
   },
 ) => Promise<string>;
 
-/**
- * Exports the agent-harness catalog to ARD `ai-catalog.json` format.
- *
- * Reads `discover/output/catalog.selected.jsonl` (the selected catalog) and
- * writes `.well-known/ai-catalog.json` so ARD-compliant registries can discover
- * agent-harness as a publisher.
- *
- * @param projectRoot - Agent-harness project root.
- * @param version - Package version to stamp on the ARD catalog.
- * @param formatWithPrettier - Injectable formatter (default: Prettier).
- * @returns Path to the written file and entry count.
- */
+/** Writes the selected catalog as ARD 1.0 JSON. */
 export async function writeArdCatalog(
   projectRoot: string,
   version?: string,
   formatWithPrettier?: PrettierFormatter,
 ): Promise<{ filePath: string; entryCount: number }> {
-  // Use dynamic import for ESM compatibility at runtime
   const { readJsonLinesFile } = await import("./files.js");
-
   const catalogPath = join(
     projectRoot,
     "discover",
@@ -307,98 +238,74 @@ export async function writeArdCatalog(
     "catalog.selected.jsonl",
   );
   const wellKnownDir = join(projectRoot, ".well-known");
-
   const entries = await readJsonLinesFile<AssetCatalogEntry>(catalogPath);
-  const pkgVersion =
-    version ??
-    (await (async () => {
-      try {
-        const { readFile: rf } = await import("node:fs/promises");
-        const pkgRaw = await rf(join(projectRoot, "package.json"), "utf8");
-        const pkg = JSON.parse(pkgRaw) as { version?: string };
-        // version is always set in package.json; fallback is defensive.
-        /* c8 ignore next */
-        return pkg.version ?? "0.0.0";
-      } catch {
-        // package.json read failed (e.g., ENOENT) — fallback to "0.0.0".
-        /* c8 ignore next */
-        console.warn(
-          "ard-catalog: failed to read package.json version, using 0.0.0",
-        );
-        return "0.0.0";
-      }
-    })());
+  const packageVersion = version ?? (await readPackageVersion(projectRoot));
 
   const ardEntries: ArdCatalogEntry[] = [];
   for (const entry of entries) {
     try {
-      ardEntries.push(mapEntryToArd(entry, getArdPublisherFqdn(), pkgVersion));
-    } catch (err: unknown) {
-      // Skip entries that fail mapping (malformed data), but surface the
-      // specific cause and asset ID so operators can identify and fix the
-      // offending entry.
-      const message = extractErrorMessage(err);
-      const entryId = (entry as AssetCatalogEntry)?.id;
-      const entryDisplay = (entry as AssetCatalogEntry)?.displayName;
-      const assetId =
-        typeof entryId === "string" && entryId.length > 0
-          ? entryId
-          : typeof entryDisplay === "string" && entryDisplay.length > 0
-            ? entryDisplay
-            : "(unknown)";
+      ardEntries.push(
+        mapEntryToArd(entry, getArdPublisherFqdn(), packageVersion),
+      );
+    } catch (error: unknown) {
       console.warn(
-        `ard-catalog: skipping malformed entry (${assetId}): ${message}`,
+        `ard-catalog: skipping malformed entry (${entry.id || entry.displayName || "(unknown)"}): ${extractErrorMessage(error)}`,
       );
     }
   }
 
+  const publisherFqdn = getArdPublisherFqdn();
   const catalog: ArdCatalog = {
-    $schema: ARD_SCHEMA_URI,
-    publisher: getArdPublisherFqdn(),
-    version: pkgVersion,
-    generatedAt: new Date().toISOString(),
+    specVersion: ARD_SPEC_VERSION,
+    host: {
+      displayName: "Agent Harness",
+      identifier: `https://${publisherFqdn}`,
+      documentationUrl: "https://github.com/ar27111994/agent-harness",
+      trustManifest: {
+        identity: `https://${publisherFqdn}`,
+        identityType: "https",
+      },
+    },
     entries: ardEntries,
   };
 
   await mkdir(wellKnownDir, { recursive: true });
   const filePath = join(wellKnownDir, "ai-catalog.json");
-  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
-
-  // Format JSON with Prettier so the output passes `npm run format:check`.
+  const rawJson = `${JSON.stringify(catalog, null, 2)}\n`;
   let formattedJson = rawJson;
   try {
-    const fmt = formatWithPrettier ?? defaultPrettierFormatter;
-    formattedJson = await fmt(rawJson, {
+    const formatter = formatWithPrettier ?? defaultPrettierFormatter;
+    formattedJson = await formatter(rawJson, {
       parser: "json",
       endOfLine: "lf",
       trailingComma: "all",
     });
-  } catch (err: unknown) {
-    // Prettier unavailable — write unformatted JSON. This happens when the
-    // CLI is used outside a development environment (e.g., after `npm pack`
-    // strips devDependencies). Log the cause so operators can distinguish
-    // "intentionally unformatted" from "formatting error".
-    const reason =
-      // Non-Error throw path is defensive — JS allows throwing primitives.
-      /* c8 ignore next */
-      err instanceof Error ? err.message : String(err ?? "unknown error");
+  } catch (error: unknown) {
     console.warn(
-      `ard-catalog: Prettier formatting skipped (${reason}). JSON output is valid but may not pass prettier --check.`,
+      `ard-catalog: Prettier formatting skipped (${extractErrorMessage(error)}). JSON output is valid but may not pass prettier --check.`,
     );
   }
 
-  // Atomic write: write to temp file first, then rename. Prevents
-  // a crash from leaving a partial ai-catalog.json on disk.
   const tempPath = `${filePath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
   await writeFile(tempPath, formattedJson, "utf8");
   await rename(tempPath, filePath);
-
   return { filePath, entryCount: ardEntries.length };
 }
 
-/**
- * Default Prettier formatter using the actual prettier module.
- */
+async function readPackageVersion(projectRoot: string): Promise<string> {
+  try {
+    const { readFile } = await import("node:fs/promises");
+    const raw = await readFile(join(projectRoot, "package.json"), "utf8");
+    const parsed = JSON.parse(raw) as { version?: string };
+    return parsed.version ?? "0.0.0";
+  } catch {
+    console.warn(
+      "ard-catalog: failed to read package.json version, using 0.0.0",
+    );
+    return "0.0.0";
+  }
+}
+
 async function defaultPrettierFormatter(
   source: string,
   options: {
@@ -411,31 +318,19 @@ async function defaultPrettierFormatter(
   return prettier.format(source, options);
 }
 
-/**
- * Extracts a human-readable message from an unknown error value.
- *
- * Separating this from the catch block lets c8 measure branch coverage
- * independently — the Error instance path covers all standard throws,
- * while the fallback guards against non-standard throw values (strings,
- * numbers, or plain objects that JS allows but are rare in practice).
- */
-export function extractErrorMessage(err: unknown): string {
+/** Extracts a readable message from an unknown thrown value. */
+export function extractErrorMessage(error: unknown): string {
   /* c8 ignore next 3 */
-  if (!(err instanceof Error)) {
-    return String(err ?? "unknown error");
+  if (!(error instanceof Error)) {
+    return String(error ?? "unknown error");
   }
-  return err.message;
+  return error.message;
 }
-/**
- * Provide internals for unit testing.
- */
+
+/** Exposes ARD conversion helpers for focused tests without widening runtime APIs. */
 export const ardCatalogInternals = {
-  buildArdUrn,
+  resolveHttpUrl,
+  sanitizePublisherFqdn,
+  sanitizeUrnSegment,
   buildRepresentativeQueries,
-  deriveArdTrustManifest,
-  mapEntryToArd,
-  extractErrorMessage,
-  ASSET_KIND_TO_ARD_TYPE,
-  TRUST_SIGNAL_TO_ATTESTATION,
-  ARD_PUBLISHER_FQDN,
 };

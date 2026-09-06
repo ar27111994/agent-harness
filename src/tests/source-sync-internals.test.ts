@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { buildCatalogId } from "../domains/discovery/catalog-utils.js";
 import type { SourceSyncSourceState } from "../domains/discovery/source-sync.js";
 import { sourceSyncInternals } from "../domains/discovery/source-sync.js";
@@ -1216,7 +1216,7 @@ void test("source sync helper exports cover sitemap, fetch, NuGet, and MCP branc
 void test("fetchRequiredJson defaults the HTTP method per the documented contract (review)", async () => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const seen: Array<{
     url: string;
     method?: string;
@@ -1291,7 +1291,7 @@ void test("fetchRequiredJson defaults the HTTP method per the documented contrac
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -1427,14 +1427,14 @@ function installFetchMock(
 ): () => void {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input, init) => responder(input, init);
 
   return () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
       return;
     }
     restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
@@ -1608,7 +1608,7 @@ void test("synchronizeIndexedSource dispatches ard-registry kind-guard", async (
 
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   try {
     globalThis.fetch = (async () =>
       new Response(
@@ -1628,7 +1628,7 @@ void test("synchronizeIndexedSource dispatches ard-registry kind-guard", async (
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -1677,7 +1677,7 @@ void test("synchronizeIndexedSource category sweep tolerates a null demand profi
 
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   let fetchCalls = 0;
   globalThis.fetch = (async () => {
     fetchCalls++;
@@ -1717,7 +1717,7 @@ void test("synchronizeIndexedSource category sweep tolerates a null demand profi
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }

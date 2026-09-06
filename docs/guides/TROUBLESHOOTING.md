@@ -177,7 +177,7 @@ following durations are normal and do not indicate a hang or failure:
 | Command                     | Expected Duration | Notes                                                              |
 | --------------------------- | ----------------- | ------------------------------------------------------------------ |
 | `discover full` (first run) | ~60s (typical)    | Demand-based filtering syncs only ecosystem-relevant sources       |
-| `discover full --sync-all`  | 5–10 minutes      | Full sync of all 50+ sources (legacy behaviour)                    |
+| `discover full --sync-all`  | 5–10 minutes      | Full sync of all configured sources (legacy behaviour)             |
 | `discover sync`             | 2–5 minutes       | Subsequent runs use cached local index                             |
 | `discover index`            | 10–30 minutes     | Full pagination of all indexed sources                             |
 | `test:self-hosting`         | 4–7 minutes       | Runs full pipeline on the repo itself (measured ~5m40s on Windows) |

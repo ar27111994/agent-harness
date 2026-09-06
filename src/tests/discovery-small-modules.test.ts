@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
 import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import {
   catalogInspectionInternals,
   inspectCatalog,
@@ -347,8 +347,9 @@ void test("source index applies default sync coverage and records optional confi
       sourceIndex.enabledSources.map((source) => [source.id, source]),
     );
 
-    assert.equal(byId.get("cursor-docs")?.coverageMode, "direct");
-    assert.equal(byId.get("cursor-docs")?.syncStatus, "not-applicable");
+    // Docs sources are retained as metadata but excluded from enabled-source
+    // lifecycle output.
+    assert.equal(byId.has("cursor-docs"), false);
     assert.equal(byId.get("mcp-registry")?.coverageMode, "sampled");
     assert.equal(byId.get("mcp-registry")?.syncStatus, "unsupported");
     assert.equal(byId.get("mattpocock-skills")?.coverageMode, "rotating");
@@ -519,7 +520,7 @@ void test("source registry rejects invalid source-pack entry fields", async () =
 void test("reference harvester query helpers sanitize demand signals and normalize marketplace pages", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const requestBodies: string[] = [];
 
   globalThis.fetch = async (_input, init) => {
@@ -634,7 +635,7 @@ async function captureConsole(action: () => Promise<void>): Promise<string> {
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
 

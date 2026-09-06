@@ -1,1118 +1,574 @@
-/**
- * Tests for ARD catalog export (#325).
- *
- * Covers: URN construction, AssetKind → media type mapping, trust manifest
- * derivation, full catalog export.
- */
-
 import assert from "node:assert/strict";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { test } from "node:test";
-
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
+import { join } from "node:path";
+import test from "node:test";
 
 import {
-  ardCatalogInternals,
   buildArdUrn,
   deriveArdTrustManifest,
-  mapEntryToArd,
+  ardCatalogInternals,
   extractErrorMessage,
+  mapEntryToArd,
   resolveArdUpdatedAt,
   writeArdCatalog,
-  type PrettierFormatter,
+  type ArdCatalog,
 } from "../ard-catalog.js";
+import { ARD_SPEC_VERSION, getArdPublisherFqdn } from "../ard/types.js";
+import type { AssetCatalogEntry } from "../types.js";
 
-import type { AssetKind, SourceKind, AssetMaintenance } from "../types.js";
-import { buildEntry } from "./test-helpers.js";
-
-const { ASSET_KIND_TO_ARD_TYPE, ARD_PUBLISHER_FQDN } = ardCatalogInternals;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-void test("extractErrorMessage returns message from Error instances", () => {
-  assert.equal(extractErrorMessage(new Error("test error")), "test error");
-  assert.equal(
-    extractErrorMessage(new TypeError("type mismatch")),
-    "type mismatch",
-  );
-  assert.equal(extractErrorMessage(new Error("")), "");
+void test("ARD URNs use the current urn:air namespace and public identifier grammar", () => {
+  const urn = buildArdUrn(entry(), "Example.COM");
+  assert.match(urn, /^urn:air:example\.com:[a-zA-Z0-9._-]+:[a-zA-Z0-9._-]+$/u);
+  assert.doesNotMatch(urn, /^urn:ai:/u);
 });
 
-// ---------------------------------------------------------------------------
-// buildArdUrn
-// ---------------------------------------------------------------------------
-
-void test("buildArdUrn constructs valid ARD URN", () => {
-  const entry = buildEntry({
-    id: "my-agent/skill-v1",
-    displayName: "My Skill",
+void test("ARD mapping emits exactly one of url or data and keeps round-trip metadata", () => {
+  const urlBacked = mapEntryToArd(entry(), "ar27111994.dev", "2.1.0");
+  assert.equal(urlBacked.url, "https://example.com/skill");
+  assert.equal("data" in urlBacked, false);
+  assert.deepEqual(urlBacked.metadata, {
     assetKind: "skill",
+    sourceId: "fixture-source",
+    compatibilityMode: "native",
   });
+  assert.ok((urlBacked.representativeQueries?.length ?? 0) >= 2);
+  assert.ok((urlBacked.representativeQueries?.length ?? 0) <= 5);
 
-  const urn = buildArdUrn(entry, "example.com");
-  assert.ok(urn.startsWith("urn:ai:example.com:"));
-  assert.ok(urn.includes("my-agent-skill-v1"));
-});
-
-void test("buildArdUrn replaces slashes and colons", () => {
-  const entry = buildEntry({
-    id: "org/repo:skill",
-    displayName: "Test",
-    assetKind: "skill",
-  });
-
-  const urn = buildArdUrn(entry, "test.io");
-  assert.ok(!urn.includes("/"));
-  assert.ok(!urn.includes(":skill")); // colons replaced after the URN prefix
-});
-
-void test("buildArdUrn truncates long IDs", () => {
-  const entry = buildEntry({
-    id: "a".repeat(200),
-    displayName: "Test",
-    assetKind: "skill",
-  });
-
-  const urn = buildArdUrn(entry, "x.io");
-  const agentPart = urn.split(":").pop()!;
-  assert.ok(agentPart.length <= 64);
-});
-
-// ---------------------------------------------------------------------------
-// deriveArdTrustManifest
-// ---------------------------------------------------------------------------
-
-void test("deriveArdTrustManifest returns undefined for no signals", () => {
-  const entry = buildEntry({
-    id: "plain-skill",
-    displayName: "Plain",
-    assetKind: "skill",
-  });
-
-  const manifest = deriveArdTrustManifest(entry);
-  assert.equal(manifest, undefined);
-});
-
-void test("deriveArdTrustManifest maps oms-signed to attestation", () => {
-  const entry = buildEntry({
-    id: "signed-skill",
-    displayName: "Signed Skill",
-    assetKind: "skill",
-    trust: { score: 60, signals: ["oms-signed"] },
-  });
-
-  const manifest = deriveArdTrustManifest(entry)!;
-  assert.ok(
-    manifest.attestations!.some((a) => a.type === "OMS-Code-Signature"),
-  );
-});
-
-void test("deriveArdTrustManifest includes domain identity when publisher verified", () => {
-  const entry = buildEntry({
-    id: "verified-skill",
-    displayName: "Verified",
-    assetKind: "skill",
-    source: {
-      sourceId: "v",
-      authorityTier: "trusted-community",
-      sourceKind: "repo",
-      sourcePriority: 75,
-      originUrl: "https://v.example.com",
-      publisher: "verified.com",
-      publisherVerified: true,
-    },
-    trust: { score: 70, signals: ["publisher-verified"] },
-  });
-
-  const manifest = deriveArdTrustManifest(entry)!;
-  assert.equal(manifest.identity, "domain:ar27111994.dev");
-  assert.equal(manifest.identityType, "domain");
-});
-
-// ---------------------------------------------------------------------------
-// buildRepresentativeQueries
-// ---------------------------------------------------------------------------
-
-const { buildRepresentativeQueries } = ardCatalogInternals;
-
-void test("buildRepresentativeQueries filters short tokens (length < 2)", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["a", "b", "testing", "x", "quality"],
-  });
-
-  const queries = buildRepresentativeQueries(entry);
-
-  // "a", "b", "x" should be filtered; "testing", "quality" should appear
-  assert.ok(queries.some((q) => q.includes("testing")));
-  assert.ok(queries.some((q) => q.includes("quality")));
-  assert.ok(!queries.some((q) => q.includes('"a"')));
-  assert.ok(!queries.some((q) => q.includes('"b"')));
-  assert.ok(!queries.some((q) => q.includes('"x"')));
-});
-
-void test("buildRepresentativeQueries filters numeric-only tokens", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["123", "42", "testing", "007"],
-  });
-
-  const queries = buildRepresentativeQueries(entry);
-
-  // Numeric-only tokens should be filtered
-  assert.ok(queries.some((q) => q.includes("testing")));
-  assert.ok(!queries.some((q) => q.includes("123")));
-  assert.ok(!queries.some((q) => q.includes("42")));
-  assert.ok(!queries.some((q) => q.includes("007")));
-});
-
-void test("buildRepresentativeQueries filters stopwords", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["the", "is", "for", "testing", "and"],
-  });
-
-  const queries = buildRepresentativeQueries(entry);
-
-  // Stopwords should be filtered; "testing" should appear
-  assert.ok(queries.some((q) => q.includes("testing")));
-  assert.ok(!queries.some((q) => q.includes('"the"')));
-  assert.ok(!queries.some((q) => q.includes('"is"')));
-  assert.ok(!queries.some((q) => q.includes('"for"')));
-  assert.ok(!queries.some((q) => q.includes('"and"')));
-});
-
-void test("buildRepresentativeQueries includes valid capabilities in queries", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["testing", "debugging", "linting"],
-  });
-
-  const queries = buildRepresentativeQueries(entry);
-
-  assert.ok(queries.some((q) => q.includes("testing")));
-  assert.ok(queries.some((q) => q.includes("debugging")));
-  assert.ok(queries.some((q) => q.includes("linting")));
-});
-
-void test("buildRepresentativeQueries handles mixed valid and invalid tokens", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["a", "testing", "42", "the", "debugging", "", "x"],
-  });
-
-  const queries = buildRepresentativeQueries(entry);
-
-  // Valid capabilities should appear
-  assert.ok(queries.some((q) => q.includes("testing")));
-  assert.ok(queries.some((q) => q.includes("debugging")));
-  // Empty string, single-char, numeric, and stopwords should all be filtered
-  assert.ok(!queries.some((q) => q.includes('"a"')));
-  assert.ok(!queries.some((q) => q.includes('"42"')));
-  assert.ok(!queries.some((q) => q.includes('"the"')));
-  assert.ok(!queries.some((q) => q.includes('"x"')));
-});
-
-// ---------------------------------------------------------------------------
-// mapEntryToArd
-// ---------------------------------------------------------------------------
-
-void test("mapEntryToArd maps all required fields", () => {
-  const entry = buildEntry({
-    id: "test-skill",
-    displayName: "Test Skill",
-    assetKind: "skill",
-    capabilities: ["testing", "quality"],
-    hosts: ["claude-code"],
-    source: {
-      sourceId: "test-src",
-      authorityTier: "unverified-community",
-      sourceKind: "repo",
-      sourcePriority: 70,
-      originUrl: "https://test.example.com",
-      publisher: "TestPub",
-      publisherVerified: false,
-    },
-    install: {
-      method: "repo-reference",
-      manifestEntry: "https://test.example.com/skill.md",
-    },
-  });
-
-  const ard = mapEntryToArd(entry, "test.io", "2.0.0");
-
-  assert.equal(ard.version, "2.0.0");
-  assert.ok(ard.identifier.startsWith("urn:ai:test.io:"));
-  assert.equal(ard.type, "application/ai-skill");
-  assert.ok(ard.capabilities.length <= 20);
-  assert.ok(ard.representativeQueries.length > 0);
-  assert.ok(ard.tags.length > 0);
-});
-
-void test("mapEntryToArd maps mcp-server to correct ARD type", () => {
-  const entry = buildEntry({
-    id: "mcp-tool",
-    displayName: "MCP Tool",
-    assetKind: "mcp-server",
-  });
-
-  const ard = mapEntryToArd(entry, "test.io", "1.0.0");
-  assert.equal(ard.type, "application/mcp-server+json");
-});
-
-void test("mapEntryToArd includes trust manifest when signals present", () => {
-  const entry = buildEntry({
-    id: "trusted-skill",
-    displayName: "Trusted",
-    assetKind: "skill",
-    trust: { score: 75, signals: ["oms-signed", "oms-trust-anchor"] },
-  });
-
-  const ard = mapEntryToArd(entry, "test.io", "1.0.0");
-  assert.ok(ard.trustManifest != null);
-  assert.ok(ard.trustManifest!.attestations!.length >= 2);
-});
-
-void test("mapEntryToArd uses originUrl over manifestEntry for url field (#368)", () => {
-  const entry = buildEntry({
-    id: "url-test-skill",
-    displayName: "URL Test",
-    assetKind: "skill",
-    source: {
-      sourceId: "url-src",
-      authorityTier: "unverified-community",
-      sourceKind: "repo",
-      sourcePriority: 70,
-      originUrl: "https://github.com/test/skills/blob/main/SKILL.md",
-      publisher: "TestPub",
-      publisherVerified: false,
-    },
-    install: {
-      method: "repo-reference",
-      // manifestEntry is typically a git hash, NOT a URL
-      manifestEntry: "a94df09f75fba2f11c63103c3e573c729226a6e0",
-    },
-  });
-
-  const ard = mapEntryToArd(entry, "test.io", "2.0.0");
-  // The url must be the resolvable originUrl, not the git hash
-  assert.equal(ard.url, "https://github.com/test/skills/blob/main/SKILL.md");
-  // It must be an https:// URL, not a hash
-  assert.ok(
-    ard.url.startsWith("https://"),
-    "url must be a resolvable https URL",
-  );
-});
-
-void test("mapEntryToArd produces HTTP urls for all harvestable source kinds (#380)", () => {
-  // Each source kind that can be harvested should produce a resolvable URL.
-  const sourceKinds: Array<{
-    kind: SourceKind;
-    originUrl: string;
-    manifestEntry: string;
-  }> = [
-    {
-      kind: "repo",
-      originUrl: "https://github.com/user/repo/blob/main/SKILL.md",
-      manifestEntry: "a94df09f75fba2f11c63103c3e573c729226a6e0",
-    },
-    {
-      kind: "package-registry",
-      originUrl: "https://www.npmjs.com/package/example-pkg",
-      manifestEntry: "example-pkg",
-    },
-    {
-      kind: "registry",
-      originUrl:
-        "https://raw.githubusercontent.com/official-skills/main/SKILL.md",
-      manifestEntry: "b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
-    },
-    {
-      kind: "local-directory",
-      originUrl: "file:///home/user/projects/local-skill.md",
-      manifestEntry: "e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
-    },
-    {
-      kind: "ard-registry",
-      originUrl: "https://publisher.example.com/.well-known/ai-catalog.json",
-      manifestEntry: "f1e2d3c4b5a6f7e8d9c0b1a2",
-    },
-    {
-      kind: "docs",
-      originUrl: "https://docs.cursor.com/agent-skills",
-      manifestEntry: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
-    },
-    {
-      kind: "marketplace",
-      originUrl:
-        "https://marketplace.visualstudio.com/items?itemName=ms-python.python",
-      manifestEntry: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1",
-    },
-    {
-      kind: "local-manifest",
-      originUrl: "file:///home/user/.local/share/agent-harness/manifest.json",
-      manifestEntry: "c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2",
-    },
-  ];
-
-  for (const { kind, originUrl, manifestEntry } of sourceKinds) {
-    const entry = buildEntry({
-      id: `test-${kind}`,
-      displayName: `Test ${kind}`,
-      assetKind: "skill",
+  const inline = mapEntryToArd(
+    entry({
       source: {
-        sourceId: `src-${kind}`,
-        authorityTier: "unverified-community",
-        sourceKind: kind,
-        sourcePriority: 70,
-        originUrl,
-        publisher: "TestPub",
-        publisherVerified: false,
+        ...entry().source,
+        originUrl: "not-a-uri",
       },
-      install: {
-        method: "repo-reference",
-        manifestEntry,
-      },
-    });
-
-    const ard = mapEntryToArd(entry, "test.io", "2.0.0");
-    // For non-local kinds, the URL must be the originUrl (an HTTP URL).
-    if (kind !== "local-directory" && kind !== "local-manifest") {
-      assert.equal(
-        ard.url,
-        originUrl,
-        `${kind}: url must be the originUrl, not the manifestEntry hash`,
-      );
-      assert.ok(
-        ard.url!.startsWith("http"),
-        `${kind}: url must be a resolvable HTTP(S) URL, got ${ard.url?.slice(0, 50)}`,
-      );
-    } else {
-      // file:// URLs are acceptable for local directories and manifests.
-      assert.ok(
-        ard.url!.startsWith("file://"),
-        `${kind}: local directory url must be a file:// URL`,
-      );
-    }
-  }
+    }),
+    "ar27111994.dev",
+    "2.1.0",
+  );
+  assert.equal("url" in inline, false);
+  assert.deepEqual(inline.data, {
+    assetKind: "skill",
+    sourceId: "fixture-source",
+    compatibilityMode: "native",
+    manifestEntry: "skills/fixture/SKILL.md",
+  });
 });
 
-void test("mapEntryToArd preserves empty originUrl (does not fall back to manifestEntry for empty string)", () => {
-  const entry = buildEntry({
-    id: "empty-origin",
-    displayName: "Empty Origin",
-    assetKind: "skill",
+void test("ARD trust manifests use a schema-valid HTTPS identity and do not invent attestations", () => {
+  const manifest = deriveArdTrustManifest(entry());
+  assert.deepEqual(manifest, {
+    identity: `https://${getArdPublisherFqdn()}`,
+    identityType: "https",
+  });
+
+  const untrusted = entry({
     source: {
-      sourceId: "empty-src",
+      ...entry().source,
       authorityTier: "unverified-community",
-      sourceKind: "repo",
-      sourcePriority: 70,
-      originUrl: "",
-      publisher: "TestPub",
       publisherVerified: false,
     },
-    install: {
-      method: "repo-reference",
-      manifestEntry: "abc123def456",
+    trust: { score: 10, signals: [] },
+  });
+  assert.equal(deriveArdTrustManifest(untrusted), undefined);
+});
+
+void test("invalid and epoch update timestamps are omitted", () => {
+  assert.equal(
+    resolveArdUpdatedAt(
+      entry({ maintenance: { ...entry().maintenance, lastUpdated: "" } }),
+    ),
+    undefined,
+  );
+  assert.equal(
+    resolveArdUpdatedAt(
+      entry({
+        maintenance: {
+          ...entry().maintenance,
+          lastUpdated: "1970-01-01T00:00:00.000Z",
+        },
+      }),
+    ),
+    undefined,
+  );
+  assert.equal(
+    resolveArdUpdatedAt(
+      entry({
+        maintenance: {
+          ...entry().maintenance,
+          lastUpdated: "2026-08-01T12:00:00Z",
+        },
+      }),
+    ),
+    "2026-08-01T12:00:00.000Z",
+  );
+});
+
+void test("checked-in ARD catalog contains no epoch-dated legacy entries", async () => {
+  const catalog = JSON.parse(
+    await readFile(
+      join(process.cwd(), ".well-known", "ai-catalog.json"),
+      "utf8",
+    ),
+  ) as ArdCatalog;
+  const epochLegacyEntries = catalog.entries.filter(
+    (item) =>
+      item.identifier.includes(":legacy:") &&
+      item.updatedAt === "1970-01-01T00:00:00.000Z",
+  );
+  assert.deepEqual(epochLegacyEntries, []);
+});
+
+void test("ARD mapping helpers cover safe fallbacks and inline metadata", () => {
+  const { resolveHttpUrl, sanitizePublisherFqdn, sanitizeUrnSegment } =
+    ardCatalogInternals;
+
+  assert.equal(sanitizePublisherFqdn("!!!"), "agent-harness.local");
+  assert.equal(sanitizeUrnSegment("!!!", "fallback"), "fallback");
+  assert.equal(resolveHttpUrl(undefined), undefined);
+  assert.equal(resolveHttpUrl("ftp://example.com/catalog"), undefined);
+  assert.equal(resolveHttpUrl("not-a-url"), undefined);
+
+  const mapped = mapEntryToArd(
+    {
+      ...entry(),
+      assetKind: "future-kind" as unknown as AssetCatalogEntry["assetKind"],
+      hosts: [],
+      source: { ...entry().source, originUrl: "local-only" },
+      install: { ...entry().install, manifestEntry: undefined },
     },
+    "!!!",
+    "2.1.0",
+  );
+
+  assert.equal(mapped.type, "application/ai-skill");
+  assert.deepEqual(mapped.data, {
+    assetKind: "future-kind",
+    sourceId: "fixture-source",
+    compatibilityMode: "native",
+    manifestEntry: null,
   });
-
-  const ard = mapEntryToArd(entry, "test.io", "2.0.0");
-  // ?? only falls back for null/undefined, not empty string.
-  // An empty-string originUrl is a data-quality issue that should be
-  // caught by the harvest pipeline, not silently papered over.
-  assert.equal(ard.url, "");
+  assert.match(mapped.identifier, /agent-harness\.local/u);
 });
 
-// ---------------------------------------------------------------------------
-// ASSET_KIND_TO_ARD_TYPE — coverage
-// ---------------------------------------------------------------------------
-
-void test("ASSET_KIND_TO_ARD_TYPE covers all AssetKind values", () => {
-  const kinds: AssetKind[] = [
-    "mcp-server",
-    "agent",
-    "skill",
-    "plugin",
-    "extension",
-    "reference-pack",
-    "instruction",
-    "workflow",
-    "hook",
-    "prompt-pack",
-    "payable-api",
-    "acp-agent",
-  ];
-
-  for (const kind of kinds) {
-    const ardType = ASSET_KIND_TO_ARD_TYPE[kind];
-    assert.ok(typeof ardType === "string", `missing ARD type for ${kind}`);
-  }
-});
-
-// ---------------------------------------------------------------------------
-// resolveArdUpdatedAt / updatedAt omission (#449)
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a full AssetMaintenance fixture sharing the helper default for
- * the non-timestamp fields.
- */
-function maintenanceWith(lastUpdated: string): AssetMaintenance {
-  return { lastUpdated, stars: 0, releaseCadence: "occasional" };
-}
-
-/**
- * Builds a minimal catalog entry with the required identity fields plus a
- * maintenance override (the #449 tests only exercise update timestamps).
- */
-function entryWithMaintenance(lastUpdated: string) {
-  return buildEntry({
-    id: "maintenance-test",
-    displayName: "Maintenance Test",
-    assetKind: "skill",
-    maintenance: maintenanceWith(lastUpdated),
-  });
-}
-
-void test("resolveArdUpdatedAt keeps real update timestamps", () => {
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("2026-06-15T10:30:00.000Z")),
-    "2026-06-15T10:30:00.000Z",
-  );
-
-  // A timestamp in the far future (harvested with a synthetic value) is
-  // still a real, parseable date — preserved as-is.
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("2030-01-01T00:00:00Z")),
-    "2030-01-01T00:00:00Z",
-  );
-});
-
-void test("resolveArdUpdatedAt treats epoch sentinels as unknown", () => {
-  // new Date(0).toISOString() — the package-registry harvester sentinel.
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("1970-01-01T00:00:00.000Z")),
-    undefined,
-  );
-  // The go-registry token-era form (no milliseconds) is also the epoch.
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("1970-01-01T00:00:00Z")),
-    undefined,
-  );
-  // Any pre-epoch date is equally meaningless as an "updated" date.
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("1969-12-31T23:59:59Z")),
-    undefined,
-  );
-});
-
-void test("resolveArdUpdatedAt treats missing and unparseable values as unknown", () => {
-  assert.equal(resolveArdUpdatedAt(entryWithMaintenance("")), undefined);
-  assert.equal(
-    resolveArdUpdatedAt(entryWithMaintenance("not-a-date")),
-    undefined,
-  );
-});
-
-void test("mapEntryToArd omits updatedAt for epoch-sentinel entries (#449)", () => {
-  const ard = mapEntryToArd(
-    entryWithMaintenance("1970-01-01T00:00:00.000Z"),
-    "test.io",
-    "2.0.0",
-  );
-  assert.equal(ard.updatedAt, undefined);
-  // JSON serialization must not leak the sentinel or a dangling key.
-  assert.doesNotMatch(JSON.stringify(ard), /updatedAt|1970/u);
-
-  const real = mapEntryToArd(
-    entryWithMaintenance("2026-06-15T10:30:00.000Z"),
-    "test.io",
-    "2.0.0",
-  );
-  assert.equal(real.updatedAt, "2026-06-15T10:30:00.000Z");
-});
-
-void test("writeArdCatalog never emits an epoch updatedAt (#449)", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-epoch-${randomUUID()}`);
-
+void test("writeArdCatalog skips malformed catalog entries and falls back to an unknown package version", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-ard-edge-"));
   try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    const realEntry = buildEntry({
-      id: "epoch-real",
-      displayName: "Real Update",
-      assetKind: "skill",
-      maintenance: maintenanceWith("2026-06-15T10:30:00.000Z"),
-    });
-    const sentinelEntry = buildEntry({
-      id: "epoch-sentinel",
-      displayName: "Sentinel Update",
-      assetKind: "skill",
-      maintenance: maintenanceWith("1970-01-01T00:00:00.000Z"),
-    });
-    const emptyEntry = buildEntry({
-      id: "epoch-empty",
-      displayName: "Empty Update",
-      assetKind: "skill",
-      maintenance: maintenanceWith(""),
-    });
-
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      [realEntry, sentinelEntry, emptyEntry]
-        .map((entry) => JSON.stringify(entry))
-        .join("\n") + "\n",
-      "utf8",
+    const { writeJsonLinesFile } = await import("../files.js");
+    const malformed = {
+      ...entry({ id: "malformed" }),
+      capabilities: undefined,
+    } as unknown as AssetCatalogEntry;
+    const malformedWithDisplayName = {
+      ...entry({ id: "", displayName: "Named malformed" }),
+      capabilities: undefined,
+    } as unknown as AssetCatalogEntry;
+    const malformedWithoutIdentity = {
+      ...entry({ id: "", displayName: "" }),
+      capabilities: undefined,
+    } as unknown as AssetCatalogEntry;
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [
+        malformed,
+        malformedWithDisplayName,
+        malformedWithoutIdentity,
+        entry({ id: "valid" }),
+      ],
     );
-
-    const result = await writeArdCatalog(root, "2.0.0");
-    const raw = await readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as {
-      entries: Array<Record<string, unknown>>;
-    };
-
-    assert.equal(catalog.entries.length, 3);
-    const byName = new Map(
-      catalog.entries.map((entry) => [entry["displayName"], entry] as const),
-    );
-    assert.equal(
-      byName.get("Real Update")?.["updatedAt"],
-      "2026-06-15T10:30:00.000Z",
-    );
-    assert.equal(
-      Object.hasOwn(byName.get("Sentinel Update") ?? {}, "updatedAt"),
-      false,
-    );
-    assert.equal(
-      Object.hasOwn(byName.get("Empty Update") ?? {}, "updatedAt"),
-      false,
-    );
-    // The ticket's headline acceptance: zero entries start with 1970.
-    for (const entry of catalog.entries) {
-      const updatedAt = entry["updatedAt"];
-      assert.ok(
-        typeof updatedAt !== "string" || !updatedAt.startsWith("1970"),
-        `entry ${String(entry["displayName"])} must not carry an epoch updatedAt`,
-      );
-    }
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// writeArdCatalog — integration
-// ---------------------------------------------------------------------------
-
-void test("writeArdCatalog writes valid ARD catalog to .well-known/", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-test-${randomUUID()}`);
-
-  try {
-    // Create minimal selected catalog
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    const entry = buildEntry({
-      id: "export-test-skill",
-      displayName: "Export Test",
-      assetKind: "skill",
-      capabilities: ["export"],
-    });
-
-    // JSONL format
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      JSON.stringify(entry) + "\n",
-      "utf8",
-    );
-
-    const result = await writeArdCatalog(root, "2.0.0");
-
-    assert.ok(result.entryCount > 0, "should export at least one entry");
-    const normalizedPath = result.filePath.replace(/\\/g, "/");
-    assert.ok(
-      normalizedPath.endsWith(".well-known/ai-catalog.json"),
-      "should write to .well-known/",
-    );
-
-    // Validate the written JSON
-    const fs = await import("node:fs/promises");
-    const raw = await fs.readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as Record<string, unknown>;
-
-    assert.equal(
-      catalog["$schema"],
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    );
-    assert.equal(catalog["publisher"], ARD_PUBLISHER_FQDN);
-    assert.equal(catalog["version"], "2.0.0");
-    const entries = catalog["entries"] as
-      Array<Record<string, unknown>> | undefined;
-    assert.ok(Array.isArray(entries));
-    assert.ok((entries as Array<Record<string, unknown>>).length > 0);
-    assert.equal(
-      (entries as Array<Record<string, unknown>>)[0]["displayName"],
-      "Export Test",
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-void test("writeArdCatalog handles empty catalog gracefully", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-empty-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    // Empty JSONL
-    await writeFile(join(discoverDir, "catalog.selected.jsonl"), "", "utf8");
-
-    const result = await writeArdCatalog(root, "2.0.0");
-    assert.equal(result.entryCount, 0);
-    const normalizedPath = result.filePath.replace(/\\/g, "/");
-    assert.ok(normalizedPath.endsWith(".well-known/ai-catalog.json"));
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-void test("writeArdCatalog skips malformed entries without crashing", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-malformed-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    // Corrupt entry — missing 'source' will cause mapEntryToArd to throw.
-    const corruptEntry = JSON.stringify({
-      id: "bad-entry",
-      displayName: "Bad",
-      assetKind: "skill",
-    });
-    const validEntry = JSON.stringify({
-      id: "good-entry",
-      displayName: "Good",
-      assetKind: "skill",
-      hosts: ["claude-code"],
-      compatibilityMode: "adaptable",
-      source: {
-        sourceId: "test",
-        authorityTier: "unverified-community",
-        sourceKind: "repo",
-        sourcePriority: 70,
-        originUrl: "https://example.com",
-        publisher: "test",
-        publisherVerified: false,
-      },
-      trust: { score: 50, signals: [] },
-      capabilities: ["test"],
-      install: { method: "test", manifestEntry: "https://example.com" },
-      evidence: {
-        manifestFound: true,
-        readmeFound: true,
-        examplesFound: false,
-        docsLinked: true,
-        lineCount: 1,
-        rootPath: "https://example.com",
-      },
-      maintenance: {
-        lastUpdated: "2026-01-01T00:00:00Z",
-        stars: 0,
-        releaseCadence: "occasional",
-      },
-      risk: { hooks: false, execScripts: false, requiresNetwork: false },
-      contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
-      fit: { portfolioFit: 0.5, hostFit: 0.5 },
-      dedupe: { duplicateGroup: null, candidateRankHint: 0 },
-      status: "fresh",
-    });
-
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      corruptEntry + "\n" + validEntry + "\n",
-      "utf8",
-    );
-
-    const result = await writeArdCatalog(root, "2.0.0");
-    assert.equal(result.entryCount, 1, "corrupt entry skipped, valid exported");
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-// ---------------------------------------------------------------------------
-// CI conformance validation (#325 — acceptance criteria)
-// ---------------------------------------------------------------------------
-
-void test("committed .well-known/ai-catalog.json conforms to ARD v0.9 schema", async () => {
-  const { readFile } = await import("node:fs/promises");
-  const catalogPath = join(process.cwd(), ".well-known", "ai-catalog.json");
-  const raw = await readFile(catalogPath, "utf8");
-  const catalog = JSON.parse(raw) as Record<string, unknown>;
-
-  // §2 — top-level required fields
-  assert.equal(
-    catalog["$schema"],
-    "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    "must reference the ARD v0.9 schema URI",
-  );
-  assert.equal(typeof catalog["publisher"], "string", "publisher is required");
-  assert.equal(typeof catalog["version"], "string", "version is required");
-  assert.ok(Array.isArray(catalog["entries"]), "entries must be an array");
-
-  // Publisher must be a verifiable FQDN (§4.2.1)
-  assert.ok(
-    (catalog["publisher"] as string).includes("."),
-    "publisher must be a valid FQDN",
-  );
-
-  // Each entry must have required fields (§3.3)
-  const entries = catalog["entries"] as Array<Record<string, unknown>>;
-  for (const entry of entries) {
-    assert.equal(
-      typeof entry["identifier"],
-      "string",
-      "entry.identifier is required",
-    );
-    assert.ok(
-      (entry["identifier"] as string).startsWith("urn:ai:"),
-      "entry.identifier must be a valid URN",
-    );
-    assert.equal(
-      typeof entry["displayName"],
-      "string",
-      "entry.displayName is required",
-    );
-    assert.equal(typeof entry["type"], "string", "entry.type is required");
-    assert.ok(
-      Array.isArray(entry["capabilities"]),
-      "entry.capabilities must be an array",
-    );
-  }
-
-  // Release gate: if generatedAt is populated (regenerated catalog), entries
-  // must be non-empty. An empty generatedAt signals the development skeleton
-  // which is valid in CI but must be regenerated before publishing.
-  if (typeof catalog["generatedAt"] === "string" && catalog["generatedAt"]) {
-    assert.ok(
-      entries.length > 0,
-      "release gate: generatedAt is populated but entries is empty — regenerate via 'discover ard-export' before publishing",
-    );
-  }
-});
-
-void test("writeArdCatalog empty catalog has valid generatedAt ISO-8601 timestamp (#342)", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-empty-ts-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    // Write an empty catalog file — no entries.
-    await writeFile(join(discoverDir, "catalog.selected.jsonl"), "", "utf8");
-
-    const result = await writeArdCatalog(root, "2.0.0");
-    assert.equal(result.entryCount, 0);
-
-    const { readFile } = await import("node:fs/promises");
-    const raw = await readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as Record<string, unknown>;
-
-    // generatedAt must be a valid ISO-8601 timestamp even for empty catalogs.
-    const generatedAt = catalog["generatedAt"] as string;
-    assert.equal(typeof generatedAt, "string");
-    assert.ok(generatedAt.length > 0, "generatedAt must not be empty");
-    const parsed = new Date(generatedAt);
-    assert.ok(
-      !Number.isNaN(parsed.getTime()),
-      `generatedAt must be a valid ISO-8601 timestamp, got "${generatedAt}"`,
-    );
-    assert.ok(
-      parsed.toISOString() === generatedAt,
-      `generatedAt must be in ISO-8601 format, got "${generatedAt}"`,
-    );
-    assert.equal(catalog["version"], "2.0.0");
-    assert.ok(Array.isArray(catalog["entries"]));
-    assert.equal((catalog["entries"] as Array<unknown>).length, 0);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-void test("writeArdCatalog malformed entry error includes asset ID and cause (#343)", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-err-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    // Build a valid entry alongside a corrupt line.
-    const validEntry = buildEntry({
-      id: "valid-test",
-      displayName: "Valid",
-      assetKind: "skill",
-    });
-    const corrupt = '{"id":null,"displayName":"CorruptAsset"}';
-
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      corrupt + "\n" + JSON.stringify(validEntry) + "\n",
-      "utf8",
-    );
-
-    // Capture console.warn output.
-    const warnings: string[] = [];
-    const origWarn = console.warn;
-    console.warn = (message: string) => {
-      warnings.push(message);
-    };
-
-    try {
-      const result = await writeArdCatalog(root, "2.0.0");
-      assert.equal(result.entryCount, 1, "valid entry still exported");
-    } finally {
-      console.warn = origWarn;
-    }
-
-    assert.ok(warnings.length >= 1, "expected at least one warning");
-    const warning = warnings.join("\n");
-    // Warning must identify the malformed entry with its displayName
-    // (falls back from id → displayName → "(unknown)").
-    assert.ok(
-      warning.includes("ard-catalog: skipping malformed entry"),
-      `warning must identify the malformed entry, got: "${warning}"`,
-    );
-    // The fixture has id:null, displayName:"CorruptAsset" → falls back to displayName.
-    assert.ok(
-      warning.includes("CorruptAsset"),
-      `warning must report malformed entry identity as "CorruptAsset", got: "${warning}"`,
-    );
-    // Ensure a non-empty cause is present after the identity.
-    const causeIndex = warning.indexOf("CorruptAsset): ");
-    assert.ok(
-      causeIndex !== -1,
-      `warning must include "CorruptAsset): " prefix before cause, got: "${warning}"`,
-    );
-    const afterPrefix = warning.slice(causeIndex + "CorruptAsset): ".length);
-    assert.ok(
-      afterPrefix.length > 0,
-      `warning must include a non-empty cause after the identity, got: "${warning}"`,
-    );
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-void test("writeArdCatalog falls back to (unknown) when both id and displayName are missing", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-noidentity-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    // Build a valid entry alongside a completely anonymous corrupt line.
-    const validEntry = buildEntry({
-      id: "valid-entry",
-      displayName: "Valid",
-      assetKind: "skill",
-    });
-    const corrupt = "{}";
-
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      corrupt + "\n" + JSON.stringify(validEntry) + "\n",
-      "utf8",
-    );
+    await writeFile(join(projectRoot, "package.json"), "{}", "utf8");
 
     const warnings: string[] = [];
-    const origWarn = console.warn;
-    console.warn = (message: string) => {
-      warnings.push(message);
-    };
-
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) =>
+      warnings.push(args.map(String).join(" "));
     try {
-      const result = await writeArdCatalog(root, "2.0.0");
-      assert.equal(result.entryCount, 1, "valid entry still exported");
+      const result = await writeArdCatalog(
+        projectRoot,
+        undefined,
+        async (raw) => raw,
+      );
+      assert.equal(result.entryCount, 1);
+      const catalog = JSON.parse(
+        await readFile(result.filePath, "utf8"),
+      ) as ArdCatalog;
+      assert.equal(catalog.entries[0]?.version, "0.0.0");
+      assert.match(warnings.join("\n"), /skipping malformed entry/u);
     } finally {
-      console.warn = origWarn;
+      console.warn = originalWarn;
     }
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
 
-    assert.ok(warnings.length >= 1, "expected at least one warning");
-    const warning = warnings.join("\n");
+void test("writeArdCatalog emits a canonical generated catalog that validates against the vendored public schema", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-ard-v1-"));
+  try {
+    await import("../files.js").then(({ writeJsonLinesFile }) =>
+      writeJsonLinesFile(
+        join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+        [
+          entry(),
+          entry({
+            id: "fixture-inline",
+            displayName: "Inline Fixture",
+            source: { ...entry().source, originUrl: "local-only" },
+          }),
+        ],
+      ),
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(projectRoot);
+    assert.equal(result.entryCount, 2);
+    const catalog = JSON.parse(
+      await readFile(result.filePath, "utf8"),
+    ) as ArdCatalog;
+    assert.equal(catalog.specVersion, ARD_SPEC_VERSION);
+    assert.equal(catalog.host?.displayName, "Agent Harness");
+    assert.deepEqual(Object.keys(catalog).sort(), [
+      "entries",
+      "host",
+      "specVersion",
+    ]);
     assert.ok(
-      warning.includes("(unknown)"),
-      `warning must fall back to "(unknown)" when no id or displayName, got: "${warning}"`,
+      catalog.entries.every((item) => item.identifier.startsWith("urn:air:")),
+    );
+    assert.ok(
+      catalog.entries.every(
+        (item) => Number("url" in item) + Number("data" in item) === 1,
+      ),
+    );
+
+    const { validateArdCatalogFile, validateJsonSchema } =
+      await import("../../scripts/validate-ard-schema.mjs");
+    const schemaPath = join(
+      process.cwd(),
+      "discover",
+      "schema",
+      "ard-ai-catalog-1.0.schema.json",
+    );
+    const schema = JSON.parse(await readFile(schemaPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    assert.deepEqual(validateJsonSchema(catalog, schema), []);
+    assert.deepEqual(
+      await validateArdCatalogFile(result.filePath, schemaPath),
+      [],
     );
   } finally {
-    await rm(root, { recursive: true, force: true });
+    await rm(projectRoot, { recursive: true, force: true });
   }
 });
 
-void test("writeArdCatalog falls back to 0.0.0 version when no package.json", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-nopkg-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    const entry = buildEntry({
-      id: "no-pkg-entry",
-      displayName: "No Package",
-      assetKind: "skill",
-    });
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      JSON.stringify(entry) + "\n",
-      "utf8",
-    );
-
-    // No package.json — version resolution falls back to "0.0.0"
-    const result = await writeArdCatalog(root);
-
-    assert.equal(result.entryCount, 1);
-
-    const { readFile } = await import("node:fs/promises");
-    const raw = await readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as Record<string, unknown>;
-    assert.equal(catalog["version"], "0.0.0", "falls back to 0.0.0");
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-void test("writeArdCatalog resolves version from package.json when present", async () => {
-  const root = join(tmpdir(), `agent-harness-ard-pkgver-${randomUUID()}`);
-
-  try {
-    const discoverDir = join(root, "discover", "output");
-    await mkdir(discoverDir, { recursive: true });
-
-    await writeFile(
-      join(root, "package.json"),
-      JSON.stringify({ version: "3.0.0-test" }),
-      "utf8",
-    );
-
-    const entry = buildEntry({
-      id: "ver-test",
-      displayName: "Version Test",
-      assetKind: "skill",
-    });
-    await writeFile(
-      join(discoverDir, "catalog.selected.jsonl"),
-      JSON.stringify(entry) + "\n",
-      "utf8",
-    );
-
-    const result = await writeArdCatalog(root);
-
-    const { readFile } = await import("node:fs/promises");
-    const raw = await readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as Record<string, unknown>;
-    assert.equal(catalog["version"], "3.0.0-test");
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
-
-// ── #348: Prettier-unavailable coverage ─────────────────────────────────
-
-void test("writeArdCatalog gracefully handles Prettier import failure (#348)", async () => {
-  const root = join(tmpdir(), `agent-harness-test-${randomUUID()}`);
-  const catalogPath = join(
-    root,
-    "discover",
-    "output",
-    "catalog.selected.jsonl",
+void test("the dependency-free ARD schema validator reports core schema failures", async () => {
+  const { validateJsonSchema } =
+    await import("../../scripts/validate-ard-schema.mjs");
+  assert.deepEqual(validateJsonSchema(null, { type: "null" }), []);
+  assert.ok(
+    validateJsonSchema("future", { type: "future-type" }).some((error) =>
+      /unknown schema type/u.test(error),
+    ),
   );
-  const pkgPath = join(root, "package.json");
+  assert.deepEqual(
+    validateJsonSchema("value", 42 as unknown as Record<string, unknown>).some(
+      (error) => /schema node must be an object/u.test(error),
+    ),
+    true,
+  );
+  assert.ok(
+    validateJsonSchema("value", { $ref: "external-schema" }).some((error) =>
+      /unresolved schema reference/u.test(error),
+    ),
+  );
+  const errors = validateJsonSchema(
+    {
+      ref: "value",
+      oneOf: true,
+      wrongType: 42,
+      enum: "unexpected",
+      pattern: "not-ok",
+    },
+    {
+      type: "object",
+      properties: {
+        ref: { $ref: "#/$defs/missing" },
+        oneOf: { oneOf: [{ type: "string" }, { type: "number" }] },
+        wrongType: { type: "string" },
+        enum: { enum: ["ok"] },
+        pattern: { type: "string", pattern: "^ok$" },
+      },
+      $defs: {},
+    },
+  );
 
-  await mkdir(catalogPath.replace("catalog.selected.jsonl", ""), {
-    recursive: true,
-  });
-  // Write a minimal valid catalog entry as JSONL.
-  const minimalEntry = {
-    id: "test-skill",
-    displayName: "Test Skill",
+  assert.ok(errors.some((error) => /unresolved schema reference/u.test(error)));
+  assert.ok(
+    errors.some((error) => /expected exactly one oneOf branch/u.test(error)),
+  );
+  assert.ok(errors.some((error) => /expected type "string"/u.test(error)));
+  assert.ok(errors.some((error) => /value is not in enum/u.test(error)));
+  assert.ok(errors.some((error) => /does not match pattern/u.test(error)));
+
+  const constraintErrors = validateJsonSchema(
+    { schemaVersion: "", count: -1, duplicateRate: 1.5 },
+    {
+      type: "object",
+      properties: {
+        schemaVersion: { type: "string", const: "1.0", minLength: 3 },
+        count: { type: "integer", minimum: 0 },
+        duplicateRate: { type: "number", minimum: 0, maximum: 1 },
+      },
+    },
+  );
+  assert.ok(
+    constraintErrors.some((error) => /does not equal const/u.test(error)),
+  );
+  assert.ok(
+    constraintErrors.some((error) =>
+      /expected at least 3 characters/u.test(error),
+    ),
+  );
+  assert.ok(
+    constraintErrors.some((error) => /expected number >= 0/u.test(error)),
+  );
+  assert.ok(
+    constraintErrors.some((error) => /expected number <= 1/u.test(error)),
+  );
+  assert.ok(
+    validateJsonSchema(
+      {},
+      { type: "object", properties: { broken: { type: "unknown" } } },
+    ).some((error) => /unknown schema type/u.test(error)),
+  );
+  assert.ok(
+    validateJsonSchema(
+      "value",
+      false as unknown as Record<string, unknown>,
+    ).some((error) => /schema rejected value/u.test(error)),
+  );
+  assert.deepEqual(
+    validateJsonSchema("value", null as unknown as Record<string, unknown>),
+    [],
+  );
+  const cyclicSchema: Record<string, unknown> = { type: "object" };
+  cyclicSchema.$defs = { self: cyclicSchema };
+  assert.deepEqual(validateJsonSchema({}, cyclicSchema), []);
+  assert.deepEqual(validateJsonSchema(["value"], { const: ["value"] }), []);
+  assert.ok(
+    validateJsonSchema(["value"], { const: "value" }).some((error) =>
+      /does not equal const/u.test(error),
+    ),
+  );
+  assert.deepEqual(
+    validateJsonSchema({ key: "value" }, { const: { key: "value" } }),
+    [],
+  );
+  assert.ok(
+    validateJsonSchema({ key: "value" }, { const: "other" }).some((error) =>
+      /does not equal const/u.test(error),
+    ),
+  );
+  // minLength counts Unicode code points, not UTF-16 code units: an emoji is
+  // one logical character despite occupying two code units (review / CodeRabbit).
+  assert.ok(
+    validateJsonSchema("😀", { type: "string", minLength: 2 }).some((error) =>
+      /expected at least 2 characters/u.test(error),
+    ),
+    "an emoji is ONE code point and must fail minLength: 2",
+  );
+  assert.deepEqual(
+    validateJsonSchema("😀", { type: "string", minLength: 1 }),
+    [],
+  );
+});
+
+void test("the dependency-free ARD schema validator covers collection and format constraints", async () => {
+  const { validateJsonSchema } =
+    await import("../../scripts/validate-ard-schema.mjs");
+  const errors = validateJsonSchema(
+    {
+      uri: "not a uri",
+      dateTime: "not a date-time",
+      values: [1, 1],
+      attributes: { count: "not-an-integer" },
+      unexpected: true,
+    },
+    {
+      type: "object",
+      properties: {
+        uri: { type: "string", format: "uri" },
+        dateTime: { type: "string", format: "date-time" },
+        values: {
+          type: "array",
+          minItems: 3,
+          maxItems: 1,
+          uniqueItems: true,
+          items: { type: "number" },
+        },
+        attributes: {
+          type: "object",
+          properties: { label: { type: "string" } },
+          additionalProperties: { type: "integer" },
+        },
+      },
+      additionalProperties: false,
+    },
+  );
+
+  assert.ok(errors.some((error) => /expected URI/u.test(error)));
+  assert.ok(errors.some((error) => /expected RFC3339 date-time/u.test(error)));
+  assert.ok(errors.some((error) => /expected at least 3 items/u.test(error)));
+  assert.ok(errors.some((error) => /expected at most 1 items/u.test(error)));
+  assert.ok(errors.some((error) => /expected unique items/u.test(error)));
+  assert.ok(errors.some((error) => /expected type "integer"/u.test(error)));
+  assert.ok(
+    errors.some((error) => /unexpected property unexpected/u.test(error)),
+  );
+});
+
+void test("the ARD schema validator direct entrypoint validates the canonical catalog", async () => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const scriptPath = join(process.cwd(), "scripts", "validate-ard-schema.mjs");
+  const { stdout, stderr } = await promisify(execFile)(
+    process.execPath,
+    [scriptPath],
+    { cwd: process.cwd() },
+  );
+  assert.match(`${stdout}${stderr}`, /ARD schema validation passed:/u);
+
+  const explicitCatalog = join(process.cwd(), ".well-known", "ai-catalog.json");
+  const explicitRun = await promisify(execFile)(
+    process.execPath,
+    [scriptPath, explicitCatalog],
+    { cwd: process.cwd() },
+  );
+  assert.match(
+    `${explicitRun.stdout}${explicitRun.stderr}`,
+    /ARD schema validation passed:/u,
+  );
+
+  const invalidRoot = await mkdtemp(join(tmpdir(), "agent-harness-ard-cli-"));
+  try {
+    const invalidCatalog = join(invalidRoot, "invalid.json");
+    await writeFile(invalidCatalog, "{}", "utf8");
+    await assert.rejects(
+      promisify(execFile)(process.execPath, [scriptPath, invalidCatalog], {
+        cwd: process.cwd(),
+      }),
+      (error: unknown) => {
+        const childError = error as {
+          code?: number;
+          stdout?: string;
+          stderr?: string;
+        };
+        assert.equal(childError.code, 1);
+        assert.match(
+          `${childError.stdout ?? ""}${childError.stderr ?? ""}`,
+          /ARD schema validation failed/u,
+        );
+        return true;
+      },
+    );
+  } finally {
+    await rm(invalidRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog remains valid when Prettier is unavailable", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-fallback-"),
+  );
+  try {
+    await import("../files.js").then(({ writeJsonLinesFile }) =>
+      writeJsonLinesFile(
+        join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+        [entry()],
+      ),
+    );
+    const warnings: string[] = [];
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) =>
+      warnings.push(args.map(String).join(" "));
+    try {
+      const result = await writeArdCatalog(projectRoot, "2.1.0", async () => {
+        throw new Error("formatter unavailable");
+      });
+      const catalog = JSON.parse(
+        await readFile(result.filePath, "utf8"),
+      ) as ArdCatalog;
+      assert.equal(catalog.specVersion, "1.0");
+      assert.match(warnings.join("\n"), /formatter unavailable/u);
+    } finally {
+      console.warn = originalWarn;
+    }
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("extractErrorMessage safely handles Error, primitives, null, and undefined", () => {
+  assert.equal(extractErrorMessage(new Error("boom")), "boom");
+  assert.equal(extractErrorMessage("plain"), "plain");
+  assert.equal(extractErrorMessage(42), "42");
+  assert.equal(extractErrorMessage(null), "unknown error");
+  assert.equal(extractErrorMessage(undefined), "unknown error");
+});
+
+function entry(overrides: Partial<AssetCatalogEntry> = {}): AssetCatalogEntry {
+  const base: AssetCatalogEntry = {
+    id: "fixture.skill",
+    displayName: "Fixture Skill",
     assetKind: "skill",
-    hosts: ["shared"],
+    hosts: ["codex"],
     compatibilityMode: "native",
     source: {
-      sourceId: "test-source",
-      sourceKind: "repo",
-      registryKind: undefined,
-      publisherName: "Test",
-      category: "tools",
+      sourceId: "fixture-source",
       authorityTier: "trusted-community",
-      sourcePriority: 70,
-      originUrl: "https://example.com",
-      publisher: "Test",
-      publisherVerified: false,
+      sourceKind: "repo",
+      sourcePriority: 80,
+      originUrl: "https://example.com/skill",
+      publisher: "Fixture Publisher",
+      publisherVerified: true,
     },
-    trust: { score: 80, signals: ["test"], breakdown: {} },
-    capabilities: ["testing"],
-    install: { installMethod: "manual" },
+    trust: { score: 80, signals: ["publisher-verified"] },
+    capabilities: ["testing", "typescript", "quality"],
+    install: {
+      method: "github-tree-metadata",
+      manifestEntry: "skills/fixture/SKILL.md",
+    },
     evidence: {
-      classification: { source: "test", strength: "strong", detail: "test" },
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
     },
-    maintenance: { lastUpdated: new Date().toISOString() },
-    dedupe: {},
-    score: 80,
-    demand: 30,
-    authority: 30,
-    popularity: 20,
-    freshness: 0,
-    security: 0,
-    compatibility: 0,
-    tokens: [],
-    ecosystems: [],
-    tags: [],
-    platforms: [],
-    languageSupport: [],
-    description: "",
-    descriptionTokens: [],
-    harvestTimestamp: 0,
-    kind: "skill",
+    maintenance: {
+      lastUpdated: "2026-08-01T12:00:00.000Z",
+      stars: 3,
+      releaseCadence: "active",
+    },
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.8, hostFit: 1 },
+    dedupe: { candidateRankHint: "fixture" },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
   };
-  await writeFile(catalogPath, `${JSON.stringify(minimalEntry)}\n`, "utf8");
-  await writeFile(pkgPath, JSON.stringify({ version: "2.0.0" }), "utf8");
-
-  // Inject a failing prettier formatter to exercise the catch block.
-  const failingImport: PrettierFormatter = async () => {
-    throw new Error("prettier module not installed");
-  };
-
-  try {
-    const result = await writeArdCatalog(root, "2.0.0", failingImport);
-
-    assert.ok(result.filePath, "output path should be returned");
-    assert.equal(result.entryCount, 1, "entry count should be 1");
-
-    // Read back to confirm valid JSON was written even without Prettier.
-    const { readFile } = await import("node:fs/promises");
-    const raw = await readFile(result.filePath, "utf8");
-    const catalog = JSON.parse(raw) as Record<string, unknown>;
-    assert.equal(catalog["version"], "2.0.0");
-    assert.equal((catalog["entries"] as Array<unknown>).length, 1);
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
-});
+  return { ...base, ...overrides };
+}

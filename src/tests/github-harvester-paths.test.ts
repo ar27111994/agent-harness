@@ -11,7 +11,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { harvestGitHubRepoSource } from "../domains/discovery/github-harvester.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import type { SelectionRegistry, SourceDefinition } from "../types.js";
 
 void test("github harvester classifies instruction, prompt-pack, workflow, and mcp-server paths", async (context) => {
@@ -20,7 +20,7 @@ void test("github harvester classifies instruction, prompt-pack, workflow, and m
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -56,8 +56,8 @@ void test("github harvester classifies instruction, prompt-pack, workflow, and m
         tree: [
           // instruction: copilot-instructions.md
           { path: ".github/copilot-instructions.md", type: "blob", sha: "i1" },
-          // instruction: agents.md
-          { path: "agents.md", type: "blob", sha: "i2" },
+          // instruction: nested agents.md
+          { path: "guides/agents.md", type: "blob", sha: "i2" },
           // instruction: instructions/custom.md
           { path: "instructions/custom.md", type: "blob", sha: "i3" },
           // instruction: rules/frontend.mdc
@@ -89,7 +89,7 @@ void test("github harvester classifies instruction, prompt-pack, workflow, and m
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
@@ -108,7 +108,7 @@ void test("github harvester classifies instruction, prompt-pack, workflow, and m
     byPath.get(".github/copilot-instructions.md")?.assetKind,
     "instruction",
   );
-  assert.equal(byPath.get("agents.md")?.assetKind, "instruction");
+  assert.equal(byPath.get("guides/agents.md")?.assetKind, "instruction");
   assert.equal(byPath.get("instructions/custom.md")?.assetKind, "instruction");
   assert.equal(byPath.get("rules/frontend.mdc")?.assetKind, "instruction");
   assert.equal(byPath.get("commands/fix.md")?.assetKind, "prompt-pack");
@@ -137,7 +137,7 @@ void test("github harvester marks archived repos as archived releaseCadence", as
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -184,7 +184,7 @@ void test("github harvester marks archived repos as archived releaseCadence", as
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
@@ -208,7 +208,7 @@ void test("github harvester handles errors gracefully and returns empty array", 
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () => {
     throw new Error("Network error");
@@ -217,7 +217,7 @@ void test("github harvester handles errors gracefully and returns empty array", 
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }
@@ -240,7 +240,7 @@ void test("github harvester classifies docs and notebooks as reference-packs", a
   );
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -293,7 +293,7 @@ void test("github harvester classifies docs and notebooks as reference-packs", a
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }

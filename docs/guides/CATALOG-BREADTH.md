@@ -1,6 +1,6 @@
 # Building a Comprehensive Agent Asset Catalog
 
-agent-harness v2.1.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500+ entries from 50+ configured sources). This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
+agent-harness v2.1.0 ships with conservative defaults that build a fast, demand-driven catalog (~11,500+ entries from 39 enabled asset-producing sources). The shipped `discover/sources.json` configures 50 sources, but the 8 `docs`-kind entries are metadata-only provenance references (disabled before enabled-source, health, and breadth counts are computed) and swift-package-index, github-agent-finder, and huggingface-discover are disabled, so breadth counts only the 39 enabled asset-producing sources. This guide describes how to build a truly comprehensive catalog across millions of available assets for production use.
 
 ## The Two-Phase Architecture
 

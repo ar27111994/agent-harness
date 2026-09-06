@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -2066,7 +2067,7 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
   const originalFetchMocks = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
 
   try {
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     delete process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
     clearRuntimeConfigForTests();
     const summaryEntry = buildAsset("summary-entry", {
@@ -2529,9 +2530,10 @@ void test("mirror acquire internals cover summary, evidence, cache, GitHub parsi
         originalGitHubPersonalAccessToken;
     }
     if (originalFetchMocks === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = originalFetchMocks;
+      setHttpTestFetchMocks(originalFetchMocks === "1");
     }
     clearRuntimeConfigForTests();
     await rm(projectRoot, { force: true, recursive: true });
@@ -2666,7 +2668,7 @@ void test("official index package materialization handles caps, content fallback
     });
 
   try {
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES = "1";
     clearRuntimeConfigForTests();
 
@@ -2898,9 +2900,10 @@ void test("official index package materialization handles caps, content fallback
     );
   } finally {
     if (originalFetchMocks === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = originalFetchMocks;
+      setHttpTestFetchMocks(originalFetchMocks === "1");
     }
     if (originalMaxFiles === undefined) {
       delete process.env.AGENT_HARNESS_MAX_OFFICIAL_INDEX_PACKAGE_FILES;

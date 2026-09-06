@@ -16,7 +16,7 @@ import {
   loadRuntimeConfig,
 } from "../config/runtime.js";
 import { readJsonFile, writeJsonFile, writeJsonLinesFile } from "../files.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { assertAiEnrichmentReport } from "../manifest-validation.js";
 import type { AssetCatalogEntry, DemandProfile } from "../types.js";
 
@@ -891,14 +891,14 @@ function installFetchMock(
 ): () => void {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input, init) => responder(input, init);
 
   return () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
       return;
     }
     restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);

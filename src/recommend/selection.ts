@@ -56,6 +56,9 @@ export function buildTopRecommendationsForHost(
     policy,
   );
   const scoredCandidates = candidateBases
+    // Keep coincidental matches available to explain/report flows, but never
+    // make them eligible for top-N or default install selection.
+    .filter((base) => !base.coincidentalMatchOnly)
     .filter((base) => isEntryCompatibleWithRecommendationHost(base.entry, host))
     .filter((base) => base.entry.compatibilityMode !== "incompatible")
     .map((base) => {
@@ -133,9 +136,6 @@ export function buildTopRecommendationsForHost(
       taskModes: candidate.taskModes,
       matchedSignals: candidate.matchedSignals,
       scoreBreakdown: candidate.breakdown,
-      ...(candidate.coincidentalMatchOnly
-        ? { coincidentalMatchOnly: true }
-        : {}),
     };
   });
 }

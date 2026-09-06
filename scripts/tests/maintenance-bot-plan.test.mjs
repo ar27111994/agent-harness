@@ -266,7 +266,7 @@ test("buildSourceVerificationIssues handles report without entries", () => {
 test("buildReportOnlyPullRequests creates PR when no issues and no severe findings", () => {
   const sourceHealth = {
     sourceCount: 5,
-    severeCount: 0,
+    errorCount: 0,
     warningCount: 2,
   };
   const issues = [];
@@ -277,15 +277,15 @@ test("buildReportOnlyPullRequests creates PR when no issues and no severe findin
 });
 
 test("buildReportOnlyPullRequests returns empty when issues exist", () => {
-  const sourceHealth = { sourceCount: 5, severeCount: 0, warningCount: 2 };
+  const sourceHealth = { sourceCount: 5, errorCount: 0, warningCount: 2 };
   const issues = [{ title: "some issue" }];
 
   const prs = buildReportOnlyPullRequests(sourceHealth, issues);
   assert.equal(prs.length, 0);
 });
 
-test("buildReportOnlyPullRequests returns empty when severeCount > 0", () => {
-  const sourceHealth = { sourceCount: 5, severeCount: 1, warningCount: 2 };
+test("buildReportOnlyPullRequests returns empty when errorCount > 0", () => {
+  const sourceHealth = { sourceCount: 5, errorCount: 1, warningCount: 2 };
   const issues = [];
 
   const prs = buildReportOnlyPullRequests(sourceHealth, issues);

@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -109,7 +110,7 @@ void test("files helpers copy directory trees, reuse listFilesRecursive, and ret
 void test("package registry fetch helpers swallow transport failures and repository extraction rejects malformed URLs", async () => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () => {
     throw new Error("offline");
@@ -161,7 +162,7 @@ void test("package registry fetch helpers swallow transport failures and reposit
 void test("official index info falls back cleanly when sections are missing and github links are incomplete", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -482,6 +483,9 @@ void test("github repo fetch tolerates missing README responses", async (context
 });
 
 function restoreEnv(name: string, value: string | undefined): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(value === "1");
+  }
   if (value === undefined) {
     delete process.env[name];
     return;

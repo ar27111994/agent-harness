@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -223,7 +224,7 @@ void test("ai review sanitizes model responses and applies bounded reranks", asy
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -360,7 +361,7 @@ void test("ai review records failed artifacts when the transport returns JSON nu
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () => new Response("null", { status: 200 });
@@ -410,7 +411,7 @@ void test("ai review sanitizes direct host review payloads with blank reasons an
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -508,7 +509,7 @@ void test("ai review treats non-object payloads and missing choices as empty rev
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   let callCount = 0;
@@ -624,7 +625,7 @@ void test("ai review records failed artifacts when the response payload is inval
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -680,7 +681,7 @@ void test("ai review accepts direct hostReviews payloads and fills missing hosts
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -785,7 +786,7 @@ void test("ai review sanitizes invalid rerank deltas to zero and ignores empty o
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -877,7 +878,7 @@ void test("ai review parses message output_text fallback blocks", async (context
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () =>
@@ -973,7 +974,7 @@ void test("ai review parses string and text message content blocks", async (cont
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   globalThis.fetch = async () => {
@@ -1080,7 +1081,7 @@ void test("ai review treats missing message payloads as empty reviews", async (c
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   let fetchCallCount = 0;
@@ -1432,7 +1433,7 @@ void test("ai review treats null model payloads as empty completed reviews", asy
   process.env.AGENT_HARNESS_AI_ENRICHMENT_API_KEY = "secret";
   process.env.AGENT_HARNESS_AI_ENRICHMENT_ALLOWED_ORIGINS =
     "https://example.com";
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   clearRuntimeConfigForTests();
 
   context.after(async () => {
@@ -1502,6 +1503,9 @@ async function seedAiReviewProject(
 }
 
 function restoreEnv(name: string, value: string | undefined): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(value === "1");
+  }
   if (value === undefined) {
     delete process.env[name];
     return;

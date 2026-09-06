@@ -1,4 +1,4 @@
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import test from "node:test";
 
@@ -115,7 +115,7 @@ void test("reference source catalog entries fall back through repo and source id
 void test("reference source harvester returns harvested docs items and falls back to raw content when needed", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -155,7 +155,7 @@ void test("reference source harvester returns harvested docs items and falls bac
   context.after(() => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -206,14 +206,14 @@ void test("reference source harvester returns harvested docs items and falls bac
 void test("reference source harvester falls back to metadata when raw content is unavailable", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () => new Response(null, { status: 404 });
 
   context.after(() => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }

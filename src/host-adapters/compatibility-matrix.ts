@@ -22,6 +22,13 @@ export interface CompatibleHost {
  */
 export const MCP_COMPATIBLE_HOSTS: CompatibleHost[] = [
   {
+    host: "copilot-vscode",
+    compatibility: "full",
+    notes:
+      "GitHub Copilot in VS Code supports MCP through its configured MCP server surface.",
+    installDiffers: true,
+  },
+  {
     host: "cursor",
     compatibility: "full",
     notes: "Cursor supports MCP via .cursor/mcp.json; install command differs.",
@@ -70,13 +77,6 @@ export const VSCODE_EXTENSION_COMPATIBLE_HOSTS: CompatibleHost[] = [
       "Cursor supports VS Code Marketplace extensions; extensions using VS Code-specific runtime APIs may not work.",
     installDiffers: true,
   },
-  {
-    host: "windsurf",
-    compatibility: "partial",
-    notes:
-      "Windsurf supports VS Code Marketplace extensions via its VS Code compatibility layer.",
-    installDiffers: true,
-  },
 ];
 
 /**
@@ -100,7 +100,7 @@ export const ACP_COMPATIBLE_HOSTS: CompatibleHost[] = [
  *
  * Rules:
  * - `mcp-server` → compatible with all MCP-capable hosts.
- * - `extension` → compatible with Cursor and Windsurf (partial).
+ * - `extension` → compatible with Cursor (partial).
  * - `acp-agent` → compatible with Zed (full).
  * - All other kinds → empty (no auto-inferred compatibility).
  */
