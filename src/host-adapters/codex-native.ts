@@ -1,3 +1,4 @@
+import { readdir } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 
 import {
@@ -68,11 +69,134 @@ async function claimCodexPluginDirectory(pluginRoot: string): Promise<void> {
   await claimManagedPluginDirectory(pluginRoot, CODEX_PLUGIN_NAME);
 }
 
+/** A single managed write surface the apply may create or overwrite. */
+interface CodexApplySnapshotFile {
+  path: string;
+  /** Exact pre-apply bytes, or null when the path did not exist before. */
+  priorContent: string | null;
+}
+
+/**
+ * The snapshot the apply captures BEFORE its first managed write. On a late
+ * failure the rollback restores exactly what THIS apply touched: every file it
+ * may have created or overwritten (restored byte-for-byte when it pre-existed,
+ * removed when it did not), and plugin roots it CREATED this apply (removed in
+ * full, marker and all). Roots a PRIOR apply owned are NEVER included and so
+ * survive a failed re-apply (CodeRabbit Major: the old catch deleted a prior
+ * apply's plugin directory because hasManagedPluginMarker matched it too).
+ */
+interface CodexApplyRollback {
+  files: CodexApplySnapshotFile[];
+  /** Plugin roots absent before this apply; removed wholesale on rollback. */
+  createdPluginRoots: string[];
+}
+
+/** Reads snapshot bytes, treating an unreachable path (ENOTDIR parent) as absent. */
+async function readSnapshotTextOrNull(
+  filePath: string,
+  read: (p: string) => Promise<string | null> = readTextFileOrNull,
+): Promise<string | null> {
+  try {
+    return await read(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
+      return null;
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
+    throw error;
+  }
+}
+
+/** Removes a path, tolerating an unreachable one (ENOTDIR parent, e.g. `.codex` is a file). */
+async function removePathIfReachable(
+  filePath: string,
+  rm: (p: string) => Promise<void> = removePath,
+): Promise<void> {
+  try {
+    await rm(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
+      return;
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
+    throw error;
+  }
+}
+
+/** Lists existing owned-codex profile filenames below an agents directory. */
+async function listCodexAgentProfileFileNames(
+  agentsDir: string,
+  list: (p: string) => Promise<string[]> = readdir,
+): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await list(agentsDir);
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException).code === "ENOENT" ||
+      (error as NodeJS.ErrnoException).code === "ENOTDIR"
+    ) {
+      return [];
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen readdir error */
+    throw error;
+  }
+  return entries.filter((entry) =>
+    CODEX_AGENT_PROFILE_NAME_PATTERN.test(entry),
+  );
+}
+
+/** Deterministic owned-profile filename for an agent asset id. */
+function codexAgentProfileFileName(assetId: string): string {
+  const slug = sanitizeAssetId(assetId).replace(/[^a-zA-Z0-9_-]+/gu, "-");
+  return `${CODEX_AGENT_FILE_PREFIX}${slug}.toml`;
+}
+
+/** Prunes directories emptied by a rollback, stopping at the workspace root. */
+async function pruneEmptyApplyParents(
+  workspaceRoot: string,
+  prune: (p: string) => Promise<void> = (p) =>
+    removeEmptyParentDirectories(p, workspaceRoot),
+): Promise<void> {
+  const starts = [
+    join(workspaceRoot, ".codex", "agents"),
+    join(workspaceRoot, ".codex"),
+    join(workspaceRoot, ".agents", "skills", CODEX_PLUGIN_NAME),
+    join(workspaceRoot, ".agents", "skills"),
+    join(workspaceRoot, ".agents", "plugins", CODEX_PLUGIN_NAME),
+    join(workspaceRoot, ".agents", "plugins"),
+    join(workspaceRoot, ".agents"),
+    join(workspaceRoot, "plugins"),
+  ];
+  for (const start of starts) {
+    try {
+      await prune(start);
+    } catch (error) {
+      if (
+        (error as NodeJS.ErrnoException).code === "ENOENT" ||
+        (error as NodeJS.ErrnoException).code === "ENOTDIR"
+      ) {
+        continue;
+      }
+      /* c8 ignore next -- defensive rethrow of an unforeseen removeEmptyParentDirectories error */
+      throw error;
+    }
+  }
+}
+
 /**
  * Writes Codex-native managed files using the current repo/team plugin and
- * custom-agent contracts. Hooks are intentionally not synthesized: the
- * current Codex plugin validator rejects unsupported hook fields, and raw
- * hook assets are not sufficient to construct a valid event-map safely.
+ * custom-agent contracts. Hooks are intentionally not synthesized: the current
+ * Codex plugin validator rejects unsupported hook fields, and raw hook assets
+ * are not sufficient to construct a valid event-map safely. The apply is
+ * ATOMIC-WITHOUT-ROLLBACK for the collision path: every adoption check
+ * (top-level + legacy plugin roots) runs READ-ONLY before the first managed
+ * write, so a user-owned collision rejects on a clean tree with zero side
+ * effects. Genuine late I/O failures (a write itself throws) then trigger a
+ * COMPLETE, CORRECTLY-SCOPED snapshot-restore so a reported failure never
+ * leaves orphaned marketplace / profile / manifest state, and never deletes a
+ * plugin root a PRIOR apply owned (CodeRabbit Major: the old partial rollback
+ * was both incomplete and over-aggressive).
  */
 export async function writeCodexNativeFiles(
   options: WireNativeFilesOptions,
@@ -112,80 +236,197 @@ export async function writeCodexNativeFiles(
     await assertPluginDirectoryAdoptable(legacyPluginRoot, CODEX_PLUGIN_NAME);
   }
 
-  // All adoptable roots passed their read-only check, so no claim can reject:
-  // commit the markers, then write the managed files.
-  await claimCodexPluginDirectory(pluginRoot);
+  // Record this-apply-vs-prior-apply ownership BEFORE writing the marker: a
+  // root already carrying our marker is owned by a PRIOR apply and must never
+  // be deleted by a failed re-apply; an absent root is created by THIS apply
+  // and is reclaimed in full on rollback.
+  const pluginRootPreExisted = await hasManagedPluginMarker(
+    pluginRoot,
+    CODEX_PLUGIN_NAME,
+  );
+  const legacyRootPreExisted =
+    usesLegacyLayout &&
+    (await hasManagedPluginMarker(legacyPluginRoot, CODEX_PLUGIN_NAME));
+
+  // Snapshot EVERY surface the apply may create or overwrite — managed text,
+  // plugin manifests, generated profiles + their ownership manifest, the
+  // marketplace + its ownership manifest, and the legacy compatibility files —
+  // BEFORE the first managed write. On a late failure this yields a complete
+  // restore (CodeRabbit Major: the old catch omitted the marketplace entry,
+  // .agent-harness-marketplace.json, generated profiles, and
+  // .agent-harness-profiles.json, orphaning them behind a reported failure).
+  const agentsPath = join(options.workspaceRoot, "AGENTS.md");
+  const managedSkillPath = join(
+    options.workspaceRoot,
+    ".agents",
+    "skills",
+    CODEX_PLUGIN_NAME,
+    "SKILL.md",
+  );
+  const codexAgentsDir = join(options.workspaceRoot, ".codex", "agents");
+  const rollback: CodexApplyRollback = { files: [], createdPluginRoots: [] };
+  const files = rollback.files;
+  files.push({
+    path: agentsPath,
+    priorContent: await readSnapshotTextOrNull(agentsPath),
+  });
+  files.push({
+    path: managedSkillPath,
+    priorContent: await readSnapshotTextOrNull(managedSkillPath),
+  });
+  // Owned profile files that may already exist on disk (a prior apply wrote
+  // them) plus every profile THIS apply may create or regenerate.
+  const profileFileNames = new Set<string>(
+    await listCodexAgentProfileFileNames(codexAgentsDir),
+  );
+  for (const asset of options.nativeAssets) {
+    if (asset.assetKind === "agent") {
+      profileFileNames.add(codexAgentProfileFileName(asset.assetId));
+    }
+  }
+  profileFileNames.add(CODEX_AGENT_PROFILES_MANIFEST_PATH);
+  for (const name of profileFileNames) {
+    files.push({
+      path: join(codexAgentsDir, name),
+      priorContent: await readSnapshotTextOrNull(join(codexAgentsDir, name)),
+    });
+  }
+  files.push({
+    path: marketplacePath,
+    priorContent: await readSnapshotTextOrNull(marketplacePath),
+  });
+  files.push({
+    path: join(dirname(marketplacePath), CODEX_MARKETPLACE_OWNERSHIP_MANIFEST),
+    priorContent: await readSnapshotTextOrNull(
+      join(dirname(marketplacePath), CODEX_MARKETPLACE_OWNERSHIP_MANIFEST),
+    ),
+  });
+  // A RE-ADOPTED (prior-apply-owned) root is overwritten this apply, so its
+  // managed files are snapshotted for byte-restore — but the root itself is
+  // never reclaimed. A root CREATED this apply is reclaimed wholesale, so its
+  // inner files need no per-file snapshot.
+  if (pluginRootPreExisted) {
+    files.push({
+      path: join(pluginRoot, ".codex-plugin", "plugin.json"),
+      priorContent: await readSnapshotTextOrNull(
+        join(pluginRoot, ".codex-plugin", "plugin.json"),
+      ),
+    });
+    files.push({
+      path: join(pluginRoot, "skills", CODEX_PLUGIN_NAME, "SKILL.md"),
+      priorContent: await readSnapshotTextOrNull(
+        join(pluginRoot, "skills", CODEX_PLUGIN_NAME, "SKILL.md"),
+      ),
+    });
+  } else {
+    rollback.createdPluginRoots.push(pluginRoot);
+  }
   if (usesLegacyLayout) {
-    await claimCodexPluginDirectory(legacyPluginRoot);
+    if (legacyRootPreExisted) {
+      files.push({
+        path: join(legacyPluginRoot, ".codex-plugin", "plugin.json"),
+        priorContent: await readSnapshotTextOrNull(
+          join(legacyPluginRoot, ".codex-plugin", "plugin.json"),
+        ),
+      });
+      if (options.nativeAssets.some((asset) => asset.assetKind === "hook")) {
+        files.push({
+          path: join(legacyPluginRoot, "hooks", "hooks.json"),
+          priorContent: await readSnapshotTextOrNull(
+            join(legacyPluginRoot, "hooks", "hooks.json"),
+          ),
+        });
+      }
+    } else {
+      rollback.createdPluginRoots.push(legacyPluginRoot);
+    }
   }
 
-  const managedLines = buildManagedInstructionLines({
-    hostName: "OpenAI Codex",
-    managedRoot: options.managedRoot,
-    nativeAssets: options.nativeAssets,
-    materializedAssets: options.materializedAssets,
-    mcpServers: options.mcpServers,
-  });
+  try {
+    await claimCodexPluginDirectory(pluginRoot);
+    if (usesLegacyLayout) {
+      await claimCodexPluginDirectory(legacyPluginRoot);
+    }
 
-  await upsertManagedSectionFile(
-    join(options.workspaceRoot, "AGENTS.md"),
-    "agent-harness-codex",
-    managedLines,
-  );
-  await writeTextFile(
-    join(
-      options.workspaceRoot,
-      ".agents",
-      "skills",
-      CODEX_PLUGIN_NAME,
-      "SKILL.md",
-    ),
-    buildSkillFile(
-      CODEX_PLUGIN_NAME,
-      "Use curated Agent Harness assets for this Codex project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, [
-          "skill",
-          "instruction",
-          "reference-pack",
-        ]),
-      ],
-    ),
-  );
+    const managedLines = buildManagedInstructionLines({
+      hostName: "OpenAI Codex",
+      managedRoot: options.managedRoot,
+      nativeAssets: options.nativeAssets,
+      materializedAssets: options.materializedAssets,
+      mcpServers: options.mcpServers,
+    });
 
-  await writeJsonFile(
-    join(pluginRoot, ".codex-plugin", "plugin.json"),
-    buildCodexPluginManifest(),
-  );
-  await writeTextFile(
-    join(pluginRoot, "skills", CODEX_PLUGIN_NAME, "SKILL.md"),
-    buildSkillFile(
-      CODEX_PLUGIN_NAME,
-      "Use curated Agent Harness assets for this Codex project.",
-      [
-        ...managedLines,
-        ...buildNativeAssetContentSections(options.nativeAssets, [
-          "skill",
-          "instruction",
-          "reference-pack",
-          "prompt-pack",
-          "workflow",
-        ]),
-      ],
-    ),
-  );
+    await upsertManagedSectionFile(
+      agentsPath,
+      "agent-harness-codex",
+      managedLines,
+    );
+    await writeTextFile(
+      managedSkillPath,
+      buildSkillFile(
+        CODEX_PLUGIN_NAME,
+        "Use curated Agent Harness assets for this Codex project.",
+        [
+          ...managedLines,
+          ...buildNativeAssetContentSections(options.nativeAssets, [
+            "skill",
+            "instruction",
+            "reference-pack",
+          ]),
+        ],
+      ),
+    );
 
-  await writeCodexAgentProfiles(options.workspaceRoot, options.nativeAssets);
-  const marketplaceStyle = await mergeCodexPluginMarketplace(marketplacePath);
+    await writeJsonFile(
+      join(pluginRoot, ".codex-plugin", "plugin.json"),
+      buildCodexPluginManifest(),
+    );
+    await writeTextFile(
+      join(pluginRoot, "skills", CODEX_PLUGIN_NAME, "SKILL.md"),
+      buildSkillFile(
+        CODEX_PLUGIN_NAME,
+        "Use curated Agent Harness assets for this Codex project.",
+        [
+          ...managedLines,
+          ...buildNativeAssetContentSections(options.nativeAssets, [
+            "skill",
+            "instruction",
+            "reference-pack",
+            "prompt-pack",
+            "workflow",
+          ]),
+        ],
+      ),
+    );
 
-  if (marketplaceStyle === "legacy") {
-    await writeLegacyCodexCompatibilityPlugin(options);
+    await writeCodexAgentProfiles(options.workspaceRoot, options.nativeAssets);
+    const marketplaceStyle = await mergeCodexPluginMarketplace(marketplacePath);
+
+    if (marketplaceStyle === "legacy") {
+      await writeLegacyCodexCompatibilityPlugin(options);
+    }
+
+    return applyStructuredNativeConfig(options.workspaceRoot, "codex", {
+      nativeAssets: options.nativeAssets,
+    });
+  } catch (error) {
+    // Complete, correctly-scoped snapshot-restore: restore (or remove) every
+    // file this apply touched, and remove only plugin roots THIS apply created.
+    // Prior-apply-owned roots are left untouched — never deleted (CodeRabbit
+    // Major: the old hasManagedPluginMarker guard also matched earlier applies).
+    for (const file of files) {
+      if (file.priorContent === null) {
+        await removePathIfReachable(file.path);
+      } else {
+        await writeTextFile(file.path, file.priorContent);
+      }
+    }
+    for (const root of rollback.createdPluginRoots) {
+      await removePath(root);
+    }
+    await pruneEmptyApplyParents(options.workspaceRoot);
+    throw error;
   }
-
-  return applyStructuredNativeConfig(options.workspaceRoot, "codex", {
-    nativeAssets: options.nativeAssets,
-  });
 }
 
 /** Builds the current Codex plugin manifest. */
@@ -864,3 +1105,19 @@ async function removeCodexMarketplaceEntry(filePath: string): Promise<void> {
   );
   await writeJsonFile(filePath, { ...marketplace, plugins });
 }
+
+/**
+ * Test-only surface for the snapshot-restore guard helpers. The underlying
+ * filesystem ops are injectable so each error arm (ENOENT / ENOTDIR / other) is
+ * driven deterministically on every OS — Windows surfaces these differently in
+ * real fs calls (ENOENT under a file-path), so injection is the only
+ * platform-independent way to cover the ENOTDIR branches (platform-isolation
+ * doctrine).
+ */
+export const codexNativeInternals = {
+  readSnapshotTextOrNull,
+  removePathIfReachable,
+  listCodexAgentProfileFileNames,
+  pruneEmptyApplyParents,
+  codexAgentProfileFileName,
+};

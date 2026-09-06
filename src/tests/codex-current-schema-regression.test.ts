@@ -4,6 +4,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  rename,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -13,6 +14,7 @@ import test from "node:test";
 
 import {
   buildCodexHooksManifest,
+  codexNativeInternals,
   mergeCodexPluginMarketplace,
   resetCodexNativeHost,
   writeCodexNativeFiles,
@@ -22,7 +24,7 @@ import type {
   MaterializedNativeAssets,
   NativeAsset,
 } from "../host-adapters/native-utils.js";
-import { pathExists, writeJsonFile } from "../files.js";
+import { filesInternals, pathExists, writeJsonFile } from "../files.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 
 /** Computes the deterministic Codex profile filename for an asset id. */
@@ -238,6 +240,33 @@ void test("legacy Codex marketplaces are preserved non-destructively", async () 
       marketplace.plugins.find((plugin) => plugin.name === "agent-harness"),
       { name: "agent-harness", path: "./agent-harness" },
     );
+    // RE-APPLY over the prior-apply-owned legacy plugin root: the root already
+    // carries our marker, so the pre-apply snapshot of its legacy files is
+    // taken (re-adopted-legacy branch) and the reapply must succeed.
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
+      ),
+      true,
+      "legacy apply created the nested plugin root",
+    );
+    await writeCodexNativeFiles({
+      workspaceRoot,
+      managedRoot: join(workspaceRoot, ".codex", "agent-harness"),
+      nativeAssets: [
+        nativeAsset("codex.skill", "skill", "Skill"),
+        nativeAsset("codex.hook", "hook", "Hook"),
+      ],
+      materializedAssets: emptyMaterializedAssets(),
+      mcpServers: [],
+    });
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
+      ),
+      true,
+      "legacy re-apply over a prior-apply-owned root succeeds",
+    );
   } finally {
     await rm(workspaceRoot, { recursive: true, force: true });
   }
@@ -439,6 +468,320 @@ void test("Codex write refuses to claim a pre-existing unmarked plugin directory
       "managed .agents/skills/agent-harness must not be written when the plugin claim rejects",
     );
   } finally {
+    await rm(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+void test("Codex late write failure rolls back all managed state atomic-apply style", async () => {
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-codex-latefail-"),
+  );
+  try {
+    // Seed a pre-existing user AGENTS.md so the rollback must RESTORE it
+    // byte-for-byte rather than delete it (review: snapshot-restore, not
+    // delete-rollback).
+    await writeFile(
+      join(workspaceRoot, "AGENTS.md"),
+      "# User AGENTS\nuser content untouched by harness\n",
+      "utf8",
+    );
+    // Also seed a pre-existing (user) managed SKILL.md the apply overwrites,
+    // so the rollback must restore IT byte-for-byte too, not delete it.
+    const userManagedSkill = join(
+      workspaceRoot,
+      ".agents",
+      "skills",
+      "agent-harness",
+      "SKILL.md",
+    );
+    await mkdir(join(userManagedSkill, ".."), { recursive: true });
+    await writeFile(
+      userManagedSkill,
+      "# User Codex skill\nuser skill content\n",
+      "utf8",
+    );
+    // Force a failure AFTER AGENTS.md (upsert) is written: make `.codex` a
+    // FILE so writeCodexAgentProfiles throws when it tries to create
+    // `.codex/agents`. The precheck (plugin adoptability) passes, so only the
+    // later write step fails (Greptile P1: "Late write failure leaves managed
+    // state").
+    await writeFile(join(workspaceRoot, ".codex"), "not-a-directory\n", "utf8");
+
+    await assert.rejects(
+      writeCodexNativeFiles({
+        workspaceRoot,
+        managedRoot: join(workspaceRoot, ".codex", "agent-harness"),
+        nativeAssets: [nativeAsset("codex.agent", "agent", "Agent body")],
+        materializedAssets: emptyMaterializedAssets(),
+        mcpServers: [],
+      }),
+    );
+
+    // The pre-existing user AGENTS.md must be restored byte-for-byte — NOT
+    // deleted.
+    assert.equal(
+      await readFile(join(workspaceRoot, "AGENTS.md"), "utf8"),
+      "# User AGENTS\nuser content untouched by harness\n",
+      "user AGENTS.md restored byte-for-byte on late write failure",
+    );
+    // The pre-existing (user) SKILL.md must be restored byte-for-byte — NOT
+    // deleted.
+    assert.equal(
+      await readFile(
+        join(workspaceRoot, ".agents", "skills", "agent-harness", "SKILL.md"),
+        "utf8",
+      ),
+      "# User Codex skill" + "\n" + "user skill content" + "\n",
+      "user managed SKILL.md restored byte-for-byte on late write failure",
+    );
+    // The claimed plugin dir (harness-owned, freshly created) is removed.
+    assert.equal(
+      await pathExists(join(workspaceRoot, "plugins", "agent-harness")),
+      false,
+      "plugin dir rolled back on late write failure",
+    );
+  } finally {
+    await rm(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+void test("Codex late write failure rolls back legacy layout plugin roots too", async () => {
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-codex-latefail-legacy-"),
+  );
+  try {
+    // Legacy-shaped marketplace routes the managed plugin to the nested
+    // `.agents/plugins/agent-harness` root; a late failure must roll back BOTH
+    // claimed roots + AGENTS.md + skills (Greptile P1: non-atomic apply).
+    const marketplacePath = join(
+      workspaceRoot,
+      ".agents",
+      "plugins",
+      "marketplace.json",
+    );
+    await mkdir(join(workspaceRoot, ".agents", "plugins"), { recursive: true });
+    await writeJsonFile(marketplacePath, {
+      schemaVersion: 2,
+      plugins: [{ name: "existing", path: "./existing" }],
+    });
+    // Force the late write failure after both roots are claimed.
+    await writeFile(join(workspaceRoot, ".codex"), "not-a-directory\n", "utf8");
+
+    await assert.rejects(
+      writeCodexNativeFiles({
+        workspaceRoot,
+        managedRoot: join(workspaceRoot, ".codex", "agent-harness"),
+        nativeAssets: [nativeAsset("codex.agent", "agent", "Agent body")],
+        materializedAssets: emptyMaterializedAssets(),
+        mcpServers: [],
+      }),
+    );
+
+    assert.equal(
+      await pathExists(join(workspaceRoot, "plugins", "agent-harness")),
+      false,
+      "current-layout plugin dir rolled back on legacy late failure",
+    );
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".agents", "plugins", "agent-harness"),
+      ),
+      false,
+      "legacy-layout plugin root rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(join(workspaceRoot, "AGENTS.md")),
+      false,
+      "AGENTS.md rolled back on legacy late failure",
+    );
+  } finally {
+    await rm(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+void test("Codex late failure after marketplace+profile writes restores every surface (complete rollback)", async () => {
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-codex-latefail-all-"),
+  );
+  // Force a late failure on the FINAL managed write — the marketplace
+  // ownership manifest — which happens AFTER AGENTS.md, the managed SKILL.md,
+  // the plugin-root claim, the generated agent profile, the profiles ownership
+  // manifest, and marketplace.json were ALL written (CodeRabbit Major: the old
+  // partial rollback omitted the marketplace entry, .agent-harness-marketplace
+  // .json, generated profiles, and .agent-harness-profiles.json, orphaning them
+  // behind a reported failure).
+  const ownershipManifestPath = join(
+    workspaceRoot,
+    ".agents",
+    "plugins",
+    ".agent-harness-marketplace.json",
+  );
+  try {
+    filesInternals.setJsonWriteRenameOverride(async (tempPath, filePath) => {
+      if (filePath === ownershipManifestPath) {
+        throw new Error(
+          "simulated late marketplace ownership-manifest write failure",
+        );
+      }
+      await rename(tempPath, filePath);
+    });
+
+    await assert.rejects(
+      writeCodexNativeFiles({
+        workspaceRoot,
+        managedRoot: join(workspaceRoot, ".codex", "agent-harness"),
+        nativeAssets: [nativeAsset("codex.agent", "agent", "Agent body")],
+        materializedAssets: emptyMaterializedAssets(),
+        mcpServers: [],
+      }),
+    );
+
+    // Tree back to pre-apply: NOTHING managed may be orphaned behind the
+    // reported failure.
+    assert.equal(
+      await pathExists(join(workspaceRoot, "AGENTS.md")),
+      false,
+      "AGENTS.md rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".agents", "skills", "agent-harness"),
+      ),
+      false,
+      "managed .agents/skills/agent-harness rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(join(workspaceRoot, "plugins", "agent-harness")),
+      false,
+      "created plugin root rolled back on late failure",
+    );
+    // The profile + profiles ownership manifest written before the failure.
+    assert.equal(
+      await pathExists(
+        join(
+          workspaceRoot,
+          ".codex",
+          "agents",
+          "agent-harness-codex-agent.toml",
+        ),
+      ),
+      false,
+      "generated codex agent profile rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".codex", "agents", ".agent-harness-profiles.json"),
+      ),
+      false,
+      "profiles ownership manifest rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(join(workspaceRoot, ".codex", "agents")),
+      false,
+      "empty .codex/agents directory pruned after rollback",
+    );
+    // The marketplace + marketplace ownership manifest written before the failure.
+    assert.equal(
+      await pathExists(
+        join(workspaceRoot, ".agents", "plugins", "marketplace.json"),
+      ),
+      false,
+      "marketplace.json rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(ownershipManifestPath),
+      false,
+      "marketplace ownership manifest rolled back on late failure",
+    );
+    assert.equal(
+      await pathExists(join(workspaceRoot, ".agents")),
+      false,
+      "empty .agents directory pruned after rollback",
+    );
+  } finally {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+    await rm(workspaceRoot, { recursive: true, force: true });
+  }
+});
+
+void test("Codex re-apply late failure preserves a prior-apply-owned plugin root and its marker", async () => {
+  const workspaceRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-codex-readopt-latefail-"),
+  );
+  const ownershipManifestPath = join(
+    workspaceRoot,
+    ".agents",
+    "plugins",
+    ".agent-harness-marketplace.json",
+  );
+  try {
+    // A PRIOR apply created and marked this plugin root; the user later added
+    // their own curated file inside it. A failed RE-APPLY must not treat the
+    // whole directory as reclaimable (CodeRabbit Major: hasManagedPluginMarker
+    // also matched prior applies, so the old catch deleted it).
+    const pluginRoot = join(workspaceRoot, "plugins", "agent-harness");
+    await mkdir(join(pluginRoot, "skills"), { recursive: true });
+    await writeJsonFile(join(pluginRoot, ".agent-harness-managed.json"), {
+      managedBy: "agent-harness",
+      markerVersion: 1,
+      pluginName: "agent-harness",
+    });
+    await writeFile(
+      join(pluginRoot, "skills", "user-curated.md"),
+      "prior apply directory content\n",
+      "utf8",
+    );
+
+    filesInternals.setJsonWriteRenameOverride(async (tempPath, filePath) => {
+      if (filePath === ownershipManifestPath) {
+        throw new Error(
+          "simulated late marketplace ownership-manifest write failure",
+        );
+      }
+      await rename(tempPath, filePath);
+    });
+
+    await assert.rejects(
+      writeCodexNativeFiles({
+        workspaceRoot,
+        managedRoot: join(workspaceRoot, ".codex", "agent-harness"),
+        nativeAssets: [nativeAsset("codex.agent", "agent", "Agent body")],
+        materializedAssets: emptyMaterializedAssets(),
+        mcpServers: [],
+      }),
+    );
+
+    // The prior-apply-owned root and its ownership marker SURVIVE the failed
+    // re-apply; the user's curated file inside it is untouched.
+    assert.equal(
+      await pathExists(pluginRoot),
+      true,
+      "prior-apply-owned plugin root survives a failed re-apply",
+    );
+    assert.equal(
+      await pathExists(join(pluginRoot, ".agent-harness-managed.json")),
+      true,
+      "prior-apply ownership marker survives a failed re-apply",
+    );
+    assert.equal(
+      await readFile(join(pluginRoot, "skills", "user-curated.md"), "utf8"),
+      "prior apply directory content\n",
+      "user content inside the prior-apply-owned root survives",
+    );
+    // The files THIS apply overwrote inside the re-adopted root are rolled back
+    // byte-for-byte (they did not exist before this apply), not left orphaned.
+    assert.equal(
+      await pathExists(join(pluginRoot, ".codex-plugin", "plugin.json")),
+      false,
+      "this apply's plugin manifest inside the re-adopted root is rolled back",
+    );
+    assert.equal(
+      await pathExists(join(pluginRoot, "skills", "agent-harness", "SKILL.md")),
+      false,
+      "this apply's plugin skill inside the re-adopted root is rolled back",
+    );
+  } finally {
+    filesInternals.setJsonWriteRenameOverride(undefined);
     await rm(workspaceRoot, { recursive: true, force: true });
   }
 });
@@ -2042,3 +2385,90 @@ function emptyMaterializedAssets(): MaterializedNativeAssets {
     mcpServers: [],
   };
 }
+
+void test("snapshot-restore guards tolerate unreachable paths and rethrow other errors", async () => {
+  const { readSnapshotTextOrNull, removePathIfReachable } =
+    codexNativeInternals;
+  const { listCodexAgentProfileFileNames, pruneEmptyApplyParents } =
+    codexNativeInternals;
+  // readSnapshotTextOrNull: ENOTDIR parent (unreachable) -> null; other error
+  // rethrown intact; success passthrough.
+  const enotdir = new Error("parent not a dir") as NodeJS.ErrnoException;
+  enotdir.code = "ENOTDIR";
+  const other = new Error("boom") as NodeJS.ErrnoException;
+  other.code = "EACCES";
+  assert.equal(
+    await readSnapshotTextOrNull("/p", async () => {
+      throw enotdir;
+    }),
+    null,
+  );
+  await assert.rejects(
+    readSnapshotTextOrNull("/p", async () => {
+      throw other;
+    }),
+    /boom/u,
+  );
+  assert.equal(
+    await readSnapshotTextOrNull("/p", async () => "bytes"),
+    "bytes",
+  );
+  // removePathIfReachable: ENOTDIR tolerated, other rethrown, success passes.
+  await removePathIfReachable("/p", async () => {
+    throw enotdir;
+  });
+  await assert.rejects(
+    removePathIfReachable("/p", async () => {
+      throw other;
+    }),
+    /boom/u,
+  );
+  await removePathIfReachable("/p", async () => undefined);
+  // listCodexAgentProfileFileNames: ENOENT/ENOTDIR -> []; filters to owned
+  // pattern; other rethrown.
+  assert.deepEqual(
+    await listCodexAgentProfileFileNames("/agents", async () => {
+      throw enotdir;
+    }),
+    [],
+  );
+  assert.deepEqual(
+    await listCodexAgentProfileFileNames("/agents", async () => {
+      const e = new Error("absent") as NodeJS.ErrnoException;
+      e.code = "ENOENT";
+      throw e;
+    }),
+    [],
+  );
+  assert.deepEqual(
+    await listCodexAgentProfileFileNames("/agents", async () => [
+      "agent-harness-workspace.toml",
+      "user-file.toml",
+      "junk.txt",
+    ]),
+    ["agent-harness-workspace.toml"],
+  );
+  await assert.rejects(
+    listCodexAgentProfileFileNames("/agents", async () => {
+      throw other;
+    }),
+    /boom/u,
+  );
+  // pruneEmptyApplyParents: ENOENT/ENOTDIR on a start is skipped; other rethrown.
+  await pruneEmptyApplyParents("/ws", async (start: string) => {
+    if (start.endsWith("plugins")) {
+      const e = new Error("absent") as NodeJS.ErrnoException;
+      e.code = "ENOENT";
+      throw e;
+    }
+    if (start.endsWith(".codex")) {
+      throw enotdir;
+    }
+  });
+  await assert.rejects(
+    pruneEmptyApplyParents("/ws", async () => {
+      throw other;
+    }),
+    /boom/u,
+  );
+});
