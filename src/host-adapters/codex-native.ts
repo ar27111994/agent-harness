@@ -36,6 +36,20 @@ import {
   claimManagedPluginDirectory,
   hasManagedPluginMarker,
 } from "./ownership-marker.js";
+import {
+  classifyMarketplaceState,
+  classifyProfileState,
+  marketplaceActorForState,
+  profileActorForState,
+  resolveOwnershipDecision,
+} from "./codex-ownership-machine.js";
+import type {
+  CodexAgentProfileRecord,
+  CodexCleanupProfileDecision,
+  CodexMarketplaceDecision,
+  CodexProfileDecision,
+  CodexWriteProfileDecision,
+} from "./codex-ownership-machine.js";
 
 const CODEX_PLUGIN_NAME = "agent-harness";
 const CODEX_PLUGIN_VERSION = "2.1.0";
@@ -69,121 +83,6 @@ async function claimCodexPluginDirectory(pluginRoot: string): Promise<void> {
   await claimManagedPluginDirectory(pluginRoot, CODEX_PLUGIN_NAME);
 }
 
-/** A single managed write surface the apply may create or overwrite. */
-interface CodexApplySnapshotFile {
-  path: string;
-  /** Exact pre-apply bytes, or null when the path did not exist before. */
-  priorContent: string | null;
-}
-
-/**
- * The snapshot the apply captures BEFORE its first managed write. On a late
- * failure the rollback restores exactly what THIS apply touched: every file it
- * may have created or overwritten (restored byte-for-byte when it pre-existed,
- * removed when it did not), and plugin roots it CREATED this apply (removed in
- * full, marker and all). Roots a PRIOR apply owned are NEVER included and so
- * survive a failed re-apply (CodeRabbit Major: the old catch deleted a prior
- * apply's plugin directory because hasManagedPluginMarker matched it too).
- */
-interface CodexApplyRollback {
-  files: CodexApplySnapshotFile[];
-  /** Plugin roots absent before this apply; removed wholesale on rollback. */
-  createdPluginRoots: string[];
-}
-
-/** Reads snapshot bytes, treating an unreachable path (ENOTDIR parent) as absent. */
-async function readSnapshotTextOrNull(
-  filePath: string,
-  read: (p: string) => Promise<string | null> = readTextFileOrNull,
-): Promise<string | null> {
-  try {
-    return await read(filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
-      return null;
-    }
-    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
-    throw error;
-  }
-}
-
-/** Removes a path, tolerating an unreachable one (ENOTDIR parent, e.g. `.codex` is a file). */
-async function removePathIfReachable(
-  filePath: string,
-  rm: (p: string) => Promise<void> = removePath,
-): Promise<void> {
-  try {
-    await rm(filePath);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
-      return;
-    }
-    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
-    throw error;
-  }
-}
-
-/** Lists existing owned-codex profile filenames below an agents directory. */
-async function listCodexAgentProfileFileNames(
-  agentsDir: string,
-  list: (p: string) => Promise<string[]> = readdir,
-): Promise<string[]> {
-  let entries: string[];
-  try {
-    entries = await list(agentsDir);
-  } catch (error) {
-    if (
-      (error as NodeJS.ErrnoException).code === "ENOENT" ||
-      (error as NodeJS.ErrnoException).code === "ENOTDIR"
-    ) {
-      return [];
-    }
-    /* c8 ignore next -- defensive rethrow of an unforeseen readdir error */
-    throw error;
-  }
-  return entries.filter((entry) =>
-    CODEX_AGENT_PROFILE_NAME_PATTERN.test(entry),
-  );
-}
-
-/** Deterministic owned-profile filename for an agent asset id. */
-function codexAgentProfileFileName(assetId: string): string {
-  const slug = sanitizeAssetId(assetId).replace(/[^a-zA-Z0-9_-]+/gu, "-");
-  return `${CODEX_AGENT_FILE_PREFIX}${slug}.toml`;
-}
-
-/** Prunes directories emptied by a rollback, stopping at the workspace root. */
-async function pruneEmptyApplyParents(
-  workspaceRoot: string,
-  prune: (p: string) => Promise<void> = (p) =>
-    removeEmptyParentDirectories(p, workspaceRoot),
-): Promise<void> {
-  const starts = [
-    join(workspaceRoot, ".codex", "agents"),
-    join(workspaceRoot, ".codex"),
-    join(workspaceRoot, ".agents", "skills", CODEX_PLUGIN_NAME),
-    join(workspaceRoot, ".agents", "skills"),
-    join(workspaceRoot, ".agents", "plugins", CODEX_PLUGIN_NAME),
-    join(workspaceRoot, ".agents", "plugins"),
-    join(workspaceRoot, ".agents"),
-    join(workspaceRoot, "plugins"),
-  ];
-  for (const start of starts) {
-    try {
-      await prune(start);
-    } catch (error) {
-      if (
-        (error as NodeJS.ErrnoException).code === "ENOENT" ||
-        (error as NodeJS.ErrnoException).code === "ENOTDIR"
-      ) {
-        continue;
-      }
-      /* c8 ignore next -- defensive rethrow of an unforeseen removeEmptyParentDirectories error */
-      throw error;
-    }
-  }
-}
-
 /**
  * Writes Codex-native managed files using the current repo/team plugin and
  * custom-agent contracts. Hooks are intentionally not synthesized: the current
@@ -197,6 +96,13 @@ async function pruneEmptyApplyParents(
  * leaves orphaned marketplace / profile / manifest state, and never deletes a
  * plugin root a PRIOR apply owned (CodeRabbit Major: the old partial rollback
  * was both incomplete and over-aggressive).
+ *
+ * Ownership decisions (which profile/marketplace cells are written, preserved,
+ * removed, or restored) are NOT made by inline `if/then` arms here — they are
+ * resolved from the executable CODEX ownership transition table via
+ * `classifyProfileState`/`classifyMarketplaceState` +
+ * `resolveOwnershipDecision` in codex-ownership-machine.ts. This file only
+ * executes the returned decision.
  */
 export async function writeCodexNativeFiles(
   options: WireNativeFilesOptions,
@@ -429,6 +335,121 @@ export async function writeCodexNativeFiles(
   }
 }
 
+/**
+ * The snapshot the apply captures BEFORE its first managed write. On a late
+ * failure the rollback restores exactly what THIS apply touched: every file it
+ * may have created or overwritten (restored byte-for-byte when it pre-existed,
+ * removed when it did not), and plugin roots it CREATED this apply (removed in
+ * full, marker and all). Roots a PRIOR apply owned are NEVER included and so
+ * survive a failed re-apply (CodeRabbit Major: the old catch deleted a prior
+ * apply's plugin directory because hasManagedPluginMarker matched it too).
+ */
+interface CodexApplyRollback {
+  files: CodexApplySnapshotFile[];
+  /** Plugin roots absent before this apply; removed wholesale on rollback. */
+  createdPluginRoots: string[];
+}
+
+/** A pre-apply snapshot of one file the apply may overwrite or create. */
+interface CodexApplySnapshotFile {
+  path: string;
+  /** Original content; null when the file did not exist before the apply. */
+  priorContent: string | null;
+}
+
+/** Reads snapshot bytes, treating an unreachable path (ENOTDIR parent) as absent. */
+async function readSnapshotTextOrNull(
+  filePath: string,
+  read: (p: string) => Promise<string | null> = readTextFileOrNull,
+): Promise<string | null> {
+  try {
+    return await read(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
+      return null;
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
+    throw error;
+  }
+}
+
+/** Removes a path, tolerating an unreachable one (ENOTDIR parent, e.g. `.codex` is a file). */
+async function removePathIfReachable(
+  filePath: string,
+  rm: (p: string) => Promise<void> = removePath,
+): Promise<void> {
+  try {
+    await rm(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOTDIR") {
+      return;
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen filesystem error */
+    throw error;
+  }
+}
+
+/** Lists existing owned-codex profile filenames below an agents directory. */
+async function listCodexAgentProfileFileNames(
+  agentsDir: string,
+  list: (p: string) => Promise<string[]> = readdir,
+): Promise<string[]> {
+  let entries: string[];
+  try {
+    entries = await list(agentsDir);
+  } catch (error) {
+    if (
+      (error as NodeJS.ErrnoException).code === "ENOENT" ||
+      (error as NodeJS.ErrnoException).code === "ENOTDIR"
+    ) {
+      return [];
+    }
+    /* c8 ignore next -- defensive rethrow of an unforeseen readdir error */
+    throw error;
+  }
+  return entries.filter((entry) =>
+    CODEX_AGENT_PROFILE_NAME_PATTERN.test(entry),
+  );
+}
+
+/** Deterministic owned-profile filename for an agent asset id. */
+function codexAgentProfileFileName(assetId: string): string {
+  const slug = sanitizeAssetId(assetId).replace(/[^a-zA-Z0-9_-]+/gu, "-");
+  return `${CODEX_AGENT_FILE_PREFIX}${slug}.toml`;
+}
+
+/** Prunes directories emptied by a rollback, stopping at the workspace root. */
+async function pruneEmptyApplyParents(
+  workspaceRoot: string,
+  prune: (p: string) => Promise<void> = (p) =>
+    removeEmptyParentDirectories(p, workspaceRoot),
+): Promise<void> {
+  const starts = [
+    join(workspaceRoot, ".codex", "agents"),
+    join(workspaceRoot, ".codex"),
+    join(workspaceRoot, ".agents", "skills", CODEX_PLUGIN_NAME),
+    join(workspaceRoot, ".agents", "skills"),
+    join(workspaceRoot, ".agents", "plugins", CODEX_PLUGIN_NAME),
+    join(workspaceRoot, ".agents", "plugins"),
+    join(workspaceRoot, ".agents"),
+    join(workspaceRoot, "plugins"),
+  ];
+  for (const start of starts) {
+    try {
+      await prune(start);
+    } catch (error) {
+      if (
+        (error as NodeJS.ErrnoException).code === "ENOENT" ||
+        (error as NodeJS.ErrnoException).code === "ENOTDIR"
+      ) {
+        continue;
+      }
+      /* c8 ignore next -- defensive rethrow of an unforeseen removeEmptyParentDirectories error */
+      throw error;
+    }
+  }
+}
+
 /** Builds the current Codex plugin manifest. */
 export function buildCodexPluginManifest(): Record<string, unknown> {
   return {
@@ -484,31 +505,6 @@ export function buildLegacyCodexHooksManifest(
   };
 }
 
-/** A single Codex custom-agent profile file Agent Harness owns. */
-interface CodexAgentProfileRecord {
-  fileName: string;
-  /** Original pre-apply content; null when the file did not exist before. */
-  priorContent: string | null;
-  /**
-   * Content hash of the EXACT bytes this apply wrote for the profile. Reset /
-   * reduced-agent reconcile removes (or restores the prior snapshot of) a
-   * profile ONLY when the on-disk bytes still match this fingerprint; a user
-   * who edited the generated `agent-harness-*.toml` after apply changes the
-   * bytes, so the user's edits are preserved instead of deleted/overwritten
-   * (Greptile P1: "Codex profile cleanup overwrites user edits").
-   */
-  contentFingerprint?: string;
-  /**
-   * True when this profile is user-owned: the user edited the generated file
-   * after apply, so Agent Harness relinquished ownership. The record is
-   * RETAINED (not dropped) so a subsequent apply recognizes the profile as
-   * user-owned and never regenerates/overwrites it — dropping the record
-   * would let the next reapply see it as untracked and clobber the user's
-   * file (Greptile P1: "Profile ownership vanishes after reapply").
-   */
-  userOwned?: boolean;
-}
-
 /**
  * Records which `agent-harness-*.toml` custom-agent profiles THIS apply owns,
  * plus their pre-apply content. Reset strips exactly these and restores any
@@ -527,6 +523,18 @@ const CODEX_AGENT_PROFILES_MANIFEST_PATH = ".agent-harness-profiles.json";
  */
 const CODEX_MARKETPLACE_OWNERSHIP_MANIFEST = ".agent-harness-marketplace.json";
 
+/**
+ * Writes the owned agent profiles and the running ownership manifest, routing
+ * every per-profile decision through the executable ownership transition table:
+ *
+ * - INCOMING agents (apply / re-apply / re-add) → writer decisions.
+ * - Prior records DROPPED from the incoming set (reduce / no-agent reconcile)
+ *   → cleanup decisions.
+ *
+ * This replaces the previous inlined `if/then` preserve/write/regenerate arms
+ * with `classifyProfileState` + `resolveOwnershipDecision`; the concrete
+ * filesystem work is performed by `executeCodexProfileDecision`.
+ */
 async function writeCodexAgentProfiles(
   workspaceRoot: string,
   nativeAssets: NativeAsset[],
@@ -555,37 +563,30 @@ async function writeCodexAgentProfiles(
     incomingFileNames.add(`${CODEX_AGENT_FILE_PREFIX}${slug}.toml`);
   }
 
-  // Reconcile prior records absent from the incoming agent set BEFORE the
-  // manifest is replaced: a removed agent's generated profile would otherwise
-  // stay on disk yet vanish from the ownership manifest, so reset could never
-  // remove it (or restore the user profile it displaced) — orphaned, active,
-  // and untracked (Greptile P1: "reduced agent sets strand Codex profiles").
-  // Cleanup deletes/restores ONLY when the profile is still the untouched
-  // generated bytes; a user post-apply edit is preserved, never overwritten.
   const records: CodexAgentProfileRecord[] = [];
+
+  // CLEANUP: reconcile prior records absent from the incoming agent set BEFORE
+  // the manifest is replaced (reduce semantics). A removed agent's generated
+  // profile would otherwise stay on disk yet vanish from the ownership
+  // manifest, so reset could never remove it (or restore the user profile it
+  // displaced) — orphaned, active, and untracked (Greptile P1). Each record's
+  // decision comes from the ownership table (cleanup rows).
   for (const [fileName, priorRecord] of previousByFileName) {
     if (incomingFileNames.has(fileName)) continue;
-    // A user-owned profile (edited after apply, or already marked user-owned)
-    // is never orphan-cleaned. RETAIN its userOwned record in the new manifest
-    // instead of dropping it: dropping would let a later re-add of this agent
-    // see the preserved file as untracked pre-existing and regenerate over the
-    // user's edit (Greptile P1: "Profile ownership vanishes after reapply" —
-    // the record must survive omit→re-add and reduced-set reconcile).
-    if (
-      priorRecord.userOwned === true ||
-      !(await isCodexProfileUnedited(agentsDir, priorRecord))
-    ) {
-      await retainUserOwnedProfile(records, agentsDir, fileName);
-      continue;
-    }
-    const orphanedPath = join(agentsDir, fileName);
-    if (priorRecord.priorContent === null) {
-      await removePath(orphanedPath);
-    } else {
-      await writeTextFile(orphanedPath, priorRecord.priorContent);
-    }
+    const live = await readTextFileOrNull(join(agentsDir, fileName));
+    const decision = lookupProfileDecision(priorRecord, live, "reduce");
+    await executeCodexProfileDecision(
+      records,
+      agentsDir,
+      fileName,
+      priorRecord,
+      decision as CodexCleanupProfileDecision,
+    );
   }
 
+  // WRITER: provision (or preserve) every in-coming agent. The decision for
+  // each profile (write vs preserve-user-edit, and what priorContent to record)
+  // comes from the ownership table (writer rows).
   for (const asset of agents) {
     const slug = sanitizeAssetId(asset.assetId).replace(
       /[^a-zA-Z0-9_-]+/gu,
@@ -600,72 +601,17 @@ async function writeCodexAgentProfiles(
       `developer_instructions = ${JSON.stringify(asset.content)}`,
       "",
     ].join("\n");
-    // Writer-guard: compare-before-write. Reapplying the SAME agent must
-    // not clobber a user-edited profile. If a prior apply owned this file and
-    // its live bytes no longer match the recorded fingerprint (or the profile
-    // was already marked user-owned by an earlier edit), the user edited it
-    // after apply — preserve their work, RELEASE harness ownership, and RETAIN
-    // the record marked userOwned:true so a subsequent reapply recognizes it
-    // and never reclaims/overwrites it (Greptile P1: "Profile ownership
-    // vanishes after reapply"). We only write when the profile is untouched
-    // (bytes match), was never owned, or is absent.
     const live = await readTextFileOrNull(profilePath);
-    const wasUserOwned = priorRecord?.userOwned === true;
-    // Preserve only a user-edited file that STILL EXISTS. A deleted file
-    // (live === null) has nothing to preserve — regenerate the profile so the
-    // selected agent is provisioned this apply (Greptile/CodeRabbit P1:
-    // deleted user-owned profile must be regenerated, not left absent).
-    // Any ABSENT profile with a prior ownership record is regenerated as
-    // harness-created from scratch — whether it was user-owned or a legacy
-    // fingerprint-less record. Its new record must carry priorContent:null so
-    // reset/reconcile NEVER resurrect the stale bytes the user explicitly
-    // deleted (Greptile P1: a legacy no-fingerprint record kept its old
-    // snapshot on regeneration and reset then restored it).
-    const regeneratingAbsentProfile =
-      priorRecord !== undefined && live === null;
-    const preserveUserEdit =
-      live !== null &&
-      (wasUserOwned ||
-        (priorRecord !== undefined &&
-          priorRecord.contentFingerprint !== undefined &&
-          createContentHash(live) !== priorRecord.contentFingerprint) ||
-        // Legacy record written before `contentFingerprint` existed carries no
-        // fingerprint we can verify — treat its live bytes as a user edit we
-        // must not clobber (over-preservation: never overwrite what we can't
-        // prove we wrote / CodeRabbit Major 5124991541). Only a present file
-        // is preserved; a deleted legacy file has nothing to protect and is
-        // regenerated so the selected agent stays provisioned.
-        (priorRecord !== undefined &&
-          priorRecord.contentFingerprint === undefined));
-    if (preserveUserEdit) {
-      // Keep the user's bytes, never regenerate; retain the record as
-      // user-owned so later applies preserve it too.
-      records.push({
-        fileName,
-        priorContent: live,
-        userOwned: true,
-      });
-      continue;
-    }
-    records.push({
+    const decision = lookupProfileDecision(priorRecord, live, "apply");
+    await executeCodexProfileDecisionWithContent(
+      records,
+      agentsDir,
       fileName,
-      // A REGENERATED profile (its file was absent this apply — the user
-      // deleted it, including a legacy fingerprint-less record) is now
-      // harness-created: its priorContent must be null so reset/reconcile
-      // never resurrect the stale bytes the user explicitly deleted (Greptile
-      // P1: "Deleted legacy content resurfaces"). Otherwise keep the recorded
-      // priorContent (the displaced user bytes a reset should restore) or
-      // snapshot the current file.
-      priorContent: regeneratingAbsentProfile
-        ? null
-        : priorRecord !== undefined
-          ? priorRecord.priorContent
-          : ((await readTextFileOrNull(profilePath)) ?? null),
-      // Fingerprint the exact generated bytes so cleanup deletes/restores it
-      // only when untouched; a user's post-apply edit changes the bytes.
-      contentFingerprint: createContentHash(content),
-    });
-    await writeTextFile(profilePath, content);
+      priorRecord,
+      live,
+      decision as CodexWriteProfileDecision,
+      content,
+    );
   }
 
   // Persist the running manifest. The reconcile loop above already cleaned
@@ -683,6 +629,131 @@ async function writeCodexAgentProfiles(
   } else {
     await removePath(manifestPath);
   }
+}
+
+/**
+ * Looks up the profile's ownership state from its prior record + live bytes and
+ * resolves the transition-table decision for the given action, narrowed to the
+ * actions that action group can actually produce:
+ * - "apply"/"re-apply"/"re-add" → writer decisions (write / preserve-user-edit)
+ * - "reduce"/"reset" → cleanup decisions (retain / remove / restore / ghost-drop)
+ * This is the ONLY place `codex-native` derives a profile decision — the table
+ * is the source of truth. The actor is derived from the classified state.
+ */
+function lookupProfileDecision(
+  priorRecord: CodexAgentProfileRecord | undefined,
+  live: string | null,
+  action: "apply" | "re-apply" | "re-add" | "reduce" | "reset",
+): CodexProfileDecision {
+  const liveMatches =
+    priorRecord?.contentFingerprint !== undefined &&
+    live !== null &&
+    createContentHash(live) === priorRecord.contentFingerprint;
+  const state = classifyProfileState(priorRecord, live, liveMatches);
+  // The transition table's actor is derived from the CLASSIFIED state (the
+  // state already encodes who owns the artifact), never from the raw record —
+  // optional-chaining on an undefined record would mislabel untracked cells.
+  const actor = profileActorForState(state);
+  const decision = resolveOwnershipDecision("profile", state, actor, action);
+  // The table guarantees the action group's rows only contain that group's
+  // decision kinds (enforced structurally by the row builders + asserted
+  // exhaustively in the matrix test), and resolveOwnershipDecision already
+  // throws on a missing cell — so no runtime family guard is needed here.
+  return decision as CodexProfileDecision;
+}
+
+/**
+ * Executes a CLEANUP profile decision (reduce/reset rows): retain, remove,
+ * restore, or ghost-drop. The table guarantees only cleanup kinds reach here;
+ * every arm below is reachable (harness-created/displaced states imply a live
+ * file — the fingerprint-match guard downstream already excluded null).
+ */
+async function executeCodexProfileDecision(
+  records: CodexAgentProfileRecord[],
+  agentsDir: string,
+  fileName: string,
+  priorRecord: CodexAgentProfileRecord,
+  decision: CodexCleanupProfileDecision,
+): Promise<void> {
+  switch (decision.kind) {
+    case "retain-user-owned":
+      // A user-owned profile must SURVIVE cleanup; its record is re-recorded
+      // (or, if the file was deleted, ghost-dropped — nothing to reclaim).
+      await retainUserOwnedProfile(records, agentsDir, fileName);
+      return;
+    case "remove-harness-file":
+      // Untouched harness-created profile (priorContent null): remove it.
+      await removePath(join(agentsDir, fileName));
+      return;
+    case "restore-prior-content":
+      // Untouched harness-written profile over a displaced user file: restore
+      // the user's original bytes instead of deleting. This decision is only
+      // produced for the harness-displaced state, which classification gates on
+      // priorRecord.priorContent !== null, so the value is non-null here.
+      await writeTextFile(join(agentsDir, fileName), priorRecord.priorContent!);
+      return;
+    case "ghost-drop":
+      // User deleted the file (or no ownership record): nothing on disk to
+      // touch — drop the ghost record so no stale ownership dangles.
+      return;
+  }
+}
+
+/**
+ * Executes a WRITER profile decision (apply/re-apply/re-add rows): write the
+ * generated bytes with the decision's priorContent mode, or preserve the user's
+ * live bytes without writing.
+ */
+async function executeCodexProfileDecisionWithContent(
+  records: CodexAgentProfileRecord[],
+  agentsDir: string,
+  fileName: string,
+  priorRecord: CodexAgentProfileRecord | undefined,
+  live: string | null,
+  decision: CodexWriteProfileDecision,
+  content: string,
+): Promise<void> {
+  if (decision.kind === "preserve-user-edit") {
+    // Keep the user's bytes, never regenerate; record the profile as
+    // user-owned so later applies preserve it too.
+    records.push({
+      fileName,
+      priorContent: live,
+      userOwned: true,
+    });
+    return;
+  }
+  // WRITE (create / displace / re-write / regenerate): record the priorContent
+  // the table's decision mode selected.
+  const profilePath = join(agentsDir, fileName);
+  let priorContent: string | null;
+  switch (decision.priorContentMode) {
+    case "live":
+      // First apply displaced a colliding user file: record its bytes so reset
+      // restores them.
+      priorContent = live;
+      break;
+    case "prior-record":
+      // Carry the ORIGINAL priorContent forward (re-apply poisoning guard).
+      // This decision mode is only produced for the harness-created /
+      // harness-displaced writer states, which classification guarantees carry
+      // a prior record — so it is always defined here.
+      priorContent = priorRecord!.priorContent;
+      break;
+    case "none":
+      // Fresh create, or regenerate a deleted profile: priorContent null so
+      // reset never resurrects stale/deleted bytes.
+      priorContent = null;
+      break;
+  }
+  records.push({
+    fileName,
+    priorContent,
+    // Fingerprint the exact generated bytes so cleanup deletes/restores it
+    // only when untouched; a user's post-apply edit changes the bytes.
+    contentFingerprint: createContentHash(content),
+  });
+  await writeTextFile(profilePath, content);
 }
 
 /** Reads the owned-profile manifest recorded by the last apply (null if none). */
@@ -759,14 +830,6 @@ export async function mergeCodexPluginMarketplace(
     created?: unknown;
     fingerprint?: unknown;
   }>(ownershipManifestPath);
-  // Whole-file ownership is TRUE only when the file did NOT exist before this
-  // apply, OR a prior apply created it AND the live bytes still match what the
-  // harness originally wrote. If a harness-created marketplace was later
-  // replaced/edited by the user (live bytes diverge from the prior recorded
-  // fingerprint), RELINQUISH whole-file ownership (created:false) so reset
-  // cannot whole-delete the user's replacement — provenance semantics, not
-  // just byte-match (review: "marketplace reapply turns user content into
-  // deletable state").
   const wasCreatedPreviously = priorOwnership?.created === true;
   const priorFingerprint =
     typeof priorOwnership?.fingerprint === "string"
@@ -776,8 +839,23 @@ export async function mergeCodexPluginMarketplace(
     existing !== null &&
     priorFingerprint !== null &&
     createContentHash(serializeMarketplaceFile(existing)) === priorFingerprint;
-  const createdNow = existing === null;
-  const ownsWholeFile = createdNow || (wasCreatedPreviously && liveIsUnedited);
+  // Whole-file ownership is decided by the executable ownership table: the
+  // market-merge rows map (exists, created-previously, live-matches) to
+  // keep-ownership vs relinquish (provenance semantics, not just byte-match —
+  // "marketplace reapply turns user content into deletable state").
+  const state = classifyMarketplaceState(
+    existing !== null,
+    wasCreatedPreviously,
+    liveIsUnedited,
+  );
+  const decision = resolveOwnershipDecision(
+    "marketplace",
+    state,
+    marketplaceActorForState(state),
+    "apply",
+  ) as CodexMarketplaceDecision;
+  const ownsWholeFile = decision.kind === "merge-and-keep-ownership";
+
   const marketplace =
     existing === null ? {} : assertJsonObject(existing, filePath);
   const rawPlugins: unknown[] = Array.isArray(marketplace.plugins)
@@ -846,8 +924,8 @@ export async function mergeCodexPluginMarketplace(
 
 /**
  * Records whether the marketplace file is Agent-Harness-create-able on reset.
- * `created` is the caller-computed whole-file ownership: true only when this
- * apply created it from scratch, or a prior apply created it AND the live
+ * `created` is the caller/table-computed whole-file ownership: true only when
+ * this apply created it from scratch, or a prior apply created it AND the live
  * bytes still match the prior fingerprint (unchanged reapply). A harness-
  * created marketplace the user later replaced/edited is recorded with
  * `created:false` (provenance relinquished) so reset never whole-deletes the
@@ -981,8 +1059,12 @@ export async function resetCodexNativeHost(
  * apply/reset recognizes it and never regenerates over it. Used on the
  * reduced-set reconcile, no-agent apply, and reset paths — the record must
  * survive those transitions, not just the file (Greptile P1: "Profile
- * ownership vanishes after reapply"). If the user-owned file has since been
- * DELETED (live === null) there is nothing to preserve — drop the ghost.
+ * ownership vanishes after reapply"). Only invoked for the ownership table's
+ * `retain-user-owned` decision, which classification produces ONLY when the
+ * file is present (user-owned / user-edited / legacy-user-owned all require
+ * `live !== null`); a DELETED user-owned profile maps to the `user-deleted` /
+ * `ghost-drop` decision instead, which drops the record without calling here —
+ * so this function always sees a live file and never needs a null guard.
  */
 async function retainUserOwnedProfile(
   records: CodexAgentProfileRecord[],
@@ -990,10 +1072,16 @@ async function retainUserOwnedProfile(
   fileName: string,
 ): Promise<void> {
   const live = await readTextFileOrNull(join(agentsDir, fileName));
-  if (live === null) return;
   records.push({ fileName, priorContent: live, userOwned: true });
 }
 
+/**
+ * Removes Agent Harness's owned agent profiles on reset. Every record's
+ * cleanup decision (retain / remove / restore / ghost-drop) comes from the
+ * executable ownership transition table via `classifyProfileState` +
+ * `resolveOwnershipDecision`, so reset honors the same doctrine as the
+ * reduced-set reconcile.
+ */
 async function removeCodexAgentProfiles(workspaceRoot: string): Promise<void> {
   const agentsDir = join(workspaceRoot, ".codex", "agents");
   const records = await readCodexAgentProfileRecords(workspaceRoot);
@@ -1008,27 +1096,15 @@ async function removeCodexAgentProfiles(workspaceRoot: string): Promise<void> {
   // regenerate over the user's edit (Greptile P1: record must survive reset).
   const retained: CodexAgentProfileRecord[] = [];
   for (const record of records) {
-    const profilePath = join(agentsDir, record.fileName);
-    // A user-owned profile (edited after apply) is never removed/restored by
-    // reset — the user's file is preserved as-is and the record carried over.
-    if (record.userOwned === true) {
-      await retainUserOwnedProfile(retained, agentsDir, record.fileName);
-      continue;
-    }
-    // A user-edited profile (fingerprint mismatch, not yet flagged) is likewise
-    // preserved and promoted to userOwned so future applies honor it.
-    if (!(await isCodexProfileUnedited(agentsDir, record))) {
-      await retainUserOwnedProfile(retained, agentsDir, record.fileName);
-      continue;
-    }
-    if (record.priorContent === null) {
-      // This apply created the profile (absent before apply) — remove it.
-      await removePath(profilePath);
-    } else {
-      // A user-owned profile was displaced at apply — restore its original
-      // content instead of deleting it.
-      await writeTextFile(profilePath, record.priorContent);
-    }
+    const live = await readTextFileOrNull(join(agentsDir, record.fileName));
+    const decision = lookupProfileDecision(record, live, "reset");
+    await executeCodexProfileDecision(
+      retained,
+      agentsDir,
+      record.fileName,
+      record,
+      decision as CodexCleanupProfileDecision,
+    );
   }
   if (retained.length > 0) {
     await writeJsonFile(join(agentsDir, CODEX_AGENT_PROFILES_MANIFEST_PATH), {
@@ -1041,28 +1117,13 @@ async function removeCodexAgentProfiles(workspaceRoot: string): Promise<void> {
 }
 
 /**
- * Returns whether an owned profile file still matches the generated bytes this
- * apply wrote. When the record carries a `contentFingerprint`, the current
- * file is compared against it; a mismatch means the user edited the profile
- * after apply, so cleanup must preserve it rather than delete/overwrite the
- * user's changes. Records WITHOUT a fingerprint (legacy manifests written
- * before this field existed) are treated as EDITED — preserved, never
- * deleted/restored by cleanup — because we cannot prove we own their bytes
- * ("never delete what we can't prove we own"; Gap 2 / CodeRabbit Major
- * 5124991541: a legacy manifest must not let cleanup delete a user's
- * post-apply edit).
+ * Removes the managed marketplace entry (or the whole file Agent Harness
+ * provably created) on reset. The whole-file-delete decision comes from the
+ * executable ownership table (marketplace reset rows): the file is removed
+ * ONLY when the table says harness created it AND the current bytes still
+ * match the exact content the harness wrote; otherwise only the managed entry
+ * is stripped and the user's file preserved.
  */
-async function isCodexProfileUnedited(
-  agentsDir: string,
-  record: CodexAgentProfileRecord,
-): Promise<boolean> {
-  if (record.contentFingerprint === undefined) return false;
-  const current = await readTextFileOrNull(join(agentsDir, record.fileName));
-  return (
-    current !== null && createContentHash(current) === record.contentFingerprint
-  );
-}
-
 async function removeCodexMarketplaceEntry(filePath: string): Promise<void> {
   const ownershipManifestPath = join(
     dirname(filePath),
@@ -1072,7 +1133,6 @@ async function removeCodexMarketplaceEntry(filePath: string): Promise<void> {
     created?: unknown;
     fingerprint?: unknown;
   }>(ownershipManifestPath);
-  const ownsWholeFile = ownership !== null && ownership.created === true;
   const recordedFingerprint =
     typeof ownership?.fingerprint === "string" ? ownership.fingerprint : null;
   // Always consume the ownership manifest — this apply is done with it.
@@ -1080,21 +1140,24 @@ async function removeCodexMarketplaceEntry(filePath: string): Promise<void> {
 
   const existingText = await readTextFileOrNull(filePath);
   if (existingText === null) return;
-  // Delete the ENTIRE file ONLY when the ownership manifest proves this apply
-  // created it AND the current bytes still match the exact content the harness
-  // wrote. A user who replaces a harness-created marketplace with their own
-  // file (even one shaped like `agent-harness-local`) changes the bytes, so
-  // reset keeps it rather than deleting the user's replacement (Greptile P1 /
-  // review). A managed file the user edited since apply is likewise preserved.
-  if (
-    ownsWholeFile &&
+  const createdPreviously = ownership?.created === true;
+  const liveMatches =
     recordedFingerprint !== null &&
-    createContentHash(existingText) === recordedFingerprint
-  ) {
+    createContentHash(existingText) === recordedFingerprint;
+  const state = classifyMarketplaceState(true, createdPreviously, liveMatches);
+  const decision = resolveOwnershipDecision(
+    "marketplace",
+    state,
+    marketplaceActorForState(state),
+    "reset",
+  ) as CodexMarketplaceDecision;
+  if (decision.kind === "remove-marketplace-file") {
     await removePath(filePath);
     return;
   }
 
+  // marketplace-preserve: strip only the managed entry, never whole-delete the
+  // user file (a managed file the user edited since apply is likewise kept).
   const marketplace = assertJsonObject(JSON.parse(existingText), filePath);
   const rawPlugins: unknown[] = Array.isArray(marketplace.plugins)
     ? marketplace.plugins
@@ -1107,12 +1170,12 @@ async function removeCodexMarketplaceEntry(filePath: string): Promise<void> {
 }
 
 /**
- * Test-only surface for the snapshot-restore guard helpers. The underlying
- * filesystem ops are injectable so each error arm (ENOENT / ENOTDIR / other) is
- * driven deterministically on every OS — Windows surfaces these differently in
- * real fs calls (ENOENT under a file-path), so injection is the only
- * platform-independent way to cover the ENOTDIR branches (platform-isolation
- * doctrine).
+ * Test-only surface for the snapshot-restore guard helpers + ownership
+ * classification. The underlying filesystem ops are injectable so each error
+ * arm (ENOENT / ENOTDIR / other) is driven deterministically on every OS —
+ * Windows surfaces these differently in real fs calls (ENOENT under a
+ * file-path), so injection is the only platform-independent way to cover the
+ * ENOTDIR branches (platform-isolation doctrine).
  */
 export const codexNativeInternals = {
   readSnapshotTextOrNull,
@@ -1120,4 +1183,5 @@ export const codexNativeInternals = {
   listCodexAgentProfileFileNames,
   pruneEmptyApplyParents,
   codexAgentProfileFileName,
+  lookupProfileDecision,
 };
