@@ -7,19 +7,28 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
 // Single source of truth (package-audit doctrine): the packed-tarball entry
-// list lives in scripts/package-audit.mjs; require(esm) (Node >= 22.12) is
-// the typed, suppression-free way for a TS test to consume it.
+// list, the npm-pack payload normalizer, and the shell-less npm resolver all
+// live in scripts/package-audit.mjs; require(esm) (Node >= 22.12) is the
+// typed, suppression-free way for a TS test to consume them. Reusing
+// `toPackRecordList` and `buildNpmInvocation` here keeps pack-smoke aligned
+// with `release:package-audit` / `release:package-smoke`, which already pass.
 const require = createRequire(import.meta.url);
-const { REQUIRED_PACKED_FILES } =
+const { REQUIRED_PACKED_FILES, toPackRecordList, buildNpmInvocation } =
   require("../../scripts/package-audit.mjs") as {
     REQUIRED_PACKED_FILES: readonly string[];
+    toPackRecordList: (
+      value: unknown,
+    ) => Array<{ filename?: string; files?: Array<{ path: string }> }>;
+    buildNpmInvocation: (
+      args: string[],
+      options?: Record<string, unknown>,
+    ) => { command: string; commandArgs: string[]; shell: boolean };
   };
 
 const execFileAsync = promisify(execFile);
 const repositoryRoot = dirname(
   dirname(dirname(fileURLToPath(import.meta.url))),
 );
-const npmCliPath = process.env.npm_execpath;
 
 const tempRoot = await mkdtemp(join(tmpdir(), "agent-harness-pack-smoke-"));
 let packedTarballPath: string | null = null;
@@ -36,10 +45,12 @@ try {
     timeout: NPM_STEP_TIMEOUT_MS,
     windowsHide: true,
   });
-  const packedFiles = JSON.parse(packResult.stdout) as Array<{
-    filename: string;
-  }>;
-  const packedFileName = packedFiles[0]?.filename;
+  // npm <12 emits an ARRAY of pack records; npm 12+ emits an OBJECT keyed by
+  // package name (`{ "@scope/name": { filename, files, ... } }`). Normalize
+  // both shapes through the single source of truth so the assert below stays
+  // meaningful: it must still fail loudly when a pack yields no tarball.
+  const packedFileName = toPackRecordList(JSON.parse(packResult.stdout))[0]
+    ?.filename;
   if (!packedFileName) {
     throw new Error("npm pack did not report a tarball filename");
   }
@@ -126,26 +137,25 @@ async function runNpm(
   args: string[],
   options: Parameters<typeof execFileAsync>[2],
 ): Promise<{ stdout: string; stderr: string }> {
+  // Resolve the npm JS CLI shell-less (DEP0190 doctrine): npm_execpath when
+  // set, else npm_config_prefix / the node install's bundled npm. Never
+  // spawn bare `npm.cmd` through a shell on Windows.
+  const invocation = buildNpmInvocation(args);
   const strippedOptions = {
     ...(options ?? {}),
     env: {
       ...((options?.env as NodeJS.ProcessEnv | undefined) ?? process.env),
     },
   };
-  const result = npmCliPath
-    ? await execFileAsync(process.execPath, [npmCliPath, ...args], {
-        ...strippedOptions,
-        encoding: "utf8",
-      })
-    : await execFileAsync(
-        process.platform === "win32" ? "npm.cmd" : "npm",
-        args,
-        {
-          ...strippedOptions,
-          encoding: "utf8",
-          shell: process.platform === "win32",
-        },
-      );
+  const result = await execFileAsync(
+    invocation.command,
+    invocation.commandArgs,
+    {
+      ...strippedOptions,
+      encoding: "utf8",
+      shell: invocation.shell,
+    },
+  );
 
   return {
     stdout: String(result.stdout),
