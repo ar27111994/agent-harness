@@ -14,14 +14,22 @@ name: CodeQL
 # is exactly `CodeQL` (single job, no matrix -> check run name == job name).
 # That is the precise context the default ruleset's required_status_checks
 # referenced, and it stays satisfiable if the ruleset re-requires it. It also
-# does NOT collide with GitHub default-setup's emitted checks (`Analyze (...)`),
-# so both can coexist until default-setup is disabled.
+# does NOT collide with GitHub default-setup's emitted checks (`Analyze (...)`).
+# (Note: the workflow and default-setup can still not both RUN successfully
+# together -- see the mutual-exclusivity note below.)
 #
-# Default-setup note: while default-setup is still enabled it adds duplicate
-# `Analyze (actions)` / `Analyze (javascript-typescript)` checks. Disabling
-# default-setup (Code security -> Code scanning -> Disable default setup) once
-# this workflow is on the default branch removes that duplication; it is a
-# one-click repo/human setting, not something this file can do.
+# DEFAULT-SETUP MUTUAL EXCLUSIVITY (READ THIS):
+# GitHub enforces that a repository runs EITHER default setup OR an advanced
+# (committed) CodeQL workflow -- NOT both. While default setup is enabled, the
+# analyze step's SARIF upload is REJECTED outright:
+#   "CodeQL analyses from advanced configurations cannot be processed when the
+#    default setup is enabled"
+# so this workflow cannot report until default setup is DISABLED. Disabling it
+# is a one-click repo/human setting (Settings -> Code security -> Code scanning
+# -> Disable default setup), not something this file can do. The ordering on
+# the default branch must therefore be: (1) disable default setup, then
+# (2) this workflow lands and takes over scanning. Until then this job fails on
+# the SARIF upload by design, not by defect.
 
 on:
   push:
