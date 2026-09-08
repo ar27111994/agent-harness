@@ -243,25 +243,22 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Build discovery state
-        run: node dist/cli.js discover full --no-sync --no-ai-enrich
-
-      - name: Regenerate ARD catalog
+      - name: Validate committed ARD catalog for the tag
         run: |
-          node dist/cli.js discover ard-export
-          node -e "
-            const c = require('./.well-known/ai-catalog.json');
-            // The ARD catalog schema has no generatedAt field — writeArdCatalog
-            // emits { specVersion, host, entries }. Validate the real schema:
-            // a non-empty entry list under the current specVersion proves the
-            // exporter ran and produced a valid catalog (a stale field check on
-            // generatedAt always failed and blocked every release).
-            if (c.specVersion !== '1.0' || !c.entries || !c.entries.length) {
-              console.error('FAIL: ARD catalog is empty or has an unexpected specVersion — release blocked.');
-              process.exit(1);
-            }
-            console.log('OK: %d entries, specVersion %s', c.entries.length, c.specVersion);
-          "
+          # #484: pin the release ARD asset to the tag's committed catalog
+          # instead of regenerating via `discover full` + `ard-export`. A fresh
+          # (cold) CI checkout has no tracked discovery state, so regeneration
+          # can produce a 0-entry catalog — which ard-export now rejects, but
+          # that would block the release on a cold tree. The committed
+          # .well-known/ai-catalog.json is git-tracked, always present at the
+          # tag, and non-empty (kept live/repaired under #488). Assert it is
+          # non-empty and schema-valid (reusing #486's guard) before uploading
+          # it as the release's ARD asset.
+          if [ ! -s .well-known/ai-catalog.json ]; then
+            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — release blocked." >&2
+            exit 1
+          fi
+          node ./scripts/validate-ard-schema.mjs .well-known/ai-catalog.json
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}

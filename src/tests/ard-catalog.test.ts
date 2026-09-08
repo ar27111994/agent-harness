@@ -513,6 +513,84 @@ void test("writeArdCatalog remains valid when Prettier is unavailable", async ()
   }
 });
 
+void test("writeArdCatalog rejects a 0-entry export on a cold tree and does not write an empty catalog (#484)", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-ard-cold-"));
+  try {
+    // Cold tree: no discovery state, so discover/output/catalog.selected.jsonl
+    // does not exist. readJsonLinesFile returns [] and the export must refuse
+    // loudly instead of writing a plausible-but-empty ai-catalog.json.
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+
+    await assert.rejects(
+      writeArdCatalog(projectRoot, "2.1.0", async (raw) => raw),
+      (error: unknown) => {
+        assert.match(
+          extractErrorMessage(error),
+          /refusing to write an empty ARD catalog/u,
+        );
+        assert.match(
+          extractErrorMessage(error),
+          /Run a real discovery pass first/u,
+        );
+        return true;
+      },
+    );
+
+    // Nothing must be left behind: a 0-entry ai-catalog.json is exactly the
+    // failure mode this guards against.
+    await assert.rejects(
+      readFile(join(projectRoot, ".well-known", "ai-catalog.json"), "utf8"),
+      (error: unknown) => (error as NodeJS.ErrnoException).code === "ENOENT",
+    );
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog exports a populated 1562-entry catalog unchanged (#484)", async () => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-populated-"),
+  );
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    const entries = Array.from({ length: 1562 }, (_, index) =>
+      entry({
+        id: `fixture.skill.${index}`,
+        displayName: `Fixture Skill ${index}`,
+      }),
+    );
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      entries,
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(
+      projectRoot,
+      "2.1.0",
+      async (raw) => raw,
+    );
+    assert.equal(result.entryCount, 1562);
+    const catalog = JSON.parse(
+      await readFile(result.filePath, "utf8"),
+    ) as ArdCatalog;
+    assert.equal(catalog.entries.length, 1562);
+    assert.ok(
+      catalog.entries.every((item) => item.identifier.startsWith("urn:air:")),
+    );
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
 void test("extractErrorMessage safely handles Error, primitives, null, and undefined", () => {
   assert.equal(extractErrorMessage(new Error("boom")), "boom");
   assert.equal(extractErrorMessage("plain"), "plain");
