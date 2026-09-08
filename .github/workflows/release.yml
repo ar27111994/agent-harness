@@ -240,11 +240,11 @@ jobs:
           node dist/cli.js discover ard-export
           node -e "
             const c = require('./.well-known/ai-catalog.json');
-            if (!c.generatedAt || !c.entries || !c.entries.length) {
+            if (!c.specVersion || !c.entries || !c.entries.length) {
               console.error('FAIL: ARD catalog is empty — release blocked.');
               process.exit(1);
             }
-            console.log('OK: %d entries, generated %s', c.entries.length, c.generatedAt);
+            console.log('OK: %d entries, specVersion %s', c.entries.length, c.specVersion);
           "
         env:
           GH_TOKEN: ${{ github.token }}
