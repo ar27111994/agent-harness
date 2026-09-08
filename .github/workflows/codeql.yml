@@ -1,0 +1,74 @@
+name: CodeQL
+
+# Committed CodeQL scanning workflow (issue #481).
+#
+# WHY THIS EXISTS (and why it is not "just leave GitHub default-setup on"):
+# GitHub's *default setup* CodeQL silently skips scanning on large PRs and on
+# pushes that exceed its size/trigger limits (that is exactly what happened to
+# PR #478: 133 files / 75 commits). A committed workflow with explicit `on:`
+# triggers runs on EVERY push and pull_request regardless of diff size, so
+# scanning (and the CodeQL check) actually reports even on large changesets.
+#
+# CHECK-NAME RECONCILIATION:
+# The job is literally named `CodeQL`, so the check context this workflow emits
+# is exactly `CodeQL` (single job, no matrix -> check run name == job name).
+# That is the precise context the default ruleset's required_status_checks
+# referenced, and it stays satisfiable if the ruleset re-requires it. It also
+# does NOT collide with GitHub default-setup's emitted checks (`Analyze (...)`),
+# so both can coexist until default-setup is disabled.
+#
+# Default-setup note: while default-setup is still enabled it adds duplicate
+# `Analyze (actions)` / `Analyze (javascript-typescript)` checks. Disabling
+# default-setup (Code security -> Code scanning -> Disable default setup) once
+# this workflow is on the default branch removes that duplication; it is a
+# one-click repo/human setting, not something this file can do.
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  # Uploading SARIF to the code-scanning API requires security-events write.
+  security-events: write
+  # actions:read is needed by the codeql-action to list code paths for upload.
+  actions: read
+  contents: read
+
+jobs:
+  CodeQL:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: codeql-${{ github.ref }}-${{ github.workflow }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Check out repository
+        # actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Full history so CodeQL can trust ref comparisons (and so the analysis
+          # sees the whole tree, not just the PR head's shallow slice).
+          fetch-depth: 0
+
+      - name: Initialize CodeQL
+        # github/codeql-action/init@v4 (pinned by SHA)
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938
+        with:
+          languages: javascript-typescript
+          # build-mode: none extracts JavaScript/TypeScript straight from source
+          # (no compile step is required for the JS/TS extractor), so the scan
+          # can never be skipped or fail on a build. default-setup effectively
+          # does the same extraction but is subject to its size/trigger ceiling;
+          # the explicit triggers below are what lift that ceiling.
+          build-mode: none
+
+      - name: Perform CodeQL analysis
+        # github/codeql-action/analyze@v4 (pinned by SHA).
+        # The `code_scanning` tool (SARIF upload) is produced by this step.
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938
