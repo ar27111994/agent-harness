@@ -1,5 +1,6 @@
 import { SPECIALIZED_GATES } from "../domains/discovery/demand-helpers.js";
 import { GENERIC_CAPABILITY_TERMS } from "./constants.js";
+import { isTokenCoincidenceWithoutSemanticEvidence } from "./evidence-quality.js";
 import {
   buildCoverageTags,
   buildDuplicateGroup,
@@ -246,6 +247,19 @@ export function buildCandidateRecommendationBase(
       packageIdentityByTerm: demandContext.packageIdentityByTerm,
     },
   );
+  const tokenCoincidenceWithoutSemanticEvidence =
+    isTokenCoincidenceWithoutSemanticEvidence(
+      entry,
+      matchedSignals,
+      rawKeywordTerms,
+      demandContext.packageIdentityByTerm,
+      assetRawIdentityTerms,
+    );
+  if (tokenCoincidenceWithoutSemanticEvidence) {
+    // Empty-description marketplace metadata may still be catalogued and
+    // explained, but collision-prone tags cannot establish exact-stack fit.
+    matchQuality.exactStackWeight = 0;
+  }
   const availableLocally = isLocallyAvailable(entry);
   const recommendationBasis = determineRecommendationBasis(
     availableLocally,
@@ -331,20 +345,21 @@ export function buildCandidateRecommendationBase(
   // workspace's `c8` dependency). Such assets earn no exact-stack/ecosystem
   // credit and native install plans exclude them by default.
   const coincidentalMatchOnly =
-    matchQuality.exactStackWeight === 0 &&
-    matchQuality.ecosystemWeight === 0 &&
-    matchedSignals.some((match) => {
-      const tokens = demandContext.packageIdentityByTerm.get(match.term);
-      return (
-        tokens !== undefined && !setsIntersect(assetRawIdentityTerms, tokens)
-      );
-    }) &&
-    !matchedSignals.some((match) => {
-      const tokens = demandContext.packageIdentityByTerm.get(match.term);
-      return (
-        tokens !== undefined && setsIntersect(assetRawIdentityTerms, tokens)
-      );
-    });
+    tokenCoincidenceWithoutSemanticEvidence ||
+    (matchQuality.exactStackWeight === 0 &&
+      matchQuality.ecosystemWeight === 0 &&
+      matchedSignals.some((match) => {
+        const tokens = demandContext.packageIdentityByTerm.get(match.term);
+        return (
+          tokens !== undefined && !setsIntersect(assetRawIdentityTerms, tokens)
+        );
+      }) &&
+      !matchedSignals.some((match) => {
+        const tokens = demandContext.packageIdentityByTerm.get(match.term);
+        return (
+          tokens !== undefined && setsIntersect(assetRawIdentityTerms, tokens)
+        );
+      }));
 
   return {
     entry,
@@ -355,15 +370,20 @@ export function buildCandidateRecommendationBase(
     taskModes,
     matchedSignals,
     duplicateGroup,
-    reasons: buildBaseReasons(
-      entry,
-      matchedSignals,
-      coverageTags,
-      taskModes,
-      matchQuality,
-      availableLocally,
-      recommendationBasis,
-    ),
+    reasons: [
+      ...buildBaseReasons(
+        entry,
+        matchedSignals,
+        coverageTags,
+        taskModes,
+        matchQuality,
+        availableLocally,
+        recommendationBasis,
+      ),
+      ...(tokenCoincidenceWithoutSemanticEvidence
+        ? ["evidence:token-coincidence-no-semantic-evidence"]
+        : []),
+    ],
     searchTerms,
     breakdown,
     coincidentalMatchOnly,

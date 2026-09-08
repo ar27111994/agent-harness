@@ -30,6 +30,15 @@ import {
 } from "../fetching.js";
 import type { SourceSyncContext, SourceSyncSourceState } from "../types.js";
 
+/**
+ * pub.dev intentionally returns HTTP 406 unless clients advertise gzip support.
+ * Node's Fetch implementation transparently decodes gzip response bodies, so
+ * the adapter only needs to opt into the required content negotiation header.
+ */
+export const PUB_DEV_REQUEST_HEADERS = {
+  "Accept-Encoding": "gzip",
+} as const;
+
 /** Canonical listing URL derived from the checked-in source endpoints. */
 function resolveListingUrl(source: SourceDefinition): string {
   return (
@@ -77,7 +86,14 @@ export async function syncPubDevSource(
   const selectionRegistry = context.selectionRegistry;
 
   while (nextUrl && pageCount < maxPages) {
-    const data = await fetchRequiredJson(nextUrl, allowedOrigins);
+    const data = await fetchRequiredJson(
+      nextUrl,
+      allowedOrigins,
+      {},
+      {
+        headers: PUB_DEV_REQUEST_HEADERS,
+      },
+    );
     const record = asRecord(data);
     const packages = Array.isArray(record.packages) ? record.packages : [];
 

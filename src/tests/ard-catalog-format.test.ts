@@ -1,19 +1,8 @@
-/**
- * Tests that `writeArdCatalog` produces JSON output that passes Prettier
- * formatting rules (#348).
- */
-
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  ardCatalogInternals,
-  type ArdCatalog,
-  type PrettierFormatter,
-} from "../ard-catalog.js";
+import { mapEntryToArd, type ArdCatalog } from "../ard-catalog.js";
 import type { AssetCatalogEntry } from "../types.js";
-
-const { mapEntryToArd } = ardCatalogInternals;
 
 function makeFakeEntry(
   overrides: Partial<AssetCatalogEntry> = {},
@@ -24,75 +13,67 @@ function makeFakeEntry(
     assetKind: "skill",
     hosts: ["copilot-vscode", "cursor"],
     compatibilityMode: "adaptable",
-    capabilities: ["TypeScript", "testing", "linting"],
     source: {
       sourceId: "test-source",
+      authorityTier: "trusted-community",
       sourceKind: "repo",
-      registryKind: undefined,
-      publisherName: "Test Author",
-      publisherVerified: true,
-      category: "dev-tools",
+      sourcePriority: 90,
       originUrl: "https://github.com/test/test-skill",
-      priority: 90,
+      publisher: "Test Author",
+      publisherVerified: true,
     },
+    trust: { score: 85, signals: ["publisher-verified"] },
+    capabilities: ["TypeScript", "testing", "linting"],
     install: {
-      installMethod: "github-release",
-      manifestEntry: "https://github.com/test/test-skill/releases/v1.0.0",
+      method: "github-tree-metadata",
+      manifestEntry: "skills/test/SKILL.md",
     },
     evidence: {
-      classification: {
-        source: "metadata",
-        strength: "strong",
-        detail: "test",
-      },
-    },
-    trust: {
-      signals: ["signed", "verified-publisher"],
-      score: 85,
-      breakdown: {},
+      manifestFound: true,
+      readmeFound: true,
+      examplesFound: false,
+      docsLinked: true,
     },
     maintenance: {
       lastUpdated: "2026-01-01T00:00:00Z",
-      updateFrequency: "monthly",
+      stars: 1,
+      releaseCadence: "active",
     },
-    dedupe: {},
-    score: 85,
-    demand: 30,
-    authority: 30,
-    popularity: 20,
-    freshness: 5,
-    security: 0,
-    compatibility: 0,
-    tokens: ["test", "skill", "typescript"],
-    ecosystems: ["npm"],
-    tags: ["testing", "typescript"],
-    platforms: [],
-    languageSupport: ["TypeScript"],
-    description: "A test skill for TypeScript testing",
-    descriptionTokens: ["test", "skill", "typescript", "testing"],
-    harvestTimestamp: 1700000000,
-    kind: "skill",
+    risk: {
+      level: "low",
+      hasHooks: false,
+      hasExecScripts: false,
+      requiresNetwork: false,
+    },
+    contextCost: { sizeClass: "tiny", estimatedPromptWeight: 1 },
+    fit: { portfolioFit: 0.8, hostFit: 0.8 },
+    dedupe: { candidateRankHint: "fixture" },
+    status: {
+      cataloged: true,
+      mirrorEligible: true,
+      installEligible: true,
+      activationEligible: true,
+    },
     ...overrides,
-  } as AssetCatalogEntry;
+  };
 }
 
-void test("mapEntryToArd produces valid JSON that passes Prettier formatting", async () => {
-  const entry = makeFakeEntry();
-  const ardEntry = mapEntryToArd(entry, "ar27111994.dev", "2.0.0");
-
-  // Build a minimal ARD catalog with one entry.
-  const catalog: ArdCatalog = {
-    $schema:
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    publisher: "ar27111994.dev",
-    version: "2.0.0",
-    generatedAt: new Date().toISOString(),
-    entries: [ardEntry],
+function buildCatalog(entries: AssetCatalogEntry[]): ArdCatalog {
+  return {
+    specVersion: "1.0",
+    host: {
+      displayName: "Agent Harness",
+      identifier: "https://ar27111994.dev",
+    },
+    entries: entries.map((entry) =>
+      mapEntryToArd(entry, "ar27111994.dev", "2.1.0"),
+    ),
   };
+}
 
-  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
-
-  // Format with Prettier using the project's config.
+void test("ARD 1.0 catalog JSON passes project Prettier formatting", async () => {
+  const catalog = buildCatalog([makeFakeEntry()]);
+  const rawJson = `${JSON.stringify(catalog, null, 2)}\n`;
   const prettier = await import("prettier");
   const formatted = await prettier.format(rawJson, {
     parser: "json",
@@ -100,132 +81,35 @@ void test("mapEntryToArd produces valid JSON that passes Prettier formatting", a
     trailingComma: "all",
   });
 
-  // Verify the formatted output is valid JSON.
   const parsed = JSON.parse(formatted) as ArdCatalog;
-  assert.equal(parsed.publisher, "ar27111994.dev");
-  assert.equal(parsed.version, "2.0.0");
+  assert.equal(parsed.specVersion, "1.0");
+  assert.equal(parsed.host?.displayName, "Agent Harness");
   assert.equal(parsed.entries.length, 1);
-
-  // Verify Prettier actually changed the output (proves formatting ran).
-  // JSON.stringify with indent=2 doesn't match prettier's output exactly —
-  // trailing commas differ. We check that trailing commas exist in the
-  // formatted output.
-  assert.ok(
-    formatted.includes('"adaptable",') || formatted.includes("},"),
-    "formatted JSON should contain trailing commas (Prettier's trailingComma: all)",
-  );
-
-  // Both should parse identically.
+  assert.equal(parsed.entries[0]?.version, "2.1.0");
   assert.deepEqual(JSON.parse(rawJson), JSON.parse(formatted));
 });
 
-void test("ARD catalog JSON output is valid without Prettier formatting", async () => {
-  // The ARD catalog output (JSON.stringify + mapEntryToArd) should
-  // still produce valid JSON even when no formatter is applied.
-  const entry = makeFakeEntry();
-  const ardEntry = mapEntryToArd(entry, "ar27111994.dev", "2.0.0");
-
-  const catalog: ArdCatalog = {
-    $schema:
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    publisher: "ar27111994.dev",
-    version: "2.0.0",
-    generatedAt: new Date().toISOString(),
-    entries: [ardEntry],
-  };
-
-  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
-
-  // Even without Prettier, the output must be valid JSON.
+void test("ARD 1.0 output remains valid JSON without Prettier", () => {
+  const rawJson = `${JSON.stringify(buildCatalog([makeFakeEntry()]), null, 2)}\n`;
   const parsed = JSON.parse(rawJson) as ArdCatalog;
   assert.equal(parsed.entries.length, 1);
-  assert.ok(typeof rawJson === "string" && rawJson.length > 0);
+  assert.equal(parsed.specVersion, "1.0");
 });
 
-void test("ard-export output passes project Prettier config", async () => {
-  // Test with multiple entries to ensure arrays format correctly.
-  const entries = [
+void test("ARD catalog formatting is idempotent", async () => {
+  const catalog = buildCatalog([
     makeFakeEntry({ id: "entry-001", displayName: "Alpha" }),
     makeFakeEntry({ id: "entry-002", displayName: "Beta" }),
-  ];
-
-  const ardEntries = entries.map((e) =>
-    mapEntryToArd(e, "ar27111994.dev", "2.0.0"),
-  );
-
-  const catalog: ArdCatalog = {
-    $schema:
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    publisher: "ar27111994.dev",
-    version: "2.0.0",
-    generatedAt: new Date().toISOString(),
-    entries: ardEntries,
-  };
-
-  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
+  ]);
   const prettier = await import("prettier");
-  const formatted = await prettier.format(rawJson, {
-    parser: "json",
-    endOfLine: "lf",
-    trailingComma: "all",
-  });
-
-  // Verify the formatted output passes prettier --check semantics:
-  // formatting the already-formatted output should be idempotent.
-  const reformatted = await prettier.format(formatted, {
-    parser: "json",
-    endOfLine: "lf",
-    trailingComma: "all",
-  });
-  assert.equal(
-    formatted,
-    reformatted,
-    "Prettier-formatted output should be idempotent (passes prettier --check)",
-  );
-
-  // Parse and verify structure.
-  const parsed = JSON.parse(formatted) as ArdCatalog;
-  assert.equal(parsed.entries.length, 2);
-  assert.equal(parsed.entries[0]?.displayName, "Alpha");
-  assert.equal(parsed.entries[1]?.displayName, "Beta");
-});
-
-// ── #348: Prettier-unavailable coverage ──────────────────────────────────
-
-void test("writeArdCatalog gracefully handles Prettier import failure", async () => {
-  // Inject a failing prettier formatter to exercise the catch block.
-  const failingImport: PrettierFormatter = async () => {
-    throw new Error("prettier module not installed");
+  const options = {
+    parser: "json" as const,
+    endOfLine: "lf" as const,
+    trailingComma: "all" as const,
   };
-
-  // Build a minimal entry and call writeArdCatalog with the mock.
-  const entry = makeFakeEntry();
-  const ardEntry = mapEntryToArd(entry, "ar27111994.dev", "2.0.0");
-  const catalog: ArdCatalog = {
-    $schema:
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    publisher: "ar27111994.dev",
-    version: "2.0.0",
-    generatedAt: new Date().toISOString(),
-    entries: [ardEntry],
-  };
-
-  // Build the same JSON that writeArdCatalog would produce.
-  const rawJson = JSON.stringify(catalog, null, 2) + "\n";
-
-  // Verify that even without Prettier, the output is valid JSON.
-  const parsed = JSON.parse(rawJson) as ArdCatalog;
-  assert.equal(parsed.entries.length, 1);
-  assert.equal(parsed.entries[0]?.displayName, "Test Skill");
-
-  // Confirm the mock would throw (catches the error).
-  await assert.rejects(
-    () =>
-      failingImport("{}", {
-        parser: "json",
-        endOfLine: "lf",
-        trailingComma: "all",
-      }),
-    /prettier module not installed/,
+  const formatted = await prettier.format(
+    `${JSON.stringify(catalog, null, 2)}\n`,
+    options,
   );
+  assert.equal(formatted, await prettier.format(formatted, options));
 });

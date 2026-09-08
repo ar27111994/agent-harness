@@ -6,20 +6,20 @@ This document describes how `agent-harness` participates in the ARD (Agentic Res
 
 ## Publisher Profile
 
-| Field            | Value                                                |
-| ---------------- | ---------------------------------------------------- |
-| **Project**      | agent-harness                                        |
-| **Publisher**    | ar27111994                                           |
-| **FQDN**         | ar27111994.dev                                       |
-| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json   |
-| **Spec version** | ARD v0.9 (https://agenticresourcediscovery.org/spec) |
-| **URN prefix**   | `urn:ai:ar27111994.dev:*:*`                          |
-| **License**      | MIT                                                  |
-| **Repository**   | https://github.com/ar27111994/agent-harness          |
+| Field            | Value                                               |
+| ---------------- | --------------------------------------------------- |
+| **Project**      | agent-harness                                       |
+| **Publisher**    | ar27111994                                          |
+| **FQDN**         | ar27111994.dev                                      |
+| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json  |
+| **Spec version** | ARD 1.0 (https://agenticresourcediscovery.org/spec) |
+| **URN prefix**   | `urn:air:ar27111994.dev:*:*`                        |
+| **License**      | MIT                                                 |
+| **Repository**   | https://github.com/ar27111994/agent-harness         |
 
 ## What agent-harness Publishes
 
-`agent-harness` publishes a curated catalog of reusable AI-agent assets — skills, MCP servers, plugins, agents, extensions, and prompt packs — discovered across 45+ sources including:
+`agent-harness` publishes a curated catalog of reusable AI-agent assets — skills, MCP servers, plugins, agents, extensions, and prompt packs — discovered across 39 enabled asset-producing sources (of 50 configured; the `docs`-kind entries are metadata-only provenance references):
 
 - **Official first-party repos**: Anthropic, OpenAI, Microsoft, Google, NVIDIA, Supabase, Firebase
 - **Package registries**: npm, PyPI, crates.io, Go, Maven, NuGet, RubyGems, Packagist
@@ -42,7 +42,7 @@ Submit a PR to https://github.com/ards-project/community adding agent-harness to
 
 ```json
 {
-  "identifier": "urn:ai:ar27111994.dev:cli:agent-harness",
+  "identifier": "urn:air:ar27111994.dev:cli:agent-harness",
   "displayName": "agent-harness",
   "type": "application/ai-skill",
   "url": "https://ar27111994.dev/.well-known/ai-catalog.json",
@@ -69,11 +69,13 @@ Submit via https://github.com/huggingface/hf-discover. agent-harness assets incl
 
 ## Conformance
 
-The catalog validates against the ARD v0.9 schema:
+The catalog validates against the ARD 1.0 schema. The repository ships a vendored snapshot of the upstream schema (`discover/schema/ard-ai-catalog-1.0.schema.json`) plus a dependency-free validator:
 
 ```bash
-npx ajv-cli validate -s https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json \
-  -d https://ar27111994.dev/.well-known/ai-catalog.json
+npm run build
+node ./dist/cli.js discover ard-export
+npm run validate:ard-schema
+npm run validate:ard-urls
 ```
 
 ## References
@@ -82,5 +84,5 @@ npx ajv-cli validate -s https://agenticresourcediscovery.org/spec/v0.9/schemas/a
 - [#327](https://github.com/ar27111994/agent-harness/issues/327) — ARD registry consumer adapter
 - [#328](https://github.com/ar27111994/agent-harness/issues/328) — ARD trust-manifest signals
 - [#329](https://github.com/ar27111994/agent-harness/issues/329) — README ARD section
-- [ARD Spec v0.9](https://agenticresourcediscovery.org/spec)
+- [ARD Spec 1.0](https://agenticresourcediscovery.org/spec)
 - [ards-project/ard-spec](https://github.com/ards-project/ard-spec)

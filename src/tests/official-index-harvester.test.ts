@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile } from "../files.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import {
   harvestOfficialSkillIndexes,
   officialIndexHarvesterInternals,
@@ -42,7 +42,7 @@ void test("official index harvester parses entries, resolves repo-backed sources
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -82,7 +82,7 @@ void test("official index harvester parses entries, resolves repo-backed sources
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -213,7 +213,7 @@ void test("official index harvester honors per-index cap before inserting second
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const previousMaxItems =
     process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX = "1";
 
   globalThis.fetch = async (input) => {
@@ -249,7 +249,7 @@ void test("official index harvester honors per-index cap before inserting second
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -320,7 +320,7 @@ void test("official index harvester resolves page repositories, caches them, and
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const fetchedUrls: string[] = [];
 
   globalThis.fetch = async (input) => {
@@ -453,7 +453,7 @@ void test("official index harvester resolves page repositories, caches them, and
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -571,7 +571,7 @@ void test("official index harvester resolves page repositories, caches them, and
 void test("official index resolution helpers reject malformed search and duplicate unresolved states", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async (input) => {
     const url =
@@ -644,7 +644,7 @@ void test("official index resolution helpers reject malformed search and duplica
   context.after(() => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -865,14 +865,14 @@ void test("official index harvester ignores missing configs and unavailable fetc
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () => new Response(null, { status: 404 });
 
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -909,7 +909,7 @@ void test("official index harvester skips malformed rows and resolves fallback r
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -926,7 +926,7 @@ void test("official index harvester skips malformed rows and resolves fallback r
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -1052,7 +1052,7 @@ void test("official index harvester respects AGENT_HARNESS_OFFICIAL_INDEX_MAX_IT
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
   const previousCapFlag =
     process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   // Cap at 1 entry per index — only the first parsed entry should appear.
   process.env.AGENT_HARNESS_OFFICIAL_INDEX_MAX_ITEMS_PER_INDEX = "1";
   // Invalidate cached config so the new env var is picked up.
@@ -1090,7 +1090,7 @@ void test("official index harvester respects AGENT_HARNESS_OFFICIAL_INDEX_MAX_IT
   context.after(async () => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }

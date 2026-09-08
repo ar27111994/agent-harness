@@ -134,8 +134,8 @@ export async function buildDiscoverDiffReport(input: {
   return {
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
-    baselineLabel: input.baselineRoot,
-    currentLabel: input.currentRoot,
+    baselineLabel: normalizeSerializedPathLabel(input.baselineRoot),
+    currentLabel: normalizeSerializedPathLabel(input.currentRoot),
     sources,
     catalog,
     selection,
@@ -164,6 +164,15 @@ export async function buildDiscoverDiffReport(input: {
       lifecycleImpact,
     }),
   };
+}
+
+/**
+ * Keeps serialized state-root labels stable across POSIX and Windows hosts.
+ * These labels are display metadata, so lexical separator normalization is
+ * sufficient and does not change the filesystem paths used above.
+ */
+export function normalizeSerializedPathLabel(pathLabel: string): string {
+  return pathLabel.replaceAll("\\", "/");
 }
 
 function getRequiredOptionValue(args: string[], optionName: string): string {

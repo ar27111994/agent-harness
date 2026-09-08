@@ -17,7 +17,10 @@ The Codex adapter uses the OpenCode-compatible lifecycle host while applying Cod
 
 - writes a managed Codex section into project `AGENTS.md`
 - materializes selected skills into repo-local `.agents/skills/agent-harness/`
-- writes a repo-local `.agents/plugins/marketplace.json` and reviewable `agent-harness` plugin descriptor
+- writes the current reviewable plugin bundle under `plugins/agent-harness/`
+- maintains `.agents/plugins/marketplace.json` with a repo/team marketplace entry that points at the current plugin bundle
+- preserves a legacy `.agents/plugins/agent-harness/` compatibility bundle only when an existing legacy marketplace requires it
+- emits selected agent assets as project custom-agent profiles under `.codex/agents/`
 - stores reference assets under `.codex/agent-harness/`
 - applies structured Codex-native payloads only when assets explicitly provide documented host-native config
 - supports native extension installation via `stage native --host codex` (uses the same VS Code extension install mechanism; #407)
@@ -25,7 +28,7 @@ The Codex adapter uses the OpenCode-compatible lifecycle host while applying Cod
 ## What it does not do by default
 
 - it does not write global `~/.codex` config or plugin cache entries
-- it does not silently enable plugin hooks
+- it does not synthesize or silently enable plugin hooks
 - it does not perform MCP OAuth/login or create MCP server config without structured native payloads
 - it does not create automations, remote connections, browser/computer-use settings, or full-access sandbox settings
 - native extension install requires the `codex` CLI on PATH for runtime validation; falls back to file-only staging when unavailable

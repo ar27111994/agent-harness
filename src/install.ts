@@ -1,5 +1,10 @@
 import { installBundles } from "./install/bundle.js";
 import {
+  formatInstallBundleOutcomeSummary,
+  installBundleOutcomeHasProblems,
+  summarizeInstallBundleOutcome,
+} from "./install/bundle-outcome.js";
+import {
   diffInstallState,
   explainInstalledAsset,
   manageInstallGenerations,
@@ -42,9 +47,12 @@ export async function runInstall(
   }
 
   switch (command) {
-    case "bundle":
+    case "bundle": {
       await installBundles(projectRoot, rest);
-      return 0;
+      const summary = await summarizeInstallBundleOutcome(projectRoot, rest);
+      console.log(formatInstallBundleOutcomeSummary(summary));
+      return installBundleOutcomeHasProblems(summary) ? 1 : 0;
+    }
     case "native":
       await manageNativeInstall(projectRoot, rest);
       return 0;
@@ -150,6 +158,9 @@ function printInstallSubcommandHelp(subcommand: string): void {
         "Stages mirrored assets from bundle lock files into lifecycle-host",
         "package stores. Reads mirror/bundles/*.lock.json and writes staged",
         "assets to the install directory.",
+        "",
+        "Prints a staged/skipped/failed summary. The command exits non-zero",
+        "while any targeted bundle has unresolved skipped assets.",
         "",
         "Options:",
         "  --host <host>        Target host (default: all bundles)",

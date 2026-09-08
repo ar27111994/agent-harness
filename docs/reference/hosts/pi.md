@@ -26,7 +26,7 @@ Pi is a project-local native adapter. It reuses the OpenCode-compatible lifecycl
 - updates `.pi/settings.json` using Pi's documented top-level `skills` and `prompts` arrays
 - includes selected instruction, agent, skill, workflow, and prompt-pack content in the matching managed Pi files
 - materializes selected assets of every supported asset kind under `.pi/agent-harness/`
-- surfaces plugins, hooks, extensions, reference packs, and MCP assets as managed project-readable references
+- stages plugins, hooks, extensions, reference packs, and MCP assets as managed project-readable references; native extension/package installation remains stage-only
 - writes `activate/pi/wire-preview-pi.json`
 - writes `activate/pi/wire-plan.json` on apply
 - avoids global Pi profile mutation
@@ -46,4 +46,5 @@ Host-specific details only; see [Managed wire-in vs native/global install](../..
 - Pi does not include `shared-mcp` in its default bundles.
 - `.pi/agent-harness/` remains a harness-managed reference tree for non-native assets.
 - `.pi/extensions/` and `.pi/packages/` can be synthesized when an asset includes structured host-native config payloads.
+- Stage-only native extension/package assets are not installed or activated by `wire pi`; the operator must review and install them through Pi's supported host workflow.
 - MCP, extension, hook, and plugin assets default to managed references unless they carry compatible Pi-native payloads.

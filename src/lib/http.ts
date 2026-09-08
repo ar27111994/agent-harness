@@ -45,18 +45,29 @@ export interface FetchWithGuardsOptions {
   method?: string;
   resolveHostname?: HostnameResolver;
   signal?: AbortSignal;
+  /** When true, expose non-2xx responses as errors with a numeric status. */
+  throwOnHttpError?: boolean;
   timeoutMs?: number;
 }
 
-const DEFAULT_FETCH = globalThis.fetch;
 type HttpsRequest = typeof request;
 let httpsRequest: HttpsRequest = request;
+let testFetchMocksEnabled = false;
 
 function setHttpsRequestForTests(nextRequest: HttpsRequest): () => void {
   const previousRequest = httpsRequest;
   httpsRequest = nextRequest;
   return () => {
     httpsRequest = previousRequest;
+  };
+}
+
+/** Enables the guarded-fetch mock path for controlled tests only. */
+function setTestFetchMocksForTests(enabled: boolean): () => void {
+  const previous = testFetchMocksEnabled;
+  testFetchMocksEnabled = enabled;
+  return () => {
+    testFetchMocksEnabled = previous;
   };
 }
 
@@ -100,12 +111,11 @@ export async function fetchTextWithGuards(
   const httpConfig = getRuntimeConfig().http;
 
   try {
-    const { addresses, parsedUrl } =
-      await resolveAllowedPublicHttpUrlForRequest(
-        url,
-        options.allowedOrigins ?? [],
-        options.resolveHostname,
-      );
+    const { addresses, parsedUrl } = await resolveGuardedRequestTarget(
+      url,
+      options.allowedOrigins ?? [],
+      options.resolveHostname,
+    );
     const response = await fetchResolvedUrl(
       parsedUrl,
       addresses,
@@ -115,6 +125,9 @@ export async function fetchTextWithGuards(
 
     if (!response.ok) {
       await response.body?.cancel();
+      if (options.throwOnHttpError) {
+        throw buildHttpStatusError(response);
+      }
       return null;
     }
 
@@ -123,7 +136,10 @@ export async function fetchTextWithGuards(
       options.maxBytes ?? httpConfig.maxResponseBytes,
       options.timeoutMs ?? httpConfig.timeoutMs,
     );
-  } catch {
+  } catch (error: unknown) {
+    if (options.throwOnHttpError && isHttpStatusError(error)) {
+      throw error;
+    }
     return null;
   }
 }
@@ -138,12 +154,11 @@ export async function fetchBytesWithGuards(
   const httpConfig = getRuntimeConfig().http;
 
   try {
-    const { addresses, parsedUrl } =
-      await resolveAllowedPublicHttpUrlForRequest(
-        url,
-        options.allowedOrigins ?? [],
-        options.resolveHostname,
-      );
+    const { addresses, parsedUrl } = await resolveGuardedRequestTarget(
+      url,
+      options.allowedOrigins ?? [],
+      options.resolveHostname,
+    );
     const response = await fetchResolvedUrl(
       parsedUrl,
       addresses,
@@ -153,6 +168,9 @@ export async function fetchBytesWithGuards(
 
     if (!response.ok) {
       await response.body?.cancel();
+      if (options.throwOnHttpError) {
+        throw buildHttpStatusError(response);
+      }
       return null;
     }
 
@@ -161,7 +179,10 @@ export async function fetchBytesWithGuards(
       options.maxBytes ?? httpConfig.maxResponseBytes,
       options.timeoutMs ?? httpConfig.timeoutMs,
     );
-  } catch {
+  } catch (error: unknown) {
+    if (options.throwOnHttpError && isHttpStatusError(error)) {
+      throw error;
+    }
     return null;
   }
 }
@@ -274,11 +295,36 @@ async function resolveAllowedPublicHttpUrlForRequest(
   resolveHostname: HostnameResolver = resolveHostnameWithDns,
 ): Promise<{ parsedUrl: URL; addresses: ResolvedHostnameAddress[] }> {
   const parsedUrl = assertAllowedPublicHttpUrl(url, allowedOrigins);
+  if (shouldUseTestFetchMock()) {
+    // Test fetch mocks exercise request construction without requiring
+    // external DNS. The URL/origin and public-host checks above still run.
+    return { parsedUrl, addresses: [] };
+  }
   const addresses = await resolvePublicInternetAddresses(
     parsedUrl,
     resolveHostname,
   );
   return { parsedUrl, addresses };
+}
+
+async function resolveGuardedRequestTarget(
+  url: string,
+  allowedOrigins: readonly string[],
+  resolveHostname?: HostnameResolver,
+): Promise<{ parsedUrl: URL; addresses: ResolvedHostnameAddress[] }> {
+  if (!shouldUseTestFetchMock()) {
+    return resolveAllowedPublicHttpUrlForRequest(
+      url,
+      allowedOrigins,
+      resolveHostname,
+    );
+  }
+
+  // Test fetch mocks should exercise request construction without requiring
+  // external DNS. Keep the URL/origin and public-host checks in place; only
+  // the network resolution is bypassed.
+  const parsedUrl = assertAllowedPublicHttpUrl(url, allowedOrigins);
+  return { parsedUrl, addresses: [] };
 }
 
 async function resolvePublicInternetAddresses(
@@ -352,10 +398,7 @@ function toFetchBody(body: string | Buffer | null): BodyInit | null {
 }
 
 function shouldUseTestFetchMock(): boolean {
-  return (
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS === "1" &&
-    globalThis.fetch !== DEFAULT_FETCH
-  );
+  return testFetchMocksEnabled;
 }
 
 async function fetchWithPinnedResolution(
@@ -509,6 +552,24 @@ function buildRequestHeaders(
   }
 
   return Object.fromEntries(requestHeaders.entries());
+}
+
+function buildHttpStatusError(response: Response): Error & { status: number } {
+  const statusText = response.statusText.trim();
+  const error = new Error(
+    `HTTP ${response.status}${statusText ? ` ${statusText}` : ""}`,
+  ) as Error & { status: number };
+  error.status = response.status;
+  return error;
+}
+
+function isHttpStatusError(
+  error: unknown,
+): error is Error & { status: number } {
+  return (
+    error instanceof Error &&
+    typeof (error as Error & { status?: unknown }).status === "number"
+  );
 }
 
 function buildResponseHeaders(headers: IncomingHttpHeaders): Headers {
@@ -772,11 +833,13 @@ function concatenateChunks(
 export const httpInternals = {
   fetchWithPinnedResolution,
   requestWithPinnedAddress,
+  buildHttpStatusError,
   serializeRequestBody,
   buildResponseHeaders,
   isPrivateIpv4Address,
   isPrivateIpv6Address,
   withBodyReadTimeout,
   setHttpsRequestForTests,
+  setTestFetchMocksForTests,
   normalizeResolvedHostnameAddresses,
 };

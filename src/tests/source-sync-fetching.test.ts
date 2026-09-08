@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 /**
  * Tests for source-sync retry logic, error classification, and stale-data
  * fallback (#351).
@@ -97,7 +98,7 @@ const CAP_PROBE_ORIGINS = ["https://agenticresourcediscovery.org"];
 void test("fetchRequiredText aborts over-cap responses through the guarded fetch layer (review T2)", async () => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   try {
     // Control: a small body under the 5MB default cap returns normally.
     globalThis.fetch = async () =>
@@ -136,9 +137,10 @@ void test("fetchRequiredText aborts over-cap responses through the guarded fetch
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      setHttpTestFetchMocks(previousFlag === "1");
     }
   }
 });
@@ -146,7 +148,7 @@ void test("fetchRequiredText aborts over-cap responses through the guarded fetch
 void test("fetchRequiredText aborts mid-stream when no Content-Length is present (review T2)", async () => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   try {
     // No content-length header: the streaming reader must still abort once
     // the byte count passes maxBytes — covered with a tiny override so no
@@ -169,9 +171,10 @@ void test("fetchRequiredText aborts mid-stream when no Content-Length is present
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      setHttpTestFetchMocks(previousFlag === "1");
     }
   }
 });
@@ -179,7 +182,7 @@ void test("fetchRequiredText aborts mid-stream when no Content-Length is present
 void test("the packagist 25MB response budget is enforced through the same cap path (review T2)", async () => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   try {
     // packagist.ts passes SOURCE_SYNC_LARGE_RESPONSE_MAX_BYTES explicitly;
     // the Content-Length pre-check aborts on the header alone, so the
@@ -222,9 +225,10 @@ void test("the packagist 25MB response budget is enforced through the same cap p
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      setHttpTestFetchMocks(previousFlag === "1");
     }
   }
 });

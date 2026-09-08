@@ -159,6 +159,13 @@ export async function runDiscover(
     return 0;
   }
 
+  // Validate every known discover subcommand before dispatch. Keeping this
+  // guard at the common boundary also covers no-option commands such as
+  // demand-profile, sources, catalog, and index (#461).
+  if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
+    return 1;
+  }
+
   switch (command) {
     case "demand-profile":
       logDiscoverPhase(
@@ -216,9 +223,6 @@ export async function runDiscover(
       return 0;
     }
     case "sync": {
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       const forceFullFlag = rest.includes("--full");
       if (!forceFullFlag && (await isCatalogIndexFresh(projectRoot))) {
         // The index is fresh but source-sync state may be stale or empty.
@@ -246,9 +250,6 @@ export async function runDiscover(
       return 0;
     }
     case "select": {
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       logDiscoverPhase("discover select", 1, 1, "Applying selection rules");
       await generateSelectionOutputs(projectRoot);
@@ -264,9 +265,6 @@ export async function runDiscover(
       );
     }
     case "full": {
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       const aiEnrichmentFlags = parseAiEnrichmentFlags(rest);
       const quietMode = rest.includes("--quiet");
       const summaryMode = rest.includes("--summary");
@@ -386,15 +384,9 @@ export async function runDiscover(
     case "recall":
     case "candidate-pool":
       // These subcommands take no options; any flag is unknown (#431).
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       await runDiscoveryBreadth(workingDirectory, projectRoot);
       return 0;
     case "enrich":
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       return handleAiEnrichmentResult(
         await orchestrateAiEnrichment(projectRoot, {
           trigger: "manual",
@@ -405,27 +397,15 @@ export async function runDiscover(
         }),
       );
     case "stats":
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       await printCatalogStats(projectRoot);
       return 0;
     case "diff":
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       await writeDiscoverDiffReport(projectRoot, rest);
       return 0;
     case "environment-index":
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       await writeEnvironmentIndex(projectRoot, rest);
       return 0;
     case "ard-export": {
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       // Try to resolve a real version from the workspace root (not --state-root)
       // so the ARD catalog carries the correct publisher version.
       let pkgVersion: string | undefined;
@@ -448,9 +428,6 @@ export async function runDiscover(
       return 0;
     }
     case "inspect":
-      if (hasUnknownFlagsForDiscoverCommand(command, rest)) {
-        return 1;
-      }
       await inspectCatalog(projectRoot, rest);
       return 0;
     case "help":
@@ -466,9 +443,9 @@ function printSourceHealthSummary(
   options: { quietMode: boolean; summaryMode: boolean },
 ): void {
   if (options.quietMode) {
-    if (report.severeCount > 0) {
+    if (report.errorCount > 0) {
       console.log(
-        `Source health: ${report.severeCount} severe issue(s) require attention (${report.warningCount} warnings suppressed by --quiet).`,
+        `Source health: ${report.errorCount} errors require attention (${report.warningCount} warnings suppressed by --quiet).`,
       );
     } else {
       console.log(
@@ -492,7 +469,7 @@ function printSourceHealthSummary(
       .sort(([, a], [, b]) => b - a)
       .map(([reason, count]) => `  ${count} sources: ${reason}`);
     console.log(
-      `Source health: ${report.severeCount} severe, ${report.warningCount} warnings — breakdown:` +
+      `Source health: ${report.errorCount} errors, ${report.warningCount} warnings — breakdown:` +
         (lines.length > 0 ? `\n${lines.join("\n")}` : " none"),
     );
   }

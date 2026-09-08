@@ -29,13 +29,6 @@ import {
   setActiveDeadline,
 } from "./lib/deadline.js";
 
-/**
- * Returns the package version from the installed package.json.
- *
- * `pkgRoot` is injectable for tests: the default resolves the real package
- * root from this module, and callers may point at an arbitrary package
- * directory to exercise the missing-file / missing-version fallbacks.
- */
 async function readPackageVersion(
   pkgRoot: string = resolveProjectRoot(fileURLToPath(import.meta.url)),
 ): Promise<string> {
@@ -80,9 +73,7 @@ async function main(): Promise<number> {
   }
 
   const packageRoot = resolveProjectRoot(fileURLToPath(import.meta.url));
-  if (!globalOptions.noDotEnv) {
-    await loadDotEnvFile(workingDirectory);
-  }
+  if (!globalOptions.noDotEnv) await loadDotEnvFile(workingDirectory);
   clearRuntimeConfig();
   clearGitHubState();
   const preparedStateRoot = resolveStateRoot({
@@ -101,11 +92,6 @@ async function main(): Promise<number> {
   try {
     return await runDomainCommand(domain, args, workingDirectory, projectRoot);
   } catch (error) {
-    // User-input errors print a one-line actionable message with a usage
-    // pointer instead of an internal stack trace (#446); anything else
-    // propagates so genuine bugs keep full stacks at the top-level catch.
-    // `domain` is always defined here: help/version requests short-circuit
-    // before the try, so the hint template cannot render "undefined".
     if (error instanceof CliUsageError) {
       printCliUsageError(error, `agent-harness ${domain} --help`);
       return 1;
@@ -114,11 +100,7 @@ async function main(): Promise<number> {
   }
 }
 
-/**
- * Dispatches a parsed domain token to its runner. Extracted from `main` so
- * in-process tests can exercise every dispatch branch (#428) without
- * spawning a child CLI (subprocess execution is invisible to c8 coverage).
- */
+/** Dispatches one CLI domain and returns its process exit code. */
 export async function runDomainCommand(
   domain: string | undefined,
   args: string[],
@@ -131,9 +113,8 @@ export async function runDomainCommand(
     case "mirror":
       return runMirror(args, workingDirectory, projectRoot);
     case "bundle":
-      if (args.length === 0) {
+      if (args.length === 0)
         return runMirror(["help"], workingDirectory, projectRoot);
-      }
       if (args[0] !== "explain") {
         printHelp();
         return 1;
@@ -168,8 +149,6 @@ export async function runDomainCommand(
       printHelp();
       return 0;
     default:
-      // Unknown option/command: print a conventional error naming the
-      // argument instead of dumping the full top-level help (#431).
       printUnknownArgumentError(domain);
       return 1;
   }
@@ -200,8 +179,6 @@ function runHelpCommand(
   args: string[],
   workingDirectory: string,
 ): Promise<number> {
-  // Determine whether help was explicitly requested (--help / -h in original args).
-  // We need this before filtering because the nonFlagArgs filter removes them.
   const wasHelpRequested =
     args.includes("--help") || args.includes("-h") || args[0] === "help";
 
@@ -209,21 +186,10 @@ function runHelpCommand(
     (arg) => arg !== "--help" && arg !== "-h" && arg !== "help",
   );
 
-  // When --help appears at subcommand depth (e.g., "discover full --help"),
-  // route to the domain handler. The original subcommand is preserved and
-  // "--help" is appended so domain handlers can show subcommand-specific
-  // help instead of executing (#383). Handlers must detect --help and
-  // print help text without performing any mutation.
   if (nonFlagArgs.length >= 2) {
     const [domain, subcommand, ...extra] = nonFlagArgs;
-    // Preserve the original subcommand so domain handlers can show
-    // subcommand-specific help. Mutating domains receive the subcommand +
-    // --help flag — handlers must detect --help and show help text instead
-    // of executing the subcommand (#383).
     const domainArgs = [subcommand, ...extra];
-    if (wasHelpRequested) {
-      domainArgs.push("--help");
-    }
+    if (wasHelpRequested) domainArgs.push("--help");
     switch (domain) {
       case "discover":
         return runDiscover(domainArgs, workingDirectory, "");
@@ -232,11 +198,6 @@ function runHelpCommand(
       case "mirror":
         return runMirror(domainArgs, workingDirectory, "");
       case "bundle":
-        // Map bundle subcommands to internal mirror subcommands (#418).
-        // bundle explain --help should show "bundle explain" help, not
-        // "mirror explain" — route it to the bundle-explain handler.
-        // Reject unknown subcommands consistently with the execution path.
-        // domainArgs[0] is guaranteed by the length>=2 gate above.
         if (domainArgs[0] !== "explain") {
           printUnknownArgumentError(domainArgs[0]);
           return Promise.resolve(1);
@@ -274,7 +235,6 @@ function runHelpCommand(
     case "discover":
       return runDiscover(["help"], workingDirectory, "");
     case "mirror":
-      return runMirror(["help"], workingDirectory, "");
     case "bundle":
       return runMirror(["help"], workingDirectory, "");
     case "install":
@@ -313,21 +273,12 @@ function resolveHelpDomain(args: string[]): string | undefined {
       ? domainAfterHelp
       : undefined;
   }
-
   return args.find((arg) => arg !== "--help" && arg !== "-h");
 }
 
-/**
- * Maps bundle-domain subcommands to internal mirror subcommands for help
- * routing (#418). When a user types `bundle explain --help`, the help
- * dispatch must route to the `bundle-explain` handler in mirror.ts so the
- * heading shows "bundle explain" rather than "mirror explain".
- */
 function mapBundleSubcommandForHelp(args: string[]): string[] {
   const subcommand = args[0];
-  if (subcommand === "explain") {
-    return ["bundle-explain", ...args.slice(1)];
-  }
+  if (subcommand === "explain") return ["bundle-explain", ...args.slice(1)];
   return args;
 }
 
@@ -348,16 +299,12 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
       index += 1;
       continue;
     }
-
     if (arg.startsWith("--state-root=")) {
       const value = arg.slice("--state-root=".length);
-      if (!value) {
-        throw new Error("--state-root requires a path value");
-      }
+      if (!value) throw new Error("--state-root requires a path value");
       stateRoot = value;
       continue;
     }
-
     if (arg === "--timeout-seconds") {
       const value = args[index + 1];
       if (!value || value.startsWith("--")) {
@@ -372,12 +319,9 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
       index += 1;
       continue;
     }
-
     if (arg.startsWith("--timeout-seconds=")) {
       const value = arg.slice("--timeout-seconds=".length);
-      if (!value) {
-        throw new Error("--timeout-seconds requires a number value");
-      }
+      if (!value) throw new Error("--timeout-seconds requires a number value");
       timeoutSeconds = resolveTimeoutSeconds(value);
       if (timeoutSeconds === undefined) {
         throw new Error(
@@ -386,12 +330,10 @@ function parseGlobalOptions(args: string[]): GlobalCliOptions {
       }
       continue;
     }
-
     if (arg === "--no-dotenv") {
       noDotEnv = true;
       continue;
     }
-
     nextArgs.push(arg);
   }
 
@@ -411,6 +353,10 @@ function printHelp(): void {
           "  agent-harness workspace vscode         Full pipeline for VS Code/Copilot",
           "  agent-harness workspace cursor         Full pipeline for Cursor",
           "",
+          "  Discovery pipeline: demand-profile -> sources -> sync (optional cache/index refresh) -> catalog -> select -> recommend report",
+          "  Outputs: mutable discovery/recommendation artifacts are written under <state-root>/discover/output and <state-root>/state.",
+          "  Shortcut: 'discover full' runs demand-profile -> sources -> sync -> catalog -> select; then run 'recommend report'.",
+          "",
           "  Run 'agent-harness <command> --help' for detailed command options.",
         ],
       },
@@ -418,10 +364,10 @@ function printHelp(): void {
         title: "Discover — scan workspaces and build asset catalogs:",
         lines: [
           "  discover demand-profile     Scan the working directory for demand signals",
-          "  discover sources            Summarize enabled discovery sources",
-          "  discover sync               Persist indexed sync results for high-volume sources",
+          "  discover sources            Summarize enabled asset-producing discovery sources",
+          "  discover sync               Optional refresh/persist step for high-volume indexed sources",
           "  discover index              Build full offline catalog index (500 pages per source)",
-          "  discover catalog            Build the unified asset catalog",
+          "  discover catalog            Build the unified asset catalog (can harvest without prior sync)",
           "  discover select             Apply canonical selection policies",
           "  discover full               Run demand-profile -> sources -> sync -> catalog -> select",
           "  discover breadth            Widest discovery pass with candidate-pool guidance",
@@ -438,7 +384,7 @@ function printHelp(): void {
       {
         title: "Recommend — score and rank assets for your workspace:",
         lines: [
-          "  recommend report            Build a scored recommendation report",
+          "  recommend report            Build a scored report (requires discover select outputs)",
           "  recommend ai-review         Run recommendation-native AI review (--apply to rewrite report)",
           "  recommend explain           Explain why an asset was selected, rejected, or pruned",
           "  recommend evaluate          Evaluate recommendation quality and host fit",
@@ -533,10 +479,6 @@ function printHelp(): void {
   });
 }
 
-// Run the CLI only when executed directly (node dist/cli.js). When the
-// module is imported (in-process unit tests, #428), the dispatch helpers
-// must be importable without side effects — module-scope execution would
-// otherwise run a full CLI pass with the importing process' argv.
 if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(process.argv[1]).href
@@ -551,9 +493,7 @@ if (
     });
 }
 
-/**
- * Exposes narrow CLI internals for focused unit tests.
- */
+/** Exposes CLI dispatch helpers for focused tests. */
 export const cliInternals = {
   mapBundleSubcommandForHelp,
   runDomainCommand,

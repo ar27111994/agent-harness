@@ -1,17 +1,20 @@
 /**
- * Tests for `--quiet` and `--summary` flags on `discover full` (#352).
+ * Tests for `--quiet` and `--summary` source-health data used by `discover full`
+ * (#352, #465).
  *
- * Validates that `printSourceHealthSummary` correctly filters and aggregates
- * source health warnings based on the mode flags.
+ * Keep these tests free of process-global console mocks: the coverage suite runs
+ * with `--test-isolation=none`, so replacing `console.log` can interfere with
+ * unrelated test files executing in the same process.
  */
 
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { discoverInternals } from "../discover.js";
 import type { SourceHealthReport } from "../domains/discovery/source-health.js";
 
 /**
- * Builds a minimal SourceHealthReport for testing output filtering.
+ * Builds a minimal SourceHealthReport for testing filtering and aggregation.
  */
 function buildReport(
   overrides: Partial<SourceHealthReport> = {},
@@ -20,7 +23,7 @@ function buildReport(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     sourceCount: 0,
-    severeCount: 0,
+    errorCount: 0,
     warningCount: 0,
     sources: [],
     ...overrides,
@@ -64,12 +67,12 @@ function buildEntry(
   };
 }
 
-// ── Default mode (no flags) — no additional output beyond the existing line ─
+// ── Default mode — preserve canonical error/warning counts ───────────────
 
-void test("printSourceHealthSummary: default mode does not alter output", () => {
+void test("source-health counts use canonical error vocabulary", () => {
   const report = buildReport({
-    sourceCount: 3,
-    severeCount: 1,
+    sourceCount: 4,
+    errorCount: 1,
     warningCount: 2,
     sources: [
       buildEntry("src-a", "error", ["source sync failed"]),
@@ -79,29 +82,45 @@ void test("printSourceHealthSummary: default mode does not alter output", () => 
       buildEntry("src-c", "warning", [
         "source produced entries but none survived selection",
       ]),
+      buildEntry("src-d", "ok", []),
     ],
   });
 
-  // Default mode — no quiet, no summary. The function is called in case "full".
-  // Verify counts are accurate.
-  assert.equal(report.severeCount, 1);
-  assert.equal(report.warningCount, 2);
-  assert.equal(report.sourceCount, 3);
+  const errorSources = report.sources.filter(
+    (source) => source.severity === "error",
+  ).length;
+  const warningSources = report.sources.filter(
+    (source) => source.severity === "warning",
+  ).length;
+  const okSources = report.sources.filter(
+    (source) => source.severity === "ok",
+  ).length;
+
+  assert.equal(report.errorCount, errorSources);
+  assert.equal(report.warningCount, warningSources);
+  assert.equal(report.sourceCount, errorSources + warningSources + okSources);
+  assert.equal(errorSources, 1);
+  assert.equal(warningSources, 2);
+  assert.equal(okSources, 1);
+
+  discoverInternals.printSourceHealthSummary(report, {
+    quietMode: false,
+    summaryMode: false,
+  });
 });
 
-// ── --quiet mode: suppress warnings, show only errors ────────────────────
+// ── --quiet mode data: warnings are suppressible, errors remain visible ──
 
-void test("printSourceHealthSummary: --quiet suppresses warnings", () => {
+void test("source-health quiet-mode data preserves errors and warnings", () => {
   const report = buildReport({
-    sourceCount: 5,
-    severeCount: 2,
+    sourceCount: 132,
+    errorCount: 2,
     warningCount: 130,
     sources: [
       buildEntry("err-1", "error", ["source sync failed"]),
       buildEntry("err-2", "error", [
         "official-first-party source is not marked publisherVerified",
       ]),
-      // 130 warning sources — all "none survived selection"
       ...Array.from({ length: 130 }, (_, i) =>
         buildEntry(`warn-${i}`, "warning", [
           "source produced entries but none survived selection",
@@ -110,25 +129,24 @@ void test("printSourceHealthSummary: --quiet suppresses warnings", () => {
     ],
   });
 
-  // In --quiet mode, only severeCount matters for display.
-  // The warnings are suppressed.
-  assert.equal(
-    report.severeCount,
-    2,
-    "only 2 severe sources should be visible",
-  );
+  assert.equal(report.errorCount, 2, "only 2 error sources should be visible");
   assert.equal(
     report.warningCount,
     130,
-    "130 warnings exist but are suppressed",
+    "130 warnings exist but are suppressible",
   );
-  assert.ok(report.severeCount > 0, "severe issues still surfaced");
+  assert.ok(report.errorCount > 0, "errors remain surfaced");
+
+  discoverInternals.printSourceHealthSummary(report, {
+    quietMode: true,
+    summaryMode: false,
+  });
 });
 
-void test("printSourceHealthSummary: --quiet shows all-clear when no errors", () => {
+void test("source-health quiet-mode data supports all-clear errors", () => {
   const report = buildReport({
-    sourceCount: 3,
-    severeCount: 0,
+    sourceCount: 100,
+    errorCount: 0,
     warningCount: 100,
     sources: Array.from({ length: 100 }, (_, i) =>
       buildEntry(`warn-${i}`, "warning", [
@@ -137,16 +155,21 @@ void test("printSourceHealthSummary: --quiet shows all-clear when no errors", ()
     ),
   });
 
-  assert.equal(report.severeCount, 0, "no errors — all-clear in quiet mode");
-  assert.equal(report.warningCount, 100, "all warnings suppressed");
+  assert.equal(report.errorCount, 0, "no errors means error all-clear");
+  assert.equal(report.warningCount, 100, "warnings remain counted");
+
+  discoverInternals.printSourceHealthSummary(report, {
+    quietMode: true,
+    summaryMode: false,
+  });
 });
 
-// ── --summary mode: aggregate breakdown by reason ────────────────────────
+// ── --summary mode data: aggregate warning reasons only ──────────────────
 
-void test("printSourceHealthSummary: --summary aggregates warnings by reason", () => {
+void test("source-health summary data aggregates warnings by reason", () => {
   const report = buildReport({
     sourceCount: 5,
-    severeCount: 1,
+    errorCount: 1,
     warningCount: 4,
     sources: [
       buildEntry("err-1", "error", ["source sync failed"]),
@@ -163,44 +186,34 @@ void test("printSourceHealthSummary: --summary aggregates warnings by reason", (
     ],
   });
 
-  // Aggregate by reason.
   const byReason = new Map<string, number>();
   for (const source of report.sources) {
+    if (source.severity !== "warning") continue;
     for (const reason of source.reasons) {
       byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
     }
   }
 
   const sorted = [...byReason.entries()].sort(([, a], [, b]) => b - a);
-
-  // The most common reason should be "none survived selection" (3 sources).
-  const topReason = sorted[0];
-  assert.equal(
-    topReason?.[0],
-    "source produced entries but none survived selection",
-  );
-  assert.equal(topReason?.[1], 3);
-
-  // The other two reasons should have count 1 each.
-  const rest = sorted.slice(1);
-  const restReasons = new Set(rest.map(([r]) => r));
+  assert.deepEqual(sorted, [
+    ["source produced entries but none survived selection", 3],
+    ["duplicate rate is 75%", 1],
+  ]);
   assert.ok(
-    restReasons.has("duplicate rate is 75%"),
-    "should include duplicate rate",
+    !byReason.has("source sync failed"),
+    "error reasons must not be mixed into the warning breakdown",
   );
-  assert.ok(
-    restReasons.has("source sync failed"),
-    "should include sync failure",
-  );
-  for (const [, count] of rest) {
-    assert.equal(count, 1);
-  }
+
+  discoverInternals.printSourceHealthSummary(report, {
+    quietMode: false,
+    summaryMode: true,
+  });
 });
 
-void test("printSourceHealthSummary: --summary handles empty reasons gracefully", () => {
+void test("source-health summary data handles empty reasons gracefully", () => {
   const report = buildReport({
     sourceCount: 1,
-    severeCount: 0,
+    errorCount: 0,
     warningCount: 1,
     sources: [
       {
@@ -225,20 +238,26 @@ void test("printSourceHealthSummary: --summary handles empty reasons gracefully"
 
   const byReason = new Map<string, number>();
   for (const source of report.sources) {
+    if (source.severity !== "warning") continue;
     for (const reason of source.reasons) {
       byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
     }
   }
 
   assert.equal(byReason.size, 0, "no reasons to aggregate for empty reasons");
+
+  discoverInternals.printSourceHealthSummary(report, {
+    quietMode: false,
+    summaryMode: true,
+  });
 });
 
-// ── Mixed scenarios ─────────────────────────────────────────────────────
+// ── Mixed scenarios ──────────────────────────────────────────────────────
 
-void test("printSourceHealthSummary: preserved counts are accurate after filtering", () => {
+void test("source-health counts remain accurate after filtering", () => {
   const report = buildReport({
     sourceCount: 10,
-    severeCount: 1,
+    errorCount: 1,
     warningCount: 9,
     sources: [
       buildEntry("err", "error", ["fetch failed"]),
@@ -255,14 +274,19 @@ void test("printSourceHealthSummary: preserved counts are accurate after filteri
     ],
   });
 
-  // Stale data warnings: 5
-  // None-survived-selection: 4
-  // Errors: 1
-  assert.equal(report.severeCount, 1);
+  assert.equal(report.errorCount, 1);
   assert.equal(report.warningCount, 9);
+  assert.equal(
+    report.errorCount,
+    report.sources.filter((source) => source.severity === "error").length,
+  );
+  assert.equal(
+    report.warningCount,
+    report.sources.filter((source) => source.severity === "warning").length,
+  );
 
-  const staleCount = report.sources.filter((s) =>
-    s.reasons.some((r) => r.startsWith("using stale data")),
+  const staleCount = report.sources.filter((source) =>
+    source.reasons.some((reason) => reason.startsWith("using stale data")),
   ).length;
   assert.equal(staleCount, 5);
 });

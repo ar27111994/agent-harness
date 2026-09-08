@@ -15,7 +15,7 @@ import test from "node:test";
 
 import { clearRuntimeConfig } from "../config/runtime.js";
 import { runWorkspace } from "../workspace.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { runSetup } from "../setup.js";
 import { runRebuild } from "../rebuild.js";
 import { runWire } from "../wire.js";
@@ -478,13 +478,13 @@ void test("workspace prints and fails on prerequisite diagnostics from activated
   // the single selected skill.
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async () =>
     new Response("# fixture skill\ncontent", { status: 200 });
   t.after(() => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }
@@ -659,13 +659,13 @@ void test("workspace passes multiple intents through the pipeline (#428)", async
 
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async () =>
     new Response("# fixture skill\ncontent", { status: 200 });
   t.after(() => {
     globalThis.fetch = originalFetch;
     if (previousFetchMockFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
     }

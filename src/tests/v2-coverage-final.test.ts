@@ -58,7 +58,7 @@ import {
   loadRuntimeConfig,
 } from "../config/runtime.js";
 import { packageRegistryHarvesterInternals } from "../domains/discovery/package-registry-harvester.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { syncIndexedSources } from "../domains/discovery/source-sync.js";
 import { writeJsonFile } from "../files.js";
 import { assertSelectionReport } from "../manifest-validation/discovery.js";
@@ -88,14 +88,14 @@ async function withFetchMock<T>(
 ): Promise<T> {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async (input) => mockFn(input);
   try {
     return await fn();
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFlag);
     }

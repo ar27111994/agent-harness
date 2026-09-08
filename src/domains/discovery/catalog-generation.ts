@@ -194,18 +194,22 @@ export async function generateCatalog(projectRoot: string): Promise<{
     } => source.kind !== "repo",
   );
 
-  const totalSources = nonRepoSources.length + repoSources.length;
+  const repoSlice = repoSources.slice(
+    remoteHarvestState.nextRepoOffset,
+    remoteHarvestState.nextRepoOffset + repoBatchSize,
+  );
+  const scheduledSourceCount = nonRepoSources.length + repoSlice.length;
   let processedSources = 0;
   const deadline = getActiveDeadline();
 
   process.stderr.write(
-    `[discover catalog] Building catalog from ${totalSources} enabled sources\n`,
+    `[discover catalog] Scheduled ${scheduledSourceCount} source(s) this pass from ${enabledSources.length} enabled asset-producing sources (${repoSlice.length}/${repoSources.length} repo sources in the rotating batch).\n`,
   );
 
   for (const source of nonRepoSources) {
-    processedSources++;
+    processedSources += 1;
     process.stderr.write(
-      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (${source.kind})\n`,
+      `[discover catalog] source ${processedSources}/${scheduledSourceCount}: ${source.id} (${source.kind})\n`,
     );
     assertNotDeadlineExceeded(deadline, `discover catalog source ${source.id}`);
     if (indexedSourceIds.has(source.id)) {
@@ -227,16 +231,12 @@ export async function generateCatalog(projectRoot: string): Promise<{
     );
   }
 
-  const repoSlice = repoSources.slice(
-    remoteHarvestState.nextRepoOffset,
-    remoteHarvestState.nextRepoOffset + repoBatchSize,
-  );
   const harvestedRepoEntries: AssetCatalogEntry[] = [];
 
   for (const source of repoSlice) {
-    processedSources++;
+    processedSources += 1;
     process.stderr.write(
-      `[discover catalog] ${processedSources}/${totalSources} ${source.id} (repo)\n`,
+      `[discover catalog] source ${processedSources}/${scheduledSourceCount}: ${source.id} (repo)\n`,
     );
     assertNotDeadlineExceeded(deadline, `discover catalog repo ${source.id}`);
     if (isGitHubRepoSource(source)) {
@@ -253,7 +253,7 @@ export async function generateCatalog(projectRoot: string): Promise<{
   }
 
   process.stderr.write(
-    `[discover catalog] Writing catalog (${catalogEntries.length} entries)...\n`,
+    `[discover catalog] Local/indexed subtotal: ${catalogEntries.length} entries; freshly harvested repo entries: ${harvestedRepoEntries.length}; merging cached remote state next.\n`,
   );
 
   const repoSliceSourceIds = new Set(repoSlice.map((source) => source.id));
@@ -298,7 +298,7 @@ export async function generateCatalog(projectRoot: string): Promise<{
   });
 
   console.log(
-    `Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} entries)`,
+    `Catalog written to ${toPosixPath(outputPath)} (${sortedEntries.length} total deduplicated entries)`,
   );
 
   return {
@@ -486,7 +486,7 @@ export async function generateSelectionOutputs(
   );
   if (!options.quietMode && !options.summaryMode) {
     console.log(
-      `Source health reports written (${sourceHealthReport.severeCount} severe, ${sourceHealthReport.warningCount} warnings)`,
+      `Source health reports written (${sourceHealthReport.errorCount} errors, ${sourceHealthReport.warningCount} warnings)`,
     );
   }
   console.log(

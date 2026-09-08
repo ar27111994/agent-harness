@@ -95,7 +95,9 @@ void test("discovery reporting writes source index and source utilization artifa
       sourceIndex.enabledSources.map((source) => [source.id, source]),
     );
     assert.equal(byId.get("repo-source")?.coverageMode, "rotating");
-    assert.equal(byId.get("docs-source")?.coverageMode, "direct");
+    // Docs sources remain in the registry as provenance, but are metadata-only
+    // and therefore excluded from enabled-source lifecycle reports.
+    assert.equal(byId.has("docs-source"), false);
     assert.equal(byId.get("marketplace-source")?.coverageMode, "indexed");
     assert.equal(byId.get("marketplace-source")?.syncStatus, "complete");
     assert.equal(byId.get("local-claude-code-config")?.coverageMode, "direct");

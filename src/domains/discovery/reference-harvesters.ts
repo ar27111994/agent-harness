@@ -1,5 +1,6 @@
 import { getRuntimeConfig } from "../../config/runtime.js";
 import { fetchJsonWithGuards, fetchTextWithGuards } from "../../lib/http.js";
+import { harvestOpenVsxExtensions } from "./open-vsx-harvester.js";
 import type {
   AssetKind,
   CompatibilityMode,
@@ -21,6 +22,7 @@ export interface HarvestedReferenceItem {
   manifestEntry?: string;
   installs?: number;
   lastUpdated?: string;
+  version?: string;
   /**
    * The actual publisher of this item, when available from the harvest source.
    * Overrides the source-level `publisher.name` when building catalog entries.
@@ -28,6 +30,12 @@ export interface HarvestedReferenceItem {
    * `"eamodio"` for GitLens) rather than the marketplace owner (`"Microsoft"`).
    */
   publisherName?: string;
+  /**
+   * Whether the harvested item publisher is explicitly verified by the item
+   * registry. This is intentionally separate from source-level publisher
+   * verification because a registry owner does not verify every item.
+   */
+  publisherVerified?: boolean;
   /**
    * Additional trust signals for this item (e.g. `"oms-signed"`,
    * `"oms-trust-anchor"`) harvested from the source payload. These are merged
@@ -55,6 +63,10 @@ export async function harvestReferenceItems(
 ): Promise<HarvestedReferenceItem[]> {
   if (source.kind === "marketplace" && source.id === "vscode-marketplace") {
     return harvestVsCodeMarketplaceItems(source, demandProfile);
+  }
+
+  if (source.id === "open-vsx-registry") {
+    return harvestOpenVsxExtensions(source, demandProfile);
   }
 
   if (source.kind === "docs" || source.kind === "registry") {

@@ -74,5 +74,5 @@ function summarizeSourceHealth(report) {
     return "not present";
   }
 
-  return `${report.sourceCount ?? 0} sources, ${report.severeCount ?? 0} severe, ${report.warningCount ?? 0} warnings`;
+  return `${report.sourceCount ?? 0} sources, ${report.errorCount ?? 0} errors, ${report.warningCount ?? 0} warnings`;
 }

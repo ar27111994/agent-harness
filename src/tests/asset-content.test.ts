@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { writeJsonFile, writeTextFile } from "../files.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { resolveAssetContent } from "../asset-content.js";
 import { sanitizeAssetId } from "../lib/safe-paths.js";
 import type { AssetCatalogEntry } from "../types.js";
@@ -80,7 +80,7 @@ function buildAsset(
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
 
@@ -158,7 +158,7 @@ void test("resolveAssetContent fetches officialskills page content when mirrored
   });
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   try {
     globalThis.fetch = async () =>

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { harvestOfficialSkillIndexes } from "../domains/discovery/official-index-harvester.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import {
   fetchOfficialIndexPageContent,
   fetchOfficialIndexPageInfo,
@@ -16,7 +16,7 @@ import {
 void test("official index page content does not double-decode escaped entities", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   try {
     globalThis.fetch = async () =>
@@ -55,7 +55,7 @@ void test("official index repo extraction respects checked-in owner allowlist", 
   );
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   try {
     await mkdir(join(projectRoot, "discover"), { recursive: true });
@@ -116,7 +116,7 @@ void test("official index repo extraction respects checked-in owner allowlist", 
 void test("official index info extracts fallback sections and normalizes repository urls", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -206,7 +206,7 @@ void test("official index summary helpers cover fallback and empty branches", ()
 void test("official index repository url helper rejects non-github links and empty content", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   let responseIndex = 0;
   globalThis.fetch = async () => {
@@ -245,7 +245,7 @@ void test("official index repository url helper rejects non-github links and emp
 void test("official index content falls back to meta description when the summary section has no paragraph", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -278,7 +278,7 @@ void test("official index content falls back to meta description when the summar
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
 

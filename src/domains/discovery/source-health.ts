@@ -52,13 +52,15 @@ export interface SourceHealthEntry {
 }
 
 /**
- * Describes deterministic source/catalogue health outputs.
+ * Describes deterministic source/catalogue health outputs. Aggregate counter
+ * names intentionally use the exact severity vocabulary (`error`, `warning`)
+ * emitted by each source entry so machine and human reports stay in lockstep.
  */
 export interface SourceHealthReport {
   schemaVersion: number;
   generatedAt: string;
   sourceCount: number;
-  severeCount: number;
+  errorCount: number;
   warningCount: number;
   sources: SourceHealthEntry[];
 }
@@ -282,7 +284,7 @@ export function buildSourceHealthReport(
     schemaVersion: 1,
     generatedAt: new Date().toISOString(),
     sourceCount: sources.length,
-    severeCount: sources.filter((source) => source.severity === "error").length,
+    errorCount: sources.filter((source) => source.severity === "error").length,
     warningCount: sources.filter((source) => source.severity === "warning")
       .length,
     sources,

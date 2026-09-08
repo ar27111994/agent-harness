@@ -313,7 +313,13 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             schemaVersion: 2,
             plugins: [
               { name: "existing", path: "./existing" },
-              { name: "agent-harness", path: "./stale-agent-harness" },
+              // An unrelated user-owned entry that happens to share the
+              // "agent-harness" NAME but not the managed identity (its path is
+              // neither localSourcePath ./plugins/agent-harness nor legacyPath
+              // ./agent-harness). isManagedMarketplaceEntry keys on identity,
+              // not name alone — so this SAME-NAME user entry must survive both
+              // apply and reset (review thread ...byOS).
+              { name: "agent-harness", path: "./user-owned-same-name" },
               "ignored malformed entry",
             ],
           },
@@ -429,6 +435,7 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             schemaVersion: 2,
             plugins: [
               { name: "existing", path: "./existing" },
+              { name: "agent-harness", path: "./user-owned-same-name" },
               "ignored malformed entry",
               { name: "agent-harness", path: "./agent-harness" },
             ],
@@ -559,6 +566,7 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
             schemaVersion: 2,
             plugins: [
               { name: "existing", path: "./existing" },
+              { name: "agent-harness", path: "./user-owned-same-name" },
               "ignored malformed entry",
             ],
           },
@@ -571,23 +579,21 @@ void test("Claude Code, Pi, and Codex native wire apply/reset manage project-loc
 });
 
 void test("Codex plugin manifest omits hook registration when hook assets are absent", () => {
-  assert.deepEqual(
-    nativeWireInternals.buildCodexPluginManifest([
-      {
-        assetId: "codex.skill",
-        assetKind: "skill",
-        displayName: "Codex Skill",
-        compatibilityMode: "native",
-        content: "# Codex skill\n",
-      },
-    ]),
-    {
-      name: "agent-harness",
-      version: "1.0.0",
-      description: "Project-local Agent Harness assets for OpenAI Codex.",
-      skills: "./skills",
-    },
-  );
+  const manifest = nativeWireInternals.buildCodexPluginManifest();
+  assert.equal(manifest.name, "agent-harness");
+  assert.equal(manifest.version, "2.1.0");
+  assert.equal(manifest.skills, "./skills/");
+  assert.equal("hooks" in manifest, false);
+  assert.deepEqual(manifest.author, { name: "Agent Harness" });
+  assert.deepEqual(manifest.interface, {
+    displayName: "Agent Harness",
+    shortDescription: "Curated project context and skills for Codex.",
+    longDescription:
+      "Project-local Agent Harness context, curated skills, and custom agents for OpenAI Codex.",
+    developerName: "Agent Harness",
+    category: "Productivity",
+    capabilities: ["Project context", "Skills", "Custom agents"],
+  });
 });
 
 void test("restoreManagedSectionFromSnapshot preserves other host sections in AGENTS.md", async () => {

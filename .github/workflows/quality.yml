@@ -26,6 +26,11 @@ jobs:
       - name: Check out repository
         # actions/checkout@v4
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Full history so check:version-sync's tag-vs-manifest guard (#467)
+          # can enumerate released tags instead of silently skipping on a
+          # shallow checkout (which fetches no tags by default).
+          fetch-depth: 0
 
       - name: Set up Node.js
         # actions/setup-node@v4

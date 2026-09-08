@@ -115,6 +115,8 @@ Official docs:
 - <https://code.claude.com/docs/en/slash-commands>
 - <https://code.claude.com/docs/en/sub-agents>
 - <https://code.claude.com/docs/en/hooks>
+- <https://code.claude.com/docs/en/plugins>
+- <https://code.claude.com/docs/en/plugin-marketplaces>
 - <https://code.claude.com/docs/en/settings>
 
 | Surface                                             | Classification     | Notes                                                                                                |
@@ -126,6 +128,8 @@ Official docs:
 | `.claude/skills/`                                   | documented         | Native skills surface                                                                                |
 | `.claude/commands/`                                 | compatibility-path | Compatibility-supported; modern docs emphasize skills first                                          |
 | `.mcp.json` / `.claude/settings*.json` MCP settings | documented         | Synthesized when an asset includes structured host-native config payloads for those documented files |
+| `.claude-plugin/marketplace.json`                   | documented         | Project-local marketplace index containing the managed `./plugins/agent-harness` source              |
+| `plugins/agent-harness/.claude-plugin/plugin.json`  | documented         | Managed local plugin manifest with version and author metadata                                       |
 | `.claude/agent-harness/`                            | harness-managed    | Managed reference tree for non-native assets                                                         |
 
 ## Pi
@@ -139,15 +143,18 @@ Official docs:
 - <https://pi.dev/docs/latest/packages>
 - <https://pi.dev/docs/latest/usage>
 
-| Surface                                  | Classification  | Notes                                                                                                   |
-| ---------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `AGENTS.md`                              | documented      | Native Pi instructions/context surface                                                                  |
-| `SYSTEM.md`                              | documented      | Project system-prompt augmentation surface used by Pi                                                   |
-| `.pi/skills/`                            | documented      | Native Pi skill surface                                                                                 |
-| `.pi/prompts/`                           | documented      | Native Pi prompt-template surface                                                                       |
-| `.pi/settings.json` `skills` / `prompts` | documented      | Adapter now writes documented top-level arrays                                                          |
-| `.pi/extensions/` / `.pi/packages/`      | documented      | Synthesized when an asset includes structured host-native config payloads for those documented surfaces |
-| `.pi/agent-harness/`                     | harness-managed | Managed reference tree for non-native assets                                                            |
+| Surface                                  | Classification  | Notes                                                                                                    |
+| ---------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                              | documented      | Native Pi instructions/context surface                                                                   |
+| `SYSTEM.md`                              | documented      | Project system-prompt augmentation surface used by Pi                                                    |
+| `.pi/skills/`                            | documented      | Native Pi skill surface                                                                                  |
+| `.pi/prompts/`                           | documented      | Native Pi prompt-template surface                                                                        |
+| `.pi/settings.json` `skills` / `prompts` | documented      | Adapter now writes documented top-level arrays                                                           |
+| `.pi/extensions/` / `.pi/packages/`      | stage-only      | Staged or synthesized as references when payloads exist; the Pi adapter does not claim wire-time install |
+| `.pi/agent-harness/`                     | harness-managed | Managed reference tree for non-native assets                                                             |
+
+Pi native extension/package capabilities are intentionally stage-only in v2.1.0. They remain available
+for review and explicit host-side installation, but `wire pi` does not silently install or activate them.
 
 ## OpenAI Codex
 
@@ -162,22 +169,23 @@ Official docs:
 - <https://developers.openai.com/codex/hooks>
 - <https://developers.openai.com/codex/config-basic>
 
-| Surface                                                       | Classification     | Notes                                                                                                                                                           |
-| ------------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AGENTS.md`                                                   | documented         | Native Codex instruction surface; harness writes a managed `agent-harness-codex` section                                                                        |
-| `.agents/skills/agent-harness/SKILL.md`                       | documented         | Repo-scoped Open Agent Skill surface; harness materializes a skill summary there                                                                                |
-| `.agents/plugins/agent-harness/`                              | documented         | Repo-local plugin directory; harness writes a `.codex-plugin/plugin.json` bundle                                                                                |
-| `.agents/plugins/marketplace.json`                            | documented         | Repo marketplace index; harness merges an `agent-harness` plugin entry                                                                                          |
-| `.agents/plugins/agent-harness/skills/agent-harness/SKILL.md` | compatibility-path | Plugin-bundled skill copy for Codex app plugin surface compatibility                                                                                            |
-| `.codex/config.toml`                                          | documented         | Synthesized for MCP server entries only when an asset carries a structured Codex-native `text` payload for this path; auth/login remains explicit               |
-| `.codex/hooks.json`                                           | documented         | Synthesized when an asset carries a structured Codex-native `json` hook payload and a merge is required; plugin hooks (`[features].plugin_hooks`) remain opt-in |
-| `.codex/rules/*.rules`                                        | documented         | Synthesized when an asset carries a structured Codex-native payload targeting this path; Starlark-like `prefix_rule` format                                     |
-| `.codex/agent-harness/`                                       | harness-managed    | Managed reference tree for non-native assets (reference packs, non-wired MCP/hook refs)                                                                         |
-| `~/.codex/config.toml` (global)                               | not-synthesized    | Intentionally not written; global Codex config and plugin cache remain the user's responsibility                                                                |
-| `~/.codex/plugins/cache/`                                     | not-synthesized    | Intentionally not written; plugin caches require explicit marketplace install flows                                                                             |
-| Automations / remote connections / worktrees                  | not-synthesized    | App-specific runtime features; not auto-wired by the harness                                                                                                    |
+| Surface                                               | Classification     | Notes                                                                                                                                             |
+| ----------------------------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENTS.md`                                           | documented         | Native Codex instruction surface; harness writes a managed `agent-harness-codex` section                                                          |
+| `.agents/skills/agent-harness/SKILL.md`               | documented         | Repo-scoped Open Agent Skill surface; harness materializes a skill summary there                                                                  |
+| `plugins/agent-harness/`                              | documented         | Current repo/team plugin directory; harness writes `.codex-plugin/plugin.json`, skills, agents, and commands                                      |
+| `plugins/agent-harness/skills/agent-harness/SKILL.md` | documented         | Current plugin-bundled skill surface                                                                                                              |
+| `.agents/plugins/marketplace.json`                    | documented         | Repo/team marketplace index; harness merges an `agent-harness` entry pointing at `plugins/agent-harness/`                                         |
+| `.agents/plugins/agent-harness/`                      | compatibility-path | Legacy plugin bundle preserved only when an existing legacy marketplace requires that shape                                                       |
+| `.codex/config.toml`                                  | documented         | Synthesized for MCP server entries only when an asset carries a structured Codex-native `text` payload for this path; auth/login remains explicit |
+| `.codex/hooks.json`                                   | explicit-payload   | Accepted only for a structured host-native hook payload; the current plugin manifest does not synthesize hook registration                        |
+| `.codex/rules/*.rules`                                | documented         | Synthesized when an asset carries a structured Codex-native payload targeting this path; Starlark-like `prefix_rule` format                       |
+| `.codex/agent-harness/`                               | harness-managed    | Managed reference tree for non-native assets (reference packs, non-wired MCP/hook refs)                                                           |
+| `~/.codex/config.toml` (global)                       | not-synthesized    | Intentionally not written; global Codex config and plugin cache remain the user's responsibility                                                  |
+| `~/.codex/plugins/cache/`                             | not-synthesized    | Intentionally not written; plugin caches require explicit marketplace install flows                                                               |
+| Automations / remote connections / worktrees          | not-synthesized    | App-specific runtime features; not auto-wired by the harness                                                                                      |
 
-**Lifecycle host note:** The Codex adapter (`id: codex`, aliases `openai-codex` / `codex-app`) reuses the `opencode` lifecycle host for activation and preview because both hosts consume project-local Markdown context, Open Agent Skills, plugin directories, hook JSON, and MCP references through similar file layouts. Codex now supports native extension installation via `stage native --host codex` (same VS Code extension mechanism; #407). Reset (`wire codex --reset`) removes the `AGENTS.md` managed section, `.agents/skills/agent-harness`, `.agents/plugins/agent-harness`, the marketplace entry, and empty parent dirs; `.codex/` structured config is cleaned up separately.
+**Lifecycle host note:** The Codex adapter (`id: codex`, aliases `openai-codex` / `codex-app`) reuses the `opencode` lifecycle host for activation and preview because both hosts consume project-local Markdown context, Open Agent Skills, plugin directories, and MCP references through similar file layouts. Codex now supports native extension installation via `stage native --host codex` (same VS Code extension mechanism; #407). Reset (`wire codex --reset`) removes the `AGENTS.md` managed section, `.agents/skills/agent-harness`, the current `plugins/agent-harness` bundle, any legacy compatibility bundle, the managed marketplace entry, and empty parent dirs; `.codex/` structured config is cleaned up separately.
 
 ## Discovery-source note for Cursor assets
 
@@ -187,7 +195,7 @@ Cursor now has a separate checked-in source entry for its own official marketpla
 
 ---
 
-## Host Compatibility Gaps — v2.0.0 audit (#314)
+## Host Compatibility Gaps — current audit
 
 ### 1. Cursor — VS Code extension partial compatibility
 
@@ -197,11 +205,11 @@ Cursor is a VS Code fork and supports installing extensions from the VS Code Mar
 
 **Evidence:** <https://cursor.com/help/customization/extensions>
 
-### 2. Windsurf — VS Code extension partial compatibility
+### 2. Windsurf — removed compatibility target
 
-**Status:** Documented. Windsurf is a VS Code fork with the same extension compatibility characteristics as Cursor. Windsurf entries in source packs should include `"windsurf"` in the `hosts` array when assets are VS Code extension-compatible.
+**Status:** Not a registered v2.1.0 host. Windsurf was removed from the compatible-host matrix in #475, so source packs must not imply that the harness wires or targets it.
 
-**Evidence:** <https://docs.windsurf.com/windsurf/cascade/mcp>
+The adapter-development guide uses a neutral example host instead of Windsurf-specific wiring.
 
 ### 3. GitHub Copilot CLI / copilot-vscode — Claude Code plugin format partial compatibility
 

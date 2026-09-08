@@ -1,3 +1,4 @@
+import { setHttpTestFetchMocks } from "./env-test-utils.js";
 import assert from "node:assert/strict";
 import type { ClientRequest, IncomingMessage } from "node:http";
 import { Readable } from "node:stream";
@@ -13,6 +14,13 @@ import {
   httpInternals,
   readResponseBytesWithLimit,
 } from "../lib/http.js";
+
+void test("test fetch mock injection restores its previous state", () => {
+  const restoreEnabled = httpInternals.setTestFetchMocksForTests(true);
+  restoreEnabled();
+  const restoreDisabled = httpInternals.setTestFetchMocksForTests(false);
+  restoreDisabled();
+});
 
 void test("fetchWithTimeout propagates an already-aborted caller signal", async () => {
   const originalFetch = globalThis.fetch;
@@ -43,7 +51,7 @@ void test("fetchWithTimeout propagates an already-aborted caller signal", async 
 void test("guarded fetch test mocks serialize request bodies and parse json responses", async () => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   const observed: Array<{
     method: string | undefined;
@@ -79,6 +87,10 @@ void test("guarded fetch test mocks serialize request bodies and parse json resp
       return new Response("not-json", { status: 200 });
     }
 
+    if (callCount === 4) {
+      return new Response("server-error", { status: 500, statusText: "" });
+    }
+
     return new Response("server-error", { status: 500 });
   };
 
@@ -102,6 +114,24 @@ void test("guarded fetch test mocks serialize request bodies and parse json resp
       body: Buffer.from("body"),
       resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
     });
+    await assert.rejects(
+      fetchBytesWithGuards("https://example.com/api", {
+        allowedOrigins: ["https://example.com"],
+        body: "empty-status",
+        resolveHostname: async () => [{ address: "8.8.8.8", family: 4 }],
+        throwOnHttpError: true,
+      }),
+      /HTTP 500/u,
+    );
+    const emptyStatusError = httpInternals.buildHttpStatusError(
+      new Response("failure", { status: 418, statusText: "" }),
+    );
+    assert.equal(emptyStatusError.message, "HTTP 418");
+    assert.equal(emptyStatusError.status, 418);
+    const namedStatusError = httpInternals.buildHttpStatusError(
+      new Response("failure", { status: 418, statusText: "I'm a teapot" }),
+    );
+    assert.equal(namedStatusError.message, "HTTP 418 I'm a teapot");
 
     assert.deepEqual(jsonResult, { ok: true, bodyText: "alpha=1&beta=2" });
     assert.equal(invalidJsonResult, null);
@@ -122,6 +152,11 @@ void test("guarded fetch test mocks serialize request bodies and parse json resp
         contentLength: String(Buffer.byteLength("body")),
         bodyText: "body",
       },
+      {
+        method: "POST",
+        contentLength: String(Buffer.byteLength("empty-status")),
+        bodyText: "empty-status",
+      },
     ]);
   } finally {
     globalThis.fetch = originalFetch;
@@ -132,7 +167,7 @@ void test("guarded fetch test mocks serialize request bodies and parse json resp
 void test("guarded fetch mocks respect explicit methods and array-buffer request bodies", async () => {
   const originalFetch = globalThis.fetch;
   const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   const bodyBuffer = new TextEncoder().encode("array-buffer-body");
   let observedMethod: string | undefined;
   let observedBody: string | undefined;
@@ -311,6 +346,7 @@ void test("http guards cover branch-only address and lookup variants", async () 
   assert.deepEqual(singleResult, { address: "1.1.1.1", family: 4 });
 
   for (const address of [
+    "172.16.0.1",
     "100.64.0.1",
     "192.0.0.8",
     "192.88.99.1",
@@ -320,6 +356,14 @@ void test("http guards cover branch-only address and lookup variants", async () 
   ]) {
     assert.equal(httpInternals.isPrivateIpv4Address(address), true, address);
   }
+  assert.equal(httpInternals.isPrivateIpv4Address("172.32.0.1"), false);
+});
+
+void test("DNS resolution rejects localhost as a non-public hostname", async () => {
+  await assert.rejects(
+    assertPublicInternetResolution(new URL("https://localhost/path")),
+    /non-public/u,
+  );
 });
 
 void test("pinned http requests preserve sparse status and multi-value headers", async () => {
@@ -363,6 +407,9 @@ void test("pinned http requests preserve sparse status and multi-value headers",
 });
 
 function restoreEnv(name: string, value: string | undefined): void {
+  if (name === "AGENT_HARNESS_TEST_FETCH_MOCKS") {
+    setHttpTestFetchMocks(value === "1");
+  }
   if (value === undefined) {
     delete process.env[name];
     return;
@@ -379,16 +426,17 @@ async function withFetchMock(
 ): Promise<void> {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
   globalThis.fetch = async () => new Response(body, { status: 200 });
   try {
     await run();
   } finally {
     globalThis.fetch = originalFetch;
     if (previousFlag === undefined) {
-      delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+      setHttpTestFetchMocks(false);
     } else {
       process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = previousFlag;
+      setHttpTestFetchMocks(previousFlag === "1");
     }
   }
 }

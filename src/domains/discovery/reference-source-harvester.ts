@@ -84,7 +84,13 @@ export function buildReferenceSourceCatalogEntry(
     getReferenceSourceOriginUrl(source);
   const assetKind: AssetKind = harvestedItem?.assetKind ?? "reference-pack";
   const harvestedContent = harvestedItem?.summary ?? options.harvestedContent;
-  const wasHarvested = typeof harvestedContent === "string";
+  // A registry/marketplace item is still a successfully harvested manifest even
+  // when its optional summary is blank. Semantic evidence is stricter: an empty
+  // summary must not masquerade as README/content evidence (#459).
+  const wasHarvested =
+    harvestedItem !== undefined || typeof options.harvestedContent === "string";
+  const hasSemanticContent =
+    typeof harvestedContent === "string" && harvestedContent.trim().length > 0;
   const displayName = harvestedItem?.displayName ?? source.name;
   const capabilities = uniqueStrings([
     ...splitIntoKeywords(source.name),
@@ -105,6 +111,11 @@ export function buildReferenceSourceCatalogEntry(
   const installMethod =
     harvestedItem?.installMethod ??
     (wasHarvested ? `${source.kind}-summary` : `${source.kind}-reference`);
+  const publisherName =
+    harvestedItem?.publisherName ?? source.publisher?.name ?? source.id;
+  const publisherVerified = harvestedItem
+    ? harvestedItem.publisherVerified === true
+    : (source.publisher?.verified ?? false);
 
   return {
     id: buildCatalogId(source.id, originUrl),
@@ -119,16 +130,15 @@ export function buildReferenceSourceCatalogEntry(
       sourceKind: source.kind,
       sourcePriority: source.priority,
       originUrl,
-      publisher:
-        harvestedItem?.publisherName ?? source.publisher?.name ?? source.id,
-      publisherVerified: source.publisher?.verified ?? false,
+      publisher: publisherName,
+      publisherVerified,
     },
     trust: {
       score: computeTrustScore({
         authorityTier: source.authorityTier,
         sourceKind: source.kind,
         sourcePriority: source.priority,
-        publisherVerified: source.publisher?.verified ?? false,
+        publisherVerified,
         compatibilityMode,
         installMethod,
       }),
@@ -137,7 +147,7 @@ export function buildReferenceSourceCatalogEntry(
           authorityTier: source.authorityTier,
           sourceKind: source.kind,
           sourcePriority: source.priority,
-          publisherVerified: source.publisher?.verified ?? false,
+          publisherVerified,
           compatibilityMode,
           installMethod,
         }),
@@ -156,10 +166,12 @@ export function buildReferenceSourceCatalogEntry(
     },
     evidence: {
       manifestFound: wasHarvested,
-      readmeFound: wasHarvested,
+      readmeFound: hasSemanticContent,
       examplesFound: false,
       docsLinked: true,
-      lineCount: harvestedContent?.split(/\r?\n/u).length ?? 1,
+      lineCount: hasSemanticContent
+        ? harvestedContent!.split(/\r?\n/u).length
+        : 0,
       rootPath: originUrl,
       classification: buildClassificationConfidence({
         assetKind,

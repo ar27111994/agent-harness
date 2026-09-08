@@ -69,20 +69,36 @@ export const MIRROR_SUBCOMMAND_FLAG_SPECS: Record<string, SubcommandFlagSpec> =
   };
 
 /**
- * Flag spec table for discover subcommands (review S3): replaces the
- * ad-hoc per-case `hasUnknownFlag(rest, new Set([...]), ...)` blocks with
- * the same shared table + guard primitive the other command domains use,
- * so discover flag handling can never diverge from the pattern enforced
- * everywhere else. Subcommands without options (breadth/recall/
- * candidate-pool/stats/ard-export body flags) declare empty sets, so ANY
- * flag is rejected exactly as before. demand-profile/sources/catalog/index
- * are intentionally absent: they historically accepted options without
- * validation and the sweep contract only covers the guarded set.
+ * Flag spec table for discover subcommands. Every subcommand is represented,
+ * including no-option report/build commands, so typo'd flags can never be
+ * silently ignored. Commands whose state root is parsed globally still expose
+ * no command-local flags here; the global parser strips `--state-root` before
+ * this guard runs (#461).
  */
 export const DISCOVER_SUBCOMMAND_FLAG_SPECS: Record<
   string,
   SubcommandFlagSpec
 > = {
+  "demand-profile": {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness discover demand-profile --help",
+  },
+  sources: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness discover sources --help",
+  },
+  catalog: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness discover catalog --help",
+  },
+  index: {
+    knownFlags: new Set(),
+    flagsWithValues: new Set(),
+    usageHint: "agent-harness discover index --help",
+  },
   sync: {
     knownFlags: new Set(["--full"]),
     flagsWithValues: new Set(),

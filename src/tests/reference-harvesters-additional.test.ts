@@ -13,7 +13,7 @@ import {
   selectDemandQueries,
 } from "../domains/discovery/reference-harvesters.js";
 import { clearRuntimeConfigForTests } from "../config/runtime.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import type { DemandProfile, SourceDefinition } from "../types.js";
 
 void test("selectDemandQueries extracts normalized demand signals and always includes base queries", () => {
@@ -53,7 +53,7 @@ void test("selectDemandQueries with null profile returns default base queries on
 void test("generic docs harvester decodes HTML entities in link text", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -86,7 +86,7 @@ void test("generic docs harvester decodes HTML entities in link text", async (co
 void test("fetchVsCodeMarketplaceItemsForQuery returns paginated results", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -130,7 +130,7 @@ void test("fetchVsCodeMarketplaceItemsForQuery returns paginated results", async
 void test("fetchVsCodeMarketplaceItemsForQuery handles malformed API responses", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   // Return empty/malformed responses
   globalThis.fetch = async () =>
@@ -157,7 +157,7 @@ void test("fetchVsCodeMarketplaceItemsForQuery handles malformed API responses",
 void test("VS Code marketplace harvester dedupes results across multiple queries", async (context) => {
   const originalFetch = globalThis.fetch;
   const previousFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-  process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+  setHttpTestFetchMocks(true);
 
   globalThis.fetch = async () =>
     new Response(
@@ -197,7 +197,7 @@ void test("VS Code marketplace harvester dedupes results across multiple queries
 
 function restoreFetchMockFlag(previousValue: string | undefined): void {
   if (previousValue === undefined) {
-    delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+    setHttpTestFetchMocks(false);
     return;
   }
   restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousValue);

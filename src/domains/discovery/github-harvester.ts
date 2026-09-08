@@ -119,9 +119,12 @@ function buildGitHubCatalogEntry(
 ): AssetCatalogEntry | null {
   const relativePath = treeEntry.path;
 
-  // Skip dependency directories — these contain installed packages, not
-  // agent assets. Ticket: #405.
-  if (isDependencyDirectoryPath(relativePath)) {
+  // Skip dependency directories and implementation-only files — these contain
+  // installed packages or components of an asset, not standalone assets.
+  if (
+    isDependencyDirectoryPath(relativePath) ||
+    isImplementationOnlyRepositoryPath(relativePath, source)
+  ) {
     return null;
   }
 
@@ -650,16 +653,16 @@ function isExecutableMcpServerPath(
   normalizedPath: string,
   source: SourceDefinition,
 ): boolean {
-  if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
-    return false;
-  }
-
   if (
     source.mcpServerPaths?.some((pathPattern) =>
       matchesSourcePathPattern(normalizedPath, pathPattern),
     )
   ) {
     return true;
+  }
+
+  if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
+    return false;
   }
 
   return /(^|\/)(mcp[-_ ]?servers?|servers?\/.*mcp|.*mcp[-_ ]?server.*)(\/|\.|$)/u.test(
@@ -675,6 +678,59 @@ function isGenericRepositoryArtifact(normalizedPath: string): boolean {
     /\.(ipynb|csv|parquet|jsonl|bib|tex|stl|step|kicad_pcb|uproject|godot)$/u.test(
       normalizedPath,
     )
+  );
+}
+
+/**
+ * Rejects implementation-only files that happen to live below directories
+ * containing words such as `mcp`, `server`, or `plugin`. These files are
+ * components of an installable unit, not standalone agent assets.
+ */
+function isImplementationOnlyRepositoryPath(
+  relativePath: string,
+  source?: SourceDefinition,
+): boolean {
+  const normalized = normalizeSourceFilterPath(relativePath);
+  const basename = normalized.slice(normalized.lastIndexOf("/") + 1);
+
+  // An explicit MCP entrypoint path is a declared installable boundary, even
+  // when its implementation lives below a conventional `src` directory.
+  if (
+    source?.mcpServerPaths?.some((pathPattern) =>
+      matchesSourcePathPattern(normalized, pathPattern),
+    )
+  ) {
+    return false;
+  }
+
+  // Root repository instruction files describe the repository itself; they are
+  // not reusable pack assets. Nested host-specific instruction files remain
+  // eligible through the normal classifier.
+  if (!normalized.includes("/") && /^(?:claude|agents)\.md$/u.test(basename)) {
+    return true;
+  }
+
+  const isImplementationDirectory =
+    /(^|\/)(?:src|source|lib|libs|data|test|tests|spec|specs|__tests__)(\/|$)/u.test(
+      normalized,
+    );
+  if (!isImplementationDirectory) {
+    return false;
+  }
+
+  // Preserve explicit agent manifests even when a source chooses to keep them
+  // under an implementation directory.
+  if (
+    basename === "skill.md" ||
+    basename === "plugin.json" ||
+    basename === "marketplace.json" ||
+    basename === "copilot-instructions.md"
+  ) {
+    return false;
+  }
+
+  return /\.(?:[cm]?[jt]sx?|ya?ml|json|toml|py|go|rs|java|kt|cs|cpp|cc|c|h|hpp)$/u.test(
+    basename,
   );
 }
 
@@ -743,5 +799,7 @@ function isDependencyDirectoryPath(relativePath: string): boolean {
 export const githubHarvesterInternals = {
   collectRepositoryTrustEvidence,
   isDependencyDirectoryPath,
+  isImplementationOnlyRepositoryPath,
+  matchesSourcePathFilters,
   buildGitHubCatalogEntry,
 } as const;

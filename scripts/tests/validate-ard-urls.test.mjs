@@ -25,10 +25,12 @@ async function withTempDir(fn) {
 async function writeCatalog(dir, entries) {
   const catalog = {
     $schema:
-      "https://agenticresourcediscovery.org/spec/v0.9/schemas/ai-catalog.json",
-    publisher: "test.example.com",
-    version: "1.0.0",
-    generatedAt: new Date().toISOString(),
+      "https://raw.githubusercontent.com/ards-project/ard-spec/main/spec/schemas/ai-catalog.schema.json",
+    specVersion: "1.0",
+    host: {
+      displayName: "Test publisher",
+      identifier: "https://test.example.com",
+    },
     entries,
   };
   const path = join(dir, "ai-catalog.json");
@@ -96,6 +98,45 @@ void test("validateArdUrls passes with mix of HTTP and local file URLs", async (
   });
 });
 
+void test("validateArdUrls accepts ARD 1.0 inline data entries", async () => {
+  await withTempDir(async (dir) => {
+    const path = await writeCatalog(dir, [
+      {
+        identifier: "a",
+        url: "https://github.com/test/SKILL.md",
+        type: "app/ai-skill",
+      },
+      {
+        identifier: "b",
+        url: "https://registry.example.com/pkg",
+        type: "application/mcp-server+json",
+      },
+      {
+        identifier: "c",
+        url: "https://github.com/test2/SKILL.md",
+        type: "app/ai-skill",
+      },
+      {
+        identifier: "d",
+        url: "https://github.com/test3/SKILL.md",
+        type: "app/ai-skill",
+      },
+      {
+        identifier: "e",
+        data: { command: "agent-harness" },
+        type: "application/ai-skill+json",
+      },
+    ]);
+    const result = validateArdUrls(path);
+    assert.ok(result.ok, `Expected pass but got: ${result.errors.join("; ")}`);
+    assert.equal(result.stats.total, 5);
+    assert.equal(result.stats.httpCount, 4);
+    assert.equal(result.stats.inlineDataCount, 1);
+    assert.equal(result.stats.missingCount, 0);
+    assert.equal(result.stats.fraction, 0.8);
+  });
+});
+
 void test("validateArdUrls fails when HTTP ratio is below 80%", async () => {
   await withTempDir(async (dir) => {
     const path = await writeCatalog(dir, [
@@ -140,7 +181,11 @@ void test("validateArdUrls fails when entries have no url field", async () => {
     const result = validateArdUrls(path);
     assert.ok(!result.ok);
     assert.equal(result.stats.missingCount, 1);
-    assert.ok(result.errors.some((e) => e.includes("missing or empty url")));
+    assert.ok(
+      result.errors.some((e) =>
+        e.includes("neither a usable url nor inline data"),
+      ),
+    );
   });
 });
 

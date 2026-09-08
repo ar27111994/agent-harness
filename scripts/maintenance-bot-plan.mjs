@@ -151,7 +151,7 @@ export function buildSourceVerificationIssues(report) {
 }
 
 export function buildReportOnlyPullRequests(sourceHealth, issues) {
-  const hasBlockingHealthFindings = (sourceHealth?.severeCount ?? 0) > 0;
+  const hasBlockingHealthFindings = (sourceHealth?.errorCount ?? 0) > 0;
   const hasReportOnlyUpdates =
     Boolean(sourceHealth) && issues.length === 0 && !hasBlockingHealthFindings;
   if (!hasReportOnlyUpdates) {
@@ -164,7 +164,7 @@ export function buildReportOnlyPullRequests(sourceHealth, issues) {
       labels: ["maintenance", "report-only"],
       evidence: {
         sourceCount: sourceHealth.sourceCount,
-        severeCount: sourceHealth.severeCount,
+        errorCount: sourceHealth.errorCount,
         warningCount: sourceHealth.warningCount,
       },
       allowedChanges: [

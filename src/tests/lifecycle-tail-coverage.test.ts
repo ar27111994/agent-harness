@@ -13,7 +13,7 @@ import test from "node:test";
 
 import { cliInternals } from "../cli.js";
 import { clearRuntimeConfig } from "../config/runtime.js";
-import { restoreEnvVar } from "./env-test-utils.js";
+import { restoreEnvVar, setHttpTestFetchMocks } from "./env-test-utils.js";
 import { runDiscover, discoverInternals } from "../discover.js";
 import {
   SOURCE_SYNC_ENTRIES_OUTPUT_PATH,
@@ -597,8 +597,12 @@ void test("discover ard-export tolerates an unreadable package.json (#428)", asy
     const { readFile } = await import("node:fs/promises");
     const catalog = JSON.parse(
       await readFile(join(stateRoot, ".well-known", "ai-catalog.json"), "utf8"),
-    ) as { publisher: { name?: string } };
-    assert.ok(catalog.publisher, "ard catalog written");
+    ) as {
+      specVersion?: string;
+      host?: { identifier?: string };
+    };
+    assert.equal(catalog.specVersion, "1.0");
+    assert.equal(catalog.host?.identifier, "https://ar27111994.dev");
   } finally {
     chdir(originalCwd);
   }
@@ -955,22 +959,19 @@ void test("setup doctor adapter runner: non-timeout throw, aborted-signal diagno
     /boom/u,
   );
 
-  // Same throw after the cumulative signal already fired → the catch
-  // returns a timeout diagnostic instead of crashing.
+  // Same throw after the cumulative signal already fired → the outer doctor
+  // runner owns the cumulative diagnostic, so this helper rethrows.
   const aborted = AbortSignal.timeout(0);
   await new Promise((resolve) => setTimeout(resolve, 5));
-  const diagnostics = await setupInternals.runAdapterPreflightWithTimeout(
-    adapter,
-    5_000,
-    undefined,
-    aborted,
-    preflightFns,
-  );
-  assert.ok(
-    diagnostics.some(
-      (diagnostic) => diagnostic.code === `${adapter.id}-doctor-timeout`,
+  await assert.rejects(
+    setupInternals.runAdapterPreflightWithTimeout(
+      adapter,
+      5_000,
+      undefined,
+      aborted,
+      preflightFns,
     ),
-    "aborted-signal fallback returns a timeout diagnostic",
+    /boom/u,
   );
 
   // Already-aborted cumulative signal → the wireSignal branch aborts the
@@ -989,6 +990,78 @@ void test("setup doctor adapter runner: non-timeout throw, aborted-signal diagno
     preflightFnsOk,
   );
   assert.deepEqual(raced, [], "race resolves with the preflight result");
+});
+
+void test("setup doctor maps adapter-specific timeout failures", async () => {
+  const { setupInternals } = await import("../setup.js");
+  const { listHostAdapters } = await import("../host-adapters/registry.js");
+  const adapter = listHostAdapters()[0];
+  const preflightFns = {
+    runHostPreflight: async () => [],
+    runAdapterPreflight: async () => {
+      throw new DOMException("adapter timed out", "TimeoutError");
+    },
+    collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+  } as never;
+
+  const diagnostics = await setupInternals.runAdapterPreflightWithTimeout(
+    adapter,
+    5_000,
+    undefined,
+    undefined,
+    preflightFns,
+  );
+  assert.deepEqual(diagnostics, [
+    {
+      severity: "warning",
+      code: `${adapter.id}-doctor-timeout`,
+      message: "Preflight check timed out after 5000ms.",
+      action:
+        "Increase AGENT_HARNESS_SETUP_DOCTOR_HOST_TIMEOUT_MS or check the host CLI for hanging processes.",
+    },
+  ]);
+});
+
+void test("setup doctor does not mask a non-timeout adapter error as a per-adapter timeout", async () => {
+  const { setupInternals } = await import("../setup.js");
+  const { listHostAdapters } = await import("../host-adapters/registry.js");
+  const adapter = listHostAdapters()[0];
+  const originalTimeout = AbortSignal.timeout;
+  const controller = new AbortController();
+  (AbortSignal as unknown as { timeout: () => AbortSignal }).timeout = () =>
+    controller.signal;
+
+  try {
+    const preflightFns = {
+      runHostPreflight: async () => [],
+      runAdapterPreflight: async () => {
+        // Abort the per-adapter timeout signal BEFORE throwing. The abort
+        // listener rejects the race with signal.reason, and — because the
+        // reason here is a plain Error rather than a DOMException TimeoutError
+        // (the only reason a real AbortSignal.timeout produces) — this is NOT a
+        // timeout. A genuine adapter failure must propagate, not be relabeled
+        // as a doctor-timeout warning (the removed `if (signal.aborted)` arm,
+        // commit 01b8205).
+        controller.abort(new Error("adapter signal aborted"));
+        throw new Error("adapter failed after abort");
+      },
+      collectActivatedAssetPrerequisiteDiagnostics: async () => [],
+    } as never;
+
+    await assert.rejects(
+      setupInternals.runAdapterPreflightWithTimeout(
+        adapter,
+        5_000,
+        undefined,
+        undefined,
+        preflightFns,
+      ),
+      /adapter (?:signal aborted|failed after abort)/u,
+    );
+  } finally {
+    (AbortSignal as unknown as { timeout: typeof originalTimeout }).timeout =
+      originalTimeout;
+  }
 });
 
 void test(
@@ -1136,13 +1209,13 @@ void test(
     // the single selected skill.
     const originalFetch = globalThis.fetch;
     const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     globalThis.fetch = async () =>
       new Response("# fixture skill\ncontent", { status: 200 });
     t.after(() => {
       globalThis.fetch = originalFetch;
       if (previousFetchMockFlag === undefined) {
-        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+        setHttpTestFetchMocks(false);
       } else {
         restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
@@ -1266,13 +1339,13 @@ void test(
 
     const originalFetch = globalThis.fetch;
     const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     globalThis.fetch = async () =>
       new Response("# fixture skill\ncontent", { status: 200 });
     t.after(() => {
       globalThis.fetch = originalFetch;
       if (previousFetchMockFlag === undefined) {
-        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+        setHttpTestFetchMocks(false);
       } else {
         restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
@@ -1364,13 +1437,13 @@ void test(
 
     const originalFetch = globalThis.fetch;
     const previousFetchMockFlag = process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
-    process.env.AGENT_HARNESS_TEST_FETCH_MOCKS = "1";
+    setHttpTestFetchMocks(true);
     globalThis.fetch = async () =>
       new Response("# docs fixture\ncontent", { status: 200 });
     t.after(() => {
       globalThis.fetch = originalFetch;
       if (previousFetchMockFlag === undefined) {
-        delete process.env.AGENT_HARNESS_TEST_FETCH_MOCKS;
+        setHttpTestFetchMocks(false);
       } else {
         restoreEnvVar("AGENT_HARNESS_TEST_FETCH_MOCKS", previousFetchMockFlag);
       }
