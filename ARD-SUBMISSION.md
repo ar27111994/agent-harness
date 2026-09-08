@@ -2,20 +2,25 @@
 
 ## Overview
 
-This document describes how `agent-harness` participates in the ARD (Agentic Resource Discovery) ecosystem as both a **publisher** and a **consumer**, for community registry submission.
+This document describes how `agent-harness` participates in the ARD (Agentic Resource Discovery) ecosystem as a **publisher** of a self-hosted, well-known catalog manifest that Agent Finders crawl — and as a **consumer** of other publishers' manifests.
+
+ARD spec version: **v0.91** (Status: Proposal, dated August 26, 2026). See <https://agenticresourcediscovery.org/spec> and the source repo <https://github.com/ards-project/ard-spec>. Published by Junjie Bu (Google), R.V. Guha (Microsoft), Shaun Smith (HuggingFace).
 
 ## Publisher Profile
 
-| Field            | Value                                               |
-| ---------------- | --------------------------------------------------- |
-| **Project**      | agent-harness                                       |
-| **Publisher**    | ar27111994                                          |
-| **FQDN**         | ar27111994.dev                                      |
-| **Catalog URL**  | https://ar27111994.dev/.well-known/ai-catalog.json  |
-| **Spec version** | ARD 1.0 (https://agenticresourcediscovery.org/spec) |
-| **URN prefix**   | `urn:air:ar27111994.dev:*:*`                        |
-| **License**      | MIT                                                 |
-| **Repository**   | https://github.com/ar27111994/agent-harness         |
+| Field                          | Value                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| **Project**                    | agent-harness                                                            |
+| **Publisher**                  | ar27111994                                                               |
+| **FQDN**                       | ar27111994.dev                                                           |
+| **Catalog URL**                | https://ar27111994.dev/.well-known/ard.json                              |
+| **Legacy URL**                 | https://ar27111994.dev/.well-known/ai-catalog.json                       |
+| **Spec version**               | ARD v0.91 (https://agenticresourcediscovery.org/spec)                    |
+| **Manifest specVersion field** | "1.0" (ai-catalog predecessor only; `ard.json` carries no version field) |
+| **URN prefix**                 | `urn:air:ar27111994.dev:*:*`                                             |
+| **Publisher identity**         | https://ar27111994.dev                                                   |
+| **License**                    | MIT                                                                      |
+| **Repository**                 | https://github.com/ar27111994/agent-harness                              |
 
 ## What agent-harness Publishes
 
@@ -29,47 +34,42 @@ This document describes how `agent-harness` participates in the ARD (Agentic Res
 
 Every entry carries:
 
-- Trust signals (OMS signatures, publisher verification, authority tier)
+- A spec-conformant URN (`urn:air:ar27111994.dev:<namespace>:<name>-<hash>`)
+- The correct ARD media type (e.g. MCP Server Card = `application/mcp-server-card+json`)
+- Trust signals (publisher verification, authority tier, trust-manifest identity binding)
 - Cross-host compatibility (VS Code, Cursor, Zed, Claude Code, OpenCode, Pi, Codex)
-- Risk assessment (hooks, exec scripts, network requirements)
-- Context-cost estimates
+- Risk assessment and context-cost estimates
 
-## Registry Submissions
+## Publisher Discovery (well-known manifests)
 
-### 1. ards-project Community
+By ARD v0.91 §5.1, discovery is **self-hosted**: a publisher publishes manifests at well-known paths on its own domain, and Agent Finders crawl them. There is **no central PR registry** — the former `ards-project/community` registry repo no longer exists and must not be used.
 
-Submit a PR to https://github.com/ards-project/community adding agent-harness to the ecosystem registry:
+### What we serve
 
-```json
-{
-  "identifier": "urn:air:ar27111994.dev:cli:agent-harness",
-  "displayName": "agent-harness",
-  "type": "application/ai-skill",
-  "url": "https://ar27111994.dev/.well-known/ai-catalog.json",
-  "description": "AI-agent asset supply-chain: discovers, recommends, mirrors, stages, activates, and wires reusable agent skills, MCP servers, plugins, and agents across 7 host IDEs",
-  "capabilities": [
-    "discovery",
-    "recommendation",
-    "mirroring",
-    "staging",
-    "activation",
-    "host-wiring"
-  ],
-  "tags": ["cli", "supply-chain", "skills", "mcp-servers", "agent-assets"]
-}
-```
+| Path                           | Manifest shape                                                                                                                                                                                                                    | Status                                                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `/.well-known/ard.json`        | **ArdManifest** — root requires only `entries[]` (each entry requires `identifier`, `displayName`, `type`, and exactly one of `url`/`data`; `representativeQueries` is a SHOULD in 2–5). Any extra top-level members are ignored. | **Required / preferred** — consumers MUST fetch this.                                                               |
+| `/.well-known/ai-catalog.json` | **AiCatalogManifest** — root requires `specVersion` (enum `["1.0"]`) + `entries[]`, optional `host`.                                                                                                                              | **Legacy** — the ARD predecessor path; consumers MAY consult it (treated as equivalent). Served as a courtesy only. |
 
-### 2. GitHub Agent Finder
+Publishing (normative §5.1): a publisher MUST serve `/.well-known/ard.json` and SHOULD emit the `rel="ard"` link relation. Serving only the predecessor `ai-catalog.json` risks the publisher not being found, since consulting it is optional for consumers. We serve **both** for backward compatibility.
 
-Submit via the Agent Finder onboarding flow at https://github.com/agentfinder. The catalog is already hosted at the well-known URI.
+### Discovery mechanisms we support
 
-### 3. HuggingFace Discover
+- `https://ar27111994.dev/.well-known/ard.json` — primary manifest (ArdManifest)
+- `https://ar27111994.dev/.well-known/ai-catalog.json` — legacy predecessor (AiCatalogManifest)
+- `<link rel="ard" href="https://ar27111994.dev/.well-known/ard.json">` in the site `<head>` — optional relation (recommended)
+- In-page JSON-LD markup and `robots.txt` `Agentmap:` directives — supplementary optional mechanisms (may be added)
 
-Submit via https://github.com/huggingface/hf-discover. agent-harness assets include MCP servers and skills discoverable through HuggingFace's agent ecosystem.
+### Agents / catalogs that consume these manifests
+
+- **GitHub Agent Finder** — <https://github.com/agentfinder> (live AI resource catalog, ~2000 entries)
+- **HuggingFace Discover** — <https://github.com/huggingface/hf-discover>
+
+These crawl well-known manifests on the publisher's advertised domain, so the manifest must be served (200, JSON) at the advertised host.
 
 ## Conformance
 
-The catalog validates against the ARD 1.0 schema. The repository ships a vendored snapshot of the upstream schema (`discover/schema/ard-ai-catalog-1.0.schema.json`) plus a dependency-free validator:
+The catalog is generated by `src/ard-catalog.ts` (`writeArdCatalog`) and emits both `/.well-known/ard.json` (ArdManifest) and `/.well-known/ai-catalog.json` (AiCatalogManifest) atomically. The repository ships a vendored snapshot of the upstream schema (`discover/schema/ard-ai-catalog-1.0.schema.json`) plus a dependency-free validator:
 
 ```bash
 npm run build
@@ -78,11 +78,14 @@ npm run validate:ard-schema
 npm run validate:ard-urls
 ```
 
+> Note: `validate:ard-schema` validates the `ai-catalog.json` envelope (which carries `specVersion`). The `ard.json` ArdManifest omits `specVersion` by design (its schema does not require it), so it is not subject to that check.
+
 ## References
 
 - [#325](https://github.com/ar27111994/agent-harness/issues/325) — ARD catalog export
 - [#327](https://github.com/ar27111994/agent-harness/issues/327) — ARD registry consumer adapter
 - [#328](https://github.com/ar27111994/agent-harness/issues/328) — ARD trust-manifest signals
 - [#329](https://github.com/ar27111994/agent-harness/issues/329) — README ARD section
-- [ARD Spec 1.0](https://agenticresourcediscovery.org/spec)
+- [#488](https://github.com/ar27111994/agent-harness/issues/488) — refresh ARD submission + repair live well-known catalog
+- [ARD spec v0.91](https://agenticresourcediscovery.org/spec)
 - [ards-project/ard-spec](https://github.com/ards-project/ard-spec)

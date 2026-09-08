@@ -1,14 +1,4 @@
 {
-  "specVersion": "1.0",
-  "host": {
-    "displayName": "Agent Harness",
-    "identifier": "https://ar27111994.dev",
-    "documentationUrl": "https://github.com/ar27111994/agent-harness",
-    "trustManifest": {
-      "identity": "https://ar27111994.dev",
-      "identityType": "https"
-    }
-  },
   "entries": [
     {
       "identifier": "urn:air:ar27111994.dev:repo:anthropic-claude-plugins-official-.github-2Fworkfl-91dea880",

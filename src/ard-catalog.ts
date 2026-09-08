@@ -1,8 +1,10 @@
 /**
  * ARD (Agentic Resource Discovery) 1.0 catalog export.
  *
- * Maps selected Agent Harness assets to the current public ai-catalog schema
- * and writes `.well-known/ai-catalog.json` atomically.
+ * Maps selected Agent Harness assets to the current public ARD schemas and
+ * writes `.well-known/ard.json` (the ArdManifest consumers are REQUIRED to
+ * fetch, spec v0.91 §5.1) plus `.well-known/ai-catalog.json` (the AI-catalog
+ * predecessor manifest, kept as a legacy courtesy) — both atomically.
  */
 
 import { mkdir, rename, writeFile } from "node:fs/promises";
@@ -52,6 +54,18 @@ export interface ArdCatalog {
     documentationUrl?: string;
     trustManifest?: ArdTrustManifest;
   };
+  entries: ArdCatalogEntry[];
+}
+
+/**
+ * ARD v0.91 ArdManifest root object for `/.well-known/ard.json`.
+ *
+ * The schema requires only `entries[]` of ArdEntry (each of which requires
+ * identifier, displayName, type, and exactly one of url/data). Any other
+ * top-level members are transport-defined and ignored by ARD, so the minimal
+ * faithful shape omits the ai-catalog envelope fields entirely.
+ */
+export interface ArdManifest {
   entries: ArdCatalogEntry[];
 }
 
@@ -224,13 +238,13 @@ export type PrettierFormatter = (
   },
 ) => Promise<string>;
 
-/** Writes the selected catalog as ARD 1.0 JSON. */
+/** Writes the selected catalog as ARD 1.0 JSON (both manifest files). */
 export async function writeArdCatalog(
   projectRoot: string,
   version?: string,
   formatWithPrettier?: PrettierFormatter,
-): Promise<{ filePath: string; entryCount: number }> {
-  const { readJsonLinesFile } = await import("./files.js");
+): Promise<{ filePath: string; ardFilePath: string; entryCount: number }> {
+  const { readJsonLinesFile, toPosixPath } = await import("./files.js");
   const catalogPath = join(
     projectRoot,
     "discover",
@@ -254,6 +268,19 @@ export async function writeArdCatalog(
     }
   }
 
+  // A 0-entry result means the discovery state produced nothing to publish —
+  // e.g. a cold tree with no `discover/output/catalog.selected.jsonl`, or a
+  // source universe whose every entry failed to map. Shipping an empty catalog
+  // is exactly the "plausible-but-empty ARD asset" failure mode of #484, so we
+  // fail the export loudly rather than write an empty `ai-catalog.json`. The
+  // error names the missing discovery state so the operator knows to run a real
+  // discovery pass first (not "written").
+  if (ardEntries.length === 0) {
+    throw new Error(
+      `ard-export: refusing to write an empty ARD catalog — no discovery entries were produced from ${toPosixPath(catalogPath)}. Run a real discovery pass first (e.g. \`discover full\` or \`discover select\`) so the export has entries to publish.`,
+    );
+  }
+
   const publisherFqdn = getArdPublisherFqdn();
   const catalog: ArdCatalog = {
     specVersion: ARD_SPEC_VERSION,
@@ -268,28 +295,38 @@ export async function writeArdCatalog(
     },
     entries: ardEntries,
   };
+  // Spec v0.91 §5.1: consumers resolve `/.well-known/ard.json` (ArdManifest) as
+  // the primary required source; the ai-catalog predecessor is a courtesy.
+  const manifest: ArdManifest = { entries: ardEntries };
 
   await mkdir(wellKnownDir, { recursive: true });
   const filePath = join(wellKnownDir, "ai-catalog.json");
-  const rawJson = `${JSON.stringify(catalog, null, 2)}\n`;
-  let formattedJson = rawJson;
-  try {
-    const formatter = formatWithPrettier ?? defaultPrettierFormatter;
-    formattedJson = await formatter(rawJson, {
-      parser: "json",
-      endOfLine: "lf",
-      trailingComma: "all",
-    });
-  } catch (error: unknown) {
-    console.warn(
-      `ard-catalog: Prettier formatting skipped (${extractErrorMessage(error)}). JSON output is valid but may not pass prettier --check.`,
-    );
-  }
-
-  const tempPath = `${filePath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
-  await writeFile(tempPath, formattedJson, "utf8");
-  await rename(tempPath, filePath);
-  return { filePath, entryCount: ardEntries.length };
+  const ardFilePath = join(wellKnownDir, "ard.json");
+  const formatterAgent = formatWithPrettier ?? defaultPrettierFormatter;
+  const writeJsonAtomic = async (
+    targetPath: string,
+    value: unknown,
+  ): Promise<void> => {
+    const rawJson = `${JSON.stringify(value, null, 2)}\n`;
+    let formattedJson = rawJson;
+    try {
+      formattedJson = await formatterAgent(rawJson, {
+        parser: "json",
+        endOfLine: "lf",
+        trailingComma: "all",
+      });
+    } catch (error: unknown) {
+      console.warn(
+        `ard-catalog: Prettier formatting skipped (${extractErrorMessage(error)}). JSON output is valid but may not pass prettier --check.`,
+      );
+    }
+    const tempPath = `${targetPath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
+    await writeFile(tempPath, formattedJson, "utf8");
+    await rename(tempPath, targetPath);
+  };
+  await writeJsonAtomic(filePath, catalog);
+  await writeJsonAtomic(ardFilePath, manifest);
+  return { filePath, ardFilePath, entryCount: ardEntries.length };
 }
 
 async function readPackageVersion(projectRoot: string): Promise<string> {
