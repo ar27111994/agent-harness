@@ -51,7 +51,7 @@ By ARD v0.91 §5.1, discovery is **self-hosted**: a publisher publishes manifest
 | `/.well-known/ard.json`        | **ArdManifest** — root requires only `entries[]` (each entry requires `identifier`, `displayName`, `type`, and exactly one of `url`/`data`; `representativeQueries` is a SHOULD in 2–5). Any extra top-level members are ignored. | **Required / preferred** — consumers MUST fetch this.                                                               |
 | `/.well-known/ai-catalog.json` | **AiCatalogManifest** — root requires `specVersion` (enum `["1.0"]`) + `entries[]`, optional `host`.                                                                                                                              | **Legacy** — the ARD predecessor path; consumers MAY consult it (treated as equivalent). Served as a courtesy only. |
 
-Publishing (normative §5.1): a publisher MUST serve `/.well-known/ard.json` and SHOULD emit the `rel="ard"` link relation. Serving only the predecessor `ai-catalog.json` risks the publisher not being found, since consulting it is optional for consumers. We serve **both** for backward compatibility.
+Publishing guidance (§5.1 is informational for publishers, not a MUST): a publisher is **recommended** to serve `/.well-known/ard.json` and to emit the `rel="ard"` link relation, but neither is a publisher-side requirement. The normative requirement sits on the **consumer** side: Agent Finders MUST fetch `/.well-known/ard.json` and honor the `rel="ard"` relation. Serving only the predecessor `ai-catalog.json` risks the publisher not being found, since consulting it is optional for consumers. We serve **both** for backward compatibility.
 
 ### Discovery mechanisms we support
 
