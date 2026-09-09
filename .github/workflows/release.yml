@@ -35,6 +35,9 @@ jobs:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
         # actions/setup-node@v4
@@ -131,6 +134,9 @@ jobs:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
         # actions/setup-node@v4
@@ -220,6 +226,9 @@ jobs:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
         # actions/setup-node@v4
@@ -266,6 +275,9 @@ jobs:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
         # actions/setup-node@v4
