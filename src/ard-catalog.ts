@@ -7,7 +7,7 @@
  * predecessor manifest, kept as a legacy courtesy) — both atomically.
  */
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STOPWORD_TOKENS } from "./domains/discovery/catalog-utils.js";
@@ -244,8 +244,13 @@ export async function writeArdCatalog(
   version?: string,
   formatWithPrettier?: PrettierFormatter,
 ): Promise<{ filePath: string; ardFilePath: string; entryCount: number }> {
-  const { readJsonLinesFile, toPosixPath, filesInternals } =
-    await import("./files.js");
+  const {
+    readJsonLinesFile,
+    toPosixPath,
+    writeTextFile,
+    readTextFileOrNull,
+    filesInternals,
+  } = await import("./files.js");
   const { renameJsonWriteTemp } = filesInternals;
   const catalogPath = join(
     projectRoot,
@@ -330,20 +335,76 @@ export async function writeArdCatalog(
     value: unknown,
   ): Promise<{ tempPath: string; targetPath: string }> => {
     const tempPath = `${targetPath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
-    await writeFile(tempPath, await formatJson(value), "utf8");
+    try {
+      await writeTextFile(tempPath, await formatJson(value));
+    } catch (error) {
+      // A stage that fails to write its temp must remove the sibling it may
+      // have partially created, so a failed export never litters `.well-known`
+      // with a `.tmp-*` file (#489 finding YtB).
+      await rm(tempPath, { force: true });
+      throw error;
+    }
     return { tempPath, targetPath };
   };
-  const staged = [
-    await stageTemp(filePath, catalog),
-    await stageTemp(ardFilePath, manifest),
-  ];
+  const staged: { tempPath: string; targetPath: string }[] = [];
+  try {
+    staged.push(await stageTemp(filePath, catalog));
+    staged.push(await stageTemp(ardFilePath, manifest));
+  } catch (error) {
+    // A later stage failed before any activation began: drop every temp staged
+    // so far so no unactivated `.tmp-*` sibling survives the failure (#489 YtB).
+    await Promise.all(
+      staged.map(({ tempPath }) => rm(tempPath, { force: true })),
+    );
+    throw error;
+  }
+  // Snapshot each destination's prior generation BEFORE activating, so that a
+  // mid-activation failure can roll an already-activated destination back to
+  // its prior bytes. Without this, a second-activation failure would leave
+  // ai-catalog.json on the new generation while ard.json stayed on the old —
+  // a permanently split pair (#489 finding YtL).
+  const priorByTarget = new Map<string, string | null>();
+  for (const { targetPath } of staged) {
+    priorByTarget.set(targetPath, await readTextFileOrNull(targetPath));
+  }
   // Activate the pair by renaming both staged temps onto their destinations.
   // Reuses the shared atomic-rename retry (bounded EPERM/EACCES backoff with a
   // remove-and-retry fallback) so a momentarily-locked destination (AV scan,
   // open handle) never leaves the pair split. Readers observe each destination
   // as old-file → no-file → complete new-file at every point.
-  for (const { tempPath, targetPath } of staged) {
-    await renameJsonWriteTemp(tempPath, targetPath);
+  const activated = new Set<string>();
+  try {
+    for (const { tempPath, targetPath } of staged) {
+      await renameJsonWriteTemp(tempPath, targetPath);
+      activated.add(targetPath);
+    }
+  } catch (error) {
+    // A later activation failed: restore every already-activated destination to
+    // its prior generation (temp + rename, preserving the atomic contract), so
+    // the two manifests can never be observed on different generations.
+    for (const targetPath of [...activated]) {
+      const prior = priorByTarget.get(targetPath);
+      // `== null` covers both the genuinely-absent prior (never created
+      // before) and a defensively-missing map entry — either way the only
+      // correct rollback is to remove what the activation created.
+      if (prior == null) {
+        // The destination did not exist before this export — roll back to
+        // absent by removing what the activation just created.
+        await rm(targetPath, { force: true });
+      } else {
+        const rollbackTemp = `${targetPath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
+        await writeTextFile(rollbackTemp, prior);
+        await renameJsonWriteTemp(rollbackTemp, targetPath);
+      }
+    }
+    // Remove the staged temp(s) that were never activated — their destination
+    // still holds the prior generation, so the sibling is pure residue (#489 YtB).
+    for (const { tempPath, targetPath } of staged) {
+      if (!activated.has(targetPath)) {
+        await rm(tempPath, { force: true });
+      }
+    }
+    throw error;
   }
   return { filePath, ardFilePath, entryCount: ardEntries.length };
 }

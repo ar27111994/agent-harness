@@ -21,6 +21,7 @@ import {
   writeArdCatalog,
   type ArdCatalog,
 } from "../ard-catalog.js";
+import { filesInternals } from "../files.js";
 import { ARD_SPEC_VERSION, getArdPublisherFqdn } from "../ard/types.js";
 import type { AssetCatalogEntry } from "../types.js";
 
@@ -660,6 +661,241 @@ void test("writeArdCatalog switches the ai-catalog.json + ard.json pair as one g
     assert.deepEqual(manifest.entries, catalog.entries);
 
     // No staged temp file may survive a successful pair activation.
+    const leftovers = (await readdir(wellKnown)).filter((name) =>
+      name.includes(".tmp-"),
+    );
+    assert.deepEqual(leftovers, []);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog removes its staged temp when a temp write fails and surfaces the error (#489 YtB)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-stagefail-"),
+  );
+  t.after(async () => {
+    filesInternals.setWriteTextOverride(undefined);
+    filesInternals.setJsonWriteRenameOverride(undefined);
+  });
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry(), entry({ id: "fixture.two", displayName: "Fixture Two" })],
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+    const wellKnown = join(projectRoot, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+
+    // Inject a failure into the FIRST staged temp write (ai-catalog.json), so
+    // the partially-written temp sibling must be removed by stageTemp's own
+    // cleanup handler before the error propagates.
+    let writes = 0;
+    filesInternals.setWriteTextOverride(async (filePath, value, encoding) => {
+      writes += 1;
+      if (writes === 1) {
+        const error = new Error("injected temp write failure");
+        (error as NodeJS.ErrnoException).code = "EIO";
+        throw error;
+      }
+      await writeFile(filePath, value, encoding);
+    });
+
+    await assert.rejects(
+      writeArdCatalog(projectRoot, "2.1.0", async (raw) => raw),
+      /injected temp write failure/u,
+    );
+
+    // No `.tmp-*` sibling may survive the failed stage, and no destination
+    // may have been written (activation never began).
+    const leftovers = (await readdir(wellKnown)).filter((name) =>
+      name.includes(".tmp-"),
+    );
+    assert.deepEqual(leftovers, []);
+    await assert.rejects(
+      readFile(join(wellKnown, "ai-catalog.json"), "utf8"),
+      /ENOENT/u,
+    );
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog removes the previously-staged temp when a later stage write fails (#489 YtB)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-stagefail2-"),
+  );
+  t.after(async () => {
+    filesInternals.setWriteTextOverride(undefined);
+  });
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry(), entry({ id: "fixture.two", displayName: "Fixture Two" })],
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+    const wellKnown = join(projectRoot, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+
+    // Let the FIRST staging write (ai-catalog.json) succeed, then fail the
+    // SECOND (ard.json): the flow must clean the already-staged ai-catalog
+    // temp even though activation never began.
+    let writes = 0;
+    filesInternals.setWriteTextOverride(async (filePath, value, encoding) => {
+      writes += 1;
+      if (writes === 2) {
+        const error = new Error("injected second temp write failure");
+        (error as NodeJS.ErrnoException).code = "EIO";
+        throw error;
+      }
+      await writeFile(filePath, value, encoding);
+    });
+
+    await assert.rejects(
+      writeArdCatalog(projectRoot, "2.1.0", async (raw) => raw),
+      /injected second temp write failure/u,
+    );
+
+    const leftovers = (await readdir(wellKnown)).filter((name) =>
+      name.includes(".tmp-"),
+    );
+    assert.deepEqual(leftovers, []);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog rolls the first destination back when the second activation fails (transactional pair, #489 YtL)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-pairrollback-"),
+  );
+  t.after(async () => {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+    filesInternals.setWriteTextOverride(undefined);
+  });
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry(), entry({ id: "fixture.two", displayName: "Fixture Two" })],
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+    const wellKnown = join(projectRoot, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    // Seed a prior generation for BOTH destinations so the rollback has real
+    // bytes to restore.
+    const oldCatalog = JSON.stringify({
+      specVersion: "1.0",
+      entries: [{ stale: true }],
+    });
+    const oldManifest = JSON.stringify({ entries: [{ stale: true }] });
+    const catalogPath = join(wellKnown, "ai-catalog.json");
+    const ardPath = join(wellKnown, "ard.json");
+    await writeFile(catalogPath, oldCatalog, "utf8");
+    await writeFile(ardPath, oldManifest, "utf8");
+
+    // ai-catalog.json (first destination) activates; ard.json (second) fails
+    // after its bounded retries. The rollback must restore ai-catalog.json to
+    // its prior generation so both manifests stay on the SAME generation.
+    let renames = 0;
+    const { rename } = await import("node:fs/promises");
+    filesInternals.setJsonWriteRenameOverride(async (source, destination) => {
+      renames += 1;
+      if (renames === 2) {
+        const error = new Error("injected second activation failure");
+        (error as NodeJS.ErrnoException).code = "EIO";
+        throw error;
+      }
+      await rename(source, destination);
+    });
+
+    assert.equal(renames, 0);
+    await assert.rejects(
+      writeArdCatalog(projectRoot, "2.1.0", async (raw) => raw),
+      /injected second activation failure/u,
+    );
+
+    // Both destinations must be consistent: the first was rolled back to its
+    // prior generation (stale), the second never advanced (still stale).
+    assert.equal(await readFile(catalogPath, "utf8"), oldCatalog);
+    assert.equal(await readFile(ardPath, "utf8"), oldManifest);
+
+    // No staged or rollback temp may survive the failed activation.
+    const leftovers = (await readdir(wellKnown)).filter((name) =>
+      name.includes(".tmp-"),
+    );
+    assert.deepEqual(leftovers, []);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
+});
+
+void test("writeArdCatalog rolls a brand-new first destination back to absent when the second activation fails (#489 YtL)", async (t) => {
+  const projectRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-pairrollback-null-"),
+  );
+  t.after(async () => {
+    filesInternals.setJsonWriteRenameOverride(undefined);
+  });
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry(), entry({ id: "fixture.two", displayName: "Fixture Two" })],
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+    const wellKnown = join(projectRoot, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    // ai-catalog.json does NOT exist before the export (a genuinely new pair):
+    // its rollback on second-activation failure must remove the newly-created
+    // destination rather than restore bytes.
+    const oldManifest = JSON.stringify({ entries: [{ stale: true }] });
+    const ardPath = join(wellKnown, "ard.json");
+    await writeFile(ardPath, oldManifest, "utf8");
+
+    let renames = 0;
+    const { rename } = await import("node:fs/promises");
+    filesInternals.setJsonWriteRenameOverride(async (source, destination) => {
+      renames += 1;
+      if (renames === 2) {
+        const error = new Error("injected second activation failure");
+        (error as NodeJS.ErrnoException).code = "EIO";
+        throw error;
+      }
+      await rename(source, destination);
+    });
+
+    await assert.rejects(
+      writeArdCatalog(projectRoot, "2.1.0", async (raw) => raw),
+      /injected second activation failure/u,
+    );
+
+    // The first destination did not exist before, so it must be gone (rolled
+    // back to absent); the second never advanced.
+    await assert.rejects(
+      readFile(join(wellKnown, "ai-catalog.json"), "utf8"),
+      /ENOENT/u,
+    );
+    assert.equal(await readFile(ardPath, "utf8"), oldManifest);
+
     const leftovers = (await readdir(wellKnown)).filter((name) =>
       name.includes(".tmp-"),
     );

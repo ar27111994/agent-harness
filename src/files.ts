@@ -228,6 +228,14 @@ type ReadFileOverride = (
 ) => Promise<string | Buffer>;
 let readFileOpenOverride: ReadFileOverride | undefined;
 
+/** Test-only hook for simulating temp-content write failures (#489 YtB). */
+type WriteTextOverride = (
+  filePath: string,
+  value: string,
+  encoding: "utf8",
+) => Promise<void>;
+let writeTextOverride: WriteTextOverride | undefined;
+
 const WINDOWS_REPLACE_RETRY_BACKOFF_MS = 25;
 const MAX_WINDOWS_REPLACE_RETRIES = 4;
 
@@ -358,12 +366,19 @@ export async function writeJsonFile(
 
 /**
  * Writes text file to project state.
+ *
+ * Honors the test-only `writeTextOverride` seam (#489 YtB) so a temp-content
+ * write failure can be injected without corrupting the real filesystem.
  */
 export async function writeTextFile(
   filePath: string,
   value: string,
 ): Promise<void> {
   await ensureDirectory(dirname(filePath));
+  if (writeTextOverride !== undefined) {
+    await writeTextOverride(filePath, value, "utf8");
+    return;
+  }
   await writeFile(filePath, value, "utf8");
 }
 
@@ -1261,5 +1276,9 @@ export const filesInternals = {
   /** Test-only: replaces the atomic-reader open step (failure injection, #427/#428). */
   setReadFileOpenOverride(override: ReadFileOverride | undefined): void {
     readFileOpenOverride = override;
+  },
+  /** Test-only: replaces the temp-content write step (failure injection, #489 YtB). */
+  setWriteTextOverride(override: WriteTextOverride | undefined): void {
+    writeTextOverride = override;
   },
 };
