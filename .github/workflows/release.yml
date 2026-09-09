@@ -334,6 +334,7 @@ jobs:
           fi
           echo "Dispatching ard-manifest-sync to $PORTFOLIO_REPO ..."
           HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
+            --connect-timeout 10 --max-time 30 \
             -X POST \
             -H "Authorization: token ${PORTFOLIO_DISPATCH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
