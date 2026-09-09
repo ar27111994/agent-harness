@@ -111,11 +111,13 @@ jobs:
   publish:
     name: publish
     runs-on: ubuntu-latest
-    # #485: drop the old single `release-checks` dependency and gate the
-    # irreversible npm publish on BOTH release-checks AND github-release. The
-    # github-release job regenerates + schema-validates the ARD catalog, so this
-    # makes npm publish wait for every validation gate (ARD included) to pass.
-    needs: [release-checks, github-release]
+    # #485/#489: gate the irreversible npm publish on release-checks AND the
+    # ard-gate job, which validates the committed ARD catalog (non-empty +
+    # schema) BEFORE npm goes live. The GitHub-release creation and its ARD
+    # upload moved to the post-publish github-release job (needs: publish), so
+    # a reachable npm failure never leaves a live GitHub release pointing at an
+    # unpublished package.
+    needs: [release-checks, ard-gate]
     if: startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 15
     permissions:
@@ -198,17 +200,59 @@ jobs:
           unset NODE_AUTH_TOKEN
           npm publish --ignore-scripts --access public --tag ${{ steps.npm-dist-tag.outputs.value }} --provenance
 
+  ard-gate:
+    name: ard catalog gate
+    runs-on: ubuntu-latest
+    # #489 split: the ARD catalog validation that #485 moved ahead of publish
+    # is now its own pre-publish job, so a reachable npm publish failure cannot
+    # strand a live GitHub release (whose creation + ARD upload moved to the
+    # post-publish github-release job). This job ONLY validates the committed
+    # catalog — it never creates or uploads a release.
+    needs: release-checks
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        # actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Full history so check:version-sync's tag-vs-manifest guard (#467)
+          # can enumerate released tags; also validates the pushed tag exists.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        # actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate committed ARD catalog for the tag
+        run: |
+          # #484: pin the release ARD asset to the tag's committed catalog
+          # instead of regenerating via `discover full` + `ard-export`. A fresh
+          # (cold) CI checkout has no tracked discovery state, so regeneration
+          # can produce a 0-entry catalog — which ard-export now rejects, but
+          # that would block the release on a cold tree. The committed
+          # .well-known/ai-catalog.json is git-tracked, always present at the
+          # tag, and non-empty (kept live/repaired under #488). Assert it is
+          # non-empty and schema-valid (reusing #486's guard) before npm goes
+          # live.
+          if [ ! -s .well-known/ai-catalog.json ]; then
+            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — release blocked." >&2
+            exit 1
+          fi
+          node ./scripts/validate-ard-schema.mjs .well-known/ai-catalog.json
+
   github-release:
     name: github release
     runs-on: ubuntu-latest
-    # #485: github-release has NO dependency on the published npm artifact
-    # (it only creates/updates the tagged GitHub release and uploads the ARD
-    # catalog it regenerates for the tag), so it runs off release-checks rather
-    # than publish. This moves its ARD catalog regeneration + schema validation
-    # BEFORE the irreversible npm publish, so a failure there (empty catalog,
-    # schema mismatch) stops npm from going live instead of stranding it behind
-    # a stuck draft release.
-    needs: release-checks
+    # #489 split: GitHub-release creation + its ARD asset upload now run AFTER
+    # npm publishing succeeds (needs: publish), so a reachable publish failure
+    # never leaves a live GitHub release pointing at an unpublished package.
+    # The committed catalog was already validated pre-publish by ard-gate; this
+    # job only creates/updates the release and uploads the asset.
+    needs: publish
     if: startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 10
     permissions:
@@ -229,6 +273,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Install dependencies
+        run: npm ci
+
       - name: Create or update GitHub release
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -237,38 +284,16 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: npm run release:github
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Validate committed ARD catalog for the tag
-        run: |
-          # #484: pin the release ARD asset to the tag's committed catalog
-          # instead of regenerating via `discover full` + `ard-export`. A fresh
-          # (cold) CI checkout has no tracked discovery state, so regeneration
-          # can produce a 0-entry catalog — which ard-export now rejects, but
-          # that would block the release on a cold tree. The committed
-          # .well-known/ai-catalog.json is git-tracked, always present at the
-          # tag, and non-empty (kept live/repaired under #488). Assert it is
-          # non-empty and schema-valid (reusing #486's guard) before uploading
-          # it as the release's ARD asset.
-          if [ ! -s .well-known/ai-catalog.json ]; then
-            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — release blocked." >&2
-            exit 1
-          fi
-          node ./scripts/validate-ard-schema.mjs .well-known/ai-catalog.json
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
-
       - name: Upload ARD catalog to release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
+          if [ ! -s .well-known/ai-catalog.json ]; then
+            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — cannot upload." >&2
+            exit 1
+          fi
           gh release upload "$TAG_NAME" .well-known/ai-catalog.json \
             --repo ${{ github.repository }} \
             --clobber
