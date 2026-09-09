@@ -7,7 +7,7 @@
  * predecessor manifest, kept as a legacy courtesy) — both atomically.
  */
 
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { STOPWORD_TOKENS } from "./domains/discovery/catalog-utils.js";
@@ -244,7 +244,9 @@ export async function writeArdCatalog(
   version?: string,
   formatWithPrettier?: PrettierFormatter,
 ): Promise<{ filePath: string; ardFilePath: string; entryCount: number }> {
-  const { readJsonLinesFile, toPosixPath } = await import("./files.js");
+  const { readJsonLinesFile, toPosixPath, filesInternals } =
+    await import("./files.js");
+  const { renameJsonWriteTemp } = filesInternals;
   const catalogPath = join(
     projectRoot,
     "discover",
@@ -303,14 +305,15 @@ export async function writeArdCatalog(
   const filePath = join(wellKnownDir, "ai-catalog.json");
   const ardFilePath = join(wellKnownDir, "ard.json");
   const formatterAgent = formatWithPrettier ?? defaultPrettierFormatter;
-  const writeJsonAtomic = async (
-    targetPath: string,
-    value: unknown,
-  ): Promise<void> => {
+  // #489 (review finding 4): the two manifests must advance as ONE generation.
+  // Stage BOTH to temp siblings first, then activate both together. A failure
+  // while formatting/writing a temp can therefore never leave ai-catalog.json
+  // at a newer generation than ard.json — the prior two independent
+  // writeJsonAtomic calls could split them if the second write/rename failed.
+  const formatJson = async (value: unknown): Promise<string> => {
     const rawJson = `${JSON.stringify(value, null, 2)}\n`;
-    let formattedJson = rawJson;
     try {
-      formattedJson = await formatterAgent(rawJson, {
+      return await formatterAgent(rawJson, {
         parser: "json",
         endOfLine: "lf",
         trailingComma: "all",
@@ -319,13 +322,29 @@ export async function writeArdCatalog(
       console.warn(
         `ard-catalog: Prettier formatting skipped (${extractErrorMessage(error)}). JSON output is valid but may not pass prettier --check.`,
       );
+      return rawJson;
     }
-    const tempPath = `${targetPath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
-    await writeFile(tempPath, formattedJson, "utf8");
-    await rename(tempPath, targetPath);
   };
-  await writeJsonAtomic(filePath, catalog);
-  await writeJsonAtomic(ardFilePath, manifest);
+  const stageTemp = async (
+    targetPath: string,
+    value: unknown,
+  ): Promise<{ tempPath: string; targetPath: string }> => {
+    const tempPath = `${targetPath}.tmp-${Math.random().toString(36).slice(2, 8)}`;
+    await writeFile(tempPath, await formatJson(value), "utf8");
+    return { tempPath, targetPath };
+  };
+  const staged = [
+    await stageTemp(filePath, catalog),
+    await stageTemp(ardFilePath, manifest),
+  ];
+  // Activate the pair by renaming both staged temps onto their destinations.
+  // Reuses the shared atomic-rename retry (bounded EPERM/EACCES backoff with a
+  // remove-and-retry fallback) so a momentarily-locked destination (AV scan,
+  // open handle) never leaves the pair split. Readers observe each destination
+  // as old-file → no-file → complete new-file at every point.
+  for (const { tempPath, targetPath } of staged) {
+    await renameJsonWriteTemp(tempPath, targetPath);
+  }
   return { filePath, ardFilePath, entryCount: ardEntries.length };
 }
 

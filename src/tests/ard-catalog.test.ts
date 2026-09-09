@@ -1,5 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -597,6 +604,69 @@ void test("extractErrorMessage safely handles Error, primitives, null, and undef
   assert.equal(extractErrorMessage(42), "42");
   assert.equal(extractErrorMessage(null), "unknown error");
   assert.equal(extractErrorMessage(undefined), "unknown error");
+});
+
+void test("writeArdCatalog switches the ai-catalog.json + ard.json pair as one generation (#489)", async () => {
+  const projectRoot = await mkdtemp(join(tmpdir(), "agent-harness-ard-pair-"));
+  try {
+    const { writeJsonLinesFile } = await import("../files.js");
+    await writeJsonLinesFile(
+      join(projectRoot, "discover", "output", "catalog.selected.jsonl"),
+      [entry(), entry({ id: "fixture.two", displayName: "Fixture Two" })],
+    );
+    await writeFile(
+      join(projectRoot, "package.json"),
+      JSON.stringify({ name: "agent-harness", version: "2.1.0" }),
+      "utf8",
+    );
+    // Seed a STALE pair at a different generation so the test proves BOTH
+    // destinations are refreshed together — never one left behind at the old
+    // generation (the failure mode of the prior two independent writes).
+    const wellKnown = join(projectRoot, ".well-known");
+    await mkdir(wellKnown, { recursive: true });
+    await writeFile(
+      join(wellKnown, "ai-catalog.json"),
+      JSON.stringify({ specVersion: "1.0", entries: [] }),
+      "utf8",
+    );
+    await writeFile(
+      join(wellKnown, "ard.json"),
+      JSON.stringify({ stale: true, entries: [] }),
+      "utf8",
+    );
+
+    const result = await writeArdCatalog(
+      projectRoot,
+      "2.1.0",
+      async (raw) => raw,
+    );
+    assert.equal(result.filePath, join(wellKnown, "ai-catalog.json"));
+    assert.equal(result.ardFilePath, join(wellKnown, "ard.json"));
+    assert.equal(result.entryCount, 2);
+
+    const catalog = JSON.parse(
+      await readFile(result.filePath, "utf8"),
+    ) as ArdCatalog;
+    const manifest = JSON.parse(await readFile(result.ardFilePath, "utf8")) as {
+      entries: unknown[];
+    };
+    assert.equal(catalog.entries.length, 2);
+    assert.ok(
+      catalog.entries.every((item) => item.identifier.startsWith("urn:air:")),
+    );
+    // Both manifests must carry the IDENTICAL entries — a single generation of
+    // the pair. A split pair would leave the stale seed in one of them.
+    assert.equal(manifest.entries.length, 2);
+    assert.deepEqual(manifest.entries, catalog.entries);
+
+    // No staged temp file may survive a successful pair activation.
+    const leftovers = (await readdir(wellKnown)).filter((name) =>
+      name.includes(".tmp-"),
+    );
+    assert.deepEqual(leftovers, []);
+  } finally {
+    await rm(projectRoot, { recursive: true, force: true });
+  }
 });
 
 function entry(overrides: Partial<AssetCatalogEntry> = {}): AssetCatalogEntry {
