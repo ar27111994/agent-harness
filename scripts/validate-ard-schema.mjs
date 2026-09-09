@@ -358,9 +358,31 @@ export async function validateArdCatalogFile(
     readFile(catalogPath, "utf8"),
     readFile(schemaPath, "utf8"),
   ]);
-  const catalog = JSON.parse(catalogRaw);
+  let catalog;
+  try {
+    catalog = JSON.parse(catalogRaw);
+  } catch (error) {
+    // A malformed catalog must fail LOUDLY at the gate naming the offending
+    // file, not crash with a bare JSON.parse stack trace.
+    return [`${catalogPath}: catalog is not valid JSON (${String(error)})`];
+  }
   const schema = JSON.parse(schemaRaw);
-  return validateJsonSchema(catalog, schema);
+  const errors = validateJsonSchema(catalog, schema);
+  // The vendored ARD schema permits an empty entries array (no minItems), but
+  // a zero-entry catalog is meaningless to ship: the ARD exporter always emits
+  // the full catalog, so an empty list means it produced nothing. Enforce the
+  // non-empty rule at the ARD validator layer so we do NOT edit the vendored
+  // public schema (it tracks upstream).
+  if (
+    isObject(catalog) &&
+    Array.isArray(catalog.entries) &&
+    catalog.entries.length === 0
+  ) {
+    errors.push(
+      "$.entries: expected at least 1 entry — the ARD exporter produced an empty catalog",
+    );
+  }
+  return errors;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

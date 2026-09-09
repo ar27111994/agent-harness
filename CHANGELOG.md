@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-09
+
+### Added
+
+- **Committed CodeQL code-scanning workflow** — a single-job `CodeQL` workflow now runs code scanning on every PR instead of relying on default setup, whose silent large-PR ceiling left big PRs (e.g. #478, 133 files) with no CodeQL report at all; the required `CodeQL` check now has a real reporter on both small and large PRs (#481, #482)
+
+### Changed
+
+- **Default ruleset required checks reconciled** — the unsatisfiable `code_quality` / `copilot_code_review` / `CodeQL` contexts (no live reporter for the first two, no workflow for the third) are removed from the ruleset's required checks, so the list only contains checks that actually run and non-admin PRs are no longer blocked on a phantom check (#481, #482)
+- **release.yml validation precedes publish** — the ARD-catalog validation gate now completes before the irreversible `npm publish`, so a failing gate can no longer leave a half-published release (npm live, GitHub draft) (#485)
+- **ARD ecosystem submission refreshed to spec v0.91** — the submission flow is now self-hosted: `/.well-known/ard.json` (ArdManifest) is served alongside the legacy `ai-catalog.json` (still recognized with a conformance warning), listing happens via well-known + Agent Finder crawl onboarding (GitHub Agent Finder, Hugging Face Discover) instead of the dead PR-based `ards-project/community` registry, and `ARD-SUBMISSION.md` documents the v0.91 reality (#488)
+
+### Fixed
+
+- **ARD catalog gate schema-guarded** — the release validates the generated `ai-catalog.json` against the vendored ARD schema via `scripts/validate-ard-schema.mjs` (with clear JSON-path error reporting) instead of hardcoding a `specVersion` field, so a future envelope change breaks loudly at the gate instead of silently killing the release on a real tag (#486)
+- **Empty ARD export rejected loudly** — `writeArdCatalog`/`discover ard-export` on a cold tree (no discovery state) no longer writes a plausible-but-empty `ai-catalog.json`; it fails loudly with a clear message, and the release pins the ARD asset to the tag's committed catalog or a full `discover full` run (#484)
+- **pack-smoke tolerates npm 12 pack output and spawns npm shell-less** — `src/tests/pack-smoke.ts` reuses `toPackRecordList` + `buildNpmInvocation` from `scripts/package-audit.mjs`, fixing the npm 12 `npm pack --json` object-vs-array regression (the tarball-filename assert crashed on the new payload shape) and the win32 `shell: true` invocation (Node DEP0190), keeping the smoke aligned with the already-green `release:package-audit` / `release:package-smoke` (release blocker, review)
+
 ## [2.1.0] - 2026-09-04
 
 ### Added

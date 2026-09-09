@@ -161,7 +161,7 @@
         "docs/user-guide/integrations/mcp/**"
       ],
       "excludePaths": ["mcp/packages/plugin/**"],
-      "mcpServerPaths": ["mcp/packages/server/src/**"],
+      "mcpServerPaths": ["mcp/packages/server/src/index.ts"],
       "kind": "repo"
     },
     {

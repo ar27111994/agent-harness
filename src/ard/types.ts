@@ -30,7 +30,11 @@ export function getArdPublisherFqdn(): string {
 
 /** Maps agent-harness AssetKind → ARD media type. */
 export const ASSET_KIND_TO_ARD_TYPE: Record<AssetKind, string> = {
-  "mcp-server": "application/mcp-server+json",
+  // ard-spec §3.3 / ai-catalog.schema.json type example: the de-facto MCP
+  // Server Card media type is application/mcp-server-card+json. The legacy
+  // application/mcp-server+json is not the recognized type and a finder
+  // matching on it may not index MCP entries.
+  "mcp-server": "application/mcp-server-card+json",
   agent: "application/a2a-agent-card+json",
   skill: "application/ai-skill",
   plugin: "application/ai-skill+json",
@@ -47,6 +51,7 @@ export const ASSET_KIND_TO_ARD_TYPE: Record<AssetKind, string> = {
 /** Maps ARD media type → agent-harness AssetKind. */
 export function ardTypeToAssetKind(ardType: string): AssetKind {
   const map: Record<string, AssetKind> = {
+    "application/mcp-server-card+json": "mcp-server",
     "application/mcp-server+json": "mcp-server",
     "application/a2a-agent-card+json": "agent",
     "application/ai-skill": "skill",

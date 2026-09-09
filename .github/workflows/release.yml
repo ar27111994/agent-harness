@@ -29,15 +29,18 @@ jobs:
 
     steps:
       - name: Check out repository
-        # actions/checkout@v4
+        # actions/checkout@v7
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
-        # actions/setup-node@v4
+        # actions/setup-node@v7
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -111,7 +114,13 @@ jobs:
   publish:
     name: publish
     runs-on: ubuntu-latest
-    needs: release-checks
+    # #485/#489: gate the irreversible npm publish on release-checks AND the
+    # ard-gate job, which validates the committed ARD catalog (non-empty +
+    # schema) BEFORE npm goes live. The GitHub-release creation and its ARD
+    # upload moved to the post-publish github-release job (needs: publish), so
+    # a reachable npm failure never leaves a live GitHub release pointing at an
+    # unpublished package.
+    needs: [release-checks, ard-gate]
     if: startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 15
     permissions:
@@ -119,15 +128,18 @@ jobs:
 
     steps:
       - name: Check out repository
-        # actions/checkout@v4
+        # actions/checkout@v7
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
-        # actions/setup-node@v4
+        # actions/setup-node@v7
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -194,9 +206,61 @@ jobs:
           unset NODE_AUTH_TOKEN
           npm publish --ignore-scripts --access public --tag ${{ steps.npm-dist-tag.outputs.value }} --provenance
 
+  ard-gate:
+    name: ard catalog gate
+    runs-on: ubuntu-latest
+    # #489 split: the ARD catalog validation that #485 moved ahead of publish
+    # is now its own pre-publish job, so a reachable npm publish failure cannot
+    # strand a live GitHub release (whose creation + ARD upload moved to the
+    # post-publish github-release job). This job ONLY validates the committed
+    # catalog — it never creates or uploads a release.
+    needs: release-checks
+    if: startsWith(github.ref, 'refs/tags/v')
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        # actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          # Full history so check:version-sync's tag-vs-manifest guard (#467)
+          # can enumerate released tags; also validates the pushed tag exists.
+          fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
+
+      - name: Set up Node.js
+        # actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate committed ARD catalog for the tag
+        run: |
+          # #484: pin the release ARD asset to the tag's committed catalog
+          # instead of regenerating via `discover full` + `ard-export`. A fresh
+          # (cold) CI checkout has no tracked discovery state, so regeneration
+          # can produce a 0-entry catalog — which ard-export now rejects, but
+          # that would block the release on a cold tree. The committed
+          # .well-known/ai-catalog.json is git-tracked, always present at the
+          # tag, and non-empty (kept live/repaired under #488). Assert it is
+          # non-empty and schema-valid (reusing #486's guard) before npm goes
+          # live.
+          if [ ! -s .well-known/ai-catalog.json ]; then
+            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — release blocked." >&2
+            exit 1
+          fi
+          node ./scripts/validate-ard-schema.mjs .well-known/ai-catalog.json
+
   github-release:
     name: github release
     runs-on: ubuntu-latest
+    # #489 split: GitHub-release creation + its ARD asset upload now run AFTER
+    # npm publishing succeeds (needs: publish), so a reachable publish failure
+    # never leaves a live GitHub release pointing at an unpublished package.
+    # The committed catalog was already validated pre-publish by ard-gate; this
+    # job only creates/updates the release and uploads the asset.
     needs: publish
     if: startsWith(github.ref, 'refs/tags/v')
     timeout-minutes: 10
@@ -205,18 +269,24 @@ jobs:
 
     steps:
       - name: Check out repository
-        # actions/checkout@v4
+        # actions/checkout@v7
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           # Full history so check:version-sync's tag-vs-manifest guard (#467)
           # can enumerate released tags; also validates the pushed tag exists.
           fetch-depth: 0
+          # Do not persist GITHUB_TOKEN to .git/config; npm/git lifecycle
+          # scripts must not run with a repository write credential.
+          persist-credentials: false
 
       - name: Set up Node.js
-        # actions/setup-node@v4
+        # actions/setup-node@v7
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Create or update GitHub release
         env:
@@ -226,41 +296,54 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: npm run release:github
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Build discovery state
-        run: node dist/cli.js discover full --no-sync --no-ai-enrich
-
-      - name: Regenerate ARD catalog
-        run: |
-          node dist/cli.js discover ard-export
-          node -e "
-            const c = require('./.well-known/ai-catalog.json');
-            // The ARD catalog schema has no generatedAt field — writeArdCatalog
-            // emits { specVersion, host, entries }. Validate the real schema:
-            // a non-empty entry list under the current specVersion proves the
-            // exporter ran and produced a valid catalog (a stale field check on
-            // generatedAt always failed and blocked every release).
-            if (c.specVersion !== '1.0' || !c.entries || !c.entries.length) {
-              console.error('FAIL: ARD catalog is empty or has an unexpected specVersion — release blocked.');
-              process.exit(1);
-            }
-            console.log('OK: %d entries, specVersion %s', c.entries.length, c.specVersion);
-          "
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
-
       - name: Upload ARD catalog to release
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
+          if [ ! -s .well-known/ai-catalog.json ]; then
+            echo "FAIL: committed ARD catalog .well-known/ai-catalog.json is empty — cannot upload." >&2
+            exit 1
+          fi
           gh release upload "$TAG_NAME" .well-known/ai-catalog.json \
             --repo ${{ github.repository }} \
             --clobber
+
+      # Fire a repository_dispatch at the portfolio repo so its ARD manifest
+      # sync (public/.well-known) runs immediately on this tag release, instead
+      # of waiting for the portfolio's daily cron backstop.
+      #
+      # SECRET REQUIRED: the human must add an agent-harness Actions secret
+      # `PORTFOLIO_DISPATCH_TOKEN` = a PAT with `repo` scope on
+      # ar27111994/portfolio-v1.
+      #
+      # NON-FATAL on purpose — a missing secret or a failed dispatch must never
+      # block a release. The whole step is marked continue-on-error AND guarded
+      # so an unset token short-circuits to a clean skip; the portfolio's daily
+      # cron is the fallback.
+      - name: Notify portfolio ARD manifest sync
+        continue-on-error: true
+        env:
+          PORTFOLIO_DISPATCH_TOKEN: ${{ secrets.PORTFOLIO_DISPATCH_TOKEN }}
+          PORTFOLIO_REPO: ar27111994/portfolio-v1
+        run: |
+          if [ -z "$PORTFOLIO_DISPATCH_TOKEN" ]; then
+            echo "SKIP: secrets.PORTFOLIO_DISPATCH_TOKEN is not set — no dispatch fired. (Action secret PORTFOLIO_DISPATCH_TOKEN is optional; add a PAT with repo scope on $PORTFOLIO_REPO to enable on-release ARD sync.)"
+            exit 0
+          fi
+          echo "Dispatching ard-manifest-sync to $PORTFOLIO_REPO ..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
+            --connect-timeout 10 --max-time 30 \
+            -X POST \
+            -H "Authorization: token ${PORTFOLIO_DISPATCH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data '{"event_type":"ard-manifest-sync"}' \
+            "https://api.github.com/repos/${PORTFOLIO_REPO}/dispatches")
+          echo "dispatch HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "WARN: repository_dispatch to $PORTFOLIO_REPO returned $HTTP_CODE — continuing (portfolio daily cron is the backstop)." >&2
+            exit 0
+          fi
+          echo "OK: ard-manifest-sync dispatch accepted by $PORTFOLIO_REPO."

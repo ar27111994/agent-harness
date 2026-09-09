@@ -223,7 +223,7 @@ void test("source registry includes Penpot MCP source pack entries", async () =>
   ]);
   assert.deepEqual(penpotSource?.excludePaths, ["mcp/packages/plugin/**"]);
   assert.deepEqual(penpotSource?.mcpServerPaths, [
-    "mcp/packages/server/src/**",
+    "mcp/packages/server/src/index.ts",
   ]);
 
   assert.ok(communitySkillSource);
