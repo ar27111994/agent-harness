@@ -309,3 +309,40 @@ jobs:
           gh release upload "$TAG_NAME" .well-known/ai-catalog.json \
             --repo ${{ github.repository }} \
             --clobber
+
+      # Fire a repository_dispatch at the portfolio repo so its ARD manifest
+      # sync (public/.well-known) runs immediately on this tag release, instead
+      # of waiting for the portfolio's daily cron backstop.
+      #
+      # SECRET REQUIRED: the human must add an agent-harness Actions secret
+      # `PORTFOLIO_DISPATCH_TOKEN` = a PAT with `repo` scope on
+      # ar27111994/portfolio-v1.
+      #
+      # NON-FATAL on purpose — a missing secret or a failed dispatch must never
+      # block a release. The whole step is marked continue-on-error AND guarded
+      # so an unset token short-circuits to a clean skip; the portfolio's daily
+      # cron is the fallback.
+      - name: Notify portfolio ARD manifest sync
+        continue-on-error: true
+        env:
+          PORTFOLIO_DISPATCH_TOKEN: ${{ secrets.PORTFOLIO_DISPATCH_TOKEN }}
+          PORTFOLIO_REPO: ar27111994/portfolio-v1
+        run: |
+          if [ -z "$PORTFOLIO_DISPATCH_TOKEN" ]; then
+            echo "SKIP: secrets.PORTFOLIO_DISPATCH_TOKEN is not set — no dispatch fired. (Action secret PORTFOLIO_DISPATCH_TOKEN is optional; add a PAT with repo scope on $PORTFOLIO_REPO to enable on-release ARD sync.)"
+            exit 0
+          fi
+          echo "Dispatching ard-manifest-sync to $PORTFOLIO_REPO ..."
+          HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: token ${PORTFOLIO_DISPATCH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            --data '{"event_type":"ard-manifest-sync"}' \
+            "https://api.github.com/repos/${PORTFOLIO_REPO}/dispatches")
+          echo "dispatch HTTP status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "WARN: repository_dispatch to $PORTFOLIO_REPO returned $HTTP_CODE — continuing (portfolio daily cron is the backstop)." >&2
+            exit 0
+          fi
+          echo "OK: ard-manifest-sync dispatch accepted by $PORTFOLIO_REPO."
