@@ -698,8 +698,11 @@ function isExecutableMcpServerModule(normalizedPath: string): boolean {
     return false;
   }
 
-  // Files under a `__tests__` directory are not installable entrypoints.
-  if (/(^|\/)__tests__(\/|$)/u.test(normalizedPath)) {
+  // Files under a conventional test directory (`test`/`tests`/`spec`/`specs`/
+  // `__tests__`) are not installable entrypoints. A broad `mcpServerPaths`
+  // declaration (e.g. `mcp/server/**`) would otherwise classify e.g.
+  // `mcp/server/tests/index.ts` as a server asset.
+  if (/(^|\/)(?:test|tests|spec|specs|__tests__)(\/|$)/u.test(normalizedPath)) {
     return false;
   }
 

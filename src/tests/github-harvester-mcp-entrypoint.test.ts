@@ -108,6 +108,37 @@ void test("mcpServerPaths guard rejects test, declaration, and non-code paths as
     ),
     false,
   );
+
+  // The `__tests__` directory convention is not the only one: a broad
+  // `mcpServerPaths` declaration must also reject files under `test/`,
+  // `tests/`, `spec/`, and `specs/`.
+  for (const testDir of ["test", "tests", "spec", "specs"]) {
+    assert.equal(
+      githubHarvesterInternals.isExecutableMcpServerPath(
+        `mcp/packages/server/src/${testDir}/index.ts`,
+        source,
+      ),
+      false,
+      `expected path under ${testDir}/ to be rejected as mcp-server`,
+    );
+  }
+
+  // A matching segment must be its own path component: `latest` and
+  // `contest` are implementations, not test directories.
+  assert.equal(
+    githubHarvesterInternals.isExecutableMcpServerPath(
+      "mcp/packages/server/src/latest/index.ts",
+      source,
+    ),
+    true,
+  );
+  assert.equal(
+    githubHarvesterInternals.isExecutableMcpServerPath(
+      "mcp/packages/server/src/contest.ts",
+      source,
+    ),
+    true,
+  );
 });
 
 void test("penpot pack emits only the genuine server entrypoint as mcp-server", async (context) => {
