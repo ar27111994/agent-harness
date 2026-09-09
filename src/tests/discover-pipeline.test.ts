@@ -131,7 +131,8 @@ void test("discover sync/index/select/full complete on an empty source universe 
     [["candidate-pool"], 0],
     [["stats"], 0],
     [["environment-index"], 0],
-    [["ard-export"], 0],
+    // ard-export is intentionally absent here: it is the publish boundary,
+    // not a discovery pass. Its empty-universe contract is asserted below.
     [["enrich"], 0],
     [["inspect"], 0],
   ];
@@ -169,6 +170,25 @@ void test("discover sync/index/select/full complete on an empty source universe 
   assert.ok(
     files.includes("catalog.selected.jsonl"),
     "selected catalog written",
+  );
+
+  // ard-export is the publish boundary, NOT a discovery pass (#484/#486): the
+  // pipeline subcommands above COMPLETE on an empty universe, but export is
+  // where a human explicitly asks to publish — so an empty/cold selection must
+  // REJECT loudly rather than write a plausible-but-empty ai-catalog.json.
+  // Drive it against a genuinely cold state root (no catalog.selected.jsonl)
+  // so the contract is deterministic on every host: the fixture's local-host
+  // harvest yields entries on a dev machine but 0 on a clean CI runner, so the
+  // empty-universe behavior is only guaranteed here, never by host contents.
+  const coldStateRoot = await mkdtemp(
+    join(tmpdir(), "agent-harness-ard-cold-"),
+  );
+  t.after(async () => {
+    await rm(coldStateRoot, { recursive: true, force: true });
+  });
+  await assert.rejects(
+    runDiscover(["ard-export"], workspaceRoot, coldStateRoot),
+    /refusing to write an empty ARD catalog/,
   );
 });
 

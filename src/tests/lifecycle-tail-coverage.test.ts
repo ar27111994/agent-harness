@@ -608,6 +608,34 @@ void test("discover ard-export tolerates an unreadable package.json (#428)", asy
   }
 });
 
+void test("discover ard-export publishes a populated multi-entry catalog (#484/#489)", async (t) => {
+  const { workspaceRoot, stateRoot } = await makeRoot(t);
+  const { chdir } = await import("node:process");
+  const originalCwd = process.cwd();
+  chdir(workspaceRoot);
+  try {
+    // Two entries exercise the plural log arm of the ard-export summary line
+    // (entryCount === 1 ? "entry" : "entries") deterministically — the
+    // discover-pipeline fixture's local-host harvest is host-dependent
+    // (167 entries on a dev machine, 0 on a clean CI runner), so the
+    // populated success path is pinned here, never by host contents.
+    await writeJsonLinesFile(
+      join(stateRoot, "discover", "output", "catalog.selected.jsonl"),
+      [buildAsset("entry-export-a"), buildAsset("entry-export-b")],
+    );
+
+    const code = await runDiscover(["ard-export"], workspaceRoot, stateRoot);
+    assert.equal(code, 0);
+    const { readFile } = await import("node:fs/promises");
+    const catalog = JSON.parse(
+      await readFile(join(stateRoot, ".well-known", "ai-catalog.json"), "utf8"),
+    ) as { entries?: unknown[] };
+    assert.equal(catalog.entries?.length, 2);
+  } finally {
+    chdir(originalCwd);
+  }
+});
+
 void test("setup doctor aggregator handles rejected adapters and error diagnostics (#428)", async () => {
   const { setupInternals } = await import("../setup.js");
   const { listHostAdapters } = await import("../host-adapters/registry.js");
