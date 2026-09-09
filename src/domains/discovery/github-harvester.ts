@@ -658,7 +658,10 @@ function isExecutableMcpServerPath(
       matchesSourcePathPattern(normalizedPath, pathPattern),
     )
   ) {
-    return true;
+    // An explicit `mcpServerPaths` match is a declared installable boundary,
+    // but it must still point at an executable module entrypoint -- never a
+    // type declaration, a test/spec file, or a non-code document.
+    return isExecutableMcpServerModule(normalizedPath);
   }
 
   if (!/\.(js|ts|mjs|cjs|mts|cts)$/u.test(normalizedPath)) {
@@ -668,6 +671,46 @@ function isExecutableMcpServerPath(
   return /(^|\/)(mcp[-_ ]?servers?|servers?\/.*mcp|.*mcp[-_ ]?server.*)(\/|\.|$)/u.test(
     normalizedPath,
   );
+}
+
+/**
+ * Returns true only when a path matching an explicit `mcpServerPaths` entry is
+ * an executable server entrypoint -- not a type declaration (`.d.ts`), a test
+ * or spec file (`*.test.*` / `*.spec.*` / `__tests__`), or a non-code document
+ * (`.html`, `.md`, `.txt`, ...).
+ *
+ * Without this guard a broad `mcpServerPaths` declaration (e.g. Penpot's
+ * `mcp/packages/server/src/**`) turns every source file under the directory --
+ * including tests, type declarations, and HTML docs -- into its own standalone
+ * `mcp-server` asset in the curated catalog.
+ */
+function isExecutableMcpServerModule(normalizedPath: string): boolean {
+  const basename = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1);
+
+  // Type declarations (`.d.ts`) describe the documented surface; they are never
+  // an installable server entrypoint.
+  if (/\.d\.[cm]?ts$/u.test(basename)) {
+    return false;
+  }
+
+  // Test/spec files are not installable server entrypoints.
+  if (/\.(?:test|spec)\.[a-z0-9]+$/u.test(basename)) {
+    return false;
+  }
+
+  // Files under a `__tests__` directory are not installable entrypoints.
+  if (/(^|\/)__tests__(\/|$)/u.test(normalizedPath)) {
+    return false;
+  }
+
+  // Non-code documents (HTML / Markdown / plain text) are never an installable
+  // server entrypoint. Code entrypoints in any language (`.ts`, `.py`, `.go`,
+  // `.rs`, ...) remain eligible.
+  if (/\.(?:html?|md|markdown|txt)$/u.test(basename)) {
+    return false;
+  }
+
+  return true;
 }
 
 function isGenericRepositoryArtifact(normalizedPath: string): boolean {
@@ -800,6 +843,7 @@ export const githubHarvesterInternals = {
   collectRepositoryTrustEvidence,
   isDependencyDirectoryPath,
   isImplementationOnlyRepositoryPath,
+  isExecutableMcpServerPath,
   matchesSourcePathFilters,
   buildGitHubCatalogEntry,
 } as const;
